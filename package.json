@@ -1,0 +1,50 @@
+{
+  "name": "xlcalc-sheet",
+  "version": "0.0.0",
+  "description": "Vue 3 sheet component for xlcalc workbooks: a windowed grid with styles, formulas and editing over a pluggable sheet source",
+  "license": "MIT",
+  "author": "Mikhail Kostryukov",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "vite build && vue-tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "vue-tsc --noEmit",
+    "pack:release": "npm run build && npm pack --pack-destination release"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0",
+    "xlcalc": ">=0.7.0"
+  },
+  "peerDependenciesMeta": {
+    "xlcalc": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.7",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^20.0.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0",
+    "vitest": "^4.1.10",
+    "vue": "^3.5.39",
+    "vue-tsc": "^3.3.5",
+    "xlcalc": "file:vendor/xlcalc-0.7.0.tgz"
+  }
+}
