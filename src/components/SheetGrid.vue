@@ -96,7 +96,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
               :title="m.selectColumn"
               @click="sel.pickColumn(k.c, $event.shiftKey)"
             >
-              {{ headLabel(k.c) }}
+              <span class="xs-head-label">{{ headLabel(k.c) }}</span>
               <span
                 class="xs-grip"
                 :title="m.resize"

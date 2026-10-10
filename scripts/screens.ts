@@ -59,6 +59,14 @@ for (const size of SIZES) {
   await page.waitForTimeout(300)
   await shot(page, size.name, '22-jump-flash')
 
+  // Frozen panes stay while the body scrolls; a whole column of a long sheet counts its cells only.
+  await open(page, 'Закрепление!M150')
+  await page.waitForTimeout(2200)
+  await shot(page, size.name, '28-freeze-scrolled')
+  await open(page, "'Длинный лист'!C:C")
+  await page.waitForTimeout(2200)
+  await shot(page, size.name, '29-column-count')
+
   // Editing in place: typing over a cell, then the edit in flight.
   await open(page, 'Формулы!C2')
   if (size.mobile) {

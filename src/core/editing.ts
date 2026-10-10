@@ -244,7 +244,8 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       return
     }
     if (sel.navKey(e)) return
-    if (e.key.length === 1 && !ctrl && s.editable.value) {
+    // AltGr comes as Ctrl+Alt and types a character (`@` on many layouts): only Ctrl alone or Cmd is a shortcut.
+    if (e.key.length === 1 && !((e.ctrlKey && !e.altKey) || e.metaKey) && s.editable.value) {
       e.preventDefault()
       startEdit({ text: e.key, mode: 'enter' })
     }

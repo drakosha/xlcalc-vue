@@ -241,6 +241,14 @@
   position: sticky;
   top: 0;
   z-index: 4;
+}
+/* The letters cell lets its edge grip reach over its border line (the label clips itself), or the line could not be grabbed. */
+.xs-table th.xs-head {
+  overflow: visible;
+}
+.xs-head-label {
+  display: block;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 .xs-num {
@@ -564,4 +572,10 @@
 }
 .xs-narrow .xs-bar-link {
   display: none;
+}
+.xs-narrow .xs-tabs {
+  flex: 1 1 0;
+}
+.xs-narrow .xs-stats {
+  max-width: 55%;
 }
