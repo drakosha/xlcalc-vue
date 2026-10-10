@@ -170,10 +170,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     if (kind === 'top') return v.frozenRows.value ? { r1: 1, r2: v.frozenRows.value, c1: 1, c2: v.lastCol.value } : null
     return v.frozenCols.value ? { r1: v.firstRow.value, r2: v.lastRow.value, c1: 1, c2: v.frozenCols.value } : null
   }
-  /**
-   * Where the source stops giving rows and columns (it cut a window there, at or past the data's edge). Until it does, the
-   * grid asks for all it draws, past the data too: a row's or a column's style reaches there, as Excel draws it.
-   */
+  /** Where the source stops giving rows and columns (it cut a window there); until then the grid asks past the data, where line styles reach. */
   let edge = { rows: Infinity, cols: Infinity }
   /** The edge in force: data grown by edits past it is asked for again. */
   const edgeRows = () => Math.max(edge.rows, s.dataShown.value)
