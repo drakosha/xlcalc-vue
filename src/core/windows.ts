@@ -170,32 +170,35 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     if (kind === 'top') return v.frozenRows.value ? { r1: 1, r2: v.frozenRows.value, c1: 1, c2: v.lastCol.value } : null
     return v.frozenCols.value ? { r1: v.firstRow.value, r2: v.lastRow.value, c1: 1, c2: v.frozenCols.value } : null
   }
-  /** The need cut to the data: past it every cell is empty and there is nothing to ask for. */
-  function clip(need: Need): Need {
-    const rows = Math.max(1, s.dataShown.value)
-    const cols = Math.max(1, s.dataCols.value)
-    return { r1: Math.min(need.r1, rows), r2: Math.min(need.r2, rows), c1: Math.min(need.c1, cols), c2: Math.min(need.c2, cols) }
-  }
-  /** Whether a slot covers a need; a window cut at the data's end or by the cell limit counts, or loading would loop. */
+  /**
+   * Where the source stops giving rows and columns (it cut a window there, at or past the data's edge). Until it does, the
+   * grid asks for all it draws, past the data too: a row's or a column's style reaches there, as Excel draws it.
+   */
+  let edge = { rows: Infinity, cols: Infinity }
+  /** The edge in force: data grown by edits past it is asked for again. */
+  const edgeRows = () => Math.max(edge.rows, s.dataShown.value)
+  const edgeCols = () => Math.max(edge.cols, s.dataCols.value)
+  /** Whether a slot covers a need; a window cut at the source's edge or by the cell limit counts, or loading would loop. */
   function covered(slot: Slot, need: Need): boolean {
     const w = slot.win
     if (!w || slot.view !== viewKey()) return false
-    const n = clip(need)
     const lastRow = w.row + slot.rows - 1
     const lastCol = w.col + slot.cols - 1
-    const rowsOk = n.r1 >= w.row && (n.r2 <= lastRow || lastRow >= s.dataShown.value)
-    const colsOk = n.c1 >= w.col && (n.c2 <= lastCol || lastCol >= s.dataCols.value)
+    const rowsOk = need.r1 >= w.row && (need.r2 <= lastRow || lastRow >= edgeRows())
+    const colsOk = need.c1 >= w.col && (need.c2 <= lastCol || lastCol >= edgeCols())
     return rowsOk && colsOk
   }
 
   async function load(kind: SlotKind, need: Need): Promise<void> {
     const slot = slots[kind].value
-    const n = clip(need)
     const maxCells = s.source().maxCells ?? MAX_CELLS
-    const col = kind === 'left' ? 1 : Math.max(1, n.c1 - FETCH_COLS)
-    const cols = kind === 'left' ? n.c2 : Math.min(MAX_COLS, n.c2 - col + 1 + FETCH_COLS)
-    const row = kind === 'top' ? 1 : Math.max(1, n.r1 - FETCH_ROWS)
-    const rows = kind === 'top' ? n.r2 : Math.min(n.r2 - row + 1 + FETCH_ROWS, Math.max(1, Math.floor(maxCells / cols)))
+    // Margins only up to the grid's end; past the source's known edge there is nothing to ask for.
+    const lastCol = Math.max(1, Math.min(s.colCount.value, edgeCols()))
+    const lastRow = Math.max(1, Math.min(s.rowCount.value, edgeRows()))
+    const col = kind === 'left' ? 1 : Math.max(1, Math.min(need.c1, lastCol) - FETCH_COLS)
+    const cols = kind === 'left' ? Math.min(need.c2, lastCol) : Math.min(MAX_COLS, Math.min(need.c2 + FETCH_COLS, lastCol) - col + 1)
+    const row = kind === 'top' ? 1 : Math.max(1, Math.min(need.r1, lastRow) - FETCH_ROWS)
+    const rows = kind === 'top' ? Math.min(need.r2, lastRow) : Math.min(Math.min(need.r2 + FETCH_ROWS, lastRow) - row + 1, Math.max(1, Math.floor(maxCells / cols)))
     const filter = s.visible.value
     const req: WindowRequest = { sheet: s.sheetName.value, row, rows, col, cols, ...(filter ? { filter: filter.spec } : {}) }
     const view = viewKey()
@@ -225,6 +228,9 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       stopWait()
       takeSizes(got)
       const width = Math.max(got.widths.length, got.text[0]?.length ?? 0)
+      // A window shorter than asked, at or past the data's edge: the source stops there, the grid will not ask past it.
+      if (width < cols && req.col + width - 1 >= s.dataCols.value) edge = { ...edge, cols: req.col + width - 1 }
+      if (got.text.length < rows && req.row + got.text.length - 1 >= s.dataShown.value) edge = { ...edge, rows: req.row + got.text.length - 1 }
       const merged = got.merges.flatMap((m) => { const r = parseRect(m); return r ? [r] : [] })
       slots[kind].value = { sheet: req.sheet, view, win: got, rows: got.text.length, cols: width, merges: merged, pendingKey: '', servedKey: key, ctrl: null }
       s.failure.value = null
@@ -326,6 +332,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   /** Drop every window: answers in flight are aborted and ignored. */
   function reset(): void {
     epoch++
+    edge = { rows: Infinity, cols: Infinity }
     stopWait()
     for (const kind of order) {
       slots[kind].value.ctrl?.abort()
