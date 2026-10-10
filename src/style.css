@@ -1,0 +1,567 @@
+/* The sheet's look: colours, fonts and spacing are --xs-* variables, so a host restyles (or darkens) it by overriding them. */
+.xs-sheet {
+  --xs-bg: #ffffff;
+  --xs-fg: #1f2328;
+  --xs-muted: #6b7280;
+  --xs-grid: #e1e3e6;
+  --xs-head-bg: #f3f4f6;
+  --xs-head-fg: #5f6368;
+  --xs-head-on-bg: #d3e3fd;
+  --xs-head-on-fg: #0b57d0;
+  --xs-accent: #1a73e8;
+  --xs-sel-tint: rgb(26 115 232 / 0.12);
+  --xs-link: #1558d6;
+  --xs-note: #dc2626;
+  --xs-flash: rgb(250 204 21 / 0.85);
+  --xs-freeze-line: #9aa0a6;
+  --xs-border-auto: #000000;
+  --xs-table-head-bg: #e8eef8;
+  --xs-table-line: #8faadc;
+  --xs-locked: #8b8f96;
+  --xs-pending: #8b8f96;
+  --xs-error: #b42318;
+  --xs-bar-bg: #fafafa;
+  --xs-message-bg: #1f2328;
+  --xs-message-fg: #ffffff;
+  --xs-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --xs-font-size: 12.5px;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font-family: var(--xs-font);
+  font-size: var(--xs-font-size);
+}
+.xs-sheet *,
+.xs-sheet *::before,
+.xs-sheet *::after {
+  box-sizing: border-box;
+}
+.xs-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.xs-muted {
+  color: var(--xs-muted);
+}
+
+/* ── the bar over the grid ── */
+.xs-bar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--xs-grid);
+  background: var(--xs-bar-bg);
+}
+.xs-tool {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--xs-muted);
+  cursor: pointer;
+}
+.xs-tool:hover:not(:disabled),
+.xs-tool-on {
+  background: var(--xs-head-bg);
+  color: var(--xs-fg);
+}
+.xs-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.xs-address {
+  width: 96px;
+  flex-shrink: 0;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: 500 11.5px var(--xs-font);
+  text-align: center;
+  outline: none;
+}
+.xs-address:focus {
+  border-color: var(--xs-accent);
+}
+/* The formula: wraps anywhere, at most about four lines, then scrolls inside. */
+.xs-fx {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 22px;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.xs-fx-edit {
+  cursor: text;
+}
+.xs-fx-text {
+  display: block;
+  max-height: 4.6em;
+  padding-top: 3px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.xs-fx-input {
+  display: block;
+  width: 100%;
+  min-height: 22px;
+  max-height: 6.5em;
+  padding: 2px 4px;
+  border: 1px solid var(--xs-accent);
+  border-radius: 3px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: inherit;
+  field-sizing: content;
+  resize: none;
+  outline: none;
+}
+/* The bar's field waits unseen over the formula, so a tap can focus it at once and a phone shows its keyboard. */
+.xs-fx-idle {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.xs-ref {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.xs-ref:hover {
+  text-decoration-style: solid;
+}
+.xs-bar-link {
+  max-width: 40%;
+  flex-shrink: 0;
+  overflow: hidden;
+  padding-top: 3px;
+  color: var(--xs-link);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xs-tools {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+}
+.xs-notice {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--xs-grid);
+  background: var(--xs-head-bg);
+  color: var(--xs-muted);
+  font-size: 11.5px;
+}
+
+/* ── the grid ── */
+.xs-scroller {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+  overscroll-behavior: contain;
+}
+.xs-empty {
+  margin: 0;
+  padding: 24px;
+  color: var(--xs-muted);
+}
+/* border-collapse: separate is required: with collapse, sticky headers lose their borders in Chrome. */
+.xs-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: var(--xs-font-size);
+  line-height: 1.3;
+  user-select: none;
+}
+/* Padding and the bottom border are part of the row's height: the content box (.xs-in) is the rest. */
+.xs-table th,
+.xs-table td {
+  padding: 1px 5px;
+  border-right: 1px solid var(--xs-grid);
+  border-bottom: 1px solid var(--xs-grid);
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: top;
+}
+.xs-table .xs-spacer td {
+  padding: 0;
+  border: 0;
+}
+/* The letters row is exactly HEAD_H (23 + border): frozen rows stick below it. */
+.xs-table th.xs-head,
+.xs-table th.xs-corner {
+  padding: 0 5px;
+  line-height: 23px;
+}
+.xs-head,
+.xs-num,
+.xs-corner {
+  background: var(--xs-head-bg);
+  color: var(--xs-head-fg);
+  font-weight: 500;
+  font-size: 11.5px;
+  text-align: center;
+  cursor: pointer;
+}
+.xs-head.xs-on,
+.xs-num.xs-on {
+  background: var(--xs-head-on-bg);
+  color: var(--xs-head-on-fg);
+}
+.xs-head {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  text-overflow: ellipsis;
+}
+.xs-num {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+.xs-corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 6;
+}
+/* Frozen panes: rows stick vertically, columns sideways, the corner both. Layers: corner > letters, frozen rows > numbers, frozen columns > body. */
+.xs-fz-row {
+  position: sticky;
+  z-index: 3;
+  background-color: var(--xs-bg);
+}
+.xs-fz-col {
+  position: sticky;
+  z-index: 2;
+  background-color: var(--xs-bg);
+}
+.xs-fz-corner {
+  position: sticky;
+  z-index: 5;
+  background-color: var(--xs-bg);
+}
+.xs-head.xs-fz-col {
+  z-index: 5;
+  background-color: var(--xs-head-bg);
+}
+.xs-num.xs-fz-corner {
+  left: 0;
+  z-index: 5;
+  background-color: var(--xs-head-bg);
+}
+.xs-head.xs-fz-col.xs-on,
+.xs-num.xs-fz-corner.xs-on {
+  background-color: var(--xs-head-on-bg);
+}
+/* The book's freeze edge: a darker line, as Excel's freeze line. */
+.xs-table .xs-fz-edge-b {
+  border-bottom-color: var(--xs-freeze-line);
+}
+.xs-table .xs-fz-edge-r {
+  border-right-color: var(--xs-freeze-line);
+}
+/* The content box: exactly the row's height, the rest is clipped as in Excel. Flex for the vertical alignment. */
+.xs-in {
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.xs-in > * {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+.xs-in.xs-wrap > * {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.xs-in.xs-top {
+  align-items: flex-start;
+}
+.xs-in.xs-mid {
+  align-items: center;
+}
+.xs-num .xs-in {
+  justify-content: center;
+}
+.xs-cell {
+  background-color: var(--xs-bg);
+}
+.xs-thead {
+  background-color: var(--xs-table-head-bg);
+  font-weight: 700;
+}
+/* Overflowing text runs over empty neighbours: the cell and its box let it out, the run sits above their backgrounds. */
+.xs-table td.xs-spill,
+.xs-spill .xs-in {
+  overflow: visible;
+}
+.xs-spill .xs-in {
+  position: relative;
+}
+.xs-in > .xs-ov {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.xs-ov > span {
+  white-space: nowrap;
+}
+.xs-cell .xs-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--xs-link);
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.xs-cell .xs-deadlink {
+  text-decoration: underline dotted var(--xs-muted);
+  cursor: help;
+}
+/* The active cell: a frame inside, so neighbours do not move. */
+.xs-cell.xs-active {
+  outline: 2px solid var(--xs-accent);
+  outline-offset: -2px;
+}
+.xs-cell.xs-active.xs-locked {
+  outline-color: var(--xs-locked);
+  outline-style: dashed;
+}
+.xs-cell.xs-pending .xs-in > * {
+  color: var(--xs-pending);
+  font-style: italic;
+}
+/* After a jump the range flashes for two seconds, so the eye finds it. */
+.xs-cell.xs-flash {
+  position: relative;
+}
+.xs-cell.xs-flash::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--xs-flash);
+  opacity: 0;
+  animation: xs-pulse 0.5s ease-in-out 4 alternate;
+}
+@keyframes xs-pulse {
+  from {
+    opacity: 0.1;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* The column's edge: wider than the line itself, or the mouse would never hit it. */
+.xs-grip {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+.xs-grip:hover {
+  background: var(--xs-accent);
+  opacity: 0.35;
+}
+/* The in-place field over its cell; idle it waits unseen, so a tap can focus it at once. */
+.xs-editor {
+  position: absolute;
+  margin: 0;
+  padding: 1px 5px;
+  border: 2px solid var(--xs-accent);
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: var(--xs-font-size) / 1.3 var(--xs-font);
+  white-space: pre;
+  resize: none;
+  outline: none;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
+}
+.xs-editor-idle {
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.xs-loading {
+  position: sticky;
+  bottom: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--xs-bg) 92%, transparent);
+  color: var(--xs-muted);
+  font-size: 11.5px;
+  pointer-events: none;
+  z-index: 8;
+}
+.xs-spin {
+  animation: xs-spin 0.9s linear infinite;
+}
+@keyframes xs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── the bottom line ── */
+.xs-bottom {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border-top: 1px solid var(--xs-grid);
+  background: var(--xs-bar-bg);
+}
+.xs-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.xs-tab {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--xs-muted);
+  font: 12px var(--xs-font);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.xs-tab:hover {
+  background: var(--xs-head-bg);
+}
+.xs-tab-on {
+  background: var(--xs-bg);
+  box-shadow: inset 0 -2px 0 var(--xs-accent);
+  color: var(--xs-fg);
+  font-weight: 600;
+}
+.xs-stats {
+  flex-shrink: 1;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--xs-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xs-message {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  padding: 6px 6px 6px 12px;
+  border-radius: 6px;
+  background: var(--xs-message-bg);
+  color: var(--xs-message-fg);
+  font-size: 12.5px;
+  transform: translateX(-50%);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
+}
+.xs-message .xs-tool {
+  color: inherit;
+}
+.xs-message .xs-tool:hover {
+  background: rgb(255 255 255 / 0.15);
+  color: inherit;
+}
+.xs-fallback {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--xs-muted);
+  text-align: center;
+}
+.xs-fallback p {
+  margin: 0;
+}
+.xs-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 6px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: 12.5px var(--xs-font);
+  cursor: pointer;
+}
+
+/* ── a phone ── */
+.xs-narrow .xs-address {
+  width: 64px;
+}
+.xs-narrow .xs-bar {
+  padding: 4px 6px;
+  gap: 4px;
+}
+.xs-narrow .xs-bar-link {
+  display: none;
+}
