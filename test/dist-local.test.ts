@@ -1,0 +1,40 @@
+// The built `./local` entry: its own file beside the main one, which takes nothing of it; xlcalc stays the host's.
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { build } from 'vite'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+const root = resolve(import.meta.dirname, '..')
+let out = ''
+
+beforeAll(async () => {
+  out = mkdtempSync(join(tmpdir(), 'xs-dist-local-'))
+  const env = process.env.NODE_ENV
+  process.env.NODE_ENV = 'production'
+  try {
+    // as `npm run build` makes them: the main entry first, then the local one beside it
+    await build({ configFile: resolve(root, 'vite.config.ts'), root, mode: 'production', logLevel: 'silent', build: { outDir: out, emptyOutDir: true } })
+    await build({ configFile: resolve(root, 'vite.local.config.ts'), root, mode: 'production', logLevel: 'silent', build: { outDir: out } })
+  } finally {
+    process.env.NODE_ENV = env
+  }
+}, 60_000)
+afterAll(() => rmSync(out, { recursive: true, force: true }))
+
+const importsOf = (js: string) => [...js.matchAll(/(?:^|[;\n])\s*import\s*(?:[^'";]*?from\s*)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1] ?? m[2])
+
+describe('dist/local.js', () => {
+  it('is one file next to index.js, which stays without xlcalc', () => {
+    expect(readdirSync(out).filter((f) => f.endsWith('.js')).sort()).toEqual(['index.js', 'local.js'])
+    const index = readFileSync(join(out, 'index.js'), 'utf8')
+    expect(index.match(/xlcalc/gi)).toBeNull()
+    expect(new Set(importsOf(index))).toEqual(new Set(['vue']))
+  })
+  it('imports xlcalc and loads the pool and the xlsx reader only when asked', () => {
+    const local = readFileSync(join(out, 'local.js'), 'utf8')
+    expect(new Set(importsOf(local))).toEqual(new Set(['xlcalc', 'xlcalc/worker', 'xlcalc/xlsx']))
+    expect(local).toMatch(/import\(\s*["']xlcalc\/worker["']\s*\)/)
+    expect(local).not.toMatch(/from\s*["']xlcalc\/(worker|xlsx)["']/)
+  })
+})
