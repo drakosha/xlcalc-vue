@@ -143,6 +143,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                     <a
                       v-if="cv.kind === 'href'"
                       class="xs-link"
+                      :style="cv.deco"
                       :href="cv.link!.href"
                       target="_blank"
                       rel="noopener noreferrer nofollow"
@@ -154,12 +155,13 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                       v-else-if="cv.kind === 'place' || cv.kind === 'host'"
                       type="button"
                       class="xs-link"
+                      :style="cv.deco"
                       :title="cv.link!.tooltip ?? (cv.link!.location ? m.linkInBook(cv.link!.location) : m.linkOpen)"
                       @click.stop="ctx.onLink($event, cv.link!, row.d, k.c)"
                     >
                       {{ cv.text }}
                     </button>
-                    <span v-else-if="cv.kind === 'dead'" class="xs-deadlink" :title="cv.link!.tooltip ?? m.linkDead(cv.link!.href ?? cv.link!.target ?? '')">{{
+                    <span v-else-if="cv.kind === 'dead'" class="xs-deadlink" :style="cv.deco" :title="cv.link!.tooltip ?? m.linkDead(cv.link!.href ?? cv.link!.target ?? '')">{{
                       cv.text
                     }}</span>
                     <div
@@ -167,9 +169,9 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                       class="xs-ov"
                       :style="{ left: -cv.ov!.left + 'px', width: `calc(100% + ${cv.ov!.left + cv.ov!.right}px)`, justifyContent: cv.ov!.justify }"
                     >
-                      <span :style="{ background: cv.ov!.bg }">{{ cv.text }}</span>
+                      <span :style="{ ...cv.deco, background: cv.ov!.bg }">{{ cv.text }}</span>
                     </div>
-                    <span v-else>{{ cv.text }}</span>
+                    <span v-else :style="cv.deco">{{ cv.text }}</span>
                   </div>
                 </td>
               </template>

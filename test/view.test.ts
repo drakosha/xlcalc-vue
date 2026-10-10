@@ -37,7 +37,6 @@ describe('cell style', () => {
     const a1 = css(w, 1, 1)
     expect(a1.fontWeight).toBe('700')
     expect(a1.fontStyle).toBe('italic')
-    expect(a1.textDecorationStyle).toBe('double')
     expect(a1.color).toBe('#112233')
     expect(a1.fontSize).toBe('25px')
     expect(a1.backgroundColor).toBe('#ffff00')

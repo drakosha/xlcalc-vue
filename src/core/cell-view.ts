@@ -2,7 +2,7 @@
 import { computed, type Ref } from 'vue'
 import type { BorderLine, CellStyle } from 'xlcalc/contract'
 import { cellAddress, inRect } from './a1'
-import { alignCss, borderCss, borderWidth, fillText, fontCss, horizontalOf, overflows, setSide, verticalOf, wrapsOf, type CssLine, type Horizontal } from './cell-style'
+import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, horizontalOf, overflows, setSide, verticalOf, wrapsOf, type CssLine, type Horizontal } from './cell-style'
 import type { EditorState } from './editing'
 import type { Editing } from './editing'
 import type { Formula } from './formula'
@@ -33,6 +33,8 @@ export interface CellView {
   box: { class: string[]; style: Record<string, string> }
   kind: ContentKind
   text: string
+  /** Underline and strike, set on the element that carries the text. */
+  deco: Record<string, string>
   /** Overflow into empty neighbours: pixels taken left and right, the text's place, its background (hides crossed grid lines, as in Excel). */
   ov?: { left: number; right: number; justify: string; bg: string }
   link?: CellData['link']
@@ -252,6 +254,7 @@ export function useCellView(
       box,
       kind: 'text',
       text: shownText,
+      deco: decorationCss(st, false),
     }
     if (span) {
       view.attrs.rowspan = span.rsDom
@@ -260,6 +263,7 @@ export function useCellView(
     const link = data.link
     if (link && pendingText === undefined) {
       view.link = link
+      view.deco = decorationCss(st, true)
       view.kind = link.location ? 'place' : safeHref(link.href) ? 'href' : (link.href || link.target) && deps.hostLinks() ? 'host' : 'dead'
       return view
     }

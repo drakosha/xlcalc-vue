@@ -34,6 +34,23 @@ async function open(page: Page, place: string, extra = ''): Promise<void> {
   await settle(page)
 }
 
+/** Underline, double underline and strike must be computed on the element carrying the text (they do not pass to an overflow run). */
+async function checkDecorations(page: Page): Promise<void> {
+  await open(page, 'Оформление!A1')
+  const got = await page.evaluate(() =>
+    ['10:1', '11:1', '12:1'].map((cell) => {
+      const td = document.querySelector(`[data-cell="${cell}"]`)!
+      const el = [...td.querySelectorAll('.xs-in *')].find((e) => e.children.length === 0 && e.textContent!.trim() !== '') as HTMLElement
+      const cs = getComputedStyle(el)
+      return `${cell} ${el.textContent!.trim()}: ${cs.textDecorationLine} ${cs.textDecorationStyle}`
+    }),
+  )
+  const want = ['underline solid', 'underline double', 'line-through solid']
+  const bad = got.filter((g, i) => !g.endsWith(want[i]!))
+  if (bad.length) throw new Error(`text decoration is missing on the text: ${bad.join('; ')}`)
+  console.log(`decorations: ${got.join('; ')}`)
+}
+
 for (const size of SIZES) {
   const context = await browser.newContext({
     viewport: { width: size.width, height: size.height },
@@ -43,6 +60,11 @@ for (const size of SIZES) {
   })
   const page = await context.newPage()
   page.on('pageerror', (e) => console.error(`[${size.name}] page error:`, e.message))
+  await checkDecorations(page)
+  if (process.env.SCREENS_CHECK_ONLY) {
+    await context.close()
+    continue
+  }
   for (const [i, name] of SHEETS.entries()) {
     await open(page, quote(name))
     await shot(page, size.name, `${String(i + 1).padStart(2, '0')}-${name}`)

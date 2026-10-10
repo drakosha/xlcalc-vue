@@ -362,7 +362,8 @@
   cursor: pointer;
 }
 .xs-cell .xs-deadlink {
-  text-decoration: underline dotted var(--xs-muted);
+  text-decoration-style: dotted;
+  text-decoration-color: var(--xs-muted);
   cursor: help;
 }
 /* The active cell: a frame inside, so neighbours do not move. */

@@ -1,7 +1,7 @@
 // Pure pieces: addresses, Excel units, prefix sums, the style's CSS and clipboard text.
 import { describe, expect, it } from 'vitest'
 import { cellAddress, colLabel, colNumber, parseCell, parseRect, rectAddress } from '../src/core/a1'
-import { alignCss, borderCss, borderWidth, fillText, fontCss, generalAlign, horizontalOf, verticalOf, wrapsOf } from '../src/core/cell-style'
+import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, generalAlign, horizontalOf, verticalOf, wrapsOf } from '../src/core/cell-style'
 import { parseTsv, toTsv } from '../src/core/clipboard'
 import { numberEditText } from '../src/core/editing'
 import { colPx, fontPx, indexAt, prefixSums, rowPx, widthFromPx } from '../src/core/geometry'
@@ -85,12 +85,13 @@ describe('style to CSS', () => {
       fontSize: '25px',
       fontWeight: '700',
       fontStyle: 'italic',
-      textDecorationLine: 'underline line-through',
-      textDecorationStyle: 'double',
       color: '#111111',
       backgroundColor: '#ffff00',
     })
     expect(fontCss({ font: { color: '#111111' } }, '#ff0000').color).toBe('#ff0000')
+    expect(decorationCss({ font: { underline: 'double', strike: true } }, false)).toEqual({ textDecorationLine: 'underline line-through', textDecorationStyle: 'double' })
+    expect(decorationCss({ font: { strike: true } }, true)).toEqual({ textDecorationLine: 'underline line-through' })
+    expect(decorationCss(undefined, false)).toEqual({})
   })
   it('alignment and indent of the content box; Fill repeats the text', () => {
     expect(alignCss('right', 2)).toEqual({ textAlign: 'right', paddingRight: '18px' })

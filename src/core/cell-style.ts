@@ -95,12 +95,19 @@ export function fontCss(style: CellStyle | undefined, section: string | undefine
   if (f?.size) css.fontSize = `${fontPx(f.size)}px`
   if (f?.bold) css.fontWeight = '700'
   if (f?.italic) css.fontStyle = 'italic'
-  const lines = [f?.underline ? 'underline' : '', f?.strike ? 'line-through' : ''].filter(Boolean)
-  if (lines.length) css.textDecorationLine = lines.join(' ')
-  if (f?.underline === 'double') css.textDecorationStyle = 'double'
   const color = section ?? f?.color
   if (color) css.color = color
   if (style?.fill?.color) css.backgroundColor = style.fill.color
+  return css
+}
+
+/** Underline and strike, for the element that carries the text: decorations do not reach an absolutely placed overflow run. A link is underlined anyway. */
+export function decorationCss(style: CellStyle | undefined, link: boolean): Record<string, string> {
+  const f = style?.font
+  const lines = [f?.underline || link ? 'underline' : '', f?.strike ? 'line-through' : ''].filter(Boolean)
+  const css: Record<string, string> = {}
+  if (lines.length) css.textDecorationLine = lines.join(' ')
+  if (f?.underline === 'double') css.textDecorationStyle = 'double'
   return css
 }
 
