@@ -1,0 +1,155 @@
+// The local source in a browser: the example's local.html built for production (the pool's thread bundled by Vite) and
+// served, then the dev server once. Measures the opening of the synthetic book and edits, checks a Web Worker computes,
+// takes screenshots at 390 × 844 and 1920 × 1200. Run: npm run check:local. Output: test-results/screens/local-*.png.
+import { mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { chromium, type Browser, type Page } from 'playwright'
+import { build, createServer, preview } from 'vite'
+
+const root = resolve(import.meta.dirname, '..')
+const config = resolve(root, 'vite.example.config.ts')
+const out = resolve(root, 'test-results/screens')
+mkdirSync(out, { recursive: true })
+const ROWS = Number(process.env.ROWS ?? 3400)
+const RUNS = 3
+
+interface Opened {
+  drawn: number
+  ready: number
+  built: number
+  workers: number
+}
+
+const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!
+const fmt = (xs: number[]) => `median ${Math.round(median(xs))} ms (${xs.map((x) => Math.round(x)).join(', ')})`
+
+/** Open the page at a place; the time from navigation to the first drawn cell of the place's sheet. */
+async function open(page: Page, base: string, place: string, cell: string): Promise<Opened> {
+  await page.goto(`${base}local.html?rows=${ROWS}&sheet=${encodeURIComponent(place)}`)
+  await page.waitForFunction((c) => !!document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim(), cell, { timeout: 60_000, polling: 'raf' })
+  const drawn = await page.evaluate(() => performance.now())
+  await page.waitForFunction(() => (window as any).__xs?.timings.ready > 0)
+  const t = await page.evaluate(() => (window as any).__xs.timings as { built: number; ready: number })
+  return { drawn, ready: t.ready, built: t.built, workers: page.workers().length }
+}
+
+/** Type into the active cell (the formula bar on a phone) and press Enter; ms from Enter to `watch` showing other text. */
+async function typeAndWatch(page: Page, text: string, watch: string, phone: boolean): Promise<number> {
+  if (phone) {
+    // the bar opens with the cell's text, as Excel's does: replace it
+    await page.locator('.xs-fx').tap()
+    await page.keyboard.press('ControlOrMeta+A')
+  } else await page.locator('.xs-scroller').focus()
+  await page.keyboard.type(text)
+  await page.evaluate((cell) => {
+    const w = window as any
+    const el = document.querySelector(`[data-cell="${cell}"]`)!
+    const before = el.textContent
+    w.__watch = { enter: 0, shown: 0 }
+    addEventListener('keydown', (e) => e.key === 'Enter' && (w.__watch.enter = performance.now()), { capture: true, once: true })
+    const check = () => {
+      const now = document.querySelector(`[data-cell="${cell}"]`)?.textContent
+      if (now !== before) w.__watch.shown = performance.now()
+      else requestAnimationFrame(check)
+    }
+    requestAnimationFrame(check)
+  }, watch)
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => (window as any).__watch.shown > 0, null, { timeout: 30_000 })
+  return page.evaluate(() => (window as any).__watch.shown - (window as any).__watch.enter)
+}
+
+async function lastEdit(page: Page, count: number): Promise<{ ms: number; changes: number }> {
+  await page.waitForFunction((n) => (window as any).__xs.edits.length >= n, count, { timeout: 30_000 })
+  return page.evaluate((n) => (window as any).__xs.edits[n - 1], count)
+}
+
+async function production(browser: Browser): Promise<void> {
+  await build({ configFile: config, logLevel: 'error' })
+  const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error' })
+  const base = server.resolvedUrls!.local[0]!
+  try {
+    for (const size of [
+      { name: '1920', width: 1920, height: 1200, phone: false },
+      { name: '390', width: 390, height: 844, phone: true },
+    ]) {
+      const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
+      const page = await context.newPage()
+      const errors: string[] = []
+      page.on('pageerror', (e) => errors.push(e.message))
+      page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+
+      const opened: Opened[] = []
+      for (let i = 0; i < (size.phone ? 1 : RUNS); i++) opened.push(await open(page, base, 'Витрина!B3', '3:2'))
+      const o = opened[0]!
+      if (o.workers < 1) throw new Error('no Web Worker computes the book')
+      console.log(`[${size.name}] open ${ROWS} rows: first cells drawn ${fmt(opened.map((x) => x.drawn))}; session ready ${fmt(opened.map((x) => x.ready))}; book built ${fmt(opened.map((x) => x.built))}; workers ${o.workers}`)
+      await page.waitForTimeout(300)
+      await page.screenshot({ path: resolve(out, `local-${size.name}-open.png`) })
+
+      // A value in the table: its total below on screen.
+      const shown: number[] = []
+      for (const v of size.phone ? ['2500'] : ['2500', '3750,5', '1 000', '42', '7,25']) {
+        shown.push(await typeAndWatch(page, v, '9:2', size.phone))
+        // Enter moved down a row: back to B3
+        if (!size.phone) await page.keyboard.press('ArrowUp')
+      }
+      const total = await page.locator('[data-cell="9:2"]').textContent()
+      console.log(`[${size.name}] edit Витрина!B3, Enter to the total B9 on screen: ${fmt(shown)}; B9 = ${total}`)
+      await page.waitForTimeout(200)
+      await page.screenshot({ path: resolve(out, `local-${size.name}-edit.png`) })
+
+      if (!size.phone) {
+        // An amount on the data sheet: the SUMIFS of other sheets recompute.
+        await open(page, base, 'Данные!D2', '2:4')
+        const before = await page.evaluate(() => (window as any).__xs.edits.length as number)
+        await page.locator('.xs-scroller').focus()
+        await page.keyboard.type('123456,78')
+        await page.keyboard.press('Enter')
+        const e = await lastEdit(page, before + 1)
+        console.log(`[${size.name}] edit Данные!D2: ${Math.round(e.ms)} ms in the source, ${e.changes} cells changed`)
+        await page.waitForTimeout(200)
+        await page.screenshot({ path: resolve(out, `local-${size.name}-data.png`) })
+        // A formula that does not parse: the field opens again with the message.
+        await open(page, base, 'Витрина!F3', '3:1')
+        await page.locator('.xs-scroller').focus()
+        await page.keyboard.type('=СУММ(B3:B4')
+        await page.keyboard.press('Enter')
+        await page.waitForTimeout(300)
+        await page.screenshot({ path: resolve(out, `local-${size.name}-invalid.png`) })
+        await page.keyboard.press('Escape')
+        const bytes = await page.evaluate(() => (window as any).__xs.save() as Promise<number>)
+        if (!(bytes > 1000)) throw new Error(`saved xlsx of ${bytes} bytes`)
+        console.log(`[${size.name}] saved xlsx: ${bytes} bytes`)
+      }
+      if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`)
+      await context.close()
+    }
+  } finally {
+    await new Promise<void>((done) => server.httpServer.close(() => done()))
+  }
+}
+
+/** The dev server serves xlcalc pre-bundled: the pool must still find its thread there. */
+async function dev(browser: Browser): Promise<void> {
+  const server = await createServer({ configFile: config, server: { port: 0 }, logLevel: 'error' })
+  await server.listen()
+  try {
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1200 } })
+    const o = await open(page, server.resolvedUrls!.local[0]!, 'Витрина!B3', '3:2')
+    if (o.workers < 1) throw new Error('dev: no Web Worker computes the book')
+    console.log(`[dev] first cells drawn ${Math.round(o.drawn)} ms, workers ${o.workers}`)
+    await page.close()
+  } finally {
+    await server.close()
+  }
+}
+
+const browser = await chromium.launch()
+try {
+  await production(browser)
+  await dev(browser)
+} finally {
+  await browser.close()
+}
+console.log(`screens in ${out}`)
