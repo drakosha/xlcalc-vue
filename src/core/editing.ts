@@ -3,6 +3,7 @@ import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
 import type { CellEntry, EditOutcome } from '../source'
 import { cellAddress, parseRect, rectsMeet, type Rect } from './a1'
 import { parseTsv } from './clipboard'
+import { numberEditText, textEditText } from './edit-text'
 import type { Formula } from './formula'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -33,21 +34,6 @@ export interface EditingDeps {
   barInput: Ref<HTMLTextAreaElement | null>
 }
 
-/** A number's edit text in the book's locale: the full value, a percent as a percent, a date or time as shown. */
-export function numberEditText(value: number, shown: string, locale: string): string {
-  const raw = (n: number) => {
-    try {
-      return new Intl.NumberFormat(locale, { useGrouping: false, maximumSignificantDigits: 15 }).format(n)
-    } catch {
-      return String(n)
-    }
-  }
-  const t = shown.trim()
-  if (/^-?[\d\s.,  ]+%$/.test(t)) return `${raw(value * 100)}%`
-  if (/^\d{1,4}[./-]\d{1,2}([./-]\d{1,4})?(\s+\d{1,2}:\d{2}(:\d{2})?)?$/.test(t) || /^\d{1,2}:\d{2}(:\d{2})?(\s?[AP]M)?$/i.test(t)) return t
-  return raw(value)
-}
-
 export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula, editor: Ref<EditorState | null>, deps: EditingDeps) {
   /** Edits in flight by cell: the typed text the cell shows meanwhile (null: clearing). */
   const pending = shallowRef(new Map<string, { text: string | null; seq: number }>())
@@ -71,7 +57,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (formula !== undefined) return `=${formula}`
     const value = w.valueOfRow(row, col)
     const shown = w.textOfRow(row, col)
-    if (typeof value === 'string') return value
+    if (typeof value === 'string') return textEditText(value)
     if (typeof value === 'number') return numberEditText(value, shown, s.locale.value)
     return shown
   }
