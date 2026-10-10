@@ -130,6 +130,14 @@ describe('shape of the sheet', () => {
     expect(states.at(-1)).toEqual({ sheet: 'One', ref: 'A1', value: 'one' })
   })
 
+  it('takes column titles and no row numbers from SheetInfo (the ground for list mode)', async () => {
+    const book: MemoryBook = { sheets: [{ name: 'L', rowNumbers: false, columns: [{ title: 'Name' }, { title: 'Sum' }], cells: { A1: 'a', B1: 1 } }] }
+    const w = await mountSheet(memorySource(book), { readOnly: true })
+    expect(w.findAll('.xs-head').map((h) => h.text())).toEqual(['Name', 'Sum'])
+    expect(w.find('.xs-num').exists()).toBe(false)
+    expect(w.find('.xs-corner').exists()).toBe(false)
+  })
+
   it('shows "the sheet is empty" for an empty read-only sheet, and a grid for an editable one', async () => {
     const book: MemoryBook = { sheets: [{ name: 'S', cells: {} }] }
     const ro = await mountSheet(memorySource(book), { readOnly: true, messages: { empty: 'Nothing here' } })
