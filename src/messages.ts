@@ -44,6 +44,39 @@ export interface SheetMessages {
   pending: string
   close: string
   editHint: string
+  /** A book being recomputed: the wait, its seconds, and the end of patience. */
+  waiting: string
+  waitSeconds: (n: number) => string
+  waitHint: string
+  waitTimeout: string
+  find: string
+  findPlaceholder: string
+  findPrev: string
+  findNext: string
+  findNone: string
+  /** Search status: the hit's place, all hits, and how many came when the source cut the list. */
+  findStatus: (i: number, total: number, shown: number) => string
+  findFailed: string
+  filter: string
+  filterOn: string
+  filterColumn: (letters: string) => string
+  filterNamed: (name: string, letters: string) => string
+  sortAsc: string
+  sortDesc: string
+  filterText: string
+  filterSearch: string
+  filterAll: string
+  filterEmpty: string
+  filterMore: (n: number) => string
+  filterReading: string
+  filterApply: string
+  filterReset: string
+  filterClear: string
+  /** The filter line at the bottom: rows shown of all, the columns with conditions, the sort. */
+  filterStatus: (shown: string, total: string, cols: string[], sort: { col: string; dir: 'asc' | 'desc' } | null) => string
+  filterFailed: string
+  valuesFailed: string
+  unfiltered: (row: number) => string
 }
 
 export const enMessages: SheetMessages = {
@@ -94,6 +127,39 @@ export const enMessages: SheetMessages = {
   pending: 'Saving…',
   close: 'Close',
   editHint: 'Click to edit the cell',
+  waiting: 'The book is being recomputed…',
+  waitSeconds: (n) => `${n} s`,
+  waitHint: 'The values will show once the computation is done',
+  waitTimeout: 'The book’s recomputation did not finish in time',
+  find: 'Find on the sheet (Ctrl+F)',
+  findPlaceholder: 'Find on the sheet…',
+  findPrev: 'Previous (Shift+Enter)',
+  findNext: 'Next (Enter)',
+  findNone: 'no matches',
+  findStatus: (i, total, shown) => `${i} of ${total}${total > shown ? ` (the first ${shown} shown)` : ''}`,
+  findFailed: 'The search failed',
+  filter: 'Filter and sort',
+  filterOn: 'A filter on this column is on',
+  filterColumn: (letters) => `Column ${letters}`,
+  filterNamed: (name, letters) => `${name} (${letters})`,
+  sortAsc: 'Sort ascending',
+  sortDesc: 'Sort descending',
+  filterText: 'Contains text…',
+  filterSearch: 'Find in the list…',
+  filterAll: 'Select all',
+  filterEmpty: '(empty)',
+  filterMore: (n) => `${n} more values, narrow them with text`,
+  filterReading: 'Reading the values…',
+  filterApply: 'Apply',
+  filterReset: 'Reset',
+  filterClear: 'Clear the filter and sort',
+  filterStatus: (shown, total, cols, sort) =>
+    [`${shown} of ${total} rows shown`, cols.length ? `filter on ${cols.join(', ')}` : '', sort ? `sorted by ${sort.col} ${sort.dir === 'asc' ? '↑' : '↓'}` : '']
+      .filter(Boolean)
+      .join(', '),
+  filterFailed: 'Could not apply the filter',
+  valuesFailed: 'Could not read the column’s values',
+  unfiltered: (row) => `The filter is cleared: it hid row ${row}`,
 }
 
 /** Russian plural: one, few, many. */
@@ -157,4 +223,37 @@ export const ruMessages: SheetMessages = {
   pending: 'Сохраняю…',
   close: 'Закрыть',
   editHint: 'Нажмите, чтобы править ячейку',
+  waiting: 'Книга пересчитывается…',
+  waitSeconds: (n) => `${n} с`,
+  waitHint: 'Значения появятся, когда расчёт закончится',
+  waitTimeout: 'Пересчёт книги не завершился за отведённое время',
+  find: 'Поиск по листу (Ctrl+F)',
+  findPlaceholder: 'Найти на листе…',
+  findPrev: 'Предыдущее (Shift+Enter)',
+  findNext: 'Следующее (Enter)',
+  findNone: 'нет совпадений',
+  findStatus: (i, total, shown) => `${i} из ${total}${total > shown ? ` (показаны первые ${shown})` : ''}`,
+  findFailed: 'Поиск не удался',
+  filter: 'Фильтр и сортировка',
+  filterOn: 'Фильтр по этой колонке включён',
+  filterColumn: (letters) => `Колонка ${letters}`,
+  filterNamed: (name, letters) => `${name} (${letters})`,
+  sortAsc: 'Сортировать по возрастанию',
+  sortDesc: 'Сортировать по убыванию',
+  filterText: 'Содержит текст…',
+  filterSearch: 'Найти в списке…',
+  filterAll: 'Выбрать все',
+  filterEmpty: '(пусто)',
+  filterMore: (n) => `ещё ${n} значений, уточните подстрокой`,
+  filterReading: 'Читаю значения…',
+  filterApply: 'Применить',
+  filterReset: 'Сбросить',
+  filterClear: 'Снять фильтр и сортировку',
+  filterStatus: (shown, total, cols, sort) =>
+    [`показано ${shown} из ${total} строк`, cols.length ? `фильтр по ${cols.join(', ')}` : '', sort ? `сортировка по ${sort.col} ${sort.dir === 'asc' ? '↑' : '↓'}` : '']
+      .filter(Boolean)
+      .join(', '),
+  filterFailed: 'Не удалось применить фильтр',
+  valuesFailed: 'Не удалось получить значения колонки',
+  unfiltered: (row) => `Фильтр снят: строка ${row} была скрыта им`,
 }

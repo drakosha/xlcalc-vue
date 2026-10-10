@@ -1,4 +1,5 @@
 // Selection as in Excel: a rectangle from the active cell to the other corner, by cells, rows and columns, with Shift and drag.
+// It is kept in the sheet's rows; keys move along the display rows, so under a filter the next row is the next shown one.
 import { computed, nextTick } from 'vue'
 import { rectAddress, type Rect } from './a1'
 import { colPx, type Geometry } from './geometry'
@@ -32,7 +33,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   }
   /** A whole column (a click on its letter) or row (on its number). */
   function pickColumn(col: number, extend = false): void {
-    const last = Math.max(1, s.rowCount.value)
+    const last = s.lastRow.value
     if (extend && s.selected.value) s.extent.value = { row: last, col }
     else {
       s.selected.value = { row: 1, col }
@@ -49,7 +50,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   }
   function selectAll(): void {
     s.selected.value = { row: 1, col: 1 }
-    s.extent.value = { row: Math.max(1, s.rowCount.value), col: Math.max(1, s.colCount.value) }
+    s.extent.value = { row: s.lastRow.value, col: Math.max(1, s.colCount.value) }
   }
 
   // A mouse drags the corner; a finger scrolls from the same pointerdown, so touch picks by a tap (click) and never drags.
@@ -85,20 +86,22 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     dragging = false
   }
 
-  /** Scroll so the cell is in the frame with some space (nothing moves when it already is). */
+  /** Scroll so the cell (a sheet row) is in the frame with some space; a row the filter hides drops the filter first. */
   function revealCell(row: number, col: number): void {
     const el = s.scroller.value
     if (!el) return
+    if (s.indexOf(row) === undefined) s.hooks.unfilter(row)
+    const d = s.indexOf(row) ?? row
     measure()
     const off = geo.rowOffsets.value
-    const top = off[row - 1] ?? 0
-    const bottom = off[row] ?? top + s.defaultRowPx.value
+    const top = off[d - 1] ?? 0
+    const bottom = off[d] ?? top + s.defaultRowPx.value
     const left = geo.offsets.value[col - 1] ?? 0
     const right = geo.offsets.value[col] ?? left + colPx(null)
     let y = el.scrollTop
     let x = el.scrollLeft
     // Frozen rows and columns are always in the frame.
-    if (row > v.frozenRows.value) {
+    if (d > v.frozenRows.value) {
       if (top - v.frozenH.value < y) y = top - v.frozenH.value - REVEAL_PAD
       else if (bottom > y + s.viewH.value - HEAD_H) y = bottom - s.viewH.value + HEAD_H + REVEAL_PAD
     }
@@ -124,19 +127,19 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   function navKey(e: KeyboardEvent): boolean {
     const a = s.extent.value ?? s.selected.value
     if (!a || s.rowCount.value === 0) return false
-    let row = a.row
+    let d = s.indexOf(a.row) ?? 1
     let col = a.col
     const page = Math.max(1, Math.floor((s.viewH.value - HEAD_H - v.frozenH.value) / s.defaultRowPx.value))
     const ctrl = e.ctrlKey || e.metaKey
     // Ctrl jumps to the data's edge first, then to the grid's (an editable grid goes on past the data).
-    const lastRow = (r: number) => (r < s.dataRows.value ? s.dataRows.value : s.rowCount.value)
+    const lastRow = (x: number) => (x < s.dataShown.value ? s.dataShown.value : s.rowCount.value)
     const lastCol = (c: number) => (c < s.dataCols.value ? s.dataCols.value : s.colCount.value)
     switch (e.key) {
       case 'ArrowDown':
-        row = ctrl ? lastRow(row) : geo.nextRow(row, 1)
+        d = ctrl ? lastRow(d) : geo.nextRow(d, 1)
         break
       case 'ArrowUp':
-        row = ctrl ? 1 : geo.nextRow(row, -1)
+        d = ctrl ? 1 : geo.nextRow(d, -1)
         break
       case 'ArrowRight':
         col = ctrl ? lastCol(col) : geo.nextCol(col, 1)
@@ -145,26 +148,28 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
         col = ctrl ? 1 : geo.nextCol(col, -1)
         break
       case 'PageDown':
-        row = Math.min(s.rowCount.value, row + page)
+        d = Math.min(s.rowCount.value, d + page)
         break
       case 'PageUp':
-        row = Math.max(1, row - page)
+        d = Math.max(1, d - page)
         break
       case 'Home':
         col = 1
-        if (ctrl) row = 1
+        if (ctrl) d = 1
         break
       case 'End':
         col = ctrl ? Math.max(1, s.dataCols.value) : lastCol(col)
-        if (ctrl) row = Math.max(1, s.dataRows.value)
+        if (ctrl) d = Math.max(1, s.dataShown.value)
         break
       default:
         return false
     }
     e.preventDefault()
+    // Moves went along display rows; the selection keeps sheet rows.
+    const row = s.rowOf(d)
     if (e.shiftKey && s.selected.value) s.extent.value = { row, col }
     else pickCell(row, col)
-    s.stretch(row, col)
+    if (!s.visible.value) s.stretch(row, col)
     revealCell(row, col)
     return true
   }
@@ -172,10 +177,11 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   function step(dr: -1 | 0 | 1, dc: -1 | 0 | 1): void {
     const a = s.selected.value
     if (!a) return
-    const row = dr ? geo.nextRow(a.row, dr) : a.row
+    const d = s.indexOf(a.row) ?? 1
+    const row = s.rowOf(dr ? geo.nextRow(d, dr) : d)
     const col = dc ? geo.nextCol(a.col, dc) : a.col
     pickCell(row, col)
-    s.stretch(row, col)
+    if (!s.visible.value) s.stretch(row, col)
     void nextTick(() => revealCell(row, col))
   }
 

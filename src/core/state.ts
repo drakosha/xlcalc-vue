@@ -1,7 +1,7 @@
 // The component's base state: the book's sheets, the active one, its extent, sizes from the windows, and the frame.
 import { computed, ref, shallowRef } from 'vue'
 import { enMessages, type SheetMessages } from '../messages'
-import type { SheetInfo, SheetSource } from '../source'
+import type { SheetFilter, SheetInfo, SheetSource } from '../source'
 import type { Cell } from './a1'
 import { colPx, DEFAULT_ROW_PT, rowPx } from './geometry'
 import { createMemory } from './storage'
@@ -60,9 +60,20 @@ export function createState(props: SheetViewProps) {
   const scrollLeft = ref(0)
   const viewH = ref(600)
   const viewW = ref(800)
-  const rowCount = computed(() =>
-    editable.value ? Math.max(dataRows.value + SPARE_ROWS, MIN_ROWS, reach.value.rows) : dataRows.value,
-  )
+  /** The display filter in force: the sheet's rows in display order and the way back; null without one. */
+  const visible = shallowRef<{ key: string; spec: SheetFilter; rows: Int32Array; index: Map<number, number> } | null>(null)
+  /** Display index (`d`, the grid's geometry and windows) to the sheet's row (`r`, numbers, addresses, selection) and back. */
+  const rowOf = (d: number): number => (visible.value ? (visible.value.rows[d - 1] ?? d) : d)
+  const indexOf = (r: number): number | undefined => (visible.value ? visible.value.index.get(r) : r)
+  /** Rows with data in display order: the filter's list, else the data rows. */
+  const dataShown = computed(() => (visible.value ? visible.value.rows.length : dataRows.value))
+  /** Rows the grid shows: a filter's list as is; an editable sheet goes on past the data. */
+  const rowCount = computed(() => {
+    if (visible.value) return visible.value.rows.length
+    return editable.value ? Math.max(dataRows.value + SPARE_ROWS, MIN_ROWS, reach.value.rows) : dataRows.value
+  })
+  /** The last sheet row a selection of whole columns reaches. */
+  const lastRow = computed(() => (visible.value ? Math.max(1, dataRows.value) : Math.max(1, rowCount.value)))
   /** An editable sheet fills the frame with columns at least, as Excel's grid never ends. */
   const colCount = computed(() =>
     editable.value ? Math.max(dataCols.value + SPARE_COLS, MIN_COLS, reach.value.cols, Math.ceil(viewW.value / colPx(null)) + 1) : dataCols.value,
@@ -76,6 +87,9 @@ export function createState(props: SheetViewProps) {
   /** The active cell and the selection's other corner. */
   const selected = ref<Cell | null>(null)
   const extent = ref<Cell | null>(null)
+
+  /** Ways back into modules made later: dropping the filter when a jump needs a row it hides. */
+  const hooks = { unfilter: (_row: number): void => {} }
 
   /** Grow the data reach to a cell that got a value. */
   function grow(row: number, col: number): void {
@@ -104,7 +118,12 @@ export function createState(props: SheetViewProps) {
     reach,
     dataRows,
     dataCols,
+    visible,
+    rowOf,
+    indexOf,
+    dataShown,
     rowCount,
+    lastRow,
     colCount,
     failure,
     loading,
@@ -119,6 +138,7 @@ export function createState(props: SheetViewProps) {
     defaultRowPx,
     selected,
     extent,
+    hooks,
     grow,
     stretch,
   }

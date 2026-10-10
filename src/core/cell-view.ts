@@ -60,23 +60,27 @@ export function useCellView(
   ed: Editing,
   deps: CellViewDeps,
 ) {
-  /** Merges of the drawn piece: the top-left cell's span, null for covered cells. A merge not wholly drawn (or across the freeze edge) is drawn as plain cells. */
+  /** Merges of the drawn piece by sheet rows: the top-left cell's span, null for covered cells. A merge not wholly drawn (or across the freeze edge) is drawn as plain cells; under a filter only one-row merges stay. */
   const merges = computed(() => {
     const map = new Map<string, MergeSpan | null>()
-    const rowsOk = (r1: number, r2: number) => r2 <= v.frozenRows.value || (r1 >= v.firstRow.value && r2 <= v.lastRow.value)
+    const rowsOk = (d1: number, d2: number) => d2 <= v.frozenRows.value || (d1 >= v.firstRow.value && d2 <= v.lastRow.value)
     const colsOk = (c1: number, c2: number) => c2 <= v.frozenCols.value || (c1 >= v.firstCol.value && c2 <= v.lastCol.value)
     for (const m of w.merges.value) {
-      if (!rowsOk(m.r1, m.r2) || !colsOk(m.c1, m.c2)) continue
+      if (s.visible.value && m.r1 !== m.r2) continue
+      const d1 = s.indexOf(m.r1)
+      if (d1 === undefined) continue
+      const d2 = d1 + m.r2 - m.r1
+      if (!rowsOk(d1, d2) || !colsOk(m.c1, m.c2)) continue
       let rsDom = 0
       let csDom = 0
-      for (let r = m.r1; r <= m.r2; r++) if (geo.heightOf(r) > 0) rsDom++
+      for (let d = d1; d <= d2; d++) if (geo.heightOf(d) > 0) rsDom++
       for (let c = m.c1; c <= m.c2; c++) if (geo.widthOf(c) > 0) csDom++
       if (!rsDom || !csDom) continue
       // The top-left cell may be hidden: the merge then starts at its first shown cell.
-      const r0 = geo.heightOf(m.r1) > 0 ? m.r1 : geo.nextRow(m.r1, 1)
+      const d0 = geo.heightOf(d1) > 0 ? d1 : geo.nextRow(d1, 1)
       const c0 = geo.widthOf(m.c1) > 0 ? m.c1 : geo.nextCol(m.c1, 1)
       for (let r = m.r1; r <= m.r2; r++) for (let c = m.c1; c <= m.c2; c++) map.set(`${r}:${c}`, null)
-      map.set(`${r0}:${c0}`, { rs: m.r2 - r0 + 1, cs: m.c2 - c0 + 1, rsDom, csDom })
+      map.set(`${s.rowOf(d0)}:${c0}`, { rs: d2 - d0 + 1, cs: m.c2 - c0 + 1, rsDom, csDom })
     }
     return map
   })
@@ -90,7 +94,8 @@ export function useCellView(
     return map
   })
 
-  const styleOf = (r: number, c: number): CellStyle | undefined => w.styleAt(r, c, cellAddress(r, c))
+  /** A cell's style by its display row. */
+  const styleOf = (d: number, c: number): CellStyle | undefined => w.styleAt(d, c, cellAddress(s.rowOf(d), c))
   const freezeRows = () => s.sheet.value?.freeze?.rows ?? 0
   const freezeCols = () => s.sheet.value?.freeze?.cols ?? 0
 
@@ -102,26 +107,27 @@ export function useCellView(
   }
 
   /** May a neighbour take this cell's overflowing text: loaded, empty, not merged, not being edited. */
-  function free(r: number, c: number): boolean {
-    if (!w.emptyAt(r, c) || spanOf(r, c) !== undefined || ed.pendingAt(r, c) !== undefined) return false
+  function free(d: number, c: number): boolean {
+    const r = s.rowOf(d)
+    if (!w.emptyAt(d, c) || spanOf(r, c) !== undefined || ed.pendingAt(r, c) !== undefined) return false
     const e = deps.editor.value
     return !(e && e.row === r && e.col === c)
   }
   /** Text overflow as Excel draws it: left-aligned text runs right over empty cells, right-aligned left, centred both ways. */
-  function overflowOf(r: number, c: number, h: Horizontal, bg: string): CellView['ov'] {
+  function overflowOf(d: number, c: number, h: Horizontal, bg: string): CellView['ov'] {
     const place = colPlace.value.get(c)
     if (!place) return undefined
     const run = (dir: 1 | -1, need?: (col: number) => boolean) => {
       let px = 0
       for (let i = place.i + dir; i >= 0 && i < place.list.length && px < OVERFLOW_MAX; i += dir) {
         const col = place.list[i]!
-        if (!free(r, col) || (need && !need(col))) break
+        if (!free(d, col) || (need && !need(col))) break
         px += geo.widthOf(col)
       }
       return px
     }
     if (h === 'centerContinuous') {
-      const right = run(1, (col) => styleOf(r, col)?.alignment?.horizontal === 'centerContinuous')
+      const right = run(1, (col) => styleOf(d, col)?.alignment?.horizontal === 'centerContinuous')
       return right ? { left: 0, right, justify: 'center', bg } : undefined
     }
     if (h === 'left') {
@@ -151,8 +157,10 @@ export function useCellView(
   /** Everything to draw cell (r, c); `d` is its display row, `frozen` whether its row is a frozen one. */
   function cellView(d: number, r: number, c: number, frozen: boolean): CellView {
     const addr = cellAddress(r, c)
-    const data = w.cellData(r, c, addr)
+    const data = w.cellData(d, c, addr)
     const span = spanOf(r, c)
+    // The merge's last row: display (geometry, neighbours) and sheet (selection, tables); under a filter merges are one row.
+    const d2 = span ? d + span.rs - 1 : d
     const r2 = span ? r + span.rs - 1 : r
     const c2 = span ? c + span.cs - 1 : c
     const st = data.style
@@ -166,18 +174,18 @@ export function useCellView(
     if (c <= v.frozenCols.value) css.left = v.stickyLeft(c)
 
     // Borders: right and bottom are the cell's own grid lines; top and left only at the sheet's edge (else the neighbour draws them).
-    const rightStyle = span ? styleOf(r, c2) : st
-    const bottomStyle = span ? styleOf(r2, c) : st
+    const rightStyle = span ? styleOf(d, c2) : st
+    const bottomStyle = span ? styleOf(d2, c) : st
     const hasRight = geo.hasCol(c2, 1)
-    const hasBelow = geo.hasRow(r2, 1)
-    const nextC = hasRight ? styleOf(r, geo.nextCol(c2, 1)) : undefined
-    const nextR = hasBelow ? styleOf(geo.nextRow(r2, 1), c) : undefined
+    const hasBelow = geo.hasRow(d2, 1)
+    const nextC = hasRight ? styleOf(d, geo.nextCol(c2, 1)) : undefined
+    const nextR = hasBelow ? styleOf(geo.nextRow(d2, 1), c) : undefined
     const right = edge(rightStyle?.border?.right, nextC?.border?.left, c2 === freezeCols() ? undefined : (rightStyle?.fill?.color ?? nextC?.fill?.color))
-    const bottom = edge(bottomStyle?.border?.bottom, nextR?.border?.top, r2 === freezeRows() ? undefined : (bottomStyle?.fill?.color ?? nextR?.fill?.color))
+    const bottom = edge(bottomStyle?.border?.bottom, nextR?.border?.top, d2 === freezeRows() ? undefined : (bottomStyle?.fill?.color ?? nextR?.fill?.color))
     if (right.css) setSide(css, 'Right', right.css)
     if (bottom.css) setSide(css, 'Bottom', bottom.css)
     let topWidth = 0
-    if (!geo.hasRow(r, -1) && st?.border?.top) {
+    if (!geo.hasRow(d, -1) && st?.border?.top) {
       setSide(css, 'Top', borderCss(st.border.top)!)
       topWidth = borderWidth(st.border.top)
     }
@@ -230,7 +238,7 @@ export function useCellView(
       tableHead ? 'xs-thead' : '',
       frozen && c <= v.frozenCols.value ? 'xs-fz-corner' : frozen ? 'xs-fz-row' : c <= v.frozenCols.value ? 'xs-fz-col' : '',
       // The book's freeze edge shows always: with the lock it parts the sticky panes, without it it shows what the lock freezes.
-      r2 === freezeRows() ? 'xs-fz-edge-b' : '',
+      d2 === freezeRows() ? 'xs-fz-edge-b' : '',
       c2 === freezeCols() ? 'xs-fz-edge-r' : '',
     ]
 
@@ -271,7 +279,7 @@ export function useCellView(
       view.kind = 'fill'
       view.text = fillText(shownText, geo.spanWidth(c, span?.cs ?? 1))
     } else if (!span && !wraps && shownText && (overflows(data.value) || h === 'centerContinuous')) {
-      const ov = overflowOf(r, c, h, st?.fill?.color ?? 'var(--xs-bg)')
+      const ov = overflowOf(d, c, h, st?.fill?.color ?? 'var(--xs-bg)')
       if (ov) {
         view.kind = 'overflow'
         view.ov = ov

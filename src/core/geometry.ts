@@ -60,17 +60,19 @@ export interface GeometryInput {
   /** Row heights in pixels that differ from the default (0 hides a row). */
   heights: ShallowRef<Map<number, number>>
   defaultRowPx: Ref<number>
+  /** The sheet row shown at a display index (heights are the sheet rows'). */
+  rowOf: (d: number) => number
 }
 
 /** Offsets of columns and rows, and the item under an offset; rows are display indexes (`d`). */
 export function useGeometry(i: GeometryInput) {
   const widthOf = (c: number): number => i.userWidths.value[c] ?? i.bookWidths.value.get(c) ?? colPx(null)
-  const heightOf = (d: number): number => i.heights.value.get(d) ?? i.defaultRowPx.value
+  const heightOf = (d: number): number => i.heights.value.get(i.rowOf(d)) ?? i.defaultRowPx.value
   const offsets = computed(() => prefixSums(i.colCount.value, widthOf))
   const rowOffsets = computed(() => {
     const heights = i.heights.value
     const def = i.defaultRowPx.value
-    return prefixSums(i.rowCount.value, (d) => heights.get(d) ?? def)
+    return prefixSums(i.rowCount.value, (d) => heights.get(i.rowOf(d)) ?? def)
   })
   const colAt = (x: number): number => indexAt(offsets.value, i.colCount.value, x)
   const rowAt = (y: number): number => indexAt(rowOffsets.value, i.rowCount.value, y)
