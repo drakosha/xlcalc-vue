@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import { colLabel } from '../core/a1'
 import { HEAD_H } from '../core/viewport'
 import { useSheetContext } from './context'
-import { IconSpinner } from './icons'
+import { IconFilter, IconSpinner } from './icons'
 
 const ctx = useSheetContext()
 const { v, geo, sel, views, ed } = ctx
@@ -63,6 +63,13 @@ function onCellDbl(e: MouseEvent, r: number, c: number): void {
   sel.pickCell(r, c)
   ed.startEdit({ mode: 'edit' })
 }
+/** Funnels on the letters: when the source can filter and there is more than a header to filter. */
+const funnels = computed(() => ctx.filter.available.value && ctx.dataRows.value > 1)
+const filtered = (c: number) => !!ctx.filter.cols.value[c] || ctx.filter.sort.value?.col === c
+function openFunnel(e: MouseEvent, c: number): void {
+  const th = (e.currentTarget as HTMLElement).closest('th')
+  void ctx.filter.openFunnel(c, th?.getBoundingClientRect())
+}
 const setCellInput = (el: unknown) => (ctx.cellInput.value = (el as HTMLTextAreaElement | null) ?? null)
 const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | null) ?? null)
 </script>
@@ -73,7 +80,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
     class="xs-scroller"
     tabindex="0"
     @scroll.passive="ctx.onScroll"
-    @keydown="ed.onGridKey"
+    @keydown="ctx.onGridKey"
     @copy="ctx.totals.onCopy"
     @paste="ed.onPaste"
     @pointermove="sel.onGridMove"
@@ -93,12 +100,23 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
             <th v-if="k.c === 0" class="xs-head"></th>
             <th
               v-else
-              :class="['xs-head', k.c <= v.frozenCols.value ? 'xs-fz-col' : '', colOn(k.c) ? 'xs-on' : '', k.c === freezeCols ? 'xs-fz-edge-r' : '']"
+              :class="['xs-head', k.c <= v.frozenCols.value ? 'xs-fz-col' : '', colOn(k.c) ? 'xs-on' : '', k.c === freezeCols ? 'xs-fz-edge-r' : '', filtered(k.c) ? 'xs-filtered' : '']"
               :style="k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : undefined"
               :title="m.selectColumn"
               @click="sel.pickColumn(k.c, $event.shiftKey)"
             >
-              <span class="xs-head-label">{{ headLabel(k.c) }}</span>
+              <span class="xs-head-label"
+                >{{ headLabel(k.c) }}<span v-if="ctx.filter.sort.value?.col === k.c" class="xs-sortmark">{{ ctx.filter.sort.value.dir === 'asc' ? '↑' : '↓' }}</span></span
+              >
+              <button
+                v-if="funnels"
+                type="button"
+                :class="['xs-funnel', ctx.filter.cols.value[k.c] ? 'xs-on' : '', ctx.filter.open.value === k.c ? 'xs-open' : '']"
+                :title="ctx.filter.cols.value[k.c] ? m.filterOn : m.filter"
+                @click.stop="openFunnel($event, k.c)"
+              >
+                <IconFilter />
+              </button>
               <span
                 class="xs-grip"
                 :title="m.resize"

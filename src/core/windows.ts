@@ -316,7 +316,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
 
   /** Load what the drawn piece needs and the slots do not hold. */
   function ensure(): void {
-    if (s.failure.value || !s.sheet.value || s.rowCount.value === 0) return
+    if (s.failure.value || s.filterWait.value || !s.sheet.value || s.rowCount.value === 0) return
     for (const kind of order) {
       const need = needOf(kind)
       if (need && !covered(slots[kind].value, need)) void load(kind, need)

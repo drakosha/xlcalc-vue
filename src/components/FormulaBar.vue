@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import { cellAddress } from '../core/a1'
 import { safeHref } from '../core/cell-view'
 import { useSheetContext } from './context'
-import { IconBack, IconLink, IconLock, IconLockOpen } from './icons'
+import { IconBack, IconLink, IconLock, IconLockOpen, IconSearch } from './icons'
 
 const ctx = useSheetContext()
 const { sel, f, nav, ed, v } = ctx
@@ -154,6 +154,16 @@ function onAddressEsc(e: KeyboardEvent): void {
       >
         <IconLock v-if="v.freezeOn.value" />
         <IconLockOpen v-else />
+      </button>
+      <button
+        v-if="ctx.find.available.value"
+        type="button"
+        :class="['xs-tool', ctx.find.isOpen.value ? 'xs-tool-on' : '']"
+        :title="m.find"
+        data-xs-find
+        @click="ctx.find.isOpen.value ? ctx.find.closeFind() : ctx.find.openFind()"
+      >
+        <IconSearch />
       </button>
     </div>
   </div>

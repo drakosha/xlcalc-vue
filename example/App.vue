@@ -23,6 +23,12 @@ failNext(params.get('fail') ?? '')
 function onLink(link: SheetLinkEvent): void {
   lastLink.value = `${link.sheet}!${link.cell} → ${link.target ?? link.href ?? ''}`
 }
+/** A book being recomputed for a few seconds: the sheet waits with a stopwatch; `?recompute=4000` plays it on load. */
+function recompute(ms = 4000): void {
+  source.recompute(ms)
+  source.emit({ kind: 'reload' })
+}
+if (params.get('recompute')) source.recompute(Number(params.get('recompute')))
 /** Another tab's edit: the sheet gets it as a `changed` event. */
 function remoteEdit(): void {
   source.setCells('Формулы', { A2: String(Math.round(Math.random() * 100)) })
@@ -47,6 +53,7 @@ const cellUrl = (place: string) => `${location.origin}${location.pathname}?sheet
           <option value="refused">refused</option>
         </select>
       </label>
+      <button type="button" @click="recompute()">{{ lang === 'ru' ? 'Пересчёт 4 с' : 'Recompute 4 s' }}</button>
       <button type="button" @click="remoteEdit">{{ lang === 'ru' ? 'Правка из другой вкладки' : 'Edit from another tab' }}</button>
       <span class="state" data-state>{{ state ? `${state.sheet}!${state.ref}${state.formula ? ' =' + state.formula : ''}` : '' }}</span>
       <span v-if="lastLink" class="state">{{ lastLink }}</span>

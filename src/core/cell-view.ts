@@ -1,5 +1,5 @@
 // One drawn cell: its classes, CSS and tooltip, the content box, borders shared with neighbours, merges and text overflow.
-import { computed, type Ref } from 'vue'
+import { computed, type ComputedRef, type Ref } from 'vue'
 import type { BorderLine, CellStyle } from 'xlcalc/contract'
 import { cellAddress, inRect } from './a1'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, horizontalOf, overflows, setSide, verticalOf, wrapsOf, type CssLine, type Horizontal } from './cell-style'
@@ -45,6 +45,8 @@ export const safeHref = (href: string | undefined): boolean => !!href && /^(http
 
 export interface CellViewDeps {
   editor: Ref<EditorState | null>
+  /** Search hits by `row:col`, and the current one. */
+  find: { hitSet: ComputedRef<Set<string>>; current: ComputedRef<string> }
   /** Whether the host listens to `openLink`. */
   hostLinks: () => boolean
 }
@@ -205,6 +207,8 @@ export function useCellView(
       if (c === rect.c1) shadows.push('inset 1px 0 0 0 var(--xs-accent)')
       if (c2 >= rect.c2) shadows.push('inset -1px 0 0 0 var(--xs-accent)')
     }
+    const hitKey = `${r}:${c}`
+    if (deps.find.hitSet.value.has(hitKey)) bg.push({ img: 'linear-gradient(var(--xs-hit), var(--xs-hit))', size: full, pos: '0 0' })
     const hl = f.highlightAt(r, c)
     if (hl) {
       shadows.push(...hl.edges)
@@ -233,6 +237,8 @@ export function useCellView(
       active ? 'xs-active' : '',
       rect && inRect(rect, r, c) ? 'xs-sel' : '',
       fl && inRect(fl, r, c) ? 'xs-flash' : '',
+      deps.find.hitSet.value.has(hitKey) ? 'xs-hit' : '',
+      deps.find.current.value === hitKey ? 'xs-hit-now' : '',
       pendingText !== undefined ? 'xs-pending' : '',
       lock !== null ? 'xs-locked' : '',
       tableHead ? 'xs-thead' : '',

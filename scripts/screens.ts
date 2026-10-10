@@ -9,7 +9,7 @@ const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'test-results/screens')
 mkdirSync(out, { recursive: true })
 
-const SHEETS = ['Оформление', 'Форматы', 'Гистограммы', 'Ссылки', 'Примечания', 'Формулы', 'Объединения', 'Размеры', 'Закрепление', 'Таблица', 'Длинный лист', 'Запертые', 'Перелив', 'Плашка']
+const SHEETS = ['Оформление', 'Форматы', 'Гистограммы', 'Ссылки', 'Примечания', 'Формулы', 'Объединения', 'Размеры', 'Закрепление', 'Таблица', 'Длинный лист', 'Запертые', 'Перелив', 'Плашка', 'Фильтр']
 const SIZES = [
   { name: '390', width: 390, height: 844, mobile: true },
   { name: '1920', width: 1920, height: 1200, mobile: false },
@@ -88,6 +88,38 @@ for (const size of SIZES) {
   await open(page, "'Длинный лист'!C:C")
   await page.waitForTimeout(2200)
   await shot(page, size.name, '29-column-count')
+
+  // 0.2.0: search with its hits, the funnel of a column (a phone: the whole screen), a filtered and sorted sheet, a recompute.
+  await open(page, "'Длинный лист'!A1")
+  await page.locator('[data-xs-find]').click()
+  await page.locator('.xs-find-input').fill('K-0300')
+  await page.waitForSelector('.xs-cell.xs-hit-now')
+  await page.waitForTimeout(400)
+  await shot(page, size.name, '30-find')
+  await open(page, 'Фильтр!A1')
+  // A frozen cell that flashes after a jump must stay sticky in its pane.
+  const position = await page.evaluate(() => getComputedStyle(document.querySelector('[data-cell="1:1"]')!).position)
+  if (position !== 'sticky') throw new Error(`a flashing frozen cell is ${position}, not sticky`)
+  await page.locator('.xs-head').nth(1).locator('.xs-funnel').click({ force: true })
+  await page.waitForSelector('[data-xs-values] .xs-value-all')
+  await shot(page, size.name, '31-funnel')
+  await page.locator('.xs-value', { hasText: 'отклонён' }).click()
+  await page.locator('.xs-value', { hasText: '(пусто)' }).click()
+  await page.locator('[data-xs-apply]').click()
+  await page.waitForTimeout(300)
+  await page.locator('.xs-head').nth(2).locator('.xs-funnel').click({ force: true })
+  await page.waitForSelector('[data-xs-values] .xs-value-all')
+  await page.locator('.xs-popover button[title="Сортировать по убыванию"]').click()
+  await page.waitForSelector('[data-xs-filter-status]')
+  await page.waitForFunction(() => !document.querySelector('.xs-loading'))
+  await page.waitForTimeout(300)
+  await shot(page, size.name, '32-filtered')
+  await page.locator('[data-xs-filter-clear]').click()
+  await page.waitForTimeout(200)
+  await page.goto(`${base}?sheet=${encodeURIComponent('Форматы')}&recompute=4000`)
+  await page.waitForSelector('[data-xs-wait]')
+  await page.waitForTimeout(1600)
+  await shot(page, size.name, '33-recompute')
 
   // Editing in place: typing over a cell, then the edit in flight.
   await open(page, 'Формулы!C2')

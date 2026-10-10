@@ -1,0 +1,251 @@
+// The display filter and sort, as the the app's funnel: the data do not change, the source lists the rows to show in order.
+import { computed, nextTick, ref, watch } from 'vue'
+import type { SheetFilter } from '../source'
+import { colLabel } from './a1'
+import type { SheetState } from './state'
+import type { Windows } from './windows'
+
+type ColumnFilter = NonNullable<SheetFilter['cols']>[number]
+type Sort = NonNullable<SheetFilter['sort']>
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+
+export function useFilter(s: SheetState, w: Windows, notify: (text: string) => void) {
+  const cols = ref<Record<number, ColumnFilter>>({})
+  const sort = ref<Sort | null>(null)
+  /** The funnel needs both: the rows to show and a column's values. */
+  const available = computed(() => typeof s.props.source.visibleRows === 'function' && typeof s.props.source.columnValues === 'function')
+  /** Header rows the filter leaves alone: the book's frozen rows, else the first row, as Excel does. */
+  const head = computed(() => {
+    const frozen = s.sheet.value?.freeze?.rows ?? 0
+    return clamp(frozen > 0 ? frozen : 1, 0, Math.max(0, s.dataRows.value - 1))
+  })
+  const active = computed(() => Object.keys(cols.value).length > 0 || sort.value !== null)
+  const spec = computed<SheetFilter | null>(() => {
+    if (!active.value) return null
+    const out: SheetFilter = { head: head.value }
+    if (Object.keys(cols.value).length) out.cols = cols.value
+    if (sort.value) out.sort = sort.value
+    return out
+  })
+  const key = computed(() => (spec.value ? JSON.stringify(spec.value) : ''))
+
+  // ── the list of shown rows: asked when the conditions change, windows wait for it ──
+  let seq = 0
+  let ctrl: AbortController | null = null
+  /** Put a list of shown rows in force (null: none); windows start over in the new rows. */
+  function apply(next: SheetState['visible']['value']): void {
+    s.visible.value = next
+    s.filterWait.value = false
+    w.reset()
+    w.ensure()
+  }
+  async function fetchVisible(): Promise<void> {
+    const mine = ++seq
+    ctrl?.abort()
+    const want = spec.value
+    const wantKey = key.value
+    remember()
+    if (!want || !available.value) {
+      if (s.visible.value || s.filterWait.value) apply(null)
+      return
+    }
+    if (s.visible.value?.key === wantKey) return
+    s.filterWait.value = true
+    ctrl = new AbortController()
+    try {
+      const got = await s.props.source.visibleRows!(s.sheetName.value, want, ctrl.signal)
+      if (mine !== seq) return
+      apply(got.rows ? { key: wantKey, spec: want, rows: Int32Array.from(got.rows), index: new Map(got.rows.map((r, i) => [r, i + 1])) } : null)
+    } catch (e) {
+      if (mine !== seq || (e instanceof DOMException && e.name === 'AbortError')) return
+      notify(s.messages.value.filterFailed)
+      clear()
+    }
+  }
+  watch([() => s.sheetName.value, key], () => void fetchVisible())
+
+  /** Conditions are remembered by sheet (under the host's storage key). */
+  const memoryName = () => `filter:${s.sheetName.value}`
+  function remember(): void {
+    if (s.sheetName.value) s.memory.remember(memoryName(), active.value ? { cols: cols.value, sort: sort.value } : null)
+  }
+  /** The sheet's conditions from memory, before its windows load; the list of rows comes by the watcher. */
+  function restore(): void {
+    close()
+    const saved = s.memory.recall<{ cols?: Record<number, ColumnFilter>; sort?: Sort | null }>(memoryName())
+    s.visible.value = null
+    cols.value = saved?.cols ?? {}
+    sort.value = saved?.sort ?? null
+    s.filterWait.value = !!(available.value && (Object.keys(cols.value).length || sort.value))
+  }
+  /** Read the list again (the source reloaded): the rows may have changed. */
+  function refresh(): void {
+    if (s.visible.value) s.visible.value = { ...s.visible.value, key: '' }
+    void fetchVisible()
+  }
+  /** Drop every condition at once: the rows go back to the sheet's order. */
+  function clear(): void {
+    cols.value = {}
+    sort.value = null
+    seq++
+    ctrl?.abort()
+    apply(null)
+    remember()
+  }
+  s.hooks.unfilter = (row: number) => {
+    clear()
+    notify(s.messages.value.unfiltered(row))
+  }
+
+  /** The line under the grid: shown rows of all, the columns with conditions, the sort. */
+  const status = computed(() => {
+    if (!active.value) return ''
+    const fmt = new Intl.NumberFormat(s.locale.value)
+    const shown = Math.max(0, (s.visible.value?.rows.length ?? s.dataRows.value) - head.value)
+    const names = Object.keys(cols.value).map(Number).sort((a, b) => a - b).map(colLabel)
+    const sorted = sort.value ? { col: colLabel(sort.value.col), dir: sort.value.dir } : null
+    return s.messages.value.filterStatus(fmt.format(shown), fmt.format(Math.max(0, s.dataRows.value - head.value)), names, sorted)
+  })
+
+  // ── the funnel of a column: its values with checks, a substring, the sort ──
+  const open = ref<number | null>(null)
+  const pos = ref({ left: 0, top: 0 })
+  const values = ref<{ text: string; count: number }[]>([])
+  const more = ref(0)
+  const busy = ref(false)
+  /** The draft: checked values (null: all) and a substring; Apply or Enter puts it in force. */
+  const draftValues = ref<Set<string> | null>(null)
+  const draftText = ref('')
+  const draftSearch = ref('')
+  let valuesSeq = 0
+  async function openFunnel(col: number, anchor?: DOMRect): Promise<void> {
+    if (open.value === col) return close()
+    pos.value = { left: Math.max(4, Math.min(anchor?.left ?? 0, (typeof window !== 'undefined' ? window.innerWidth : 800) - 292)), top: (anchor?.bottom ?? 0) + 2 }
+    open.value = col
+    const cur = cols.value[col]
+    draftValues.value = cur?.values ? new Set(cur.values) : null
+    draftText.value = cur?.text ?? ''
+    draftSearch.value = ''
+    values.value = []
+    more.value = 0
+    busy.value = true
+    const mine = ++valuesSeq
+    try {
+      const got = await s.props.source.columnValues!(s.sheetName.value, col, spec.value ?? { head: head.value })
+      if (mine !== valuesSeq) return
+      values.value = got.values
+      more.value = got.more
+    } catch {
+      if (mine === valuesSeq) notify(s.messages.value.valuesFailed)
+    } finally {
+      if (mine === valuesSeq) busy.value = false
+    }
+  }
+  function close(): void {
+    if (open.value === null) return
+    open.value = null
+    valuesSeq++
+    void nextTick(() => s.scroller.value?.focus({ preventScroll: true }))
+  }
+  /** The funnel's title: the header cell's text and the letters, or the letters alone. */
+  const title = computed(() => {
+    const c = open.value
+    if (c === null) return ''
+    const name = head.value > 0 ? w.textOfRow(head.value, c).trim() : ''
+    return name ? s.messages.value.filterNamed(name, colLabel(c)) : s.messages.value.filterColumn(colLabel(c))
+  })
+  /** The list narrowed by its own search box (a convenience, not a condition, as in Excel). */
+  const shownValues = computed(() => {
+    const q = draftSearch.value.trim().toLocaleLowerCase()
+    return q ? values.value.filter((v) => v.text.toLocaleLowerCase().includes(q)) : values.value
+  })
+  const isChecked = (text: string) => draftValues.value === null || draftValues.value.has(text)
+  const allChecked = computed(() => draftValues.value === null || shownValues.value.every((v) => draftValues.value!.has(v.text)))
+  function toggleValue(text: string): void {
+    const next = new Set(draftValues.value ?? values.value.map((v) => v.text))
+    if (next.has(text)) next.delete(text)
+    else next.add(text)
+    draftValues.value = next
+  }
+  function toggleAll(): void {
+    if (allChecked.value) {
+      const next = new Set(draftValues.value ?? values.value.map((v) => v.text))
+      for (const v of shownValues.value) next.delete(v.text)
+      draftValues.value = next
+    } else {
+      const next = new Set(draftValues.value ?? [])
+      for (const v of shownValues.value) next.add(v.text)
+      draftValues.value = next.size === values.value.length && values.value.every((v) => next.has(v.text)) ? null : next
+    }
+  }
+  /** Put the draft in force: a condition on the column, or none when all is checked and there is no substring. */
+  function applyDraft(): void {
+    const c = open.value
+    if (c === null) return
+    const cond: ColumnFilter = {}
+    const all = draftValues.value === null || (values.value.length > 0 && values.value.every((v) => draftValues.value!.has(v.text)))
+    if (!all && draftValues.value) cond.values = [...draftValues.value]
+    if (draftText.value.trim()) cond.text = draftText.value.trim()
+    const next = { ...cols.value }
+    if (cond.values || cond.text) next[c] = cond
+    else delete next[c]
+    cols.value = next
+    close()
+  }
+  function clearColumn(c: number): void {
+    const next = { ...cols.value }
+    delete next[c]
+    cols.value = next
+    if (sort.value?.col === c) sort.value = null
+    close()
+  }
+  function sortBy(c: number, dir: 'asc' | 'desc'): void {
+    sort.value = sort.value?.col === c && sort.value.dir === dir ? null : { col: c, dir }
+    close()
+  }
+  function onFunnelKey(e: KeyboardEvent): void {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      applyDraft()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      close()
+    }
+  }
+
+  return {
+    cols,
+    sort,
+    available,
+    head,
+    active,
+    spec,
+    status,
+    restore,
+    refresh,
+    clear,
+    open,
+    pos,
+    values,
+    more,
+    busy,
+    draftValues,
+    draftText,
+    draftSearch,
+    title,
+    shownValues,
+    isChecked,
+    allChecked,
+    openFunnel,
+    close,
+    toggleValue,
+    toggleAll,
+    applyDraft,
+    clearColumn,
+    sortBy,
+    onFunnelKey,
+  }
+}
+
+export type Filter = ReturnType<typeof useFilter>

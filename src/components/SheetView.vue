@@ -4,10 +4,12 @@ import { getCurrentInstance, provide } from 'vue'
 import { useSheet, type SheetEmit, type SheetLinkEvent, type SheetViewState } from '../core/sheet'
 import type { SheetFailure, SheetViewProps } from '../core/state'
 import { sheetContextKey } from './context'
+import FilterPopover from './FilterPopover.vue'
+import FindBar from './FindBar.vue'
 import FormulaBar from './FormulaBar.vue'
 import SheetGrid from './SheetGrid.vue'
 import SheetTabs from './SheetTabs.vue'
-import { IconClose, IconRetry } from './icons'
+import { IconClose, IconRetry, IconSpinner } from './icons'
 
 const props = withDefaults(defineProps<SheetViewProps>(), {
   messages: undefined,
@@ -36,6 +38,7 @@ const m = ctx.messages
 const failure = ctx.failure
 const message = ctx.message
 const notice = ctx.w.notice
+const wait = ctx.w.wait
 </script>
 
 <template>
@@ -54,8 +57,19 @@ const notice = ctx.w.notice
     <template v-else>
       <FormulaBar v-if="formulaBar" />
       <div v-if="notice" class="xs-notice">{{ notice }}</div>
-      <SheetGrid />
+      <FindBar v-if="ctx.find.isOpen.value" />
+      <div class="xs-body">
+        <SheetGrid />
+        <!-- A book being recomputed: the sheet waits over the grid with a stopwatch, and asks again every second. -->
+        <div v-if="wait" class="xs-wait" role="status" aria-live="polite" data-xs-wait>
+          <IconSpinner class="xs-spin xs-wait-icon" />
+          <p class="xs-wait-title">{{ m.waiting }}</p>
+          <p class="xs-wait-seconds">{{ m.waitSeconds(ctx.w.waitSeconds.value) }}</p>
+          <p class="xs-muted">{{ m.waitHint }}</p>
+        </div>
+      </div>
       <SheetTabs />
+      <FilterPopover />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>
         <button type="button" class="xs-tool" :title="m.close" @click="ctx.dismiss()">

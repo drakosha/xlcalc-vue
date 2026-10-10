@@ -9,6 +9,8 @@ import { MAX_COL_PX, MIN_COL_PX, useGeometry, widthFromPx } from './geometry'
 import { useNavigation } from './navigation'
 import { useSelection } from './selection'
 import { createState, type SheetViewProps } from './state'
+import { useFilter } from './filter'
+import { useFind } from './find'
 import { useTotals } from './totals'
 import { useViewport } from './viewport'
 import { useWindows } from './windows'
@@ -56,7 +58,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const barInput = ref<HTMLTextAreaElement | null>(null)
   const ed = useEditing(s, w, sel, f, editor, { notify, reload, cellInput, barInput })
   const totals = useTotals(s, w, sel, notify)
-  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks })
+  const filter = useFilter(s, w, notify)
+  const find = useFind(s, sel, notify)
+  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find })
 
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
@@ -76,6 +80,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     s.userWidths.value = hasLayout() ? {} : (s.memory.recall<Record<number, number>>(`widths:${s.sheetName.value}`) ?? {})
     originalWidths.clear()
     v.readFreeze()
+    filter.restore()
     s.scroller.value?.scrollTo({ top: 0, left: 0 })
     s.scrollTop.value = 0
     s.scrollLeft.value = 0
@@ -126,6 +131,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     w.reset()
     w.resetSizes()
     if (hasLayout()) s.userWidths.value = {}
+    if (filter.active.value) filter.refresh()
     w.ensure()
   }
   function retry(): void {
@@ -205,6 +211,23 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (!hostLinks()) return
     e.preventDefault()
     emit('openLink', { ...link, sheet: s.sheetName.value, cell: cellAddress(row, col) })
+  }
+
+  // ── keys on the grid: search and Esc first, then editing and moves ──
+  function onGridKey(e: KeyboardEvent): void {
+    if (e.target !== s.scroller.value) return
+    if ((e.ctrlKey || e.metaKey) && /^[fFаА]$/.test(e.key) && find.available.value) {
+      e.preventDefault()
+      find.openFind()
+      return
+    }
+    if (e.key === 'Escape' && (filter.open.value !== null || find.isOpen.value)) {
+      e.preventDefault()
+      if (filter.open.value !== null) filter.close()
+      else find.closeFind()
+      return
+    }
+    ed.onGridKey(e)
   }
 
   // ── the frame ──
@@ -288,6 +311,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     nav,
     ed,
     totals,
+    filter,
+    find,
     views,
     editor,
     message,
@@ -305,6 +330,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     resetWidth,
     onLink,
     onScroll,
+    onGridKey,
   }
 }
 

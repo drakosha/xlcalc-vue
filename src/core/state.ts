@@ -62,6 +62,8 @@ export function createState(props: SheetViewProps) {
   const viewW = ref(800)
   /** The display filter in force: the sheet's rows in display order and the way back; null without one. */
   const visible = shallowRef<{ key: string; spec: SheetFilter; rows: Int32Array; index: Map<number, number> } | null>(null)
+  /** A filter's list of rows is on its way: windows wait for it, their rows would be another's. */
+  const filterWait = ref(false)
   /** Display index (`d`, the grid's geometry and windows) to the sheet's row (`r`, numbers, addresses, selection) and back. */
   const rowOf = (d: number): number => (visible.value ? (visible.value.rows[d - 1] ?? d) : d)
   const indexOf = (r: number): number | undefined => (visible.value ? visible.value.index.get(r) : r)
@@ -119,6 +121,7 @@ export function createState(props: SheetViewProps) {
     dataRows,
     dataCols,
     visible,
+    filterWait,
     rowOf,
     indexOf,
     dataShown,

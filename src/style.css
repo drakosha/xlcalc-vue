@@ -13,6 +13,7 @@
   --xs-link: #1558d6;
   --xs-note: #dc2626;
   --xs-flash: rgb(250 204 21 / 0.85);
+  --xs-hit: rgb(250 204 21 / 0.45);
   --xs-freeze-line: #9aa0a6;
   --xs-border-auto: #000000;
   --xs-table-head-bg: #e8eef8;
@@ -179,7 +180,46 @@
   font-size: 11.5px;
 }
 
+/* ── search ── */
+.xs-find {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--xs-grid);
+  background: var(--xs-head-bg);
+}
+.xs-find-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: 12.5px var(--xs-font);
+  outline: none;
+}
+.xs-find-input:focus {
+  border-color: var(--xs-accent);
+}
+.xs-find-status {
+  flex-shrink: 0;
+  color: var(--xs-muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
 /* ── the grid ── */
+.xs-body {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
 .xs-scroller {
   position: relative;
   flex: 1 1 auto;
@@ -379,9 +419,19 @@
   color: var(--xs-pending);
   font-style: italic;
 }
-/* After a jump the range flashes for two seconds, so the eye finds it. */
-.xs-cell.xs-flash {
+/* After a jump the range flashes for two seconds, so the eye finds it; the current search hit pulses the same way.
+   A frozen cell is sticky, which already holds the overlay: making it relative would unstick it from its pane. */
+.xs-cell.xs-flash:not(.xs-fz-row, .xs-fz-col, .xs-fz-corner),
+.xs-cell.xs-hit-now:not(.xs-fz-row, .xs-fz-col, .xs-fz-corner) {
   position: relative;
+}
+.xs-cell.xs-hit-now::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--xs-flash);
+  animation: xs-pulse 0.5s ease-in-out infinite alternate;
 }
 .xs-cell.xs-flash::before {
   content: '';
@@ -400,6 +450,55 @@
     opacity: 1;
   }
 }
+/* The funnel on a column's letter: seen on hover and while its filter is on. */
+.xs-funnel {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--xs-head-fg);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-50%);
+}
+.xs-funnel .xs-icon {
+  width: 12px;
+  height: 12px;
+}
+.xs-head:hover .xs-funnel,
+.xs-funnel.xs-on,
+.xs-funnel.xs-open {
+  opacity: 1;
+}
+.xs-funnel.xs-on {
+  color: var(--xs-accent);
+}
+.xs-funnel:hover,
+.xs-funnel.xs-open {
+  background: var(--xs-head-on-bg);
+}
+.xs-head.xs-filtered {
+  color: var(--xs-fg);
+}
+.xs-sortmark {
+  margin-left: 2px;
+  font-size: 10px;
+}
+/* A touch screen has no hover: funnels show at all times there. */
+@media (hover: none) {
+  .xs-funnel {
+    opacity: 0.7;
+  }
+}
+
 /* The column's edge: wider than the line itself, or the mouse would never hit it. */
 .xs-grip {
   position: absolute;
@@ -464,6 +563,145 @@
   }
 }
 
+/* A book being recomputed: the wait lies over the grid. */
+.xs-wait {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 24px;
+  background: color-mix(in srgb, var(--xs-bg) 92%, transparent);
+  text-align: center;
+}
+.xs-wait p {
+  margin: 0;
+}
+.xs-wait-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--xs-muted);
+}
+.xs-wait-title {
+  font-weight: 600;
+}
+.xs-wait-seconds {
+  color: var(--xs-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── the funnel's list ── */
+.xs-popover {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 280px;
+  padding: 8px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 6px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font-size: 12.5px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
+}
+/* On a phone the list takes the whole screen, with room for fingers. */
+.xs-popover-full {
+  inset: 0;
+  width: auto;
+  padding: 12px;
+  border: 0;
+  border-radius: 0;
+  font-size: 15px;
+}
+.xs-popover-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.xs-popover-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xs-popover-input {
+  width: 100%;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: inherit;
+  outline: none;
+}
+.xs-popover-input:focus {
+  border-color: var(--xs-accent);
+}
+.xs-popover-search {
+  background: var(--xs-head-bg);
+}
+.xs-values {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+}
+.xs-popover-full .xs-values {
+  flex: 1 1 auto;
+  max-height: none;
+}
+.xs-values-note {
+  margin: 0;
+  padding: 6px 8px;
+}
+.xs-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.xs-popover-full .xs-value {
+  padding: 8px 10px;
+}
+.xs-value:hover {
+  background: var(--xs-head-bg);
+}
+.xs-value-all {
+  border-bottom: 1px solid var(--xs-grid);
+  font-weight: 600;
+}
+.xs-value-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xs-popover-foot {
+  display: flex;
+  gap: 6px;
+}
+.xs-popover-full .xs-popover-foot .xs-button {
+  flex: 1 1 0;
+  justify-content: center;
+  padding: 10px;
+  font-size: 15px;
+}
+.xs-button-main {
+  border-color: var(--xs-accent);
+  background: var(--xs-accent);
+  color: #ffffff;
+}
+
 /* ── the bottom line ── */
 .xs-bottom {
   display: flex;
@@ -501,6 +739,20 @@
   box-shadow: inset 0 -2px 0 var(--xs-accent);
   color: var(--xs-fg);
   font-weight: 600;
+}
+.xs-filter-status {
+  display: flex;
+  flex-shrink: 1;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  color: var(--xs-muted);
+  font-size: 11.5px;
+}
+.xs-filter-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .xs-stats {
   flex-shrink: 1;
@@ -579,4 +831,15 @@
 }
 .xs-narrow .xs-stats {
   max-width: 55%;
+}
+/* On a phone the tabs keep a line of their own when the filter's state or totals come along. */
+.xs-narrow .xs-bottom {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.xs-narrow .xs-tabs {
+  flex-basis: 100%;
+}
+.xs-narrow .xs-stats {
+  margin-left: auto;
 }

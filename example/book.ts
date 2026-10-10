@@ -241,6 +241,31 @@ function overflow(): MemorySheet {
   }
 }
 
+/** A table to filter, sort and search: a frozen header, repeating departments and statuses, sums and dates. */
+function filterable(rows: number): MemorySheet {
+  const head = st({ font: { bold: true }, fill: { color: '#d9e1f2' }, border: { bottom: { style: 'thin' } } })
+  const cells: Record<string, MemoryCell> = {
+    A1: { value: 'Отдел', style: head },
+    B1: { value: 'Статус', style: head },
+    C1: { value: 'Сумма', style: head },
+    D1: { value: 'Дата', style: head },
+    E1: { value: 'Комментарий', style: head },
+  }
+  const depts = ['Бухгалтерия', 'Склад', 'Продажи', 'Закупки', 'ИТ']
+  const statuses = ['оплачен', 'ожидает', 'отклонён', '']
+  for (let r = 2; r <= rows; r++) {
+    const sum = ((r * 7919) % 50000) / 100
+    const day = 1 + ((r * 13) % 28)
+    cells[`A${r}`] = { value: depts[r % depts.length]! }
+    const status = statuses[(r * 3) % statuses.length]!
+    if (status) cells[`B${r}`] = { value: status }
+    cells[`C${r}`] = { value: sum, text: sum.toFixed(2).replace('.', ',') }
+    cells[`D${r}`] = { value: 46022 + day, text: `${String(day).padStart(2, '0')}.01.2026` }
+    if (r % 7 === 0) cells[`E${r}`] = { value: `счёт ${r}` }
+  }
+  return { name: 'Фильтр', cells, freeze: { rows: 1, cols: 0 }, widths: { A: 16, B: 12, C: 12, D: 12, E: 18 } }
+}
+
 export function allFormattingBook(longRows = 34_000): MemoryBook {
   const sheets: MemorySheet[] = [
     formatting(),
@@ -258,6 +283,7 @@ export function allFormattingBook(longRows = 34_000): MemoryBook {
     locked(),
     overflow(),
     { name: 'Плашка', cells: { A1: { value: 'Значения посчитал источник' } }, notice: 'Значения формул посчитаны источником, в файле их нет' },
+    filterable(300),
   ]
   return { sheets, styles }
 }
