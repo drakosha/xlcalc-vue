@@ -1,0 +1,16 @@
+# Changelog
+
+## Unreleased
+
+The first public release. The versions before it were internal builds and were not published to npm; their changes are folded into this entry, and the README describes the package as it is.
+
+What is in it:
+
+- `SheetView`: a windowed grid over a `SheetSource`, with the book's styles, number formats, conditional formats, merged areas, tables, hyperlinks and notes; editing with Excel's keys, the formula bar (one line, expanded by its arrow or Control+Shift+U), Point mode by the mouse and the arrows, Formula AutoComplete, fill and paste, Control+Return, undo and redo; selection, Control and an arrow as Excel's Range.End, frozen panes, the fill handle, cut, copy and paste as Excel copies text, Find and Replace, data validation with Excel's dropdown, input message and alerts, the outline, the display filter and sort, the precedents' panel, menus of cells, lines and tabs, column widths and row heights by the mouse with AutoFit on a double click.
+- `SheetToolbar` and `FormatDialog`: Excel's formatting row and its Format Cells dialog.
+- The `SheetSource` contract (`src/source.ts`): every feature beyond reading windows is an optional method, so a source on a server and one in the page give what they have.
+- `memorySource`: a source over a book held in memory, for an example or a test.
+- `xlcalc-sheet/local`: `localSource`, a source over an xlcalc book that computes in a Web Worker or in the page's thread and does what the grid asks as Excel does it, with `openXlsx` and `saveXlsx`; it needs `xlcalc` 0.34.0 or later, an optional peer.
+- The interface's texts in English by default and in Russian (`ruMessages`).
+- `example/spa.html`: an app like Excel over `./local`, all in the browser, without a server.
+- The main entry depends at runtime on `vue` alone and carries no engine.
