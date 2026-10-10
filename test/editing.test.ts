@@ -117,6 +117,25 @@ describe('keys', () => {
     expect((w.find('.xs-editor').element as HTMLTextAreaElement).value).toBe('b1')
   })
 
+  it('a text the book would read as a number or a date opens with an apostrophe, and Enter leaves it a text', async () => {
+    const { source, edits } = recorded({ sheets: [{ name: 'S', cells: { A1: { value: '007', text: '007' }, A2: { value: '15.03.2026' }, A3: 'plain' } }] })
+    const w = await mountSheet(source, { locale: 'ru-RU' })
+    const field = () => (w.find('.xs-editor').element as HTMLTextAreaElement).value
+    await key(w, 'F2')
+    await settle()
+    expect(field()).toBe("'007")
+    await editorKey(w, 'Enter')
+    await key(w, 'F2')
+    await settle()
+    expect(field()).toBe("'15.03.2026")
+    await editorKey(w, 'Enter')
+    await key(w, 'F2')
+    await settle()
+    expect(field()).toBe('plain')
+    await editorKey(w, 'Escape')
+    expect(edits).toEqual([])
+  })
+
   it('Delete clears the selection, skipping cells known empty', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)

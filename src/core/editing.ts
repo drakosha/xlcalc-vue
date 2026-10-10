@@ -3,6 +3,7 @@ import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
 import type { CellEntry, EditOutcome } from '../source'
 import { cellAddress, parseRect, rectsMeet, type Rect } from './a1'
 import { parseTsv } from './clipboard'
+import { numberEditText, textEditText } from './edit-text'
 import type { Formula } from './formula'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -33,21 +34,6 @@ export interface EditingDeps {
   barInput: Ref<HTMLTextAreaElement | null>
 }
 
-/** A number's edit text in the book's locale: the full value, a percent as a percent, a date or time as shown. */
-export function numberEditText(value: number, shown: string, locale: string): string {
-  const raw = (n: number) => {
-    try {
-      return new Intl.NumberFormat(locale, { useGrouping: false, maximumSignificantDigits: 15 }).format(n)
-    } catch {
-      return String(n)
-    }
-  }
-  const t = shown.trim()
-  if (/^-?[\d\s.,  ]+%$/.test(t)) return `${raw(value * 100)}%`
-  if (/^\d{1,4}[./-]\d{1,2}([./-]\d{1,4})?(\s+\d{1,2}:\d{2}(:\d{2})?)?$/.test(t) || /^\d{1,2}:\d{2}(:\d{2})?(\s?[AP]M)?$/i.test(t)) return t
-  return raw(value)
-}
-
 export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula, editor: Ref<EditorState | null>, deps: EditingDeps) {
   /** Edits in flight by cell: the typed text the cell shows meanwhile (null: clearing). */
   const pending = shallowRef(new Map<string, { text: string | null; seq: number }>())
@@ -69,9 +55,9 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   function editText(row: number, col: number): string {
     const formula = f.formulaAt(row, col)
     if (formula !== undefined) return `=${formula}`
-    const value = w.valueAt(row, col)
-    const shown = w.textAt(row, col)
-    if (typeof value === 'string') return value
+    const value = w.valueOfRow(row, col)
+    const shown = w.textOfRow(row, col)
+    if (typeof value === 'string') return textEditText(value)
     if (typeof value === 'number') return numberEditText(value, shown, s.locale.value)
     return shown
   }
@@ -172,7 +158,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const out = { r1: r.r1, c1: r.c1, r2: Math.min(r.r2, s.dataRows.value), c2: Math.min(r.c2, s.dataCols.value) }
     return out.r1 <= out.r2 && out.c1 <= out.c2 ? out : null
   }
-  /** Delete and Backspace: clear the selection's cells (those known empty are skipped). */
+  /** Delete and Backspace: clear the selection's cells (those known empty and rows the filter hides are skipped, as in Excel). */
   function clearSelection(): void {
     if (!s.editable.value || !sel.selRect.value) return
     const lock = lockIn(sel.selRect.value)
@@ -182,8 +168,9 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if ((r.r2 - r.r1 + 1) * (r.c2 - r.c1 + 1) > MAX_EDIT_CELLS) return deps.notify(s.messages.value.tooManyCells)
     const entries: CellEntry[] = []
     for (let row = r.r1; row <= r.r2; row++) {
+      if (s.indexOf(row) === undefined) continue
       for (let col = r.c1; col <= r.c2; col++) {
-        if (w.emptyAt(row, col) && f.formulaAt(row, col) === undefined) continue
+        if (w.emptyAtRow(row, col) && f.formulaAt(row, col) === undefined) continue
         entries.push({ sheet: s.sheetName.value, cell: cellAddress(row, col), text: null })
       }
     }

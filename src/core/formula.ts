@@ -1,6 +1,6 @@
 // The active cell's formula in pieces with clickable references, and the formula's ranges highlighted on the grid as in Excel.
 import { computed, type Ref } from 'vue'
-import { cellAddress, colNumber } from './a1'
+import { colNumber } from './a1'
 import { formulaTokens, refKey, type FormulaRef, type FormulaToken } from './formula-refs'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -13,12 +13,9 @@ const PRECEDENT_CELLS_MAX = 500
 const PRECEDENT_RANGES_MAX = 24
 
 export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref<string | null>) {
-  const formulaAt = (row: number, col: number): string | undefined => {
-    const slot = w.slotAt(row, col)
-    return slot ? slot.win!.formulas[cellAddress(row, col)] : undefined
-  }
+  const formulaAt = (row: number, col: number): string | undefined => w.formulaOfRow(row, col)
   const selectedFormula = computed(() => (s.selected.value ? (formulaAt(s.selected.value.row, s.selected.value.col) ?? '') : ''))
-  const selectedValue = computed(() => (s.selected.value ? w.textAt(s.selected.value.row, s.selected.value.col) : ''))
+  const selectedValue = computed(() => (s.selected.value ? w.textOfRow(s.selected.value.row, s.selected.value.col) : ''))
   /** The formula being typed, when the draft is one, takes over the highlights. */
   const shownFormula = computed(() => {
     const d = draft.value
@@ -44,7 +41,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
       let cells = 0
       for (const kind of ['body', 'top', 'left'] as const) {
         const slot = w.slots[kind].value
-        if (!slot.win || slot.sheet !== s.sheetName.value) continue
+        if (!slot.win || slot.view !== w.viewKey()) continue
         for (const [addr, f] of Object.entries(slot.win.formulas)) {
           const m = /^([A-Z]+)(\d+)$/.exec(addr)
           if (!m) continue

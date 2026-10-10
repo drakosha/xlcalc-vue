@@ -1,7 +1,9 @@
 // A source over a book in memory, for tests and examples: values, shown text, formulas as strings and every display field; no engine.
+// It has every optional method of 0.2.0 (search, filter, column values, totals) and can play a book being recomputed.
 import type { CellStyle, CellValue } from 'xlcalc/contract'
-import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, SheetInfo, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
+import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { cellAddress, colNumber, parseCell, parseRect, rectsMeet } from './core/a1'
+import { columnList, findHits, rangeStats, visibleList, type QuerySheet } from './memory-query'
 
 /** A cell of the memory book; a bare value is a cell with that value. */
 export interface MemoryCell {
@@ -50,6 +52,8 @@ export interface MemorySource extends SheetSource {
   emit(event: SourceEvent): void
   /** Change cells as another tab would: applied, and sent to the subscribers as `changed`. */
   setCells(sheet: string, entries: Record<string, string | null>): CellUpdate[]
+  /** Play a book being recomputed for `ms`: windows answer `pending` until then. */
+  recompute(ms: number): void
 }
 
 const ERROR_TEXT: Record<string, string> = {
@@ -115,6 +119,29 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   })
   const listeners = new Set<(event: SourceEvent) => void>()
   const failures: Extract<EditOutcome, { ok: false }>[] = []
+  /** A recomputation being played: when it started and when it ends. */
+  let recomputing: { since: number; until: number } | null = null
+
+  /** A sheet as the queries read it: shown text and values by row and column. */
+  function query(store: Store): QuerySheet {
+    return {
+      maxRow: store.maxRow,
+      maxCol: store.maxCol,
+      textAt: (r, c) => {
+        const cell = store.cells.get(cellAddress(r, c))
+        return cell ? textOf(cell) : ''
+      },
+      valueAt: (r, c) => {
+        const cell = store.cells.get(cellAddress(r, c))
+        return cell?.value ?? (cell?.text ? cell.text : null)
+      },
+    }
+  }
+  function storeOrThrow(name: string): Store {
+    const store = storeOf(name)
+    if (!store) throw new Error(`No sheet ${name}`)
+    return store
+  }
 
   /** The sheet's extent: cells with anything in them, and merges. */
   function measure(store: Store): void {
@@ -162,11 +189,14 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze, hidden, locked, columns, rowNumbers, totals }
   }
 
-  function windowOf(req: WindowRequest): SheetWindow {
-    const store = storeOf(req.sheet)
-    if (!store) throw new Error(`No sheet ${req.sheet}`)
+  /** A rectangle; under a filter `row` is a display index and the rows come from the filter's list. */
+  function windowOf(req: WindowRequest): SheetWindow | SheetPending {
+    if (recomputing && Date.now() < recomputing.until) return { pending: { elapsedMs: Date.now() - recomputing.since } }
+    const store = storeOrThrow(req.sheet)
+    const list = visibleList(query(store), req.filter)
     const cols = Math.max(0, req.cols)
-    const rows = Math.max(0, Math.min(req.rows, Math.floor((options.maxCells ?? 20_000) / Math.max(1, cols))))
+    const limit = list ? Math.max(0, list.length - req.row + 1) : Infinity
+    const rows = Math.max(0, Math.min(req.rows, limit, Math.floor((options.maxCells ?? 20_000) / Math.max(1, cols))))
     const win: SheetWindow = {
       row: req.row,
       col: req.col,
@@ -187,7 +217,10 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       ...(store.sheet.notice ? { notice: store.sheet.notice } : {}),
     }
     for (let c = req.col; c < req.col + cols; c++) win.widths.push(store.widths.get(c) ?? null)
-    for (let r = req.row; r < req.row + rows; r++) {
+    const sheetRows: number[] = []
+    for (let d = req.row; d < req.row + rows; d++) {
+      const r = list ? list[d - 1]! : d
+      sheetRows.push(r)
       const text: string[] = []
       const values: CellValue[] = []
       const h = store.heights.get(r)
@@ -208,10 +241,14 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       win.text.push(text)
       win.values.push(values)
     }
+    // Under a filter the rows are scattered: only one-row merges on shown rows stay, as the the app gives them.
     const area = { r1: req.row, c1: req.col, r2: req.row + Math.max(rows, 1) - 1, c2: req.col + Math.max(cols, 1) - 1 }
+    const shown = new Set(sheetRows)
     win.merges = (store.sheet.merges ?? []).filter((m) => {
       const r = parseRect(m)
-      return !!r && rectsMeet(r, area)
+      if (!r) return false
+      if (!list) return rectsMeet(r, area)
+      return r.r1 === r.r2 && shown.has(r.r1) && r.c1 <= area.c2 && r.c2 >= area.c1
     })
     return win
   }
@@ -267,6 +304,19 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         return { ok: true, changes: [] }
       })
     },
+    find: (sheet, q, filter, signal) => wait(() => findHits(query(storeOrThrow(sheet)), q, filter), signal),
+    visibleRows: (sheet, filter, signal) =>
+      wait(() => {
+        const store = storeOrThrow(sheet)
+        return { rows: visibleList(query(store), filter), total: store.maxRow }
+      }, signal),
+    columnValues: (sheet, col, filter, signal) => wait(() => columnList(query(storeOrThrow(sheet)), col, filter), signal),
+    stats: (sheet, range, filter, signal) =>
+      wait(() => {
+        const rect = parseRect(range)
+        if (!rect) throw new Error(`Not a range: ${range}`)
+        return rangeStats(query(storeOrThrow(sheet)), rect, filter)
+      }, signal),
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -276,6 +326,9 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     },
     emit(event) {
       for (const l of listeners) l(event)
+    },
+    recompute(ms) {
+      recomputing = { since: Date.now(), until: Date.now() + ms }
     },
     setCells(sheet, entries) {
       const changes = apply(Object.entries(entries).map(([cell, text]) => ({ sheet, cell, text })))

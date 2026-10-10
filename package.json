@@ -1,6 +1,6 @@
 {
   "name": "xlcalc-sheet",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Vue 3 sheet component for xlcalc workbooks: a windowed grid with styles, formulas and editing over a pluggable sheet source",
   "license": "MIT",
   "author": "Mikhail Kostryukov",

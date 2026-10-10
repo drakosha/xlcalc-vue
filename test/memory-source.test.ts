@@ -1,5 +1,5 @@
 // memorySource: the window's fields, edits without an engine, layout, refusals for tests, events, and the cell limit.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import type { SheetWindow, SourceEvent } from '../src/source'
 
@@ -132,4 +132,89 @@ describe('memorySource', () => {
     ctrl.abort()
     await expect(p).rejects.toMatchObject({ name: 'AbortError' })
   })
+
+  describe('0.2.0 queries', () => {
+    const table = (): MemoryBook => ({
+      sheets: [
+        {
+          name: 'T',
+          cells: {
+            A1: 'Name', B1: 'Sum', C1: 'Note',
+            A2: 'b', B2: 3, C2: 'x',
+            A3: 'a', B3: 10,
+            A4: 'c', B4: 'text', C4: 'x',
+            A5: 'a', B5: -1, C5: 'Apple',
+            A6: 'b', C6: 'apple pie',
+          },
+          merges: ['C2:D2', 'C3:C4'],
+        },
+      ],
+    })
+
+    it('visibleRows: the header first, conditions on values and substrings, Excel’s sort with empty cells last', async () => {
+      const src = memorySource(table())
+      expect(await src.visibleRows!('T', { head: 1 })).toEqual({ rows: null, total: 6 })
+      expect((await src.visibleRows!('T', { head: 1, cols: { 1: { values: ['a', 'b'] } } })).rows).toEqual([1, 2, 3, 5, 6])
+      expect((await src.visibleRows!('T', { head: 1, cols: { 3: { text: 'APP' } } })).rows).toEqual([1, 5, 6])
+      expect((await src.visibleRows!('T', { head: 1, sort: { col: 2, dir: 'asc' } })).rows).toEqual([1, 5, 2, 3, 4, 6])
+      expect((await src.visibleRows!('T', { head: 1, sort: { col: 2, dir: 'desc' } })).rows).toEqual([1, 4, 3, 2, 5, 6])
+    })
+
+    it('columnValues: counts over the rows the other columns leave, empty as ""', async () => {
+      const src = memorySource(table())
+      expect(await src.columnValues!('T', 1, { head: 1 })).toEqual({
+        values: [
+          { text: 'a', count: 2 },
+          { text: 'b', count: 2 },
+          { text: 'c', count: 1 },
+        ],
+        more: 0,
+      })
+      // Its own condition does not narrow the column's list; another column's does.
+      expect((await src.columnValues!('T', 1, { head: 1, cols: { 1: { values: ['a'] }, 3: { values: ['x'] } } })).values).toEqual([
+        { text: 'b', count: 1 },
+        { text: 'c', count: 1 },
+      ])
+      expect((await src.columnValues!('T', 3, { head: 1 })).values.map((v) => v.text)).toEqual(['Apple', 'apple pie', 'x', ''])
+    })
+
+    it('find: a substring in any case, in row order, only shown rows under a filter', async () => {
+      const src = memorySource(table())
+      expect(await src.find!('T', 'APP', undefined)).toEqual({
+        hits: [
+          { row: 5, col: 3, text: 'Apple' },
+          { row: 6, col: 3, text: 'apple pie' },
+        ],
+        total: 2,
+      })
+      expect((await src.find!('T', 'app', { head: 1, cols: { 1: { values: ['a'] } } })).hits.map((h) => h.row)).toEqual([5])
+    })
+
+    it('stats: a rectangle’s totals, over shown rows under a filter', async () => {
+      const src = memorySource(table())
+      expect(await src.stats!('T', 'B2:B6', undefined)).toEqual({ cells: 4, numbers: 3, sum: 12, min: -1, max: 10 })
+      expect(await src.stats!('T', 'B1:B6', { head: 1, cols: { 1: { values: ['a'] } } })).toEqual({ cells: 3, numbers: 2, sum: 9, min: -1, max: 10 })
+    })
+
+    it('a window under a filter goes by display index; only one-row merges on shown rows come', async () => {
+      const src = memorySource(table())
+      const w = (await src.window({ sheet: 'T', row: 2, rows: 10, col: 1, cols: 4, filter: { head: 1, cols: { 3: { values: ['x'] } } } })) as SheetWindow
+      expect(w.row).toBe(2)
+      expect(w.text.map((r) => r[0])).toEqual(['b', 'c'])
+      expect(w.formulas).toEqual({})
+      expect(w.merges).toEqual(['C2:D2'])
+    })
+
+    it('recompute: windows answer pending until the time is up', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      const src = memorySource(table())
+      src.recompute(2000)
+      vi.advanceTimersByTime(500)
+      expect(await src.window({ sheet: 'T', row: 1, rows: 1, col: 1, cols: 1 })).toEqual({ pending: { elapsedMs: 500 } })
+      vi.advanceTimersByTime(1600)
+      expect(((await src.window({ sheet: 'T', row: 1, rows: 1, col: 1, cols: 1 })) as SheetWindow).text).toEqual([['Name']])
+      vi.useRealTimers()
+    })
+  })
 })
+

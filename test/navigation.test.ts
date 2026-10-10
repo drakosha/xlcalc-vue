@@ -101,7 +101,9 @@ describe('formula bar', () => {
 
 describe('selection', () => {
   it('by column and row headers, with Shift; totals over loaded cells, the count beyond them', async () => {
-    const w = await mountSheet(memorySource(book()), { readOnly: true })
+    const source = memorySource(book())
+    delete (source as { stats?: unknown }).stats
+    const w = await mountSheet(source, { readOnly: true })
     await w.findAll('.xs-head')[0]!.trigger('click')
     await w.findAll('.xs-head')[1]!.trigger('click', { shiftKey: true })
     expect(w.find('.xs-stats').text()).toBe('Count: 5 · Sum: 16 · Average: 3.2 · Min: 1 · Max: 6')

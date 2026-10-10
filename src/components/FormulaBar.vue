@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import { cellAddress } from '../core/a1'
 import { safeHref } from '../core/cell-view'
 import { useSheetContext } from './context'
-import { IconBack, IconLink, IconLock, IconLockOpen } from './icons'
+import { IconBack, IconFilter, IconLink, IconLock, IconLockOpen, IconSearch } from './icons'
 
 const ctx = useSheetContext()
 const { sel, f, nav, ed, v } = ctx
@@ -43,6 +43,13 @@ function onBarClick(e: MouseEvent): void {
     return
   }
   ed.startEdit({ mode: 'edit', place: 'bar' })
+}
+/** A finger has no funnels on the letters (too small to hit): one in the bar opens the active cell's column. */
+const barFunnel = computed(() => v.touch.value && ctx.filter.available.value && ctx.dataRows.value > 1)
+function openBarFunnel(e: MouseEvent): void {
+  const col = active.value?.col ?? 1
+  if (ctx.filter.open.value === col) return ctx.filter.close()
+  void ctx.filter.openFunnel(col, (e.currentTarget as HTMLElement).getBoundingClientRect())
 }
 const setBarInput = (el: unknown) => (ctx.barInput.value = (el as HTMLTextAreaElement | null) ?? null)
 
@@ -154,6 +161,26 @@ function onAddressEsc(e: KeyboardEvent): void {
       >
         <IconLock v-if="v.freezeOn.value" />
         <IconLockOpen v-else />
+      </button>
+      <button
+        v-if="ctx.find.available.value"
+        type="button"
+        :class="['xs-tool', ctx.find.isOpen.value ? 'xs-tool-on' : '']"
+        :title="m.find"
+        data-xs-find
+        @click="ctx.find.isOpen.value ? ctx.find.closeFind() : ctx.find.openFind()"
+      >
+        <IconSearch />
+      </button>
+      <button
+        v-if="barFunnel"
+        type="button"
+        :class="['xs-tool', 'xs-funnel-tool', ctx.filter.active.value ? 'xs-tool-on' : '']"
+        :title="m.filter"
+        data-xs-funnel
+        @click="openBarFunnel"
+      >
+        <IconFilter />
       </button>
     </div>
   </div>
