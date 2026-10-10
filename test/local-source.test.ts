@@ -147,8 +147,9 @@ describe('localSource: typed edits', () => {
 
   it('reads 15.03.2026 as a date with the date format', async () => {
     const s = source()
-    const got = await s.edit([{ sheet: 'Лист1', cell: 'A4', text: '15.03.2026' }])
-    expect(got).toMatchObject({ ok: true, changes: [{ cell: 'A4', value: 46096, text: '15.03.2026' }] })
+    // B is 20 wide: in a column of the default width the date shows as ### (the library measures it so)
+    const got = await s.edit([{ sheet: 'Лист1', cell: 'B4', text: '15.03.2026' }])
+    expect(got).toMatchObject({ ok: true, changes: [{ cell: 'B4', value: 46096, text: '15.03.2026' }] })
   })
 
   it('gives invalid with the position for a formula that does not parse, and changes nothing', async () => {
