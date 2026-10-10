@@ -2,7 +2,7 @@
 import { computed, type Ref } from 'vue'
 import type { BorderLine, CellStyle } from 'xlcalc/contract'
 import { cellAddress, inRect } from './a1'
-import { alignCss, borderCss, borderWidth, fillText, fontCss, horizontalOf, overflows, verticalOf, wrapsOf, type Horizontal } from './cell-style'
+import { alignCss, borderCss, borderWidth, fillText, fontCss, horizontalOf, overflows, setSide, verticalOf, wrapsOf, type CssLine, type Horizontal } from './cell-style'
 import type { EditorState } from './editing'
 import type { Editing } from './editing'
 import type { Formula } from './formula'
@@ -93,10 +93,10 @@ export function useCellView(
   const freezeCols = () => s.sheet.value?.freeze?.cols ?? 0
 
   /** A side's line: the cell's own, else the neighbour's facing side (one line in Excel); else a fill hides the grid line. */
-  function edge(own: BorderLine | undefined, other: BorderLine | undefined, fill: string | undefined): { css?: string; width: number } {
+  function edge(own: BorderLine | undefined, other: BorderLine | undefined, fill: string | undefined): { css?: CssLine; width: number } {
     const line = own ?? other
     if (line) return { css: borderCss(line), width: borderWidth(line) }
-    return { css: fill ? `1px solid ${fill}` : undefined, width: 1 }
+    return { css: fill ? { width: '1px', style: 'solid', color: fill } : undefined, width: 1 }
   }
 
   /** May a neighbour take this cell's overflowing text: loaded, empty, not merged, not being edited. */
@@ -172,14 +172,14 @@ export function useCellView(
     const nextR = hasBelow ? styleOf(geo.nextRow(r2, 1), c) : undefined
     const right = edge(rightStyle?.border?.right, nextC?.border?.left, c2 === freezeCols() ? undefined : (rightStyle?.fill?.color ?? nextC?.fill?.color))
     const bottom = edge(bottomStyle?.border?.bottom, nextR?.border?.top, r2 === freezeRows() ? undefined : (bottomStyle?.fill?.color ?? nextR?.fill?.color))
-    if (right.css) css.borderRight = right.css
-    if (bottom.css) css.borderBottom = bottom.css
+    if (right.css) setSide(css, 'Right', right.css)
+    if (bottom.css) setSide(css, 'Bottom', bottom.css)
     let topWidth = 0
     if (!geo.hasRow(r, -1) && st?.border?.top) {
-      css.borderTop = borderCss(st.border.top)!
+      setSide(css, 'Top', borderCss(st.border.top)!)
       topWidth = borderWidth(st.border.top)
     }
-    if (!geo.hasCol(c, -1) && st?.border?.left) css.borderLeft = borderCss(st.border.left)!
+    if (!geo.hasCol(c, -1) && st?.border?.left) setSide(css, 'Left', borderCss(st.border.left)!)
 
     // Insets: formula ranges, the selection's frame and tables' frames; tints and bars as background layers.
     const shadows: string[] = []

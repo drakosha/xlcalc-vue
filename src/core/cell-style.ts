@@ -53,24 +53,38 @@ export function borderWidth(line: BorderLine | undefined): number {
   }
 }
 
-/** An xlsx border line as a CSS border; CSS has no dash-dot, so those are dashed. Without a colour: Excel's automatic. */
-export function borderCss(line: BorderLine | undefined): string | undefined {
+/** A CSS line: width, style and colour, set as longhands (a shorthand with var() is not parsed everywhere). */
+export interface CssLine {
+  width: string
+  style: string
+  color: string
+}
+
+/** An xlsx border line as a CSS line; CSS has no dash-dot, so those are dashed. Without a colour: Excel's automatic. */
+export function borderCss(line: BorderLine | undefined): CssLine | undefined {
   if (!line) return undefined
   const color = line.color ?? 'var(--xs-border-auto)'
-  const width = borderWidth(line)
+  const width = `${borderWidth(line)}px`
   switch (line.style) {
     case 'double':
-      return `3px double ${color}`
+      return { width, style: 'double', color }
     case 'dotted':
     case 'hair':
-      return `1px dotted ${color}`
+      return { width, style: 'dotted', color }
     case 'thin':
     case 'medium':
     case 'thick':
-      return `${width}px solid ${color}`
+      return { width, style: 'solid', color }
     default:
-      return `${width}px dashed ${color}`
+      return { width, style: 'dashed', color }
   }
+}
+
+/** Put a line on one side of a cell's CSS. */
+export function setSide(css: Record<string, string>, side: 'Top' | 'Right' | 'Bottom' | 'Left', line: CssLine): void {
+  css[`border${side}Width`] = line.width
+  css[`border${side}Style`] = line.style
+  css[`border${side}Color`] = line.color
 }
 
 /** Font, colour and fill of a cell; `section` is the colour of the number format's section, which wins over the font's. */
