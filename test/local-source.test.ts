@@ -23,6 +23,7 @@ const book = (): BookInput => ({
         B1: { value: 'с примечанием', note: { author: 'Аня', text: 'Проверить' } },
         B2: { value: 'ссылка', link: { url: 'https://example.org/', tooltip: 'Пример' } },
         B3: { value: 'на лист', link: { location: "'Таблица'!A1" } },
+        B4: { value: 'место', link: { url: 'https://example.org/page', location: 'top' } },
         C1: { value: 'жирный', style: 1 },
         D5: { value: 'строка' },
       },
@@ -121,7 +122,8 @@ describe('localSource: sheets and windows', () => {
   it('gives notes, links, widths, heights and merges', async () => {
     const w = await win(source(), 'Лист1', 1, 5, 1, 7)
     expect(w.notes).toEqual({ B1: { author: 'Аня', text: 'Проверить' } })
-    expect(w.links).toEqual({ B2: { href: 'https://example.org/', tooltip: 'Пример' }, B3: { location: "'Таблица'!A1" } })
+    // a place with an address is a place in what the address points to, not in this book
+    expect(w.links).toEqual({ B2: { href: 'https://example.org/', tooltip: 'Пример' }, B3: { location: "'Таблица'!A1" }, B4: { href: 'https://example.org/page#top' } })
     expect(w.widths).toEqual([null, 20, null, null, 0, null, null])
     expect(w.rowHeights).toEqual({ 2: 30 })
     expect(w.merges).toEqual(['F1:G2'])
@@ -291,9 +293,10 @@ describe('localSource: search, display filter, totals', () => {
         { row: 1, col: 2, text: 'с примечанием' },
         { row: 2, col: 2, text: 'ссылка' },
         { row: 3, col: 2, text: 'на лист' },
+        { row: 4, col: 2, text: 'место' },
         { row: 5, col: 4, text: 'строка' },
       ],
-      total: 4,
+      total: 5,
     })
     expect(await s.find('Лист1', '  ')).toEqual({ hits: [], total: 0 })
   })
@@ -349,6 +352,15 @@ describe('localSource: explain, events, closing', () => {
     const text = await source().explain('Лист1', 'A3')
     expect(text).toContain('A1')
     expect(text).toContain('SUM')
+  })
+
+  it('applies edits one after another: the second reads the cell as the first left it', async () => {
+    const s = source()
+    const [a, b] = await Promise.all([s.format('Лист1', 'A1', { style: BOLD }), s.edit([{ sheet: 'Лист1', cell: 'A1', text: '9' }])])
+    expect(a.ok && b.ok).toBe(true)
+    const w = await win(s, 'Лист1', 1, 3, 1, 1)
+    expect(w.text[0]![0]).toBe('9')
+    expect(styleOf(w, 'A1')).toEqual(BOLD)
   })
 
   it('tells subscribers of edits made through it', async () => {

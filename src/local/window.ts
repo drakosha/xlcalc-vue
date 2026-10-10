@@ -88,8 +88,10 @@ export function buildWindow(a: WindowInput): SheetWindow {
       if (v.color) win.colors[addr] = v.color
       if (v.note) win.notes![addr] = v.note
       if (v.link) {
+        // with an address the place is in what it points to (Excel's SubAddress), not in this book
         const { url, location, tooltip } = v.link
-        win.links![addr] = { ...(url ? { href: url } : {}), ...(location ? { location } : {}), ...(tooltip ? { tooltip } : {}) }
+        const to = url ? { href: location ? `${url}#${location}` : url } : location ? { location } : {}
+        win.links![addr] = { ...to, ...(tooltip ? { tooltip } : {}) }
       }
     }
     win.text.push(text)

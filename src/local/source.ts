@@ -67,6 +67,16 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   let calc: Calc | null = null
   let session: AsyncSession | null = null
 
+  /** The source's own changes one after another: each reads cells, then writes them, and must not interleave. */
+  let last: Promise<unknown> = Promise.resolve()
+  function serial<A extends unknown[], R>(run: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
+    return (...args) => {
+      const next = last.then(() => run(...args))
+      last = next.catch(() => {})
+      return next
+    }
+  }
+
   const ready = (async () => {
     calc = typeof opts.calc === 'object' ? opts.calc : await startCalc(opts)
     session = await calc.openSession(input, opts.session)
@@ -334,11 +344,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       check(signal)
       return buildWindow({ layout: l, styles: layout.styles, views, row: req.row, rows, col: req.col, cols, filtered, formulas, notice: opts.notice })
     },
-    edit,
-    structure,
-    layout: setLayout,
-    format,
-    async freeze(sheet, panes) {
+    edit: serial(edit),
+    structure: serial(structure),
+    layout: serial(setLayout),
+    format: serial(format),
+    freeze: serial(async (sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome> => {
       const s = await open()
       const l = sheetOf(layout, sheet)
       if (!l) return sheetMissing(sheet)
@@ -352,7 +362,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       } catch (e) {
         return outcomeOf(e, 'failed')
       }
-    },
+    }),
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
