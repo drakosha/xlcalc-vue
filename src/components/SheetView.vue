@@ -42,7 +42,7 @@ const wait = ctx.w.wait
 </script>
 
 <template>
-  <div class="xs-sheet" :class="{ 'xs-narrow': ctx.v.narrow.value }">
+  <div class="xs-sheet" :class="{ 'xs-narrow': ctx.v.narrow.value, 'xs-touch': ctx.v.touch.value }">
     <template v-if="failure">
       <slot name="fallback" :failure="failure" :retry="ctx.retry">
         <div class="xs-fallback" role="alert">

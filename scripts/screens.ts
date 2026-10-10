@@ -51,6 +51,27 @@ async function checkDecorations(page: Page): Promise<void> {
   console.log(`decorations: ${got.join('; ')}`)
 }
 
+/** Every button, field and tab outside the grid at least 44 × 44 px on a phone (the address box by its height); a desktop unchanged. */
+async function checkTargets(page: Page, mobile: boolean): Promise<void> {
+  const boxes = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('.xs-sheet button, .xs-sheet input, .xs-sheet textarea, .xs-sheet [role=tab], .xs-sheet a')]
+      .filter((el) => !el.closest('.xs-table') && !el.matches('.xs-editor-idle, .xs-fx-idle') && el.getClientRects().length > 0)
+      .map((el) => {
+        const target = el.matches('input[type=checkbox]') ? (el.closest('label') ?? el) : el
+        const r = target.getBoundingClientRect()
+        return { what: `${el.tagName.toLowerCase()}.${el.className || el.getAttribute('title') || ''}`.slice(0, 60), w: Math.round(r.width), h: Math.round(r.height) }
+      }),
+  )
+  if (mobile) {
+    const small = boxes.filter((b) => b.h < 44 || (b.w < 44 && !b.what.includes('xs-address')))
+    if (small.length) throw new Error(`touch targets under 44 px: ${JSON.stringify(small)}`)
+  } else {
+    const tool = boxes.find((b) => b.what.startsWith('button.xs-tool'))
+    if (!tool || tool.w !== 24 || tool.h !== 22) throw new Error(`a desktop tool changed: ${JSON.stringify(tool)}`)
+  }
+  return void console.log(`targets ${mobile ? '390' : '1920'}: ${boxes.length} checked`)
+}
+
 for (const size of SIZES) {
   const context = await browser.newContext({
     viewport: { width: size.width, height: size.height },
@@ -89,6 +110,20 @@ for (const size of SIZES) {
   await page.waitForTimeout(2200)
   await shot(page, size.name, '29-column-count')
 
+  // Targets for a finger on a phone, with the search bar and the funnel's list open; a desktop's stay as they were.
+  await open(page, 'Фильтр!A1')
+  await page.waitForTimeout(2200)
+  await checkTargets(page, size.mobile)
+  await page.locator('[data-xs-find]').click()
+  await checkTargets(page, size.mobile)
+  await page.locator('[data-xs-find]').click()
+  if (size.mobile) {
+    await page.locator('.xs-bar [data-xs-funnel]').click()
+    await page.waitForSelector('[data-xs-values] .xs-value-all')
+    await checkTargets(page, true)
+    await page.locator('.xs-popover-head button').last().click()
+  }
+
   // 0.2.0: search with its hits, the funnel of a column (a phone: the whole screen), a filtered and sorted sheet, a recompute.
   await open(page, "'Длинный лист'!A1")
   await page.locator('[data-xs-find]').click()
@@ -100,14 +135,19 @@ for (const size of SIZES) {
   // A frozen cell that flashes after a jump must stay sticky in its pane.
   const position = await page.evaluate(() => getComputedStyle(document.querySelector('[data-cell="1:1"]')!).position)
   if (position !== 'sticky') throw new Error(`a flashing frozen cell is ${position}, not sticky`)
-  await page.locator('.xs-head').nth(1).locator('.xs-funnel').click({ force: true })
+  const funnel = async (col: number) => {
+    if (!size.mobile) return page.locator('.xs-head').nth(col - 1).locator('.xs-funnel').click({ force: true })
+    await page.locator(`.xs-cell[data-cell$=":${col}"]`).nth(1).tap()
+    await page.locator('.xs-bar [data-xs-funnel]').click()
+  }
+  await funnel(2)
   await page.waitForSelector('[data-xs-values] .xs-value-all')
   await shot(page, size.name, '31-funnel')
   await page.locator('.xs-value', { hasText: 'отклонён' }).click()
   await page.locator('.xs-value', { hasText: '(пусто)' }).click()
   await page.locator('[data-xs-apply]').click()
   await page.waitForTimeout(300)
-  await page.locator('.xs-head').nth(2).locator('.xs-funnel').click({ force: true })
+  await funnel(3)
   await page.waitForSelector('[data-xs-values] .xs-value-all')
   await page.locator('.xs-popover button[title="Сортировать по убыванию"]').click()
   await page.waitForSelector('[data-xs-filter-status]')

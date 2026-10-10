@@ -63,8 +63,8 @@ function onCellDbl(e: MouseEvent, r: number, c: number): void {
   sel.pickCell(r, c)
   ed.startEdit({ mode: 'edit' })
 }
-/** Funnels on the letters: when the source can filter and there is more than a header to filter. */
-const funnels = computed(() => ctx.filter.available.value && ctx.dataRows.value > 1)
+/** Funnels on the letters: when the source can filter and there is more than a header to filter; a finger gets one in the bar instead. */
+const funnels = computed(() => ctx.filter.available.value && ctx.dataRows.value > 1 && !v.touch.value)
 const filtered = (c: number) => !!ctx.filter.cols.value[c] || ctx.filter.sort.value?.col === c
 function openFunnel(e: MouseEvent, c: number): void {
   const th = (e.currentTarget as HTMLElement).closest('th')

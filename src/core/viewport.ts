@@ -1,5 +1,5 @@
 // What the grid draws now: frozen panes with the lock, the body's rows and columns under the scroll, and spacers for the rest.
-import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 import type { SheetInfo } from '../source'
 import type { Geometry } from './geometry'
 import type { Memory } from './storage'
@@ -27,6 +27,17 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const showNums = computed(() => i.sheet.value?.rowNumbers !== false)
   /** A phone-width frame: a narrower row numbers column. */
   const narrow = computed(() => i.viewW.value < 600)
+  /** A finger points (a coarse pointer): targets get a finger's size. */
+  const coarse = ref(false)
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    const query = window.matchMedia('(pointer: coarse)')
+    const update = () => (coarse.value = query.matches)
+    update()
+    query.addEventListener?.('change', update)
+    onScopeDispose(() => query.removeEventListener?.('change', update))
+  }
+  /** A phone's frame or a finger: buttons, fields and tabs at least 44 × 44 px, the grid itself as it is. */
+  const touch = computed(() => narrow.value || coarse.value)
   const numW = computed(() => {
     if (!showNums.value) return 0
     if (!narrow.value) return 56
@@ -103,6 +114,7 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   return {
     showNums,
     narrow,
+    touch,
     numW,
     bookFreeze,
     freezeOn,

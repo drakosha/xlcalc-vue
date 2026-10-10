@@ -843,3 +843,65 @@
 .xs-narrow .xs-stats {
   margin-left: auto;
 }
+
+/* ── a finger: buttons, fields and tabs at least 44 × 44 px (the grid's cells and letters keep their size) ── */
+.xs-touch .xs-tool {
+  width: 44px;
+  height: 44px;
+}
+.xs-touch .xs-tool .xs-icon {
+  width: 18px;
+  height: 18px;
+}
+.xs-touch .xs-address {
+  height: 44px;
+  font-size: 14px;
+}
+.xs-touch .xs-fx {
+  min-height: 44px;
+  font-size: 14px;
+}
+.xs-touch .xs-fx-text {
+  padding-top: 12px;
+}
+.xs-touch .xs-fx-input {
+  min-height: 44px;
+  padding: 11px 6px;
+}
+.xs-touch .xs-bar-link {
+  line-height: 44px;
+  padding-top: 0;
+}
+.xs-touch .xs-tab {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+.xs-touch .xs-find-input,
+.xs-touch .xs-popover-input {
+  height: 44px;
+  font-size: 15px;
+}
+.xs-touch .xs-value {
+  min-height: 44px;
+}
+.xs-touch .xs-button {
+  min-height: 44px;
+  font-size: 14px;
+}
+.xs-touch .xs-funnel-tool.xs-tool-on {
+  color: var(--xs-accent);
+}
+/* On a phone the formula takes a line of its own under the address and the tools, so it keeps room to be read. */
+.xs-narrow .xs-bar {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.xs-narrow .xs-fx {
+  flex-basis: 100%;
+  order: 3;
+}
+.xs-narrow .xs-tools {
+  margin-left: auto;
+}
+
