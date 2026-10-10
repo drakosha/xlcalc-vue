@@ -167,7 +167,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                       class="xs-ov"
                       :style="{ left: -cv.ov!.left + 'px', width: `calc(100% + ${cv.ov!.left + cv.ov!.right}px)`, justifyContent: cv.ov!.justify }"
                     >
-                      <span>{{ cv.text }}</span>
+                      <span :style="{ background: cv.ov!.bg }">{{ cv.text }}</span>
                     </div>
                     <span v-else>{{ cv.text }}</span>
                   </div>

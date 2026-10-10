@@ -52,8 +52,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     s.extent.value = { row: Math.max(1, s.rowCount.value), col: Math.max(1, s.colCount.value) }
   }
 
-  // A mouse drag moves the corner under the pointer. A finger scrolls from the same pointerdown, so on touch a cell is
-  // picked by a tap (the click event, which a scroll never fires) and there is no drag selection.
+  // A mouse drags the corner; a finger scrolls from the same pointerdown, so touch picks by a tap (click) and never drags.
   let dragging = false
   let touching = false
   /** A tap's time and cell, to tell a double tap on touch screens. */
@@ -129,15 +128,18 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     let col = a.col
     const page = Math.max(1, Math.floor((s.viewH.value - HEAD_H - v.frozenH.value) / s.defaultRowPx.value))
     const ctrl = e.ctrlKey || e.metaKey
+    // Ctrl jumps to the data's edge first, then to the grid's (an editable grid goes on past the data).
+    const lastRow = (r: number) => (r < s.dataRows.value ? s.dataRows.value : s.rowCount.value)
+    const lastCol = (c: number) => (c < s.dataCols.value ? s.dataCols.value : s.colCount.value)
     switch (e.key) {
       case 'ArrowDown':
-        row = ctrl ? s.rowCount.value : geo.nextRow(row, 1)
+        row = ctrl ? lastRow(row) : geo.nextRow(row, 1)
         break
       case 'ArrowUp':
         row = ctrl ? 1 : geo.nextRow(row, -1)
         break
       case 'ArrowRight':
-        col = ctrl ? s.colCount.value : geo.nextCol(col, 1)
+        col = ctrl ? lastCol(col) : geo.nextCol(col, 1)
         break
       case 'ArrowLeft':
         col = ctrl ? 1 : geo.nextCol(col, -1)
@@ -153,8 +155,8 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
         if (ctrl) row = 1
         break
       case 'End':
-        col = s.colCount.value
-        if (ctrl) row = s.rowCount.value
+        col = ctrl ? Math.max(1, s.dataCols.value) : lastCol(col)
+        if (ctrl) row = Math.max(1, s.dataRows.value)
         break
       default:
         return false

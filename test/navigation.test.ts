@@ -145,6 +145,20 @@ describe('selection', () => {
   })
 })
 
+describe('keys on an editable sheet', () => {
+  it('Ctrl jumps to the data edge first, then to the end of the grid', async () => {
+    const w = await mountSheet(memorySource(book()))
+    const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
+    await key('ArrowDown', { ctrlKey: true })
+    expect(active(w)).toBe('3:1')
+    await key('ArrowDown', { ctrlKey: true })
+    await settle()
+    expect((w.find('.xs-address').element as HTMLInputElement).value).toBe('A100')
+    await key('End', { ctrlKey: true })
+    expect(active(w)).toBe('3:3')
+  })
+})
+
 describe('a phone', () => {
   it('a narrow frame narrows the numbers; a tap selects, a double tap and a tap on the bar open the field', async () => {
     const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {

@@ -33,8 +33,8 @@ export interface CellView {
   box: { class: string[]; style: Record<string, string> }
   kind: ContentKind
   text: string
-  /** Text overflowing into empty neighbours: pixels taken on the left and right, and the text's place in that run. */
-  ov?: { left: number; right: number; justify: string }
+  /** Overflow into empty neighbours: pixels taken left and right, the text's place, its background (hides crossed grid lines, as in Excel). */
+  ov?: { left: number; right: number; justify: string; bg: string }
   link?: CellData['link']
 }
 
@@ -106,7 +106,7 @@ export function useCellView(
     return !(e && e.row === r && e.col === c)
   }
   /** Text overflow as Excel draws it: left-aligned text runs right over empty cells, right-aligned left, centred both ways. */
-  function overflowOf(r: number, c: number, h: Horizontal): CellView['ov'] {
+  function overflowOf(r: number, c: number, h: Horizontal, bg: string): CellView['ov'] {
     const place = colPlace.value.get(c)
     if (!place) return undefined
     const run = (dir: 1 | -1, need?: (col: number) => boolean) => {
@@ -120,19 +120,19 @@ export function useCellView(
     }
     if (h === 'centerContinuous') {
       const right = run(1, (col) => styleOf(r, col)?.alignment?.horizontal === 'centerContinuous')
-      return right ? { left: 0, right, justify: 'center' } : undefined
+      return right ? { left: 0, right, justify: 'center', bg } : undefined
     }
     if (h === 'left') {
       const right = run(1)
-      return right ? { left: 0, right, justify: 'flex-start' } : undefined
+      return right ? { left: 0, right, justify: 'flex-start', bg } : undefined
     }
     if (h === 'right') {
       const left = run(-1)
-      return left ? { left, right: 0, justify: 'flex-end' } : undefined
+      return left ? { left, right: 0, justify: 'flex-end', bg } : undefined
     }
     if (h === 'center') {
       const side = Math.min(run(1), run(-1))
-      return side ? { left: side, right: side, justify: 'center' } : undefined
+      return side ? { left: side, right: side, justify: 'center', bg } : undefined
     }
     return undefined
   }
@@ -267,7 +267,7 @@ export function useCellView(
       view.kind = 'fill'
       view.text = fillText(shownText, geo.spanWidth(c, span?.cs ?? 1))
     } else if (!span && !wraps && shownText && (overflows(data.value) || h === 'centerContinuous')) {
-      const ov = overflowOf(r, c, h)
+      const ov = overflowOf(r, c, h, st?.fill?.color ?? 'var(--xs-bg)')
       if (ov) {
         view.kind = 'overflow'
         view.ov = ov

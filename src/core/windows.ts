@@ -2,7 +2,7 @@
 import { computed, shallowRef, type ShallowRef } from 'vue'
 import type { CellStyle, CellValue } from 'xlcalc/contract'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
-import { parseCell, parseRect, type Rect } from './a1'
+import { cellAddress, parseCell, parseRect, type Rect } from './a1'
 import { colPx, DEFAULT_ROW_PT, rowPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
@@ -282,6 +282,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       if (ch.sheet !== s.sheetName.value) continue
       const at = parseCell(ch.cell)
       if (!at) continue
+      const addr = cellAddress(at.row, at.col)
       if (ch.text !== '') s.grow(at.row, at.col)
       for (const kind of order) {
         const slot = slots[kind].value
@@ -292,10 +293,10 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         const values = w.values[at.row - w.row]
         if (line) line[at.col - w.col] = ch.text
         if (values) values[at.col - w.col] = ch.value
-        if (ch.color) w.colors[ch.cell] = ch.color
-        else delete w.colors[ch.cell]
-        if (ch.formula === null) delete w.formulas[ch.cell]
-        else if (ch.formula !== undefined) w.formulas[ch.cell] = ch.formula
+        if (ch.color) w.colors[addr] = ch.color
+        else delete w.colors[addr]
+        if (ch.formula === null) delete w.formulas[addr]
+        else if (ch.formula !== undefined) w.formulas[addr] = ch.formula
         touched.add(kind)
       }
     }
