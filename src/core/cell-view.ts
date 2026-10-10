@@ -1,0 +1,283 @@
+// One drawn cell: its classes, CSS and tooltip, the content box, borders shared with neighbours, merges and text overflow.
+import { computed, type Ref } from 'vue'
+import type { BorderLine, CellStyle } from 'xlcalc/contract'
+import { cellAddress, inRect } from './a1'
+import { alignCss, borderCss, borderWidth, fillText, fontCss, horizontalOf, overflows, verticalOf, wrapsOf, type Horizontal } from './cell-style'
+import type { EditorState } from './editing'
+import type { Editing } from './editing'
+import type { Formula } from './formula'
+import type { Geometry } from './geometry'
+import type { Navigation } from './navigation'
+import type { Selection } from './selection'
+import type { SheetState } from './state'
+import type { Viewport } from './viewport'
+import type { CellData, Windows } from './windows'
+
+/** Vertical padding of a cell; with its borders it sits inside the row's height. */
+const CELL_PAD_V = 1
+/** How far text may overflow into empty neighbours, in pixels. */
+const OVERFLOW_MAX = 2000
+
+/** A merge as drawn: its size in the book (box height) and in drawn rows and columns (hidden ones are not in the DOM). */
+export interface MergeSpan {
+  rs: number
+  cs: number
+  rsDom: number
+  csDom: number
+}
+
+export type ContentKind = 'text' | 'fill' | 'overflow' | 'href' | 'place' | 'host' | 'dead'
+
+export interface CellView {
+  attrs: { class: string[]; style: Record<string, string>; title: string; rowspan?: number; colspan?: number; 'data-cell': string }
+  box: { class: string[]; style: Record<string, string> }
+  kind: ContentKind
+  text: string
+  /** Text overflowing into empty neighbours: pixels taken on the left and right, and the text's place in that run. */
+  ov?: { left: number; right: number; justify: string }
+  link?: CellData['link']
+}
+
+/** Links a browser may open by itself; anything else (`javascript:` and the like) goes to the host or is shown only. */
+export const safeHref = (href: string | undefined): boolean => !!href && /^(https?:|mailto:|tel:|ftp:)/i.test(href.trim())
+
+export interface CellViewDeps {
+  editor: Ref<EditorState | null>
+  /** Whether the host listens to `openLink`. */
+  hostLinks: () => boolean
+}
+
+export function useCellView(
+  s: SheetState,
+  geo: Geometry,
+  v: Viewport,
+  w: Windows,
+  sel: Selection,
+  f: Formula,
+  nav: Navigation,
+  ed: Editing,
+  deps: CellViewDeps,
+) {
+  /** Merges of the drawn piece: the top-left cell's span, null for covered cells. A merge not wholly drawn (or across the freeze edge) is drawn as plain cells. */
+  const merges = computed(() => {
+    const map = new Map<string, MergeSpan | null>()
+    const rowsOk = (r1: number, r2: number) => r2 <= v.frozenRows.value || (r1 >= v.firstRow.value && r2 <= v.lastRow.value)
+    const colsOk = (c1: number, c2: number) => c2 <= v.frozenCols.value || (c1 >= v.firstCol.value && c2 <= v.lastCol.value)
+    for (const m of w.merges.value) {
+      if (!rowsOk(m.r1, m.r2) || !colsOk(m.c1, m.c2)) continue
+      let rsDom = 0
+      let csDom = 0
+      for (let r = m.r1; r <= m.r2; r++) if (geo.heightOf(r) > 0) rsDom++
+      for (let c = m.c1; c <= m.c2; c++) if (geo.widthOf(c) > 0) csDom++
+      if (!rsDom || !csDom) continue
+      // The top-left cell may be hidden: the merge then starts at its first shown cell.
+      const r0 = geo.heightOf(m.r1) > 0 ? m.r1 : geo.nextRow(m.r1, 1)
+      const c0 = geo.widthOf(m.c1) > 0 ? m.c1 : geo.nextCol(m.c1, 1)
+      for (let r = m.r1; r <= m.r2; r++) for (let c = m.c1; c <= m.c2; c++) map.set(`${r}:${c}`, null)
+      map.set(`${r0}:${c0}`, { rs: m.r2 - r0 + 1, cs: m.c2 - c0 + 1, rsDom, csDom })
+    }
+    return map
+  })
+  const spanOf = (r: number, c: number) => merges.value.get(`${r}:${c}`)
+  const coveredByMerge = (r: number, c: number) => merges.value.get(`${r}:${c}`) === null
+
+  /** Where a drawn column sits among its neighbours of the same pane, for overflow. */
+  const colPlace = computed(() => {
+    const map = new Map<number, { list: number[]; i: number }>()
+    for (const list of [v.frozenColList.value, v.shownCols.value]) list.forEach((c, i) => map.set(c, { list, i }))
+    return map
+  })
+
+  const styleOf = (r: number, c: number): CellStyle | undefined => w.styleAt(r, c, cellAddress(r, c))
+  const freezeRows = () => s.sheet.value?.freeze?.rows ?? 0
+  const freezeCols = () => s.sheet.value?.freeze?.cols ?? 0
+
+  /** A side's line: the cell's own, else the neighbour's facing side (one line in Excel); else a fill hides the grid line. */
+  function edge(own: BorderLine | undefined, other: BorderLine | undefined, fill: string | undefined): { css?: string; width: number } {
+    const line = own ?? other
+    if (line) return { css: borderCss(line), width: borderWidth(line) }
+    return { css: fill ? `1px solid ${fill}` : undefined, width: 1 }
+  }
+
+  /** May a neighbour take this cell's overflowing text: loaded, empty, not merged, not being edited. */
+  function free(r: number, c: number): boolean {
+    if (!w.emptyAt(r, c) || spanOf(r, c) !== undefined || ed.pendingAt(r, c) !== undefined) return false
+    const e = deps.editor.value
+    return !(e && e.row === r && e.col === c)
+  }
+  /** Text overflow as Excel draws it: left-aligned text runs right over empty cells, right-aligned left, centred both ways. */
+  function overflowOf(r: number, c: number, h: Horizontal): CellView['ov'] {
+    const place = colPlace.value.get(c)
+    if (!place) return undefined
+    const run = (dir: 1 | -1, need?: (col: number) => boolean) => {
+      let px = 0
+      for (let i = place.i + dir; i >= 0 && i < place.list.length && px < OVERFLOW_MAX; i += dir) {
+        const col = place.list[i]!
+        if (!free(r, col) || (need && !need(col))) break
+        px += geo.widthOf(col)
+      }
+      return px
+    }
+    if (h === 'centerContinuous') {
+      const right = run(1, (col) => styleOf(r, col)?.alignment?.horizontal === 'centerContinuous')
+      return right ? { left: 0, right, justify: 'center' } : undefined
+    }
+    if (h === 'left') {
+      const right = run(1)
+      return right ? { left: 0, right, justify: 'flex-start' } : undefined
+    }
+    if (h === 'right') {
+      const left = run(-1)
+      return left ? { left, right: 0, justify: 'flex-end' } : undefined
+    }
+    if (h === 'center') {
+      const side = Math.min(run(1), run(-1))
+      return side ? { left: side, right: side, justify: 'center' } : undefined
+    }
+    return undefined
+  }
+
+  /** Background layers, top first: the note's corner, selection and highlight tints, the data bar at the bottom. */
+  function layers(css: Record<string, string>, list: { img: string; size: string; pos: string }[]): void {
+    if (!list.length) return
+    css.backgroundImage = list.map((l) => l.img).join(', ')
+    css.backgroundSize = list.map((l) => l.size).join(', ')
+    css.backgroundPosition = list.map((l) => l.pos).join(', ')
+    css.backgroundRepeat = 'no-repeat'
+  }
+
+  /** Everything to draw cell (r, c); `d` is its display row, `frozen` whether its row is a frozen one. */
+  function cellView(d: number, r: number, c: number, frozen: boolean): CellView {
+    const addr = cellAddress(r, c)
+    const data = w.cellData(r, c, addr)
+    const span = spanOf(r, c)
+    const r2 = span ? r + span.rs - 1 : r
+    const c2 = span ? c + span.cs - 1 : c
+    const st = data.style
+    const m = s.messages.value
+    const pendingText = ed.pendingAt(r, c)
+    const editing = deps.editor.value
+    const shownText = pendingText !== undefined ? (pendingText ?? '') : editing && editing.place === 'bar' && editing.row === r && editing.col === c ? editing.text : data.text
+
+    const css: Record<string, string> = fontCss(st, data.color)
+    if (frozen) css.top = v.stickyTop(d)
+    if (c <= v.frozenCols.value) css.left = v.stickyLeft(c)
+
+    // Borders: right and bottom are the cell's own grid lines; top and left only at the sheet's edge (else the neighbour draws them).
+    const rightStyle = span ? styleOf(r, c2) : st
+    const bottomStyle = span ? styleOf(r2, c) : st
+    const hasRight = geo.hasCol(c2, 1)
+    const hasBelow = geo.hasRow(r2, 1)
+    const nextC = hasRight ? styleOf(r, geo.nextCol(c2, 1)) : undefined
+    const nextR = hasBelow ? styleOf(geo.nextRow(r2, 1), c) : undefined
+    const right = edge(rightStyle?.border?.right, nextC?.border?.left, c2 === freezeCols() ? undefined : (rightStyle?.fill?.color ?? nextC?.fill?.color))
+    const bottom = edge(bottomStyle?.border?.bottom, nextR?.border?.top, r2 === freezeRows() ? undefined : (bottomStyle?.fill?.color ?? nextR?.fill?.color))
+    if (right.css) css.borderRight = right.css
+    if (bottom.css) css.borderBottom = bottom.css
+    let topWidth = 0
+    if (!geo.hasRow(r, -1) && st?.border?.top) {
+      css.borderTop = borderCss(st.border.top)!
+      topWidth = borderWidth(st.border.top)
+    }
+    if (!geo.hasCol(c, -1) && st?.border?.left) css.borderLeft = borderCss(st.border.left)!
+
+    // Insets: formula ranges, the selection's frame and tables' frames; tints and bars as background layers.
+    const shadows: string[] = []
+    const bg: { img: string; size: string; pos: string }[] = []
+    const full = '100% 100%'
+    if (data.note) bg.push({ img: 'linear-gradient(to bottom left, var(--xs-note) 50%, transparent 50%)', size: '7px 7px', pos: 'right top' })
+    const rect = sel.selRect.value
+    const active = sel.isActive(r, c)
+    if (rect && sel.multi.value && inRect(rect, r, c)) {
+      if (!active) bg.push({ img: 'linear-gradient(var(--xs-sel-tint), var(--xs-sel-tint))', size: full, pos: '0 0' })
+      if (r === rect.r1) shadows.push('inset 0 1px 0 0 var(--xs-accent)')
+      if (r2 >= rect.r2) shadows.push('inset 0 -1px 0 0 var(--xs-accent)')
+      if (c === rect.c1) shadows.push('inset 1px 0 0 0 var(--xs-accent)')
+      if (c2 >= rect.c2) shadows.push('inset -1px 0 0 0 var(--xs-accent)')
+    }
+    const hl = f.highlightAt(r, c)
+    if (hl) {
+      shadows.push(...hl.edges)
+      for (const t of hl.tints) bg.push({ img: t, size: full, pos: '0 0' })
+    }
+    let tableHead = false
+    for (const t of w.tables.value) {
+      if (!inRect(t.rect, r, c)) continue
+      if (r === t.headerRow) tableHead = true
+      if (r === t.rect.r1) shadows.push('inset 0 1px 0 0 var(--xs-table-line)')
+      if (r2 >= t.rect.r2) shadows.push('inset 0 -1px 0 0 var(--xs-table-line)')
+      if (c === t.rect.c1) shadows.push('inset 1px 0 0 0 var(--xs-table-line)')
+      if (c2 >= t.rect.c2) shadows.push('inset -1px 0 0 0 var(--xs-table-line)')
+    }
+    if (data.bar) {
+      const pct = Math.round(Math.min(1, Math.max(0, data.bar.ratio)) * 1000) / 10
+      bg.push({ img: `linear-gradient(to right, ${data.bar.color}, color-mix(in srgb, ${data.bar.color} 35%, transparent))`, size: `${pct}% calc(100% - 4px)`, pos: 'left center' })
+    }
+    if (shadows.length) css.boxShadow = shadows.join(', ')
+    layers(css, bg)
+
+    const fl = nav.flash.value
+    const lock = ed.lockAt(r, c)
+    const cls = [
+      'xs-cell',
+      active ? 'xs-active' : '',
+      rect && inRect(rect, r, c) ? 'xs-sel' : '',
+      fl && inRect(fl, r, c) ? 'xs-flash' : '',
+      pendingText !== undefined ? 'xs-pending' : '',
+      lock !== null ? 'xs-locked' : '',
+      tableHead ? 'xs-thead' : '',
+      frozen && c <= v.frozenCols.value ? 'xs-fz-corner' : frozen ? 'xs-fz-row' : c <= v.frozenCols.value ? 'xs-fz-col' : '',
+      // The book's freeze edge shows always: with the lock it parts the sticky panes, without it it shows what the lock freezes.
+      r2 === freezeRows() ? 'xs-fz-edge-b' : '',
+      c2 === freezeCols() ? 'xs-fz-edge-r' : '',
+    ]
+
+    const titleParts = [data.formula !== undefined ? `=${data.formula}\n${data.text}` : data.text]
+    if (data.note) titleParts.push(`${m.note(data.note.author)}: ${data.note.text}`)
+    if (lock !== null) titleParts.push(m.locked(lock))
+    if (pendingText !== undefined) titleParts.push(m.pending)
+
+    // The content box: exactly the row's height (a <tr> height is a minimum), text clipped as in Excel.
+    const h = horizontalOf(st, data.value)
+    const wraps = wrapsOf(st)
+    const vAlign = verticalOf(st)
+    const boxH = Math.max(0, geo.spanHeight(d, span?.rs ?? 1) - CELL_PAD_V * 2 - bottom.width - topWidth)
+    const box = {
+      class: ['xs-in', wraps ? 'xs-wrap' : '', vAlign === 'top' ? 'xs-top' : vAlign === 'center' ? 'xs-mid' : 'xs-bot'],
+      style: { ...alignCss(h, st?.alignment?.indent ?? 0), height: `${boxH}px` },
+    }
+
+    const view: CellView = {
+      attrs: { class: cls, style: css, title: titleParts.filter(Boolean).join('\n\n'), 'data-cell': `${r}:${c}` },
+      box,
+      kind: 'text',
+      text: shownText,
+    }
+    if (span) {
+      view.attrs.rowspan = span.rsDom
+      view.attrs.colspan = span.csDom
+    }
+    const link = data.link
+    if (link && pendingText === undefined) {
+      view.link = link
+      view.kind = link.location ? 'place' : safeHref(link.href) ? 'href' : (link.href || link.target) && deps.hostLinks() ? 'host' : 'dead'
+      return view
+    }
+    if (h === 'fill') {
+      view.kind = 'fill'
+      view.text = fillText(shownText, geo.spanWidth(c, span?.cs ?? 1))
+    } else if (!span && !wraps && shownText && (overflows(data.value) || h === 'centerContinuous')) {
+      const ov = overflowOf(r, c, h)
+      if (ov) {
+        view.kind = 'overflow'
+        view.ov = ov
+        cls.push('xs-spill')
+      }
+    }
+    return view
+  }
+
+  return { merges, spanOf, coveredByMerge, cellView }
+}
+
+export type CellViews = ReturnType<typeof useCellView>
