@@ -1,5 +1,6 @@
 // The component's wiring: state, geometry, windows, selection, editing and jumps, the source's events and the frame's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { CellStyle } from 'xlcalc/contract'
 import type { SheetWindow } from '../source'
 import { cellAddress, colsAddress } from './a1'
 import { useCellView } from './cell-view'
@@ -21,6 +22,10 @@ export interface SheetViewState {
   ref: string
   formula?: string
   value?: string
+  /** The style the active cell shows, for a toolbar; absent while its window is not loaded or it has none. */
+  style?: CellStyle
+  /** The active cell's number format code, from a source whose windows give them; absent for General. */
+  numberFormat?: string
 }
 
 /** A link the component does not open itself, with the cell it is in. */
@@ -279,16 +284,20 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     },
   )
 
-  // The sheet and selection go out: formula and value come from the loaded window, so it is watched too.
+  // The sheet and selection go out: formula, value and look come from the loaded window, so they are watched too.
+  const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
   watch(
-    [s.sheet, sel.selectionRef, f.selectedFormula, f.selectedValue],
+    [s.sheet, sel.selectionRef, f.selectedFormula, f.selectedValue, activeLook],
     () => {
       if (!s.sheet.value || !sel.selectionRef.value) return emit('state', null)
+      const look = activeLook.value
       emit('state', {
         sheet: s.sheet.value.name,
         ref: sel.selectionRef.value,
         ...(f.selectedFormula.value ? { formula: f.selectedFormula.value } : {}),
         ...(f.selectedValue.value ? { value: f.selectedValue.value } : {}),
+        ...(look?.style ? { style: look.style } : {}),
+        ...(look?.numberFormat !== undefined ? { numberFormat: look.numberFormat } : {}),
       })
     },
     { immediate: true },

@@ -11,7 +11,7 @@ describe('localSource: typed edits', () => {
     const got = await source().edit([{ sheet: 'Лист1', cell: 'A1', text: '1,5' }])
     expect(got.ok).toBe(true)
     if (!got.ok) return
-    expect(got.changes).toContainEqual({ sheet: 'Лист1', cell: 'A1', text: '1,5', value: 1.5, formula: null, editText: '1,5' })
+    expect(got.changes).toContainEqual({ sheet: 'Лист1', cell: 'A1', text: '1,5', value: 1.5, formula: null, editText: '1,5', numberFormat: null })
     expect(got.changes.find((c) => c.cell === 'A3')).toMatchObject({ value: 3.5, text: '3,5' })
   })
 
@@ -19,7 +19,7 @@ describe('localSource: typed edits', () => {
     const s = source()
     // B is 20 wide: in a column of the default width the date shows as ### (the library measures it so)
     const got = await s.edit([{ sheet: 'Лист1', cell: 'B4', text: '15.03.2026' }])
-    expect(got).toMatchObject({ ok: true, changes: [{ cell: 'B4', value: 46096, text: '15.03.2026' }] })
+    expect(got).toMatchObject({ ok: true, changes: [{ cell: 'B4', value: 46096, text: '15.03.2026', numberFormat: 'dd.mm.yyyy' }] })
   })
 
   it('reads 15.03.2026 as a short date and 1 234,5 as a grouped number, widening the column the date does not fit', async () => {

@@ -137,6 +137,17 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const texts = d === undefined ? undefined : slotAt(d, col)?.win?.editText
     return texts ? (texts[cellAddress(r, col)] ?? '') : undefined
   }
+  /** The style a cell shows and its number format code (none: General), from its loaded window; null when none holds it. */
+  const lookOfRow = (r: number, col: number): { style?: CellStyle; numberFormat?: string } | null => {
+    const d = s.indexOf(r)
+    const w = d === undefined ? undefined : slotAt(d, col)?.win
+    if (!w) return null
+    const addr = cellAddress(r, col)
+    const id = w.styleIds[addr]
+    const style = id === undefined ? undefined : w.styles[id]
+    const numberFormat = w.numberFormats?.[addr]
+    return { ...(style ? { style } : {}), ...(numberFormat !== undefined ? { numberFormat } : {}) }
+  }
 
   const current = (kind: SlotKind) => (slots[kind].value.view === viewKey() ? slots[kind].value : null)
   /** Merged areas of the loaded windows (by sheet rows), each once. */
@@ -375,6 +386,10 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         if (ch.formula === null) delete w.formulas[addr]
         else if (ch.formula !== undefined) w.formulas[addr] = ch.formula
         if (ch.editText !== undefined && w.editText) w.editText[addr] = ch.editText
+        if (w.numberFormats && ch.numberFormat !== undefined) {
+          if (ch.numberFormat === null) delete w.numberFormats[addr]
+          else w.numberFormats[addr] = ch.numberFormat
+        }
         touched.add(kind)
       }
     }
@@ -395,6 +410,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     formulaOfRow,
     emptyAtRow,
     editTextOfRow,
+    lookOfRow,
     merges,
     tables,
     notice,

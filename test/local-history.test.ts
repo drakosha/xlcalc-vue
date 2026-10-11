@@ -21,7 +21,7 @@ const sheet = (): BookInput => ({
 describe('localSource: paste', () => {
   it("keeps the apostrophe of '007 in the text, as Excel pastes it, and selects what it filled", async () => {
     const got = await source(sheet()).paste!('S', 'B1', "'007")
-    expect(got).toEqual({ ok: true, select: { sheet: 'S', range: 'B1' }, changes: [{ sheet: 'S', cell: 'B1', text: "'007", value: "'007", formula: null, editText: "''007" }] })
+    expect(got).toEqual({ ok: true, select: { sheet: 'S', range: 'B1' }, changes: [{ sheet: 'S', cell: 'B1', text: "'007", value: "'007", formula: null, editText: "''007", numberFormat: null }] })
   })
 
   it('pastes 5 into a percent cell as 5, shown 500 %: a paste has no percent editor', async () => {

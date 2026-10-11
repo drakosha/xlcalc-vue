@@ -34,6 +34,7 @@ export function windowOf(v: Viewport, a: WindowShape): SheetWindow {
     colors: {},
     styleIds: {},
     styles,
+    numberFormats: {},
     widths: v.columns.slice(0, a.cols).map((c) => (c.hidden ? 0 : c.width)),
     rowHeights: {},
     merges: [],
@@ -54,6 +55,7 @@ export function windowOf(v: Viewport, a: WindowShape): SheetWindow {
       values.push(cell ? cell.value : null)
       if (!cell) continue
       if (cell.effectiveStyle !== undefined) win.styleIds[addr] = cell.effectiveStyle
+      if (cell.numberFormat !== undefined) win.numberFormats![addr] = cell.numberFormat
       if (cell.formulaLocal !== undefined) win.formulas[addr] = cell.formulaLocal
       if (cell.editText) win.editText![addr] = cell.editText
       if (cell.color) win.colors[addr] = cell.color

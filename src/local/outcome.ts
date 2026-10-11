@@ -35,6 +35,7 @@ export function updateOf(sheet: string, addr: string, cell: ViewportCell | undef
     ...(cell?.color ? { color: cell.color } : {}),
     formula: cell?.formulaLocal ?? null,
     editText: cell?.editText ?? '',
+    numberFormat: cell?.numberFormat ?? null,
   }
 }
 
