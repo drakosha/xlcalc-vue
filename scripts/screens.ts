@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { chromium, type Page } from 'playwright'
 import { createServer } from 'vite'
+import { quoteSheetIfNeeded } from 'xlcalc/a1'
 
 const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'test-results/screens')
@@ -14,7 +15,6 @@ const SIZES = [
   { name: '390', width: 390, height: 844, mobile: true },
   { name: '1920', width: 1920, height: 1200, mobile: false },
 ]
-const quote = (name: string) => (/^[\p{L}\p{N}_]+$/u.test(name) ? name : `'${name.replace(/'/g, "''")}'`)
 
 const server = await createServer({ configFile: resolve(root, 'vite.example.config.ts'), server: { port: 0 }, logLevel: 'error' })
 await server.listen()
@@ -87,7 +87,7 @@ for (const size of SIZES) {
     continue
   }
   for (const [i, name] of SHEETS.entries()) {
-    await open(page, quote(name))
+    await open(page, quoteSheetIfNeeded(name))
     await shot(page, size.name, `${String(i + 1).padStart(2, '0')}-${name}`)
   }
 

@@ -1,5 +1,6 @@
-// The built main entry carries no engine: xlcalc's engine-free subpaths are bundled in, the rest of xlcalc stays out.
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+// The built main entry carries no engine: xlcalc/a1 and xlcalc/text are bundled in, ru-RU's formula text comes as a chunk of its
+// own for a book in ru-RU, and nothing is imported but vue.
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { build } from 'vite'
@@ -8,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 const root = resolve(import.meta.dirname, '..')
 let out = ''
 let js = ''
+let chunks: string[] = []
 
 beforeAll(async () => {
   out = mkdtempSync(join(tmpdir(), 'xs-dist-'))
@@ -20,21 +22,44 @@ beforeAll(async () => {
     process.env.NODE_ENV = env
   }
   js = readFileSync(join(out, 'index.js'), 'utf8')
+  chunks = readdirSync(out).filter((f) => f.endsWith('.js') && f !== 'index.js')
 }, 60_000)
 afterAll(() => rmSync(out, { recursive: true, force: true }))
 
+const staticImports = (code: string) => [...code.matchAll(/(?:^|[;\n])\s*import\s*(?:[^'";]*?from\s*)?["']([^"']+)["']/g)].map((m) => m[1])
+const dynamicImports = (code: string) => [...code.matchAll(/import\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1])
+/** The code without the bundler's comments that name the modules it took (`//#region node_modules/xlcalc/dist/a1.js`). */
+const code = (text: string) => text.replace(/^\/\/#(?:end)?region.*$/gm, '')
+
 describe('dist/index.js', () => {
-  it('has the string xlcalc only in the bundler\'s comments naming the modules it took', () => {
-    expect(js.length).toBeGreaterThan(10_000)
-    expect(js.replace(/^\/\/#region .*$/gm, '').match(/xlcalc/gi)).toBeNull()
+  it('imports vue alone, and the ru-RU chunk on demand', () => {
+    expect(new Set(staticImports(js))).toEqual(new Set(['vue']))
+    expect(chunks).toEqual([expect.stringMatching(/^ru-RU-[\w-]+\.js$/)])
+    expect(dynamicImports(js)).toEqual([`./${chunks[0]}`])
   })
-  it('imports nothing but vue', () => {
-    const imports = [...js.matchAll(/(?:^|[;\n])\s*import\s*(?:[^'";]*?from\s*)?["']([^"']+)["']/g)].map((m) => m[1])
-    expect(imports.length).toBeGreaterThan(0)
-    expect(new Set(imports)).toEqual(new Set(['vue']))
-    expect(js).not.toMatch(/import\(/)
+  it('carries no engine: xlcalc/a1 and xlcalc/text are a few dozen kilobytes', () => {
+    expect(js.length).toBeGreaterThan(10_000)
+    expect(js.length).toBeLessThan(200_000)
+    expect(js).toContain('//#region node_modules/xlcalc/dist/a1.js')
+    expect(js).toContain('//#region node_modules/xlcalc/dist/scan.js')
+  })
+  it('has the string xlcalc in its code only in the message that names a locale module to import', () => {
+    expect(code(js).match(/xlcalc/g)).toEqual(['xlcalc'])
+    expect(code(js)).toMatch(/from 'xlcalc\/locales\/\$\{/)
   })
   it('comes with its style sheet', () => {
     expect(readFileSync(join(out, 'style.css'), 'utf8')).toContain('.xs-sheet')
+  })
+})
+
+describe('the ru-RU chunk', () => {
+  it("is ru-RU's formula text alone, without an import or the string xlcalc in its code", () => {
+    const chunk = readFileSync(join(out, chunks[0]!), 'utf8')
+    expect(chunk).toContain('СУММ')
+    expect(js).not.toContain('СУММ')
+    expect(staticImports(chunk)).toEqual([])
+    expect(dynamicImports(chunk)).toEqual([])
+    expect(code(chunk)).not.toMatch(/xlcalc/)
+    expect(chunk.length).toBeLessThan(60_000)
   })
 })

@@ -1,8 +1,8 @@
 // Jumps: the address box, references of the formula, links and `focus`; the history to go back, and the flash after a jump.
 import { nextTick, ref, watch } from 'vue'
 import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
-import type { CellRect } from 'xlcalc/contract'
-import { parseCellRef, sheetRefName, type FormulaRef } from './formula-refs'
+import type { CellRect, FormulaReference, GridReference } from 'xlcalc/contract'
+import { quoteSheetIfNeeded, scanReferences } from 'xlcalc/text'
 import type { Formula } from './formula'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -19,6 +19,24 @@ export interface Place {
 const HISTORY_MAX = 50
 /** How long the range just jumped to flashes, so the eye finds it. */
 const FLASH_MS = 2000
+
+/** A place from the address box, a link or `focus`: a range with its sheet (`B12`, `'Sheet 2'!C7:D9`, `B:B`) or a sheet alone; null for anything else (`B12+C1`). */
+function parsePlace(text: string): { sheet?: string; range?: CellRect } | null {
+  const raw = text.trim()
+  if (!raw) return null
+  const whole = (refs: FormulaReference[], end: number): GridReference | null => {
+    const r = refs.length === 1 ? refs[0]! : null
+    return r && r.kind !== 'table' && r.at === 0 && r.end === end && r.sheetLast === undefined && !r.spill ? r : null
+  }
+  const refs = scanReferences(raw)
+  if (refs.length) {
+    const r = whole(refs, raw.length)
+    return r && { sheet: r.sheet, range: r }
+  }
+  // A sheet alone reads as the sheet of a reference to its first cell, its quotes as a reference has them.
+  const sheet = whole(scanReferences(`${raw}!A1`), raw.length + 3)?.sheet
+  return sheet === undefined ? null : { sheet }
+}
 
 export interface NavigationDeps {
   pickSheet: (index: number) => Promise<void>
@@ -88,10 +106,10 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
 
   /** Go to a place: the sheet when named, and the range; false when the text is not an address or there is no such sheet. */
   async function goPlace(text: string): Promise<boolean> {
-    const place = parseCellRef(text)
+    const place = parsePlace(text)
     if (!place) return false
     let index = s.active.value
-    if (place.sheet !== null) {
+    if (place.sheet !== undefined) {
       index = f.sheetIndexByName(place.sheet)
       if (index < 0) return false
     }
@@ -103,7 +121,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     return true
   }
   /** A reference clicked in the formula bar: select its range, switching sheets when it names another. */
-  async function goRef(r: FormulaRef): Promise<void> {
+  async function goRef(r: GridReference): Promise<void> {
     const index = f.refSheet(r)
     if (index < 0) return
     rememberPlace()
@@ -146,7 +164,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
   async function copyCellLink(): Promise<void> {
     const url = s.props.cellUrl
     if (!url || !s.sheet.value || !sel.selectionRef.value) return
-    const place = `${sheetRefName(s.sheet.value.name)}!${sel.selectionRef.value}`
+    const place = `${quoteSheetIfNeeded(s.sheet.value.name)}!${sel.selectionRef.value}`
     try {
       await navigator.clipboard.writeText(url(place))
       deps.notify(s.messages.value.cellLinkCopied(place))

@@ -15,7 +15,7 @@ const source = memorySource({ sheets: [{ name: 'Sheet1', cells: { A1: 'Hello', B
 </template>
 ```
 
-The runtime depends only on `vue`; colours and fonts are `--xs-*` CSS variables. `npm run dev:example` serves the example with every kind of formatting, `npm run screens` takes its screenshots, `docs/host-parity.md` maps the component onto the the app's grid.
+The runtime depends only on `vue`: xlcalc's engine-free subpaths `xlcalc/a1` and `xlcalc/text` (addresses, the references of formula text, a paste's rectangle) are bundled in, and a book in ru-RU loads ru-RU's formula text as a chunk of its own. Colours and fonts are `--xs-*` CSS variables. `npm run dev:example` serves the example with every kind of formatting, `npm run screens` takes its screenshots, `docs/host-parity.md` maps the component onto the the app's grid.
 
 ## Keys and the source
 

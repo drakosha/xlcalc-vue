@@ -1,12 +1,11 @@
 // Editing cells: in place or in the formula bar, Excel's keys, clearing and pasting, Control+Return, undo and redo, calls in flight and the source's outcomes.
 import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
-import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } from 'xlcalc/a1'
+import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import type { CellEntry, EditOutcome } from '../source'
 import { parseTsv } from './clipboard'
 import { numberEditText, textEditText } from './edit-text'
 import type { Formula } from './formula'
-import { sheetRefName } from './formula-refs'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
@@ -196,7 +195,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Put the selection where an outcome says: on this sheet at once, on another as the address box goes there. */
   async function selectPlace(place: { sheet: string; range: string }): Promise<void> {
     if (place.sheet !== s.sheetName.value) {
-      await deps.goPlace(`${sheetRefName(place.sheet)}!${place.range}`)
+      await deps.goPlace(`${quoteSheetIfNeeded(place.sheet)}!${place.range}`)
       return
     }
     const r = parseRange(place.range)

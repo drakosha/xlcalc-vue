@@ -1,16 +1,31 @@
 // The active cell's formula in pieces with clickable references, and the formula's ranges highlighted on the grid as in Excel.
-import { computed, type Ref } from 'vue'
-import { parseCell } from 'xlcalc/a1'
-import { formulaTokens, refKey, type FormulaRef, type FormulaToken } from './formula-refs'
+import { computed, shallowRef, watch, type Ref } from 'vue'
+import { nameKey, parseCell, sameName } from 'xlcalc/a1'
+import type { GridReference, Locale, ScanOptions } from 'xlcalc/contract'
+import { scanReferences } from 'xlcalc/text'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
+
+/** A piece of a formula as the bar shows it; a reference carries its range and colour. */
+export interface FormulaPart {
+  text: string
+  ref?: GridReference
+  color?: string
+}
 
 /** Colours of a formula's ranges, as Excel's: each range its own, equal references one. */
 const REF_COLORS = ['#2563eb', '#dc2626', '#7c3aed', '#16a34a', '#ea580c', '#0891b2', '#db2777']
 /** How many formulas of a selection are read and how many ranges painted: past that it is noise and slow. */
 const PRECEDENT_CELLS_MAX = 500
 const PRECEDENT_RANGES_MAX = 24
+/** xlcalc's locale modules by tag, for reading formula text typed in the locale; each a chunk of its own, loaded for a book in it. */
+const LOCALES: Record<string, () => Promise<Locale>> = {
+  'ru-RU': () => import('xlcalc/locales/ru-RU').then((m) => m.ruRU),
+}
+
+/** A reference's key: equal references (`A1`, `$A$1`; a sheet in any case) get one colour. */
+const refKey = (r: GridReference): string => `${r.sheet === undefined ? '' : nameKey(r.sheet)}!${r.top}:${r.left}:${r.bottom}:${r.right}`
 
 export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref<string | null>) {
   const formulaAt = (row: number, col: number): string | undefined => w.formulaOfRow(row, col)
@@ -23,16 +38,41 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     return selectedFormula.value
   })
 
+  /** How formula text is read: in the book's locale once its module is in, as stored text where xlcalc has none; null while it loads. */
+  const scan = shallowRef<ScanOptions | null>(null)
+  watch(
+    s.locale,
+    (tag) => {
+      const load = LOCALES[tag]
+      scan.value = load ? null : {}
+      if (!load) return
+      // A module that fails to load leaves the text read as stored: addresses read alike in every locale.
+      const take = (opts: ScanOptions) => {
+        if (s.locale.value === tag) scan.value = opts
+      }
+      void load().then(
+        (locale) => take({ locale }),
+        () => take({}),
+      )
+    },
+    { immediate: true },
+  )
+  /** References the grid shows: to cells, columns or rows of one sheet; a table's and one across sheets stay text. */
+  function gridRefs(formula: string): GridReference[] {
+    const opts = scan.value
+    if (!opts) return []
+    return scanReferences(formula, opts).filter((r): r is GridReference => r.kind !== 'table' && r.sheetLast === undefined)
+  }
+
   /** Source ranges: the active cell's formula first (its colours in the bar), then the other formulas of the selection. */
   const refColors = computed(() => {
-    const out = new Map<string, { ref: FormulaRef; color: string }>()
+    const out = new Map<string, { ref: GridReference; color: string }>()
     const consider = (formula: string) => {
-      for (const t of formulaTokens(formula)) {
-        if (!t.ref) continue
-        const key = refKey(t.ref)
+      for (const ref of gridRefs(formula)) {
+        const key = refKey(ref)
         if (out.has(key)) continue
         if (out.size >= PRECEDENT_RANGES_MAX) return
-        out.set(key, { ref: t.ref, color: REF_COLORS[out.size % REF_COLORS.length]! })
+        out.set(key, { ref, color: REF_COLORS[out.size % REF_COLORS.length]! })
       }
     }
     if (shownFormula.value) consider(shownFormula.value)
@@ -52,19 +92,27 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     }
     return out
   })
-  /** Pieces of the active cell's formula; a reference carries its range and colour. */
-  const formulaParts = computed<(FormulaToken & { color?: string })[]>(() => {
-    if (!selectedFormula.value) return []
-    return formulaTokens(selectedFormula.value).map((t) => (t.ref ? { ...t, color: refColors.value.get(refKey(t.ref))?.color } : t))
+  /** Pieces of the active cell's formula: the text between references, and each reference with its range and colour. */
+  const formulaParts = computed<FormulaPart[]>(() => {
+    const formula = selectedFormula.value
+    if (!formula) return []
+    const out: FormulaPart[] = []
+    let at = 0
+    for (const ref of gridRefs(formula)) {
+      if (ref.at > at) out.push({ text: formula.slice(at, ref.at) })
+      out.push({ text: ref.text, ref, color: refColors.value.get(refKey(ref))?.color })
+      at = ref.end
+    }
+    if (at < formula.length) out.push({ text: formula.slice(at) })
+    return out
   })
   /** The sheet a reference leads to: its index, or -1 when the book has no such sheet. */
-  function refSheet(ref: { sheet: string | null }): number {
-    if (ref.sheet === null) return s.active.value
+  function refSheet(ref: { sheet?: string }): number {
+    if (ref.sheet === undefined) return s.active.value
     return sheetIndexByName(ref.sheet)
   }
   function sheetIndexByName(name: string): number {
-    const low = name.toLowerCase()
-    return s.sheets.value.findIndex((x) => x.name.toLowerCase() === low)
+    return s.sheets.value.findIndex((x) => sameName(x.name, name))
   }
   /** Highlighted ranges on the active sheet. */
   const highlights = computed(() => [...refColors.value.values()].filter(({ ref }) => refSheet(ref) === s.active.value))
