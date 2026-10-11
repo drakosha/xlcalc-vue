@@ -14,6 +14,14 @@ export interface SheetSource {
   window(req: WindowRequest, signal?: AbortSignal): Promise<SheetWindow | SheetPending>
   /** An edit as typed (`=SUM(A1:A3)`, `1.5`, `'007`); `null` clears. Without it the sheet is read-only. */
   edit?(entries: CellEntry[]): Promise<EditOutcome>
+  /** Clipboard text pasted at a cell as Excel pastes it, one step of undo; `select` is what it filled. Without it the fields go to `edit`. */
+  paste?(sheet: string, cell: string, text: string): Promise<EditOutcome>
+  /** Control+Return: the text typed into the active cell entered into every cell of `range`. Without it only the active cell takes it. */
+  fill?(sheet: string, range: string, text: string, active: string): Promise<EditOutcome>
+  /** Take back the book's last change, whole (`ok` with no changes when there is none); `select` is where it was. Without it there is no undo. */
+  undo?(): Promise<EditOutcome>
+  /** Do the last undone change again. */
+  redo?(): Promise<EditOutcome>
   /** A structure operation; without it there is no structure menu. */
   structure?(op: SheetOp): Promise<EditOutcome>
   /** Column widths and row heights set with the mouse; without it a width lives until the page reloads. */
@@ -87,6 +95,8 @@ export interface SheetWindow {
   values: CellValue[][]
   /** Formulas by address as they are shown and edited (the source's locale), without `=`. */
   formulas: Record<string, string>
+  /** The text each cell opens with for editing, as Excel's formula bar shows it; a cell left out opens empty. Without it the component writes it from the value and the formula. */
+  editText?: Record<string, string>
   /** The colour of the format's section (`#RRGGBB`). */
   colors: Record<string, string>
   styleIds: Record<string, number>
@@ -126,7 +136,12 @@ export type SheetOp = Exclude<StructureOp, { op: 'addTable' | 'renameTable' | 'd
 export type LayoutChange = { sheet: string; columns: string; width: number } | { sheet: string; rows: string; height: number }
 
 export type EditOutcome =
-  | { ok: true; changes: CellUpdate[] }
+  | {
+      ok: true
+      changes: CellUpdate[]
+      /** Where the selection goes after the call: what a paste filled, what an undo took back. */
+      select?: { sheet: string; range: string }
+    }
   | {
       ok: false
       /**
@@ -148,6 +163,8 @@ export interface CellUpdate {
   color?: string
   /** Only for edited cells: the formula as shown, or null when the cell no longer has one. */
   formula?: string | null
+  /** Only for edited cells, from a source whose windows have `editText`: the text the cell opens with now. */
+  editText?: string
 }
 
 export type SourceEvent =
