@@ -49,7 +49,7 @@ describe('localSource: paste', () => {
 describe('localSource: Control+Return', () => {
   it('enters =A1*2 into B1:B3 as =A2*2 and =A3*2 below, as a copy moves it', async () => {
     const got = await source(sheet()).fill!('S', 'B1:B3', '=A1*2', 'B1')
-    expect(got.ok).toBe(true)
+    expect(got).toMatchObject({ ok: true, select: { sheet: 'S', range: 'B1:B3' } })
     if (!got.ok) return
     const by = Object.fromEntries(got.changes.map((c) => [c.cell, c]))
     expect(by.B1).toMatchObject({ formula: 'A1*2', value: 4, editText: '=A1*2' })

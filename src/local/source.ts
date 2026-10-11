@@ -210,7 +210,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
-  /** Control+Return: the text read once in the active cell and entered into every cell of the range. */
+  /** Control+Return: the text read once in the active cell and entered into every cell of the range, which stays selected. */
   async function fill(sheet: string, range: string, text: string, active: string): Promise<EditOutcome> {
     const s = await open()
     const rect = parseRange(range)
@@ -219,7 +219,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const got = await s.fillCellText(sheet, range, text, { active })
       if (!got.ok) return refusalOf(got)
       if (got.validation?.severity === 'stop') return await refuseStop(s, { sheet, cell: active, message: got.validation.message })
-      return await settle(s, got, [{ sheet, rect }])
+      const out = await settle(s, got, [{ sheet, rect }])
+      return out.ok ? { ...out, select: { sheet, range: rangeAddress(rect) } } : out
     } catch (e) {
       return outcomeOf(e, 'refused')
     }
