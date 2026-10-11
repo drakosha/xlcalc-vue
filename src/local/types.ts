@@ -1,5 +1,5 @@
 // Public types of the local source: its options and what it offers beyond `SheetSource`.
-import type { AsyncSessionOptions, BookInput, Calc, CalcPoolOptions, ComputeResult, SessionHistory } from 'xlcalc'
+import type { AsyncSessionOptions, BookInput, BookSnapshot, Calc, CalcPoolOptions, SessionHistory } from 'xlcalc'
 import type { EditOutcome, SheetSource } from '../source'
 
 export interface LocalSourceOptions {
@@ -33,8 +33,8 @@ export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Requ
   readonly history: SessionHistory
   /** The book with every change so far, to save or keep. */
   book(): Promise<BookInput>
-  /** The book's computed values, as `writeXlsx` takes them. */
-  result(): Promise<ComputeResult>
+  /** The book and its computed values taken at one moment, as `writeXlsx` takes them. */
+  snapshot(): Promise<BookSnapshot>
   /** Frozen panes of a sheet in the book (null unfreezes them); subscribers get `reload`. */
   freeze(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome>
   /** Close the session, and the pool when the source started it. */

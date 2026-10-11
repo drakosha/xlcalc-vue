@@ -388,8 +388,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     async book() {
       return (await open()).getBook()
     },
-    async result() {
-      return (await open()).getResult()
+    async snapshot() {
+      return (await open()).getSnapshot()
     },
     async close() {
       await ready.catch(() => {})
