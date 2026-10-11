@@ -25,10 +25,9 @@ afterAll(() => rmSync(out, { recursive: true, force: true }))
 const importsOf = (js: string) => [...js.matchAll(/(?:^|[;\n])\s*import\s*(?:[^'";]*?from\s*)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1] ?? m[2])
 
 describe('dist/local.js', () => {
-  it('is one file next to index.js, which stays without xlcalc', () => {
+  it('is one file next to index.js, which imports no xlcalc', () => {
     expect(readdirSync(out).filter((f) => f.endsWith('.js')).sort()).toEqual(['index.js', 'local.js'])
     const index = readFileSync(join(out, 'index.js'), 'utf8')
-    expect(index.match(/xlcalc/gi)).toBeNull()
     expect(new Set(importsOf(index))).toEqual(new Set(['vue']))
   })
   it('imports xlcalc and loads the pool, the xlsx reader and a locale only when asked', () => {

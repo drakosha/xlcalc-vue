@@ -160,6 +160,19 @@ describe('keys on an editable sheet', () => {
     await key('End', { ctrlKey: true })
     expect(active(w)).toBe('3:3')
   })
+
+  it("the grid ends at Excel's last row and column", async () => {
+    const w = await mountSheet(memorySource(book()))
+    const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
+    await goTo(w, 'XFD1048576')
+    expect(active(w)).toBe('1048576:16384')
+    await key('ArrowDown')
+    await key('ArrowRight')
+    await key('ArrowDown', { ctrlKey: true })
+    await key('ArrowRight', { ctrlKey: true })
+    await settle()
+    expect(active(w)).toBe('1048576:16384')
+  })
 })
 
 describe('a phone', () => {
