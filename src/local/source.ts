@@ -1,15 +1,17 @@
 // localSource: a sheet source over an xlcalc book whose session runs in a Web Worker pool or in the page's thread.
 // The session holds the book and computes; this side keeps the layout a window needs and the sheets' shown values for
 // search and the display filter, and patches both as it edits.
-import { createInlineCalc, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellReplace, type CellView, type LayoutEdit, type PatchFields } from 'xlcalc'
-import { cellAddress, parseCell, parseRect } from '../core/a1'
+import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type EditResult, type LayoutEdit, type PatchFields } from 'xlcalc'
+import { cellAddress, parseCell, parseRange, rangeAddress } from 'xlcalc/a1'
+import { parseRect } from '../core/a1'
 import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
-import { parseTarget, typedInput } from './input'
-import { grow, lineLook, readLayout, sheetOf, type BookLayout, type SheetLayout } from './layout'
+import { parseTarget } from './input'
+import { grow, readLayout, sheetOf, type BookLayout, type SheetLayout } from './layout'
 import { columnValuesOf, filterActive, filterKey, findIn, SheetValues, statsOf, visibleList } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
 import { loadLocale } from './locale'
-import { Formulas, windowOf } from './window'
+import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
+import { windowOf } from './window'
 
 const MAX_CELLS = 20_000
 
@@ -17,17 +19,7 @@ const abortError = () => new DOMException('The request was aborted', 'AbortError
 function check(signal?: AbortSignal): void {
   if (signal?.aborted) throw abortError()
 }
-const failed = (message: string): EditOutcome => ({ ok: false, reason: 'failed', message })
 const sheetMissing = (name: string): EditOutcome => failed(`No sheet ${name}`)
-
-/** An exception of the session as an outcome: input the book refuses, a busy calculator, anything else failed. */
-function outcomeOf(e: unknown, input: 'refused' | 'failed'): EditOutcome {
-  const err = e as { name?: string; code?: string; message?: string }
-  const message = err?.message ?? String(e)
-  if (err?.name === 'InputError') return { ok: false, reason: input, message }
-  if (err?.name === 'CalcError' && (err.code === 'soft_timeout' || err.code === 'queue_full' || err.code === 'aborted')) return { ok: false, reason: 'busy', message }
-  return failed(message)
-}
 
 async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
   const kind = typeof opts.calc === 'string' ? opts.calc : typeof Worker === 'function' ? 'pool' : 'inline'
@@ -39,8 +31,7 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
 /** A source over `input`: the book goes to the session as it is (its cells are not copied), so do not change it afterwards. */
 export function localSource(input: BookInput, opts: LocalSourceOptions = {}): LocalSource {
   let layout: BookLayout = readLayout(input)
-  // Formulas show and text sorts in the book's locale once it is loaded; an unknown locale fails the opening.
-  let formulas: Formulas
+  // Text sorts in the book's locale once it is loaded; an unknown locale fails the opening.
   let collator: Intl.Collator
   const maxCells = opts.maxCells ?? MAX_CELLS
   const listeners = new Set<(event: SourceEvent) => void>()
@@ -66,7 +57,6 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     calc = typeof opts.calc === 'object' ? opts.calc : await startCalc(opts)
     const s = await calc.createSession(input, opts.session)
     session = s
-    formulas = new Formulas(LOCALES.get(layout.locale)!)
     collator = new Intl.Collator(layout.locale, { numeric: true, sensitivity: 'base' })
     await growBySpills(s, input)
   })()
@@ -115,7 +105,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   function take(changes: CellChange[], edited: Map<string, CellUpdate> = new Map()): CellUpdate[] {
     const out = new Map(edited)
     for (const ch of changes) {
-      const key = `${ch.sheet}!${ch.cell}`
+      const key = cellKey(ch.sheet, ch.cell)
       if (!out.has(key)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
     }
     const list = [...out.values()]
@@ -161,50 +151,64 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return l
   }
 
-  /** Cells by address over the rectangles that hold `cells`, one fetch per sheet. */
-  async function viewsOf(s: AsyncSession, cells: { sheet: string; row: number; col: number }[]): Promise<Map<string, Record<string, CellView>>> {
-    const boxes = new Map<string, { r1: number; c1: number; r2: number; c2: number }>()
-    for (const { sheet, row, col } of cells) {
-      const b = boxes.get(sheet)
-      boxes.set(sheet, b ? { r1: Math.min(b.r1, row), c1: Math.min(b.c1, col), r2: Math.max(b.r2, row), c2: Math.max(b.c2, col) } : { r1: row, c1: col, r2: row, c2: col })
-    }
-    const out = new Map<string, Record<string, CellView>>()
-    await Promise.all([...boxes].map(async ([sheet, b]) => out.set(sheet, await s.getCells(sheet, `${cellAddress(b.r1, b.c1)}:${cellAddress(b.r2, b.c2)}`))))
-    return out
+  /** The edited cells as they are now, with their formulas as shown and edit texts; `truncated` when a sheet's rectangle held more than a window. */
+  async function editedIn(s: AsyncSession, boxes: CellsBox[]): Promise<{ updates: Map<string, CellUpdate>; truncated: boolean }> {
+    const updates = new Map<string, CellUpdate>()
+    let truncated = false
+    await Promise.all(
+      boxes.map(async (b) => {
+        const v = await s.getViewport(b.sheet, rangeAddress(b.rect), { formulaLocal: true, editText: true, maxCells })
+        truncated ||= v.truncated
+        const got = parseRange(v.range)!
+        for (let r = got.top; r <= got.bottom; r++) {
+          for (let c = got.left; c <= got.right; c++) {
+            const addr = cellAddress(r, c)
+            if (!b.only || b.only.has(addr)) updates.set(cellKey(b.sheet, addr), updateOf(b.sheet, addr, v.cells[addr]))
+          }
+        }
+      }),
+    )
+    return { updates, truncated }
   }
 
+  /** The book changed in many places: kept values are dropped and subscribers read the sheets and windows again. */
+  async function reload(s: AsyncSession): Promise<void> {
+    await reread(s)
+    emit({ kind: 'reload' })
+  }
+
+  /** A change made: its updates, the edited cells' as they are now, told to subscribers; a reload where updates cannot carry it. */
+  async function settle(s: AsyncSession, got: EditResult, boxes: CellsBox[]): Promise<EditOutcome> {
+    const { updates, truncated } = await editedIn(s, boxes)
+    const changes = take(got.changes, updates)
+    if (truncated || needsReload(got)) await reload(s)
+    else if (changes.length) emit({ kind: 'changed', changes })
+    return { ok: true, changes }
+  }
+
+  /** A value a stop rule of data validation does not take: the call is taken back whole, as Excel takes it back. */
+  async function refuseStop(s: AsyncSession, alert: { sheet: string; cell: string; message: string }): Promise<EditOutcome> {
+    await s.undo()
+    return { ok: false, reason: 'refused', message: alert.message, cells: [{ sheet: alert.sheet, cell: alert.cell }] }
+  }
+
+  /** Typed texts, each read as typed into its cell, in one step; only empty cells (Delete over a selection) clear the content. */
   async function edit(entries: CellEntry[]): Promise<EditOutcome> {
     const s = await open()
-    const cells: { sheet: string; row: number; col: number; l: SheetLayout; addr: string; text: string | null }[] = []
+    const cells: { sheet: string; cell: string; text: string | null }[] = []
     for (const e of entries) {
-      const l = sheetOf(layout, e.sheet)
       const at = parseCell(e.cell)
-      if (!l || !at) return failed(`No cell ${e.sheet}!${e.cell}`)
-      cells.push({ sheet: l.name, row: at.row, col: at.col, l, addr: cellAddress(at.row, at.col), text: e.text })
+      if (!at) return failed(`No cell ${e.sheet}!${e.cell}`)
+      cells.push({ sheet: e.sheet, cell: cellAddress(at.row, at.col), text: e.text })
     }
     if (!cells.length) return { ok: true, changes: [] }
+    const boxes = boxesOf(cells)
     try {
-      const before = await viewsOf(s, cells)
-      const now = s.clock.now
-      const edits: CellReplace[] = []
-      for (const c of cells) {
-        const got = typedInput(c.text, before.get(c.sheet)?.[c.addr], { locale: layout.locale, dateSystem: layout.dateSystem, now, inherited: lineLook(c.l, c.row, c.col).numberFormat })
-        if (!got.ok) return { ok: false, reason: 'invalid', message: got.message, at: got.at, cells: [{ sheet: c.sheet, cell: c.addr }] }
-        edits.push({ sheet: c.sheet, cell: c.addr, input: got.input })
-      }
-      const { changes } = await s.replaceCells(edits)
-      // The edited cells as the session now shows them, with their formulas: a value that did not change is no change.
-      const after = await viewsOf(s, cells)
-      const edited = new Map<string, CellUpdate>()
-      for (const c of cells) {
-        const v = after.get(c.sheet)?.[c.addr]
-        edited.set(`${c.sheet}!${c.addr}`, { sheet: c.sheet, cell: c.addr, text: v?.text ?? '', value: v ? v.value : null, ...(v?.color ? { color: v.color } : {}), formula: formulas.of(c.l, c.row, c.col, v) })
-      }
-      const updates = take(changes, edited)
-      emit({ kind: 'changed', changes: updates })
-      // A header cell names its table's column: formulas that use it are written anew.
-      if (cells.some((c) => c.l.tables.some((t) => t.headerRow === c.row && c.col >= t.rect.c1 && c.col <= t.rect.c2))) emit({ kind: 'reload' })
-      return { ok: true, changes: updates }
+      if (cells.every((c) => c.text === null)) return await settle(s, await s.clearCells(cells.map((c) => ({ sheet: c.sheet, range: c.cell })), 'contents'), boxes)
+      const got = await s.setCellTexts(cells.map((c) => ({ sheet: c.sheet, cell: c.cell, text: c.text ?? '' })))
+      if (!got.ok) return refusalOf(got)
+      const stop = got.validations?.find((v) => v.severity === 'stop')
+      return stop ? await refuseStop(s, stop) : await settle(s, got, boxes)
     } catch (e) {
       return outcomeOf(e, 'refused')
     }

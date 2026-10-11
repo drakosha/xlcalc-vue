@@ -1,5 +1,4 @@
-// Cell inputs for the session: what a person typed read by `parseEntry`, and the ranges the source's methods name.
-import { parseEntry, type CellInput, type CellView, type NumberFormat } from 'xlcalc'
+// The ranges the source's methods name: rectangles, whole columns and whole rows.
 import { colLabel, colNumber, colsAddress, parseRect, type Rect } from '../core/a1'
 
 /**
@@ -22,32 +21,4 @@ export function parseTarget(range: string): Target | null {
   }
   const rect = parseRect(text)
   return rect ? { kind: 'cells', rect } : null
-}
-
-export interface EntryContext {
-  locale: string
-  dateSystem?: 1900 | 1904
-  /** The book's clock: the year of a date typed without one. */
-  now: string
-  /** The format the cell shows without one of its own (its row's or column's). */
-  inherited?: NumberFormat
-}
-
-/** Typed text as the cell's new input, keeping its style, meta, note and link; a formula that does not parse gives its position. */
-export function typedInput(text: string | null, view: CellView | undefined, ctx: EntryContext): { ok: true; input: CellInput | null } | { ok: false; message: string; at: number } {
-  const own = view?.numberFormat
-  const got = parseEntry(text ?? '', {
-    locale: ctx.locale,
-    now: ctx.now,
-    ...(ctx.dateSystem ? { dateSystem: ctx.dateSystem } : {}),
-    cell: { numberFormat: own ?? ctx.inherited, style: view?.style, meta: view?.meta },
-  })
-  if (!got.ok) return { ok: false, message: got.message, at: got.at }
-  const input: CellInput = { ...got.input }
-  // A format the cell only shows from its row or column stays theirs.
-  if (own === undefined && input.numberFormat !== undefined && input.numberFormat === ctx.inherited) delete input.numberFormat
-  // A note and a link go with the cell, as its style does.
-  if (view?.note) input.note = view.note
-  if (view?.link) input.link = view.link
-  return { ok: true, input: Object.keys(input).length ? input : null }
 }

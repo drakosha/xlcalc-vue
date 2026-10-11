@@ -142,20 +142,6 @@ export function grow(l: SheetLayout, row: number, col: number): void {
   if (col > l.maxCol) l.maxCol = col
 }
 
-/** The style and format of a cell with none of its own: its row's when the row has either, else its column's, as Excel resolves them. */
-export function lineLook(l: SheetLayout, row: number, col: number): { style?: number; numberFormat?: NumberFormat } {
-  const r = l.rows.get(row)
-  if (r && (r.style !== undefined || r.numberFormat !== undefined)) return { style: r.style, numberFormat: r.numberFormat }
-  const c = l.columns.get(col)
-  return c ? { style: c.style, numberFormat: c.numberFormat } : {}
-}
-
-/** The table a cell is in, for showing its formula as Excel does inside a table. */
-export function tableAt(l: SheetLayout, row: number, col: number): string | undefined {
-  for (const t of l.tables) if (row >= t.rect.r1 && row <= t.rect.r2 && col >= t.rect.c1 && col <= t.rect.c2) return t.name
-  return undefined
-}
-
 /** A style's key for finding an equal one in the table: its fields in a fixed order. */
 function styleKey(style: unknown): string {
   if (style === null || typeof style !== 'object') return JSON.stringify(style)

@@ -1,37 +1,9 @@
 // A window of a sheet from xlcalc's viewport: shown text, values, formulas in the book's locale, the text each cell
 // opens with, looks, sizes, merged areas, tables, notes and links. Under a display filter only merged areas of one
 // shown row stay, as Excel shows them; that rule is the one part of the window xlcalc does not give.
-import { toLocal, type CellStyle, type CellView, type Locale, type Viewport } from 'xlcalc'
+import type { CellStyle, Viewport } from 'xlcalc'
 import { cellAddress, parseRange } from 'xlcalc/a1'
 import type { SheetWindow } from '../source'
-import { tableAt, type SheetLayout } from './layout'
-
-const TRANSLATIONS_MAX = 100_000
-
-/** Stored formulas as the locale shows them, remembered: windows ask for the same formulas again on every scroll. */
-export class Formulas {
-  private cache = new Map<string, string>()
-
-  constructor(private readonly locale: Locale) {}
-
-  /** A stored formula in the locale; inside its own table without the table's name (`[@Сумма]`), as Excel shows it. */
-  show(formula: string, table?: string): string {
-    const key = table ? `${table}\u0000${formula}` : formula
-    let out = this.cache.get(key)
-    if (out === undefined) {
-      const t = toLocal(formula, this.locale, table ? { table } : undefined)
-      out = t.ok ? t.formula : formula
-      if (this.cache.size >= TRANSLATIONS_MAX) this.cache.clear()
-      this.cache.set(key, out)
-    }
-    return out
-  }
-
-  /** A cell's formula as shown, or null without one. */
-  of(l: SheetLayout, row: number, col: number, view: CellView | undefined): string | null {
-    return view?.formula === undefined ? null : this.show(view.formula, tableAt(l, row, col))
-  }
-}
 
 /** The height xlcalc gives a row without one (Excel's default): such rows are left out of `rowHeights`. */
 const DEFAULT_ROW_PT = 15
