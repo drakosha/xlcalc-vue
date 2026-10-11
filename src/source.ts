@@ -139,7 +139,7 @@ export type EditOutcome =
   | {
       ok: true
       changes: CellUpdate[]
-      /** Where the selection goes after the call: what a paste filled, what an undo took back. */
+      /** Where the selection goes after `paste`, `fill`, `undo` or `redo`: what they filled or took back; `edit` gives none (the cursor has moved on). */
       select?: { sheet: string; range: string }
     }
   | {
