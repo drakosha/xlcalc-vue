@@ -1,5 +1,5 @@
 // Public types of the local source: its options and what it offers beyond `SheetSource`.
-import type { AsyncSessionOptions, BookInput, Calc, CalcPoolOptions, ComputeResult } from 'xlcalc'
+import type { AsyncSessionOptions, BookInput, Calc, CalcPoolOptions, ComputeResult, SessionHistory } from 'xlcalc'
 import type { EditOutcome, SheetSource } from '../source'
 
 export interface LocalSourceOptions {
@@ -20,7 +20,7 @@ export interface LocalSourceOptions {
 }
 
 /** Methods of `SheetSource` that the local source always has. */
-type Given = 'edit' | 'structure' | 'layout' | 'format' | 'subscribe' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues'
+type Given = 'edit' | 'paste' | 'fill' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'subscribe' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues'
 
 /** A sheet source over an xlcalc book: every method of `SheetSource`, and the host's handles on the book. */
 export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Required<Pick<SheetSource, Given>> {
@@ -29,6 +29,8 @@ export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Requ
   readonly locale: string
   /** Settles when the book is computed; rejects when it could not be opened (the methods reject with the same error). */
   readonly ready: Promise<void>
+  /** The steps `undo` and `redo` can take now, for a toolbar's buttons. */
+  readonly history: SessionHistory
   /** The book with every change so far, to save or keep. */
   book(): Promise<BookInput>
   /** The book's computed values, as `writeXlsx` takes them. */
