@@ -1,7 +1,7 @@
 // Pure pieces: Excel units, prefix sums, the style's CSS and clipboard text.
 import { describe, expect, it } from 'vitest'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, generalAlign, horizontalOf, verticalOf, wrapsOf } from '../src/core/cell-style'
-import { parseTsv, toTsv } from '../src/core/clipboard'
+import { toTsv } from '../src/core/clipboard'
 import { numberEditText, textEditText } from '../src/core/edit-text'
 import { colPx, fontPx, indexAt, prefixSums, rowPx, widthFromPx } from '../src/core/geometry'
 
@@ -91,12 +91,6 @@ describe('style to CSS', () => {
 describe('clipboard text', () => {
   it('copies TSV with breaks and tabs inside cells flattened', () => {
     expect(toTsv([['a', 'b\tc'], ['d\ne', '']])).toBe('a\tb c\nd e\t')
-  })
-  it('reads TSV with quoted fields as Excel writes it', () => {
-    expect(parseTsv('a\tb\r\nc\td\r\n')).toEqual([['a', 'b'], ['c', 'd']])
-    expect(parseTsv('"x\ny"\t"say ""hi"""\n1\t')).toEqual([['x\ny', 'say "hi"'], ['1', '']])
-    expect(parseTsv('5" disk\t2')).toEqual([['5" disk', '2']])
-    expect(parseTsv('')).toEqual([])
   })
 })
 

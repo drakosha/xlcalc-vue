@@ -2,8 +2,8 @@
 import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
+import { parseClipboard } from 'xlcalc/text'
 import type { CellEntry, EditOutcome } from '../source'
-import { parseTsv } from './clipboard'
 import { numberEditText, textEditText } from './edit-text'
 import type { Formula } from './formula'
 import type { Selection } from './selection'
@@ -251,15 +251,14 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }
     if (entries.length) void send(entries, null)
   }
-  /** Paste TSV as a rectangle from the selection's top-left cell: with `paste` the source lays it out in one call, else one value fills the selection. */
+  /** Paste text as the rectangle Excel pastes from the selection's top-left cell: with `paste` the source lays it out in one call, else one value fills the selection. */
   function pasteText(text: string): void {
     const a = sel.selRect.value
     if (!s.editable.value || !a) return
-    const rows = parseTsv(text)
-    if (!rows.length) return
+    const rows = parseClipboard(text)
     const paste = s.source().paste
     const one = !paste && rows.length === 1 && rows[0]!.length === 1
-    const width = Math.max(...rows.map((line) => line.length))
+    const width = rows[0]!.length
     const target: CellRect = one ? a : { top: a.top, left: a.left, bottom: a.top + rows.length - 1, right: a.left + width - 1 }
     const lock = lockIn(target)
     if (lock !== null) return deps.notify(s.messages.value.locked(lock))

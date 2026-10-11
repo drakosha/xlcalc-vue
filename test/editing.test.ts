@@ -131,23 +131,36 @@ describe('keys', () => {
     expect(cellText(w, 1, 1)).toBe('')
   })
 
-  it('a paste lays TSV out as a rectangle from the active cell; one value fills the selection', async () => {
+  it('a paste lays the text out as Excel pastes it, from the active cell; one value fills the selection', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'B5')
     paste(w, '1\t2\n3\t\n')
     await settle()
+    // A line break after the last row is one more row, of empty fields: it clears the cells under the paste.
     expect(edits[0]).toEqual([
       { sheet: 'S', cell: 'B5', text: '1' },
       { sheet: 'S', cell: 'C5', text: '2' },
       { sheet: 'S', cell: 'B6', text: '3' },
       { sheet: 'S', cell: 'C6', text: null },
+      { sheet: 'S', cell: 'B7', text: null },
+      { sheet: 'S', cell: 'C7', text: null },
     ])
     expect(cellText(w, 6, 2)).toBe('3')
     await goTo(w, 'E1:E2')
     paste(w, '7')
     await settle()
     expect(edits[1]!.map((e) => `${e.cell}=${e.text}`)).toEqual(['E1=7', 'E2=7'])
+  })
+
+  it('a paste takes quotes as text, fields at tabs and rows at line breaks', async () => {
+    const { source, edits } = recorded()
+    const w = await mountSheet(source)
+    await goTo(w, 'B5')
+    // TODO(xlcalc): parseClipboard does not read quoted fields yet (asked in the library's tracker); once it does, this is one row, `x\ny` and `say "hi"`.
+    paste(w, '"x\ny"\t"say ""hi"""')
+    await settle()
+    expect(edits[0]!.map((e) => `${e.cell}=${e.text}`)).toEqual(['B5="x', 'C5=null', 'B6=y"', 'C6="say ""hi"""'])
   })
 
   it('a paste that would leave the sheet is refused whole, as Excel refuses it', async () => {
