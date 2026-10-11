@@ -33,6 +33,9 @@ export interface SheetMessages {
   statsCells: (n: string) => string
   sheetTitle: (name: string, rows: number, cols: number) => string
   sheetUnnamed: (n: number) => string
+  /** "+" after the tabs, and the word a new sheet's name begins with (Excel's `Sheet4`, `Лист4`). */
+  insertSheet: string
+  sheetNamePrefix: string
   selectColumn: string
   selectRow: string
   selectAll: string
@@ -150,6 +153,8 @@ export const enMessages: SheetMessages = {
   statsCells: (n) => `Cells: ${n}`,
   sheetTitle: (name, rows, cols) => `${name}: ${rows} ${rows === 1 ? 'row' : 'rows'}, ${cols} ${cols === 1 ? 'column' : 'columns'}`,
   sheetUnnamed: (n) => `Sheet ${n}`,
+  insertSheet: 'New sheet',
+  sheetNamePrefix: 'Sheet',
   selectColumn: 'Click selects the column',
   selectRow: 'Click selects the row',
   selectAll: 'Click selects the whole sheet',
@@ -277,6 +282,8 @@ export const ruMessages: SheetMessages = {
   sheetTitle: (name, rows, cols) =>
     `${name}: ${rows} ${plural(rows, 'строка', 'строки', 'строк')}, ${cols} ${plural(cols, 'колонка', 'колонки', 'колонок')}`,
   sheetUnnamed: (n) => `Лист ${n}`,
+  insertSheet: 'Новый лист',
+  sheetNamePrefix: 'Лист',
   selectColumn: 'Щелчок выделяет колонку',
   selectRow: 'Щелчок выделяет строку',
   selectAll: 'Щелчок выделяет весь лист',

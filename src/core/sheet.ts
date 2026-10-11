@@ -5,6 +5,7 @@ import type { CellStyle } from 'xlcalc/contract'
 import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
 import { useCommands, type SheetTarget } from './commands'
+import { useMenu } from './menu'
 import { useEditing, type EditorState } from './editing'
 import { useFormula } from './formula'
 import { MAX_COL_PX, MIN_COL_PX, useGeometry, widthFromPx } from './geometry'
@@ -88,10 +89,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   /** The look of the active cell, from its loaded window: the `state` event and the font keys take it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
   const cmd = useCommands(s, sel, ed, { reload, reloads: () => reloads, target: (t) => (target = t), activeStyle: () => activeLook.value?.style })
+  const menu = useMenu(s, cmd)
 
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
   const tabs = computed(() => s.sheets.value.map((x, i) => ({ sheet: x, i })).filter(({ sheet }) => !sheet.hidden))
+  /** Excel shows the tabs with one sheet too; the the app only from two (`hideLoneTab`). */
+  const showTabs = computed(() => tabs.value.length > (props.hideLoneTab ? 1 : 0))
   const hasLayout = () => typeof props.source.layout === 'function'
 
   /** Make a sheet active: windows, sizes, selection and scroll start over. */
@@ -353,6 +357,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     find,
     views,
     cmd,
+    menu,
     editor,
     message,
     notify,
@@ -360,6 +365,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     cellInput,
     barInput,
     tabs,
+    showTabs,
     pickSheet,
     reload,
     retry,

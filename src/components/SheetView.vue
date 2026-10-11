@@ -20,6 +20,8 @@ const props = withDefaults(defineProps<SheetViewProps>(), {
   readOnly: false,
   formulaBar: true,
   locale: undefined,
+  hideLoneTab: false,
+  edgeRestoresWidth: false,
 })
 const emit = defineEmits<{
   state: [state: SheetViewState | null]

@@ -742,6 +742,11 @@
   color: var(--xs-fg);
   font-weight: 600;
 }
+/* "+" after the last tab, as Excel's New sheet. */
+.xs-tab-add {
+  align-self: center;
+  margin-left: 2px;
+}
 .xs-filter-status {
   display: flex;
   flex-shrink: 1;

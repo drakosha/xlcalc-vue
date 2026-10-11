@@ -1,15 +1,18 @@
 <script setup lang="ts">
 // The bottom line, as in Excel: sheet tabs (scrolling sideways on a phone), the filter's state and the selection's totals.
+import { computed } from 'vue'
 import { useSheetContext } from './context'
-import { IconFilterOff } from './icons'
+import { IconFilterOff, IconPlus } from './icons'
 
 const ctx = useSheetContext()
 const m = ctx.messages
+/** "+" after the tabs, as Excel's, with the source's structure on an editable sheet. */
+const canAdd = computed(() => ctx.cmd.can('structure'))
 </script>
 
 <template>
-  <div v-if="ctx.tabs.value.length > 1 || ctx.totals.statsText.value || ctx.filter.status.value" class="xs-bottom">
-    <div v-if="ctx.tabs.value.length > 1" class="xs-tabs" role="tablist">
+  <div v-if="ctx.showTabs.value || ctx.totals.statsText.value || ctx.filter.status.value" class="xs-bottom">
+    <div v-if="ctx.showTabs.value" class="xs-tabs" role="tablist">
       <button
         v-for="{ sheet, i } in ctx.tabs.value"
         :key="sheet.name + i"
@@ -21,6 +24,9 @@ const m = ctx.messages
         @click="ctx.pickSheet(i)"
       >
         {{ sheet.name || m.sheetUnnamed(i + 1) }}
+      </button>
+      <button v-if="canAdd" type="button" class="xs-tool xs-tab-add" data-xs-add-sheet :title="m.insertSheet" :aria-label="m.insertSheet" @click="ctx.menu.addSheet()">
+        <IconPlus />
       </button>
     </div>
     <span v-if="ctx.filter.status.value" class="xs-filter-status" :title="ctx.filter.status.value" data-xs-filter-status>
