@@ -40,6 +40,8 @@ export interface SheetMessages {
   conflict: string
   locked: (reason: string) => string
   editFailed: string
+  /** A paste whose rectangle would go past the sheet's last row or column. */
+  pasteOffSheet: string
   tooManyCells: string
   pending: string
   close: string
@@ -155,6 +157,7 @@ export const enMessages: SheetMessages = {
   conflict: 'The book was changed elsewhere: check and press Enter again',
   locked: (reason) => `This cell cannot be changed: ${reason}`,
   editFailed: 'The edit did not go through',
+  pasteOffSheet: 'Cannot paste here: the data would go past the edge of the sheet',
   tooManyCells: 'Too many cells for one edit',
   pending: 'Saving…',
   close: 'Close',
@@ -281,6 +284,7 @@ export const ruMessages: SheetMessages = {
   conflict: 'Книгу изменили в другом месте: проверьте и нажмите Enter ещё раз',
   locked: (reason) => `Эту ячейку менять нельзя: ${reason}`,
   editFailed: 'Правка не прошла',
+  pasteOffSheet: 'Вставить нельзя: данные выйдут за край листа',
   tooManyCells: 'Слишком много ячеек для одной правки',
   pending: 'Сохраняю…',
   close: 'Закрыть',

@@ -271,7 +271,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       return
     }
     // A rectangle past the sheet's edge is refused whole, as Excel refuses it; a source's `paste` says so itself.
-    if (target.bottom > MAX_ROWS || target.right > MAX_COLS) return deps.notify(s.messages.value.editFailed)
+    if (target.bottom > MAX_ROWS || target.right > MAX_COLS) return deps.notify(s.messages.value.pasteOffSheet)
     if ((target.bottom - target.top + 1) * (target.right - target.left + 1) > MAX_EDIT_CELLS) return deps.notify(s.messages.value.tooManyCells)
     const entries: CellEntry[] = []
     for (let row = target.top; row <= target.bottom; row++) {

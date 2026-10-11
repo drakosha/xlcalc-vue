@@ -1,6 +1,6 @@
 // Editing: Excel's keys, typing over a cell, Delete over the selection, pasting TSV, locked cells, and the source's outcomes.
 import { afterEach, describe, expect, it } from 'vitest'
-import { memorySource, type MemoryBook } from '../src'
+import { memorySource, ruMessages, type MemoryBook } from '../src'
 import type { EditOutcome } from '../src/source'
 import { active, cellText, editorKey, editorOpen, goTo, key, mountSheet, paste, settle, type } from './helpers'
 
@@ -163,14 +163,18 @@ describe('keys', () => {
     expect(edits[0]!.map((e) => `${e.cell}=${e.text}`)).toEqual(['B5="x', 'C5=null', 'B6=y"', 'C6="say ""hi"""'])
   })
 
-  it('a paste that would leave the sheet is refused whole, as Excel refuses it', async () => {
+  it('a paste that would leave the sheet is refused whole, as Excel refuses it, and says why', async () => {
     const { source, edits } = recorded()
-    const w = await mountSheet(source, { messages: { editFailed: 'Edit failed' } })
+    const w = await mountSheet(source)
     await goTo(w, 'XFD1048576')
     paste(w, '1\t2')
     await settle()
     expect(edits).toEqual([])
-    expect(w.find('.xs-message').text()).toBe('Edit failed')
+    expect(w.find('.xs-message').text()).toBe('Cannot paste here: the data would go past the edge of the sheet')
+    await w.setProps({ messages: ruMessages })
+    paste(w, '1\n2')
+    await settle()
+    expect(w.find('.xs-message').text()).toBe('Вставить нельзя: данные выйдут за край листа')
   })
 
   it('read-only: typing, Delete and paste do nothing', async () => {
