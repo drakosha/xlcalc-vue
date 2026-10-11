@@ -144,14 +144,14 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
   it('formats a range: a new style in the table, a number format, and null removes them', async () => {
     const s = source()
     const italic = { font: { italic: true } }
-    let got = await s.format('Лист1', 'A1:A2', { style: italic, numberFormat: '0.00' })
+    let got = await s.format('Лист1', [{ range: 'A1:A2', style: italic, numberFormat: '0.00' }])
     expect(got.ok).toBe(true)
     let w = await win(s, 'Лист1', 1, 3, 1, 1)
     expect(styleOf(w, 'A1')).toEqual(italic)
     expect(styleOf(w, 'A2')).toEqual(italic)
     expect(w.text.map((r) => r[0])).toEqual(['1,00', '2,00', '3'])
     expect(w.formulas.A3).toBe('СУММ(A1:A2)')
-    got = await s.format('Лист1', 'A1', { style: null, numberFormat: null })
+    got = await s.format('Лист1', [{ range: 'A1', style: null, numberFormat: null }])
     expect(got.ok).toBe(true)
     w = await win(s, 'Лист1', 1, 2, 1, 1)
     expect(styleOf(w, 'A1')).toBeUndefined()
@@ -159,10 +159,29 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(styleOf(w, 'A2')).toEqual(italic)
   })
 
+  it('formats several ranges in one step of undo, as outside borders over a selection', async () => {
+    const s = source()
+    const line = { style: 'thin' as const }
+    const got = await s.format('Список', [
+      { range: 'D2:E2', style: { border: { top: line } } },
+      { range: 'D3:E3', style: { border: { bottom: line } } },
+      { range: 'D2:D3', style: { border: { left: line } } },
+      { range: 'E2:E3', style: { border: { right: line } } },
+    ])
+    expect(got.ok).toBe(true)
+    let w = await win(s, 'Список', 2, 2, 4, 2)
+    expect(styleOf(w, 'D2')).toEqual({ border: { top: line, left: line } })
+    expect(styleOf(w, 'E3')).toEqual({ border: { bottom: line, right: line } })
+    expect(s.history).toEqual({ undo: 1, redo: 0 })
+    await s.undo()
+    w = await win(s, 'Список', 2, 2, 4, 2)
+    expect(['D2', 'E2', 'D3', 'E3'].map((a) => styleOf(w, a))).toEqual([undefined, undefined, undefined, undefined])
+  })
+
   it('formats empty cells and whole columns, and keeps notes and formulas', async () => {
     const s = source()
-    await s.format('Лист1', 'H1:H2', { style: BOLD })
-    await s.format('Лист1', 'B:B', { style: ROW_FILL })
+    await s.format('Лист1', [{ range: 'H1:H2', style: BOLD }])
+    await s.format('Лист1', [{ range: 'B:B', style: ROW_FILL }])
     const w = await win(s, 'Лист1', 1, 9, 1, 8)
     expect(styleOf(w, 'H1')).toEqual(BOLD)
     expect(styleOf(w, 'B1')).toEqual(ROW_FILL)
@@ -174,8 +193,8 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
   it('formats a bold row across a filled column as Excel does: their crossing cells get both', async () => {
     const s = source()
     const FILL = { fill: { color: '#ddeeff' } }
-    expect(await s.format('Список', 'C:C', { style: FILL })).toMatchObject({ ok: true })
-    expect(await s.format('Список', '2:2', { style: { font: { bold: true } } })).toMatchObject({ ok: true })
+    expect(await s.format('Список', [{ range: 'C:C', style: FILL }])).toMatchObject({ ok: true })
+    expect(await s.format('Список', [{ range: '2:2', style: { font: { bold: true } } }])).toMatchObject({ ok: true })
     const w = await win(s, 'Список', 1, 3, 2, 3)
     expect(styleOf(w, 'C2')).toEqual({ font: { bold: true }, fill: { color: '#ddeeff' } })
     expect(styleOf(w, 'B2')).toEqual({ font: { bold: true } })
@@ -185,8 +204,8 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
 
   it('formats over each cell\'s look: bold keeps a cell italic, rows 2:3 at once', async () => {
     const s = source()
-    await s.format('Список', 'A2', { style: { font: { italic: true } } })
-    await s.format('Список', '2:3', { style: { font: { bold: true } } })
+    await s.format('Список', [{ range: 'A2', style: { font: { italic: true } } }])
+    await s.format('Список', [{ range: '2:3', style: { font: { bold: true } } }])
     const w = await win(s, 'Список', 2, 2, 1, 1)
     expect(styleOf(w, 'A2')).toEqual({ font: { italic: true, bold: true } })
     expect(styleOf(w, 'A3')).toEqual({ font: { bold: true } })
@@ -196,10 +215,10 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     const s = source()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
-    await s.format('Лист1', 'A1:A2', { numberFormat: '0.00' })
+    await s.format('Лист1', [{ range: 'A1:A2', numberFormat: '0.00' }])
     expect(events).toMatchObject([{ kind: 'changed', changes: [{ cell: 'A1', text: '1,00' }, { cell: 'A2', text: '2,00' }] }])
     // bold is in the book's styles already: the answer has no new table, the cells' looks changed all the same
-    await s.format('Лист1', 'A1', { style: BOLD })
+    await s.format('Лист1', [{ range: 'A1', style: BOLD }])
     expect(events.at(-1)).toEqual({ kind: 'reload' })
   })
 

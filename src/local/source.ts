@@ -1,9 +1,9 @@
 // localSource: a sheet source over an xlcalc book whose session runs in a Web Worker pool or in the page's thread.
 // The session holds the book, computes it and answers windows, sheets and edits as Excel makes them; this side keeps
 // the sheets' shown values for search and the display filter, patched by the changes and dropped on a reload.
-import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type EditResult, type PatchFields, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type PatchFields, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, parseCell, parseRange, rangeAddress } from 'xlcalc/a1'
-import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
+import type { CellEntry, CellUpdate, EditOutcome, FormatPatch, LayoutChange, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
 import { loadLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { columnValuesOf, filterActive, filterKey, findIn, SheetValues, statsOf, visibleList } from './query'
@@ -280,14 +280,18 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   }
 
   /** Formatting as Excel formats a selection: the style over the one each cell shows, in one patch of the session. */
-  async function format(sheet: string, range: string, patch: Parameters<LocalSource['format']>[2]): Promise<EditOutcome> {
+  async function format(sheet: string, patches: FormatPatch[]): Promise<EditOutcome> {
     const s = await open()
-    const set: PatchFields = {}
-    if (patch.style !== undefined) set.style = patch.style
-    if (patch.numberFormat !== undefined) set.numberFormat = patch.numberFormat
-    if (!Object.keys(set).length) return { ok: true, changes: [] }
+    const cells: CellPatch[] = []
+    for (const p of patches) {
+      const set: PatchFields = {}
+      if (p.style !== undefined) set.style = p.style
+      if (p.numberFormat !== undefined) set.numberFormat = p.numberFormat
+      if (Object.keys(set).length) cells.push({ sheet, range: p.range, set })
+    }
+    if (!cells.length) return { ok: true, changes: [] }
     try {
-      const got = await s.patchCells([{ sheet, range, set }])
+      const got = await s.patchCells(cells)
       const changes = take(got.changes)
       if (needsReload(got)) reload()
       else if (changes.length) emit({ kind: 'changed', changes })

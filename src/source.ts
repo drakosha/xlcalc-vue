@@ -27,11 +27,11 @@ export interface SheetSource {
   /** Column widths and row heights set with the mouse; without it a width lives until the page reloads. */
   layout?(edit: LayoutChange): Promise<EditOutcome>
   /**
-   * Formatting of a range (`B2:D9`, whole columns `B:D`, rows `2:5`) as Excel formats a selection: style fields go over
-   * the style each cell shows (null removes a field), `style: null` removes the cells' own style, a number format or null.
-   * Without it there is no toolbar.
+   * Formatting of ranges (`B2:D9`, whole columns `B:D`, rows `2:5`) in one step of undo, as Excel formats a selection:
+   * style fields go over the style each cell shows (null removes a field), `style: null` removes the cells' own style, a
+   * number format or null; several patches carry what differs by place (outside borders). Without it there is no toolbar.
    */
-  format?(sheet: string, range: string, patch: { style?: StylePatch | null; numberFormat?: NumberFormat | null }): Promise<EditOutcome>
+  format?(sheet: string, patches: FormatPatch[]): Promise<EditOutcome>
   /** Changes made elsewhere: another tab, an agent, the clock. Returns the unsubscribe function. */
   subscribe?(listener: (event: SourceEvent) => void): () => void
   /** A cell's precedents tree as text. */
@@ -46,6 +46,13 @@ export interface SheetSource {
   columnValues?(sheet: string, col: number, filter: SheetFilter, signal?: AbortSignal): Promise<{ values: { text: string; count: number }[]; more: number }>
   /** The cell limit of one window, 20,000 by default. */
   readonly maxCells?: number
+}
+
+/** A range's formatting in `SheetSource.format`. */
+export interface FormatPatch {
+  range: string
+  style?: StylePatch | null
+  numberFormat?: NumberFormat | null
 }
 
 /** A display filter and sort, as the the app has them: the data do not change. */

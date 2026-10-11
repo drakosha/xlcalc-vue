@@ -178,7 +178,7 @@ describe('localSource: explain, events, closing', () => {
 
   it('applies edits one after another: the second reads the cell as the first left it', async () => {
     const s = source()
-    const [a, b] = await Promise.all([s.format('Лист1', 'A1', { style: BOLD }), s.edit([{ sheet: 'Лист1', cell: 'A1', text: '9' }])])
+    const [a, b] = await Promise.all([s.format('Лист1', [{ range: 'A1', style: BOLD }]), s.edit([{ sheet: 'Лист1', cell: 'A1', text: '9' }])])
     expect(a.ok && b.ok).toBe(true)
     const w = await win(s, 'Лист1', 1, 3, 1, 1)
     expect(w.text[0]![0]).toBe('9')
