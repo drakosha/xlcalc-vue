@@ -278,7 +278,7 @@ function pickNumber(e: Event): void {
           <button type="button" class="xs-tool xs-tb-caret" data-tb="font-palette" :title="m.pickColour" :aria-label="m.pickColour" :aria-expanded="open === 'font'" :disabled="!state" @click="toggle('font')">
             <IconDown />
           </button>
-          <div v-if="open === 'font'" class="xs-tb-pop" role="menu" :aria-label="m.fontColour">
+          <div v-if="open === 'font'" class="xs-tb-pop" role="group" :aria-label="m.fontColour">
             <button type="button" class="xs-tb-item" data-tb="colour-auto" :aria-pressed="!fontColour" @click="paintFont(null)">{{ m.colourAuto }}</button>
             <div class="xs-tb-swatches">
               <button
@@ -303,7 +303,7 @@ function pickNumber(e: Event): void {
           <button type="button" class="xs-tool xs-tb-caret" data-tb="fill-palette" :title="m.pickColour" :aria-label="m.pickColour" :aria-expanded="open === 'fill'" :disabled="!state" @click="toggle('fill')">
             <IconDown />
           </button>
-          <div v-if="open === 'fill'" class="xs-tb-pop" role="menu" :aria-label="m.fillColour">
+          <div v-if="open === 'fill'" class="xs-tb-pop" role="group" :aria-label="m.fillColour">
             <button type="button" class="xs-tb-item" data-tb="fill-none" :aria-pressed="!fillColour" @click="paintFill(null)">{{ m.fillNone }}</button>
             <div class="xs-tb-swatches">
               <button
