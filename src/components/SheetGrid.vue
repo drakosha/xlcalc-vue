@@ -119,13 +119,13 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
               </button>
               <span
                 class="xs-grip"
-                :title="m.resize"
+                :title="ctx.fitsOnEdge.value ? m.resizeFit : m.resize"
                 @pointerdown="ctx.startResize($event, k.c)"
                 @pointermove="ctx.onResizeMove"
                 @pointerup="ctx.endResize"
                 @pointercancel="ctx.endResize"
                 @click.stop
-                @dblclick.stop="ctx.resetWidth(k.c)"
+                @dblclick.stop="ctx.onEdgeDouble(k.c)"
               ></span>
             </th>
           </template>

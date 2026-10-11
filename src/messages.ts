@@ -40,6 +40,8 @@ export interface SheetMessages {
   selectRow: string
   selectAll: string
   resize: string
+  /** A column's edge where a double click fits the column to what it shows. */
+  resizeFit: string
   conflict: string
   locked: (reason: string) => string
   editFailed: string
@@ -159,6 +161,7 @@ export const enMessages: SheetMessages = {
   selectRow: 'Click selects the row',
   selectAll: 'Click selects the whole sheet',
   resize: 'Drag to change the width; a double click restores the book’s width',
+  resizeFit: 'Drag to change the width; a double click fits it to the contents',
   conflict: 'The book was changed elsewhere: check and press Enter again',
   locked: (reason) => `This cell cannot be changed: ${reason}`,
   editFailed: 'The edit did not go through',
@@ -288,6 +291,7 @@ export const ruMessages: SheetMessages = {
   selectRow: 'Щелчок выделяет строку',
   selectAll: 'Щелчок выделяет весь лист',
   resize: 'Потяните, чтобы изменить ширину. Двойной щелчок вернёт ширину из книги',
+  resizeFit: 'Потяните, чтобы изменить ширину. Двойной щелчок подберёт ширину по содержимому',
   conflict: 'Книгу изменили в другом месте: проверьте и нажмите Enter ещё раз',
   locked: (reason) => `Эту ячейку менять нельзя: ${reason}`,
   editFailed: 'Правка не прошла',

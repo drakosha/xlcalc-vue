@@ -1,6 +1,6 @@
 // The component's wiring: state, geometry, windows, selection, editing and jumps, the source's events and the frame's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { cellAddress, linesKey } from 'xlcalc/a1'
+import { cellAddress, linesKey, MAX_COLS } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
@@ -200,7 +200,15 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (px !== undefined) void saveWidth(col, px)
     w.ensure()
   }
-  /** A double click on the edge: the book's width back. */
+  /** A double click on a column's edge fits it, as Excel, with every selected whole column when it is one of them; without `layout` (or with `edgeRestoresWidth`) the book's width comes back. */
+  const fitsOnEdge = computed(() => !props.edgeRestoresWidth && cmd.can('layout'))
+  function onEdgeDouble(col: number): void {
+    if (!fitsOnEdge.value) return resetWidth(col)
+    const whole = sel.wholeColumns.value
+    const [first, last] = whole && col >= whole.first && col <= whole.last ? [whole.first, Math.min(whole.last, MAX_COLS)] : [col, col]
+    void cmd.layout({ sheet: s.sheetName.value, columns: linesKey(first, last, 'columns'), fit: true })
+  }
+  /** The book's width back. */
   function resetWidth(col: number): void {
     const next = { ...s.userWidths.value }
     delete next[col]
@@ -372,7 +380,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     startResize,
     onResizeMove,
     endResize,
-    resetWidth,
+    fitsOnEdge,
+    onEdgeDouble,
     onLink,
     onScroll,
     onGridKey,
