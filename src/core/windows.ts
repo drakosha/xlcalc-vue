@@ -131,6 +131,12 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const d = s.indexOf(r)
     return d !== undefined && emptyAt(d, col)
   }
+  /** The text a cell opens with from its window's `editText` (a cell left out opens empty); undefined when the window has none. */
+  const editTextOfRow = (r: number, col: number): string | undefined => {
+    const d = s.indexOf(r)
+    const texts = d === undefined ? undefined : slotAt(d, col)?.win?.editText
+    return texts ? (texts[cellAddress(r, col)] ?? '') : undefined
+  }
 
   const current = (kind: SlotKind) => (slots[kind].value.view === viewKey() ? slots[kind].value : null)
   /** Merged areas of the loaded windows (by sheet rows), each once. */
@@ -368,6 +374,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         else delete w.colors[addr]
         if (ch.formula === null) delete w.formulas[addr]
         else if (ch.formula !== undefined) w.formulas[addr] = ch.formula
+        if (ch.editText !== undefined && w.editText) w.editText[addr] = ch.editText
         touched.add(kind)
       }
     }
@@ -387,6 +394,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     valueOfRow,
     formulaOfRow,
     emptyAtRow,
+    editTextOfRow,
     merges,
     tables,
     notice,
