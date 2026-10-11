@@ -1,4 +1,4 @@
-// Cell inputs for the session: what a person typed read by `parseEntry`, and a cell's input rebuilt from its view.
+// Cell inputs for the session: what a person typed read by `parseEntry`, and the ranges the source's methods name.
 import { parseEntry, type CellInput, type CellView, type NumberFormat } from 'xlcalc'
 import { colLabel, colNumber, colsAddress, parseRect, type Rect } from '../core/a1'
 
@@ -24,25 +24,6 @@ export function parseTarget(range: string): Target | null {
   return rect ? { kind: 'cells', rect } : null
 }
 
-/**
- * A cell's input as the session holds it, from its view: the formula or the value (a cell an array spilled into holds
- * none), the format, style, meta, note and link. `exact`, the book's own input, takes its place where a view cannot
- * tell it (an old-kind array formula's area).
- */
-export function inputOf(view: CellView | undefined, exact?: CellInput): CellInput {
-  if (exact) return { ...exact }
-  if (!view) return {}
-  const out: CellInput = {}
-  if (view.formula !== undefined) out.formula = view.formula
-  else if (view.spillOf === undefined && view.value !== null && typeof view.value !== 'object') out.value = view.value
-  if (view.format !== undefined) out.format = view.format
-  if (view.style !== undefined) out.style = view.style
-  if (view.meta !== undefined) out.meta = view.meta
-  if (view.note !== undefined) out.note = view.note
-  if (view.link !== undefined) out.link = view.link
-  return out
-}
-
 export interface EntryContext {
   locale: string
   dateSystem?: 1900 | 1904
@@ -54,29 +35,19 @@ export interface EntryContext {
 
 /** Typed text as the cell's new input, keeping its style, meta, note and link; a formula that does not parse gives its position. */
 export function typedInput(text: string | null, view: CellView | undefined, ctx: EntryContext): { ok: true; input: CellInput | null } | { ok: false; message: string; at: number } {
-  const own = view?.format
+  const own = view?.numberFormat
   const got = parseEntry(text ?? '', {
     locale: ctx.locale,
     now: ctx.now,
     ...(ctx.dateSystem ? { dateSystem: ctx.dateSystem } : {}),
-    cell: { format: own ?? ctx.inherited, style: view?.style, meta: view?.meta },
+    cell: { numberFormat: own ?? ctx.inherited, style: view?.style, meta: view?.meta },
   })
   if (!got.ok) return { ok: false, message: got.message, at: got.at }
   const input: CellInput = { ...got.input }
   // A format the cell only shows from its row or column stays theirs.
-  if (own === undefined && input.format !== undefined && input.format === ctx.inherited) delete input.format
+  if (own === undefined && input.numberFormat !== undefined && input.numberFormat === ctx.inherited) delete input.numberFormat
   // A note and a link go with the cell, as its style does.
   if (view?.note) input.note = view.note
   if (view?.link) input.link = view.link
   return { ok: true, input: Object.keys(input).length ? input : null }
-}
-
-/** A cell's input with a style and a number format set (a number), removed (null) or kept (undefined). */
-export function styledInput(base: CellInput, style: number | null | undefined, format: NumberFormat | null | undefined): CellInput {
-  const out = { ...base }
-  if (style === null) delete out.style
-  else if (style !== undefined) out.style = style
-  if (format === null) delete out.format
-  else if (format !== undefined) out.format = format
-  return out
 }

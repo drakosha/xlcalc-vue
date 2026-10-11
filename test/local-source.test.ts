@@ -227,7 +227,8 @@ describe('localSource: structure, layout, format', () => {
     expect((await s.sheets()).map((x) => x.name)).toEqual(['Лист1', 'Таблица', 'Люди'])
     const refused = await s.structure({ op: 'renameSheet', sheet: 'Люди', name: 'таблица' })
     expect(refused).toMatchObject({ ok: false, reason: 'refused' })
-    expect(refused.ok ? '' : refused.message).toMatch(/name/i)
+    // the library's message, in the book's locale
+    expect(refused.ok ? '' : refused.message).toMatch(/таблица/)
   })
 
   it('sets a column width and a row height in the book', async () => {
@@ -245,14 +246,14 @@ describe('localSource: structure, layout, format', () => {
   it('formats a range: a new style in the table, a number format, and null removes them', async () => {
     const s = source()
     const italic = { font: { italic: true } }
-    let got = await s.format('Лист1', 'A1:A2', { style: italic, format: '0.00' })
+    let got = await s.format('Лист1', 'A1:A2', { style: italic, numberFormat: '0.00' })
     expect(got.ok).toBe(true)
     let w = await win(s, 'Лист1', 1, 3, 1, 1)
     expect(styleOf(w, 'A1')).toEqual(italic)
     expect(styleOf(w, 'A2')).toEqual(italic)
     expect(w.text.map((r) => r[0])).toEqual(['1,00', '2,00', '3'])
     expect(w.formulas.A3).toBe('СУММ(A1:A2)')
-    got = await s.format('Лист1', 'A1', { style: null, format: null })
+    got = await s.format('Лист1', 'A1', { style: null, numberFormat: null })
     expect(got.ok).toBe(true)
     w = await win(s, 'Лист1', 1, 2, 1, 1)
     expect(styleOf(w, 'A1')).toBeUndefined()
@@ -351,7 +352,7 @@ describe('localSource: explain, events, closing', () => {
   it('explains a cell as text', async () => {
     const text = await source().explain('Лист1', 'A3')
     expect(text).toContain('A1')
-    expect(text).toContain('SUM')
+    expect(text).toContain('СУММ')
   })
 
   it('applies edits one after another: the second reads the cell as the first left it', async () => {
@@ -372,6 +373,12 @@ describe('localSource: explain, events, closing', () => {
     await s.edit([{ sheet: 'Лист1', cell: 'A2', text: '6' }])
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({ kind: 'changed', changes: [{ cell: 'A2', value: 5 }, { cell: 'A3', value: 6 }] })
+  })
+
+  it('fails the opening of a book in a locale xlcalc has no module for, with the library message', async () => {
+    const s = localSource({ locale: 'de-DE', sheets: [{ name: 'S', cells: {} }] }, { calc: 'inline' })
+    open.push(s)
+    await expect(s.ready).rejects.toThrow(/^book\.locale: unknown locale "de-DE" \(loaded: .*; the package's: en-US, ru-RU\)$/)
   })
 
   it('rejects every call when the book cannot be opened', async () => {

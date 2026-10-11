@@ -143,11 +143,11 @@ export function grow(l: SheetLayout, row: number, col: number): void {
 }
 
 /** The style and format of a cell with none of its own: its row's when the row has either, else its column's, as Excel resolves them. */
-export function lineLook(l: SheetLayout, row: number, col: number): { style?: number; format?: NumberFormat } {
+export function lineLook(l: SheetLayout, row: number, col: number): { style?: number; numberFormat?: NumberFormat } {
   const r = l.rows.get(row)
-  if (r && (r.style !== undefined || r.format !== undefined)) return { style: r.style, format: r.format }
+  if (r && (r.style !== undefined || r.numberFormat !== undefined)) return { style: r.style, numberFormat: r.numberFormat }
   const c = l.columns.get(col)
-  return c ? { style: c.style, format: c.format } : {}
+  return c ? { style: c.style, numberFormat: c.numberFormat } : {}
 }
 
 /** A column's width for a window: null by default, 0 when hidden. */
