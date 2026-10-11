@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // A book's sheet over a SheetSource: the formula bar, the grid with windows, styles and editing, the tabs, and messages.
 import { getCurrentInstance, provide } from 'vue'
+import type { SheetViewApi } from '../core/commands'
 import { useSheet, type SheetEmit, type SheetLinkEvent, type SheetViewState } from '../core/sheet'
 import type { SheetFailure, SheetViewProps } from '../core/state'
 import { sheetContextKey } from './context'
@@ -34,6 +35,7 @@ const instance = getCurrentInstance()
 const hostLinks = () => typeof instance?.vnode.props?.onOpenLink === 'function' || Array.isArray(instance?.vnode.props?.onOpenLink)
 const ctx = useSheet(props, emit as SheetEmit, hostLinks)
 provide(sheetContextKey, ctx)
+defineExpose<SheetViewApi>(ctx.cmd.api)
 const m = ctx.messages
 const failure = ctx.failure
 const message = ctx.message

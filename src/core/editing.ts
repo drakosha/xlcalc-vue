@@ -29,6 +29,12 @@ const MAX_EDIT_CELLS = 50_000
 const MAX_PENDING_CELLS = 10_000
 const ARROWS: Record<string, [-1 | 0 | 1, -1 | 0 | 1]> = { ArrowDown: [1, 0], ArrowUp: [-1, 0], ArrowRight: [0, 1], ArrowLeft: [0, -1] }
 
+/** A shortcut's Latin letter: the key's own, else its place on the keyboard (`KeyB` under Russian `и`); '' for anything else. */
+export function shortcutLetter(e: KeyboardEvent): string {
+  if (/^[a-z]$/i.test(e.key)) return e.key.toLowerCase()
+  return /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : ''
+}
+
 export interface EditingDeps {
   notify: (text: string) => void
   /** Read the sheets and windows again (a conflict). */
@@ -156,7 +162,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     return out
   }
   /** Call the source: `marks` show in the "pending" style until the outcome; a failure opens `draft` again, over its range with `extent`. */
-  async function run(call: () => Promise<EditOutcome>, marks: CellEntry[], draft: EditorState | null, extent: CellPosition | null): Promise<void> {
+  async function run(call: () => Promise<EditOutcome>, marks: CellEntry[], draft: EditorState | null, extent: CellPosition | null): Promise<EditOutcome> {
     const mine = ++seq
     if (marks.length) {
       const next = new Map(pending.value)
@@ -180,7 +186,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       // The outcome's selection, unless the person moved on or opened a field meanwhile.
       const still = before.sheet === s.sheetName.value && before.selected === s.selected.value && before.extent === s.extent.value && !editor.value
       if (outcome.select && still) await selectPlace(outcome.select)
-      return
+      return outcome
     }
     const m = s.messages.value
     if (outcome.reason === 'conflict') {
@@ -191,6 +197,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       deps.notify(outcome.message || m.editFailed)
       if (draft) reopen(draft, outcome.at ?? null, extent)
     } else deps.notify(outcome.message || m.editFailed)
+    return outcome
   }
   /** Put the selection where an outcome says, as keys put it: no flash and no step of the way back, on another sheet too. */
   async function selectPlace(place: { sheet: string; range: string }): Promise<void> {
@@ -205,14 +212,14 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     void nextTick(() => sel.revealCell(r.top, r.left))
   }
 
-  /** Undo and redo of the source, one call at a time: a second press while one is out sends nothing. */
+  /** Undo and redo of the source, one call at a time: a second press while one is out sends nothing (null). */
   let stepping = false
-  async function stepHistory(kind: 'undo' | 'redo'): Promise<void> {
+  async function stepHistory(kind: 'undo' | 'redo'): Promise<EditOutcome | null> {
     const call = s.source()[kind]
-    if (!call || stepping) return
+    if (!call || stepping || !s.editable.value) return null
     stepping = true
     try {
-      await run(() => call.call(s.source()), [], null, null)
+      return await run(() => call.call(s.source()), [], null, null)
     } finally {
       stepping = false
     }
@@ -220,7 +227,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Control+Z, Control+Y and Control+Shift+Z (Cmd on a Mac); another layout's letters by the key's place. */
   function historyKey(e: KeyboardEvent): 'undo' | 'redo' | null {
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return null
-    const letter = /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : e.code === 'KeyZ' ? 'z' : e.code === 'KeyY' ? 'y' : ''
+    const letter = shortcutLetter(e)
     if (letter === 'z') return e.shiftKey ? 'redo' : 'undo'
     return letter === 'y' && !e.shiftKey ? 'redo' : null
   }
@@ -380,7 +387,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     pasteText(text)
   }
 
-  return { pending, pendingAt, locks, lockAt, editText, startEdit, focusEditor, onEditorInput, commit, cancel, send, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur, onPaste }
+  return { pending, pendingAt, locks, lockAt, editText, startEdit, focusEditor, onEditorInput, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur, onPaste }
 }
 
 export type Editing = ReturnType<typeof useEditing>

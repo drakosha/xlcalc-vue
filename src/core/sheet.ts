@@ -2,8 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { cellAddress, linesKey } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
-import type { SheetWindow } from '../source'
+import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
+import { useCommands, type SheetTarget } from './commands'
 import { useEditing, type EditorState } from './editing'
 import { useFormula } from './formula'
 import { MAX_COL_PX, MIN_COL_PX, useGeometry, widthFromPx } from './geometry'
@@ -39,6 +40,24 @@ export interface SheetEmit {
 /** How long a message stays. */
 const MESSAGE_MS = 6000
 
+/**
+ * The sheet to show once the sheets were read again: the one asked for; else the same one (`keep`); else, as Excel goes
+ * on from a sheet deleted or hidden, the next shown sheet from where it stood, or the one before it at the end.
+ */
+export function sheetAfter(list: SheetInfo[], name: string, at: number, target: SheetTarget | null): { index: number; keep: boolean } {
+  const shown = (i: number) => i >= 0 && !list[i]!.hidden
+  if (target) {
+    const i = list.findIndex((x) => x.name === target.name)
+    if (shown(i)) return { index: i, keep: target.keep }
+  }
+  const i = list.findIndex((x) => x.name === name)
+  if (shown(i)) return { index: i, keep: true }
+  const from = i >= 0 ? i + 1 : Math.max(0, at)
+  for (let j = from; j < list.length; j++) if (shown(j)) return { index: j, keep: false }
+  for (let j = Math.min(from, list.length) - 1; j >= 0; j--) if (shown(j)) return { index: j, keep: false }
+  return { index: Math.min(Math.max(0, at), list.length - 1), keep: false }
+}
+
 export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () => boolean) {
   const s = createState(props)
   const geo = useGeometry(s)
@@ -66,6 +85,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
   const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find })
+  /** The look of the active cell, from its loaded window: the `state` event and the font keys take it. */
+  const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
+  const cmd = useCommands(s, sel, ed, { reload, reloads: () => reloads, target: (t) => (target = t), activeStyle: () => activeLook.value?.style })
 
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
@@ -120,14 +142,21 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       s.failure.value = { error: e, text: e instanceof Error && e.message ? e.message : s.messages.value.loadFailed }
     }
   }
-  /** Read the sheets and windows again, keeping the sheet, selection and scroll (a reload event or a conflict). */
+  let reloads = 0
+  let target: SheetTarget | null = null
+  /** Read the sheets and windows again, keeping the sheet, selection and scroll (a reload event or a conflict); a sheet gone or hidden gives way to its neighbour. */
   async function reload(): Promise<void> {
+    reloads++
     const name = s.sheetName.value
+    const at = s.active.value
+    const asked = target
+    target = null
     try {
       const list = await props.source.sheets()
       s.sheets.value = list
-      const index = list.findIndex((x) => x.name === name)
-      s.active.value = index >= 0 ? index : Math.min(Math.max(0, s.active.value), list.length - 1)
+      const next = sheetAfter(list, name, at, asked)
+      if (!next.keep) return activate(next.index)
+      s.active.value = next.index
     } catch (e) {
       s.failure.value = { error: e, text: e instanceof Error && e.message ? e.message : s.messages.value.loadFailed }
       return
@@ -218,9 +247,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     emit('openLink', { ...link, sheet: s.sheetName.value, cell: cellAddress(row, col) })
   }
 
-  // ── keys on the grid: search and Esc first, then editing and moves ──
+  // ── keys on the grid: search and Esc first, then the font, editing and moves ──
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
+    if (!e.isComposing && cmd.fontKey(e)) return
     if ((e.ctrlKey || e.metaKey) && /^[fFаА]$/.test(e.key) && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -285,7 +315,6 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   )
 
   // The sheet and selection go out: formula, value and look come from the loaded window, so they are watched too.
-  const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
   watch(
     [s.sheet, sel.selectionRef, f.selectedFormula, f.selectedValue, activeLook],
     () => {
@@ -323,6 +352,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     filter,
     find,
     views,
+    cmd,
     editor,
     message,
     notify,
