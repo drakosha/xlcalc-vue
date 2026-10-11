@@ -141,6 +141,28 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(b.sheets[0]!.columns?.C).toEqual({ width: 15 })
   })
 
+  it('hides and shows lines keeping their size, and fits columns to what they show, each by a reload', async () => {
+    const s = source()
+    const events: SourceEvent[] = []
+    s.subscribe((e) => events.push(e))
+    expect(await s.layout({ sheet: 'Лист1', columns: 'B', hidden: true })).toMatchObject({ ok: true })
+    expect(await s.layout({ sheet: 'Лист1', rows: '2', hidden: true })).toMatchObject({ ok: true })
+    let w = await win(s, 'Лист1', 1, 3, 1, 3)
+    expect(w.widths[1]).toBe(0)
+    expect(w.rowHeights[2]).toBe(0)
+    await s.layout({ sheet: 'Лист1', columns: 'B', hidden: false })
+    await s.layout({ sheet: 'Лист1', rows: '2', hidden: false })
+    w = await win(s, 'Лист1', 1, 3, 1, 3)
+    // the width and the height they had come back, as Excel shows a line again
+    expect(w.widths[1]).toBe(20)
+    expect(w.rowHeights[2]).toBe(30)
+    await s.layout({ sheet: 'Лист1', columns: 'B', fit: true })
+    const b = await s.book()
+    expect(b.sheets[0]!.columns?.B).toMatchObject({ bestFit: true })
+    expect(b.sheets[0]!.columns!.B!.width).toBeLessThan(20)
+    expect(events).toEqual([{ kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }])
+  })
+
   it('formats a range: a new style in the table, a number format, and null removes them', async () => {
     const s = source()
     const italic = { font: { italic: true } }

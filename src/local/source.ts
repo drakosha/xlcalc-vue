@@ -1,7 +1,7 @@
 // localSource: a sheet source over an xlcalc book whose session runs in a Web Worker pool or in the page's thread.
 // The session holds the book, computes it and answers windows, sheets and edits as Excel makes them; this side keeps
 // the sheets' shown values for search and the display filter, patched by the changes and dropped on a reload.
-import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type PatchFields, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type PatchFields, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, parseCell, parseRange, rangeAddress } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOutcome, FormatPatch, LayoutChange, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
 import { loadLocale } from './locale'
@@ -260,19 +260,22 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   async function setLayout(change: LayoutChange): Promise<EditOutcome> {
     const s = await open()
     try {
-      let got: EditResult
+      const shown = (size: number | undefined) => (change.hidden !== undefined ? { hidden: change.hidden ? true : null } : size !== undefined && size > 0 ? { hidden: null } : {})
+      let edit: LayoutEdit
       if ('columns' in change) {
         const columns = linesOf(change.columns, 'columns')
         if (!columns) return failed(`Not columns: ${change.columns}`)
-        got = await s.setLayout([{ sheet: change.sheet, columns, set: { width: change.width, ...(change.width > 0 ? { hidden: null } : {}) } }])
+        edit = change.fit ? { sheet: change.sheet, columns, fit: true } : { sheet: change.sheet, columns, set: { ...(change.width !== undefined ? { width: change.width } : {}), ...shown(change.width) } }
       } else {
         const rows = linesOf(change.rows, 'rows')
         if (!rows) return failed(`Not rows: ${change.rows}`)
-        got = await s.setLayout([{ sheet: change.sheet, rows, set: { height: change.height, ...(change.height > 0 ? { hidden: null } : {}) } }])
+        edit = { sheet: change.sheet, rows, set: { ...(change.height !== undefined ? { height: change.height } : {}), ...shown(change.height) } }
       }
-      // the component already shows the size it set: the cells it changed are enough
+      const got = await s.setLayout([edit])
       const changes = take(got.changes)
-      if (changes.length) emit({ kind: 'changed', changes })
+      // A size set with the mouse the component already shows; lines hidden, shown or fitted it reads again.
+      if (change.hidden !== undefined || ('fit' in change && change.fit)) reload()
+      else if (changes.length) emit({ kind: 'changed', changes })
       return { ok: true, changes }
     } catch (e) {
       return outcomeOf(e, 'failed')

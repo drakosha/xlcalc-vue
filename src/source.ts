@@ -46,6 +46,8 @@ export interface SheetSource {
   columnValues?(sheet: string, col: number, filter: SheetFilter, signal?: AbortSignal): Promise<{ values: { text: string; count: number }[]; more: number }>
   /** The cell limit of one window, 20,000 by default. */
   readonly maxCells?: number
+  /** The steps `undo` and `redo` can take, as of the last finished call: a toolbar turns its buttons on by them. */
+  readonly history?: { readonly undo: number; readonly redo: number }
 }
 
 /** A range's formatting in `SheetSource.format`. */
@@ -146,7 +148,10 @@ export interface CellEntry {
 
 export type SheetOp = Exclude<StructureOp, { op: 'addTable' | 'renameTable' | 'deleteTable' | 'convertTable' }>
 
-export type LayoutChange = { sheet: string; columns: string; width: number } | { sheet: string; rows: string; height: number }
+/** Columns or rows changed: a width or height set with the mouse, lines hidden or shown, columns fitted to what they show (Excel's double click on an edge). */
+export type LayoutChange =
+  | { sheet: string; columns: string; width?: number; hidden?: boolean; fit?: true }
+  | { sheet: string; rows: string; height?: number; hidden?: boolean }
 
 export type EditOutcome =
   | {

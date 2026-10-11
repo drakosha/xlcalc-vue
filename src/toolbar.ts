@@ -17,8 +17,8 @@ export interface ToolbarNumberFormat {
   code: string
 }
 
-/** A source the toolbar formats through; `history` (the local source has it) says whether undo and redo have a step. */
-export type ToolbarSource = SheetSource & { readonly history?: { readonly undo: number; readonly redo: number } }
+/** A source the toolbar formats through: `SheetSource`, whose `history` says whether undo and redo have a step. */
+export type ToolbarSource = SheetSource
 
 export type FontToggle = 'bold' | 'italic' | 'underline'
 export type HorizontalAlign = 'left' | 'center' | 'right'

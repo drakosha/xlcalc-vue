@@ -297,8 +297,14 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)
         if (!store) return { ok: false, reason: 'failed', message: `No sheet ${change.sheet}` }
-        if ('columns' in change) for (const c of linesOf(change.columns, 'columns')) store.widths.set(c, change.width)
-        else for (const r of linesOf(change.rows, 'rows')) store.heights.set(r, change.height)
+        // Hidden is size 0; shown again a line takes the default, the book in memory keeps no size behind a hidden one.
+        const put = (sizes: Map<number, number>, line: number, size: number | undefined) => {
+          if (change.hidden) sizes.set(line, 0)
+          else if (size !== undefined) sizes.set(line, size)
+          else if (change.hidden === false && sizes.get(line) === 0) sizes.delete(line)
+        }
+        if ('columns' in change) for (const c of linesOf(change.columns, 'columns')) put(store.widths, c, change.width)
+        else for (const r of linesOf(change.rows, 'rows')) put(store.heights, r, change.height)
         return { ok: true, changes: [] }
       })
     },
