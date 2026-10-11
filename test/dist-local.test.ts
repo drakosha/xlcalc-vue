@@ -31,10 +31,11 @@ describe('dist/local.js', () => {
     expect(index.match(/xlcalc/gi)).toBeNull()
     expect(new Set(importsOf(index))).toEqual(new Set(['vue']))
   })
-  it('imports xlcalc and loads the pool and the xlsx reader only when asked', () => {
+  it('imports xlcalc and loads the pool, the xlsx reader and a locale only when asked', () => {
     const local = readFileSync(join(out, 'local.js'), 'utf8')
-    expect(new Set(importsOf(local))).toEqual(new Set(['xlcalc', 'xlcalc/worker', 'xlcalc/xlsx']))
+    expect(new Set(importsOf(local))).toEqual(new Set(['xlcalc', 'xlcalc/a1', 'xlcalc/worker', 'xlcalc/xlsx', 'xlcalc/locales/ru-RU']))
     expect(local).toMatch(/import\(\s*["']xlcalc\/worker["']\s*\)/)
-    expect(local).not.toMatch(/from\s*["']xlcalc\/(worker|xlsx)["']/)
+    expect(local).toMatch(/import\(\s*["']xlcalc\/locales\/ru-RU["']\s*\)/)
+    expect(local).not.toMatch(/from\s*["']xlcalc\/(worker|xlsx|locales\/[^"']+)["']/)
   })
 })

@@ -1,42 +1,14 @@
-// A window of a sheet from the session's cells and the kept layout: shown text, values, formulas in the book's
-// locale, styles resolved as Excel resolves them, notes, links, sizes, merges and tables.
-import { toLocal, type CellStyle, type CellView, type Locale } from 'xlcalc'
-import { cellAddress, rectsMeet } from '../core/a1'
+// A window of a sheet from xlcalc's viewport: shown text, values, formulas in the book's locale, the text each cell
+// opens with, looks, sizes, merged areas, tables, notes and links. Under a display filter only merged areas of one
+// shown row stay, as Excel shows them; that rule is the one part of the window xlcalc does not give.
+import type { CellStyle, Viewport } from 'xlcalc'
+import { cellAddress, parseRange } from 'xlcalc/a1'
 import type { SheetWindow } from '../source'
-import { heightOf, lineLook, tableAt, widthOf, type SheetLayout } from './layout'
 
-const TRANSLATIONS_MAX = 100_000
+/** The height xlcalc gives a row without one (Excel's default): such rows are left out of `rowHeights`. */
+const DEFAULT_ROW_PT = 15
 
-/** Stored formulas as the locale shows them, remembered: windows ask for the same formulas again on every scroll. */
-export class Formulas {
-  private cache = new Map<string, string>()
-
-  constructor(private readonly locale: Locale) {}
-
-  /** A stored formula in the locale; inside its own table without the table's name (`[@Сумма]`), as Excel shows it. */
-  show(formula: string, table?: string): string {
-    const key = table ? `${table}\u0000${formula}` : formula
-    let out = this.cache.get(key)
-    if (out === undefined) {
-      const t = toLocal(formula, this.locale, table ? { table } : undefined)
-      out = t.ok ? t.formula : formula
-      if (this.cache.size >= TRANSLATIONS_MAX) this.cache.clear()
-      this.cache.set(key, out)
-    }
-    return out
-  }
-
-  /** A cell's formula as shown, or null without one. */
-  of(l: SheetLayout, row: number, col: number, view: CellView | undefined): string | null {
-    return view?.formula === undefined ? null : this.show(view.formula, tableAt(l, row, col))
-  }
-}
-
-export interface WindowInput {
-  layout: SheetLayout
-  styles: CellStyle[]
-  /** The session's cells of the window's rows and columns, by address. */
-  views: Record<string, CellView>
+export interface WindowShape {
   /** The window's first row as asked: a sheet row, or a display index under a filter. */
   row: number
   /** The sheet rows of the window in display order. */
@@ -45,51 +17,50 @@ export interface WindowInput {
   cols: number
   /** The rows come from a display filter: merged areas over several rows are left out, as Excel shows them then. */
   filtered: boolean
-  formulas: Formulas
   notice?: string
 }
 
-export function buildWindow(a: WindowInput): SheetWindow {
-  const { layout: l, views } = a
-  const lastCol = a.col + a.cols - 1
+/** The component's window from a viewport of the shape's rows and columns. */
+export function windowOf(v: Viewport, a: WindowShape): SheetWindow {
+  const styles: CellStyle[] = []
+  for (const [i, style] of Object.entries(v.styles)) styles[Number(i)] = style
   const win: SheetWindow = {
     row: a.row,
     col: a.col,
     text: [],
     values: [],
     formulas: {},
+    editText: {},
     colors: {},
     styleIds: {},
-    styles: a.styles,
-    widths: [],
+    styles,
+    widths: v.columns.slice(0, a.cols).map((c) => (c.hidden ? 0 : c.width)),
     rowHeights: {},
     merges: [],
-    tables: l.tables.map((t) => ({ name: t.name, range: t.range, headerRow: t.headerRow })),
+    tables: v.tables.map((t) => ({ name: t.name, range: t.range, headerRow: t.headers ? (parseRange(t.range)?.top ?? 0) : 0 })),
     links: {},
     notes: {},
     ...(a.notice ? { notice: a.notice } : {}),
   }
-  for (let c = a.col; c <= lastCol; c++) win.widths.push(widthOf(l, c))
+  for (const r of v.rows) if (r.hidden || r.height !== DEFAULT_ROW_PT) win.rowHeights[r.row] = r.hidden ? 0 : r.height
+  const lastCol = a.col + a.cols - 1
   for (const r of a.rows) {
-    const h = heightOf(l, r)
-    if (h !== undefined) win.rowHeights[r] = h
     const text: string[] = []
     const values: SheetWindow['values'][number] = []
     for (let c = a.col; c <= lastCol; c++) {
       const addr = cellAddress(r, c)
-      const v = views[addr]
-      text.push(v?.text ?? '')
-      values.push(v ? v.value : null)
-      const style = v?.style ?? lineLook(l, r, c).style
-      if (style !== undefined) win.styleIds[addr] = style
-      if (!v) continue
-      const formula = a.formulas.of(l, r, c, v)
-      if (formula !== null) win.formulas[addr] = formula
-      if (v.color) win.colors[addr] = v.color
-      if (v.note) win.notes![addr] = v.note
-      if (v.link) {
+      const cell = v.cells[addr]
+      text.push(cell?.text ?? '')
+      values.push(cell ? cell.value : null)
+      if (!cell) continue
+      if (cell.effectiveStyle !== undefined) win.styleIds[addr] = cell.effectiveStyle
+      if (cell.formulaLocal !== undefined) win.formulas[addr] = cell.formulaLocal
+      if (cell.editText) win.editText![addr] = cell.editText
+      if (cell.color) win.colors[addr] = cell.color
+      if (cell.note) win.notes![addr] = cell.note
+      if (cell.link) {
         // with an address the place is in what it points to (Excel's SubAddress), not in this book
-        const { url, location, tooltip } = v.link
+        const { url, location, tooltip } = cell.link
         const to = url ? { href: location ? `${url}#${location}` : url } : location ? { location } : {}
         win.links![addr] = { ...to, ...(tooltip ? { tooltip } : {}) }
       }
@@ -97,14 +68,13 @@ export function buildWindow(a: WindowInput): SheetWindow {
     win.text.push(text)
     win.values.push(values)
   }
-  if (a.rows.length && a.cols > 0) {
-    if (a.filtered) {
-      const shown = new Set(a.rows)
-      win.merges = l.merges.filter((m) => m.rect.r1 === m.rect.r2 && shown.has(m.rect.r1) && m.rect.c1 <= lastCol && m.rect.c2 >= a.col).map((m) => m.text)
-    } else {
-      const area = { r1: a.rows[0]!, c1: a.col, r2: a.rows[a.rows.length - 1]!, c2: lastCol }
-      win.merges = l.merges.filter((m) => rectsMeet(m.rect, area)).map((m) => m.text)
-    }
+  if (!a.filtered) win.merges = v.merges
+  else {
+    const shown = new Set(a.rows)
+    win.merges = v.merges.filter((m) => {
+      const rect = parseRange(m)
+      return !!rect && rect.top === rect.bottom && shown.has(rect.top)
+    })
   }
   return win
 }

@@ -11,8 +11,8 @@ export async function openXlsx(data: Blob | ArrayBuffer | Uint8Array): Promise<X
 
 /** Write the source's book with its computed values (`formulas`, the default, or `values` only); `issues` lists what the file cannot hold. */
 export async function saveXlsx(source: LocalSource, opts: { mode?: 'formulas' | 'values' } = {}): Promise<XlsxWritten> {
-  const [{ writeXlsx }, book, result] = await Promise.all([import('xlcalc/xlsx'), source.book(), source.result()])
-  return writeXlsx(book, { result, ...(opts.mode ? { mode: opts.mode } : {}) })
+  const [{ writeXlsx }, snapshot] = await Promise.all([import('xlcalc/xlsx'), source.snapshot()])
+  return writeXlsx(snapshot, opts.mode ? { mode: opts.mode } : {})
 }
 
 export interface IssueGroup {

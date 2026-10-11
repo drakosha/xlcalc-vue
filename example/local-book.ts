@@ -22,14 +22,14 @@ export function localBook(rows: number): BookInput {
   items.forEach((name, i) => {
     const r = i + 3
     cells[`A${r}`] = { value: name }
-    cells[`B${r}`] = { value: (i + 1) * 1250.5, format: '#,##0.00' }
-    cells[`C${r}`] = { formula: 'Продажи[[#This Row],[Сумма]]*2', format: '#,##0.00' }
-    cells[`D${r}`] = { formula: `B${r}/$B$9`, format: '0.0%' }
-    cells[`E${r}`] = { value: { date: `2026-0${i + 1}-15` }, format: 14 }
+    cells[`B${r}`] = { value: (i + 1) * 1250.5, numberFormat: '#,##0.00' }
+    cells[`C${r}`] = { formula: 'Продажи[[#This Row],[Сумма]]*2', numberFormat: '#,##0.00' }
+    cells[`D${r}`] = { formula: `B${r}/$B$9`, numberFormat: '0.0%' }
+    cells[`E${r}`] = { value: { date: `2026-0${i + 1}-15` }, numberFormat: 14 }
   })
   cells.A9 = { value: 'Итого', style: 3 }
-  cells.B9 = { formula: 'SUM(Продажи[Сумма])', format: '#,##0.00', style: 3 }
-  cells.C9 = { formula: 'SUM(Продажи[Двойная])', format: '#,##0.00', style: 3 }
+  cells.B9 = { formula: 'SUM(Продажи[Сумма])', numberFormat: '#,##0.00', style: 3 }
+  cells.C9 = { formula: 'SUM(Продажи[Двойная])', numberFormat: '#,##0.00', style: 3 }
   cells.A3 = { value: 'Чай', note: { author: 'Аня', text: 'Синтетика: цифры выдуманы' } }
   cells.A11 = { value: 'Сайт библиотеки', link: { url: 'https://github.com/drakosha/xlcalc', tooltip: 'xlcalc на GitHub' } }
   cells.A12 = { value: 'К данным', link: { location: "'Данные'!A1" } }
@@ -50,7 +50,7 @@ export function localBook(rows: number): BookInput {
   }
   const sheets = book.sheets.map((s) =>
     s.name === 'Данные'
-      ? { ...s, frozen: { rows: 1 }, columns: { A: { format: 14, width: 11 }, B: { width: 14 }, D: { format: '#,##0.00', width: 13 }, J: { format: 14, width: 11 } }, rows: { '1': { style: 1 } } }
+      ? { ...s, frozen: { rows: 1 }, columns: { A: { numberFormat: 14, width: 11 }, B: { width: 14 }, D: { numberFormat: '#,##0.00', width: 13 }, J: { numberFormat: 14, width: 11 } }, rows: { '1': { style: 1 } } }
       : s,
   )
   return { ...book, locale: 'ru-RU', styles, sheets: [showcase, ...sheets] }

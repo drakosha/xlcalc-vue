@@ -1,7 +1,7 @@
 // Search, the display filter and sort, the funnel's values and totals, by the the app's rules (`sheet-filter.ts`):
 // conditions compare the shown text, the head rows stay on top, a sort puts numbers before text and empty cells last.
 import type { CellValue, CellView } from 'xlcalc'
-import { parseCell } from '../core/a1'
+import { parseCell } from 'xlcalc/a1'
 import type { RangeStats, SheetFilter } from '../source'
 
 /** Hits of a search in one answer; the total counts them all. */

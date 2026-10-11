@@ -1,35 +1,20 @@
 // localSource: a sheet source over an xlcalc book whose session runs in a Web Worker pool or in the page's thread.
-// The session holds the book and computes; this side keeps the layout a window needs and the sheets' shown values for
-// search and the display filter, and patches both as it edits.
-import { createInlineCalc, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellStyle, type CellEdit, type CellView, type LayoutEdit } from 'xlcalc'
-import { cellAddress, parseCell, parseRect } from '../core/a1'
+// The session holds the book, computes it and answers windows, sheets and edits as Excel makes them; this side keeps
+// the sheets' shown values for search and the display filter, patched by the changes and dropped on a reload.
+import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type EditResult, type PatchFields, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { cellAddress, linesKey, nameKey, parseCell, parseRange, rangeAddress } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
-import { typedInput, inputOf, parseTarget, styledInput } from './input'
-import { grow, lineLook, readLayout, sheetOf, styleIndex, type BookLayout, type SheetLayout } from './layout'
+import { loadLocale } from './locale'
+import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { columnValuesOf, filterActive, filterKey, findIn, SheetValues, statsOf, visibleList } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
-import { buildWindow, Formulas } from './window'
+import { windowOf } from './window'
 
 const MAX_CELLS = 20_000
-/** Sheet rows closer than this are fetched in one rectangle when a filtered window gathers its rows. */
-const RUN_GAP = 16
-/** Cells one `format` of a rectangle may touch; whole columns and rows go through the layout instead. */
-const FORMAT_MAX_CELLS = 200_000
 
 const abortError = () => new DOMException('The request was aborted', 'AbortError')
 function check(signal?: AbortSignal): void {
   if (signal?.aborted) throw abortError()
-}
-const failed = (message: string): EditOutcome => ({ ok: false, reason: 'failed', message })
-const sheetMissing = (name: string): EditOutcome => failed(`No sheet ${name}`)
-
-/** An exception of the session as an outcome: input the book refuses, a busy calculator, anything else failed. */
-function outcomeOf(e: unknown, input: 'refused' | 'failed'): EditOutcome {
-  const err = e as { name?: string; code?: string; message?: string }
-  const message = err?.message ?? String(e)
-  if (err?.name === 'InputError') return { ok: false, reason: input, message }
-  if (err?.name === 'CalcError' && (err.code === 'soft_timeout' || err.code === 'queue_full' || err.code === 'aborted')) return { ok: false, reason: 'busy', message }
-  return failed(message)
 }
 
 async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
@@ -39,35 +24,42 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
   return createCalcPool({ threads: 1, ...opts.pool })
 }
 
-/** The cells of `rows` (sheet rows, any order) in columns `c1`…`c2`, near rows fetched together. */
-async function cellsOfRows(session: AsyncSession, sheet: string, rows: number[], c1: number, c2: number): Promise<Record<string, CellView>> {
-  if (!rows.length || c2 < c1) return {}
-  const runs: [number, number][] = []
-  for (const r of [...new Set(rows)].sort((a, b) => a - b)) {
-    const last = runs[runs.length - 1]
-    if (last && r - last[1] <= RUN_GAP) last[1] = r
-    else runs.push([r, r])
+/** A sheet of the book's layout with where its cells end, as the component lists it. */
+function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
+  const f = sheet.frozen
+  return {
+    name: sheet.name,
+    maxRow: used.rows,
+    maxCol: used.columns,
+    ...(f ? { freeze: { rows: f.rows ?? 0, cols: f.columns ?? 0 } } : {}),
+    ...(sheet.hidden ? { hidden: true } : {}),
   }
-  const parts = await Promise.all(runs.map(([a, b]) => session.cells(sheet, `${cellAddress(a, c1)}:${cellAddress(b, c2)}`)))
-  return Object.assign({}, ...parts) as Record<string, CellView>
+}
+
+/** Lines as `setLayout` names them (`C`, `B:D`; `5`, `5:9`) from what the component sends (`C`, `C:C`, `3:4`). */
+function linesOf(text: string, axis: 'columns' | 'rows'): string | null {
+  const got = parseRange(text.includes(':') ? text : `${text}:${text}`)
+  if (got?.kind !== axis) return null
+  return axis === 'columns' ? linesKey(got.left, got.right, axis) : linesKey(got.top, got.bottom, axis)
 }
 
 /** A source over `input`: the book goes to the session as it is (its cells are not copied), so do not change it afterwards. */
 export function localSource(input: BookInput, opts: LocalSourceOptions = {}): LocalSource {
-  let layout: BookLayout = readLayout(input)
-  // An unknown locale fails the opening; until then formulas show in en-US.
-  const formulas = new Formulas(LOCALES.get(layout.locale) ?? LOCALES.get('en-US')!)
-  const collator = new Intl.Collator(LOCALES.has(layout.locale) ? layout.locale : 'en-US', { numeric: true, sensitivity: 'base' })
+  const locale = input.locale ?? 'en-US'
+  // Text sorts in the book's locale once it is loaded; an unknown locale fails the opening.
+  let collator: Intl.Collator
   const maxCells = opts.maxCells ?? MAX_CELLS
   const listeners = new Set<(event: SourceEvent) => void>()
-  /** Shown values of sheets that search or a filter needed, by sheet name. */
+  /** Shown values of sheets that search or a filter needed, by the sheet's name key. */
   const values = new Map<string, Promise<SheetValues>>()
   /** The list of rows of a sheet's display filter, as last given by `visibleRows`: windows under the filter read it. */
   const lists = new Map<string, { key: string; rows: number[] }>()
   let calc: Calc | null = null
   let session: AsyncSession | null = null
+  // TODO(xlcalc): a call a stop rule refused is taken back by undo() and stays on the redo stack, where Excel has nothing; this hides that one step.
+  let refusedRedo = false
 
-  /** The source's own changes one after another: each reads cells, then writes them, and must not interleave. */
+  /** The source's own changes one after another: each reads what the one before left. */
   let last: Promise<unknown> = Promise.resolve()
   function serial<A extends unknown[], R>(run: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
     return (...args) => {
@@ -76,11 +68,21 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       return next
     }
   }
+  /** A change of the book through the source: a new step forgets what redo could do, the refused step too. */
+  function change<A extends unknown[]>(run: (...args: A) => Promise<EditOutcome>): (...args: A) => Promise<EditOutcome> {
+    return serial(async (...args: A) => {
+      const before = session?.revision
+      const out = await run(...args)
+      if (out.ok && session && session.revision !== before) refusedRedo = false
+      return out
+    })
+  }
 
   const ready = (async () => {
+    await loadLocale(locale)
     calc = typeof opts.calc === 'object' ? opts.calc : await startCalc(opts)
-    session = await calc.openSession(input, opts.session)
-    await growBySpills(session, input)
+    session = await calc.createSession(input, opts.session)
+    collator = new Intl.Collator(locale, { numeric: true, sensitivity: 'base' })
   })()
   ready.catch(() => {})
   const open = async (): Promise<AsyncSession> => {
@@ -92,144 +94,163 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     for (const l of listeners) l(event)
   }
 
-  /** Arrays may spill past the cells the book holds: the sheet's extent takes in the spill ranges of its formulas. */
-  async function growBySpills(s: AsyncSession, book: BookInput): Promise<void> {
-    await Promise.all(
-      book.sheets.map(async (sheet) => {
-        const l = sheetOf(layout, sheet.name)
-        let box: { r1: number; c1: number; r2: number; c2: number } | null = null
-        for (const [addr, cell] of Object.entries(sheet.cells)) {
-          if (cell.formula === undefined) continue
-          const at = parseCell(addr)
-          if (!at) continue
-          box = box ? { r1: Math.min(box.r1, at.row), c1: Math.min(box.c1, at.col), r2: Math.max(box.r2, at.row), c2: Math.max(box.c2, at.col) } : { r1: at.row, c1: at.col, r2: at.row, c2: at.col }
-        }
-        if (!l || !box) return
-        const views = await s.cells(sheet.name, `${cellAddress(box.r1, box.c1)}:${cellAddress(box.r2, box.c2)}`)
-        for (const v of Object.values(views)) {
-          const spill = v.spill ? parseRect(v.spill) : null
-          if (spill) grow(l, spill.r2, spill.c2)
-        }
-      }),
-    )
-  }
-
-  /** The layout again from the session's book, after an operation that moves things about; kept values are dropped. */
-  async function reread(s: AsyncSession): Promise<void> {
-    const book = await s.book()
-    layout = readLayout(book)
+  /** The book changed in many places: kept values are dropped and subscribers read the sheets and windows again. */
+  function reload(): void {
     values.clear()
     lists.clear()
-    await growBySpills(s, book)
+    emit({ kind: 'reload' })
   }
 
-  /** The session's changes as cell updates, and the kept values and extents brought up to date with them. */
+  /** The session's changes as cell updates, the edited cells' in their place, and the kept values brought up to date. */
   function take(changes: CellChange[], edited: Map<string, CellUpdate> = new Map()): CellUpdate[] {
     const out = new Map(edited)
     for (const ch of changes) {
-      const key = `${ch.sheet}!${ch.cell}`
+      const key = cellKey(ch.sheet, ch.cell)
       if (!out.has(key)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
     }
     const list = [...out.values()]
     for (const u of list) {
-      const l = sheetOf(layout, u.sheet)
       const at = parseCell(u.cell)
-      if (!l || !at) continue
-      if (u.text !== '' || (u.value !== null && u.value !== '')) grow(l, at.row, at.col)
-      void values.get(l.name)?.then((v) => v.set(at.row, at.col, u.text, u.value))
+      if (at) void values.get(nameKey(u.sheet))?.then((v) => v.set(at.row, at.col, u.text, u.value))
     }
     return list
   }
 
-  function sheetValues(s: AsyncSession, l: SheetLayout): Promise<SheetValues> {
-    let got = values.get(l.name)
+  /** A sheet's shown values, read once over where its cells end. */
+  function sheetValues(s: AsyncSession, sheet: string): Promise<SheetValues> {
+    const key = nameKey(sheet)
+    let got = values.get(key)
     if (!got) {
-      const range = l.maxRow && l.maxCol ? `A1:${cellAddress(l.maxRow, l.maxCol)}` : null
-      got = range ? s.cells(l.name, range).then((views) => new SheetValues(views)) : Promise.resolve(new SheetValues({}))
-      values.set(l.name, got)
-      got.catch(() => values.delete(l.name))
+      got = s.getUsedRange(sheet).then(async (used) => new SheetValues(used.rows && used.columns ? await s.getCells(sheet, `A1:${cellAddress(used.rows, used.columns)}`) : {}))
+      values.set(key, got)
+      got.catch(() => values.delete(key))
     }
     return got
   }
 
   /** The rows of a sheet under a filter: the list `visibleRows` gave for it, so windows match what the component holds. */
-  async function rowsUnder(s: AsyncSession, l: SheetLayout, filter: SheetFilter, fresh: boolean): Promise<number[]> {
+  async function rowsUnder(s: AsyncSession, sheet: string, filter: SheetFilter, fresh: boolean): Promise<number[]> {
     const key = filterKey(filter)
-    const kept = lists.get(l.name)
+    const kept = lists.get(nameKey(sheet))
     if (!fresh && kept?.key === key) return kept.rows
-    const rows = visibleList(await sheetValues(s, l), filter, l.maxRow, collator)
-    lists.set(l.name, { key, rows })
+    const [v, used] = await Promise.all([sheetValues(s, sheet), s.getUsedRange(sheet)])
+    const rows = visibleList(v, filter, used.rows, collator)
+    lists.set(nameKey(sheet), { key, rows })
     return rows
   }
 
-  function info(l: SheetLayout): SheetInfo {
-    const f = l.frozen
-    return { name: l.name, maxRow: l.maxRow, maxCol: l.maxCol, ...(f ? { freeze: { rows: f.rows ?? 0, cols: f.columns ?? 0 } } : {}) }
+  /** The edited cells as they are now, with their formulas as shown and edit texts; `truncated` when a sheet's rectangle held more than a window. */
+  async function editedIn(s: AsyncSession, boxes: CellsBox[]): Promise<{ updates: Map<string, CellUpdate>; truncated: boolean }> {
+    const updates = new Map<string, CellUpdate>()
+    let truncated = false
+    await Promise.all(
+      boxes.map(async (b) => {
+        const v = await s.getViewport(b.sheet, rangeAddress(b.rect), { formulaLocal: true, editText: true, maxCells })
+        truncated ||= v.truncated
+        const got = parseRange(v.range)!
+        for (let r = got.top; r <= got.bottom; r++) {
+          for (let c = got.left; c <= got.right; c++) {
+            const addr = cellAddress(r, c)
+            if (!b.only || b.only.has(addr)) updates.set(cellKey(b.sheet, addr), updateOf(b.sheet, addr, v.cells[addr]))
+          }
+        }
+      }),
+    )
+    return { updates, truncated }
   }
 
-  function sheetFor(name: string): SheetLayout {
-    const l = sheetOf(layout, name)
-    if (!l) throw new Error(`No sheet ${name}`)
-    return l
+  /** A change made: its updates, the edited cells' as they are now, told to subscribers; a reload where updates cannot carry it. */
+  async function settle(s: AsyncSession, got: EditResult, boxes: CellsBox[]): Promise<EditOutcome> {
+    const { updates, truncated } = await editedIn(s, boxes)
+    const changes = take(got.changes, updates)
+    if (truncated || needsReload(got)) reload()
+    else if (changes.length) emit({ kind: 'changed', changes })
+    return { ok: true, changes }
   }
 
-  /** Cells by address over the rectangles that hold `cells`, one fetch per sheet. */
-  async function viewsOf(s: AsyncSession, cells: { sheet: string; row: number; col: number }[]): Promise<Map<string, Record<string, CellView>>> {
-    const boxes = new Map<string, { r1: number; c1: number; r2: number; c2: number }>()
-    for (const { sheet, row, col } of cells) {
-      const b = boxes.get(sheet)
-      boxes.set(sheet, b ? { r1: Math.min(b.r1, row), c1: Math.min(b.c1, col), r2: Math.max(b.r2, row), c2: Math.max(b.c2, col) } : { r1: row, c1: col, r2: row, c2: col })
-    }
-    const out = new Map<string, Record<string, CellView>>()
-    await Promise.all([...boxes].map(async ([sheet, b]) => out.set(sheet, await s.cells(sheet, `${cellAddress(b.r1, b.c1)}:${cellAddress(b.r2, b.c2)}`))))
-    return out
+  /** A value a stop rule of data validation does not take: the call is taken back whole, as Excel takes it back. */
+  async function refuseStop(s: AsyncSession, alert: { sheet: string; cell: string; message: string }): Promise<EditOutcome> {
+    await s.undo()
+    refusedRedo = true
+    return { ok: false, reason: 'refused', message: alert.message, cells: [{ sheet: alert.sheet, cell: alert.cell }] }
   }
 
+  /** Typed texts, each read as typed into its cell, in one step; only empty cells (Delete over a selection) clear the content. */
   async function edit(entries: CellEntry[]): Promise<EditOutcome> {
     const s = await open()
-    const cells: { sheet: string; row: number; col: number; l: SheetLayout; addr: string; text: string | null }[] = []
+    const cells: { sheet: string; cell: string; text: string | null }[] = []
     for (const e of entries) {
-      const l = sheetOf(layout, e.sheet)
       const at = parseCell(e.cell)
-      if (!l || !at) return failed(`No cell ${e.sheet}!${e.cell}`)
-      cells.push({ sheet: l.name, row: at.row, col: at.col, l, addr: cellAddress(at.row, at.col), text: e.text })
+      if (!at) return failed(`No cell ${e.sheet}!${e.cell}`)
+      cells.push({ sheet: e.sheet, cell: cellAddress(at.row, at.col), text: e.text })
     }
     if (!cells.length) return { ok: true, changes: [] }
+    const boxes = boxesOf(cells)
     try {
-      const before = await viewsOf(s, cells)
-      const now = s.clock.now
-      const edits: CellEdit[] = []
-      for (const c of cells) {
-        const got = typedInput(c.text, before.get(c.sheet)?.[c.addr], { locale: layout.locale, dateSystem: layout.dateSystem, now, inherited: lineLook(c.l, c.row, c.col).format })
-        if (!got.ok) return { ok: false, reason: 'invalid', message: got.message, at: got.at, cells: [{ sheet: c.sheet, cell: c.addr }] }
-        edits.push({ sheet: c.sheet, cell: c.addr, input: got.input })
-      }
-      const changes = await s.setCells(edits)
-      // The edited cells as the session now shows them, with their formulas: a value that did not change is no change.
-      const after = await viewsOf(s, cells)
-      const edited = new Map<string, CellUpdate>()
-      for (const c of cells) {
-        const v = after.get(c.sheet)?.[c.addr]
-        edited.set(`${c.sheet}!${c.addr}`, { sheet: c.sheet, cell: c.addr, text: v?.text ?? '', value: v ? v.value : null, ...(v?.color ? { color: v.color } : {}), formula: formulas.of(c.l, c.row, c.col, v) })
-      }
-      const updates = take(changes, edited)
-      emit({ kind: 'changed', changes: updates })
-      // A header cell names its table's column: formulas that use it are written anew.
-      if (cells.some((c) => c.l.tables.some((t) => t.headerRow === c.row && c.col >= t.rect.c1 && c.col <= t.rect.c2))) emit({ kind: 'reload' })
-      return { ok: true, changes: updates }
+      if (cells.every((c) => c.text === null)) return await settle(s, await s.clearCells(cells.map((c) => ({ sheet: c.sheet, range: c.cell })), 'contents'), boxes)
+      const got = await s.setCellTexts(cells.map((c) => ({ sheet: c.sheet, cell: c.cell, text: c.text ?? '' })))
+      if (!got.ok) return refusalOf(got)
+      const stop = got.validations?.find((v) => v.severity === 'stop')
+      return stop ? await refuseStop(s, stop) : await settle(s, got, boxes)
     } catch (e) {
       return outcomeOf(e, 'refused')
+    }
+  }
+
+  /** Clipboard text as Excel pastes it at a cell, one step of the undo; the selection goes over what it filled. */
+  async function paste(sheet: string, cell: string, text: string): Promise<EditOutcome> {
+    const s = await open()
+    try {
+      const got = await s.pasteText(sheet, cell, text)
+      if (!got.ok) return refusalOf(got)
+      const out = await settle(s, got, [{ sheet, rect: parseRange(got.range)! }])
+      return out.ok ? { ...out, select: { sheet, range: got.range } } : out
+    } catch (e) {
+      return outcomeOf(e, 'refused')
+    }
+  }
+
+  /** Control+Return: the text read once in the active cell and entered into every cell of the range, which stays selected. */
+  async function fill(sheet: string, range: string, text: string, active: string): Promise<EditOutcome> {
+    const s = await open()
+    const rect = parseRange(range)
+    if (!rect) return failed(`Not a range: ${range}`)
+    try {
+      const got = await s.fillCellText(sheet, range, text, { active })
+      if (!got.ok) return refusalOf(got)
+      if (got.validation?.severity === 'stop') return await refuseStop(s, { sheet, cell: active, message: got.validation.message })
+      const out = await settle(s, got, [{ sheet, rect }])
+      return out.ok ? { ...out, select: { sheet, range: rangeAddress(rect) } } : out
+    } catch (e) {
+      return outcomeOf(e, 'refused')
+    }
+  }
+
+  /** The session's undo or redo, whole; the selection goes over the cells it took back, on the first of their sheets. */
+  async function step(kind: 'undo' | 'redo'): Promise<EditOutcome> {
+    const s = await open()
+    if (kind === 'redo' && refusedRedo && s.history.redo <= 1) return { ok: true, changes: [] }
+    try {
+      const got = await s[kind]()
+      if (!got) return { ok: true, changes: [] }
+      values.clear()
+      lists.clear()
+      const boxes = boxesOf(got.cells ?? [])
+      const out = await settle(s, got, boxes)
+      const first = boxes[0]
+      return out.ok && first ? { ...out, select: { sheet: first.sheet, range: rangeAddress(first.rect) } } : out
+    } catch (e) {
+      return outcomeOf(e, 'failed')
     }
   }
 
   async function structure(op: SheetOp): Promise<EditOutcome> {
     const s = await open()
     try {
-      const got = await s.restructure(op)
+      const got = await s.editStructure(op)
       if (!got.ok) return { ok: false, reason: 'refused', message: got.message }
-      await reread(s)
       const changes = take(got.changes)
-      emit({ kind: 'reload' })
+      reload()
       return { ok: true, changes }
     } catch (e) {
       return outcomeOf(e, 'failed')
@@ -238,179 +259,138 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
 
   async function setLayout(change: LayoutChange): Promise<EditOutcome> {
     const s = await open()
-    const l = sheetOf(layout, change.sheet)
-    if (!l) return sheetMissing(change.sheet)
-    const span = 'columns' in change ? change.columns : change.rows
-    const target = parseTarget(span.includes(':') ? span : `${span}:${span}`)
     try {
-      let edit: LayoutEdit
-      if ('columns' in change && target?.kind === 'columns') {
-        const set = { width: change.width, ...(change.width > 0 ? { hidden: null } : {}) }
-        edit = { sheet: l.name, columns: target.span, set }
-        const changes = await s.setLayout([edit])
-        l.columns.patch(target.lo, target.hi, set)
-        return done(take(changes))
+      let got: EditResult
+      if ('columns' in change) {
+        const columns = linesOf(change.columns, 'columns')
+        if (!columns) return failed(`Not columns: ${change.columns}`)
+        got = await s.setLayout([{ sheet: change.sheet, columns, set: { width: change.width, ...(change.width > 0 ? { hidden: null } : {}) } }])
+      } else {
+        const rows = linesOf(change.rows, 'rows')
+        if (!rows) return failed(`Not rows: ${change.rows}`)
+        got = await s.setLayout([{ sheet: change.sheet, rows, set: { height: change.height, ...(change.height > 0 ? { hidden: null } : {}) } }])
       }
-      if ('rows' in change && target?.kind === 'rows') {
-        const set = { height: change.height, ...(change.height > 0 ? { hidden: null } : {}) }
-        edit = { sheet: l.name, rows: target.span, set }
-        const changes = await s.setLayout([edit])
-        l.rows.patch(target.lo, target.hi, set)
-        return done(take(changes))
-      }
-      return failed(`Not columns or rows: ${span}`)
+      // the component already shows the size it set: the cells it changed are enough
+      const changes = take(got.changes)
+      if (changes.length) emit({ kind: 'changed', changes })
+      return { ok: true, changes }
     } catch (e) {
       return outcomeOf(e, 'failed')
     }
   }
-  function done(changes: CellUpdate[]): EditOutcome {
-    if (changes.length) emit({ kind: 'changed', changes })
-    return { ok: true, changes }
-  }
 
+  /** Formatting as Excel formats a selection: the style over the one each cell shows, in one patch of the session. */
   async function format(sheet: string, range: string, patch: Parameters<LocalSource['format']>[2]): Promise<EditOutcome> {
     const s = await open()
-    const l = sheetOf(layout, sheet)
-    if (!l) return sheetMissing(sheet)
-    const target = parseTarget(range)
-    if (!target) return failed(`Not a range: ${range}`)
-    if (target.kind === 'cells' && (target.rect.r2 - target.rect.r1 + 1) * (target.rect.c2 - target.rect.c1 + 1) > FORMAT_MAX_CELLS)
-      return failed(`Over ${FORMAT_MAX_CELLS} cells: format whole columns or rows instead`)
-    let style: number | null | undefined
-    let table: CellStyle[] | null = null
-    if (patch.style === null) style = null
-    else if (patch.style !== undefined) ({ index: style, table } = styleIndex(layout.styles, patch.style))
-    const fmt = patch.format
-    if (style === undefined && fmt === undefined) return { ok: true, changes: [] }
+    const set: PatchFields = {}
+    if (patch.style !== undefined) set.style = patch.style
+    if (patch.numberFormat !== undefined) set.numberFormat = patch.numberFormat
+    if (!Object.keys(set).length) return { ok: true, changes: [] }
     try {
-      if (table) {
-        await s.setStyles(table)
-        layout.styles = table
-      }
-      const changes: CellChange[] = []
-      let views: Record<string, CellView>
-      if (target.kind === 'cells') views = await s.cells(l.name, `${cellAddress(target.rect.r1, target.rect.c1)}:${cellAddress(target.rect.r2, target.rect.c2)}`)
-      else {
-        const set = { ...(style !== undefined ? { style } : {}), ...(fmt !== undefined ? { format: fmt } : {}) }
-        changes.push(...(await s.setLayout([target.kind === 'columns' ? { sheet: l.name, columns: target.span, set } : { sheet: l.name, rows: target.span, set }])))
-        ;(target.kind === 'columns' ? l.columns : l.rows).patch(target.lo, target.hi, set)
-        views = await s.cells(l.name, target.range)
-      }
-      // An old-kind array formula's area is no view's to tell: its cells take their input from the book.
-      const exact = Object.values(views).some((v) => v.formula !== undefined && v.spill !== undefined) ? (await s.book()).sheets.find((x) => x.name === l.name)?.cells : undefined
-      const edits: CellEdit[] = []
-      const touch = (addr: string) => {
-        const view = views[addr]
-        const base = inputOf(view, view?.formula !== undefined && view.spill !== undefined ? exact?.[addr] : undefined)
-        const next = styledInput(base, style, fmt)
-        if (next.style === base.style && next.format === base.format && view) return
-        if (!view && !Object.keys(next).length) return
-        edits.push({ sheet: l.name, cell: addr, input: Object.keys(next).length ? next : null })
-      }
-      if (target.kind === 'cells') {
-        for (let r = target.rect.r1; r <= target.rect.r2; r++) for (let c = target.rect.c1; c <= target.rect.c2; c++) touch(cellAddress(r, c))
-      } else for (const addr of Object.keys(views)) touch(addr)
-      if (edits.length) changes.push(...(await s.setCells(edits)))
-      if (target.kind === 'cells' && edits.length) grow(l, target.rect.r2, target.rect.c2)
-      const updates = take(changes)
-      if (style !== undefined) emit({ kind: 'reload' })
-      else if (updates.length) emit({ kind: 'changed', changes: updates })
-      return { ok: true, changes: updates }
+      const got = await s.patchCells([{ sheet, range, set }])
+      const changes = take(got.changes)
+      if (needsReload(got)) reload()
+      else if (changes.length) emit({ kind: 'changed', changes })
+      return { ok: true, changes }
     } catch (e) {
       return outcomeOf(e, 'refused')
     }
   }
 
+  async function freeze(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome> {
+    const s = await open()
+    const frozen = panes && (panes.rows > 0 || panes.cols > 0) ? { ...(panes.rows > 0 ? { rows: panes.rows } : {}), ...(panes.cols > 0 ? { columns: panes.cols } : {}) } : null
+    try {
+      const got = await s.setLayout([{ sheet, frozen }])
+      const changes = take(got.changes)
+      reload()
+      return { ok: true, changes }
+    } catch (e) {
+      return outcomeOf(e, 'failed')
+    }
+  }
+
   const source: LocalSource = {
     maxCells,
-    locale: layout.locale,
+    locale,
     ready,
     async sheets(signal) {
-      await ready
+      const s = await open()
+      const { sheets } = await s.getLayout()
+      const used = await Promise.all(sheets.map((x) => s.getUsedRange(x.name)))
       check(signal)
-      return layout.sheets.map(info)
+      return sheets.map((x, i) => info(x, used[i]!))
     },
     async window(req: WindowRequest, signal) {
       const s = await open()
       check(signal)
-      const l = sheetFor(req.sheet)
       const cols = Math.max(0, req.cols)
       const count = Math.max(0, Math.min(req.rows, Math.floor(maxCells / Math.max(1, cols))))
       const filtered = filterActive(req.filter)
       let rows: number[]
-      if (filtered) rows = (await rowsUnder(s, l, req.filter!, false)).slice(req.row - 1, req.row - 1 + count)
+      if (filtered) rows = (await rowsUnder(s, req.sheet, req.filter!, false)).slice(req.row - 1, req.row - 1 + count)
       else rows = Array.from({ length: count }, (_, i) => req.row + i)
-      const views = await cellsOfRows(s, l.name, rows, req.col, req.col + cols - 1)
+      // the viewport takes rows in ascending order; the window keeps the display order
+      const asked = [...rows].sort((a, b) => a - b)
+      const top = asked[0] ?? 1
+      const range = `${cellAddress(top, req.col)}:${cellAddress(asked[asked.length - 1] ?? top, req.col + Math.max(1, cols) - 1)}`
+      const v = await s.getViewport(req.sheet, range, { formulaLocal: true, editText: true, maxCells, ...(filtered || !rows.length ? { rows: asked } : {}) })
       check(signal)
-      return buildWindow({ layout: l, styles: layout.styles, views, row: req.row, rows, col: req.col, cols, filtered, formulas, notice: opts.notice })
+      return windowOf(v, { row: req.row, rows, col: req.col, cols, filtered, notice: opts.notice })
     },
-    edit: serial(edit),
-    structure: serial(structure),
-    layout: serial(setLayout),
-    format: serial(format),
-    freeze: serial(async (sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome> => {
-      const s = await open()
-      const l = sheetOf(layout, sheet)
-      if (!l) return sheetMissing(sheet)
-      const frozen = panes && (panes.rows > 0 || panes.cols > 0) ? { ...(panes.rows > 0 ? { rows: panes.rows } : {}), ...(panes.cols > 0 ? { columns: panes.cols } : {}) } : null
-      try {
-        const changes = await s.setLayout([{ sheet: l.name, frozen }])
-        if (frozen) l.frozen = frozen
-        else delete l.frozen
-        emit({ kind: 'reload' })
-        return { ok: true, changes: take(changes) }
-      } catch (e) {
-        return outcomeOf(e, 'failed')
-      }
-    }),
+    edit: change(edit),
+    paste: change(paste),
+    fill: change(fill),
+    undo: serial(() => step('undo')),
+    redo: serial(() => step('redo')),
+    structure: change(structure),
+    layout: change(setLayout),
+    format: change(format),
+    freeze: change(freeze),
+    get history() {
+      const h = session?.history ?? { undo: 0, redo: 0 }
+      return refusedRedo ? { undo: h.undo, redo: h.redo - 1 } : h
+    },
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
     async explain(sheet, cell) {
-      const s = await open()
-      return (await s.explain(sheetFor(sheet).name, cell)).text
+      return (await (await open()).explain(sheet, cell)).text
     },
     async stats(sheet, range, filter, signal) {
       const s = await open()
-      const l = sheetFor(sheet)
-      const target = parseTarget(range)
-      if (!target) throw new Error(`Not a range: ${range}`)
-      const text = target.kind === 'cells' ? `${cellAddress(target.rect.r1, target.rect.c1)}:${cellAddress(target.rect.r2, target.rect.c2)}` : target.range
-      const [views, rows] = await Promise.all([s.cells(l.name, text), filterActive(filter) ? rowsUnder(s, l, filter, false) : null])
+      const [views, rows] = await Promise.all([s.getCells(sheet, range), filterActive(filter) ? rowsUnder(s, sheet, filter, false) : null])
       check(signal)
       return statsOf(views, rows ? new Set(rows) : null)
     },
     async find(sheet, query, filter, signal) {
       const s = await open()
-      const l = sheetFor(sheet)
-      const [v, rows] = await Promise.all([sheetValues(s, l), filterActive(filter) ? rowsUnder(s, l, filter, false) : null])
+      const [v, rows] = await Promise.all([sheetValues(s, sheet), filterActive(filter) ? rowsUnder(s, sheet, filter, false) : null])
       check(signal)
       return findIn(v, query, rows ? new Set(rows) : null)
     },
     async visibleRows(sheet, filter, signal) {
       const s = await open()
-      const l = sheetFor(sheet)
       if (!filterActive(filter)) {
-        lists.delete(l.name)
-        return { rows: null, total: l.maxRow }
+        lists.delete(nameKey(sheet))
+        return { rows: null, total: (await s.getUsedRange(sheet)).rows }
       }
-      const rows = await rowsUnder(s, l, filter, true)
+      const [rows, used] = await Promise.all([rowsUnder(s, sheet, filter, true), s.getUsedRange(sheet)])
       check(signal)
-      return { rows, total: l.maxRow }
+      return { rows, total: used.rows }
     },
     async columnValues(sheet, col, filter, signal) {
       const s = await open()
-      const l = sheetFor(sheet)
-      const v = await sheetValues(s, l)
+      const [v, used] = await Promise.all([sheetValues(s, sheet), s.getUsedRange(sheet)])
       check(signal)
-      return columnValuesOf(v, col, filter, l.maxRow, collator)
+      return columnValuesOf(v, col, filter, used.rows, collator)
     },
     async book() {
-      return (await open()).book()
+      return (await open()).getBook()
     },
-    async result() {
-      return (await open()).result()
+    async snapshot() {
+      return (await open()).getSnapshot()
     },
     async close() {
       await ready.catch(() => {})

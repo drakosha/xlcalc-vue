@@ -1,89 +1,13 @@
 // @vitest-environment node
-// localSource over a ru-RU book in the same thread: windows, typed edits, structure, format, layout, queries, events, xlsx.
+// localSource over a ru-RU book in the same thread: sheets, windows, search, the display filter, totals, events.
 import { afterEach, describe, expect, it } from 'vitest'
-import type { BookInput } from 'xlcalc'
-import { groupIssues, localSource, openXlsx, saveXlsx, type LocalSource } from '../src/local'
-import type { SheetFilter, SheetWindow, SourceEvent } from '../src/source'
+import type { SheetFilter, SourceEvent } from '../src/source'
+import { BOLD, book, closeAll, COL_FILL, ROW_FILL, source, styleOf, win } from './local-fixture'
 
-const BOLD = { font: { bold: true } }
-const ROW_FILL = { fill: { color: '#ffeeaa' } }
-const COL_FILL = { fill: { color: '#ddeeff' } }
+/** Excel's width of a column without one, as xlcalc gives it. */
+const DEFAULT_WIDTH = 8.83203125
 
-/** A small book in ru-RU: values, a sum, styles of cells, rows and columns, a note, a link, a table, a list to filter. */
-const book = (): BookInput => ({
-  locale: 'ru-RU',
-  styles: [{}, BOLD, ROW_FILL, COL_FILL],
-  sheets: [
-    {
-      name: 'Лист1',
-      cells: {
-        A1: { value: 1 },
-        A2: { value: 2 },
-        A3: { formula: 'SUM(A1:A2)' },
-        B1: { value: 'с примечанием', note: { author: 'Аня', text: 'Проверить' } },
-        B2: { value: 'ссылка', link: { url: 'https://example.org/', tooltip: 'Пример' } },
-        B3: { value: 'на лист', link: { location: "'Таблица'!A1" } },
-        B4: { value: 'место', link: { url: 'https://example.org/page', location: 'top' } },
-        C1: { value: 'жирный', style: 1 },
-        D5: { value: 'строка' },
-      },
-      columns: { B: { width: 20 }, D: { style: 3 }, E: { hidden: true } },
-      rows: { '2': { height: 30 }, '5': { style: 2 } },
-      merges: ['F1:G2'],
-      frozen: { rows: 1, columns: 1 },
-    },
-    {
-      name: 'Таблица',
-      cells: {
-        A1: { value: 'Товар' },
-        B1: { value: 'Сумма' },
-        C1: { value: 'Двойная' },
-        A2: { value: 'чай' },
-        B2: { value: 10 },
-        C2: { formula: 'Продажи[[#This Row],[Сумма]]*2' },
-        A3: { value: 'кофе' },
-        B3: { value: 20 },
-        C3: { formula: 'Продажи[[#This Row],[Сумма]]*2' },
-        E1: { formula: 'SUM(Продажи[Сумма])' },
-      },
-      tables: [{ name: 'Продажи', range: 'A1:C3', columns: [{ name: 'Товар' }, { name: 'Сумма' }, { name: 'Двойная', formula: 'Продажи[[#This Row],[Сумма]]*2' }] }],
-    },
-    {
-      name: 'Список',
-      cells: {
-        A1: { value: 'Имя' },
-        B1: { value: 'Число' },
-        A2: { value: 'б' },
-        B2: { value: 5 },
-        A3: { value: 'а' },
-        B3: { value: 30 },
-        A4: { value: 'б' },
-        B4: { value: 'нет' },
-        B5: { value: 7 },
-        A6: { value: 'в' },
-        B6: { value: 1.5 },
-      },
-    },
-  ],
-})
-
-let open: LocalSource[] = []
-function source(b: BookInput = book()): LocalSource {
-  const s = localSource(b, { calc: 'inline' })
-  open.push(s)
-  return s
-}
-afterEach(async () => {
-  await Promise.all(open.map((s) => s.close()))
-  open = []
-})
-
-async function win(s: LocalSource, sheet: string, row: number, rows: number, col: number, cols: number, filter?: SheetFilter): Promise<SheetWindow> {
-  const w = await s.window({ sheet, row, rows, col, cols, ...(filter ? { filter } : {}) })
-  if ('pending' in w) throw new Error('pending')
-  return w
-}
-const styleOf = (w: SheetWindow, addr: string) => (w.styleIds[addr] === undefined ? undefined : w.styles[w.styleIds[addr]!])
+afterEach(closeAll)
 
 describe('localSource: sheets and windows', () => {
   it('lists the sheets with their extent and frozen panes', async () => {
@@ -92,6 +16,11 @@ describe('localSource: sheets and windows', () => {
     expect(list[0]).toMatchObject({ maxRow: 5, maxCol: 7, freeze: { rows: 1, cols: 1 } })
     expect(list[1]).toMatchObject({ maxRow: 3, maxCol: 5 })
     expect(list[1]!.freeze).toBeUndefined()
+  })
+
+  it('takes in the extent the cells an array spilled into', async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { formula: 'SEQUENCE(5,2)' } } }] })
+    expect((await s.sheets())[0]).toMatchObject({ maxRow: 5, maxCol: 2 })
   })
 
   it('gives text, values and formulas in the book locale', async () => {
@@ -124,164 +53,28 @@ describe('localSource: sheets and windows', () => {
     expect(w.notes).toEqual({ B1: { author: 'Аня', text: 'Проверить' } })
     // a place with an address is a place in what the address points to, not in this book
     expect(w.links).toEqual({ B2: { href: 'https://example.org/', tooltip: 'Пример' }, B3: { location: "'Таблица'!A1" }, B4: { href: 'https://example.org/page#top' } })
-    expect(w.widths).toEqual([null, 20, null, null, 0, null, null])
+    // the library's widths: Excel's default where a column has none, 0 for a hidden one
+    expect(w.widths).toEqual([DEFAULT_WIDTH, 20, DEFAULT_WIDTH, DEFAULT_WIDTH, 0, DEFAULT_WIDTH, DEFAULT_WIDTH])
     expect(w.rowHeights).toEqual({ 2: 30 })
     expect(w.merges).toEqual(['F1:G2'])
   })
 
+  it('gives the text each cell opens with, as Excel\'s formula bar shows it', async () => {
+    const s = source({
+      locale: 'ru-RU',
+      sheets: [{ name: 'S', cells: { A1: { value: { date: '2026-03-15' }, numberFormat: 14 }, A2: { value: 0.05, numberFormat: '0%' }, A3: { value: '007' }, A4: { formula: 'SUM(A1:A2)' } }, columns: { B: { style: 0 } } }],
+      styles: [{ font: { bold: true } }],
+    })
+    const w = await win(s, 'S', 1, 5, 1, 2)
+    // an empty cell, styled by its column or not, opens empty and is left out
+    expect(w.editText).toEqual({ A1: '15.03.2026', A2: '5%', A3: "'007", A4: '=СУММ(A1:A2)' })
+  })
+
   it('keeps a window within maxCells', async () => {
-    const s = localSource(book(), { calc: 'inline', maxCells: 10 })
-    open.push(s)
+    const s = source(book(), { maxCells: 10 })
     const w = await win(s, 'Лист1', 1, 50, 1, 5)
     expect(w.text.length).toBe(2)
     expect(s.maxCells).toBe(10)
-  })
-})
-
-describe('localSource: typed edits', () => {
-  it('reads 1,5 as a number in ru-RU and sends the dependent cell', async () => {
-    const got = await source().edit([{ sheet: 'Лист1', cell: 'A1', text: '1,5' }])
-    expect(got.ok).toBe(true)
-    if (!got.ok) return
-    expect(got.changes).toContainEqual({ sheet: 'Лист1', cell: 'A1', text: '1,5', value: 1.5, formula: null })
-    expect(got.changes.find((c) => c.cell === 'A3')).toMatchObject({ value: 3.5, text: '3,5' })
-  })
-
-  it('reads 15.03.2026 as a date with the date format', async () => {
-    const s = source()
-    // B is 20 wide: in a column of the default width the date shows as ### (the library measures it so)
-    const got = await s.edit([{ sheet: 'Лист1', cell: 'B4', text: '15.03.2026' }])
-    expect(got).toMatchObject({ ok: true, changes: [{ cell: 'B4', value: 46096, text: '15.03.2026' }] })
-  })
-
-  it('gives invalid with the position for a formula that does not parse, and changes nothing', async () => {
-    const s = source()
-    const got = await s.edit([{ sheet: 'Лист1', cell: 'A3', text: '=СУММ(A1:A2' }])
-    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 11, cells: [{ sheet: 'Лист1', cell: 'A3' }] })
-    expect((await win(s, 'Лист1', 3, 1, 1, 1)).formulas.A3).toBe('СУММ(A1:A2)')
-  })
-
-  it('returns the edited formula in the locale, percent, boolean and apostrophe text', async () => {
-    const s = source()
-    const got = await s.edit([
-      { sheet: 'Лист1', cell: 'C3', text: '=СУММ(A1:A2)*2' },
-      { sheet: 'Лист1', cell: 'C4', text: '5%' },
-      { sheet: 'Лист1', cell: 'C5', text: 'ИСТИНА' },
-      { sheet: 'Лист1', cell: 'C6', text: "'007" },
-    ])
-    expect(got.ok).toBe(true)
-    if (!got.ok) return
-    const by = Object.fromEntries(got.changes.map((c) => [c.cell, c]))
-    expect(by.C3).toMatchObject({ value: 6, formula: 'СУММ(A1:A2)*2' })
-    expect(by.C4).toMatchObject({ value: 0.05, text: '5%', formula: null })
-    expect(by.C5).toMatchObject({ value: true, text: 'ИСТИНА' })
-    expect(by.C6).toMatchObject({ value: '007', text: '007' })
-  })
-
-  it('keeps the cell style, note and link through an edit, and a clear keeps them too', async () => {
-    const s = source()
-    await s.edit([
-      { sheet: 'Лист1', cell: 'B1', text: 'новый' },
-      { sheet: 'Лист1', cell: 'B2', text: null },
-      { sheet: 'Лист1', cell: 'C1', text: '7' },
-    ])
-    const w = await win(s, 'Лист1', 1, 2, 1, 3)
-    expect(w.text[0]![1]).toBe('новый')
-    expect(w.text[1]![1]).toBe('')
-    expect(w.notes?.B1).toEqual({ author: 'Аня', text: 'Проверить' })
-    expect(w.links?.B2).toEqual({ href: 'https://example.org/', tooltip: 'Пример' })
-    expect(styleOf(w, 'C1')).toEqual(BOLD)
-  })
-
-  it('refuses what the book refuses: a formula in a table header', async () => {
-    const got = await source().edit([{ sheet: 'Таблица', cell: 'B1', text: '=1+1' }])
-    expect(got).toMatchObject({ ok: false, reason: 'refused' })
-  })
-
-  it('grows the sheet extent with an edit past it', async () => {
-    const s = source()
-    await s.edit([{ sheet: 'Список', cell: 'D9', text: '1' }])
-    expect((await s.sheets())[2]).toMatchObject({ maxRow: 9, maxCol: 4 })
-  })
-})
-
-describe('localSource: structure, layout, format', () => {
-  it('inserts a row: formulas move, the window reads the moved book, subscribers get reload', async () => {
-    const s = source()
-    const events: SourceEvent[] = []
-    s.subscribe((e) => events.push(e))
-    const got = await s.structure({ op: 'insertRows', sheet: 'Лист1', row: 2 })
-    expect(got.ok).toBe(true)
-    const w = await win(s, 'Лист1', 1, 6, 1, 7)
-    expect(w.formulas).toEqual({ A4: 'СУММ(A1:A3)' })
-    expect(w.rowHeights).toEqual({ 3: 30 })
-    expect(w.notes).toEqual({ B1: { author: 'Аня', text: 'Проверить' } })
-    expect(styleOf(w, 'A6')).toEqual(ROW_FILL)
-    expect((await s.sheets())[0]).toMatchObject({ maxRow: 6 })
-    expect(events).toEqual([{ kind: 'reload' }])
-  })
-
-  it('renames a sheet and refuses a taken name with the library message', async () => {
-    const s = source()
-    expect(await s.structure({ op: 'renameSheet', sheet: 'Список', name: 'Люди' })).toMatchObject({ ok: true })
-    expect((await s.sheets()).map((x) => x.name)).toEqual(['Лист1', 'Таблица', 'Люди'])
-    const refused = await s.structure({ op: 'renameSheet', sheet: 'Люди', name: 'таблица' })
-    expect(refused).toMatchObject({ ok: false, reason: 'refused' })
-    expect(refused.ok ? '' : refused.message).toMatch(/name/i)
-  })
-
-  it('sets a column width and a row height in the book', async () => {
-    const s = source()
-    expect(await s.layout({ sheet: 'Лист1', columns: 'C', width: 15 })).toMatchObject({ ok: true })
-    expect(await s.layout({ sheet: 'Лист1', columns: 'E', width: 9 })).toMatchObject({ ok: true })
-    expect(await s.layout({ sheet: 'Лист1', rows: '3:4', height: 0 })).toMatchObject({ ok: true })
-    const w = await win(s, 'Лист1', 1, 5, 1, 5)
-    expect(w.widths).toEqual([null, 20, 15, null, 9])
-    expect(w.rowHeights).toEqual({ 2: 30, 3: 0, 4: 0 })
-    const b = await s.book()
-    expect(b.sheets[0]!.columns?.C).toEqual({ width: 15 })
-  })
-
-  it('formats a range: a new style in the table, a number format, and null removes them', async () => {
-    const s = source()
-    const italic = { font: { italic: true } }
-    let got = await s.format('Лист1', 'A1:A2', { style: italic, format: '0.00' })
-    expect(got.ok).toBe(true)
-    let w = await win(s, 'Лист1', 1, 3, 1, 1)
-    expect(styleOf(w, 'A1')).toEqual(italic)
-    expect(styleOf(w, 'A2')).toEqual(italic)
-    expect(w.text.map((r) => r[0])).toEqual(['1,00', '2,00', '3'])
-    expect(w.formulas.A3).toBe('СУММ(A1:A2)')
-    got = await s.format('Лист1', 'A1', { style: null, format: null })
-    expect(got.ok).toBe(true)
-    w = await win(s, 'Лист1', 1, 2, 1, 1)
-    expect(styleOf(w, 'A1')).toBeUndefined()
-    expect(w.text[0]![0]).toBe('1')
-    expect(styleOf(w, 'A2')).toEqual(italic)
-  })
-
-  it('formats empty cells and whole columns, and keeps notes and formulas', async () => {
-    const s = source()
-    await s.format('Лист1', 'H1:H2', { style: BOLD })
-    await s.format('Лист1', 'B:B', { style: ROW_FILL })
-    const w = await win(s, 'Лист1', 1, 9, 1, 8)
-    expect(styleOf(w, 'H1')).toEqual(BOLD)
-    expect(styleOf(w, 'B1')).toEqual(ROW_FILL)
-    expect(styleOf(w, 'B9')).toEqual(ROW_FILL)
-    expect(w.notes?.B1).toBeDefined()
-    expect(w.links?.B2).toBeDefined()
-  })
-
-  it('freezes panes in the book', async () => {
-    const s = source()
-    const events: SourceEvent[] = []
-    s.subscribe((e) => events.push(e))
-    await s.freeze('Список', { rows: 1, cols: 0 })
-    await s.freeze('Лист1', null)
-    const list = await s.sheets()
-    expect(list[2]!.freeze).toEqual({ rows: 1, cols: 0 })
-    expect(list[0]!.freeze).toBeUndefined()
-    expect(events).toEqual([{ kind: 'reload' }, { kind: 'reload' }])
   })
 })
 
@@ -320,6 +113,25 @@ describe('localSource: search, display filter, totals', () => {
     expect(w.text).toEqual([['б', '5'], ['б', 'нет']])
   })
 
+  it('gives a sorted window in display order', async () => {
+    const s = source()
+    const filter: SheetFilter = { head: 1, sort: { col: 1, dir: 'desc' } }
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 6, 2, 4, 3, 5])
+    const w = await win(s, 'Список', 2, 3, 1, 2, filter)
+    expect(w.text).toEqual([['в', '1,5'], ['б', '5'], ['б', 'нет']])
+  })
+
+  it('gives under a filter the merged areas of one row among the rows shown, as Excel shows them', async () => {
+    const s = source({
+      sheets: [{ name: 'S', cells: { A1: { value: 'k' }, A2: { value: 'x' }, A3: { value: 'y' }, A4: { value: 'x' } }, merges: ['C2:D2', 'C3:D4', 'E3:F3', 'B4:B5'] }],
+    })
+    const filter: SheetFilter = { head: 1, cols: { 1: { values: ['x'] } } }
+    expect((await s.visibleRows('S', filter)).rows).toEqual([1, 2, 4])
+    const w = await win(s, 'S', 1, 3, 1, 6, filter)
+    expect(w.merges).toEqual(['C2:D2'])
+    expect((await win(s, 'S', 1, 5, 1, 6)).merges.sort()).toEqual(['B4:B5', 'C2:D2', 'C3:D4', 'E3:F3'])
+  })
+
   it('lists a column values under the other columns conditions', async () => {
     const s = source()
     expect(await s.columnValues('Список', 1, { head: 1 })).toEqual({
@@ -351,7 +163,7 @@ describe('localSource: explain, events, closing', () => {
   it('explains a cell as text', async () => {
     const text = await source().explain('Лист1', 'A3')
     expect(text).toContain('A1')
-    expect(text).toContain('SUM')
+    expect(text).toContain('СУММ')
   })
 
   it('applies edits one after another: the second reads the cell as the first left it', async () => {
@@ -374,51 +186,14 @@ describe('localSource: explain, events, closing', () => {
     expect(events[0]).toMatchObject({ kind: 'changed', changes: [{ cell: 'A2', value: 5 }, { cell: 'A3', value: 6 }] })
   })
 
+  it('fails the opening of a book in a locale xlcalc has no module for, with the library message', async () => {
+    const s = source({ locale: 'de-DE', sheets: [{ name: 'S', cells: {} }] })
+    await expect(s.ready).rejects.toThrow(/^book\.locale: unknown locale "de-DE" \(loaded: .*; the package's: en-US, ru-RU\)$/)
+  })
+
   it('rejects every call when the book cannot be opened', async () => {
-    const s = localSource({ sheets: [{ name: 'a/b', cells: {} }] }, { calc: 'inline' })
-    open.push(s)
+    const s = source({ sheets: [{ name: 'a/b', cells: {} }] })
     await expect(s.ready).rejects.toThrow()
     await expect(s.sheets()).rejects.toThrow()
-  })
-})
-
-describe('xlsx in and out', () => {
-  it('writes the book and reads it back with the same values, styles, notes and frozen panes', async () => {
-    const s = source()
-    await s.edit([{ sheet: 'Лист1', cell: 'A1', text: '1,5' }])
-    const { data, issues } = await saveXlsx(s)
-    expect(data.byteLength).toBeGreaterThan(1000)
-    expect(issues).toEqual([])
-    const back = await openXlsx(data)
-    expect(back.book.locale).toBe('ru-RU')
-    const t = source(back.book)
-    const w = await win(t, 'Лист1', 1, 5, 1, 7)
-    expect(w.text.map((r) => r[0])).toEqual(['1,5', '2', '3,5', '', ''])
-    expect(w.formulas.A3).toBe('СУММ(A1:A2)')
-    expect(styleOf(w, 'C1')).toMatchObject(BOLD)
-    expect(w.notes?.B1).toEqual({ author: 'Аня', text: 'Проверить' })
-    expect((await t.sheets())[0]!.freeze).toEqual({ rows: 1, cols: 1 })
-    expect((await win(t, 'Таблица', 2, 1, 3, 1)).formulas.C2).toBe('[@Сумма]*2')
-  })
-
-  it('opens a Blob as a file input gives it', async () => {
-    const { data } = await saveXlsx(source())
-    const back = await openXlsx(new Blob([data as BlobPart]))
-    expect(back.book.sheets.map((x) => x.name)).toEqual(['Лист1', 'Таблица', 'Список'])
-    expect(back.issues).toEqual([])
-  })
-
-  it('groups what the reader left out by kind, for a notice', () => {
-    expect(
-      groupIssues([
-        { code: 'drawing', message: 'a chart', sheet: 'A' },
-        { code: 'conditionalFormat', message: 'a rule', sheet: 'A', cells: ['B2:B9'] },
-        { code: 'drawing', message: 'a picture', sheet: 'B' },
-        { code: 'drawing', message: 'a chart', sheet: 'A' },
-      ]),
-    ).toEqual([
-      { code: 'drawing', count: 3, sheets: ['A', 'B'], message: 'a chart' },
-      { code: 'conditionalFormat', count: 1, sheets: ['A'], message: 'a rule' },
-    ])
   })
 })

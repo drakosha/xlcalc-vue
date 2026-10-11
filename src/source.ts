@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods turn features on: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, NumberFormat, StructureOp } from 'xlcalc/contract'
+import type { CellStyle, CellValue, NumberFormat, StructureOp, StylePatch } from 'xlcalc/contract'
 
 /** Where a sheet takes its data from; the component knows only this. */
 export interface SheetSource {
@@ -26,8 +26,12 @@ export interface SheetSource {
   structure?(op: SheetOp): Promise<EditOutcome>
   /** Column widths and row heights set with the mouse; without it a width lives until the page reloads. */
   layout?(edit: LayoutChange): Promise<EditOutcome>
-  /** Formatting of a rectangle: a whole style or null (remove), a number format or null; without it there is no toolbar. */
-  format?(sheet: string, range: string, patch: { style?: CellStyle | null; format?: NumberFormat | null }): Promise<EditOutcome>
+  /**
+   * Formatting of a range (`B2:D9`, whole columns `B:D`, rows `2:5`) as Excel formats a selection: style fields go over
+   * the style each cell shows (null removes a field), `style: null` removes the cells' own style, a number format or null.
+   * Without it there is no toolbar.
+   */
+  format?(sheet: string, range: string, patch: { style?: StylePatch | null; numberFormat?: NumberFormat | null }): Promise<EditOutcome>
   /** Changes made elsewhere: another tab, an agent, the clock. Returns the unsubscribe function. */
   subscribe?(listener: (event: SourceEvent) => void): () => void
   /** A cell's precedents tree as text. */
