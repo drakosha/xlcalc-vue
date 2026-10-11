@@ -1,0 +1,305 @@
+/* The app around the sheet: its bar, the notice of what a file lost, the status bar, dialogs and the drop overlay. */
+.spa {
+  --spa-bg: #ffffff;
+  --spa-fg: #1f2328;
+  --spa-muted: #6b7280;
+  --spa-line: #d9dce1;
+  --spa-bar: #f3f5f7;
+  --spa-accent: #217346;
+  --spa-accent-fg: #ffffff;
+  --spa-warn-bg: #fff7e0;
+  --spa-warn-line: #f0d58a;
+  --spa-warn-fg: #6b4e00;
+  --spa-target: 30px;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--spa-bg);
+  color: var(--spa-fg);
+  font: 13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+.spa *,
+.spa *::before,
+.spa *::after {
+  box-sizing: border-box;
+}
+.spa-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ── the app bar ── */
+.spa-top {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 8px;
+  background: var(--spa-accent);
+  color: var(--spa-accent-fg);
+}
+.spa-mark {
+  margin-right: 8px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.spa-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: var(--spa-target);
+  min-height: var(--spa-target);
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.spa-btn:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.16);
+}
+.spa-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.spa-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.spa-name {
+  display: flex;
+  flex: 0 1 260px;
+  align-items: center;
+  min-width: 0;
+  margin: 0 6px;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.14);
+}
+.spa-name-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--spa-target);
+  padding: 0 0 0 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  outline: none;
+}
+.spa-name:focus-within {
+  background: var(--spa-bg);
+  color: var(--spa-fg);
+}
+.spa-ext {
+  padding-right: 8px;
+  opacity: 0.75;
+}
+.spa-top > .spa-btn:last-child {
+  margin-left: auto;
+}
+
+/* ── what the file lost ── */
+.spa-lost {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 2px 10px;
+  border-bottom: 1px solid var(--spa-warn-line);
+  background: var(--spa-warn-bg);
+  color: var(--spa-warn-fg);
+}
+.spa-lost p {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.spa-icon-btn {
+  padding: 0;
+}
+
+/* ── the sheet and the status bar ── */
+.spa-sheet {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.spa-status {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 3px 10px;
+  border-top: 1px solid var(--spa-line);
+  background: var(--spa-bar);
+  color: var(--spa-muted);
+  font-size: 12px;
+}
+.spa-state {
+  flex-shrink: 0;
+}
+.spa-busy {
+  color: var(--spa-accent);
+  font-weight: 600;
+}
+.spa-note {
+  overflow: hidden;
+  color: var(--spa-fg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spa-meta {
+  flex-shrink: 1;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── a file dragged over the page ── */
+.spa-drop {
+  position: absolute;
+  inset: 8px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px dashed var(--spa-accent);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.85);
+  color: var(--spa-accent);
+  font-size: 18px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* ── dialogs ── */
+.spa-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 80px 16px 16px;
+  background: rgb(0 0 0 / 0.28);
+}
+.spa-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 400px;
+  padding: 18px;
+  border-radius: 10px;
+  background: var(--spa-bg);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
+}
+.spa-dialog-title {
+  margin: 0;
+  font-size: 16px;
+}
+.spa-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.spa-field legend,
+.spa-field > span {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.spa-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--spa-target);
+  cursor: pointer;
+}
+.spa-select {
+  height: var(--spa-target);
+  padding: 0 6px;
+  border: 1px solid var(--spa-line);
+  border-radius: 6px;
+  background: var(--spa-bg);
+  color: var(--spa-fg);
+  font: inherit;
+}
+.spa-hint {
+  color: var(--spa-muted);
+}
+.spa-dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.spa-dialog .spa-btn {
+  border-color: var(--spa-line);
+}
+.spa-dialog .spa-btn:hover {
+  background: var(--spa-bar);
+}
+.spa-dialog .spa-primary,
+.spa-dialog .spa-primary:hover {
+  border-color: var(--spa-accent);
+  background: var(--spa-accent);
+  color: var(--spa-accent-fg);
+}
+
+/* ── a phone or a finger: targets of 44 px, the bar's buttons by their icons alone ── */
+@media (max-width: 600px), (pointer: coarse) {
+  .spa {
+    --spa-target: 44px;
+  }
+  .spa-choice input {
+    width: 22px;
+    height: 22px;
+  }
+}
+@media (max-width: 600px) {
+  .spa-top {
+    gap: 2px;
+    padding: 2px 4px;
+  }
+  .spa-mark,
+  .spa-label,
+  .spa-ext {
+    display: none;
+  }
+  .spa-btn {
+    padding: 0;
+  }
+  .spa-name {
+    flex: 1 1 auto;
+    margin: 0 2px;
+  }
+  .spa-status {
+    gap: 8px;
+  }
+  .spa-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .spa-dialog {
+    max-width: none;
+    border-radius: 12px 12px 0 0;
+  }
+}

@@ -12,6 +12,7 @@
   color: var(--xs-fg);
   font-family: var(--xs-font);
   font-size: var(--xs-font-size);
+  -webkit-tap-highlight-color: transparent;
 }
 .xs-toolbar *,
 .xs-toolbar *::before,
@@ -148,8 +149,9 @@
   background: var(--xs-bar-bg);
   box-shadow: 0 8px 16px rgb(0 0 0 / 0.12);
 }
-.xs-tb-menu > .xs-tb-group:first-child {
-  padding-left: 0;
+.xs-tb-menu > .xs-tb-group {
+  padding: 0 12px 0 0;
+  border-left: 0;
 }
 .xs-tb-narrow .xs-tb-split {
   position: static;
