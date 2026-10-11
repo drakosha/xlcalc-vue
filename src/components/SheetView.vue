@@ -9,6 +9,7 @@ import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
 import FormulaBar from './FormulaBar.vue'
 import SheetGrid from './SheetGrid.vue'
+import SheetMenu from './SheetMenu.vue'
 import SheetTabs from './SheetTabs.vue'
 import { IconClose, IconRetry, IconSpinner } from './icons'
 
@@ -74,6 +75,7 @@ const wait = ctx.w.wait
       </div>
       <SheetTabs />
       <FilterPopover />
+      <SheetMenu />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>
         <button type="button" class="xs-tool" :title="m.close" @click="ctx.dismiss()">

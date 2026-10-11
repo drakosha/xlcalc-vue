@@ -89,7 +89,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   /** The look of the active cell, from its loaded window: the `state` event and the font keys take it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
   const cmd = useCommands(s, sel, ed, { reload, reloads: () => reloads, target: (t) => (target = t), activeStyle: () => activeLook.value?.style })
-  const menu = useMenu(s, cmd)
+  const menu = useMenu(s, geo, sel, cmd, { pickSheet, tabs: () => tabs.value })
 
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */

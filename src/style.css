@@ -742,6 +742,19 @@
   color: var(--xs-fg);
   font-weight: 600;
 }
+/* A tab renamed in place: the name in a field the tab's size. */
+.xs-tab-input {
+  min-width: 0;
+  border: 1px solid var(--xs-accent);
+  outline: none;
+}
+/* A finger held on a tab or a header opens the menu, not the browser's callout. */
+.xs-tab,
+.xs-table th {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 /* "+" after the last tab, as Excel's New sheet. */
 .xs-tab-add {
   align-self: center;
@@ -895,6 +908,10 @@
 .xs-touch .xs-button {
   min-height: 44px;
   font-size: 14px;
+}
+.xs-touch .xs-button {
+  min-width: 44px;
+  justify-content: center;
 }
 .xs-touch .xs-funnel-tool.xs-tool-on {
   color: var(--xs-accent);
