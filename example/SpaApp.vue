@@ -4,8 +4,7 @@
 // lost, a status bar (ready or calculating) and the book's settings. The book computes in a Web Worker; nothing is sent.
 import { computed, onBeforeUnmount, ref, shallowRef, watchEffect } from 'vue'
 import type { BookInput } from 'xlcalc'
-import { quoteSheetIfNeeded } from 'xlcalc/a1'
-import { SheetToolbar, SheetView, enMessages, ruMessages, type SheetViewState, type ToolbarNumberFormat } from '../src'
+import { SheetToolbar, SheetView, enMessages, ruMessages, type SheetViewApi, type SheetViewState, type ToolbarNumberFormat } from '../src'
 import { groupIssues, localSource, openXlsx, saveXlsx, type IssueGroup, type LocalSource } from '../src/local'
 import SpaDialog from './SpaDialog.vue'
 import { download, emptyBook, numberFormatsIn, timed } from './spa-book'
@@ -29,7 +28,8 @@ const book = shallowRef<Opened | null>(null)
 const name = ref('')
 const formats = shallowRef<ToolbarNumberFormat[]>([])
 const state = ref<SheetViewState | null>(null)
-const focus = shallowRef<{ ref: string } | null>(null)
+/** The sheet the toolbar formats, undoes and redoes through, as the sheet's own keys do. */
+const sheet = shallowRef<SheetViewApi | null>(null)
 const lostShown = ref(true)
 let keys = 0
 let created = 0
@@ -66,7 +66,6 @@ function start(input: BookInput, bookName: string, lost: IssueGroup[] = [], sinc
   name.value = bookName
   lostShown.value = true
   state.value = null
-  focus.value = null
   formats.value = []
   lastChange.value = 0
   opening.value = true
@@ -166,10 +165,7 @@ async function applySettings(): Promise<void> {
   }
 }
 
-// ── the toolbar's outcomes: the selection after undo, refusals, the grid's focus back ──
-function onSelect(place: { sheet: string; range: string }): void {
-  focus.value = { ref: `${quoteSheetIfNeeded(place.sheet)}!${place.range}` }
-}
+// ── the grid's focus back after the toolbar's number format list took it ──
 function refocus(): void {
   if (!window.matchMedia?.('(pointer: coarse)').matches) document.querySelector<HTMLElement>('.xs-scroller')?.focus({ preventScroll: true })
 }
@@ -222,11 +218,10 @@ onBeforeUnmount(() => void book.value?.source.close())
       :state="state"
       :messages="messages"
       :number-formats="formats"
-      @select="onSelect"
-      @error="say"
+      :sheet="sheet"
       @done="refocus"
     />
-    <SheetView v-if="book" :key="book.key" class="spa-sheet" :source="book.source" :messages="messages" :locale="book.source.locale" :focus="focus" @state="state = $event" />
+    <SheetView v-if="book" :key="book.key" :ref="(el) => (sheet = el as SheetViewApi | null)" class="spa-sheet" :source="book.source" :messages="messages" :locale="book.source.locale" @state="state = $event" />
     <footer class="spa-status">
       <span :class="['spa-state', { 'spa-busy': busy || saving }]" role="status" data-spa-status>{{ status }}</span>
       <span v-if="note" class="spa-note" data-spa-note>{{ note }}</span>

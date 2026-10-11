@@ -2,9 +2,9 @@
 // selection, and show what the active cell shows (the `state` event of the sheet).
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SheetToolbar, ruMessages, type SheetViewState, type ToolbarNumberFormat } from '../src'
+import { SheetToolbar, SheetView, ruMessages, type SheetViewState, type ToolbarNumberFormat } from '../src'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/source'
-import { settle } from './helpers'
+import { fakeSource, settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -234,5 +234,41 @@ describe('SheetToolbar: undo and redo', () => {
     await w.find('[data-tb="italic"]').trigger('click')
     await settle()
     expect(w.emitted('error')).toEqual([['Лист защищён']])
+  })
+})
+
+describe('SheetToolbar through the sheet', () => {
+  it('formats, undoes and redoes through the sheet it is given: the sheet sets the selection and reads itself again', async () => {
+    const f = fakeSource([{ name: 'Лист1', maxRow: 10, maxCol: 5 }])
+    delete (f.source as { subscribe?: unknown }).subscribe
+    const src = Object.assign(f.source, source({ undo: vi.fn(async (): Promise<EditOutcome> => ({ ok: true, changes: [], select: { sheet: 'Лист1', range: 'C3' } })) }), { sheets: f.source.sheets, window: f.source.window })
+    const states: SheetViewState[] = []
+    const sheet = mount(SheetView, { props: { source: src, onState: (s: SheetViewState | null) => s && states.push(s) }, attachTo: document.body })
+    await settle()
+    await sheet.findAll('.xs-head')[1]!.trigger('click')
+    const bar = mountBar(src, states.at(-1)!, { sheet: sheet.vm })
+    const reads = f.sheetsCalls
+    await bar.find('[data-tb="bold"]').trigger('click')
+    await settle()
+    expect(src.format).toHaveBeenCalledWith('Лист1', [{ range: 'B:B', style: { font: { bold: true } } }])
+    expect(f.sheetsCalls).toBe(reads + 1)
+    await bar.find('[data-tb="undo"]').trigger('click')
+    await settle()
+    expect(src.undo).toHaveBeenCalledTimes(1)
+    expect(states.at(-1)!.ref).toBe('C3')
+    expect(sheet.findAll('.xs-flash').length).toBe(0)
+    expect(bar.emitted('select')).toBeUndefined()
+  })
+
+  it('leaves a refusal to the sheet’s message line', async () => {
+    const src = source({ sheets: async () => [{ name: 'Лист1', maxRow: 3, maxCol: 3 }], window: fakeSource([{ name: 'Лист1', maxRow: 3, maxCol: 3 }]).source.window, edit: async () => OK })
+    src.format = vi.fn(async (): Promise<EditOutcome> => ({ ok: false, reason: 'refused', message: 'Лист защищён' }))
+    const sheet = mount(SheetView, { props: { source: src }, attachTo: document.body })
+    await settle()
+    const bar = mountBar(src, at('A1'), { sheet: sheet.vm })
+    await bar.find('[data-tb="italic"]').trigger('click')
+    await settle()
+    expect(sheet.find('.xs-message').text()).toBe('Лист защищён')
+    expect(bar.emitted('error')).toBeUndefined()
   })
 })
