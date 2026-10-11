@@ -211,12 +211,15 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(styleOf(w, 'A3')).toEqual({ font: { bold: true } })
   })
 
-  it('tells a number format by the changed cells, and a style that only cells\' looks carry by a reload', async () => {
+  it('reloads after any formatting: the cells\' looks, number formats and edit texts are the window\'s to carry', async () => {
     const s = source()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
-    await s.format('Лист1', [{ range: 'A1:A2', numberFormat: '0.00' }])
-    expect(events).toMatchObject([{ kind: 'changed', changes: [{ cell: 'A1', text: '1,00' }, { cell: 'A2', text: '2,00' }] }])
+    await s.format('Лист1', [{ range: 'A1:A2', numberFormat: '0%' }])
+    expect(events).toEqual([{ kind: 'reload' }])
+    const w = await win(s, 'Лист1', 1, 2, 1, 1)
+    expect(w.numberFormats).toMatchObject({ A1: '0%', A2: '0%' })
+    expect(w.editText).toMatchObject({ A1: '100%', A2: '200%' })
     // bold is in the book's styles already: the answer has no new table, the cells' looks changed all the same
     await s.format('Лист1', [{ range: 'A1', style: BOLD }])
     expect(events.at(-1)).toEqual({ kind: 'reload' })

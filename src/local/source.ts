@@ -293,8 +293,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     try {
       const got = await s.patchCells(cells)
       const changes = take(got.changes)
-      if (needsReload(got)) reload()
-      else if (changes.length) emit({ kind: 'changed', changes })
+      // A look, a number format and an edit text are the window's to carry, not a cell update's.
+      reload()
       return { ok: true, changes }
     } catch (e) {
       return outcomeOf(e, 'refused')
