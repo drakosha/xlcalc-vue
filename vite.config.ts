@@ -11,8 +11,8 @@ export default defineConfig({
       cssFileName: 'style',
     },
     rolldownOptions: {
-      // vue is the host's; xlcalc only for types in the main entry
-      external: ['vue', /^xlcalc(\/.*)?$/],
+      // vue is the host's, xlcalc and its contract are types only; xlcalc/a1, xlcalc/text and a locale's chunk are bundled
+      external: ['vue', 'xlcalc', 'xlcalc/contract'],
     },
   },
   test: {

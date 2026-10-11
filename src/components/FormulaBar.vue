@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The bar over the grid, as in Excel: back, the address box, the formula with clickable references (the edit field too), link and lock.
 import { computed } from 'vue'
-import { cellAddress } from '../core/a1'
+import { cellAddress } from 'xlcalc/a1'
 import { safeHref } from '../core/cell-view'
 import { useSheetContext } from './context'
 import { IconBack, IconFilter, IconLink, IconLock, IconLockOpen, IconSearch } from './icons'

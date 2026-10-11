@@ -1,7 +1,7 @@
 // The display filter and sort, as the the app's funnel: the data do not change, the source lists the rows to show in order.
 import { computed, nextTick, ref, watch } from 'vue'
+import { colLetters } from 'xlcalc/a1'
 import type { SheetFilter } from '../source'
-import { colLabel } from './a1'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
 
@@ -103,8 +103,8 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     if (!active.value) return ''
     const fmt = new Intl.NumberFormat(s.locale.value)
     const shown = Math.max(0, (s.visible.value?.rows.length ?? s.dataRows.value) - head.value)
-    const names = Object.keys(cols.value).map(Number).sort((a, b) => a - b).map(colLabel)
-    const sorted = sort.value ? { col: colLabel(sort.value.col), dir: sort.value.dir } : null
+    const names = Object.keys(cols.value).map(Number).sort((a, b) => a - b).map(colLetters)
+    const sorted = sort.value ? { col: colLetters(sort.value.col), dir: sort.value.dir } : null
     return s.messages.value.filterStatus(fmt.format(shown), fmt.format(Math.max(0, s.dataRows.value - head.value)), names, sorted)
   })
 
@@ -153,7 +153,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     const c = open.value
     if (c === null) return ''
     const name = head.value > 0 ? w.textOfRow(head.value, c).trim() : ''
-    return name ? s.messages.value.filterNamed(name, colLabel(c)) : s.messages.value.filterColumn(colLabel(c))
+    return name ? s.messages.value.filterNamed(name, colLetters(c)) : s.messages.value.filterColumn(colLetters(c))
   })
   /** The list narrowed by its own search box (a convenience, not a condition, as in Excel). */
   const shownValues = computed(() => {

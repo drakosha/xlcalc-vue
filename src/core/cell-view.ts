@@ -1,7 +1,7 @@
 // One drawn cell: its classes, CSS and tooltip, the content box, borders shared with neighbours, merges and text overflow.
 import { computed, type ComputedRef, type Ref } from 'vue'
-import type { BorderLine, CellStyle } from 'xlcalc/contract'
-import { cellAddress, inRect } from './a1'
+import { cellAddress, rectContains } from 'xlcalc/a1'
+import type { BorderLine, CellRect, CellStyle } from 'xlcalc/contract'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, horizontalOf, overflows, setSide, verticalOf, wrapsOf, type CssLine, type Horizontal } from './cell-style'
 import type { EditorState } from './editing'
 import type { Editing } from './editing'
@@ -68,21 +68,21 @@ export function useCellView(
     const rowsOk = (d1: number, d2: number) => d2 <= v.frozenRows.value || (d1 >= v.firstRow.value && d2 <= v.lastRow.value)
     const colsOk = (c1: number, c2: number) => c2 <= v.frozenCols.value || (c1 >= v.firstCol.value && c2 <= v.lastCol.value)
     for (const m of w.merges.value) {
-      if (s.visible.value && m.r1 !== m.r2) continue
-      const d1 = s.indexOf(m.r1)
+      if (s.visible.value && m.top !== m.bottom) continue
+      const d1 = s.indexOf(m.top)
       if (d1 === undefined) continue
-      const d2 = d1 + m.r2 - m.r1
-      if (!rowsOk(d1, d2) || !colsOk(m.c1, m.c2)) continue
+      const d2 = d1 + m.bottom - m.top
+      if (!rowsOk(d1, d2) || !colsOk(m.left, m.right)) continue
       let rsDom = 0
       let csDom = 0
       for (let d = d1; d <= d2; d++) if (geo.heightOf(d) > 0) rsDom++
-      for (let c = m.c1; c <= m.c2; c++) if (geo.widthOf(c) > 0) csDom++
+      for (let c = m.left; c <= m.right; c++) if (geo.widthOf(c) > 0) csDom++
       if (!rsDom || !csDom) continue
       // The top-left cell may be hidden: the merge then starts at its first shown cell.
       const d0 = geo.heightOf(d1) > 0 ? d1 : geo.nextRow(d1, 1)
-      const c0 = geo.widthOf(m.c1) > 0 ? m.c1 : geo.nextCol(m.c1, 1)
-      for (let r = m.r1; r <= m.r2; r++) for (let c = m.c1; c <= m.c2; c++) map.set(`${r}:${c}`, null)
-      map.set(`${s.rowOf(d0)}:${c0}`, { rs: d2 - d0 + 1, cs: m.c2 - c0 + 1, rsDom, csDom })
+      const c0 = geo.widthOf(m.left) > 0 ? m.left : geo.nextCol(m.left, 1)
+      for (let r = m.top; r <= m.bottom; r++) for (let c = m.left; c <= m.right; c++) map.set(`${r}:${c}`, null)
+      map.set(`${s.rowOf(d0)}:${c0}`, { rs: d2 - d0 + 1, cs: m.right - c0 + 1, rsDom, csDom })
     }
     return map
   })
@@ -159,6 +159,7 @@ export function useCellView(
   /** Everything to draw cell (r, c); `d` is its display row, `frozen` whether its row is a frozen one. */
   function cellView(d: number, r: number, c: number, frozen: boolean): CellView {
     const addr = cellAddress(r, c)
+    const at: CellRect = { top: r, left: c, bottom: r, right: c }
     const data = w.cellData(d, c, addr)
     const span = spanOf(r, c)
     // The merge's last row: display (geometry, neighbours) and sheet (selection, tables); under a filter merges are one row.
@@ -200,12 +201,12 @@ export function useCellView(
     if (data.note) bg.push({ img: 'linear-gradient(to bottom left, var(--xs-note) 50%, transparent 50%)', size: '7px 7px', pos: 'right top' })
     const rect = sel.selRect.value
     const active = sel.isActive(r, c)
-    if (rect && sel.multi.value && inRect(rect, r, c)) {
+    if (rect && sel.multi.value && rectContains(rect, at)) {
       if (!active) bg.push({ img: 'linear-gradient(var(--xs-sel-tint), var(--xs-sel-tint))', size: full, pos: '0 0' })
-      if (r === rect.r1) shadows.push('inset 0 1px 0 0 var(--xs-accent)')
-      if (r2 >= rect.r2) shadows.push('inset 0 -1px 0 0 var(--xs-accent)')
-      if (c === rect.c1) shadows.push('inset 1px 0 0 0 var(--xs-accent)')
-      if (c2 >= rect.c2) shadows.push('inset -1px 0 0 0 var(--xs-accent)')
+      if (r === rect.top) shadows.push('inset 0 1px 0 0 var(--xs-accent)')
+      if (r2 >= rect.bottom) shadows.push('inset 0 -1px 0 0 var(--xs-accent)')
+      if (c === rect.left) shadows.push('inset 1px 0 0 0 var(--xs-accent)')
+      if (c2 >= rect.right) shadows.push('inset -1px 0 0 0 var(--xs-accent)')
     }
     const hitKey = `${r}:${c}`
     if (deps.find.hitSet.value.has(hitKey)) bg.push({ img: 'linear-gradient(var(--xs-hit), var(--xs-hit))', size: full, pos: '0 0' })
@@ -216,12 +217,12 @@ export function useCellView(
     }
     let tableHead = false
     for (const t of w.tables.value) {
-      if (!inRect(t.rect, r, c)) continue
+      if (!rectContains(t.rect, at)) continue
       if (r === t.headerRow) tableHead = true
-      if (r === t.rect.r1) shadows.push('inset 0 1px 0 0 var(--xs-table-line)')
-      if (r2 >= t.rect.r2) shadows.push('inset 0 -1px 0 0 var(--xs-table-line)')
-      if (c === t.rect.c1) shadows.push('inset 1px 0 0 0 var(--xs-table-line)')
-      if (c2 >= t.rect.c2) shadows.push('inset -1px 0 0 0 var(--xs-table-line)')
+      if (r === t.rect.top) shadows.push('inset 0 1px 0 0 var(--xs-table-line)')
+      if (r2 >= t.rect.bottom) shadows.push('inset 0 -1px 0 0 var(--xs-table-line)')
+      if (c === t.rect.left) shadows.push('inset 1px 0 0 0 var(--xs-table-line)')
+      if (c2 >= t.rect.right) shadows.push('inset -1px 0 0 0 var(--xs-table-line)')
     }
     if (data.bar) {
       const pct = Math.round(Math.min(1, Math.max(0, data.bar.ratio)) * 1000) / 10
@@ -235,8 +236,8 @@ export function useCellView(
     const cls = [
       'xs-cell',
       active ? 'xs-active' : '',
-      rect && inRect(rect, r, c) ? 'xs-sel' : '',
-      fl && inRect(fl, r, c) ? 'xs-flash' : '',
+      rect && rectContains(rect, at) ? 'xs-sel' : '',
+      fl && rectContains(fl, at) ? 'xs-flash' : '',
       deps.find.hitSet.value.has(hitKey) ? 'xs-hit' : '',
       deps.find.current.value === hitKey ? 'xs-hit-now' : '',
       pendingText !== undefined ? 'xs-pending' : '',

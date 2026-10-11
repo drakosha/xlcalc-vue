@@ -1,7 +1,6 @@
 // Queries of the memory source over a sheet's shown text: the display filter and sort, search, a column's values, totals.
-import type { CellValue } from 'xlcalc/contract'
+import type { CellRect, CellValue } from 'xlcalc/contract'
 import type { RangeStats, SheetFilter } from './source'
-import type { Rect } from './core/a1'
 
 /** What the queries read of a sheet. */
 export interface QuerySheet {
@@ -101,13 +100,13 @@ export function columnList(sheet: QuerySheet, col: number, filter: SheetFilter):
 }
 
 /** Totals of a rectangle as Excel's status line, over the shown rows under a filter. */
-export function rangeStats(sheet: QuerySheet, rect: Rect, filter: SheetFilter | undefined): RangeStats {
+export function rangeStats(sheet: QuerySheet, rect: CellRect, filter: SheetFilter | undefined): RangeStats {
   const list = visibleList(sheet, filter)
   const shown = list ? new Set(list) : null
   const out: RangeStats = { cells: 0, numbers: 0, sum: 0, min: null, max: null }
-  for (let r = rect.r1; r <= Math.min(rect.r2, sheet.maxRow); r++) {
+  for (let r = rect.top; r <= Math.min(rect.bottom, sheet.maxRow); r++) {
     if (shown && !shown.has(r)) continue
-    for (let c = rect.c1; c <= Math.min(rect.c2, sheet.maxCol); c++) {
+    for (let c = rect.left; c <= Math.min(rect.right, sheet.maxCol); c++) {
       const v = sheet.valueAt(r, c)
       if (sheet.textAt(r, c) === '' && (v === null || v === undefined || v === '')) continue
       out.cells++

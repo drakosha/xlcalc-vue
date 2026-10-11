@@ -1,8 +1,9 @@
 // The component's base state: the book's sheets, the active one, its extent, sizes from the windows, and the frame.
 import { computed, ref, shallowRef } from 'vue'
+import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
+import type { CellPosition } from 'xlcalc/contract'
 import { enMessages, type SheetMessages } from '../messages'
 import type { SheetFilter, SheetInfo, SheetSource } from '../source'
-import type { Cell } from './a1'
 import { colPx, DEFAULT_ROW_PT, rowPx } from './geometry'
 import { createMemory } from './storage'
 
@@ -69,16 +70,16 @@ export function createState(props: SheetViewProps) {
   const indexOf = (r: number): number | undefined => (visible.value ? visible.value.index.get(r) : r)
   /** Rows with data in display order: the filter's list, else the data rows. */
   const dataShown = computed(() => (visible.value ? visible.value.rows.length : dataRows.value))
-  /** Rows the grid shows: a filter's list as is; an editable sheet goes on past the data. */
+  /** Rows the grid shows: a filter's list as is; an editable sheet goes on past the data, up to Excel's last row. */
   const rowCount = computed(() => {
     if (visible.value) return visible.value.rows.length
-    return editable.value ? Math.max(dataRows.value + SPARE_ROWS, MIN_ROWS, reach.value.rows) : dataRows.value
+    return editable.value ? Math.min(MAX_ROWS, Math.max(dataRows.value + SPARE_ROWS, MIN_ROWS, reach.value.rows)) : dataRows.value
   })
   /** The last sheet row a selection of whole columns reaches. */
   const lastRow = computed(() => (visible.value ? Math.max(1, dataRows.value) : Math.max(1, rowCount.value)))
-  /** An editable sheet fills the frame with columns at least, as Excel's grid never ends. */
+  /** An editable sheet fills the frame with columns at least, up to Excel's last column. */
   const colCount = computed(() =>
-    editable.value ? Math.max(dataCols.value + SPARE_COLS, MIN_COLS, reach.value.cols, Math.ceil(viewW.value / colPx(null)) + 1) : dataCols.value,
+    editable.value ? Math.min(MAX_COLS, Math.max(dataCols.value + SPARE_COLS, MIN_COLS, reach.value.cols, Math.ceil(viewW.value / colPx(null)) + 1)) : dataCols.value,
   )
 
   const bookWidths = shallowRef(new Map<number, number>())
@@ -87,8 +88,8 @@ export function createState(props: SheetViewProps) {
   const defaultRowPx = ref(rowPx(DEFAULT_ROW_PT))
 
   /** The active cell and the selection's other corner. */
-  const selected = ref<Cell | null>(null)
-  const extent = ref<Cell | null>(null)
+  const selected = ref<CellPosition | null>(null)
+  const extent = ref<CellPosition | null>(null)
 
   /** Ways back into modules made later: dropping the filter when a jump needs a row it hides. */
   const hooks = { unfilter: (_row: number): void => {} }

@@ -114,6 +114,16 @@ describe('selection', () => {
     expect(w.find('.xs-stats').text()).toBe('Count: 6 · Sum: 16 · Average: 3.2 · Min: 1 · Max: 6 · Numbers: 5')
   })
 
+  it('the address box writes a range over every row or column as Excel does: B:B, 2:2', async () => {
+    const f = fakeSource([{ name: 'S', maxRow: 1_048_576, maxCol: 16_384 }])
+    const w = await mountSheet(f.source, { readOnly: true })
+    const address = () => (w.find('.xs-address').element as HTMLInputElement).value
+    await w.findAll('.xs-head')[1]!.trigger('click')
+    expect(address()).toBe('B:B')
+    await w.findAll('.xs-num')[1]!.trigger('click')
+    expect(address()).toBe('2:2')
+  })
+
   it('a selection larger than the loaded windows shows only its size', async () => {
     const f = fakeSource([{ name: 'S', maxRow: 5000, maxCol: 3 }])
     const w = await mountSheet(f.source, { readOnly: true })
@@ -159,6 +169,19 @@ describe('keys on an editable sheet', () => {
     expect((w.find('.xs-address').element as HTMLInputElement).value).toBe('A100')
     await key('End', { ctrlKey: true })
     expect(active(w)).toBe('3:3')
+  })
+
+  it("the grid ends at Excel's last row and column", async () => {
+    const w = await mountSheet(memorySource(book()))
+    const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
+    await goTo(w, 'XFD1048576')
+    expect(active(w)).toBe('1048576:16384')
+    await key('ArrowDown')
+    await key('ArrowRight')
+    await key('ArrowDown', { ctrlKey: true })
+    await key('ArrowRight', { ctrlKey: true })
+    await settle()
+    expect(active(w)).toBe('1048576:16384')
   })
 })
 

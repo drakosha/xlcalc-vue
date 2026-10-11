@@ -1,10 +1,10 @@
 // Test helpers: mounting the sheet, settling promises, and a source whose answers the test controls.
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import { cellAddress } from 'xlcalc/a1'
 import type { CellValue } from 'xlcalc/contract'
 import { SheetView } from '../src'
 import type { CellEntry, EditOutcome, SheetInfo, SheetSource, SheetWindow, SourceEvent, WindowRequest } from '../src/source'
-import { cellAddress } from '../src/core/a1'
 
 /** Let promises, watchers and renders run out. */
 export async function settle(rounds = 6): Promise<void> {

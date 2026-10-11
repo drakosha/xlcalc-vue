@@ -1,11 +1,11 @@
 // Editing cells: in place or in the formula bar, Excel's keys, clearing and pasting, Control+Return, undo and redo, calls in flight and the source's outcomes.
 import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
+import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet } from 'xlcalc/a1'
+import type { CellPosition, CellRect } from 'xlcalc/contract'
+import { parseClipboard } from 'xlcalc/text'
 import type { CellEntry, EditOutcome } from '../source'
-import { cellAddress, parseRect, rectAddress, rectsMeet, type Cell, type Rect } from './a1'
-import { parseTsv } from './clipboard'
 import { numberEditText, textEditText } from './edit-text'
 import type { Formula } from './formula'
-import { sheetRefName } from './formula-refs'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
@@ -49,12 +49,12 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** The sheet's locked rectangles with their reasons. */
   const locks = computed(() =>
     (s.sheet.value?.locked ?? []).flatMap((l) => {
-      const rect = parseRect(l.range)
+      const rect = parseRange(l.range)
       return rect ? [{ rect, reason: l.reason }] : []
     }),
   )
-  const lockIn = (rect: Rect): string | null => locks.value.find((l) => rectsMeet(l.rect, rect))?.reason ?? null
-  const lockAt = (row: number, col: number): string | null => lockIn({ r1: row, c1: col, r2: row, c2: col })
+  const lockIn = (rect: CellRect): string | null => locks.value.find((l) => rectsMeet(l.rect, rect))?.reason ?? null
+  const lockAt = (row: number, col: number): string | null => lockIn({ top: row, left: col, bottom: row, right: col })
 
   /** What the field opens with: the window's `editText`; without it the formula, the text, a number in the book's locale, shown text otherwise. */
   function editText(row: number, col: number): string {
@@ -129,10 +129,10 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     editor.value = null
     s.scroller.value?.focus({ preventScroll: true })
     const marks = marksOf(r, () => (ed.text === '' ? null : ed.text))
-    void run(() => fill.call(s.source(), ed.sheet, rectAddress(r), ed.text, cellAddress(ed.row, ed.col)), marks, ed, extent)
+    void run(() => fill.call(s.source(), ed.sheet, rangeAddress(r), ed.text, cellAddress(ed.row, ed.col)), marks, ed, extent)
   }
   /** Open the field again with the draft, after a conflict or a formula that did not parse; `extent` gives a range back its corner. */
-  function reopen(ed: EditorState, caret: number | null, extent: Cell | null): void {
+  function reopen(ed: EditorState, caret: number | null, extent: CellPosition | null): void {
     if (editor.value || ed.sheet !== s.sheetName.value) return
     s.selected.value = { row: ed.row, col: ed.col }
     s.extent.value = extent
@@ -146,17 +146,17 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const edit = s.source().edit
     if (edit) await run(() => edit.call(s.source(), entries), entries, draft, null)
   }
-  /** A rectangle's shown cells (rows a filter hides are not drawn) with their pending text, row by row, up to the limit. */
-  function marksOf(r: Rect, textAt: (row: number, col: number) => string | null): CellEntry[] {
+  /** A rectangle's shown cells on the sheet (rows a filter hides are not drawn) with their pending text, row by row, up to the limit. */
+  function marksOf(r: CellRect, textAt: (row: number, col: number) => string | null): CellEntry[] {
     const out: CellEntry[] = []
-    for (let row = r.r1; row <= r.r2 && out.length < MAX_PENDING_CELLS; row++) {
+    for (let row = r.top; row <= Math.min(r.bottom, MAX_ROWS) && out.length < MAX_PENDING_CELLS; row++) {
       if (s.indexOf(row) === undefined) continue
-      for (let col = r.c1; col <= r.c2 && out.length < MAX_PENDING_CELLS; col++) out.push({ sheet: s.sheetName.value, cell: cellAddress(row, col), text: textAt(row, col) })
+      for (let col = r.left; col <= Math.min(r.right, MAX_COLS) && out.length < MAX_PENDING_CELLS; col++) out.push({ sheet: s.sheetName.value, cell: cellAddress(row, col), text: textAt(row, col) })
     }
     return out
   }
   /** Call the source: `marks` show in the "pending" style until the outcome; a failure opens `draft` again, over its range with `extent`. */
-  async function run(call: () => Promise<EditOutcome>, marks: CellEntry[], draft: EditorState | null, extent: Cell | null): Promise<void> {
+  async function run(call: () => Promise<EditOutcome>, marks: CellEntry[], draft: EditorState | null, extent: CellPosition | null): Promise<void> {
     const mine = ++seq
     if (marks.length) {
       const next = new Map(pending.value)
@@ -195,15 +195,15 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Put the selection where an outcome says: on this sheet at once, on another as the address box goes there. */
   async function selectPlace(place: { sheet: string; range: string }): Promise<void> {
     if (place.sheet !== s.sheetName.value) {
-      await deps.goPlace(`${sheetRefName(place.sheet)}!${place.range}`)
+      await deps.goPlace(`${quoteSheetIfNeeded(place.sheet)}!${place.range}`)
       return
     }
-    const r = parseRect(place.range)
+    const r = parseRange(place.range)
     if (!r) return
-    s.stretch(r.r2, r.c2)
-    s.selected.value = { row: r.r1, col: r.c1 }
-    s.extent.value = r.r1 === r.r2 && r.c1 === r.c2 ? null : { row: r.r2, col: r.c2 }
-    void nextTick(() => sel.revealCell(r.r1, r.c1))
+    s.stretch(r.bottom, r.right)
+    s.selected.value = { row: r.top, col: r.left }
+    s.extent.value = r.top === r.bottom && r.left === r.right ? null : { row: r.bottom, col: r.right }
+    void nextTick(() => sel.revealCell(r.top, r.left))
   }
 
   /** Undo and redo of the source, one call at a time: a second press while one is out sends nothing. */
@@ -227,11 +227,11 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   }
 
   /** The selection cut to the data: past it there is nothing to clear. */
-  function dataRect(): Rect | null {
+  function dataRect(): CellRect | null {
     const r = sel.selRect.value
     if (!r) return null
-    const out = { r1: r.r1, c1: r.c1, r2: Math.min(r.r2, s.dataRows.value), c2: Math.min(r.c2, s.dataCols.value) }
-    return out.r1 <= out.r2 && out.c1 <= out.c2 ? out : null
+    const out = { top: r.top, left: r.left, bottom: Math.min(r.bottom, s.dataRows.value), right: Math.min(r.right, s.dataCols.value) }
+    return out.top <= out.bottom && out.left <= out.right ? out : null
   }
   /** Delete and Backspace: clear the selection's cells (those known empty and rows the filter hides are skipped, as in Excel). */
   function clearSelection(): void {
@@ -240,46 +240,47 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (lock !== null) return deps.notify(s.messages.value.locked(lock))
     const r = dataRect()
     if (!r) return
-    if ((r.r2 - r.r1 + 1) * (r.c2 - r.c1 + 1) > MAX_EDIT_CELLS) return deps.notify(s.messages.value.tooManyCells)
+    if ((r.bottom - r.top + 1) * (r.right - r.left + 1) > MAX_EDIT_CELLS) return deps.notify(s.messages.value.tooManyCells)
     const entries: CellEntry[] = []
-    for (let row = r.r1; row <= r.r2; row++) {
+    for (let row = r.top; row <= r.bottom; row++) {
       if (s.indexOf(row) === undefined) continue
-      for (let col = r.c1; col <= r.c2; col++) {
+      for (let col = r.left; col <= r.right; col++) {
         if (w.emptyAtRow(row, col) && f.formulaAt(row, col) === undefined) continue
         entries.push({ sheet: s.sheetName.value, cell: cellAddress(row, col), text: null })
       }
     }
     if (entries.length) void send(entries, null)
   }
-  /** Paste TSV as a rectangle from the selection's top-left cell: with `paste` the source lays it out in one call, else one value fills the selection. */
+  /** Paste text as the rectangle Excel pastes from the selection's top-left cell: with `paste` the source lays it out in one call, else one value fills the selection. */
   function pasteText(text: string): void {
     const a = sel.selRect.value
     if (!s.editable.value || !a) return
-    const rows = parseTsv(text)
-    if (!rows.length) return
+    const rows = parseClipboard(text)
     const paste = s.source().paste
     const one = !paste && rows.length === 1 && rows[0]!.length === 1
-    const width = Math.max(...rows.map((line) => line.length))
-    const target: Rect = one ? a : { r1: a.r1, c1: a.c1, r2: a.r1 + rows.length - 1, c2: a.c1 + width - 1 }
+    const width = rows[0]!.length
+    const target: CellRect = one ? a : { top: a.top, left: a.left, bottom: a.top + rows.length - 1, right: a.left + width - 1 }
     const lock = lockIn(target)
     if (lock !== null) return deps.notify(s.messages.value.locked(lock))
     const textAt = (row: number, col: number): string | null => {
-      const t = one ? rows[0]![0]! : (rows[row - target.r1]?.[col - target.c1] ?? '')
+      const t = one ? rows[0]![0]! : (rows[row - target.top]?.[col - target.left] ?? '')
       return t === '' ? null : t
     }
     if (paste) {
       const sheet = s.sheetName.value
-      void run(() => paste.call(s.source(), sheet, cellAddress(a.r1, a.c1), text), marksOf(target, textAt), null, null)
+      void run(() => paste.call(s.source(), sheet, cellAddress(a.top, a.left), text), marksOf(target, textAt), null, null)
       return
     }
-    if ((target.r2 - target.r1 + 1) * (target.c2 - target.c1 + 1) > MAX_EDIT_CELLS) return deps.notify(s.messages.value.tooManyCells)
+    // A rectangle past the sheet's edge is refused whole, as Excel refuses it; a source's `paste` says so itself.
+    if (target.bottom > MAX_ROWS || target.right > MAX_COLS) return deps.notify(s.messages.value.editFailed)
+    if ((target.bottom - target.top + 1) * (target.right - target.left + 1) > MAX_EDIT_CELLS) return deps.notify(s.messages.value.tooManyCells)
     const entries: CellEntry[] = []
-    for (let row = target.r1; row <= target.r2; row++) {
-      for (let col = target.c1; col <= target.c2; col++) entries.push({ sheet: s.sheetName.value, cell: cellAddress(row, col), text: textAt(row, col) })
+    for (let row = target.top; row <= target.bottom; row++) {
+      for (let col = target.left; col <= target.right; col++) entries.push({ sheet: s.sheetName.value, cell: cellAddress(row, col), text: textAt(row, col) })
     }
-    s.stretch(target.r2, target.c2)
-    s.selected.value = { row: target.r1, col: target.c1 }
-    s.extent.value = target.r1 === target.r2 && target.c1 === target.c2 ? null : { row: target.r2, col: target.c2 }
+    s.stretch(target.bottom, target.right)
+    s.selected.value = { row: target.top, col: target.left }
+    s.extent.value = target.top === target.bottom && target.left === target.right ? null : { row: target.bottom, col: target.right }
     void send(entries, null)
   }
 

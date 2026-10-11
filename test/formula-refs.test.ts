@@ -1,102 +1,103 @@
-// The the app's formula-refs tests, translated, and ru-RU cases: `;` between arguments, a decimal comma, Russian names.
-import { describe, expect, it } from 'vitest'
-import { EXCEL_MAX_COLS, EXCEL_MAX_ROWS, formulaTokens, parseCellRef, sheetRefName, type FormulaRef } from '../src/core/formula-refs'
+// References of a formula as the sheet shows them (xlcalc's scanReferences): pieces of the bar, ranges on the grid, places to go to.
+import type { VueWrapper } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { memorySource, type MemoryBook } from '../src'
+import { address, goTo, key, mountSheet, settle, type } from './helpers'
 
-const refs = (f: string): FormulaRef[] => formulaTokens(f).flatMap((t) => (t.ref ? [t.ref] : []))
-const same = (r1: number, c1: number, r2 = r1, c2 = c1): FormulaRef => ({ sheet: null, r1, c1, r2, c2 })
+afterEach(() => {
+  document.body.innerHTML = ''
+  vi.restoreAllMocks()
+})
 
-describe('formulaTokens', () => {
-  it('single cells and a range', () => {
-    expect(refs('B1+B2*2')).toEqual([same(1, 2), same(2, 2)])
-    expect(refs('SUM(B1:B4)')).toEqual([same(1, 2, 4, 2)])
-    expect(formulaTokens('SUM(B1:B4)').map((t) => t.text)).toEqual(['SUM(', 'B1:B4', ')'])
+const refs = (w: VueWrapper) => w.findAll('.xs-ref').map((r) => r.text())
+const colorOf = (w: VueWrapper, text: string) => (w.findAll('.xs-ref').find((r) => r.text() === text)!.element as HTMLElement).style.color
+const tinted = (w: VueWrapper, cell: string) => (w.find(`[data-cell="${cell}"]`).element as HTMLElement).style.backgroundImage.includes('linear-gradient')
+
+describe('a formula in en-US', () => {
+  const formula = `SUM(A1:A2)+'Two sheet'!B2+Sales[Qty]+LEN("see C9")+SUM(Jan:Mar!D4)+$A$1+LOG10(A1)`
+  const book = (): MemoryBook => ({
+    sheets: [
+      { name: 'S', cells: { A1: 1, A2: 2, B1: { value: 3, formula }, C9: 'x' } },
+      { name: 'Two sheet', cells: { B2: 5 } },
+    ],
   })
 
-  it('absolute references and a range given from its bottom-right corner', () => {
-    expect(refs('SUM($B$1:$B$2)')).toEqual([same(1, 2, 2, 2)])
-    expect(refs('D4:B2')).toEqual([same(2, 2, 4, 4)])
+  it('shows its references to cells as buttons and the rest as text; equal references share a colour', async () => {
+    const w = await mountSheet(memorySource(book()), { readOnly: true })
+    await goTo(w, 'B1')
+    // A table's reference, one across sheets and a string's text stay text.
+    expect(refs(w)).toEqual(['A1:A2', "'Two sheet'!B2", '$A$1', 'A1'])
+    expect(w.find('.xs-fx-text').text()).toBe(`=${formula}`)
+    expect(colorOf(w, '$A$1')).toBe(colorOf(w, 'A1'))
+    expect(colorOf(w, 'A1')).not.toBe(colorOf(w, 'A1:A2'))
+    expect(tinted(w, '1:1')).toBe(true)
+    expect(tinted(w, '2:1')).toBe(true)
+    expect(tinted(w, '9:3')).toBe(false)
   })
 
-  it('a sheet bare, quoted, with an apostrophe inside', () => {
-    expect(refs("Высоты!B3+'Второй лист'!A1")).toEqual([
-      { sheet: 'Высоты', r1: 3, c1: 2, r2: 3, c2: 2 },
-      { sheet: 'Второй лист', r1: 1, c1: 1, r2: 1, c2: 1 },
-    ])
-    expect(refs("'Иван''s'!A1")[0]?.sheet).toBe("Иван's")
-  })
-
-  it('whole columns and rows', () => {
-    expect(refs('SUM(B:B)+MAX(1:1)')).toEqual([
-      { sheet: null, r1: 1, c1: 2, r2: EXCEL_MAX_ROWS, c2: 2 },
-      { sheet: null, r1: 1, c1: 1, r2: 1, c2: EXCEL_MAX_COLS },
-    ])
-  })
-
-  it('a function name with digits and range names are not references', () => {
-    expect(refs('LOG10(A1)')).toEqual([same(1, 1)])
-    expect(refs('ATAN2(1,2)')).toEqual([])
-    expect(refs('Итого2024+A1')).toEqual([same(1, 1)])
-    expect(refs('_xlfn.XLOOKUP(A1,B:B,C:C)').length).toBe(3)
-  })
-
-  it('quoted text is skipped', () => {
-    expect(refs('"см. A1"&B2')).toEqual([same(2, 2)])
-    expect(refs('"кавычка "" и A1"')).toEqual([])
-    expect(formulaTokens('"см. A1"&B2').map((t) => t.text)).toEqual(['"см. A1"&', 'B2'])
-  })
-
-  it('a malformed address stays text', () => {
-    expect(refs('XFE1')).toEqual([])
-    expect(refs('A0')).toEqual([])
+  it('highlights a draft as it is typed, a half-typed one too', async () => {
+    const w = await mountSheet(memorySource(book()))
+    await goTo(w, 'D1')
+    await key(w, '=')
+    await type(w, '=SUM(C9:C9,A2')
+    await settle()
+    expect(tinted(w, '9:3')).toBe(true)
+    expect(tinted(w, '2:1')).toBe(true)
+    expect(tinted(w, '1:1')).toBe(false)
   })
 })
 
-describe('formulaTokens in ru-RU', () => {
-  it('`;` separates arguments and a decimal comma is no reference', () => {
-    expect(refs('СУММ(A1:A3;1,5)')).toEqual([same(1, 1, 3, 1)])
-    expect(formulaTokens('СУММ(A1:A3;1,5)').map((t) => t.text)).toEqual(['СУММ(', 'A1:A3', ';1,5)'])
-    expect(refs('ЕСЛИ(B2>0,5;C2;D2)')).toEqual([same(2, 2), same(2, 3), same(2, 4)])
-  })
+describe('a formula in ru-RU', () => {
+  // An array constant's rows (`2:3`) and decimal commas are no references in ru-RU's formula text.
+  const formula = 'СУММ({1;2:3;4};A1)+ЕСЛИ(B2>0,5;C2;D2)'
+  const book = (): MemoryBook => ({ sheets: [{ name: 'Лист', cells: { A1: 1, B2: 2, F1: { value: 3, formula }, E3: 4 } }] })
 
-  it('Russian function names, with digits too, are not references; addresses are not translated', () => {
-    expect(refs('ОКРУГЛ(A2/A3*1,5;2)')).toEqual([same(2, 1), same(3, 1)])
-    expect(refs('ЛОГ10(B7)')).toEqual([same(7, 2)])
-    expect(refs('СУММ(A:A)-СРЗНАЧ(2:2)')).toEqual([
-      { sheet: null, r1: 1, c1: 1, r2: EXCEL_MAX_ROWS, c2: 1 },
-      { sheet: null, r1: 2, c1: 1, r2: 2, c2: EXCEL_MAX_COLS },
-    ])
-  })
-
-  it('Russian sheet names, bare and quoted, with `;` after them', () => {
-    expect(refs("Лист1!A1;'Длинный лист'!B2:C3")).toEqual([
-      { sheet: 'Лист1', r1: 1, c1: 1, r2: 1, c2: 1 },
-      { sheet: 'Длинный лист', r1: 2, c1: 2, r2: 3, c2: 3 },
-    ])
-  })
-
-  it('the text joins back into the formula', () => {
-    const f = 'ЕСЛИ(СУММ($A$1:A3;0,5)>1;"да; A1";Лист2!B$4)'
-    expect(formulaTokens(f).map((t) => t.text).join('')).toBe(f)
-    expect(refs(f).map((r) => [r.sheet, r.r1, r.c1])).toEqual([
-      [null, 1, 1],
-      ['Лист2', 4, 2],
-    ])
+  it("is read in the locale's formula text once its module loads", async () => {
+    const w = await mountSheet(memorySource(book()), { readOnly: true, locale: 'ru-RU' })
+    await goTo(w, 'F1')
+    await vi.waitFor(() => expect(refs(w)).toEqual(['A1', 'B2', 'C2', 'D2']))
+    expect(w.find('.xs-fx-text').text()).toBe(`=${formula}`)
+    expect(tinted(w, '2:3')).toBe(true)
+    expect(tinted(w, '3:5')).toBe(false)
   })
 })
 
-describe('parseCellRef', () => {
-  it('a cell, a range, a sheet with an address, and a sheet alone', () => {
-    expect(parseCellRef('B12')).toEqual({ sheet: null, range: { sheet: null, r1: 12, c1: 2, r2: 12, c2: 2 } })
-    expect(parseCellRef('b2:D15')?.range).toEqual({ sheet: null, r1: 2, c1: 2, r2: 15, c2: 4 })
-    expect(parseCellRef("'Лист 2'!C7")).toEqual({ sheet: 'Лист 2', range: { sheet: 'Лист 2', r1: 7, c1: 3, r2: 7, c2: 3 } })
-    expect(parseCellRef('Реестр')).toEqual({ sheet: 'Реестр', range: null })
-    expect(parseCellRef("'Второй лист'")).toEqual({ sheet: 'Второй лист', range: null })
-    expect(parseCellRef('B12+C1')).toBeNull()
-    expect(parseCellRef('')).toBeNull()
+describe('places', () => {
+  const book = (): MemoryBook => ({
+    sheets: [
+      { name: 'S', cells: { A1: 1, B1: { value: 1, formula: 'STRASSE!A1' }, D5: 1 } },
+      { name: 'Straße', cells: { A1: 1 } },
+      { name: '2024', cells: { B2: 'y' } },
+    ],
   })
-  it('a sheet name is quoted only with spaces and signs', () => {
-    expect(sheetRefName('Реестр')).toBe('Реестр')
-    expect(sheetRefName('Лист 2')).toBe("'Лист 2'")
-    expect(sheetRefName("Иван's")).toBe("'Иван''s'")
+
+  it('the address box takes a range in any case, a sheet quoted or not, a sheet alone; not a formula or a table', async () => {
+    const w = await mountSheet(memorySource(book()), { readOnly: true, messages: { addressBad: 'Bad address' } })
+    await goTo(w, 'b2:c3')
+    expect(address(w)).toBe('B2:C3')
+    await goTo(w, "'2024'!B2")
+    expect(w.find('.xs-tab-on').text()).toBe('2024')
+    await goTo(w, 'Straße!A1')
+    expect(w.find('.xs-tab-on').text()).toBe('Straße')
+    await goTo(w, "'S'")
+    expect(w.find('.xs-tab-on').text()).toBe('S')
+    for (const bad of ['B12+C1', 'Sales[Qty]', 'Jan:Mar!A1']) {
+      await goTo(w, bad)
+      expect(w.find('.xs-message').text()).toBe('Bad address')
+    }
+  })
+
+  it('a sheet in a reference is found as the book compares names; the link quotes a sheet as Excel writes it', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    const w = await mountSheet(memorySource(book()), { readOnly: true, cellUrl: (ref: string) => `at=${ref}` })
+    await goTo(w, 'B1')
+    await w.find('.xs-ref').trigger('click')
+    await settle()
+    expect(w.find('.xs-tab-on').text()).toBe('Straße')
+    await goTo(w, "'2024'!B2")
+    await w.find('.xs-tools .xs-tool').trigger('click')
+    await settle()
+    expect(writeText).toHaveBeenCalledWith("at='2024'!B2")
   })
 })

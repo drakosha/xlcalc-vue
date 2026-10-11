@@ -162,6 +162,18 @@ describe('paste through the source', () => {
     expect(w.find('.xs-message').text()).toContain('the script owns it')
   })
 
+  it("at the sheet's edge goes to the source, which refuses what leaves the sheet", async () => {
+    const source = memorySource(book())
+    const call = vi.fn(async (..._args: unknown[]): Promise<EditOutcome> => ({ ok: false, reason: 'refused', message: 'off the sheet' }))
+    source.paste = call
+    const w = await mountSheet(source)
+    await goTo(w, 'XFD1048576')
+    paste(w, '1\t2')
+    await settle()
+    expect(call).toHaveBeenCalledWith('S', 'XFD1048576', '1\t2')
+    expect(w.find('.xs-message').text()).toBe('off the sheet')
+  })
+
   it('an edit answered with `select` moves the selection there', async () => {
     const source = memorySource(book())
     const edit = source.edit!.bind(source)

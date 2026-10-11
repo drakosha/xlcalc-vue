@@ -1,8 +1,8 @@
 // The component's wiring: state, geometry, windows, selection, editing and jumps, the source's events and the frame's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { cellAddress, linesKey } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import type { SheetWindow } from '../source'
-import { cellAddress, colsAddress } from './a1'
 import { useCellView } from './cell-view'
 import { useEditing, type EditorState } from './editing'
 import { useFormula } from './formula'
@@ -192,7 +192,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     let ok = false
     let text = ''
     try {
-      const got = await layout.call(props.source, { sheet, columns: colsAddress(col, col), width: widthFromPx(px) })
+      const got = await layout.call(props.source, { sheet, columns: linesKey(col, col, 'columns'), width: widthFromPx(px) })
       ok = got.ok
       if (!got.ok) text = got.message
     } catch (e) {
