@@ -9,9 +9,12 @@ const DIGIT_PX = 7
 export const MIN_COL_PX = 20
 export const MAX_COL_PX = 900
 
-/** A column width as xlsx stores it (digits with padding) to pixels, Excel's formula; null is the default 64 px. */
+/** The width of a column without its own, as xlcalc counts it: Excel for Mac with Calibri 11. */
+const DEFAULT_COL_WIDTH = 8.83203125
+
+/** A column width as xlsx stores it (digits with padding) to pixels, Excel's formula; null is the library's default, 62 px. */
 export function colPx(width: number | null | undefined): number {
-  const w = width ?? 9.140625
+  const w = width ?? DEFAULT_COL_WIDTH
   if (w <= 0) return 0
   return Math.trunc(((256 * w + Math.trunc(128 / DIGIT_PX)) / 256) * DIGIT_PX)
 }

@@ -244,11 +244,11 @@ describe('column width with the mouse', () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { C3: 'x' } }] })
     delete (source as { layout?: unknown }).layout
     const w = await mountSheet(source, { storageKey: 'k' })
-    await drag(w, 2, 36)
+    await drag(w, 2, 38)
     expect(colWidths(w)[2]).toBe('100px')
     expect(JSON.parse(localStorage.getItem('k:widths:S')!)).toEqual({ 2: 100 })
     await w.findAll('.xs-head')[1]!.find('.xs-grip').trigger('dblclick')
-    expect(colWidths(w)[2]).toBe('64px')
+    expect(colWidths(w)[2]).toBe('62px')
     expect(localStorage.getItem('k:widths:S')).toBeNull()
   })
 
@@ -256,10 +256,16 @@ describe('column width with the mouse', () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { C3: 'x' } }] })
     const layout = vi.spyOn(source, 'layout')
     const w = await mountSheet(source, { storageKey: 'k' })
-    await drag(w, 2, 36)
+    await drag(w, 2, 38)
     expect(layout).toHaveBeenCalledWith({ sheet: 'S', columns: 'B', width: widthFromPx(100) })
     expect(localStorage.getItem('k:widths:S')).toBeNull()
     await w.findAll('.xs-head')[1]!.find('.xs-grip').trigger('dblclick')
-    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', width: widthFromPx(64) })
+    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', width: widthFromPx(62) })
+  })
+
+  it("a column without a width of its own is the library's default, 8.83203125 (62 px)", async () => {
+    const w = await mountSheet(memorySource({ sheets: [{ name: 'S', cells: { A1: 'a' }, widths: { B: 8.83203125 } }] }))
+    expect(colWidths(w)[1]).toBe('62px')
+    expect(colWidths(w)[2]).toBe('62px')
   })
 })
