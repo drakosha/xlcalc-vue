@@ -77,6 +77,38 @@ export interface SheetMessages {
   filterFailed: string
   valuesFailed: string
   unfiltered: (row: number) => string
+  /** The formatting toolbar (`SheetToolbar`): its buttons, menus and number formats as Excel names them. */
+  toolbar: string
+  toolbarMore: string
+  undo: string
+  redo: string
+  bold: string
+  italic: string
+  underline: string
+  fontColour: string
+  fillColour: string
+  pickColour: string
+  colourAuto: string
+  fillNone: string
+  borders: string
+  borderAll: string
+  borderOutside: string
+  borderBottom: string
+  borderNone: string
+  alignLeft: string
+  alignCenter: string
+  alignRight: string
+  wrapText: string
+  numberFormat: string
+  formatGeneral: string
+  formatNumber: string
+  formatCurrency: string
+  formatPercent: string
+  formatDate: string
+  formatTime: string
+  formatText: string
+  /** A format none of the offered ones is (Excel's Custom). */
+  formatOther: string
 }
 
 export const enMessages: SheetMessages = {
@@ -160,6 +192,36 @@ export const enMessages: SheetMessages = {
   filterFailed: 'Could not apply the filter',
   valuesFailed: 'Could not read the column’s values',
   unfiltered: (row) => `The filter is cleared: it hid row ${row}`,
+  toolbar: 'Formatting',
+  toolbarMore: 'More formatting',
+  undo: 'Undo (Ctrl+Z)',
+  redo: 'Redo (Ctrl+Y)',
+  bold: 'Bold',
+  italic: 'Italic',
+  underline: 'Underline',
+  fontColour: 'Font colour',
+  fillColour: 'Fill colour',
+  pickColour: 'Pick a colour',
+  colourAuto: 'Automatic',
+  fillNone: 'No fill',
+  borders: 'Borders',
+  borderAll: 'All borders',
+  borderOutside: 'Outside borders',
+  borderBottom: 'Bottom border',
+  borderNone: 'No border',
+  alignLeft: 'Align left',
+  alignCenter: 'Center',
+  alignRight: 'Align right',
+  wrapText: 'Wrap text',
+  numberFormat: 'Number format',
+  formatGeneral: 'General',
+  formatNumber: 'Number',
+  formatCurrency: 'Currency',
+  formatPercent: 'Percentage',
+  formatDate: 'Short date',
+  formatTime: 'Time',
+  formatText: 'Text',
+  formatOther: 'Custom',
 }
 
 /** Russian plural: one, few, many. */
@@ -256,4 +318,34 @@ export const ruMessages: SheetMessages = {
   filterFailed: 'Не удалось применить фильтр',
   valuesFailed: 'Не удалось получить значения колонки',
   unfiltered: (row) => `Фильтр снят: строка ${row} была скрыта им`,
+  toolbar: 'Оформление',
+  toolbarMore: 'Ещё оформление',
+  undo: 'Отменить (Ctrl+Z)',
+  redo: 'Вернуть (Ctrl+Y)',
+  bold: 'Полужирный',
+  italic: 'Курсив',
+  underline: 'Подчёркнутый',
+  fontColour: 'Цвет текста',
+  fillColour: 'Цвет заливки',
+  pickColour: 'Выбрать цвет',
+  colourAuto: 'Авто',
+  fillNone: 'Нет заливки',
+  borders: 'Границы',
+  borderAll: 'Все границы',
+  borderOutside: 'Внешние границы',
+  borderBottom: 'Нижняя граница',
+  borderNone: 'Нет границы',
+  alignLeft: 'По левому краю',
+  alignCenter: 'По центру',
+  alignRight: 'По правому краю',
+  wrapText: 'Перенос текста',
+  numberFormat: 'Числовой формат',
+  formatGeneral: 'Общий',
+  formatNumber: 'Числовой',
+  formatCurrency: 'Денежный',
+  formatPercent: 'Процентный',
+  formatDate: 'Краткая дата',
+  formatTime: 'Время',
+  formatText: 'Текстовый',
+  formatOther: 'Другой',
 }

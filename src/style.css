@@ -1,5 +1,6 @@
-/* The sheet's look: colours, fonts and spacing are --xs-* variables, so a host restyles (or darkens) it by overriding them. */
-.xs-sheet {
+/* The sheet's look: colours, fonts and spacing are --xs-* variables, so a host restyles (or darkens) it by overriding them; the toolbar shares them. */
+.xs-sheet,
+.xs-toolbar {
   --xs-bg: #ffffff;
   --xs-fg: #1f2328;
   --xs-muted: #6b7280;
@@ -26,7 +27,8 @@
   --xs-message-fg: #ffffff;
   --xs-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --xs-font-size: 12.5px;
-
+}
+.xs-sheet {
   position: relative;
   display: flex;
   flex-direction: column;
