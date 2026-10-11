@@ -1,10 +1,13 @@
 // The local source in a browser: the example's local.html built for production (the pool's thread bundled by Vite) and
 // served, then the dev server once. Measures the opening of the synthetic book and edits, checks a Web Worker computes,
 // takes screenshots at 390 × 844 and 1920 × 1200. Run: npm run check:local. Output: test-results/screens/local-*.png.
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { chromium, type Browser, type Page } from 'playwright'
 import { build, createServer, preview } from 'vite'
+import { registerLocale } from 'xlcalc'
+import { ruRU } from 'xlcalc/locales/ru-RU'
+import { writeXlsx } from 'xlcalc/xlsx'
 
 const root = resolve(import.meta.dirname, '..')
 const config = resolve(root, 'vite.example.config.ts')
@@ -62,6 +65,70 @@ async function typeAndWatch(page: Page, text: string, watch: string, phone: bool
 async function lastEdit(page: Page, count: number): Promise<{ ms: number; changes: number }> {
   await page.waitForFunction((n) => (window as any).__xs.edits.length >= n, count, { timeout: 30_000 })
   return page.evaluate((n) => (window as any).__xs.edits[n - 1], count)
+}
+
+/** Wait until a cell (`row:col`) shows `text`. */
+async function shows(page: Page, cell: string, text: string): Promise<void> {
+  await page.waitForFunction(([c, t]) => document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim() === t, [cell, text] as const, { timeout: 30_000 })
+}
+
+/** A small ru-RU file opened from the field, typed into, filled with Control+Return, pasted into, undone, redone, saved and opened again. */
+async function fileScenario(browser: Browser, base: string): Promise<void> {
+  const file = resolve(out, 'local-small.xlsx')
+  registerLocale(ruRU)
+  const book = { locale: 'ru-RU', sheets: [{ name: 'Лист1', cells: { A1: { value: 2 }, A2: { value: 3 }, A3: { value: 4 }, C1: { numberFormat: '0%' } } }] }
+  writeFileSync(file, (await writeXlsx({ book })).data)
+  const context = await browser.newContext({ viewport: { width: 1920, height: 1200 }, acceptDownloads: true })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  const shot = (name: string) => page.screenshot({ path: resolve(out, `local-file-${name}.png`) })
+  await page.goto(`${base}local.html?rows=34`)
+  await page.locator('[data-open]').setInputFiles(file)
+  await shows(page, '1:1', '2')
+  // Typing over a cell.
+  await page.locator('[data-cell="1:4"]').click()
+  await page.keyboard.type('abc')
+  await page.keyboard.press('Enter')
+  await shows(page, '1:4', 'abc')
+  // Control+Return over B1:B3: the formula moves as a copy moves it.
+  await page.locator('[data-cell="1:2"]').click()
+  await page.locator('[data-cell="3:2"]').click({ modifiers: ['Shift'] })
+  await page.keyboard.type('=A1*2')
+  await page.keyboard.press('Control+Enter')
+  await shows(page, '3:2', '8')
+  await page.locator('[data-cell="3:2"]').click()
+  const bar = (await page.locator('.xs-fx').textContent())?.trim()
+  if (bar !== '=A3*2') throw new Error(`B3 after Control+Return: ${bar}`)
+  await shot('fill')
+  // A paste at C1, a percent cell: 5 is 500 % (no percent editor), '007 keeps its apostrophe.
+  await page.locator('[data-cell="1:3"]').click()
+  await page.locator('.xs-scroller').evaluate((el) => {
+    const data = new DataTransfer()
+    data.setData('text/plain', "5\t'007")
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+  })
+  await shows(page, '1:3', '500%')
+  await shows(page, '1:4', "'007")
+  await shot('paste')
+  // One undo takes the paste back whole, a redo does it again.
+  await page.keyboard.press('Control+Z')
+  await shows(page, '1:3', '')
+  await shows(page, '1:4', 'abc')
+  await page.keyboard.press('Control+Y')
+  await shows(page, '1:4', "'007")
+  // Saved and opened again: the values come back.
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Сохранить xlsx' }).click()])
+  const saved = resolve(out, 'local-small-saved.xlsx')
+  await download.saveAs(saved)
+  await page.locator('[data-open]').setInputFiles(saved)
+  await shows(page, '3:2', '8')
+  await shows(page, '1:3', '500%')
+  await shows(page, '1:4', "'007")
+  await shot('reopened')
+  if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`)
+  console.log('[file] typed, Control+Return, paste, undo, redo, saved and opened again: values as edited')
+  await context.close()
 }
 
 async function production(browser: Browser): Promise<void> {
@@ -125,6 +192,7 @@ async function production(browser: Browser): Promise<void> {
       if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`)
       await context.close()
     }
+    await fileScenario(browser, base)
   } finally {
     await new Promise<void>((done) => server.httpServer.close(() => done()))
   }
