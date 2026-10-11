@@ -1,6 +1,6 @@
 // Editing cells: in place or in the formula bar, Excel's keys, clearing and pasting, Control+Return, undo and redo, calls in flight and the source's outcomes.
 import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
-import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet } from 'xlcalc/a1'
+import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
 import type { CellEntry, EditOutcome } from '../source'
@@ -33,8 +33,8 @@ export interface EditingDeps {
   notify: (text: string) => void
   /** Read the sheets and windows again (a conflict). */
   reload: () => Promise<void>
-  /** Go to a place as the address box goes there (`'Sheet 2'!B3:C4`): an outcome's selection on another sheet. */
-  goPlace: (place: string) => Promise<boolean>
+  /** Make another sheet active: an outcome's selection on it. */
+  pickSheet: (index: number) => Promise<void>
   cellInput: Ref<HTMLTextAreaElement | null>
   barInput: Ref<HTMLTextAreaElement | null>
 }
@@ -192,17 +192,16 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       if (draft) reopen(draft, outcome.at ?? null, extent)
     } else deps.notify(outcome.message || m.editFailed)
   }
-  /** Put the selection where an outcome says: on this sheet at once, on another as the address box goes there. */
+  /** Put the selection where an outcome says, as keys put it: no flash and no step of the way back, on another sheet too. */
   async function selectPlace(place: { sheet: string; range: string }): Promise<void> {
-    if (place.sheet !== s.sheetName.value) {
-      await deps.goPlace(`${quoteSheetIfNeeded(place.sheet)}!${place.range}`)
-      return
-    }
     const r = parseRange(place.range)
     if (!r) return
-    s.stretch(r.bottom, r.right)
-    s.selected.value = { row: r.top, col: r.left }
-    s.extent.value = r.top === r.bottom && r.left === r.right ? null : { row: r.bottom, col: r.right }
+    if (place.sheet !== s.sheetName.value) {
+      const index = f.sheetIndexByName(place.sheet)
+      if (index < 0) return
+      await deps.pickSheet(index)
+    }
+    sel.selectRect(r)
     void nextTick(() => sel.revealCell(r.top, r.left))
   }
 

@@ -85,7 +85,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
       flashTimer = setTimeout(() => (flash.value = null), FLASH_MS)
     })
   }
-  /** Select a rectangle (cut to the shown grid), show its top-left corner and flash it. */
+  /** Select a rectangle cut to the shown grid (whole columns and rows stay whole), show its top-left corner and flash it. */
   function selectRange(range: CellRect): void {
     // A whole column or row runs to Excel's limit: it stops at the grid, which an editable sheet stretches to the place.
     s.stretch(range.bottom >= MAX_ROWS ? range.top : range.bottom, range.right >= MAX_COLS ? range.left : range.right)
@@ -93,11 +93,8 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     const cols = Math.max(1, s.colCount.value)
     const top = Math.min(range.top, rows)
     const left = Math.min(range.left, cols)
-    const bottom = Math.min(range.bottom, rows)
-    const right = Math.min(range.right, cols)
-    s.selected.value = { row: top, col: left }
-    s.extent.value = top === bottom && left === right ? null : { row: bottom, col: right }
-    flashRange({ top, left, bottom, right })
+    sel.selectRect({ top, left, bottom: range.bottom >= MAX_ROWS ? MAX_ROWS : Math.min(range.bottom, rows), right: range.right >= MAX_COLS ? MAX_COLS : Math.min(range.right, cols) })
+    flashRange(sel.selRect.value!)
     void nextTick(() => {
       sel.revealCell(top, left)
       s.scroller.value?.focus({ preventScroll: true })
