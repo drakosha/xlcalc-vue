@@ -1,0 +1,185 @@
+/* The formatting toolbar: the sheet's --xs-* variables and its .xs-tool buttons (style.css), in groups with menus under them. */
+.xs-toolbar {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  min-width: 0;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--xs-grid);
+  background: var(--xs-bar-bg);
+  color: var(--xs-fg);
+  font-family: var(--xs-font);
+  font-size: var(--xs-font-size);
+  -webkit-tap-highlight-color: transparent;
+}
+.xs-toolbar *,
+.xs-toolbar *::before,
+.xs-toolbar *::after {
+  box-sizing: border-box;
+}
+.xs-tb-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 0;
+  min-width: 0;
+}
+.xs-tb-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+}
+.xs-tb-group + .xs-tb-group,
+.xs-tb-row + .xs-tb-row > .xs-tb-group:first-child {
+  border-left: 1px solid var(--xs-grid);
+}
+.xs-tb-row:first-child > .xs-tb-group:first-child {
+  padding-left: 0;
+}
+.xs-tb-split {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.xs-toolbar:not(.xs-touch) .xs-tb-caret {
+  width: 14px;
+}
+.xs-toolbar:not(.xs-touch) .xs-tb-caret .xs-icon {
+  width: 10px;
+  height: 10px;
+}
+.xs-tool.xs-tb-wide {
+  width: auto;
+  gap: 1px;
+  padding: 0 3px;
+}
+.xs-tb-down {
+  width: 10px;
+  height: 10px;
+}
+.xs-tb-select {
+  height: 22px;
+  max-width: 140px;
+  padding: 0 4px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: 12px var(--xs-font);
+}
+.xs-tb-select:focus {
+  border-color: var(--xs-accent);
+  outline: none;
+}
+
+/* ── a menu under a button: palettes and borders ── */
+.xs-tb-pop {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 6px;
+  background: var(--xs-bg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.16);
+}
+.xs-tb-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--xs-fg);
+  font: 12.5px var(--xs-font);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.xs-tb-item:hover,
+.xs-tb-item[aria-pressed='true'] {
+  background: var(--xs-head-bg);
+}
+.xs-tb-swatches {
+  display: grid;
+  grid-template-columns: repeat(10, 18px);
+  gap: 3px;
+}
+.xs-tb-swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 0.18);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.xs-tb-swatch[aria-pressed='true'] {
+  outline: 2px solid var(--xs-accent);
+  outline-offset: 1px;
+}
+
+/* ── a narrow frame: the first buttons in a row, the rest in a menu under the toolbar ── */
+.xs-tb-narrow .xs-tb-row {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+}
+.xs-tb-more {
+  margin-left: auto;
+}
+.xs-tb-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 0;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--xs-grid);
+  background: var(--xs-bar-bg);
+  box-shadow: 0 8px 16px rgb(0 0 0 / 0.12);
+}
+.xs-tb-menu > .xs-tb-group {
+  padding: 0 12px 0 0;
+  border-left: 0;
+}
+.xs-tb-narrow .xs-tb-split {
+  position: static;
+}
+.xs-tb-narrow .xs-tb-pop {
+  top: calc(100% + 2px);
+  left: 8px;
+  right: 8px;
+}
+
+/* ── a finger: every target at least 44 × 44 px ── */
+.xs-touch .xs-tb-select {
+  height: 44px;
+  max-width: none;
+  font-size: 15px;
+}
+.xs-touch .xs-tb-item {
+  min-height: 44px;
+  font-size: 15px;
+}
+.xs-touch .xs-tb-swatches {
+  grid-template-columns: repeat(5, 44px);
+  gap: 6px;
+}
+.xs-touch .xs-tb-swatch {
+  width: 44px;
+  height: 44px;
+}
+.xs-touch .xs-tool.xs-tb-wide {
+  min-width: 56px;
+}
