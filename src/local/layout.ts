@@ -150,20 +150,6 @@ export function lineLook(l: SheetLayout, row: number, col: number): { style?: nu
   return c ? { style: c.style, numberFormat: c.numberFormat } : {}
 }
 
-/** A column's width for a window: null by default, 0 when hidden. */
-export function widthOf(l: SheetLayout, col: number): number | null {
-  const c = l.columns.get(col)
-  if (!c) return null
-  return c.hidden ? 0 : (c.width ?? null)
-}
-
-/** A row's height in points, 0 when hidden, undefined by default. */
-export function heightOf(l: SheetLayout, row: number): number | undefined {
-  const r = l.rows.get(row)
-  if (!r) return undefined
-  return r.hidden ? 0 : r.height
-}
-
 /** The table a cell is in, for showing its formula as Excel does inside a table. */
 export function tableAt(l: SheetLayout, row: number, col: number): string | undefined {
   for (const t of l.tables) if (row >= t.rect.r1 && row <= t.rect.r2 && col >= t.rect.c1 && col <= t.rect.c2) return t.name

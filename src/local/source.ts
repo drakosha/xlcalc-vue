@@ -9,11 +9,9 @@ import { grow, lineLook, readLayout, sheetOf, type BookLayout, type SheetLayout 
 import { columnValuesOf, filterActive, filterKey, findIn, SheetValues, statsOf, visibleList } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
 import { loadLocale } from './locale'
-import { buildWindow, Formulas } from './window'
+import { Formulas, windowOf } from './window'
 
 const MAX_CELLS = 20_000
-/** Sheet rows closer than this are fetched in one rectangle when a filtered window gathers its rows. */
-const RUN_GAP = 16
 
 const abortError = () => new DOMException('The request was aborted', 'AbortError')
 function check(signal?: AbortSignal): void {
@@ -36,19 +34,6 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
   if (kind === 'inline') return createInlineCalc()
   const { createCalcPool } = await import('xlcalc/worker')
   return createCalcPool({ threads: 1, ...opts.pool })
-}
-
-/** The cells of `rows` (sheet rows, any order) in columns `c1`…`c2`, near rows fetched together. */
-async function cellsOfRows(session: AsyncSession, sheet: string, rows: number[], c1: number, c2: number): Promise<Record<string, CellView>> {
-  if (!rows.length || c2 < c1) return {}
-  const runs: [number, number][] = []
-  for (const r of [...new Set(rows)].sort((a, b) => a - b)) {
-    const last = runs[runs.length - 1]
-    if (last && r - last[1] <= RUN_GAP) last[1] = r
-    else runs.push([r, r])
-  }
-  const parts = await Promise.all(runs.map(([a, b]) => session.getCells(sheet, `${cellAddress(a, c1)}:${cellAddress(b, c2)}`)))
-  return Object.assign({}, ...parts) as Record<string, CellView>
 }
 
 /** A source over `input`: the book goes to the session as it is (its cells are not copied), so do not change it afterwards. */
@@ -308,9 +293,13 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       let rows: number[]
       if (filtered) rows = (await rowsUnder(s, l, req.filter!, false)).slice(req.row - 1, req.row - 1 + count)
       else rows = Array.from({ length: count }, (_, i) => req.row + i)
-      const views = await cellsOfRows(s, l.name, rows, req.col, req.col + cols - 1)
+      // the viewport takes rows in ascending order; the window keeps the display order
+      const asked = [...rows].sort((a, b) => a - b)
+      const top = asked[0] ?? 1
+      const range = `${cellAddress(top, req.col)}:${cellAddress(asked[asked.length - 1] ?? top, req.col + Math.max(1, cols) - 1)}`
+      const v = await s.getViewport(l.name, range, { formulaLocal: true, editText: true, maxCells, ...(filtered || !rows.length ? { rows: asked } : {}) })
       check(signal)
-      return buildWindow({ layout: l, styles: layout.styles, views, row: req.row, rows, col: req.col, cols, filtered, formulas, notice: opts.notice })
+      return windowOf(v, { row: req.row, rows, col: req.col, cols, filtered, notice: opts.notice })
     },
     edit: serial(edit),
     structure: serial(structure),

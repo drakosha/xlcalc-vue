@@ -38,7 +38,7 @@ describe('localSource: structure, layout, format', () => {
     expect(await s.layout({ sheet: 'Лист1', columns: 'E', width: 9 })).toMatchObject({ ok: true })
     expect(await s.layout({ sheet: 'Лист1', rows: '3:4', height: 0 })).toMatchObject({ ok: true })
     const w = await win(s, 'Лист1', 1, 5, 1, 5)
-    expect(w.widths).toEqual([null, 20, 15, null, 9])
+    expect(w.widths).toEqual([8.83203125, 20, 15, 8.83203125, 9])
     expect(w.rowHeights).toEqual({ 2: 30, 3: 0, 4: 0 })
     const b = await s.book()
     expect(b.sheets[0]!.columns?.C).toEqual({ width: 15 })

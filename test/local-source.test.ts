@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { SheetFilter, SourceEvent } from '../src/source'
 import { BOLD, book, closeAll, COL_FILL, ROW_FILL, source, styleOf, win } from './local-fixture'
 
+/** Excel's width of a column without one, as xlcalc gives it. */
+const DEFAULT_WIDTH = 8.83203125
+
 afterEach(closeAll)
 
 describe('localSource: sheets and windows', () => {
@@ -45,9 +48,21 @@ describe('localSource: sheets and windows', () => {
     expect(w.notes).toEqual({ B1: { author: 'Аня', text: 'Проверить' } })
     // a place with an address is a place in what the address points to, not in this book
     expect(w.links).toEqual({ B2: { href: 'https://example.org/', tooltip: 'Пример' }, B3: { location: "'Таблица'!A1" }, B4: { href: 'https://example.org/page#top' } })
-    expect(w.widths).toEqual([null, 20, null, null, 0, null, null])
+    // the library's widths: Excel's default where a column has none, 0 for a hidden one
+    expect(w.widths).toEqual([DEFAULT_WIDTH, 20, DEFAULT_WIDTH, DEFAULT_WIDTH, 0, DEFAULT_WIDTH, DEFAULT_WIDTH])
     expect(w.rowHeights).toEqual({ 2: 30 })
     expect(w.merges).toEqual(['F1:G2'])
+  })
+
+  it('gives the text each cell opens with, as Excel\'s formula bar shows it', async () => {
+    const s = source({
+      locale: 'ru-RU',
+      sheets: [{ name: 'S', cells: { A1: { value: { date: '2026-03-15' }, numberFormat: 14 }, A2: { value: 0.05, numberFormat: '0%' }, A3: { value: '007' }, A4: { formula: 'SUM(A1:A2)' } }, columns: { B: { style: 0 } } }],
+      styles: [{ font: { bold: true } }],
+    })
+    const w = await win(s, 'S', 1, 5, 1, 2)
+    // an empty cell, styled by its column or not, opens empty and is left out
+    expect(w.editText).toEqual({ A1: '15.03.2026', A2: '5%', A3: "'007", A4: '=СУММ(A1:A2)' })
   })
 
   it('keeps a window within maxCells', async () => {
@@ -91,6 +106,25 @@ describe('localSource: search, display filter, totals', () => {
     const w = await win(s, 'Список', 2, 5, 1, 2, filter)
     expect(w.row).toBe(2)
     expect(w.text).toEqual([['б', '5'], ['б', 'нет']])
+  })
+
+  it('gives a sorted window in display order', async () => {
+    const s = source()
+    const filter: SheetFilter = { head: 1, sort: { col: 1, dir: 'desc' } }
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 6, 2, 4, 3, 5])
+    const w = await win(s, 'Список', 2, 3, 1, 2, filter)
+    expect(w.text).toEqual([['в', '1,5'], ['б', '5'], ['б', 'нет']])
+  })
+
+  it('gives under a filter the merged areas of one row among the rows shown, as Excel shows them', async () => {
+    const s = source({
+      sheets: [{ name: 'S', cells: { A1: { value: 'k' }, A2: { value: 'x' }, A3: { value: 'y' }, A4: { value: 'x' } }, merges: ['C2:D2', 'C3:D4', 'E3:F3', 'B4:B5'] }],
+    })
+    const filter: SheetFilter = { head: 1, cols: { 1: { values: ['x'] } } }
+    expect((await s.visibleRows('S', filter)).rows).toEqual([1, 2, 4])
+    const w = await win(s, 'S', 1, 3, 1, 6, filter)
+    expect(w.merges).toEqual(['C2:D2'])
+    expect((await win(s, 'S', 1, 5, 1, 6)).merges.sort()).toEqual(['B4:B5', 'C2:D2', 'C3:D4', 'E3:F3'])
   })
 
   it('lists a column values under the other columns conditions', async () => {
