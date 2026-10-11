@@ -220,6 +220,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
+  /** Formatting as Excel formats a selection: the style over the one each cell shows, in one patch of the session. */
   async function format(sheet: string, range: string, patch: Parameters<LocalSource['format']>[2]): Promise<EditOutcome> {
     const s = await open()
     const set: PatchFields = {}
@@ -228,10 +229,10 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     if (!Object.keys(set).length) return { ok: true, changes: [] }
     try {
       const got = await s.patchCells([{ sheet, range, set }])
-      const updates = take(got.changes)
-      if (set.style !== undefined || got.layout || got.styles) reload()
-      else if (updates.length) emit({ kind: 'changed', changes: updates })
-      return { ok: true, changes: updates }
+      const changes = take(got.changes)
+      if (needsReload(got)) reload()
+      else if (changes.length) emit({ kind: 'changed', changes })
+      return { ok: true, changes }
     } catch (e) {
       return outcomeOf(e, 'refused')
     }

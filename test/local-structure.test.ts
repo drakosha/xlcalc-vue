@@ -171,6 +171,38 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(w.links?.B2).toBeDefined()
   })
 
+  it('formats a bold row across a filled column as Excel does: their crossing cells get both', async () => {
+    const s = source()
+    const FILL = { fill: { color: '#ddeeff' } }
+    expect(await s.format('Список', 'C:C', { style: FILL })).toMatchObject({ ok: true })
+    expect(await s.format('Список', '2:2', { style: { font: { bold: true } } })).toMatchObject({ ok: true })
+    const w = await win(s, 'Список', 1, 3, 2, 3)
+    expect(styleOf(w, 'C2')).toEqual({ font: { bold: true }, fill: { color: '#ddeeff' } })
+    expect(styleOf(w, 'B2')).toEqual({ font: { bold: true } })
+    expect(styleOf(w, 'C3')).toEqual(FILL)
+    expect(styleOf(w, 'B3')).toBeUndefined()
+  })
+
+  it('formats over each cell\'s look: bold keeps a cell italic, rows 2:3 at once', async () => {
+    const s = source()
+    await s.format('Список', 'A2', { style: { font: { italic: true } } })
+    await s.format('Список', '2:3', { style: { font: { bold: true } } })
+    const w = await win(s, 'Список', 2, 2, 1, 1)
+    expect(styleOf(w, 'A2')).toEqual({ font: { italic: true, bold: true } })
+    expect(styleOf(w, 'A3')).toEqual({ font: { bold: true } })
+  })
+
+  it('tells a number format by the changed cells, and a style that only cells\' looks carry by a reload', async () => {
+    const s = source()
+    const events: SourceEvent[] = []
+    s.subscribe((e) => events.push(e))
+    await s.format('Лист1', 'A1:A2', { numberFormat: '0.00' })
+    expect(events).toMatchObject([{ kind: 'changed', changes: [{ cell: 'A1', text: '1,00' }, { cell: 'A2', text: '2,00' }] }])
+    // bold is in the book's styles already: the answer has no new table, the cells' looks changed all the same
+    await s.format('Лист1', 'A1', { style: BOLD })
+    expect(events.at(-1)).toEqual({ kind: 'reload' })
+  })
+
   it('freezes panes in the book', async () => {
     const s = source()
     const events: SourceEvent[] = []
