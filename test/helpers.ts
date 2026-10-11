@@ -101,3 +101,27 @@ export function cellText(wrapper: VueWrapper, row: number, col: number): string 
   const td = wrapper.find(`[data-cell="${row}:${col}"]`)
   return td.exists() ? td.text() : undefined
 }
+
+// Keys on the grid and in the cell's field, the active cell, the field's state and the address box.
+export const key = (w: VueWrapper, k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
+export const editorKey = (w: VueWrapper, k: string, extra: Record<string, unknown> = {}) => w.find('.xs-editor').trigger('keydown', { key: k, ...extra })
+export const active = (w: VueWrapper) => w.find('.xs-cell.xs-active').attributes('data-cell')
+export const editorOpen = (w: VueWrapper) => !w.find('.xs-editor').classes().includes('xs-editor-idle')
+export const address = (w: VueWrapper) => (w.find('.xs-address').element as HTMLInputElement).value
+export async function type(w: VueWrapper, text: string): Promise<void> {
+  const el = w.find('.xs-editor')
+  ;(el.element as HTMLTextAreaElement).value = text
+  await el.trigger('input')
+}
+export async function goTo(w: VueWrapper, place: string): Promise<void> {
+  const input = w.find('.xs-address')
+  await input.setValue(place)
+  await input.trigger('keydown', { key: 'Enter' })
+  await settle()
+}
+/** Paste text on the grid as the browser sends it. */
+export function paste(w: VueWrapper, text: string): void {
+  const e = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
+  Object.defineProperty(e, 'clipboardData', { value: { getData: () => text } })
+  w.find('.xs-scroller').element.dispatchEvent(e)
+}

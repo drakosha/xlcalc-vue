@@ -1,9 +1,8 @@
 // Editing: Excel's keys, typing over a cell, Delete over the selection, pasting TSV, locked cells, and the source's outcomes.
-import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import type { EditOutcome } from '../src/source'
-import { cellText, mountSheet, settle } from './helpers'
+import { active, cellText, editorKey, editorOpen, goTo, key, mountSheet, paste, settle, type } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -29,22 +28,6 @@ function recorded(b = book()) {
     return edit(entries)
   }
   return { source, edits }
-}
-
-const key = (w: VueWrapper, k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
-const editorKey = (w: VueWrapper, k: string, extra: Record<string, unknown> = {}) => w.find('.xs-editor').trigger('keydown', { key: k, ...extra })
-const active = (w: VueWrapper) => w.find('.xs-cell.xs-active').attributes('data-cell')
-const editorOpen = (w: VueWrapper) => !w.find('.xs-editor').classes().includes('xs-editor-idle')
-async function type(w: VueWrapper, text: string): Promise<void> {
-  const el = w.find('.xs-editor')
-  ;(el.element as HTMLTextAreaElement).value = text
-  await el.trigger('input')
-}
-async function goTo(w: VueWrapper, address: string): Promise<void> {
-  const input = w.find('.xs-address')
-  await input.setValue(address)
-  await input.trigger('keydown', { key: 'Enter' })
-  await settle()
 }
 
 describe('keys', () => {
@@ -152,12 +135,7 @@ describe('keys', () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'B5')
-    const paste = (text: string) => {
-      const e = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
-      Object.defineProperty(e, 'clipboardData', { value: { getData: () => text } })
-      w.find('.xs-scroller').element.dispatchEvent(e)
-    }
-    paste('1\t2\n3\t\n')
+    paste(w, '1\t2\n3\t\n')
     await settle()
     expect(edits[0]).toEqual([
       { sheet: 'S', cell: 'B5', text: '1' },
@@ -167,7 +145,7 @@ describe('keys', () => {
     ])
     expect(cellText(w, 6, 2)).toBe('3')
     await goTo(w, 'E1:E2')
-    paste('7')
+    paste(w, '7')
     await settle()
     expect(edits[1]!.map((e) => `${e.cell}=${e.text}`)).toEqual(['E1=7', 'E2=7'])
   })
