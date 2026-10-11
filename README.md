@@ -28,6 +28,33 @@ Editing takes Excel's keys: typing over a cell, F2 or a double click opens the f
 - A window's `editText` is the text a cell opens with, and the formula bar shows the same text, as Excel's does; a cell left out of it opens empty, and a `CellUpdate` with `editText` changes it. Without it the component writes the text from the formula and the value.
 - A column whose width is `null` in a window is 8.83203125, xlcalc's default (Excel for Mac, Calibri 11), which is 62 px.
 
+## The formatting toolbar: `SheetToolbar`
+
+`SheetToolbar` is Excel's formatting row over the same source: undo and redo, bold, italic, underline, font and fill colours from Excel's palette, borders (all, outside, bottom, none), horizontal alignment, wrap text and a number format list. It formats the selection the sheet's `state` event gives, through `format(sheet, patches)`, as Excel formats a selection: bold goes over each cell's look, outside borders are four patches in one call and so one step of undo. Its buttons are pressed by what the active cell shows, and pressed again they take it off, as Excel's are. It shows only when the source has `format`; undo and redo come with the source's `undo` and `redo`, off while its `history` (the local source's) has no step.
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue'
+import { SheetToolbar, SheetView, ruMessages, type SheetViewState } from 'xlcalc-sheet'
+
+// source: a SheetSource with format, such as localSource(book); formats: the number formats to offer (below)
+const state = ref<SheetViewState | null>(null)
+</script>
+
+<template>
+  <SheetToolbar :source="source" :state="state" :messages="ruMessages" :number-formats="formats" />
+  <SheetView :source="source" :messages="ruMessages" @state="state = $event" />
+</template>
+```
+
+The main entry has no engine, so it does not know what code a built-in format shows by in a locale: the host passes the number formats to offer as `numberFormats`, each with what it sets (a code, or a built-in format's number) and the code a cell shows by with it (`{ kind: 'date', format: 14, code: 'dd.mm.yyyy' }` in ru-RU), and the list selects the one whose code the active cell has (General without one, Custom for any other). Without `numberFormats` there is no list; `example/spa-book.ts` builds them with xlcalc's `builtinFormatCode` and `parseEntry`. The toolbar emits `select` with where the selection goes after an undo or a redo (the example passes it to the sheet's `focus` as `'Sheet name'!B2:D5`), `error` with a source's refusal and `done` after each call, for the host to give the grid its focus back. Its buttons do not take the focus from the grid. Under 600 px it keeps undo, redo, bold, italic and underline in a row and the rest in a menu; on a narrow frame or under a finger every target is 44 × 44 px.
+
+## The example: an app like Excel
+
+`example/spa.html` is an app like Excel over the local source, all in the browser: New (an empty book in English or Russian), Open (the picker, or an xlsx file dropped on the page), Save as (the book with its values as `<name>.xlsx`, under the name in the bar), a notice of what the file lost, the toolbar, the sheet with its formula bar, tabs and selection totals, a status bar (ready, or calculating while a book opens or a change is out) and the book's settings (its language, in which formulas, numbers and dates are typed and shown; the book opens again in it). It speaks Russian or English by the browser's language (`?lang=ru` or `?lang=en` chooses).
+
+`npm run dev:example` serves it at `http://localhost:5181/spa.html`. `npm run build:example` builds it into `example/dist`, which any static server serves (`npx vite preview --config vite.example.config.ts`, or `python3 -m http.server -d example/dist`); there is no server of its own. `npm run check:spa` builds it, serves it and drives it in Chromium at 1920 × 1200 and on a phone at 390 × 844 by touch: a ru-RU book, values and a formula, bold, percent, outside borders, undo, redo, Save as, and the saved file opened again, with screenshots of each step in `test-results/screens/spa-*.png`.
+
 ## A book computed in the browser: `xlcalc-sheet/local`
 
 `localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It needs `xlcalc` 0.19 or later, an optional peer of the package that the host installs. The book computes in a Web Worker (`xlcalc/worker`), or in the page's thread with `calc: 'inline'`. The book's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); a locale xlcalc has no module for fails the opening with the library's message.
