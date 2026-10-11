@@ -105,6 +105,8 @@ export interface SheetWindow {
   colors: Record<string, string>
   styleIds: Record<string, number>
   styles: CellStyle[]
+  /** The number format each cell shows by, as a code (its own, else its row's or column's); a cell left out is General. For a toolbar. */
+  numberFormats?: Record<string, string>
   /** The window's column widths (units of xlcalc's `ColumnInput.width`, null for the default), row heights in points. */
   widths: (number | null)[]
   rowHeights: Record<number, number>
@@ -169,6 +171,8 @@ export interface CellUpdate {
   formula?: string | null
   /** Only for edited cells, from a source whose windows have `editText`: the text the cell opens with now. */
   editText?: string
+  /** Only for edited cells, from a source whose windows have `numberFormats`: the format code it shows by now (null: General), as a typed date sets one. */
+  numberFormat?: string | null
 }
 
 export type SourceEvent =
