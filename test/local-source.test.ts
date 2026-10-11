@@ -18,6 +18,11 @@ describe('localSource: sheets and windows', () => {
     expect(list[1]!.freeze).toBeUndefined()
   })
 
+  it('takes in the extent the cells an array spilled into', async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { formula: 'SEQUENCE(5,2)' } } }] })
+    expect((await s.sheets())[0]).toMatchObject({ maxRow: 5, maxCol: 2 })
+  })
+
   it('gives text, values and formulas in the book locale', async () => {
     const w = await win(source(), 'Лист1', 1, 5, 1, 7)
     expect(w.text[2]![0]).toBe('3')
