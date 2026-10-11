@@ -62,6 +62,7 @@ const cellUrl = (place: string) => `${location.origin}${location.pathname}?sheet
       class="sheet"
       :source="source"
       :messages="lang === 'ru' ? ruMessages : enMessages"
+      locale="ru-RU"
       storage-key="xs-example"
       :focus="focus"
       :cell-url="cellUrl"
