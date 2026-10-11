@@ -17,15 +17,16 @@ const activeLink = computed(() => {
   const a = active.value
   return a ? ctx.w.cellData(a.row, a.col, cellAddress(a.row, a.col)).link : undefined
 })
-/** What the bar shows without references: the formula and its value, or the value. */
-const plainText = computed(() => {
+/** What the bar shows: the draft of a field open in the cell, else the text the field opens with, as Excel's formula bar. */
+const barText = computed(() => {
   if (editingCell.value) return ctx.editor.value!.text
-  const formula = f.selectedFormula.value
-  const value = f.selectedValue.value
-  return formula ? `=${formula}${value ? `   →   ${value}` : ''}` : value
+  const a = active.value
+  return a ? ed.editText(a.row, a.col) : ''
 })
-/** With a range selected, the formula and value are the active cell's: it is named. */
-const activeName = computed(() => (sel.multi.value && active.value && plainText.value ? `${cellAddress(active.value.row, active.value.col)}: ` : ''))
+/** The window's formula of the active cell, when that is the bar's text, shows in pieces with clickable references. */
+const showParts = computed(() => !editingCell.value && f.formulaParts.value.length > 0 && barText.value === `=${f.selectedFormula.value}`)
+/** With a range selected, the text is the active cell's: it is named. */
+const activeName = computed(() => (sel.multi.value && active.value && barText.value ? `${cellAddress(active.value.row, active.value.col)}: ` : ''))
 
 /** A press on the bar keeps the focus where it is (an open field must not blur and commit); the click opens the field here. */
 function onBarDown(e: MouseEvent): void {
@@ -95,10 +96,10 @@ function onAddressEsc(e: KeyboardEvent): void {
       @keydown.enter.prevent="onAddressEnter"
       @keydown.esc.prevent="onAddressEsc"
     />
-    <div class="xs-fx" :class="{ 'xs-fx-edit': ctx.editable.value }" :title="editingBar ? undefined : plainText || (ctx.editable.value ? m.editHint : '')" @mousedown="onBarDown" @click="onBarClick">
+    <div class="xs-fx" :class="{ 'xs-fx-edit': ctx.editable.value }" :title="editingBar ? undefined : barText || (ctx.editable.value ? m.editHint : '')" @mousedown="onBarDown" @click="onBarClick">
       <span v-if="!editingBar" class="xs-fx-text">
         <span v-if="activeName" class="xs-muted">{{ activeName }}</span>
-        <template v-if="f.formulaParts.value.length && !editingCell">
+        <template v-if="showParts">
           <span>=</span>
           <template v-for="(part, i) in f.formulaParts.value" :key="i">
             <button
@@ -113,9 +114,8 @@ function onAddressEsc(e: KeyboardEvent): void {
             </button>
             <span v-else>{{ part.text }}</span>
           </template>
-          <span v-if="f.selectedValue.value" class="xs-muted">   →   {{ f.selectedValue.value }}</span>
         </template>
-        <template v-else>{{ plainText }}</template>
+        <template v-else>{{ barText }}</template>
       </span>
       <textarea
         v-if="ctx.editable.value"

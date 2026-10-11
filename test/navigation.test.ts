@@ -85,7 +85,8 @@ describe('formula bar', () => {
     await goTo(w, 'B1')
     const refs = w.findAll('.xs-ref')
     expect(refs.map((r) => r.text())).toEqual(['A1:A3'])
-    expect(w.find('.xs-fx-text').text()).toContain('→')
+    // As Excel's formula bar: the text the cell opens with, no value after it.
+    expect(w.find('.xs-fx-text').text()).toBe('=SUM(A1:A3)')
     // The formula's range is highlighted on the grid.
     expect((w.find('[data-cell="2:1"]').element as HTMLElement).style.backgroundImage).toContain('linear-gradient')
     await refs[0]!.trigger('click')

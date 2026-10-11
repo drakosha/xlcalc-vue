@@ -24,7 +24,10 @@ describe('addresses', () => {
 
 describe('Excel units', () => {
   it('column widths as Excel turns them into pixels and back', () => {
-    expect(colPx(null)).toBe(64)
+    // A column without a width of its own is the library's default, 8.83203125.
+    expect(colPx(null)).toBe(62)
+    expect(colPx(8.83203125)).toBe(62)
+    expect(colPx(9.140625)).toBe(64)
     expect(colPx(0)).toBe(0)
     expect(colPx(20.7109375)).toBe(145)
     expect(widthFromPx(64)).toBe(9.140625)
