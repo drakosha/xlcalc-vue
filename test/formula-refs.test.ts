@@ -1,9 +1,10 @@
 // The the app's formula-refs tests, translated, and ru-RU cases: `;` between arguments, a decimal comma, Russian names.
 import { describe, expect, it } from 'vitest'
-import { EXCEL_MAX_COLS, EXCEL_MAX_ROWS, formulaTokens, parseCellRef, sheetRefName, type FormulaRef } from '../src/core/formula-refs'
+import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
+import { formulaTokens, parseCellRef, sheetRefName, type FormulaRef } from '../src/core/formula-refs'
 
 const refs = (f: string): FormulaRef[] => formulaTokens(f).flatMap((t) => (t.ref ? [t.ref] : []))
-const same = (r1: number, c1: number, r2 = r1, c2 = c1): FormulaRef => ({ sheet: null, r1, c1, r2, c2 })
+const same = (top: number, left: number, bottom = top, right = left): FormulaRef => ({ sheet: null, top, left, bottom, right })
 
 describe('formulaTokens', () => {
   it('single cells and a range', () => {
@@ -19,16 +20,16 @@ describe('formulaTokens', () => {
 
   it('a sheet bare, quoted, with an apostrophe inside', () => {
     expect(refs("Высоты!B3+'Второй лист'!A1")).toEqual([
-      { sheet: 'Высоты', r1: 3, c1: 2, r2: 3, c2: 2 },
-      { sheet: 'Второй лист', r1: 1, c1: 1, r2: 1, c2: 1 },
+      { sheet: 'Высоты', top: 3, left: 2, bottom: 3, right: 2 },
+      { sheet: 'Второй лист', top: 1, left: 1, bottom: 1, right: 1 },
     ])
     expect(refs("'Иван''s'!A1")[0]?.sheet).toBe("Иван's")
   })
 
   it('whole columns and rows', () => {
     expect(refs('SUM(B:B)+MAX(1:1)')).toEqual([
-      { sheet: null, r1: 1, c1: 2, r2: EXCEL_MAX_ROWS, c2: 2 },
-      { sheet: null, r1: 1, c1: 1, r2: 1, c2: EXCEL_MAX_COLS },
+      { sheet: null, top: 1, left: 2, bottom: MAX_ROWS, right: 2 },
+      { sheet: null, top: 1, left: 1, bottom: 1, right: MAX_COLS },
     ])
   })
 
@@ -62,22 +63,22 @@ describe('formulaTokens in ru-RU', () => {
     expect(refs('ОКРУГЛ(A2/A3*1,5;2)')).toEqual([same(2, 1), same(3, 1)])
     expect(refs('ЛОГ10(B7)')).toEqual([same(7, 2)])
     expect(refs('СУММ(A:A)-СРЗНАЧ(2:2)')).toEqual([
-      { sheet: null, r1: 1, c1: 1, r2: EXCEL_MAX_ROWS, c2: 1 },
-      { sheet: null, r1: 2, c1: 1, r2: 2, c2: EXCEL_MAX_COLS },
+      { sheet: null, top: 1, left: 1, bottom: MAX_ROWS, right: 1 },
+      { sheet: null, top: 2, left: 1, bottom: 2, right: MAX_COLS },
     ])
   })
 
   it('Russian sheet names, bare and quoted, with `;` after them', () => {
     expect(refs("Лист1!A1;'Длинный лист'!B2:C3")).toEqual([
-      { sheet: 'Лист1', r1: 1, c1: 1, r2: 1, c2: 1 },
-      { sheet: 'Длинный лист', r1: 2, c1: 2, r2: 3, c2: 3 },
+      { sheet: 'Лист1', top: 1, left: 1, bottom: 1, right: 1 },
+      { sheet: 'Длинный лист', top: 2, left: 2, bottom: 3, right: 3 },
     ])
   })
 
   it('the text joins back into the formula', () => {
     const f = 'ЕСЛИ(СУММ($A$1:A3;0,5)>1;"да; A1";Лист2!B$4)'
     expect(formulaTokens(f).map((t) => t.text).join('')).toBe(f)
-    expect(refs(f).map((r) => [r.sheet, r.r1, r.c1])).toEqual([
+    expect(refs(f).map((r) => [r.sheet, r.top, r.left])).toEqual([
       [null, 1, 1],
       ['Лист2', 4, 2],
     ])
@@ -86,9 +87,9 @@ describe('formulaTokens in ru-RU', () => {
 
 describe('parseCellRef', () => {
   it('a cell, a range, a sheet with an address, and a sheet alone', () => {
-    expect(parseCellRef('B12')).toEqual({ sheet: null, range: { sheet: null, r1: 12, c1: 2, r2: 12, c2: 2 } })
-    expect(parseCellRef('b2:D15')?.range).toEqual({ sheet: null, r1: 2, c1: 2, r2: 15, c2: 4 })
-    expect(parseCellRef("'Лист 2'!C7")).toEqual({ sheet: 'Лист 2', range: { sheet: 'Лист 2', r1: 7, c1: 3, r2: 7, c2: 3 } })
+    expect(parseCellRef('B12')).toEqual({ sheet: null, range: { sheet: null, top: 12, left: 2, bottom: 12, right: 2 } })
+    expect(parseCellRef('b2:D15')?.range).toEqual({ sheet: null, top: 2, left: 2, bottom: 15, right: 4 })
+    expect(parseCellRef("'Лист 2'!C7")).toEqual({ sheet: 'Лист 2', range: { sheet: 'Лист 2', top: 7, left: 3, bottom: 7, right: 3 } })
     expect(parseCellRef('Реестр')).toEqual({ sheet: 'Реестр', range: null })
     expect(parseCellRef("'Второй лист'")).toEqual({ sheet: 'Второй лист', range: null })
     expect(parseCellRef('B12+C1')).toBeNull()

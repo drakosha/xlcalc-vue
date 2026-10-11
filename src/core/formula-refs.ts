@@ -1,14 +1,13 @@
 // References in a formula (`B1:B4`, `$A$1`, `'Sheet 2'!A1`, `B:B`, `1:1`) for clickable links and range highlights.
 // A lexical scan, so any formula locale works (addresses are never translated); names and structured refs stay text.
 
+import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
+import type { CellRect } from 'xlcalc/contract'
+
 /** A range of a formula: bounds 1-based inclusive; a whole column or row runs to Excel's limit. */
-export interface FormulaRef {
+export interface FormulaRef extends CellRect {
   /** The sheet named in the reference; null is the formula's own sheet. */
   sheet: string | null
-  r1: number
-  c1: number
-  r2: number
-  c2: number
 }
 
 /** A piece of a formula as shown; a reference carries its range. */
@@ -16,9 +15,6 @@ export interface FormulaToken {
   text: string
   ref?: FormulaRef
 }
-
-export const EXCEL_MAX_ROWS = 1_048_576
-export const EXCEL_MAX_COLS = 16_384
 
 const SHEET = String.raw`(?:'((?:[^']|'')+)'|([^\s!'"()+\-*/^&=<>,;:%\[\]]+))!`
 const CELL = String.raw`\$?[A-Za-z]{1,3}\$?\d{1,7}`
@@ -88,23 +84,23 @@ function refOf(m: RegExpExecArray): FormulaRef | null {
     const a = cellOf(m[3])
     const b = m[4] ? cellOf(m[4]) : a
     if (!a.r || !a.c || !b.r || !b.c) return null
-    if (a.r > EXCEL_MAX_ROWS || b.r > EXCEL_MAX_ROWS || a.c > EXCEL_MAX_COLS || b.c > EXCEL_MAX_COLS) return null
-    return { sheet, r1: Math.min(a.r, b.r), c1: Math.min(a.c, b.c), r2: Math.max(a.r, b.r), c2: Math.max(a.c, b.c) }
+    if (a.r > MAX_ROWS || b.r > MAX_ROWS || a.c > MAX_COLS || b.c > MAX_COLS) return null
+    return { sheet, top: Math.min(a.r, b.r), left: Math.min(a.c, b.c), bottom: Math.max(a.r, b.r), right: Math.max(a.c, b.c) }
   }
   if (m[5]) {
     const a = colOf(m[5])
     const b = colOf(m[6]!)
-    if (!a || !b || a > EXCEL_MAX_COLS || b > EXCEL_MAX_COLS) return null
-    return { sheet, r1: 1, c1: Math.min(a, b), r2: EXCEL_MAX_ROWS, c2: Math.max(a, b) }
+    if (!a || !b || a > MAX_COLS || b > MAX_COLS) return null
+    return { sheet, top: 1, left: Math.min(a, b), bottom: MAX_ROWS, right: Math.max(a, b) }
   }
   const a = Number(m[7])
   const b = Number(m[8])
-  if (!a || !b || a > EXCEL_MAX_ROWS || b > EXCEL_MAX_ROWS) return null
-  return { sheet, r1: Math.min(a, b), c1: 1, r2: Math.max(a, b), c2: EXCEL_MAX_COLS }
+  if (!a || !b || a > MAX_ROWS || b > MAX_ROWS) return null
+  return { sheet, top: Math.min(a, b), left: 1, bottom: Math.max(a, b), right: MAX_COLS }
 }
 
 /** A range's key: equal references in a formula get one colour. */
-export const refKey = (r: FormulaRef): string => `${r.sheet ?? ''}!${r.r1}:${r.c1}:${r.r2}:${r.c2}`
+export const refKey = (r: FormulaRef): string => `${r.sheet ?? ''}!${r.top}:${r.left}:${r.bottom}:${r.right}`
 
 /** A place in the book from a link or the address box: `B12`, `B12:D15`, `Sheet!B12`, `'Sheet 2'!C7`, `B:B`, or a sheet alone; null when it is not one. */
 export function parseCellRef(text: string): { sheet: string | null; range: FormulaRef | null } | null {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The grid: a real <table> with sticky letters and numbers, frozen panes, spacers for what is off screen, and the in-place field.
 import { computed } from 'vue'
-import { colLabel } from '../core/a1'
+import { colLetters } from 'xlcalc/a1'
 import { HEAD_H } from '../core/viewport'
 import { useSheetContext } from './context'
 import { IconFilter, IconSpinner } from './icons'
@@ -32,9 +32,9 @@ const span = computed(() => (v.showNums.value ? 1 : 0) + cols.value.length)
 const empty = computed(() => ctx.rowCount.value === 0 || ctx.colCount.value === 0)
 const freezeRows = computed(() => ctx.sheet.value?.freeze?.rows ?? 0)
 const freezeCols = computed(() => ctx.sheet.value?.freeze?.cols ?? 0)
-const headLabel = (c: number) => ctx.sheet.value?.columns?.[c - 1]?.title ?? colLabel(c)
-const colOn = (c: number) => !!sel.selRect.value && c >= sel.selRect.value.c1 && c <= sel.selRect.value.c2
-const rowOn = (r: number) => !!sel.selRect.value && r >= sel.selRect.value.r1 && r <= sel.selRect.value.r2
+const headLabel = (c: number) => ctx.sheet.value?.columns?.[c - 1]?.title ?? colLetters(c)
+const colOn = (c: number) => !!sel.selRect.value && c >= sel.selRect.value.left && c <= sel.selRect.value.right
+const rowOn = (r: number) => !!sel.selRect.value && r >= sel.selRect.value.top && r <= sel.selRect.value.bottom
 
 /** The in-place field over its cell, in the scroller's content coordinates (a frozen cell's place follows the scroll). */
 const editorBox = computed(() => {

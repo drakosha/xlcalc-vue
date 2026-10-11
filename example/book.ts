@@ -1,7 +1,7 @@
 // The "all formatting" book: every 0.1.0 row of the the app parity table on its own sheet, synthetic data only.
+import { cellAddress } from 'xlcalc/a1'
 import type { BorderLine, CellStyle } from 'xlcalc/contract'
 import type { MemoryBook, MemoryCell, MemorySheet } from '../src'
-import { cellAddress } from '../src/core/a1'
 
 const styles: CellStyle[] = [{}]
 /** Add a style to the book's table and return its index. */

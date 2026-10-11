@@ -1,9 +1,9 @@
 // The component's base state: the book's sheets, the active one, its extent, sizes from the windows, and the frame.
 import { computed, ref, shallowRef } from 'vue'
 import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
+import type { CellPosition } from 'xlcalc/contract'
 import { enMessages, type SheetMessages } from '../messages'
 import type { SheetFilter, SheetInfo, SheetSource } from '../source'
-import type { Cell } from './a1'
 import { colPx, DEFAULT_ROW_PT, rowPx } from './geometry'
 import { createMemory } from './storage'
 
@@ -88,8 +88,8 @@ export function createState(props: SheetViewProps) {
   const defaultRowPx = ref(rowPx(DEFAULT_ROW_PT))
 
   /** The active cell and the selection's other corner. */
-  const selected = ref<Cell | null>(null)
-  const extent = ref<Cell | null>(null)
+  const selected = ref<CellPosition | null>(null)
+  const extent = ref<CellPosition | null>(null)
 
   /** Ways back into modules made later: dropping the filter when a jump needs a row it hides. */
   const hooks = { unfilter: (_row: number): void => {} }

@@ -1,8 +1,8 @@
 // A source over a book in memory, for tests and examples: values, shown text, formulas as strings and every display field; no engine.
 // It has every optional method of 0.2.0 (search, filter, column values, totals) and can play a book being recomputed.
+import { cellAddress, parseCell, parseLines, parseRange, rectsMeet } from 'xlcalc/a1'
 import type { CellStyle, CellValue } from 'xlcalc/contract'
 import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
-import { cellAddress, colNumber, parseCell, parseRect, rectsMeet } from './core/a1'
 import { columnList, findHits, rangeStats, visibleList, type QuerySheet } from './memory-query'
 
 /** A cell of the memory book; a bare value is a cell with that value. */
@@ -87,13 +87,11 @@ interface Store {
   maxCol: number
 }
 
-/** Each column or row of a key: `B`, `B:D`, `5`, `5:9`. */
-function spanOf(key: string, parse: (s: string) => number): number[] {
-  const [a, b] = key.split(':')
-  const from = parse(a!)
-  const to = b === undefined ? from : parse(b)
+/** Each column or row of a key as a book takes it (`B`, `B:D`; `5`, `5:9`); none for a key it does not take. */
+function linesOf(key: string, axis: 'columns' | 'rows'): number[] {
+  const span = parseLines(key, axis)
   const out: number[] = []
-  for (let i = Math.min(from, to); i <= Math.max(from, to); i++) if (i > 0) out.push(i)
+  if (span) for (let i = span.first; i <= span.last; i++) out.push(i)
   return out
 }
 
@@ -110,9 +108,9 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       cells.set(addr.toUpperCase(), cell)
     }
     const widths = new Map<number, number>()
-    for (const [key, w] of Object.entries(sheet.widths ?? {})) for (const c of spanOf(key, colNumber)) widths.set(c, w)
+    for (const [key, w] of Object.entries(sheet.widths ?? {})) for (const c of linesOf(key, 'columns')) widths.set(c, w)
     const heights = new Map<number, number>()
-    for (const [key, h] of Object.entries(sheet.heights ?? {})) for (const r of spanOf(key, Number)) heights.set(r, h)
+    for (const [key, h] of Object.entries(sheet.heights ?? {})) for (const r of linesOf(key, 'rows')) heights.set(r, h)
     const store: Store = { sheet, cells, widths, heights, maxRow: 0, maxCol: 0 }
     measure(store)
     return store
@@ -154,10 +152,10 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       maxCol = Math.max(maxCol, at.col)
     }
     for (const m of store.sheet.merges ?? []) {
-      const r = parseRect(m)
+      const r = parseRange(m)
       if (r) {
-        maxRow = Math.max(maxRow, r.r2)
-        maxCol = Math.max(maxCol, r.c2)
+        maxRow = Math.max(maxRow, r.bottom)
+        maxCol = Math.max(maxCol, r.right)
       }
     }
     store.maxRow = maxRow
@@ -242,13 +240,13 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       win.values.push(values)
     }
     // Under a filter the rows are scattered: only one-row merges on shown rows stay, as the the app gives them.
-    const area = { r1: req.row, c1: req.col, r2: req.row + Math.max(rows, 1) - 1, c2: req.col + Math.max(cols, 1) - 1 }
+    const area = { top: req.row, left: req.col, bottom: req.row + Math.max(rows, 1) - 1, right: req.col + Math.max(cols, 1) - 1 }
     const shown = new Set(sheetRows)
     win.merges = (store.sheet.merges ?? []).filter((m) => {
-      const r = parseRect(m)
+      const r = parseRange(m)
       if (!r) return false
       if (!list) return rectsMeet(r, area)
-      return r.r1 === r.r2 && shown.has(r.r1) && r.c1 <= area.c2 && r.c2 >= area.c1
+      return r.top === r.bottom && shown.has(r.top) && r.left <= area.right && r.right >= area.left
     })
     return win
   }
@@ -299,8 +297,8 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)
         if (!store) return { ok: false, reason: 'failed', message: `No sheet ${change.sheet}` }
-        if ('columns' in change) for (const c of spanOf(change.columns, colNumber)) store.widths.set(c, change.width)
-        else for (const r of spanOf(change.rows, Number)) store.heights.set(r, change.height)
+        if ('columns' in change) for (const c of linesOf(change.columns, 'columns')) store.widths.set(c, change.width)
+        else for (const r of linesOf(change.rows, 'rows')) store.heights.set(r, change.height)
         return { ok: true, changes: [] }
       })
     },
@@ -313,7 +311,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     columnValues: (sheet, col, filter, signal) => wait(() => columnList(query(storeOrThrow(sheet)), col, filter), signal),
     stats: (sheet, range, filter, signal) =>
       wait(() => {
-        const rect = parseRect(range)
+        const rect = parseRange(range)
         if (!rect) throw new Error(`Not a range: ${range}`)
         return rangeStats(query(storeOrThrow(sheet)), rect, filter)
       }, signal),

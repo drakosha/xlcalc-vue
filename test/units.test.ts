@@ -1,26 +1,9 @@
-// Pure pieces: addresses, Excel units, prefix sums, the style's CSS and clipboard text.
+// Pure pieces: Excel units, prefix sums, the style's CSS and clipboard text.
 import { describe, expect, it } from 'vitest'
-import { cellAddress, colLabel, colNumber, parseCell, parseRect, rectAddress } from '../src/core/a1'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, generalAlign, horizontalOf, verticalOf, wrapsOf } from '../src/core/cell-style'
 import { parseTsv, toTsv } from '../src/core/clipboard'
 import { numberEditText, textEditText } from '../src/core/edit-text'
 import { colPx, fontPx, indexAt, prefixSums, rowPx, widthFromPx } from '../src/core/geometry'
-
-describe('addresses', () => {
-  it('letters both ways', () => {
-    expect([1, 26, 27, 52, 703, 16384].map(colLabel)).toEqual(['A', 'Z', 'AA', 'AZ', 'AAA', 'XFD'])
-    expect(['A', 'z', 'AA', 'XFD'].map(colNumber)).toEqual([1, 26, 27, 16384])
-    expect(cellAddress(12, 2)).toBe('B12')
-  })
-  it('cells and rectangles', () => {
-    expect(parseCell('$B$12')).toEqual({ row: 12, col: 2 })
-    expect(parseCell('B0')).toBeNull()
-    expect(parseRect('D4:b2')).toEqual({ r1: 2, c1: 2, r2: 4, c2: 4 })
-    expect(parseRect('C3')).toEqual({ r1: 3, c1: 3, r2: 3, c2: 3 })
-    expect(parseRect('A1:B2:C3')).toBeNull()
-    expect(rectAddress({ r1: 2, c1: 2, r2: 4, c2: 4 })).toBe('B2:D4')
-  })
-})
 
 describe('Excel units', () => {
   it('column widths as Excel turns them into pixels and back', () => {

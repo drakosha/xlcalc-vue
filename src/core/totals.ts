@@ -73,17 +73,17 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection, notify: (te
     if (!r || !sel.multi.value) return ''
     const got = fromSource.value
     if (got && got.key === statsKey()) return format(got.stats)
-    const r2 = Math.min(r.r2, s.dataRows.value)
-    const c2 = Math.min(r.c2, s.dataCols.value)
-    const ds = shownRows(r.r1, r2)
-    if (r2 >= r.r1 && c2 >= r.c1 && !inWindows(ds, r.c1, c2)) {
+    const r2 = Math.min(r.bottom, s.dataRows.value)
+    const c2 = Math.min(r.right, s.dataCols.value)
+    const ds = shownRows(r.top, r2)
+    if (r2 >= r.top && c2 >= r.left && !inWindows(ds, r.left, c2)) {
       const fmt = new Intl.NumberFormat(s.locale.value)
-      const rows = s.visible.value ? ds.length : r.r2 - r.r1 + 1
-      return s.messages.value.statsCells(fmt.format(rows * (r.c2 - r.c1 + 1)))
+      const rows = s.visible.value ? ds.length : r.bottom - r.top + 1
+      return s.messages.value.statsCells(fmt.format(rows * (r.right - r.left + 1)))
     }
     const st: RangeStats = { cells: 0, numbers: 0, sum: 0, min: null, max: null }
     for (const d of ds) {
-      for (let col = r.c1; col <= c2; col++) {
+      for (let col = r.left; col <= c2; col++) {
         const value: CellValue | undefined = w.valueAt(d, col)
         if (w.textAt(d, col) === '' && (value === null || value === undefined || value === '')) continue
         st.cells++
@@ -102,16 +102,16 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection, notify: (te
     const r = sel.selRect.value
     if (!r || e.target !== s.scroller.value) return
     e.preventDefault()
-    const ds = shownRows(r.r1, Math.min(r.r2, Math.max(r.r1, s.dataRows.value)))
-    const c2 = Math.min(r.c2, Math.max(r.c1, s.dataCols.value))
+    const ds = shownRows(r.top, Math.min(r.bottom, Math.max(r.top, s.dataRows.value)))
+    const c2 = Math.min(r.right, Math.max(r.left, s.dataCols.value))
     if (!ds.length) return
     const grid = (cell: (d: number, col: number) => string, rows: number[], lastCol: number) =>
       rows.map((d) => {
         const line: string[] = []
-        for (let col = r.c1; col <= lastCol; col++) line.push(cell(d, col))
+        for (let col = r.left; col <= lastCol; col++) line.push(cell(d, col))
         return line
       })
-    if (inWindows(ds, r.c1, c2)) {
+    if (inWindows(ds, r.left, c2)) {
       e.clipboardData?.setData('text/plain', toTsv(grid(w.textAt, ds, c2)))
       return
     }
@@ -119,7 +119,7 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection, notify: (te
     const d2 = ds[ds.length - 1]!
     try {
       const filter = s.visible.value?.spec
-      const got = await s.source().window({ sheet: s.sheetName.value, row: d1, rows: d2 - d1 + 1, col: r.c1, cols: c2 - r.c1 + 1, ...(filter ? { filter } : {}) })
+      const got = await s.source().window({ sheet: s.sheetName.value, row: d1, rows: d2 - d1 + 1, col: r.left, cols: c2 - r.left + 1, ...(filter ? { filter } : {}) })
       if ('pending' in got) throw new Error('pending')
       const lastD = got.row + got.text.length - 1
       const lastCol = got.col + (got.text[0]?.length ?? 0) - 1

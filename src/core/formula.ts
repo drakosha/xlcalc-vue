@@ -1,6 +1,6 @@
 // The active cell's formula in pieces with clickable references, and the formula's ranges highlighted on the grid as in Excel.
 import { computed, type Ref } from 'vue'
-import { colNumber } from './a1'
+import { parseCell } from 'xlcalc/a1'
 import { formulaTokens, refKey, type FormulaRef, type FormulaToken } from './formula-refs'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -43,12 +43,8 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
         const slot = w.slots[kind].value
         if (!slot.win || slot.view !== w.viewKey()) continue
         for (const [addr, f] of Object.entries(slot.win.formulas)) {
-          const m = /^([A-Z]+)(\d+)$/.exec(addr)
-          if (!m) continue
-          const row = Number(m[2])
-          if (row < r.r1 || row > r.r2) continue
-          const col = colNumber(m[1]!)
-          if (col < r.c1 || col > r.c2 || sel.isActive(row, col)) continue
+          const at = parseCell(addr)
+          if (!at || at.row < r.top || at.row > r.bottom || at.col < r.left || at.col > r.right || sel.isActive(at.row, at.col)) continue
           if (++cells > PRECEDENT_CELLS_MAX) return out
           consider(f)
         }
@@ -79,13 +75,13 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     const edges: string[] = []
     const tints: string[] = []
     for (const { ref, color } of hl) {
-      const r2 = Math.min(ref.r2, s.rowCount.value)
-      const c2 = Math.min(ref.c2, s.colCount.value)
-      if (row < ref.r1 || row > r2 || col < ref.c1 || col > c2) continue
-      if (row === ref.r1) edges.push(`inset 0 2px 0 0 ${color}`)
-      if (row === r2) edges.push(`inset 0 -2px 0 0 ${color}`)
-      if (col === ref.c1) edges.push(`inset 2px 0 0 0 ${color}`)
-      if (col === c2) edges.push(`inset -2px 0 0 0 ${color}`)
+      const bottom = Math.min(ref.bottom, s.rowCount.value)
+      const right = Math.min(ref.right, s.colCount.value)
+      if (row < ref.top || row > bottom || col < ref.left || col > right) continue
+      if (row === ref.top) edges.push(`inset 0 2px 0 0 ${color}`)
+      if (row === bottom) edges.push(`inset 0 -2px 0 0 ${color}`)
+      if (col === ref.left) edges.push(`inset 2px 0 0 0 ${color}`)
+      if (col === right) edges.push(`inset -2px 0 0 0 ${color}`)
       tints.push(`linear-gradient(${color}1f, ${color}1f)`)
     }
     return tints.length ? { edges, tints } : null

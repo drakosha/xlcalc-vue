@@ -1,8 +1,8 @@
 // A row's or a column's style reaches past the data, as Excel draws it: the grid asks for what it draws, not only the data,
 // and a source that cuts its windows at the data's edge does not make it ask again and again.
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cellAddress } from 'xlcalc/a1'
 import type { SheetSource, WindowRequest } from '../src/source'
-import { cellAddress } from '../src/core/a1'
 import { gridWindow, mountSheet, settle } from './helpers'
 
 afterEach(() => {

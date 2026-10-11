@@ -150,6 +150,16 @@ describe('keys', () => {
     expect(edits[1]!.map((e) => `${e.cell}=${e.text}`)).toEqual(['E1=7', 'E2=7'])
   })
 
+  it('a paste that would leave the sheet is refused whole, as Excel refuses it', async () => {
+    const { source, edits } = recorded()
+    const w = await mountSheet(source, { messages: { editFailed: 'Edit failed' } })
+    await goTo(w, 'XFD1048576')
+    paste(w, '1\t2')
+    await settle()
+    expect(edits).toEqual([])
+    expect(w.find('.xs-message').text()).toBe('Edit failed')
+  })
+
   it('read-only: typing, Delete and paste do nothing', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source, { readOnly: true })

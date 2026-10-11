@@ -1,9 +1,9 @@
 // Windows of data: three slots (body, frozen rows, frozen columns), loaded under the scroll and patched by edits.
 // Rows of windows are display indexes (`d`): with a display filter they are places in its list, not the sheet's rows.
 import { computed, ref, shallowRef, type ShallowRef } from 'vue'
-import type { CellStyle, CellValue } from 'xlcalc/contract'
+import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
+import type { CellRect, CellStyle, CellValue } from 'xlcalc/contract'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
-import { cellAddress, parseCell, parseRect, type Rect } from './a1'
 import { colPx, DEFAULT_ROW_PT, rowPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
@@ -27,7 +27,7 @@ export interface Slot {
   win: SheetWindow | null
   rows: number
   cols: number
-  merges: Rect[]
+  merges: CellRect[]
   pendingKey: string
   servedKey: string
   ctrl: AbortController | null
@@ -153,10 +153,10 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   /** Merged areas of the loaded windows (by sheet rows), each once. */
   const merges = computed(() => {
     const seen = new Set<string>()
-    const out: Rect[] = []
+    const out: CellRect[] = []
     for (const kind of order) {
       for (const m of current(kind)?.merges ?? []) {
-        const key = `${m.r1}:${m.c1}`
+        const key = `${m.top}:${m.left}`
         if (!seen.has(key)) {
           seen.add(key)
           out.push(m)
@@ -169,7 +169,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   const tables = computed(() => {
     for (const kind of order) {
       const t = current(kind)?.win?.tables
-      if (t) return t.flatMap((x) => { const rect = parseRect(x.range); return rect ? [{ ...x, rect }] : [] })
+      if (t) return t.flatMap((x) => { const rect = parseRange(x.range); return rect ? [{ ...x, rect }] : [] })
     }
     return []
   })
@@ -245,7 +245,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       // A window shorter than asked, at or past the data's edge: the source stops there, the grid will not ask past it.
       if (width < cols && req.col + width - 1 >= s.dataCols.value) edge = { ...edge, cols: req.col + width - 1 }
       if (got.text.length < rows && req.row + got.text.length - 1 >= s.dataShown.value) edge = { ...edge, rows: req.row + got.text.length - 1 }
-      const merged = got.merges.flatMap((m) => { const r = parseRect(m); return r ? [r] : [] })
+      const merged = got.merges.flatMap((m) => { const r = parseRange(m); return r ? [r] : [] })
       slots[kind].value = { sheet: req.sheet, view, win: got, rows: got.text.length, cols: width, merges: merged, pendingKey: '', servedKey: key, ctrl: null }
       s.failure.value = null
     } catch (e) {

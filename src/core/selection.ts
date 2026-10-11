@@ -1,7 +1,8 @@
 // Selection as in Excel: a rectangle from the active cell to the other corner, by cells, rows and columns, with Shift and drag.
 // It is kept in the sheet's rows; keys move along the display rows, so under a filter the next row is the next shown one.
 import { computed, nextTick } from 'vue'
-import { rectAddress, type Rect } from './a1'
+import { rangeAddress } from 'xlcalc/a1'
+import type { CellRect } from 'xlcalc/contract'
 import { colPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
 import { HEAD_H, type Viewport } from './viewport'
@@ -10,18 +11,18 @@ import { HEAD_H, type Viewport } from './viewport'
 const REVEAL_PAD = 24
 
 export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
-  const selRect = computed<Rect | null>(() => {
+  const selRect = computed<CellRect | null>(() => {
     const a = s.selected.value
     if (!a) return null
     const b = s.extent.value ?? a
-    return { r1: Math.min(a.row, b.row), c1: Math.min(a.col, b.col), r2: Math.max(a.row, b.row), c2: Math.max(a.col, b.col) }
+    return { top: Math.min(a.row, b.row), left: Math.min(a.col, b.col), bottom: Math.max(a.row, b.row), right: Math.max(a.col, b.col) }
   })
   const multi = computed(() => {
     const r = selRect.value
-    return !!r && (r.r1 !== r.r2 || r.c1 !== r.c2)
+    return !!r && (r.top !== r.bottom || r.left !== r.right)
   })
-  /** `B12` or `B12:D15`. */
-  const selectionRef = computed(() => (selRect.value ? rectAddress(selRect.value) : ''))
+  /** `B12`, `B12:D15`, or `B:D` and `2:9` over every row or column, as Excel writes a range. */
+  const selectionRef = computed(() => (selRect.value ? rangeAddress(selRect.value) : ''))
   const isActive = (row: number, col: number) => s.selected.value?.row === row && s.selected.value?.col === col
 
   function pickCell(row: number, col: number, extend = false): void {
