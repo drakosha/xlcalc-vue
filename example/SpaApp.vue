@@ -98,7 +98,8 @@ async function openFile(file: File): Promise<void> {
   const since = performance.now()
   opening.value = true
   try {
-    const read = await openXlsx(file)
+    // what the file lost, in the interface's language
+    const read = await openXlsx(file, { locale: langLocale(lang.value) })
     start(read.book, file.name.replace(/\.xlsx$/i, ''), groupIssues(read.issues), since)
   } catch (e) {
     opening.value = false

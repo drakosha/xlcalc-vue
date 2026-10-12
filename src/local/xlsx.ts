@@ -1,18 +1,32 @@
 // An xlsx file into a book and a book with its values into a file, through `xlcalc/xlsx`, which loads only when used.
+import type { Locale } from 'xlcalc'
 import type { XlsxIssue, XlsxRead, XlsxWritten } from 'xlcalc/xlsx'
+import { loadLocale } from './locale'
 import type { LocalSource } from './types'
 
-/** Read a file (the bytes, or a `File` from an input or a drop) into a book; `issues` lists what the book cannot hold. */
-export async function openXlsx(data: Blob | ArrayBuffer | Uint8Array): Promise<XlsxRead> {
-  const bytes = data instanceof Blob ? new Uint8Array(await data.arrayBuffer()) : data
-  const { readXlsx } = await import('xlcalc/xlsx')
-  return readXlsx(bytes)
+/** The language of the issues' messages: a tag (`ru-RU`, its module loaded on demand) or a locale object; en-US by default. */
+export interface XlsxIssuesOptions {
+  locale?: string | Locale
 }
 
-/** Write the source's book with its computed values (`formulas`, the default, or `values` only); `issues` lists what the file cannot hold. */
-export async function saveXlsx(source: LocalSource, opts: { mode?: 'formulas' | 'values' } = {}): Promise<XlsxWritten> {
-  const [{ writeXlsx }, snapshot] = await Promise.all([import('xlcalc/xlsx'), source.snapshot()])
-  return writeXlsx(snapshot, opts.mode ? { mode: opts.mode } : {})
+/** The reader's and writer's `locale`, a tag's module loaded first: the library takes a tag it has loaded and refuses others. */
+async function issuesIn(opts: XlsxIssuesOptions): Promise<{ locale?: string | Locale }> {
+  if (opts.locale === undefined) return {}
+  if (typeof opts.locale === 'string') await loadLocale(opts.locale)
+  return { locale: opts.locale }
+}
+
+/** Read a file (the bytes, or a `File` from an input or a drop) into a book; `issues` lists what the book cannot hold, in `locale`'s language. */
+export async function openXlsx(data: Blob | ArrayBuffer | Uint8Array, opts: XlsxIssuesOptions = {}): Promise<XlsxRead> {
+  const bytes = data instanceof Blob ? new Uint8Array(await data.arrayBuffer()) : data
+  const [{ readXlsx }, read] = await Promise.all([import('xlcalc/xlsx'), issuesIn(opts)])
+  return readXlsx(bytes, read)
+}
+
+/** Write the source's book with its computed values (`formulas`, the default, or `values` only); `issues` lists what the file cannot hold, in `locale`'s language. */
+export async function saveXlsx(source: LocalSource, opts: XlsxIssuesOptions & { mode?: 'formulas' | 'values' } = {}): Promise<XlsxWritten> {
+  const [{ writeXlsx }, snapshot, write] = await Promise.all([import('xlcalc/xlsx'), source.snapshot(), issuesIn(opts)])
+  return writeXlsx(snapshot, { ...(opts.mode ? { mode: opts.mode } : {}), ...write })
 }
 
 export interface IssueGroup {

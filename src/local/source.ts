@@ -56,8 +56,6 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   const lists = new Map<string, { key: string; rows: number[] }>()
   let calc: Calc | null = null
   let session: AsyncSession | null = null
-  // TODO(xlcalc): a call a stop rule refused is taken back by undo() and stays on the redo stack, where Excel has nothing; this hides that one step.
-  let refusedRedo = false
 
   /** The source's own changes one after another: each reads what the one before left. */
   let last: Promise<unknown> = Promise.resolve()
@@ -67,15 +65,6 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       last = next.catch(() => {})
       return next
     }
-  }
-  /** A change of the book through the source: a new step forgets what redo could do, the refused step too. */
-  function change<A extends unknown[]>(run: (...args: A) => Promise<EditOutcome>): (...args: A) => Promise<EditOutcome> {
-    return serial(async (...args: A) => {
-      const before = session?.revision
-      const out = await run(...args)
-      if (out.ok && session && session.revision !== before) refusedRedo = false
-      return out
-    })
   }
 
   const ready = (async () => {
@@ -168,14 +157,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { ok: true, changes }
   }
 
-  /** A value a stop rule of data validation does not take: the call is taken back whole, as Excel takes it back. */
-  async function refuseStop(s: AsyncSession, alert: { sheet: string; cell: string; message: string }): Promise<EditOutcome> {
-    await s.undo()
-    refusedRedo = true
-    return { ok: false, reason: 'refused', message: alert.message, cells: [{ sheet: alert.sheet, cell: alert.cell }] }
-  }
-
-  /** Typed texts, each read as typed into its cell, in one step; only empty cells (Delete over a selection) clear the content. */
+  /**
+   * Typed texts, each read as typed into its cell, in one step; only empty cells (Delete over a selection) clear the content.
+   * A value a stop rule of data validation does not take refuses the call before anything is written, as Excel's alert
+   * holds the entry; a warning's or an information's is written, as their Yes and OK keep it (the sheet has no alert yet).
+   */
   async function edit(entries: CellEntry[]): Promise<EditOutcome> {
     const s = await open()
     const cells: { sheet: string; cell: string; text: string | null }[] = []
@@ -188,10 +174,16 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const boxes = boxesOf(cells)
     try {
       if (cells.every((c) => c.text === null)) return await settle(s, await s.clearCells(cells.map((c) => ({ sheet: c.sheet, range: c.cell })), 'contents'), boxes)
-      const got = await s.setCellTexts(cells.map((c) => ({ sheet: c.sheet, cell: c.cell, text: c.text ?? '' })))
-      if (!got.ok) return refusalOf(got)
-      const stop = got.validations?.find((v) => v.severity === 'stop')
-      return stop ? await refuseStop(s, stop) : await settle(s, got, boxes)
+      const texts = cells.map((c) => ({ sheet: c.sheet, cell: c.cell, text: c.text ?? '' }))
+      let got = await s.setCellTexts(texts, { refuseInvalid: true })
+      if (!got.ok && got.code === 'validation' && got.severity !== 'stop') {
+        // the library refuses several cells at the first one a rule does not take: a later cell's stop rule refuses them too
+        const all = texts.length > 1 ? await s.previewCellTexts(texts) : null
+        const stop = all?.ok ? all.validations?.find((v) => v.severity === 'stop') : undefined
+        if (stop) return refusalOf({ code: 'validation', ...stop })
+        got = await s.setCellTexts(texts)
+      }
+      return got.ok ? await settle(s, got, boxes) : refusalOf(got)
     } catch (e) {
       return outcomeOf(e, 'refused')
     }
@@ -210,15 +202,15 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
-  /** Control+Return: the text read once in the active cell and entered into every cell of the range, which stays selected. */
+  /** Control+Return: the text read once in the active cell and entered into every cell of the range, which stays selected; its rule refuses as in `edit`. */
   async function fill(sheet: string, range: string, text: string, active: string): Promise<EditOutcome> {
     const s = await open()
     const rect = parseRange(range)
     if (!rect) return failed(`Not a range: ${range}`)
     try {
-      const got = await s.fillCellText(sheet, range, text, { active })
+      let got = await s.fillCellText(sheet, range, text, { active, refuseInvalid: true })
+      if (!got.ok && got.code === 'validation' && got.severity !== 'stop') got = await s.fillCellText(sheet, range, text, { active })
       if (!got.ok) return refusalOf(got)
-      if (got.validation?.severity === 'stop') return await refuseStop(s, { sheet, cell: active, message: got.validation.message })
       const out = await settle(s, got, [{ sheet, rect }])
       return out.ok ? { ...out, select: { sheet, range: rangeAddress(rect) } } : out
     } catch (e) {
@@ -229,7 +221,6 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   /** The session's undo or redo, whole; the selection goes over the cells it took back, on the first of their sheets. */
   async function step(kind: 'undo' | 'redo'): Promise<EditOutcome> {
     const s = await open()
-    if (kind === 'redo' && refusedRedo && s.history.redo <= 1) return { ok: true, changes: [] }
     try {
       const got = await s[kind]()
       if (!got) return { ok: true, changes: [] }
@@ -345,18 +336,17 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       check(signal)
       return windowOf(v, { row: req.row, rows, col: req.col, cols, filtered, notice: opts.notice })
     },
-    edit: change(edit),
-    paste: change(paste),
-    fill: change(fill),
+    edit: serial(edit),
+    paste: serial(paste),
+    fill: serial(fill),
     undo: serial(() => step('undo')),
     redo: serial(() => step('redo')),
-    structure: change(structure),
-    layout: change(setLayout),
-    format: change(format),
-    freeze: change(freeze),
+    structure: serial(structure),
+    layout: serial(setLayout),
+    format: serial(format),
+    freeze: serial(freeze),
     get history() {
-      const h = session?.history ?? { undo: 0, redo: 0 }
-      return refusedRedo ? { undo: h.undo, redo: h.redo - 1 } : h
+      return session?.history ?? { undo: 0, redo: 0 }
     },
     subscribe(listener) {
       listeners.add(listener)

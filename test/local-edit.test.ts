@@ -51,20 +51,28 @@ describe('localSource: typed edits', () => {
     expect(by.C5).toMatchObject({ editText: '=СУММ(B2:B3)', formula: 'СУММ(B2:B3)', value: 35 })
   })
 
-  it('refuses a value a stop rule of data validation does not take and keeps the cell; a warning rule keeps the value', async () => {
+  it('refuses a value a stop rule of data validation does not take and keeps the cell; a warning or an information rule keeps the value', async () => {
     const s = source({
       sheets: [{
         name: 'S',
-        cells: { A1: { value: 5 }, B1: { value: 5 } },
+        cells: { A1: { value: 5 }, B1: { value: 5 }, C1: { value: 5 } },
         validations: [
           { range: 'A1:A9', type: 'whole', operator: 'greaterThan', formula1: '0', errorStyle: 'stop', error: 'Только больше нуля' },
           { range: 'B1:B9', type: 'whole', operator: 'greaterThan', formula1: '0', errorStyle: 'warning' },
+          { range: 'C1:C9', type: 'whole', operator: 'greaterThan', formula1: '0', errorStyle: 'information' },
         ],
       }],
     })
     expect(await s.edit([{ sheet: 'S', cell: 'A1', text: '-2' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', cells: [{ sheet: 'S', cell: 'A1' }] })
+    expect(s.history).toEqual({ undo: 0, redo: 0 })
     expect(await s.edit([{ sheet: 'S', cell: 'B1', text: '-3' }])).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: -3 }] })
-    expect((await win(s, 'S', 1, 1, 1, 2)).values).toEqual([[5, -3]])
+    expect(await s.edit([{ sheet: 'S', cell: 'C1', text: '-4' }])).toMatchObject({ ok: true, changes: [{ cell: 'C1', value: -4 }] })
+    expect((await win(s, 'S', 1, 1, 1, 3)).values).toEqual([[5, -3, -4]])
+    expect(s.history).toEqual({ undo: 2, redo: 0 })
+    // several cells at once: a stop rule of any of them refuses all, a warning's cell coming first too
+    expect(await s.edit([{ sheet: 'S', cell: 'B2', text: '-5' }, { sheet: 'S', cell: 'A2', text: '-6' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', cells: [{ sheet: 'S', cell: 'A2' }] })
+    expect((await win(s, 'S', 2, 1, 1, 2)).values).toEqual([[null, null]])
+    expect(s.history).toEqual({ undo: 2, redo: 0 })
   })
 
   it('clears a selection as Excel\'s Delete: the content and the hyperlink go, the style, format and note stay', async () => {
@@ -79,6 +87,21 @@ describe('localSource: typed edits', () => {
     expect(cells.B1).toEqual({ note: { author: 'Аня', text: 'Проверить' } })
     expect(cells.B2).toBeUndefined()
     expect(cells.C1).toEqual({ style: 1 })
+  })
+
+  it('reloads after a Delete that takes a hyperlink and after its undo: a cell update carries no note or link', async () => {
+    const s = source()
+    const events: SourceEvent[] = []
+    s.subscribe((e) => events.push(e))
+    await s.edit([{ sheet: 'Лист1', cell: 'B2', text: null }])
+    expect(events).toEqual([{ kind: 'reload' }])
+    expect((await win(s, 'Лист1', 1, 3, 1, 3)).links).toEqual({ B3: { location: "'Таблица'!A1" } })
+    await s.undo()
+    expect(events).toEqual([{ kind: 'reload' }, { kind: 'reload' }])
+    expect((await win(s, 'Лист1', 2, 1, 2, 1)).links).toEqual({ B2: { href: 'https://example.org/', tooltip: 'Пример' } })
+    // a cell whose note stays and a cell without either are cell updates
+    await s.edit([{ sheet: 'Лист1', cell: 'B1', text: null }, { sheet: 'Лист1', cell: 'A1', text: null }])
+    expect(events.at(-1)).toMatchObject({ kind: 'changed' })
   })
 
   it('renames a table column by its header cell, and the formulas over it are shown anew', async () => {
