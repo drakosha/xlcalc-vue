@@ -95,8 +95,8 @@ export function createState(props: SheetViewProps) {
   const selected = ref<CellPosition | null>(null)
   const extent = ref<CellPosition | null>(null)
 
-  /** Ways back into modules made later: dropping the filter when a jump needs a row it hides. */
-  const hooks = { unfilter: (_row: number): void => {} }
+  /** Ways back into modules made later: dropping the filter when a jump needs a row it hides; a change of the cells on its way from the sheet (Excel's copy mode ends). */
+  const hooks = { unfilter: (_row: number): void => {}, changing: (): void => {} }
 
   /** Grow the data reach to a cell that got a value. */
   function grow(row: number, col: number): void {

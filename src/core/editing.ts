@@ -1,4 +1,4 @@
-// Editing cells: in place or in the formula bar, Excel's keys, clearing and pasting, Control+Return, undo and redo, calls in flight and the source's outcomes.
+// Editing cells: in place or in the formula bar, Excel's keys, clearing and pasting text, Control+Return, undo and redo, calls in flight and the source's outcomes.
 import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
@@ -161,9 +161,10 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }
     return out
   }
-  /** Call the source: `marks` show in the "pending" style until the outcome; a failure opens `draft` again, over its range with `extent`. */
-  async function run(call: () => Promise<EditOutcome>, marks: CellEntry[], draft: EditorState | null, extent: CellPosition | null): Promise<EditOutcome> {
+  /** Call the source: `marks` show in the "pending" style until the outcome; a failure opens `draft` again, over its range with `extent`; a change of cells ends the copy mode unless `endsCopy` is false. */
+  async function run(call: () => Promise<EditOutcome>, marks: CellEntry[], draft: EditorState | null, extent: CellPosition | null, endsCopy = true): Promise<EditOutcome> {
     const mine = ++seq
+    if (endsCopy) s.hooks.changing()
     if (marks.length) {
       const next = new Map(pending.value)
       for (const e of marks) next.set(pendingKey(e.sheet, e.cell), { text: e.text, seq: mine })
@@ -378,16 +379,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  /** Paste on the grid (the field pastes into itself). */
-  function onPaste(e: ClipboardEvent): void {
-    if (e.target !== s.scroller.value || !s.editable.value) return
-    const text = e.clipboardData?.getData('text/plain')
-    if (!text) return
-    e.preventDefault()
-    pasteText(text)
-  }
-
-  return { pending, pendingAt, locks, lockAt, editText, startEdit, focusEditor, onEditorInput, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur, onPaste }
+  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, focusEditor, onEditorInput, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

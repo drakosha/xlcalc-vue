@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The structure menu at the pointer (kept on screen) and its small dialogs: a size in Excel's units, the question before a
+// The menus of lines, tabs and cells at the pointer (kept on screen) and their small dialogs: a size in Excel's units, the question before a
 // sheet with data is deleted, the hidden sheets to show, rows or columns to group. A press outside or Esc closes them.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSheetContext } from './context'
@@ -64,7 +64,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="menu.open.value" ref="box" class="xs-menu" role="menu" :aria-label="m.menu" :style="pos" data-xs-menu-box>
+  <div v-if="menu.open.value" ref="box" class="xs-menu" role="menu" :aria-label="menu.open.value.kind === 'cells' ? m.cellMenu : m.menu" :style="pos" data-xs-menu-box>
     <div class="xs-menu-caption">{{ menu.caption.value }}</div>
     <template v-for="item in menu.items.value" :key="item.id">
       <div v-if="item.group" class="xs-menu-sep" role="separator"></div>

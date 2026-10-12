@@ -133,6 +133,23 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const rightPad = computed(() => Math.max(0, (geo.offsets.value[i.colCount.value] ?? 0) - (geo.offsets.value[lastCol.value] ?? 0)))
   const tableWidth = computed(() => leadW.value + (geo.offsets.value[i.colCount.value] ?? 0))
 
+  /** Where display rows d1..d2 and columns c1..c2 are drawn in the scroller's content; one wholly in frozen rows or columns follows the scroll, as they stick. */
+  function boxOf(d1: number, c1: number, d2: number, c2: number): { top: number; left: number; width: number; height: number; frozen: boolean } {
+    const rows = geo.rowOffsets.value
+    const cols = geo.offsets.value
+    const top = (rows[d1 - 1] ?? 0) + (d2 <= frozenRows.value ? i.scrollTop.value : 0)
+    const left = (cols[c1 - 1] ?? 0) + (c2 <= frozenCols.value ? i.scrollLeft.value : 0)
+    return { top: headH.value + top, left: leadW.value + left, width: (cols[c2] ?? 0) - (cols[c1 - 1] ?? 0), height: (rows[d2] ?? 0) - (rows[d1 - 1] ?? 0), frozen: d2 <= frozenRows.value || c2 <= frozenCols.value }
+  }
+  /** The display row and column under a point of the frame (pixels from its top-left corner), with the point in the offsets' space (`x`, `y`). */
+  function cellAt(px: number, py: number): { d: number; col: number; x: number; y: number } {
+    const cy = Math.max(0, py - headH.value)
+    const cx = Math.max(0, px - leadW.value)
+    const y = cy < frozenH.value ? cy : cy + i.scrollTop.value
+    const x = cx < frozenW.value ? cx : cx + i.scrollLeft.value
+    return { d: geo.rowAt(y), col: geo.colAt(x), x, y }
+  }
+
   return {
     showNums,
     narrow,
@@ -167,6 +184,8 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     leftPad,
     rightPad,
     tableWidth,
+    boxOf,
+    cellAt,
   }
 }
 

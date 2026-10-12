@@ -1,8 +1,7 @@
-// Copying the selection as TSV and its totals for the status line: the source's `stats` when it has them, else the loaded windows.
+// The selection's totals for the status line: the source's `stats` when it has them, else the loaded windows.
 import { computed, shallowRef, watch } from 'vue'
 import type { CellValue } from 'xlcalc/contract'
 import type { RangeStats } from '../source'
-import { toTsv } from './clipboard'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
@@ -10,7 +9,7 @@ import type { Windows } from './windows'
 /** A pause before asking the source for totals: a drag or Shift+arrows changes the selection many times a second. */
 const STATS_DELAY_MS = 150
 
-export function useTotals(s: SheetState, w: Windows, sel: Selection, notify: (text: string) => void) {
+export function useTotals(s: SheetState, w: Windows, sel: Selection) {
   /** Display rows of the selection: under a filter only the shown rows between its corners, in display order. */
   function shownRows(r1: number, r2: number): number[] {
     const out: number[] = []
@@ -97,44 +96,7 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection, notify: (te
     return format(st)
   })
 
-  /** Copy the selection as TSV: from the loaded windows, else one window asked for it (cut by the cell limit). */
-  async function onCopy(e: ClipboardEvent): Promise<void> {
-    const r = sel.selRect.value
-    if (!r || e.target !== s.scroller.value) return
-    e.preventDefault()
-    const ds = shownRows(r.top, Math.min(r.bottom, Math.max(r.top, s.dataRows.value)))
-    const c2 = Math.min(r.right, Math.max(r.left, s.dataCols.value))
-    if (!ds.length) return
-    const grid = (cell: (d: number, col: number) => string, rows: number[], lastCol: number) =>
-      rows.map((d) => {
-        const line: string[] = []
-        for (let col = r.left; col <= lastCol; col++) line.push(cell(d, col))
-        return line
-      })
-    if (inWindows(ds, r.left, c2)) {
-      e.clipboardData?.setData('text/plain', toTsv(grid(w.textAt, ds, c2)))
-      return
-    }
-    const d1 = ds[0]!
-    const d2 = ds[ds.length - 1]!
-    try {
-      const filter = s.visible.value?.spec
-      const got = await s.source().window({ sheet: s.sheetName.value, row: d1, rows: d2 - d1 + 1, col: r.left, cols: c2 - r.left + 1, ...(filter ? { filter } : {}) })
-      if ('pending' in got) throw new Error('pending')
-      const lastD = got.row + got.text.length - 1
-      const lastCol = got.col + (got.text[0]?.length ?? 0) - 1
-      const rows = ds.filter((d) => d <= lastD)
-      const text = toTsv(grid((d, col) => got.text[d - got.row]?.[col - got.col] ?? '', rows, Math.min(c2, lastCol)))
-      try {
-        await navigator.clipboard.writeText(text)
-        if (lastD < d2 || lastCol < c2) notify(s.messages.value.copyPartial)
-      } catch {
-        notify(s.messages.value.clipboardDenied)
-      }
-    } catch {
-      notify(s.messages.value.copyFailed)
-    }
-  }
-
-  return { statsText, onCopy }
+  return { statsText, shownRows, inWindows }
 }
+
+export type Totals = ReturnType<typeof useTotals>

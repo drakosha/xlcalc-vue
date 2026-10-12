@@ -1,10 +1,12 @@
-// The structure menu as Excel's: on row numbers and column letters (insert, delete, sizes, hide, unhide, group, ungroup),
-// on the sheet tabs (insert, delete, rename, move, hide, unhide) and "+" after them; a right click opens it, a finger's
-// long press too. Its small dialogs ask a size, confirm a sheet's deletion, list hidden sheets, ask rows or columns.
+// The menus as Excel's: on row numbers and column letters (insert, delete, sizes, hide, unhide, group, ungroup), on the
+// sheet tabs (insert, delete, rename, move, hide, unhide) and "+" after them, on cells (cut, copy, paste); a right click
+// opens one, a finger's long press too. Its small dialogs ask a size, confirm a sheet's deletion, list hidden sheets, ask
+// rows or columns.
 import { computed, nextTick, ref, shallowRef } from 'vue'
-import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, sameName } from 'xlcalc/a1'
+import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, rectContains, sameName } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
 import type { SheetInfo, SheetOp } from '../source'
+import type { Clip } from './clip'
 import type { Commands } from './commands'
 import { charsOfPx, ptFromPx, widthFromChars, type Geometry } from './geometry'
 import type { Outline, OutlineAxis, OutlineOp } from './outline'
@@ -20,7 +22,7 @@ const PRESS_TAIL_MS = 800
 const MAX_WIDTH_CHARS = 255
 const MAX_HEIGHT_PT = 409
 
-export type MenuKind = 'rows' | 'columns' | 'sheet'
+export type MenuKind = 'rows' | 'columns' | 'sheet' | 'cells'
 
 export interface MenuItem {
   id: string
@@ -31,7 +33,7 @@ export interface MenuItem {
   group?: boolean
 }
 
-/** The open menu: where it is, what it acts on (lines of the selection, or a sheet by its index). */
+/** The open menu: where it is, what it acts on (lines of the selection, a sheet by its index; the cells' menu acts on the selection). */
 export interface OpenMenu {
   kind: MenuKind
   x: number
@@ -51,6 +53,7 @@ export interface MenuDeps {
   pickSheet: (index: number) => Promise<void>
   tabs: () => { sheet: SheetInfo; i: number }[]
   outline: Outline
+  clip: Clip
 }
 
 export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Commands, deps: MenuDeps) {
@@ -82,6 +85,13 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     return true
   }
 
+  /** Open the cells' menu: a cell outside the selection selects it first, as Excel. */
+  function openCells(row: number, col: number, x: number, y: number): void {
+    const r = sel.fullRect.value
+    if (!r || !rectContains(r, { top: row, left: col, bottom: row, right: col })) sel.pickCell(row, col)
+    open.value = { kind: 'cells', x, y, first: 0, last: 0 }
+  }
+
   /** Whether lines first..last hold a hidden one the grid knows of (a size of 0). */
   function hiddenIn(axis: 'rows' | 'columns', first: number, last: number): boolean {
     if (axis === 'columns') {
@@ -95,8 +105,20 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
   const items = computed<MenuItem[]>(() => {
     const o = open.value
     if (!o) return []
+    if (o.kind === 'cells') return cellItems()
     return o.kind === 'sheet' ? sheetItems(o.first) : lineItems(o.kind, o.first, o.last)
   })
+  /** Cut, Copy and Paste inside the book; a read-only sheet only copies. */
+  function cellItems(): MenuItem[] {
+    const clip = deps.clip
+    const copy: MenuItem = { id: 'copy', label: m().menuCopy, run: () => clip.copy(false) }
+    if (!s.editable.value) return [copy]
+    return [
+      { id: 'cut', label: m().menuCut, disabled: !clip.canCut.value, run: () => clip.copy(true) },
+      copy,
+      { id: 'paste', label: m().menuPaste, disabled: !clip.canPaste.value, run: () => void clip.paste() },
+    ]
+  }
   function lineItems(axis: 'rows' | 'columns', first: number, last: number): MenuItem[] {
     const sheet = s.sheetName.value
     const count = last - first + 1
@@ -276,11 +298,12 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
   /** Whether a click or a context menu now is the tail of a long press that opened the menu. */
   const afterPress = () => Date.now() - pressedAt < PRESS_TAIL_MS
 
-  /** The range the open menu acts on, for its caption (`2:5`, `B:D`, the sheet's name). */
+  /** The range the open menu acts on, for its caption (`2:5`, `B:D`, `B2:C4`, the sheet's name). */
   const caption = computed(() => {
     const o = open.value
     if (!o) return ''
     if (o.kind === 'sheet') return s.sheets.value[o.first]?.name ?? ''
+    if (o.kind === 'cells') return sel.selectionRef.value
     return rangeAddress(o.kind === 'rows' ? { top: o.first, left: 1, bottom: o.last, right: MAX_COLS } : { top: 1, left: o.first, bottom: MAX_ROWS, right: o.last })
   })
 
@@ -295,6 +318,7 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     choose,
     openLines,
     openSheet,
+    openCells,
     linesAvailable,
     applySize,
     askOutline,
