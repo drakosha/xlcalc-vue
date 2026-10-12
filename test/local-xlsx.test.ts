@@ -1,5 +1,6 @@
 // @vitest-environment node
-// xlsx in and out of the local source: a book written and read back, a Blob, the reader's issues grouped.
+// xlsx in and out of the local source: a book written and read back, a Blob, the issues in a locale and grouped.
+import { crc32 } from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
 import { compute, sameValue, type CellValue } from 'xlcalc'
 import { synthBook } from 'xlcalc/unstable/synth'
@@ -8,6 +9,52 @@ import { groupIssues, openXlsx, saveXlsx } from '../src/local'
 import { BOLD, closeAll, source, styleOf, win } from './local-fixture'
 
 afterEach(closeAll)
+
+/** A zip of stored entries: enough for a hand-made xlsx with a part the reader reports. */
+function storedZip(files: Record<string, string>): Uint8Array {
+  const parts: Buffer[] = []
+  const dir: Buffer[] = []
+  let at = 0
+  for (const [name, text] of Object.entries(files)) {
+    const n = Buffer.from(name)
+    const d = Buffer.from(text)
+    const head = Buffer.alloc(30)
+    head.writeUInt32LE(0x04034b50, 0)
+    head.writeUInt16LE(20, 4)
+    head.writeUInt32LE(crc32(d), 14)
+    head.writeUInt32LE(d.length, 18)
+    head.writeUInt32LE(d.length, 22)
+    head.writeUInt16LE(n.length, 26)
+    const entry = Buffer.alloc(46)
+    entry.writeUInt32LE(0x02014b50, 0)
+    entry.writeUInt16LE(20, 4)
+    entry.writeUInt16LE(20, 6)
+    head.copy(entry, 16, 14, 26)
+    entry.writeUInt16LE(n.length, 28)
+    entry.writeUInt32LE(at, 42)
+    parts.push(head, n, d)
+    dir.push(entry, n)
+    at += head.length + n.length + d.length
+  }
+  const end = Buffer.alloc(22)
+  end.writeUInt32LE(0x06054b50, 0)
+  end.writeUInt16LE(dir.length / 2, 8)
+  end.writeUInt16LE(dir.length / 2, 10)
+  end.writeUInt32LE(dir.reduce((sum, b) => sum + b.length, 0), 12)
+  end.writeUInt32LE(at, 16)
+  return new Uint8Array(Buffer.concat([...parts, ...dir, end]))
+}
+
+const RELS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+/** A file of one empty sheet `S` with sheet protection, which the book cannot hold. */
+const protectedFile = () =>
+  storedZip({
+    '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+    '_rels/.rels': `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${RELS}/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+    'xl/workbook.xml': `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${RELS}"><sheets><sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+    'xl/_rels/workbook.xml.rels': `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${RELS}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`,
+    'xl/worksheets/sheet1.xml': '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData/><sheetProtection sheet="1"/></worksheet>',
+  })
 
 describe('xlsx in and out', () => {
   it('writes the book and reads it back with the same values, styles, notes and frozen panes', async () => {
@@ -61,6 +108,19 @@ describe('xlsx in and out', () => {
     const back = await openXlsx(new Blob([data as BlobPart]))
     expect(back.book.sheets.map((x) => x.name)).toEqual(['Лист1', 'Таблица', 'Список'])
     expect(back.issues).toEqual([])
+  })
+
+  it('gives the reader\'s and the writer\'s issues in the language of the locale asked for, en-US without one', async () => {
+    const file = protectedFile()
+    expect((await openXlsx(file)).issues).toEqual([{ code: 'protection', sheet: 'S', message: expect.stringMatching(/^sheet protection/) }])
+    expect((await openXlsx(file, { locale: 'ru-RU' })).issues).toEqual([{ code: 'protection', sheet: 'S', message: expect.stringMatching(/^Защита листа/) }])
+    const s = source({ locale: 'ru-RU', sheets: [{ name: 'S', cells: { A1: { value: 1, meta: { id: 7 } } } }] })
+    expect((await saveXlsx(s)).issues).toEqual([{ code: 'meta', sheet: 'S', cells: ['A1'], message: expect.stringMatching(/^cell meta/) }])
+    expect((await saveXlsx(s, { locale: 'ru-RU', mode: 'values' })).issues).toEqual([{ code: 'meta', sheet: 'S', cells: ['A1'], message: expect.stringMatching(/^Поле meta/) }])
+  })
+
+  it('fails a locale xlcalc has no module for, with the library message', async () => {
+    await expect(openXlsx(protectedFile(), { locale: 'de-DE' })).rejects.toThrow(/unknown locale "de-DE"/)
   })
 
   it('groups what the reader left out by kind, for a notice', () => {
