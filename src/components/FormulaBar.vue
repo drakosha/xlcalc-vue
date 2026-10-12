@@ -123,8 +123,10 @@ function onAddressEsc(e: KeyboardEvent): void {
         <template v-if="showParts">
           <span>=</span>
           <template v-for="(part, i) in f.formulaParts.value" :key="i">
+            <!-- under a finger a reference is coloured text: a button the size of a word is no target, and Excel's bar has none -->
+            <span v-if="part.ref && part.color && ctx.v.touch.value" class="xs-ref-text" :style="{ color: part.color }">{{ part.text }}</span>
             <button
-              v-if="part.ref && part.color && f.refSheet(part.ref) >= 0"
+              v-else-if="part.ref && part.color && f.refSheet(part.ref) >= 0"
               type="button"
               class="xs-ref"
               :style="{ color: part.color }"

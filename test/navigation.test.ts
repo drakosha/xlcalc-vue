@@ -220,6 +220,19 @@ describe('keys on an editable sheet', () => {
 })
 
 describe('a phone', () => {
+  it('the formula bar colours a formula\'s references without buttons, which a finger could not hit', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('xs-scroller') ? 390 : 0
+    })
+    const w = await mountSheet(memorySource(book()), { readOnly: true })
+    await goTo(w, 'B1')
+    expect(w.find('.xs-fx-text').text()).toBe('=SUM(A1:A3)')
+    expect(w.findAll('.xs-fx-text button')).toHaveLength(0)
+    const ref = w.find('.xs-fx-text .xs-ref-text')
+    expect(ref.text()).toBe('A1:A3')
+    expect((ref.element as HTMLElement).style.color).not.toBe('')
+  })
+
   it('a narrow frame narrows the numbers; a tap selects, a double tap and a tap on the bar open the field', async () => {
     const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-scroller') ? 390 : 0

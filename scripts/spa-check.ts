@@ -98,7 +98,7 @@ async function checkTargets(page: Page, where: string): Promise<void> {
   const small = await page.evaluate(() =>
     [
       ...document.querySelectorAll<HTMLElement>(
-        '.spa-top button, .spa-top input:not([type=file]), .xs-toolbar button, .xs-toolbar select, .spa-dialog button, .spa-dialog select, .spa-choice, .xs-menu button, .xs-dialog button, .xs-dialog input, .xs-tabs button, ' +
+        '.spa-top button, .spa-top input:not([type=file]), .xs-toolbar button, .xs-toolbar select, .spa-dialog button, .spa-dialog select, .spa-choice, .xs-menu button, .xs-dialog button, .xs-dialog input, .xs-tabs button, .xs-bar button, ' +
           '.xs-find button, .xs-find-input, .xs-find-select, .xs-find-opt, .xs-fmt button, .xs-fmt-input, .xs-fmt-select, .xs-fmt-choice, .xs-fmt-check',
       ),
     ]
@@ -811,6 +811,13 @@ async function autocompleteScenario(browser: Browser, base: string, size: Size):
   await ready(page)
   expect(at('A4 in the book'), cellOf(await bookOf(page), 'A4').formula, 'SUM(A1:A3)')
   await shot('summed')
+  if (size.phone) {
+    // the formula bar over a formula with references: no target under 44 px
+    await page.locator('[data-cell="4:1"]').tap()
+    await page.waitForFunction(() => document.querySelector('.xs-fx-text')?.textContent?.includes('СУММ(A1:A3)'))
+    await checkTargets(page, at('the formula bar over a formula'))
+    await shot('formula-bar')
+  }
   console.log(`${at('ok')}: =СУ listed СУММ first, ${size.phone ? 'a tap' : 'Tab'} entered СУММ(, A4 is SUM(A1:A3) = 6`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
