@@ -7,6 +7,7 @@ import type { SheetFailure, SheetViewProps } from '../core/state'
 import { sheetContextKey } from './context'
 import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
+import FormatDialog from './FormatDialog.vue'
 import FormulaBar from './FormulaBar.vue'
 import SheetGrid from './SheetGrid.vue'
 import SheetMenu from './SheetMenu.vue'
@@ -76,6 +77,14 @@ const wait = ctx.w.wait
       <SheetTabs />
       <FilterPopover />
       <SheetMenu />
+      <FormatDialog
+        :open="ctx.cmd.formatOpen.value"
+        :state="ctx.viewState.value"
+        :messages="m"
+        :locale="locale"
+        @apply="(patches) => void ctx.cmd.format(patches)"
+        @close="ctx.cmd.closeFormat()"
+      />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>
         <button type="button" class="xs-tool" :title="m.close" @click="ctx.dismiss()">

@@ -68,7 +68,7 @@ const emit = defineEmits<{
   error: [message: string]
   /** A call is done: the host may give the grid its focus back. */
   done: []
-  /** Format Cells… pressed: the host opens `FormatDialog`; without a listener there is no such button. */
+  /** Format Cells… pressed, for a host with a `FormatDialog` of its own; without a listener the button opens the sheet's (`sheet`), and without both there is none. */
   formatCells: []
 }>()
 
@@ -77,8 +77,12 @@ const NARROW_PX = 600
 
 const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
 const instance = getCurrentInstance()
-/** Whether the host listens to `formatCells`, so that the button opens its dialog. */
+/** Whether the host listens to `formatCells`, so that the button opens its own dialog instead of the sheet's. */
 const hostDialog = typeof instance?.vnode.props?.onFormatCells === 'function' || Array.isArray(instance?.vnode.props?.onFormatCells)
+function formatCells(): void {
+  if (hostDialog || !props.sheet) emit('formatCells')
+  else props.sheet.formatCells()
+}
 const style = computed(() => props.state?.style)
 
 const FONT: { what: FontToggle; icon: typeof IconBold; title: keyof SheetMessages }[] = [
@@ -382,8 +386,8 @@ function pickNumber(e: Event): void {
           <IconWrap />
         </button>
       </span>
-      <span v-if="hostDialog" class="xs-tb-group">
-        <button type="button" class="xs-tool" data-tb="format-cells" :title="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="emit('formatCells')">
+      <span v-if="hostDialog || sheet" class="xs-tb-group">
+        <button type="button" class="xs-tool" data-tb="format-cells" :title="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="formatCells">
           <IconFormatCells />
         </button>
       </span>

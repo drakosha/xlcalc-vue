@@ -6,7 +6,7 @@
 import { computed, onBeforeUnmount, ref, shallowRef, watchEffect } from 'vue'
 import type { BookInput } from 'xlcalc'
 import { quoteSheetIfNeeded } from 'xlcalc/text'
-import { FormatDialog, SheetToolbar, SheetView, enMessages, ruMessages, type SheetFormatPatch, type SheetViewApi, type SheetViewState } from '../src'
+import { SheetToolbar, SheetView, enMessages, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
 import SpaDialog from './SpaDialog.vue'
 import SpaLosses from './SpaLosses.vue'
@@ -179,19 +179,9 @@ async function applySettings(): Promise<void> {
   }
 }
 
-// ── the grid's focus back after the toolbar's number format list or the Format Cells dialog took it ──
+// ── the grid's focus back after the toolbar's number format list took it ──
 function refocus(): void {
   if (!window.matchMedia?.('(pointer: coarse)').matches) document.querySelector<HTMLElement>('.xs-scroller')?.focus({ preventScroll: true })
-}
-
-// ── Format Cells: the toolbar's button opens it, OK formats the selection through the sheet, one step of undo ──
-const formatOpen = ref(false)
-function formatCells(patches: SheetFormatPatch[]): void {
-  void sheet.value?.format(patches)
-}
-function closeFormat(): void {
-  formatOpen.value = false
-  refocus()
 }
 
 // The browser check reads the timings and the book through this.
@@ -238,9 +228,7 @@ onBeforeUnmount(() => void book.value?.source.close())
       :locale="book.source.locale"
       :sheet="sheet"
       @done="refocus"
-      @format-cells="formatOpen = true"
     />
-    <FormatDialog :open="formatOpen" :state="state" :messages="messages" :locale="book?.source.locale" @apply="formatCells" @close="closeFormat" />
     <SheetView
       v-if="book"
       :key="book.key"

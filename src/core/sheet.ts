@@ -270,6 +270,17 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       find.openFind()
       return
     }
+    // Control+H on a Mac too, as Excel for Mac: Cmd+H hides the browser.
+    if (e.ctrlKey && !e.altKey && /^[hHрР]$/.test(e.key) && find.available.value) {
+      e.preventDefault()
+      find.openReplace()
+      return
+    }
+    // Control+1 on a Mac too: the browser keeps Cmd+1 for its first tab.
+    if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.key === '1' || e.code === 'Digit1') && cmd.openFormat()) {
+      e.preventDefault()
+      return
+    }
     if (e.key === 'Escape' && (filter.open.value !== null || find.isOpen.value)) {
       e.preventDefault()
       if (filter.open.value !== null) filter.close()
@@ -329,23 +340,20 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     },
   )
 
-  // The sheet and selection go out: formula, value and look come from the loaded window, so they are watched too.
-  watch(
-    [s.sheet, sel.selectionRef, f.selectedFormula, f.selectedValue, activeLook],
-    () => {
-      if (!s.sheet.value || !sel.selectionRef.value) return emit('state', null)
-      const look = activeLook.value
-      emit('state', {
-        sheet: s.sheet.value.name,
-        ref: sel.selectionRef.value,
-        ...(f.selectedFormula.value ? { formula: f.selectedFormula.value } : {}),
-        ...(f.selectedValue.value ? { value: f.selectedValue.value } : {}),
-        ...(look?.style ? { style: look.style } : {}),
-        ...(look?.numberFormat !== undefined ? { numberFormat: look.numberFormat } : {}),
-      })
-    },
-    { immediate: true },
-  )
+  // The sheet and selection go out: formula, value and look come from the loaded window; the Format Cells dialog reads them too.
+  const viewState = computed<SheetViewState | null>(() => {
+    if (!s.sheet.value || !sel.selectionRef.value) return null
+    const look = activeLook.value
+    return {
+      sheet: s.sheet.value.name,
+      ref: sel.selectionRef.value,
+      ...(f.selectedFormula.value ? { formula: f.selectedFormula.value } : {}),
+      ...(f.selectedValue.value ? { value: f.selectedValue.value } : {}),
+      ...(look?.style ? { style: look.style } : {}),
+      ...(look?.numberFormat !== undefined ? { numberFormat: look.numberFormat } : {}),
+    }
+  })
+  watch(viewState, (state) => emit('state', state), { immediate: true })
   onBeforeUnmount(() => {
     observer?.disconnect()
     unsubscribe?.()
@@ -368,6 +376,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     find,
     views,
     cmd,
+    viewState,
     outline,
     menu,
     editor,

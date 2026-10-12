@@ -1,5 +1,6 @@
 // Changes of the book the host or the grid's menus and keys ask for (format, structure, lines, outline, undo and redo): each goes
 // through the source as Control+Z goes, and the sheet is read again after one a window's cells cannot carry.
+import { ref } from 'vue'
 import type { CellStyle } from 'xlcalc/contract'
 import type { EditOutcome, FormatPatch, LayoutChange, OutlineChange, SheetOp } from '../source'
 import { fontToggle, type FontToggle } from '../toolbar'
@@ -24,6 +25,8 @@ export interface SheetViewApi {
   structure(op: SheetOp): Promise<EditOutcome | null>
   /** An outline command of the source (Group, Ungroup, a group's button, a level button); the sheet is read again after it. */
   outline(change: OutlineChange): Promise<EditOutcome | null>
+  /** Excel's Format Cells dialog (Control+1) over the selection, at the active cell's look; false when the sheet cannot format. */
+  formatCells(): boolean
 }
 
 /** The sheet to show once the sheets are read again: by name, keeping the selection or starting over on it. */
@@ -103,15 +106,28 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     return true
   }
 
+  // ── Excel's Format Cells (Control+1): OK formats the selection in one call of `format` ──
+  const formatOpen = ref(false)
+  function openFormat(): boolean {
+    if (!can('format') || !s.sheet.value || !sel.selectionRef.value) return false
+    formatOpen.value = true
+    return true
+  }
+  function closeFormat(): void {
+    formatOpen.value = false
+    s.scroller.value?.focus({ preventScroll: true })
+  }
+
   const api: SheetViewApi = {
     undo: () => ed.stepHistory('undo'),
     redo: () => ed.stepHistory('redo'),
     format,
     structure,
     outline,
+    formatCells: openFormat,
   }
 
-  return { can, change, format, structure, layout, outline, fontKey, api }
+  return { can, change, format, structure, layout, outline, fontKey, formatOpen, openFormat, closeFormat, api }
 }
 
 export type Commands = ReturnType<typeof useCommands>
