@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods turn features on: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, NumberFormat, StructureOp, StylePatch } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, NumberFormat, StructureOp, StylePatch } from 'xlcalc/contract'
 
 /** Where a sheet takes its data from; the component knows only this. */
 export interface SheetSource {
@@ -127,6 +127,8 @@ export interface SheetWindow {
   tables?: { name: string; range: string; headerRow: number }[]
   /** Conditional formatting data bars: the share of the cell's width (0..1) and the bar's colour. */
   bars?: Record<string, { ratio: number; color: string }>
+  /** What the sheet's conditional formats give cells, as xlcalc computes it: a style over the cell's, a data bar, an icon, the value hidden. Drawn in place of `bars` where given. */
+  appearance?: Record<string, ConditionalAppearance>
   /** Hyperlinks: an external address, a place in the book (`Sheet!B12`), a tooltip, a host's target (a the app file). */
   links?: Record<string, { href?: string; location?: string; tooltip?: string; target?: string }>
   notes?: Record<string, { author?: string; text: string }>
