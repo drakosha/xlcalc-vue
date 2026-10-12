@@ -78,7 +78,8 @@ export interface SheetInfo {
   maxRow: number
   maxCol: number
   freeze?: { rows: number; cols: number }
-  hidden?: boolean
+  /** Not on the tabs; `very` (xlsx's veryHidden) is not offered to show again either, as Excel offers it nowhere. */
+  hidden?: boolean | 'very'
   /** Rectangles that cannot be edited, with the reason for a tooltip (the app: the script's areas). */
   locked?: { range: string; reason: string }[]
   /** List mode: column titles in the header instead of letters; `sortable` lets a header click sort. */

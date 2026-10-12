@@ -119,7 +119,7 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     const name = info.name
     const tabs = deps.tabs()
     const k = tabs.findIndex((t) => t.i === index)
-    const hidden = s.sheets.value.filter((x) => x.hidden).map((x) => x.name)
+    const hidden = s.sheets.value.filter((x) => x.hidden === true).map((x) => x.name)
     const out: MenuItem[] = [
       { id: 'insertSheet', label: m().menuInsert, run: () => void cmd.structure({ op: 'insertSheet', name: nextSheetName(), before: name }) },
       { id: 'deleteSheet', label: m().menuDelete, run: () => deleteSheet(info) },

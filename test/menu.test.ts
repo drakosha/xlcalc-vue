@@ -308,6 +308,16 @@ describe('the menu on the tabs', () => {
       { op: 'unhideSheet', sheet: 'Ещё' },
     ])
   })
+
+  it('does not offer a very hidden sheet to show again, as Excel does not', async () => {
+    const source = memorySource({ sheets: [{ name: 'S', cells: {} }, { name: 'Скрытый', hidden: true, cells: {} }, { name: 'Тайный', hidden: 'very', cells: {} }] })
+    source.structure = vi.fn(async (_op: SheetOp) => OK)
+    const w = await mountSheet(source, { messages: ruMessages })
+    expect(w.findAll('.xs-tab').map((t) => t.text())).toEqual(['S'])
+    await context(w.findAll('.xs-tab')[0]!)
+    await pick('unhideSheet')
+    expect([...document.querySelectorAll<HTMLElement>('[data-xs-unhide]')].map((b) => b.textContent!.trim())).toEqual(['Скрытый'])
+  })
 })
 
 describe('with the local source', () => {

@@ -32,7 +32,7 @@ function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
     maxRow: used.rows,
     maxCol: used.columns,
     ...(f ? { freeze: { rows: f.rows ?? 0, cols: f.columns ?? 0 } } : {}),
-    ...(sheet.hidden ? { hidden: true } : {}),
+    ...(sheet.hidden ? { hidden: sheet.hidden } : {}),
   }
 }
 
