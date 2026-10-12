@@ -56,7 +56,7 @@ describe('Control+Return', () => {
     expect(address(w)).toBe('B1:B3')
   })
 
-  it('Cmd+Return in the formula bar sends the text even when it did not change', async () => {
+  it('Cmd+Return in the formula bar sends the text even when it did not change, as the cell’s own text edited in place', async () => {
     const source = memorySource(book())
     const fill = held()
     source.fill = fill.call
@@ -66,7 +66,7 @@ describe('Control+Return', () => {
     await settle()
     await w.find('.xs-fx-input').trigger('keydown', { key: 'Enter', metaKey: true })
     await settle()
-    expect(fill.call).toHaveBeenCalledWith('S', 'B1:C2', 'b1', 'B1')
+    expect(fill.call).toHaveBeenCalledWith('S', 'B1:C2', 'b1', 'B1', { inPlace: true })
     expect(address(w)).toBe('B1:C2')
   })
 
