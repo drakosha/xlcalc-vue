@@ -1,4 +1,4 @@
-// The "all formatting" book: every 0.1.0 row of the the app parity table on its own sheet, and conditional formats; synthetic data only.
+// The "all formatting" book: every 0.1.0 row of the the app parity table on its own sheet, conditional formats and data validation; synthetic data only.
 import { cellAddress } from 'xlcalc/a1'
 import type { BorderLine, CellStyle } from 'xlcalc/contract'
 import type { MemoryBook, MemoryCell, MemorySheet } from '../src'
@@ -330,6 +330,43 @@ function filterable(rows: number): MemorySheet {
   return { name: 'Фильтр', cells, freeze: { rows: 1, cols: 0 }, widths: { A: 16, B: 12, C: 12, D: 12, E: 18 } }
 }
 
+/** Excel's data validation: dropdown lists, input messages, whole numbers within bounds, and the three styles of alert. */
+function validation(): MemorySheet {
+  const head = st({ font: { bold: true }, fill: { color: '#d9e1f2' }, border: { bottom: { style: 'thin' } } })
+  const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
+  const rows: [string, MemoryCell['value'], string][] = [
+    ['Статус', 'открыт', 'список и подсказка'],
+    ['Отдел', 'Склад', 'список, «Останов»'],
+    ['Количество', 5, 'целое от 1 до 100, «Останов» со своим заголовком'],
+    ['Скидка, %', 10, 'целое от 0 до 30, «Предупреждение»'],
+    ['Приоритет', 'средний', 'список, «Сообщение»'],
+    ['Оценка', 3, 'целое от 1 до 5, «Останов» без своего текста'],
+    ['Месяц', 'Март', 'список из двенадцати пунктов'],
+    ['Комментарий', null, 'только подсказка'],
+  ]
+  const cells: Record<string, MemoryCell> = { A1: { value: 'Поле', style: head }, B1: { value: 'Значение', style: head }, C1: { value: 'Правило', style: head } }
+  rows.forEach(([name, value, rule], i) => {
+    cells[`A${i + 2}`] = { value: name }
+    if (value !== null) cells[`B${i + 2}`] = { value }
+    cells[`C${i + 2}`] = { value: rule }
+  })
+  return {
+    name: 'Проверка данных',
+    cells,
+    widths: { A: 14, B: 16, C: 46 },
+    validations: [
+      { range: 'B2', list: ['открыт', 'в работе', 'закрыт'], prompt: { title: 'Статус', text: 'Выберите статус из списка или нажмите Alt+↓' } },
+      { range: 'B3', list: ['Бухгалтерия', 'Склад', 'Продажи', 'Закупки', 'ИТ'], alert: { message: 'Такого отдела нет: выберите из списка' } },
+      { range: 'B4', whole: { min: 1, max: 100 }, prompt: { title: 'Количество', text: 'Целое число от 1 до 100' }, alert: { title: 'Количество', message: 'Введите целое число от 1 до 100' } },
+      { range: 'B5', whole: { min: 0, max: 30 }, alert: { severity: 'warning', title: 'Скидка', message: 'Скидка больше 30 % требует согласования' } },
+      { range: 'B6', list: ['низкий', 'средний', 'высокий'], alert: { severity: 'information', message: 'Обычно приоритет берут из списка' } },
+      { range: 'B7', whole: { min: 1, max: 5 } },
+      { range: 'B8', list: months },
+      { range: 'B9', prompt: { title: 'Комментарий', text: 'Коротко, до 200 знаков: что сделано и что осталось' } },
+    ],
+  }
+}
+
 export function allFormattingBook(longRows = 34_000): MemoryBook {
   const sheets: MemorySheet[] = [
     formatting(),
@@ -350,6 +387,7 @@ export function allFormattingBook(longRows = 34_000): MemoryBook {
     overflow(),
     { name: 'Плашка', cells: { A1: { value: 'Значения посчитал источник' } }, notice: 'Значения формул посчитаны источником, в файле их нет' },
     filterable(300),
+    validation(),
   ]
   return { sheets, styles }
 }

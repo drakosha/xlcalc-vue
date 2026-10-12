@@ -64,12 +64,18 @@ describe('localSource: Control+Return', () => {
 
   it('refuses every cell when the active cell\'s stop rule does not take the value', async () => {
     const s = source(sheet())
-    expect(await s.fill!('S', 'D1:D2', '-1', 'D1')).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', cells: [{ sheet: 'S', cell: 'D1' }] })
+    expect(await s.fill!('S', 'D1:D2', '-1', 'D1')).toEqual({
+      ok: false,
+      reason: 'refused',
+      message: 'Только больше нуля',
+      cells: [{ sheet: 'S', cell: 'D1' }],
+      alert: { severity: 'stop', message: 'Только больше нуля', sheet: 'S', cell: 'D1' },
+    })
     expect((await win(s, 'S', 1, 2, 4, 1)).values).toEqual([[1], [null]])
     expect(s.history).toEqual({ undo: 0, redo: 0 })
   })
 
-  it('enters a value a warning or an information rule does not take, as their Yes and OK keep it', async () => {
+  it('refuses a value a warning or an information rule does not take with its alert, and enters it after Yes or OK (`accept`)', async () => {
     const s = source({
       sheets: [{
         name: 'S',
@@ -80,8 +86,11 @@ describe('localSource: Control+Return', () => {
         ],
       }],
     })
-    expect(await s.fill!('S', 'A1:A2', '-1', 'A1')).toMatchObject({ ok: true, select: { sheet: 'S', range: 'A1:A2' } })
-    expect(await s.fill!('S', 'B1:B2', '-2', 'B2')).toMatchObject({ ok: true })
+    expect(await s.fill!('S', 'A1:A2', '-1', 'A1')).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'warning', cell: 'A1' } })
+    expect(await s.fill!('S', 'B1:B2', '-2', 'B2')).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'information', cell: 'B2' } })
+    expect(s.history).toEqual({ undo: 0, redo: 0 })
+    expect(await s.fill!('S', 'A1:A2', '-1', 'A1', { accept: true })).toMatchObject({ ok: true, select: { sheet: 'S', range: 'A1:A2' } })
+    expect(await s.fill!('S', 'B1:B2', '-2', 'B2', { accept: true })).toMatchObject({ ok: true })
     expect((await win(s, 'S', 1, 2, 1, 2)).values).toEqual([[-1, -2], [-1, -2]])
     expect(s.history).toEqual({ undo: 2, redo: 0 })
   })

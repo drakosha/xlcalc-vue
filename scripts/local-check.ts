@@ -133,6 +133,26 @@ async function outlineScenario(page: Page, base: string): Promise<void> {
   console.log(`[1920] outline: + shows 6:8, Control+Z hides it, level 1 leaves the total (E10 = ${total?.trim()}), columns B:D collapsed; rows now ${(await numbers(page)).slice(0, 4).join(' ')}`)
 }
 
+/**
+ * Data validation through the pool: a value a stop rule and one a warning rule do not take are refused with the rule's text
+ * on the message line (the sheet has no alert yet), and the cells keep their values.
+ */
+async function validationScenario(page: Page, base: string): Promise<void> {
+  for (const [cell, at, typed, kept, text] of [
+    ['B4', '4:2', '500', '5', 'Целое число от 1 до 100'],
+    ['B5', '5:2', '50', '10%', 'Скидка больше 30% требует согласования'],
+  ] as const) {
+    await open(page, base, `Проверка!${cell}`, at)
+    await page.locator('.xs-scroller').focus()
+    await page.keyboard.type(typed)
+    await page.keyboard.press('Enter')
+    await page.waitForFunction((t) => document.querySelector('.xs-message')?.textContent?.trim() === t, text, { timeout: 10_000 })
+    await shows(page, at, kept)
+  }
+  await page.screenshot({ path: resolve(out, 'local-1920-validation.png') })
+  console.log('[1920] validation: 500 under a stop rule and 50% under a warning refused with their texts, the cells kept')
+}
+
 /** A small ru-RU file opened from the field, typed into, filled with Control+Return, pasted into, undone, redone, saved and opened again. */
 async function fileScenario(browser: Browser, base: string): Promise<void> {
   const file = resolve(out, 'local-small.xlsx')
@@ -256,6 +276,7 @@ async function production(browser: Browser): Promise<void> {
         await page.screenshot({ path: resolve(out, `local-${size.name}-invalid.png`) })
         await page.keyboard.press('Escape')
         await outlineScenario(page, base)
+        await validationScenario(page, base)
         const bytes = await page.evaluate(() => (window as any).__xs.save() as Promise<number>)
         if (!(bytes > 1000)) throw new Error(`saved xlsx of ${bytes} bytes`)
         console.log(`[${size.name}] saved xlsx: ${bytes} bytes`)

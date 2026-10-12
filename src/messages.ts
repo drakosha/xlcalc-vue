@@ -199,6 +199,14 @@ export interface SheetMessages {
   fmtPreset: (p: 'none' | 'outline' | 'inside') => string
   fmtEdges: string
   fmtEdge: (e: 'top' | 'bottom' | 'left' | 'right' | 'insideH' | 'insideV') => string
+  /** Excel's data validation: the dropdown's button, the alert's title without the rule's, its buttons (OK and Cancel are `ok` and `cancel`), a warning's question and the styles' names. */
+  validationList: string
+  validationTitle: string
+  validationRetry: string
+  validationYes: string
+  validationNo: string
+  validationContinue: string
+  validationStyle: (severity: 'stop' | 'warning' | 'information') => string
 }
 
 export const enMessages: SheetMessages = {
@@ -408,6 +416,13 @@ export const enMessages: SheetMessages = {
   fmtPreset: (p) => ({ none: 'None', outline: 'Outline', inside: 'Inside' })[p],
   fmtEdges: 'Border',
   fmtEdge: (e) => ({ top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right', insideH: 'Inside horizontal', insideV: 'Inside vertical' })[e],
+  validationList: 'Pick from the list (Alt+Down)',
+  validationTitle: 'Microsoft Excel',
+  validationRetry: 'Retry',
+  validationYes: 'Yes',
+  validationNo: 'No',
+  validationContinue: 'Continue?',
+  validationStyle: (severity) => ({ stop: 'Stop', warning: 'Warning', information: 'Information' })[severity],
 }
 
 /** Russian plural: one, few, many. */
@@ -640,4 +655,11 @@ export const ruMessages: SheetMessages = {
   fmtEdges: 'Отдельные',
   fmtEdge: (e) =>
     ({ top: 'верхняя', bottom: 'нижняя', left: 'левая', right: 'правая', insideH: 'внутренняя горизонтальная', insideV: 'внутренняя вертикальная' })[e],
+  validationList: 'Выбрать из списка (Alt+↓)',
+  validationTitle: 'Microsoft Excel',
+  validationRetry: 'Повторить',
+  validationYes: 'Да',
+  validationNo: 'Нет',
+  validationContinue: 'Продолжить?',
+  validationStyle: (severity) => ({ stop: 'Останов', warning: 'Предупреждение', information: 'Сообщение' })[severity],
 }
