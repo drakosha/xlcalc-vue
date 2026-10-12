@@ -225,6 +225,8 @@ export interface CellEntry {
 export interface EditOptions {
   /** The person kept a value the cell's rule does not take, by a warning's Yes or an information's OK: write it without asking the rule again. */
   accept?: true
+  /** The text was edited from the cell's own (F2, a double click, the formula bar), not typed over the cell: Excel's percent editor adds no `%` then (`6%` in a `0%` cell is 0.06). */
+  inPlace?: true
 }
 
 /** A cell's data validation as the person meets it: Excel's dropdown of a list rule and the message shown while the cell is selected. */
