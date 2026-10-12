@@ -1,0 +1,177 @@
+// @vitest-environment node
+// Excel's outline rules (src/local/outline.ts) against what Excel for Windows 16 (build 20430) did over COM on a synthetic
+// book, 12.10.2026: each case is a measured scenario, the hidden rows and the collapsed marks as Excel saved them.
+import { describe, expect, it } from 'vitest'
+import { groupsOf, outlineEdit, type OutlineLine } from '../src/local/outline'
+import type { OutlineChange } from '../src/source'
+
+/** A command without its sheet, each kind of `OutlineChange` kept apart. */
+type Change = OutlineChange extends infer C ? (C extends unknown ? Omit<C, 'sheet'> : never) : never
+
+/** A sheet's rows one by one, as Excel's rows: level, hidden, the collapsed mark. */
+class Rows {
+  level = new Map<number, number>()
+  hidden = new Set<number>()
+  marks = new Set<number>()
+  constructor(levels: Record<number, number> = {}) {
+    for (const [r, l] of Object.entries(levels)) this.level.set(Number(r), l)
+  }
+  lines(): OutlineLine[] {
+    const at = [...new Set([...this.level.keys(), ...this.hidden, ...this.marks])].sort((a, b) => a - b)
+    return at.map((r) => ({ from: r, to: r, level: this.level.get(r) ?? 0, hidden: this.hidden.has(r), collapsed: this.marks.has(r) }))
+  }
+  /** Apply a command as a source does; its refusal's message, or null. */
+  run(change: Change, after = true): string | null {
+    const got = outlineEdit(this.lines(), after, { sheet: 'S', ...change } as OutlineChange)
+    if (!got.ok) return got.message
+    for (const p of got.patches) {
+      for (let r = p.from; r <= p.to; r++) {
+        if (p.level !== undefined) void (p.level ? this.level.set(r, p.level) : this.level.delete(r))
+        if (p.hidden !== undefined) void (p.hidden ? this.hidden.add(r) : this.hidden.delete(r))
+        if (p.collapsed !== undefined) void (p.collapsed ? this.marks.add(r) : this.marks.delete(r))
+      }
+    }
+    return null
+  }
+  /** Rows 1..13 as the measurement printed them: `3:1h` is row 3 at level 1, hidden. */
+  state(n = 13): string {
+    return Array.from({ length: n }, (_, i) => `${i + 1}:${this.level.get(i + 1) ?? 0}${this.hidden.has(i + 1) ? 'h' : ''}`).join(' ')
+  }
+  get collapsed(): number[] {
+    return [...this.marks].sort((a, b) => a - b)
+  }
+}
+const lvl = (r: string, level: number) => ({ rows: r, level })
+
+describe('groups as Excel draws them', () => {
+  it('a level is the longest runs of lines at it or deeper; outer before inner; collapsed when every line is hidden, by hand too', () => {
+    const lines: OutlineLine[] = [
+      { from: 3, to: 4, level: 1, hidden: false, collapsed: false },
+      { from: 5, to: 7, level: 2, hidden: true, collapsed: false },
+      { from: 8, to: 10, level: 1, hidden: false, collapsed: true },
+      { from: 12, to: 12, level: 1, hidden: true, collapsed: false },
+    ]
+    expect(groupsOf(lines)).toEqual([
+      { from: 3, to: 10, level: 1, collapsed: false },
+      { from: 5, to: 7, level: 2, collapsed: true },
+      { from: 12, to: 12, level: 1, collapsed: true },
+    ])
+  })
+})
+
+describe('Group and Ungroup', () => {
+  it('S1: each Group puts the lines a level deeper; the eighth is refused, the levels stay at 7', () => {
+    const rows = new Rows()
+    for (let i = 1; i <= 7; i++) expect(rows.run({ op: 'group', rows: '3:6' })).toBeNull()
+    expect(rows.run({ op: 'group', rows: '3:6' })).toMatch(/deeper than 7 levels/)
+    expect(rows.state(7)).toBe('1:0 2:0 3:7 4:7 5:7 6:7 7:0')
+  })
+
+  it('S2: Ungroup of lines in no group is refused; over a mix it lowers the grouped ones; over a part of a group that part', () => {
+    const rows = new Rows()
+    expect(rows.run({ op: 'ungroup', rows: '3:6' })).toMatch(/in no group/)
+    rows.run({ op: 'group', rows: '4:5' })
+    expect(rows.run({ op: 'ungroup', rows: '3:6' })).toBeNull()
+    expect(rows.state(7)).toBe('1:0 2:0 3:0 4:0 5:0 6:0 7:0')
+    rows.run({ op: 'group', rows: '4:5' })
+    rows.run({ op: 'ungroup', rows: '5:5' })
+    expect(rows.state(7)).toBe('1:0 2:0 3:0 4:1 5:0 6:0 7:0')
+  })
+
+  it('S8, S9: Ungroup leaves hidden lines hidden and the summary line its mark', () => {
+    const rows = new Rows({ 3: 1, 4: 1, 5: 1, 6: 1 })
+    rows.run({ op: 'collapse', ...lvl('3:6', 1) })
+    rows.run({ op: 'ungroup', rows: '3:6' })
+    expect(rows.state(7)).toBe('1:0 2:0 3:0h 4:0h 5:0h 6:0h 7:0')
+    expect(rows.collapsed).toEqual([7])
+    const nested = new Rows({ 3: 1, 4: 1, 5: 2, 6: 2, 7: 2, 8: 1, 9: 1, 10: 1 })
+    nested.run({ op: 'collapse', ...lvl('5:7', 2) })
+    nested.run({ op: 'ungroup', rows: '3:10' })
+    expect(nested.state(11)).toBe('1:0 2:0 3:0 4:0 5:1h 6:1h 7:1h 8:0 9:0 10:0 11:0')
+    expect(nested.collapsed).toEqual([8])
+  })
+})
+
+describe('a group’s button', () => {
+  const nested = () => new Rows({ 3: 1, 4: 1, 5: 2, 6: 2, 7: 2, 8: 1, 9: 1, 10: 1 })
+
+  it('S3: a group collapsed inside a collapsed one stays collapsed when the outer is expanded, by its mark', () => {
+    const rows = nested()
+    rows.run({ op: 'collapse', ...lvl('5:7', 2) })
+    expect(rows.state(11)).toBe('1:0 2:0 3:1 4:1 5:2h 6:2h 7:2h 8:1 9:1 10:1 11:0')
+    rows.run({ op: 'collapse', ...lvl('3:10', 1) })
+    expect(rows.state(11)).toBe('1:0 2:0 3:1h 4:1h 5:2h 6:2h 7:2h 8:1h 9:1h 10:1h 11:0')
+    expect(rows.collapsed).toEqual([8, 11])
+    rows.run({ op: 'expand', ...lvl('3:10', 1) })
+    expect(rows.state(11)).toBe('1:0 2:0 3:1 4:1 5:2h 6:2h 7:2h 8:1 9:1 10:1 11:0')
+    expect(rows.collapsed).toEqual([8])
+  })
+
+  it('S3b: one that was expanded comes back expanded', () => {
+    const rows = nested()
+    rows.run({ op: 'collapse', ...lvl('3:10', 1) })
+    expect(rows.collapsed).toEqual([11])
+    rows.run({ op: 'expand', ...lvl('3:10', 1) })
+    expect(rows.state(11)).toBe('1:0 2:0 3:1 4:1 5:2 6:2 7:2 8:1 9:1 10:1 11:0')
+  })
+
+  it('S4: groups that share their summary line open together', () => {
+    const rows = new Rows({ 3: 1, 4: 2, 5: 2, 6: 2 })
+    rows.run({ op: 'collapse', ...lvl('3:6', 1) })
+    expect(rows.collapsed).toEqual([7])
+    rows.run({ op: 'expand', ...lvl('3:6', 1) })
+    expect(rows.state(7)).toBe('1:0 2:0 3:1 4:2 5:2 6:2 7:0')
+    expect(rows.collapsed).toEqual([])
+  })
+
+  it('S5, S6: Show Detail shows a line hidden by hand; a group hidden by hand is collapsed', () => {
+    const rows = new Rows({ 3: 1, 4: 1, 5: 1, 6: 1 })
+    rows.hidden.add(4)
+    rows.run({ op: 'collapse', ...lvl('3:6', 1) })
+    rows.run({ op: 'expand', ...lvl('3:6', 1) })
+    expect(rows.state(7)).toBe('1:0 2:0 3:1 4:1 5:1 6:1 7:0')
+    for (const r of [3, 4, 5, 6]) rows.hidden.add(r)
+    expect(groupsOf(rows.lines())).toEqual([{ from: 3, to: 6, level: 1, collapsed: true }])
+    rows.run({ op: 'expand', ...lvl('3:6', 1) })
+    expect(rows.state(7)).toBe('1:0 2:0 3:1 4:1 5:1 6:1 7:0')
+  })
+
+  it('S10: with summaries above, the mark goes on the line before the group', () => {
+    const rows = new Rows({ 3: 1, 4: 1, 5: 1, 6: 1 })
+    rows.run({ op: 'collapse', ...lvl('3:6', 1) }, false)
+    expect([rows.state(7), rows.collapsed]).toEqual(['1:0 2:0 3:1h 4:1h 5:1h 6:1h 7:0', [2]])
+    rows.run({ op: 'expand', ...lvl('3:6', 1) }, false)
+    expect([rows.state(7), rows.collapsed]).toEqual(['1:0 2:0 3:1 4:1 5:1 6:1 7:0', []])
+  })
+
+  it('names the group by its lines and level; another is refused', () => {
+    expect(nested().run({ op: 'collapse', ...lvl('3:9', 1) })).toMatch(/No group of level 1/)
+    expect(nested().run({ op: 'collapse', ...lvl('5:7', 1) })).toMatch(/No group of level 1/)
+  })
+})
+
+describe('a level button', () => {
+  it('S7: level k hides the lines of level k and deeper, shows the others; lines outside groups stay; marks on the summaries left in view', () => {
+    const rows = new Rows({ 3: 1, 4: 1, 5: 2, 6: 2, 7: 2, 8: 1, 9: 1, 10: 1 })
+    rows.hidden.add(9)
+    rows.hidden.add(13)
+    rows.run({ op: 'showLevel', axis: 'rows', level: 1 })
+    expect([rows.state(), rows.collapsed]).toEqual(['1:0 2:0 3:1h 4:1h 5:2h 6:2h 7:2h 8:1h 9:1h 10:1h 11:0 12:0 13:0h', [11]])
+    rows.run({ op: 'showLevel', axis: 'rows', level: 2 })
+    expect([rows.state(), rows.collapsed]).toEqual(['1:0 2:0 3:1 4:1 5:2h 6:2h 7:2h 8:1 9:1 10:1 11:0 12:0 13:0h', [8]])
+    rows.run({ op: 'showLevel', axis: 'rows', level: 3 })
+    expect([rows.state(), rows.collapsed]).toEqual(['1:0 2:0 3:1 4:1 5:2 6:2 7:2 8:1 9:1 10:1 11:0 12:0 13:0h', []])
+    rows.run({ op: 'showLevel', axis: 'rows', level: 1 })
+    rows.run({ op: 'expand', ...lvl('3:10', 1) })
+    expect(rows.state()).toBe('1:0 2:0 3:1 4:1 5:2 6:2 7:2 8:1 9:1 10:1 11:0 12:0 13:0h')
+  })
+
+  it('S11: columns go by the same rules', () => {
+    const cols = new Rows({ 3: 1, 4: 2, 5: 1 })
+    const run = (op: 'collapse' | 'expand', columns: string, level: number) => cols.run({ op, columns, level })
+    run('collapse', 'D', 2)
+    run('collapse', 'C:E', 1)
+    run('expand', 'C:E', 1)
+    expect(cols.state(6)).toBe('1:0 2:0 3:1 4:2h 5:1 6:0')
+  })
+})

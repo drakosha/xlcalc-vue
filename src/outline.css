@@ -1,0 +1,161 @@
+/* Excel's outline bars (OutlineCell.vue, OutlineLevels.vue) in --xs-* variables: thin grey brackets along a group's
+   lines with a tick at the far end, square buttons with − and + or a level's digit. The bars' sizes come from the grid
+   (--xs-outline-w, --xs-outline-h on the table); a finger presses the nearest button, so the drawing stays small. */
+.xs-sheet {
+  --xs-outline-bg: #fafafa;
+  --xs-outline-line: #8c8c8c;
+  --xs-outline-tick: 5px;
+  --xs-outline-button: 13px;
+  --xs-outline-button-bg: #ffffff;
+  --xs-outline-button-fg: #3c4043;
+  --xs-outline-button-border: #9aa0a6;
+}
+.xs-table th.xs-ol,
+.xs-table th.xs-ol-levels,
+.xs-table th.xs-ol-corner {
+  padding: 0;
+  border-bottom: 0;
+  background: var(--xs-outline-bg);
+}
+/* Rows' bar cells stick left of the numbers, columns' bar cells above the letters; the corner and the level buttons both ways. */
+.xs-ol-rows {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+.xs-table th.xs-ol-columns {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  border-right: 0;
+  border-bottom: 1px solid var(--xs-grid);
+}
+.xs-ol-rows.xs-ol-fz,
+.xs-ol-columns.xs-ol-fz {
+  z-index: 5;
+}
+.xs-table th.xs-ol-corner,
+.xs-table th.xs-ol-levels {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  border-bottom: 1px solid var(--xs-grid);
+}
+.xs-table th.xs-ol-levels-rows {
+  top: var(--xs-outline-h, 0px);
+}
+.xs-table th.xs-ol-over-nums {
+  left: var(--xs-outline-w, 0px);
+}
+
+/* A level's slot: the bracket down (rows) or across (columns) its middle, the tick toward the headers. */
+.xs-ol-mark {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.xs-ol-mark > span {
+  position: absolute;
+  border: 0 solid var(--xs-outline-line);
+}
+.xs-ol-rows .xs-ol-line {
+  top: 0;
+  bottom: 0;
+  left: var(--xs-ol-at);
+  border-left-width: 1px;
+}
+.xs-ol-rows .xs-ol-tick {
+  top: 0;
+  left: var(--xs-ol-at);
+  width: var(--xs-outline-tick);
+  border-top-width: 1px;
+}
+.xs-ol-rows.xs-ol-before .xs-ol-tick {
+  top: auto;
+  bottom: 0;
+  border-top-width: 0;
+  border-bottom-width: 1px;
+}
+.xs-ol-rows .xs-ol-end {
+  top: 0;
+  left: var(--xs-ol-at);
+  height: calc(50% - (var(--xs-outline-button) + 1px) / 2);
+  border-left-width: 1px;
+}
+.xs-ol-rows.xs-ol-before .xs-ol-end {
+  top: auto;
+  bottom: 0;
+}
+.xs-ol-columns .xs-ol-line {
+  left: 0;
+  right: 0;
+  top: var(--xs-ol-at);
+  border-top-width: 1px;
+}
+.xs-ol-columns .xs-ol-tick {
+  left: 0;
+  top: var(--xs-ol-at);
+  height: var(--xs-outline-tick);
+  border-left-width: 1px;
+}
+.xs-ol-columns.xs-ol-before .xs-ol-tick {
+  left: auto;
+  right: 0;
+  border-left-width: 0;
+  border-right-width: 1px;
+}
+.xs-ol-columns .xs-ol-end {
+  left: 0;
+  top: var(--xs-ol-at);
+  width: calc(50% - (var(--xs-outline-button) + 1px) / 2);
+  border-top-width: 1px;
+}
+.xs-ol-columns.xs-ol-before .xs-ol-end {
+  left: auto;
+  right: 0;
+}
+
+/* The buttons: a square centred on its slot's line, − and + drawn by gradients, a level's digit as text. */
+.xs-ol-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--xs-outline-button);
+  height: var(--xs-outline-button);
+  padding: 0;
+  border: 1px solid var(--xs-outline-button-border);
+  border-radius: 2px;
+  background-color: var(--xs-outline-button-bg);
+  background-position: center;
+  background-repeat: no-repeat;
+  color: var(--xs-outline-button-fg);
+  font: 600 9px / 1 var(--xs-font);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.xs-ol-btn:hover:not(:disabled) {
+  background-color: var(--xs-head-on-bg);
+}
+.xs-ol-btn:disabled {
+  cursor: default;
+}
+.xs-ol-minus {
+  background-image: linear-gradient(var(--xs-outline-button-fg), var(--xs-outline-button-fg));
+  background-size: 7px 1px;
+}
+.xs-ol-plus {
+  background-image: linear-gradient(var(--xs-outline-button-fg), var(--xs-outline-button-fg)), linear-gradient(var(--xs-outline-button-fg), var(--xs-outline-button-fg));
+  background-size: 7px 1px, 1px 7px;
+}
+.xs-ol-rows .xs-ol-btn,
+.xs-ol-levels-rows .xs-ol-btn {
+  top: calc(50% - (var(--xs-outline-button) + 1px) / 2);
+  left: calc(var(--xs-ol-at) - (var(--xs-outline-button) - 1px) / 2);
+}
+.xs-ol-columns .xs-ol-btn,
+.xs-ol-levels-columns .xs-ol-btn {
+  top: calc(var(--xs-ol-at) - (var(--xs-outline-button) - 1px) / 2);
+  left: calc(50% - (var(--xs-outline-button) + 1px) / 2);
+}

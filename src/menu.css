@@ -105,6 +105,18 @@
   border: 1px solid var(--xs-grid);
   border-radius: 4px;
 }
+.xs-dialog-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.xs-dialog-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  cursor: pointer;
+}
 .xs-dialog-foot {
   display: flex;
   justify-content: flex-end;
@@ -121,6 +133,9 @@
 }
 .xs-touch .xs-dialog {
   font-size: 15px;
+}
+.xs-touch .xs-dialog-choice {
+  min-height: 44px;
 }
 .xs-touch .xs-dialog-input {
   height: 44px;

@@ -79,7 +79,7 @@ describe('localSource: replace', () => {
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
     const before = s.history.undo
-    const out = await s.replace!({ sheet: 'Лист1', query: 'a2', lookIn: 'values' }, 'A1')
+    const out = await s.replace({ sheet: 'Лист1', query: 'a2', lookIn: 'values' }, 'A1')
     expect(out).toMatchObject({ ok: true, replaced: 1 })
     expect(out.ok && out.changes.find((c) => c.cell === 'A3')).toMatchObject({ text: '1', value: 1, formula: 'СУММ(A1:A1)', editText: '=СУММ(A1:A1)' })
     expect(s.history.undo).toBe(before + 1)
@@ -93,11 +93,11 @@ describe('localSource: replace', () => {
     const s = source(formats())
     // 15.03.2026 → 16.03.2026 by the column's date format, 1250,5 → 1260,6; a percent cell is left out, as typing `6%`
     // into it gives the text `6%%` (the library's percent editor of fresh typing, see the report)
-    expect(await s.replace!({ sheet: 'S', query: '5', range: 'A1:B1' }, '6')).toMatchObject({ ok: true, replaced: 2 })
-    expect(await s.replace!({ sheet: 'S', query: '0', range: 'D1' }, '1')).toMatchObject({ ok: true, replaced: 1 })
+    expect(await s.replace({ sheet: 'S', query: '5', range: 'A1:B1' }, '6')).toMatchObject({ ok: true, replaced: 2 })
+    expect(await s.replace({ sheet: 'S', query: '0', range: 'D1' }, '1')).toMatchObject({ ok: true, replaced: 1 })
     const w = await win(s, 'S', 1, 1, 1, 6)
     expect(w.values[0]!.slice(0, 4)).toEqual([46097, 1260.6, 0.05, '117'])
-    expect(await s.replace!({ sheet: 'S', query: 'x', wholeCell: true }, '123456789012345')).toMatchObject({ ok: true, replaced: 1 })
+    expect(await s.replace({ sheet: 'S', query: 'x', wholeCell: true }, '123456789012345')).toMatchObject({ ok: true, replaced: 1 })
     expect((await s.book()).sheets[0]!.columns?.F).toBeUndefined()
   })
 
@@ -105,7 +105,7 @@ describe('localSource: replace', () => {
     const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'x' }, C50: { value: 'x' }, A9000: { value: 'x' } } }] }, { maxCells: 10 })
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
-    const out = await s.replace!({ sheet: 'S', query: 'x' }, 'y')
+    const out = await s.replace({ sheet: 'S', query: 'x' }, 'y')
     expect(out.ok && out.changes.map((c) => `${c.cell} ${c.text}`)).toEqual(['A1 y', 'C50 y', 'A9000 y'])
     expect(events.map((e) => e.kind)).toEqual(['changed'])
   })
@@ -113,8 +113,8 @@ describe('localSource: replace', () => {
   it('finds nothing to replace in shown text, and refuses a formula the replacement breaks with nothing written', async () => {
     const s = source(formats())
     const before = s.history.undo
-    expect(await s.replace!({ sheet: 'S', query: '1 250', lookIn: 'values' }, '2')).toEqual({ ok: true, changes: [], replaced: 0 })
-    const out = await s.replace!({ sheet: 'S', query: ':', lookIn: 'formulas' }, '::')
+    expect(await s.replace({ sheet: 'S', query: '1 250', lookIn: 'values' }, '2')).toEqual({ ok: true, changes: [], replaced: 0 })
+    const out = await s.replace({ sheet: 'S', query: ':', lookIn: 'formulas' }, '::')
     expect(out).toMatchObject({ ok: false, reason: 'invalid', replaced: 0, cells: [{ sheet: 'S', cell: 'E1' }] })
     expect(s.history.undo).toBe(before)
     expect((await win(s, 'S', 1, 1, 5, 1)).formulas).toEqual({ E1: 'СУММ(B1:C1)' })

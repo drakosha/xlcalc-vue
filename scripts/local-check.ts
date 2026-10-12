@@ -108,6 +108,31 @@ async function shows(page: Page, cell: string, text: string): Promise<void> {
   await page.waitForFunction(([c, t]) => document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim() === t, [cell, text] as const, { timeout: 30_000 })
 }
 
+/** The row numbers drawn, in order. */
+const numbers = (page: Page) => page.evaluate(() => [...document.querySelectorAll('.xs-num')].map((n) => n.textContent!.trim()))
+
+/** Excel's outline in the pool: a collapsed section shown by its button and hidden again by Control+Z, a level button, the columns' group. */
+async function outlineScenario(page: Page, base: string): Promise<void> {
+  await open(page, base, 'Структура!A1', '1:1')
+  const rows = async (want: string) => {
+    await page.waitForFunction((w) => [...document.querySelectorAll('.xs-num')].map((n) => n.textContent!.trim()).slice(0, 8).join(' ') === w, want, { timeout: 10_000 })
+  }
+  await rows('1 2 3 4 5 9 10 11')
+  await page.locator('.xs-ol-rows [data-xs-outline="6:8:2"]').click()
+  await rows('1 2 3 4 5 6 7 8')
+  await page.screenshot({ path: resolve(out, 'local-1920-outline.png') })
+  await page.locator('.xs-scroller').focus()
+  await page.keyboard.press('Control+Z')
+  await rows('1 2 3 4 5 9 10 11')
+  await page.locator('.xs-ol-levels-rows [data-xs-outline-level="1"]').click()
+  await rows('1 10 11 12 13 14 15 16')
+  await page.locator('.xs-ol-columns [data-xs-outline="2:4:1"]').click()
+  await page.waitForFunction(() => [...document.querySelectorAll('.xs-head')].map((h) => h.textContent!.trim()).slice(0, 2).join(' ') === 'A E')
+  const total = await page.locator('[data-cell="10:5"]').textContent()
+  await page.screenshot({ path: resolve(out, 'local-1920-outline-level.png') })
+  console.log(`[1920] outline: + shows 6:8, Control+Z hides it, level 1 leaves the total (E10 = ${total?.trim()}), columns B:D collapsed; rows now ${(await numbers(page)).slice(0, 4).join(' ')}`)
+}
+
 /** A small ru-RU file opened from the field, typed into, filled with Control+Return, pasted into, undone, redone, saved and opened again. */
 async function fileScenario(browser: Browser, base: string): Promise<void> {
   const file = resolve(out, 'local-small.xlsx')
@@ -230,6 +255,7 @@ async function production(browser: Browser): Promise<void> {
         await page.waitForTimeout(300)
         await page.screenshot({ path: resolve(out, `local-${size.name}-invalid.png`) })
         await page.keyboard.press('Escape')
+        await outlineScenario(page, base)
         const bytes = await page.evaluate(() => (window as any).__xs.save() as Promise<number>)
         if (!(bytes > 1000)) throw new Error(`saved xlsx of ${bytes} bytes`)
         console.log(`[${size.name}] saved xlsx: ${bytes} bytes`)

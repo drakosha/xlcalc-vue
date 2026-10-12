@@ -55,7 +55,7 @@ describe('the menu on row numbers and column letters', () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await context(num(w, 3))
-    expect(items()).toEqual(['insert', 'delete', 'size', 'hide'])
+    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'group', 'ungroup'])
     await pick('insert')
     await num(w, 2).trigger('click')
     await num(w, 4).trigger('click', { shiftKey: true })
@@ -98,7 +98,7 @@ describe('the menu on row numbers and column letters', () => {
     await head(w, 1).trigger('click')
     await w.findAll('.xs-head')[1]!.trigger('click', { shiftKey: true })
     await context(head(w, 1))
-    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'unhide'])
+    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'unhide', 'group', 'ungroup'])
     await pick('unhide')
     expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'A:D', hidden: false })
     expect(w.findAll('.xs-head').map((h) => h.text()).slice(0, 3)).toEqual(['A', 'B', 'C'])
@@ -149,13 +149,14 @@ describe('the menu on row numbers and column letters', () => {
     expect(w.find('.xs-message').text()).toBe('Нельзя сдвинуть непустые ячейки за край листа')
   })
 
-  it('has no structure items without structure, no menu without layout too, none on a read-only sheet', async () => {
+  it('has no structure items without structure, no menu without layout and outline too, none on a read-only sheet', async () => {
     const plain = memorySource(book())
     const w = await mountSheet(plain)
     await context(num(w, 2))
-    expect(items()).toEqual(['size', 'hide'])
+    expect(items()).toEqual(['size', 'hide', 'group', 'ungroup'])
     document.body.innerHTML = ''
     delete (plain as { layout?: unknown }).layout
+    delete (plain as { outline?: unknown }).outline
     const bare = await mountSheet(plain)
     const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
     num(bare, 2).element.dispatchEvent(e)
@@ -200,13 +201,13 @@ describe('a finger’s long press', () => {
     await num(w, 3).trigger('pointermove', touch(23, 32))
     await wait(560)
     await settle()
-    expect(items()).toEqual(['insert', 'delete', 'size', 'hide'])
+    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'group', 'ungroup'])
     // The lift and the browser's own context menu after it belong to the press: the selection stays, the menu too.
     await num(w, 3).trigger('pointerup', touch())
     await num(w, 3).trigger('contextmenu')
     await num(w, 3).trigger('click')
     await settle()
-    expect(items()).toEqual(['insert', 'delete', 'size', 'hide'])
+    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'group', 'ungroup'])
     await pick('insert')
     expect(structure).toHaveBeenCalledWith({ op: 'insertRows', sheet: 'S', row: 3, count: 1 })
   })

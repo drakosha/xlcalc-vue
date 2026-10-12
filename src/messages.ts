@@ -48,6 +48,16 @@ export interface SheetMessages {
   menuMoveLeft: string
   menuMoveRight: string
   menuUnhideSheet: string
+  /** Excel's outline: Group and Ungroup in the menu and its box over cells (rows or columns), the buttons' titles, what is not done. */
+  menuGroup: string
+  menuUngroup: string
+  outlineRows: string
+  outlineColumns: string
+  outlineExpand: string
+  outlineCollapse: string
+  outlineLevel: (n: number) => string
+  outlineDeepest: string
+  outlineNone: string
   /** The size boxes: their labels in Excel's units and the limits. */
   columnWidth: string
   rowHeight: string
@@ -243,6 +253,15 @@ export const enMessages: SheetMessages = {
   menuMoveLeft: 'Move Left',
   menuMoveRight: 'Move Right',
   menuUnhideSheet: 'Unhide…',
+  menuGroup: 'Group',
+  menuUngroup: 'Ungroup',
+  outlineRows: 'Rows',
+  outlineColumns: 'Columns',
+  outlineExpand: 'Show Detail',
+  outlineCollapse: 'Hide Detail',
+  outlineLevel: (n) => `Show level ${n}`,
+  outlineDeepest: 'Groups go seven levels deep at most',
+  outlineNone: 'There is no group here to ungroup',
   columnWidth: 'Column width, in characters',
   rowHeight: 'Row height, in points',
   widthRange: 'Column width must be between 0 and 255',
@@ -458,6 +477,15 @@ export const ruMessages: SheetMessages = {
   menuMoveLeft: 'Переместить влево',
   menuMoveRight: 'Переместить вправо',
   menuUnhideSheet: 'Показать…',
+  menuGroup: 'Сгруппировать',
+  menuUngroup: 'Разгруппировать',
+  outlineRows: 'Строки',
+  outlineColumns: 'Колонки',
+  outlineExpand: 'Показать детали',
+  outlineCollapse: 'Скрыть детали',
+  outlineLevel: (n) => `Показать уровень ${n}`,
+  outlineDeepest: 'Группы вкладываются не глубже семи уровней',
+  outlineNone: 'Здесь нет группы, разгруппировывать нечего',
   columnWidth: 'Ширина колонки, в знаках',
   rowHeight: 'Высота строки, в пунктах',
   widthRange: 'Ширина колонки должна быть от 0 до 255',

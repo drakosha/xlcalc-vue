@@ -1,10 +1,13 @@
-// The structure menu as Excel's: on row numbers and column letters (insert, delete, sizes, hide, unhide), on the sheet
-// tabs (insert, delete, rename, move, hide, unhide) and "+" after them; a right click opens it, a finger's long press too.
+// The structure menu as Excel's: on row numbers and column letters (insert, delete, sizes, hide, unhide, group, ungroup),
+// on the sheet tabs (insert, delete, rename, move, hide, unhide) and "+" after them; a right click opens it, a finger's
+// long press too. Its small dialogs ask a size, confirm a sheet's deletion, list hidden sheets, ask rows or columns.
 import { computed, nextTick, ref, shallowRef } from 'vue'
 import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, sameName } from 'xlcalc/a1'
+import type { CellRect } from 'xlcalc/contract'
 import type { SheetInfo, SheetOp } from '../source'
 import type { Commands } from './commands'
 import { charsOfPx, ptFromPx, widthFromChars, type Geometry } from './geometry'
+import type { Outline, OutlineAxis, OutlineOp } from './outline'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 
@@ -37,15 +40,17 @@ export interface OpenMenu {
   last: number
 }
 
-/** A small dialog over the sheet: a size in Excel's units, the question before a sheet with data goes, the hidden sheets. */
+/** A small dialog over the sheet: a size in Excel's units, the question before a sheet with data goes, the hidden sheets, rows or columns to group. */
 export type MenuDialog =
   | { kind: 'size'; axis: 'columns' | 'rows'; first: number; last: number; draft: string; error: string }
   | { kind: 'deleteSheet'; sheet: string }
   | { kind: 'unhide'; sheets: string[] }
+  | { kind: 'outline'; op: OutlineOp; axis: OutlineAxis; rect: CellRect }
 
 export interface MenuDeps {
   pickSheet: (index: number) => Promise<void>
   tabs: () => { sheet: SheetInfo; i: number }[]
+  outline: Outline
 }
 
 export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Commands, deps: MenuDeps) {
@@ -57,7 +62,7 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
   const m = () => s.messages.value
 
   // ── what the menu acts on ──
-  const linesAvailable = computed(() => cmd.can('structure') || cmd.can('layout'))
+  const linesAvailable = computed(() => cmd.can('structure') || cmd.can('layout') || cmd.can('outline'))
   /** Open the menu of a row number or a column letter: a line outside a selection of whole lines selects it first, as Excel. */
   function openLines(kind: 'rows' | 'columns', line: number, x: number, y: number): boolean {
     if (!linesAvailable.value) return false
@@ -111,6 +116,12 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
       )
       if (hiddenIn(axis, first, last)) out.push({ id: 'unhide', label: m().menuUnhide, run: () => void cmd.layout({ sheet, ...lines, hidden: false }) })
     }
+    if (cmd.can('outline')) {
+      out.push(
+        { id: 'group', label: m().menuGroup, run: () => deps.outline.lines('group', axis, first, last), group: out.length > 0 },
+        { id: 'ungroup', label: m().menuUngroup, run: () => deps.outline.lines('ungroup', axis, first, last) },
+      )
+    }
     return out
   }
   function sheetItems(index: number): MenuItem[] {
@@ -163,6 +174,19 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     if (n === 0) void cmd.layout({ sheet, ...lines, hidden: true })
     else if (d.axis === 'columns') void cmd.layout({ sheet, columns: key, width: widthFromChars(n) })
     else void cmd.layout({ sheet, rows: key, height: n })
+  }
+
+  // ── Group and Ungroup over a selection of cells: Excel's box asks rows or columns, rows first ──
+  function askOutline(op: OutlineOp): void {
+    const rect = sel.fullRect.value
+    if (rect) dialog.value = { kind: 'outline', op, axis: 'rows', rect }
+  }
+  function applyOutline(): void {
+    const d = dialog.value
+    if (d?.kind !== 'outline') return
+    dialog.value = null
+    if (d.axis === 'rows') deps.outline.lines(d.op, 'rows', d.rect.top, Math.min(d.rect.bottom, MAX_ROWS))
+    else deps.outline.lines(d.op, 'columns', d.rect.left, Math.min(d.rect.right, MAX_COLS))
   }
 
   // ── sheets ──
@@ -273,6 +297,8 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     openSheet,
     linesAvailable,
     applySize,
+    askOutline,
+    applyOutline,
     nextSheetName,
     addSheet,
     confirmDelete,
