@@ -3,9 +3,10 @@
 import { cellAddress, parseCell, parseLines, parseRange, rectsMeet } from 'xlcalc/a1'
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { textEditText } from './core/edit-text'
-import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
+import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type QuerySheet } from './memory-query'
 import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './local/outline'
+import { filterKey } from './local/query'
 import { MemoryRules, memoryRefusal, type MemoryValidation } from './memory-validation'
 
 /** A cell of the memory book; a bare value is a cell with that value. */
@@ -149,6 +150,8 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     return store
   })
   const listeners = new Set<(event: SourceEvent) => void>()
+  /** Each sheet's rows under its display filter as `visibleRows` last gave them: windows under that filter read them, so a row an edit took out stays until the filter is applied again, as the component holds it and `./local` reads it. */
+  const lists = new Map<Store, { key: string; rows: number[] }>()
   const failures: Extract<EditOutcome, { ok: false }>[] = []
   /** A recomputation being played: when it started and when it ends. */
   let recomputing: { since: number; until: number } | null = null
@@ -241,11 +244,17 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     return [...at].sort((a, b) => a - b).map((i) => ({ from: i, to: i, level: levels.get(i) ?? 0, hidden: sizes.get(i) === 0, collapsed: marks.has(i) }))
   }
 
+  /** The rows under a filter: the list `visibleRows` gave for it, else the sheet's as it is; null without conditions. */
+  function listUnder(store: Store, filter: SheetFilter | undefined): number[] | null {
+    const kept = filter ? lists.get(store) : undefined
+    return kept && kept.key === filterKey(filter!) ? kept.rows : visibleList(query(store), filter)
+  }
+
   /** A rectangle; under a filter `row` is a display index and the rows come from the filter's list. */
   function windowOf(req: WindowRequest): SheetWindow | SheetPending {
     if (recomputing && Date.now() < recomputing.until) return { pending: { elapsedMs: Date.now() - recomputing.since } }
     const store = storeOrThrow(req.sheet)
-    const list = visibleList(query(store), req.filter)
+    const list = listUnder(store, req.filter)
     const cols = Math.max(0, req.cols)
     const limit = list ? Math.max(0, list.length - req.row + 1) : Infinity
     const rows = Math.max(0, Math.min(req.rows, limit, Math.floor((options.maxCells ?? 20_000) / Math.max(1, cols))))
@@ -399,7 +408,10 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     visibleRows: (sheet, filter, signal) =>
       wait(() => {
         const store = storeOrThrow(sheet)
-        return { rows: visibleList(query(store), filter), total: store.maxRow }
+        const rows = visibleList(query(store), filter)
+        if (rows) lists.set(store, { key: filterKey(filter), rows })
+        else lists.delete(store)
+        return { rows, total: store.maxRow }
       }, signal),
     columnValues: (sheet, col, filter, signal) => wait(() => columnList(query(storeOrThrow(sheet)), col, filter), signal),
     stats: (sheet, range, filter, signal) =>
