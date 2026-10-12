@@ -4,7 +4,7 @@
 // whose measurements found more (its docs/outline.md): a summary line two groups share acts on its whole detail, Excel marks
 // a summary line once its detail is all hidden and keeps the mark inside a hidden group, Group deepens the lines beside those
 // at level 7, and a group at the sheet's edge has no button.
-// TODO(xlcalc): the commands without the engine (`xlcalc/a1`, as `outlineGroups`) would replace these, at some 10 KB of the main entry.
+// TODO(xlcalc): the commands without the engine in `xlcalc/a1` would replace these, if the main entry has room (`outlineGroups` alone is 4.3 KB).
 import { MAX_COLS, MAX_ROWS, parseLines, parseRange } from 'xlcalc/a1'
 import type { OutlineChange, OutlineGroup, SheetOutline } from './source'
 
