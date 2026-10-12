@@ -36,6 +36,12 @@ export interface SheetSource {
   subscribe?(listener: (event: SourceEvent) => void): () => void
   /** A cell's data validation as Excel shows it on the cell: the list of its dropdown and its input message; null when no rule is over the cell. */
   validation?(sheet: string, cell: string, signal?: AbortSignal): Promise<SheetValidation | null>
+  /**
+   * An item picked from a list rule's dropdown: the `item`th of `validation`'s `list` (`text`, to tell when the list changed),
+   * written as Excel writes a picked item (its value, not read as typed text; the cell's format kept), the rule not asked,
+   * one step of undo. Without it the item goes to `edit` as typed, with `accept`.
+   */
+  pick?(sheet: string, cell: string, item: number, text: string): Promise<EditOutcome>
   /** Excel's Freeze Panes: the rows above and the columns left of a cell kept in view (`{ rows: 2, cols: 1 }`), null unfreezes; one step of undo. Without it the sheet's lock alone hides a book's freeze. */
   freeze?(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome>
   /** The functions a formula can call, by their names as typed in the source's locale (`СУММ` in ru-RU), for Excel's Formula AutoComplete. */
