@@ -1,6 +1,7 @@
-// Excel's Find and Replace over cells' texts, shared by `./local` and `memorySource` and free of the engine: the query's
-// wildcards, match case, the entire cell, a range, the display filter's rows, the order by rows or by columns.
-// TODO(xlcalc): ask the library for Excel's Find (the match and what Look in reads) in the session or in its text subpath.
+// Excel's Find and Replace over cells' texts for `memorySource`, free of the engine: the query's wildcards, match case,
+// the entire cell, a range, the display filter's rows, the order by rows or by columns. `./local` finds by the library
+// and takes only Replace All's matching from here.
+// TODO(xlcalc): ask the library for Excel's Find in its text subpath (engine-free), and for Replace (the matches' places).
 import { parseRange } from 'xlcalc/a1'
 import type { FindRequest, FindResult } from './source'
 
@@ -65,20 +66,30 @@ export function findCells(each: EachCell, req: FindRequest, visible: Set<number>
 }
 
 /**
- * Replace All's new texts: in each cell the request finds, every match (the whole text with Match entire cell contents)
- * replaced by `by` as it is, in Excel's order; cells whose text would not change are left out.
+ * A cell's new text under Replace All: every match (the whole text with Match entire cell contents) replaced by `by` as
+ * it is; null where nothing matches or nothing would change. Null for an empty query.
  */
-export function replaceCells(each: EachCell, req: FindRequest, by: string, visible: Set<number> | null): CellText[] {
+export function replacer(req: Pick<FindRequest, 'query' | 'matchCase' | 'wholeCell'>, by: string): ((text: string) => string | null) | null {
   const re = findPattern(req)
-  if (!re) return []
+  if (!re) return null
   const all = new RegExp(re.source, `${re.flags}g`)
+  return (text) => {
+    if (!re.test(text)) return null
+    // An empty match (after `*` took the rest) replaces nothing, as a cell's text is replaced once per match.
+    const next = text.replace(all, (m) => (m === '' ? '' : by))
+    return next === text ? null : next
+  }
+}
+
+/** Replace All's new texts: each cell the request finds with its new text, in Excel's order; cells whose text would not change are left out. */
+export function replaceCells(each: EachCell, req: FindRequest, by: string, visible: Set<number> | null): CellText[] {
+  const replace = replacer(req, by)
+  if (!replace) return []
   const inside = placeOf(req, visible)
   const out: CellText[] = []
   each((row, col, text) => {
-    if (text === '' || !inside(row, col) || !re.test(text)) return
-    // An empty match (after `*` took the rest) replaces nothing, as a cell's text is replaced once per match.
-    const next = text.replace(all, (m) => (m === '' ? '' : by))
-    if (next !== text) out.push({ row, col, text: next })
+    const next = text === '' || !inside(row, col) ? null : replace(text)
+    if (next !== null) out.push({ row, col, text: next })
   })
   return sortCells(out, req.byColumns)
 }
