@@ -1,10 +1,15 @@
-// A synthetic ru-RU book for the local source: a showcase sheet (a table, a note, links, formats) and xlcalc's synthetic book.
-import type { BookInput, CellInput, CellStyle } from 'xlcalc'
+// A synthetic ru-RU book for the local source: a showcase sheet (a table, a note, links, formats, conditional formats) and xlcalc's synthetic book.
+import type { BookInput, CellInput, CellStyle, ConditionalFormat } from 'xlcalc'
 import { synthBook } from 'xlcalc/unstable/synth'
 
 const HEAD: CellStyle = { font: { bold: true, color: '#ffffff' }, fill: { color: '#2f5597' }, alignment: { horizontal: 'center' } }
 const TITLE: CellStyle = { font: { bold: true, size: 14 }, alignment: { horizontal: 'center', vertical: 'center' } }
 const TOTAL: CellStyle = { font: { bold: true }, border: { top: { style: 'thin' }, bottom: { style: 'double' } } }
+/** A data bar over the amounts and a colour scale over the shares: an amount typed recolours every share. */
+const RULES: ConditionalFormat[] = [
+  { type: 'dataBar', ranges: ['B3:B7'], min: { type: 'autoMin' }, max: { type: 'autoMax' }, color: '#638EC6', border: '#638EC6' },
+  { type: 'colorScale', ranges: ['D3:D7'], points: [{ value: { type: 'min' }, color: '#F8696B' }, { value: { type: 'percentile', value: '50' }, color: '#FFEB84' }, { value: { type: 'max' }, color: '#63BE7B' }] },
+]
 
 /** The synthetic book of `rows` data rows, with a showcase sheet first and the data sheet's header frozen and formatted. */
 export function localBook(rows: number): BookInput {
@@ -40,6 +45,7 @@ export function localBook(rows: number): BookInput {
     rows: { '1': { height: 30 } },
     merges: ['A1:E1'],
     frozen: { rows: 2 },
+    conditionalFormats: RULES,
     tables: [
       {
         name: 'Продажи',

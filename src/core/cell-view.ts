@@ -1,8 +1,9 @@
 // One drawn cell: its classes, CSS and tooltip, the content box, borders shared with neighbours, merges and text overflow.
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { cellAddress, rectContains } from 'xlcalc/a1'
-import type { BorderLine, CellRect, CellStyle } from 'xlcalc/contract'
+import type { BorderLine, CellRect, CellStyle, Icon } from 'xlcalc/contract'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, horizontalOf, overflows, setSide, verticalOf, wrapsOf, type CssLine, type Horizontal } from './cell-style'
+import { barLayers, type Layer } from './conditional'
 import type { EditorState } from './editing'
 import type { Editing } from './editing'
 import type { Formula } from './formula'
@@ -26,7 +27,7 @@ export interface MergeSpan {
   csDom: number
 }
 
-export type ContentKind = 'text' | 'fill' | 'overflow' | 'href' | 'place' | 'host' | 'dead'
+export type ContentKind = 'text' | 'fill' | 'overflow' | 'href' | 'place' | 'host' | 'dead' | 'icon'
 
 export interface CellView {
   attrs: { class: string[]; style: Record<string, string>; title: string; rowspan?: number; colspan?: number; 'data-cell': string }
@@ -38,6 +39,8 @@ export interface CellView {
   /** Overflow into empty neighbours: pixels taken left and right, the text's place, its background (hides crossed grid lines, as in Excel). */
   ov?: { left: number; right: number; justify: string; bg: string }
   link?: CellData['link']
+  /** A conditional format's icon, drawn at the cell's left before its text. */
+  icon?: Icon
 }
 
 /** Links a browser may open by itself; anything else (`javascript:` and the like) goes to the host or is shown only. */
@@ -148,7 +151,7 @@ export function useCellView(
   }
 
   /** Background layers, top first: the note's corner, selection and highlight tints, the data bar at the bottom. */
-  function layers(css: Record<string, string>, list: { img: string; size: string; pos: string }[]): void {
+  function layers(css: Record<string, string>, list: Layer[]): void {
     if (!list.length) return
     css.backgroundImage = list.map((l) => l.img).join(', ')
     css.backgroundSize = list.map((l) => l.size).join(', ')
@@ -170,7 +173,10 @@ export function useCellView(
     const m = s.messages.value
     const pendingText = ed.pendingAt(r, c)
     const editing = deps.editor.value
-    const shownText = pendingText !== undefined ? (pendingText ?? '') : editing && editing.place === 'bar' && editing.row === r && editing.col === c ? editing.text : data.text
+    const look = data.look
+    // A rule that hides the value leaves the bar or the icon alone; the tooltip still has the value.
+    const shownText =
+      pendingText !== undefined ? (pendingText ?? '') : editing && editing.place === 'bar' && editing.row === r && editing.col === c ? editing.text : look?.hideValue ? '' : data.text
 
     const css: Record<string, string> = fontCss(st, data.color)
     if (frozen) css.top = v.stickyTop(d)
@@ -196,7 +202,7 @@ export function useCellView(
 
     // Insets: formula ranges, the selection's frame and tables' frames; tints and bars as background layers.
     const shadows: string[] = []
-    const bg: { img: string; size: string; pos: string }[] = []
+    const bg: Layer[] = []
     const full = '100% 100%'
     if (data.note) bg.push({ img: 'linear-gradient(to bottom left, var(--xs-note) 50%, transparent 50%)', size: '7px 7px', pos: 'right top' })
     const rect = sel.selRect.value
@@ -224,10 +230,7 @@ export function useCellView(
       if (c === t.rect.left) shadows.push('inset 1px 0 0 0 var(--xs-table-line)')
       if (c2 >= t.rect.right) shadows.push('inset -1px 0 0 0 var(--xs-table-line)')
     }
-    if (data.bar) {
-      const pct = Math.round(Math.min(1, Math.max(0, data.bar.ratio)) * 1000) / 10
-      bg.push({ img: `linear-gradient(to right, ${data.bar.color}, color-mix(in srgb, ${data.bar.color} 35%, transparent))`, size: `${pct}% calc(100% - 4px)`, pos: 'left center' })
-    }
+    if (look?.bar) bg.push(...barLayers(look.bar))
     if (shadows.length) css.boxShadow = shadows.join(', ')
     layers(css, bg)
 
@@ -259,7 +262,7 @@ export function useCellView(
     const wraps = wrapsOf(st)
     const vAlign = verticalOf(st)
     const boxH = Math.max(0, geo.spanHeight(d, span?.rs ?? 1) - CELL_PAD_V * 2 - bottom.width - topWidth)
-    const box = {
+    const box: CellView['box'] = {
       class: ['xs-in', wraps ? 'xs-wrap' : '', vAlign === 'top' ? 'xs-top' : vAlign === 'center' ? 'xs-mid' : 'xs-bot'],
       style: { ...alignCss(h, st?.alignment?.indent ?? 0), height: `${boxH}px` },
     }
@@ -274,6 +277,17 @@ export function useCellView(
     if (span) {
       view.attrs.rowspan = span.rsDom
       view.attrs.colspan = span.csDom
+    }
+    if (look?.icon) {
+      view.icon = look.icon
+      box.class.push('xs-iconic')
+      // The icon alone stands by the cell's alignment (General at the left), as Excel's Show Icon Only.
+      if (!shownText) {
+        view.kind = 'icon'
+        const own = st?.alignment?.horizontal
+        box.style.justifyContent = own === 'center' || own === 'centerContinuous' ? 'center' : own === 'right' ? 'flex-end' : 'flex-start'
+        return view
+      }
     }
     const link = data.link
     if (link && pendingText === undefined) {

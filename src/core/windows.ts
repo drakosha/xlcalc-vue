@@ -2,8 +2,9 @@
 // Rows of windows are display indexes (`d`): with a display filter they are places in its list, not the sheet's rows.
 import { computed, ref, shallowRef, type ShallowRef } from 'vue'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
-import type { CellRect, CellStyle, CellValue } from 'xlcalc/contract'
+import type { BarLook, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
+import { lookStyle } from './conditional'
 import { colPx, DEFAULT_ROW_PT, rowPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
@@ -52,8 +53,24 @@ export interface CellData {
   color: string | undefined
   link: NonNullable<SheetWindow['links']>[string] | undefined
   note: NonNullable<SheetWindow['notes']>[string] | undefined
-  bar: NonNullable<SheetWindow['bars']>[string] | undefined
+  /** What conditional formats give the cell; a window's old `bars` come as a bar of it. */
+  look: ConditionalAppearance | undefined
   loaded: boolean
+}
+
+/** A cell's look: its appearance, else its share of the old `bars` as a gradient bar from the left edge. */
+function lookOf(w: SheetWindow, addr: string): ConditionalAppearance | undefined {
+  const look = w.appearance?.[addr]
+  if (look) return look
+  const old = w.bars?.[addr]
+  if (!old) return undefined
+  const bar: BarLook = { start: 0, end: old.ratio, color: old.color, gradient: true }
+  return { bar }
+}
+/** The style a window's cell shows: its own (or its row's, column's), with a conditional format's over it. */
+function shownStyle(w: SheetWindow, addr: string, look: ConditionalAppearance | undefined): CellStyle | undefined {
+  const id = w.styleIds[addr]
+  return lookStyle(id === undefined ? undefined : w.styles[id], look?.style)
 }
 
 export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
@@ -83,25 +100,24 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const slot = slotAt(d, col)
     return slot ? slot.win!.values[d - slot.win!.row]?.[col - slot.win!.col] : undefined
   }
-  /** A cell's style; records of a window are keyed by the cell's own address (`addr`, by its sheet row). */
+  /** A cell's style as drawn; records of a window are keyed by the cell's own address (`addr`, by its sheet row). */
   function styleAt(d: number, col: number, addr: string): CellStyle | undefined {
     const w = slotAt(d, col)?.win
-    const id = w?.styleIds[addr]
-    return id === undefined ? undefined : w!.styles[id]
+    return w ? shownStyle(w, addr, w.appearance?.[addr]) : undefined
   }
   function cellData(d: number, col: number, addr: string): CellData {
     const w = slotAt(d, col)?.win
-    if (!w) return { text: '', value: undefined, style: undefined, formula: undefined, color: undefined, link: undefined, note: undefined, bar: undefined, loaded: false }
-    const id = w.styleIds[addr]
+    if (!w) return { text: '', value: undefined, style: undefined, formula: undefined, color: undefined, link: undefined, note: undefined, look: undefined, loaded: false }
+    const look = lookOf(w, addr)
     return {
       text: w.text[d - w.row]?.[col - w.col] ?? '',
       value: w.values[d - w.row]?.[col - w.col],
-      style: id === undefined ? undefined : w.styles[id],
+      style: shownStyle(w, addr, look),
       formula: w.formulas[addr],
       color: w.colors[addr],
       link: w.links?.[addr],
       note: w.notes?.[addr],
-      bar: w.bars?.[addr],
+      look,
       loaded: true,
     }
   }

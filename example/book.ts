@@ -1,7 +1,8 @@
-// The "all formatting" book: every 0.1.0 row of the the app parity table on its own sheet, synthetic data only.
+// The "all formatting" book: every 0.1.0 row of the the app parity table on its own sheet, and conditional formats; synthetic data only.
 import { cellAddress } from 'xlcalc/a1'
 import type { BorderLine, CellStyle } from 'xlcalc/contract'
 import type { MemoryBook, MemoryCell, MemorySheet } from '../src'
+import { CF_CELLS, CF_SHEET, CF_WIDTHS } from './cf-book'
 
 const styles: CellStyle[] = [{}]
 /** Add a style to the book's table and return its index. */
@@ -106,6 +107,18 @@ function bars(): MemorySheet {
     cells[`C${i + 2}`] = { value: v * 0.8, bar: { ratio: (v * 0.8) / 600, color: '#63be7b' } }
   })
   return { name: 'Гистограммы', cells, widths: { A: 14, B: 20, C: 20 } }
+}
+
+/** Conditional formats as xlcalc computed them for the sheet's rules (example/cf-book.ts, made by scripts/cf-demo.ts). */
+function conditional(): MemorySheet {
+  const ids = new Map<string, number>()
+  const cells: Record<string, MemoryCell> = {}
+  for (const [addr, { style, ...cell }] of Object.entries(CF_CELLS)) {
+    const key = JSON.stringify(style)
+    if (style && !ids.has(key)) ids.set(key, st(style))
+    cells[addr] = { ...cell, ...(style ? { style: ids.get(key) } : {}) }
+  }
+  return { name: CF_SHEET, cells, widths: CF_WIDTHS }
 }
 
 function links(): MemorySheet {
@@ -271,6 +284,7 @@ export function allFormattingBook(longRows = 34_000): MemoryBook {
     formatting(),
     formats(),
     bars(),
+    conditional(),
     links(),
     notes(),
     formulas(),

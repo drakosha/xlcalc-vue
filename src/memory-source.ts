@@ -1,7 +1,7 @@
 // A source over a book in memory, for tests and examples: values, shown text, formulas as strings and every display field; no engine.
 // It has every optional method of 0.2.0 (search, filter, column values, totals) and can play a book being recomputed.
 import { cellAddress, parseCell, parseLines, parseRange, rectsMeet } from 'xlcalc/a1'
-import type { CellStyle, CellValue } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, visibleList, type QuerySheet } from './memory-query'
 
@@ -18,7 +18,10 @@ export interface MemoryCell {
   color?: string
   link?: { href?: string; location?: string; tooltip?: string; target?: string }
   note?: { author?: string; text: string }
+  /** An old-style data bar (`SheetWindow.bars`); `appearance` takes its place where both are given. */
   bar?: { ratio: number; color: string }
+  /** What conditional formats give the cell, as xlcalc computes it (`ConditionalAppearance`); the book in memory keeps it as given. */
+  appearance?: ConditionalAppearance
 }
 
 export interface MemorySheet extends Omit<SheetInfo, 'maxRow' | 'maxCol'> {
@@ -210,6 +213,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       defaultRowHeight: store.sheet.defaultRowHeight,
       tables: store.sheet.tables ?? [],
       bars: {},
+      appearance: {},
       links: {},
       notes: {},
       ...(store.sheet.notice ? { notice: store.sheet.notice } : {}),
@@ -235,6 +239,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         if (cell.link) win.links![addr] = cell.link
         if (cell.note) win.notes![addr] = cell.note
         if (cell.bar) win.bars![addr] = cell.bar
+        if (cell.appearance) win.appearance![addr] = cell.appearance
       }
       win.text.push(text)
       win.values.push(values)

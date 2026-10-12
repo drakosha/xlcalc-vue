@@ -39,7 +39,7 @@ describe('dist/index.js', () => {
   })
   it('carries no engine: xlcalc/a1 and xlcalc/text are a few dozen kilobytes', () => {
     expect(js.length).toBeGreaterThan(10_000)
-    expect(js.length).toBeLessThan(200_000)
+    expect(js.length).toBeLessThan(250_000)
     expect(js).toContain('//#region node_modules/xlcalc/dist/a1.js')
     expect(js).toContain('//#region node_modules/xlcalc/dist/scan.js')
   })
