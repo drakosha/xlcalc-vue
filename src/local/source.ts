@@ -173,6 +173,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
    * Typed texts, each read as typed into its cell, in one step; only empty cells (Delete over a selection) clear the content.
    * A value a stop rule of data validation does not take refuses the call before anything is written, as Excel's alert
    * holds the entry; a warning's or an information's is written, as their Yes and OK keep it (the sheet has no alert yet).
+   * The library refuses a batch by its strictest rule, so a warning refusal means no cell breaks a stop rule.
    */
   async function edit(entries: CellEntry[]): Promise<EditOutcome> {
     const s = await open()
@@ -188,13 +189,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       if (cells.every((c) => c.text === null)) return await settle(s, await s.clearCells(cells.map((c) => ({ sheet: c.sheet, range: c.cell })), 'contents'), boxes)
       const texts = cells.map((c) => ({ sheet: c.sheet, cell: c.cell, text: c.text ?? '' }))
       let got = await s.setCellTexts(texts, { refuseInvalid: true })
-      if (!got.ok && got.code === 'validation' && got.severity !== 'stop') {
-        // the library refuses several cells at the first one a rule does not take: a later cell's stop rule refuses them too
-        const all = texts.length > 1 ? await s.previewCellTexts(texts) : null
-        const stop = all?.ok ? all.validations?.find((v) => v.severity === 'stop') : undefined
-        if (stop) return refusalOf({ code: 'validation', ...stop })
-        got = await s.setCellTexts(texts)
-      }
+      if (!got.ok && got.code === 'validation' && got.severity !== 'stop') got = await s.setCellTexts(texts)
       return got.ok ? await settle(s, got, boxes) : refusalOf(got)
     } catch (e) {
       return outcomeOf(e, 'refused')

@@ -38,7 +38,7 @@
   },
   "peerDependencies": {
     "vue": "^3.5.0",
-    "xlcalc": ">=0.21.0"
+    "xlcalc": ">=0.21.1"
   },
   "peerDependenciesMeta": {
     "xlcalc": {
@@ -55,6 +55,6 @@
     "vitest": "^4.1.10",
     "vue": "^3.5.39",
     "vue-tsc": "^3.3.5",
-    "xlcalc": "file:vendor/xlcalc-0.21.0.tgz"
+    "xlcalc": "file:vendor/xlcalc-0.21.1.tgz"
   }
 }
