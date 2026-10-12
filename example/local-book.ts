@@ -1,5 +1,5 @@
 // A synthetic ru-RU book for the local source: a showcase sheet (a table, a note, links, formats, conditional formats), a
-// sheet of Excel's outline and xlcalc's synthetic book.
+// sheet of Excel's outline, one of data validation and xlcalc's synthetic book.
 import type { BookInput, CellInput, CellStyle, ConditionalFormat } from 'xlcalc'
 import { synthBook } from 'xlcalc/unstable/synth'
 
@@ -41,6 +41,30 @@ function outlineSheet(): BookInput['sheets'][number] {
     columns: { A: { width: 16 }, 'B:D': { outlineLevel: 1 } },
     rows: { '2:4': { outlineLevel: 2 }, '5': { outlineLevel: 1 }, '6:8': { outlineLevel: 2, hidden: true }, '9': { outlineLevel: 1, collapsed: true } },
     frozen: { rows: 1 },
+  }
+}
+
+/** Excel's data validation as xlcalc keeps it: a literal list, a list of cells, whole numbers and decimals of the three alert styles, an input message. */
+function validationSheet(): BookInput['sheets'][number] {
+  const cells: Record<string, CellInput> = { A1: { value: 'Поле', style: 1 }, B1: { value: 'Значение', style: 1 }, D1: { value: 'Склады', style: 1 } }
+  const fields: [string, CellInput['value']][] = [['Статус', 'открыт'], ['Склад', 'Север'], ['Количество', 5], ['Скидка', 0.1], ['Приоритет', 'средний']]
+  fields.forEach(([name, value], i) => {
+    cells[`A${i + 2}`] = { value: name }
+    cells[`B${i + 2}`] = { value }
+  })
+  cells.B5 = { value: 0.1, numberFormat: '0%' }
+  ;['Север', 'Юг', 'Запад', 'Восток'].forEach((w, i) => (cells[`D${i + 2}`] = { value: w }))
+  return {
+    name: 'Проверка',
+    cells,
+    columns: { A: { width: 14 }, B: { width: 14 }, D: { width: 12 } },
+    validations: [
+      { range: 'B2', type: 'list', formula1: '"открыт,в работе,закрыт"', promptTitle: 'Статус', prompt: 'Выберите из списка (Alt+↓)' },
+      { range: 'B3', type: 'list', formula1: '$D$2:$D$9', error: 'Такого склада нет в столбце D' },
+      { range: 'B4', type: 'whole', operator: 'between', formula1: '1', formula2: '100', errorTitle: 'Количество', error: 'Целое число от 1 до 100' },
+      { range: 'B5', type: 'decimal', operator: 'lessThanOrEqual', formula1: '0.3', errorStyle: 'warning', error: 'Скидка больше 30% требует согласования' },
+      { range: 'B6', type: 'list', formula1: '"низкий,средний,высокий"', errorStyle: 'information' },
+    ],
   }
 }
 
@@ -92,5 +116,5 @@ export function localBook(rows: number): BookInput {
       ? { ...s, frozen: { rows: 1 }, columns: { A: { numberFormat: 14, width: 11 }, B: { width: 14 }, D: { numberFormat: '#,##0.00', width: 13 }, J: { numberFormat: 14, width: 11 } }, rows: { '1': { style: 1 } } }
       : s,
   )
-  return { ...book, locale: 'ru-RU', styles, sheets: [showcase, outlineSheet(), ...sheets] }
+  return { ...book, locale: 'ru-RU', styles, sheets: [showcase, outlineSheet(), validationSheet(), ...sheets] }
 }

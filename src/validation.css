@@ -9,7 +9,7 @@
   --xs-alert-information: #0f6cbd;
 }
 
-/* ── the dropdown: the arrow right of the cell, at its bottom as Excel's; the list under the cell ── */
+/* ── the dropdown: the arrow right of the cell, at its bottom as Excel's; the list under the cell, over the input message ── */
 .xs-vd {
   position: absolute;
   top: 0;
@@ -48,7 +48,7 @@
 }
 .xs-vd-list {
   position: absolute;
-  z-index: 7;
+  z-index: 8;
   box-sizing: border-box;
   margin: 0;
   padding: 0;

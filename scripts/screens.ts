@@ -10,7 +10,7 @@ const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'test-results/screens')
 mkdirSync(out, { recursive: true })
 
-const SHEETS = ['Оформление', 'Форматы', 'Гистограммы', 'Ссылки', 'Примечания', 'Формулы', 'Объединения', 'Размеры', 'Закрепление', 'Таблица', 'Длинный лист', 'Запертые', 'Перелив', 'Плашка', 'Фильтр', 'Условное форматирование', 'Группировка']
+const SHEETS = ['Оформление', 'Форматы', 'Гистограммы', 'Ссылки', 'Примечания', 'Формулы', 'Объединения', 'Размеры', 'Закрепление', 'Таблица', 'Длинный лист', 'Запертые', 'Перелив', 'Плашка', 'Фильтр', 'Условное форматирование', 'Группировка', 'Проверка данных']
 const SIZES = [
   { name: '390', width: 390, height: 844, mobile: true },
   { name: '1920', width: 1920, height: 1200, mobile: false },
@@ -70,6 +70,75 @@ async function checkTargets(page: Page, mobile: boolean): Promise<void> {
     if (!tool || tool.w !== 24 || tool.h !== 22) throw new Error(`a desktop tool changed: ${JSON.stringify(tool)}`)
   }
   return void console.log(`targets ${mobile ? '390' : '1920'}: ${boxes.length} checked`)
+}
+
+/**
+ * Excel's data validation on validation.html, where the components are mounted from outside until the sheet has them: the
+ * input message with the arrow, the list (Alt+Down; a tap on a phone), an item entered, a long list, and the alerts of the
+ * three styles with what their buttons leave in the cell.
+ */
+async function validationScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
+  const go = async (cell: string) => {
+    await page.goto(`${base}validation.html?sheet=${encodeURIComponent(`'Проверка данных'!${cell}`)}`)
+    await settle(page)
+    // the jump's flash (2 s) goes first
+    await page.waitForTimeout(2200)
+  }
+  const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
+  const shows = (cell: string, text: string) => page.waitForFunction(([c, t]) => document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim() === t, [cell, text] as const, { timeout: 5000 })
+  const openList = async () => {
+    await page.waitForSelector('[data-xs-dropdown-arrow]')
+    if (size.mobile) await press('[data-xs-dropdown-arrow]')
+    else {
+      await page.locator('.xs-scroller').focus()
+      await page.keyboard.press('Alt+ArrowDown')
+    }
+    await page.waitForSelector('[data-xs-dropdown-list]')
+  }
+  const enter = async (text: string, severity: string) => {
+    if (size.mobile) {
+      await page.locator('.xs-fx').tap()
+      await page.keyboard.press('ControlOrMeta+A')
+    } else await page.locator('.xs-scroller').focus()
+    await page.keyboard.type(text)
+    await page.keyboard.press('Enter')
+    await page.waitForSelector(`[data-xs-alert="${severity}"]`)
+    await page.waitForTimeout(100)
+  }
+
+  await go('B2')
+  await page.waitForSelector('[data-xs-prompt]')
+  await shot(page, size.name, '40-validation-prompt')
+  await openList()
+  await shot(page, size.name, '41-validation-list')
+  if (size.mobile) await checkTargets(page, true)
+  await press('[data-xs-dropdown-item="2"]')
+  await shows('2:2', 'закрыт')
+  await go('B8')
+  await openList()
+  await shot(page, size.name, '42-validation-list-long')
+
+  await go('B4')
+  await enter('500', 'stop')
+  await shot(page, size.name, '43-validation-stop')
+  await checkTargets(page, size.mobile)
+  await press('[data-xs-alert-button="cancel"]')
+  await shows('4:2', '5')
+  await go('B5')
+  await enter('50', 'warning')
+  await shot(page, size.name, '44-validation-warning')
+  await press('[data-xs-alert-button="yes"]')
+  await shows('5:2', '50')
+  await go('B6')
+  await enter('ASAP', 'information')
+  await shot(page, size.name, '45-validation-information')
+  await press('[data-xs-alert-button="ok"]')
+  await shows('6:2', 'ASAP')
+  await go('B7')
+  await enter('9', 'stop')
+  await shot(page, size.name, '46-validation-stop-default')
+  await press('[data-xs-alert-button="retry"]')
+  console.log(`validation ${size.name}: the message, the list and an item entered, Cancel, Yes and OK left 5, 50 and ASAP`)
 }
 
 for (const size of SIZES) {
@@ -176,6 +245,8 @@ for (const size of SIZES) {
   await page.waitForTimeout(200)
   await shot(page, size.name, '35-outline-level')
   console.log(`outline ${size.name}: + ${size.mobile ? 'tapped 15 px below' : 'clicked'}, level 3 of the columns`)
+
+  await validationScreens(page, size)
 
   // Editing in place: typing over a cell, then the edit in flight.
   await open(page, 'Формулы!C2')
