@@ -52,6 +52,27 @@ describe('SheetView exposes undo and redo', () => {
   })
 })
 
+describe('a source without edit', () => {
+  it('is read-only: no format, structure, freeze, outline or layout from the keys, the menu or the host', async () => {
+    const format = vi.fn(async () => OK)
+    const structure = vi.fn(async () => OK)
+    const freeze = vi.fn(async () => OK)
+    const outline = vi.fn(async () => OK)
+    const { source: s } = source({ format, structure, freeze, outline })
+    delete (s as { edit?: unknown }).edit
+    const w = await mountSheet(s)
+    await goTo(w, 'B2')
+    await key(w, 'b', { ctrlKey: true })
+    expect(await api(w).format([{ style: { font: { bold: true } } }])).toBeNull()
+    expect(await api(w).structure({ op: 'insertRows', sheet: 'S', at: 2, count: 1 } as SheetOp)).toBeNull()
+    expect(await api(w).freezePanes()).toBeNull()
+    await w.find('.xs-num').trigger('contextmenu', { button: 2, clientX: 20, clientY: 40 })
+    await settle()
+    expect(document.querySelector('[data-xs-menu="insert"], [data-xs-menu="freeze"]')).toBeNull()
+    expect([format, structure, freeze, outline].map((f) => f.mock.calls.length)).toEqual([0, 0, 0, 0])
+  })
+})
+
 describe('SheetView exposes format', () => {
   it('formats the selection as Excel writes it (whole columns B:B), or the ranges given, on the active sheet', async () => {
     const format = vi.fn(async () => OK)

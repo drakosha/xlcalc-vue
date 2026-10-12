@@ -69,7 +69,8 @@ export interface CommandsDeps {
 const FONT_KEYS: Record<string, FontToggle> = { b: 'bold', i: 'italic', u: 'underline' }
 
 export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: CommandsDeps) {
-  const can = (method: 'format' | 'structure' | 'layout' | 'outline' | 'freeze'): boolean => !s.props.readOnly && typeof s.source()[method] === 'function'
+  /** A change the source takes: the sheet is editable (not read-only, with `edit`) and the source has the method. */
+  const can = (method: 'format' | 'structure' | 'layout' | 'outline' | 'freeze'): boolean => s.editable.value && typeof s.source()[method] === 'function'
 
   /** A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload` meanwhile; formatting and lines leave the copy mode on (`endsCopy`). */
   async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null, endsCopy = true): Promise<EditOutcome> {
