@@ -91,7 +91,7 @@ describe('localSource: sheets and windows', () => {
 describe('localSource: search, display filter, totals', () => {
   it('finds shown text without regard to case, in row order', async () => {
     const s = source()
-    expect(await s.find({ sheet: 'Лист1', query: 'С' })).toEqual({
+    expect(await s.find({ sheet: 'Лист1', query: 'С', lookIn: 'values' })).toEqual({
       hits: [
         { row: 1, col: 2, text: 'с примечанием' },
         { row: 2, col: 2, text: 'ссылка' },

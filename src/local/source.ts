@@ -1,16 +1,19 @@
 // localSource: a sheet source over an xlcalc book whose session runs in a Web Worker pool or in the page's thread.
 // The session holds the book, computes it and answers windows, sheets and edits as Excel makes them; this side keeps
-// the sheets' shown values for search and the display filter, patched by the changes and dropped on a reload.
+// the sheets' shown values for search and the display filter, and the texts cells open with for Find in formulas and
+// Replace, patched by the changes and dropped on a reload.
 import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, parseCell, parseRange, rangeAddress } from 'xlcalc/a1'
-import type { CellEntry, CellUpdate, EditOutcome, FormatPatch, LayoutChange, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
+import type { CellEntry, CellUpdate, EditOutcome, FindRequest, FormatPatch, LayoutChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
 import { loadLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
-import { columnValuesOf, filterActive, filterKey, findIn, SheetValues, statsOf, visibleList } from './query'
+import { columnValuesOf, filterActive, filterKey, findIn, replaceIn, SheetValues, statsOf, visibleList } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
 import { windowOf } from './window'
 
 const MAX_CELLS = 20_000
+/** Cells of one window of the edit texts Find in formulas reads a sheet by. */
+const EDIT_TEXT_CELLS = 20_000
 
 const abortError = () => new DOMException('The request was aborted', 'AbortError')
 function check(signal?: AbortSignal): void {
@@ -43,6 +46,25 @@ function linesOf(text: string, axis: 'columns' | 'rows'): string | null {
   return axis === 'columns' ? linesKey(got.left, got.right, axis) : linesKey(got.top, got.bottom, axis)
 }
 
+/**
+ * Cells scattered over a sheet (Replace All's) in rectangles of at most `max` cells, so that reading them back fits
+ * windows and needs no reload; the cells come in Excel's order, which keeps neighbours together.
+ */
+function boxesUnder(sheet: string, cells: { row: number; col: number }[], max: number): CellsBox[] {
+  const out: Required<CellsBox>[] = []
+  let box: Required<CellsBox> | null = null
+  for (const c of cells) {
+    const addr = cellAddress(c.row, c.col)
+    const r = box?.rect
+    const rect = r ? { top: Math.min(r.top, c.row), left: Math.min(r.left, c.col), bottom: Math.max(r.bottom, c.row), right: Math.max(r.right, c.col) } : null
+    if (box && rect && (rect.bottom - rect.top + 1) * (rect.right - rect.left + 1) <= max) {
+      box.rect = rect
+      box.only.add(addr)
+    } else out.push((box = { sheet, rect: { top: c.row, left: c.col, bottom: c.row, right: c.col }, only: new Set([addr]) }))
+  }
+  return out
+}
+
 /** A source over `input`: the book goes to the session as it is (its cells are not copied), so do not change it afterwards. */
 export function localSource(input: BookInput, opts: LocalSourceOptions = {}): LocalSource {
   const locale = input.locale ?? 'en-US'
@@ -52,6 +74,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   const listeners = new Set<(event: SourceEvent) => void>()
   /** Shown values of sheets that search or a filter needed, by the sheet's name key. */
   const values = new Map<string, Promise<SheetValues>>()
+  /** The texts cells open with, of sheets Find in formulas or Replace needed, by the sheet's name key. */
+  const editTexts = new Map<string, Promise<SheetValues>>()
   /** The list of rows of a sheet's display filter, as last given by `visibleRows`: windows under the filter read it. */
   const lists = new Map<string, { key: string; rows: number[] }>()
   let calc: Calc | null = null
@@ -86,6 +110,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   /** The book changed in many places: kept values are dropped and subscribers read the sheets and windows again. */
   function reload(): void {
     values.clear()
+    editTexts.clear()
     lists.clear()
     emit({ kind: 'reload' })
   }
@@ -112,7 +137,10 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const list = [...out.values()]
     for (const u of list) {
       const at = parseCell(u.cell)
-      if (at) void values.get(nameKey(u.sheet))?.then((v) => v.set(at.row, at.col, u.text, u.value))
+      if (!at) continue
+      void values.get(nameKey(u.sheet))?.then((v) => v.set(at.row, at.col, u.text, u.value))
+      // only an edited cell opens otherwise: a recomputed one keeps its formula
+      if (u.editText !== undefined) void editTexts.get(nameKey(u.sheet))?.then((t) => t.set(at.row, at.col, u.editText!, undefined))
     }
     return list
   }
@@ -125,6 +153,34 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       got = s.getUsedRange(sheet).then(async (used) => new SheetValues(used.rows && used.columns ? await s.getCells(sheet, `A1:${cellAddress(used.rows, used.columns)}`) : {}))
       values.set(key, got)
       got.catch(() => values.delete(key))
+    }
+    return got
+  }
+
+  /**
+   * The text each cell of a sheet opens with (a formula in the book's locale, a value by the format it shows), read once
+   * over where its cells end in windows of `EDIT_TEXT_CELLS`, so that other calls of the session go between them.
+   */
+  function sheetEditTexts(s: AsyncSession, sheet: string): Promise<SheetValues> {
+    const key = nameKey(sheet)
+    let got = editTexts.get(key)
+    if (!got) {
+      got = (async () => {
+        const used = await s.getUsedRange(sheet)
+        const texts = new SheetValues()
+        const step = Math.max(1, Math.floor(EDIT_TEXT_CELLS / Math.max(1, used.columns)))
+        for (let top = 1; top <= used.rows && used.columns; top += step) {
+          const range = `${cellAddress(top, 1)}:${cellAddress(Math.min(used.rows, top + step - 1), used.columns)}`
+          const v = await s.getViewport(sheet, range, { editText: true, maxCells: step * used.columns })
+          for (const [addr, cell] of Object.entries(v.cells)) {
+            const at = cell.editText ? parseCell(addr) : null
+            if (at) texts.set(at.row, at.col, cell.editText!, undefined)
+          }
+        }
+        return texts
+      })()
+      editTexts.set(key, got)
+      got.catch(() => editTexts.delete(key))
     }
     return got
   }
@@ -305,6 +361,28 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
+  /**
+   * Excel's Replace All: the request's hits in the texts cells open with, whatever `lookIn` says, each written as typed with
+   * its matches replaced, in one `setCellTexts` and so one step of undo. As Excel's paste does, a replacement neither widens
+   * a column nor checks data validation (not measured in Excel). A text the session refuses refuses the call, nothing written.
+   */
+  async function replace(req: FindRequest, by: string): Promise<ReplaceOutcome> {
+    const s = await open()
+    try {
+      const [texts, rows] = await Promise.all([sheetEditTexts(s, req.sheet), filterActive(req.filter) ? rowsUnder(s, req.sheet, req.filter, false) : null])
+      const cells = replaceIn(texts, req, by, rows ? new Set(rows) : null)
+      if (!cells.length) return { ok: true, changes: [], replaced: 0 }
+      const got = await s.setCellTexts(
+        cells.map((c) => ({ sheet: req.sheet, cell: cellAddress(c.row, c.col), text: c.text })),
+        { widen: false },
+      )
+      if (!got.ok) return { ...refusalOf(got), replaced: 0 }
+      return { ...(await settle(s, got, boxesUnder(req.sheet, cells, maxCells))), replaced: cells.length }
+    } catch (e) {
+      return { ...outcomeOf(e, 'refused'), replaced: 0 }
+    }
+  }
+
   async function freeze(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome> {
     const s = await open()
     const frozen = panes && (panes.rows > 0 || panes.cols > 0) ? { ...(panes.rows > 0 ? { rows: panes.rows } : {}), ...(panes.cols > 0 ? { columns: panes.cols } : {}) } : null
@@ -354,6 +432,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     structure: serial(structure),
     layout: serial(setLayout),
     format: serial(format),
+    replace: serial(replace),
     freeze: serial(freeze),
     get history() {
       return session?.history ?? { undo: 0, redo: 0 }
@@ -371,11 +450,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       check(signal)
       return statsOf(views, rows ? new Set(rows) : null)
     },
-    async find({ sheet, query, filter }, signal) {
+    async find(req, signal) {
       const s = await open()
-      const [v, rows] = await Promise.all([sheetValues(s, sheet), filterActive(filter) ? rowsUnder(s, sheet, filter, false) : null])
+      const texts = req.lookIn === 'values' ? sheetValues(s, req.sheet) : sheetEditTexts(s, req.sheet)
+      const [v, rows] = await Promise.all([texts, filterActive(req.filter) ? rowsUnder(s, req.sheet, req.filter, false) : null])
       check(signal)
-      return findIn(v, query, rows ? new Set(rows) : null)
+      return findIn(v, req, rows ? new Set(rows) : null)
     },
     async visibleRows(sheet, filter, signal) {
       const s = await open()

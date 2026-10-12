@@ -1,6 +1,7 @@
 // Queries of the memory source over a sheet's shown text: the display filter and sort, search, a column's values, totals.
 import type { CellRect, CellValue } from 'xlcalc/contract'
-import type { RangeStats, SheetFilter } from './source'
+import { findCells, replaceCells, type CellText, type EachCell } from './find-match'
+import type { FindRequest, FindResult, RangeStats, SheetFilter } from './source'
 
 /** What the queries read of a sheet. */
 export interface QuerySheet {
@@ -8,6 +9,8 @@ export interface QuerySheet {
   maxCol: number
   textAt(row: number, col: number): string
   valueAt(row: number, col: number): CellValue | undefined
+  /** The text a cell opens with: its formula, else its value as typed. */
+  editAt(row: number, col: number): string
 }
 
 /** Values a column's list gives at most; the rest is counted in `more`. */
@@ -66,23 +69,26 @@ export function visibleList(sheet: QuerySheet, filter: SheetFilter | undefined):
   return [...Array.from({ length: head }, (_, i) => i + 1), ...rows]
 }
 
-/** A substring in any case, hits in row order (only the shown rows under a filter). */
-export function findHits(sheet: QuerySheet, query: string, filter: SheetFilter | undefined): { hits: { row: number; col: number; text: string }[]; total: number } {
-  const q = query.trim().toLocaleLowerCase()
-  const list = visibleList(sheet, filter)
-  const rows = list ? [...list].sort((a, b) => a - b) : Array.from({ length: sheet.maxRow }, (_, i) => i + 1)
-  const hits: { row: number; col: number; text: string }[] = []
-  let total = 0
-  if (!q) return { hits, total }
-  for (const row of rows) {
-    for (let col = 1; col <= sheet.maxCol; col++) {
-      const text = sheet.textAt(row, col)
-      if (!text.toLocaleLowerCase().includes(q)) continue
-      total++
-      if (hits.length < HITS_MAX) hits.push({ row, col, text })
-    }
+/** Every cell's text a search reads: what it opens with (Look in: Formulas, Excel's default), or what it shows. */
+function cellsOf(sheet: QuerySheet, lookIn: FindRequest['lookIn']): EachCell {
+  const textAt = lookIn === 'values' ? sheet.textAt : sheet.editAt
+  return (visit) => {
+    for (let row = 1; row <= sheet.maxRow; row++) for (let col = 1; col <= sheet.maxCol; col++) visit(row, col, textAt(row, col))
   }
-  return { hits, total }
+}
+const shownRows = (sheet: QuerySheet, filter: SheetFilter | undefined): Set<number> | null => {
+  const list = visibleList(sheet, filter)
+  return list ? new Set(list) : null
+}
+
+/** Excel's Find: hits in its order, only the shown rows under a filter. */
+export function findHits(sheet: QuerySheet, req: FindRequest): FindResult {
+  return findCells(cellsOf(sheet, req.lookIn), req, shownRows(sheet, req.filter), HITS_MAX)
+}
+
+/** Excel's Replace All: the new text of each cell the request finds in formulas, as Excel replaces whatever Look in says. */
+export function replaceTexts(sheet: QuerySheet, req: FindRequest, by: string): CellText[] {
+  return replaceCells(cellsOf(sheet, 'formulas'), req, by, shownRows(sheet, req.filter))
 }
 
 /** A column's shown values with their counts, over the rows the other columns' conditions leave; '' is an empty cell. */

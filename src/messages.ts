@@ -87,7 +87,26 @@ export interface SheetMessages {
   findNone: string
   /** Search status: the hit's place, all hits, and how many came when the source cut the list. */
   findStatus: (i: number, total: number, shown: number) => string
+  /** Search status while the active cell is no hit: all hits, and how many came. */
+  findCount: (total: number, shown: number) => string
   findFailed: string
+  /** Excel's Find and Replace: its options, the range it looks within, the replace row and what Replace All did. */
+  findOptions: string
+  findMatchCase: string
+  findWholeCell: string
+  findLookIn: string
+  findInFormulas: string
+  findInValues: string
+  findOrder: string
+  findByRows: string
+  findByColumns: string
+  findWithin: (range: string) => string
+  findWholeSheet: string
+  replaceToggle: string
+  replacePlaceholder: string
+  replaceOne: string
+  replaceAll: string
+  replaceDone: (n: number) => string
   filter: string
   filterOn: string
   filterColumn: (letters: string) => string
@@ -225,7 +244,24 @@ export const enMessages: SheetMessages = {
   findNext: 'Next (Enter)',
   findNone: 'no matches',
   findStatus: (i, total, shown) => `${i} of ${total}${total > shown ? ` (the first ${shown} shown)` : ''}`,
+  findCount: (total, shown) => `${total} found${total > shown ? ` (the first ${shown} shown)` : ''}`,
   findFailed: 'The search failed',
+  findOptions: 'Options',
+  findMatchCase: 'Match case',
+  findWholeCell: 'Match entire cell contents',
+  findLookIn: 'Look in',
+  findInFormulas: 'Formulas',
+  findInValues: 'Values',
+  findOrder: 'Search',
+  findByRows: 'By Rows',
+  findByColumns: 'By Columns',
+  findWithin: (range) => `Within ${range}`,
+  findWholeSheet: 'Search the whole sheet',
+  replaceToggle: 'Replace (Ctrl+H)',
+  replacePlaceholder: 'Replace with…',
+  replaceOne: 'Replace',
+  replaceAll: 'Replace All',
+  replaceDone: (n) => (n ? `Replaced: ${n}` : 'Nothing to replace'),
   filter: 'Filter and sort',
   filterOn: 'A filter on this column is on',
   filterColumn: (letters) => `Column ${letters}`,
@@ -376,7 +412,24 @@ export const ruMessages: SheetMessages = {
   findNext: 'Следующее (Enter)',
   findNone: 'нет совпадений',
   findStatus: (i, total, shown) => `${i} из ${total}${total > shown ? ` (показаны первые ${shown})` : ''}`,
+  findCount: (total, shown) => `найдено: ${total}${total > shown ? ` (показаны первые ${shown})` : ''}`,
   findFailed: 'Поиск не удался',
+  findOptions: 'Параметры',
+  findMatchCase: 'Учитывать регистр',
+  findWholeCell: 'Ячейка целиком',
+  findLookIn: 'Область поиска',
+  findInFormulas: 'формулы',
+  findInValues: 'значения',
+  findOrder: 'Просматривать',
+  findByRows: 'по строкам',
+  findByColumns: 'по колонкам',
+  findWithin: (range) => `В выделении ${range}`,
+  findWholeSheet: 'Искать по всему листу',
+  replaceToggle: 'Заменить (Ctrl+H)',
+  replacePlaceholder: 'Заменить на…',
+  replaceOne: 'Заменить',
+  replaceAll: 'Заменить все',
+  replaceDone: (n) => (n ? `Сделано замен: ${n}` : 'Нечего заменить'),
   filter: 'Фильтр и сортировка',
   filterOn: 'Фильтр по этой колонке включён',
   filterColumn: (letters) => `Колонка ${letters}`,

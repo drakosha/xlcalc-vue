@@ -1,34 +1,103 @@
 <script setup lang="ts">
-// Search on the sheet under the formula bar: the source finds, hits in the frame are tinted, Enter steps through them.
+// Excel's Find and Replace under the formula bar: the query, Find Next and Previous, the dialog's options, the range it
+// looks within, and the replace row; the source finds, hits in the frame are tinted and the active one pulses.
+import type { FindRunner } from '../core/find'
 import { useSheetContext } from './context'
-import { IconClose, IconDown, IconUp } from './icons'
+import { IconClose, IconDown, IconOptions, IconUp } from './icons'
 
 const ctx = useSheetContext()
 const { find } = ctx
 const m = ctx.messages
 const setInput = (el: unknown) => (find.input.value = (el as HTMLInputElement | null) ?? null)
+/** Replacements go to the source as an edit goes: their cells drawn from the outcome, a refusal in the sheet's message line. */
+const run: FindRunner = (call) => ctx.ed.run(call, [], null, null)
+const pick = (e: Event) => (e.target as HTMLSelectElement).value
 </script>
 
 <template>
   <div class="xs-find" role="search">
-    <input
-      :ref="setInput"
-      v-model="find.text.value"
-      class="xs-find-input"
-      type="search"
-      spellcheck="false"
-      :placeholder="m.findPlaceholder"
-      @keydown="find.onFindKey"
-    />
-    <span class="xs-find-status" aria-live="polite">{{ find.status.value }}</span>
-    <button type="button" class="xs-tool" :title="m.findPrev" :disabled="!find.hits.value.length" @click="find.step(-1)">
-      <IconUp />
-    </button>
-    <button type="button" class="xs-tool" :title="m.findNext" :disabled="!find.hits.value.length" @click="find.step(1)">
-      <IconDown />
-    </button>
-    <button type="button" class="xs-tool" :title="m.close" @click="find.closeFind()">
-      <IconClose />
-    </button>
+    <div class="xs-find-row">
+      <button
+        v-if="find.canReplace.value"
+        type="button"
+        :class="['xs-tool', 'xs-find-toggle', { 'xs-tool-on': find.replacing.value }]"
+        :title="m.replaceToggle"
+        :aria-label="m.replaceToggle"
+        :aria-expanded="find.replacing.value"
+        data-xs-find-replace
+        @click="find.replacing.value = !find.replacing.value"
+      >
+        <IconDown />
+      </button>
+      <input
+        :ref="setInput"
+        v-model="find.text.value"
+        class="xs-find-input"
+        type="search"
+        spellcheck="false"
+        :placeholder="m.findPlaceholder"
+        @keydown="find.onFindKey"
+      />
+      <span class="xs-find-status" aria-live="polite">{{ find.status.value }}</span>
+      <span class="xs-find-nav">
+        <button type="button" class="xs-tool" :title="m.findPrev" :aria-label="m.findPrev" :disabled="!find.hits.value.length" @click="find.step(-1)">
+          <IconUp />
+        </button>
+        <button type="button" class="xs-tool" :title="m.findNext" :aria-label="m.findNext" :disabled="!find.hits.value.length" @click="find.step(1)">
+          <IconDown />
+        </button>
+        <button
+          type="button"
+          :class="['xs-tool', { 'xs-tool-on': find.optionsOpen.value }]"
+          :title="m.findOptions"
+          :aria-label="m.findOptions"
+          :aria-expanded="find.optionsOpen.value"
+          data-xs-find-options
+          @click="find.optionsOpen.value = !find.optionsOpen.value"
+        >
+          <IconOptions />
+        </button>
+        <button type="button" class="xs-tool" :title="m.close" :aria-label="m.close" @click="find.closeFind()">
+          <IconClose />
+        </button>
+      </span>
+    </div>
+    <div v-if="find.replacing.value && find.canReplace.value" class="xs-find-row">
+      <input v-model="find.by.value" class="xs-find-input" type="text" spellcheck="false" :placeholder="m.replacePlaceholder" :aria-label="m.replacePlaceholder" data-xs-replace-input @keydown="find.onFindKey" />
+      <button type="button" class="xs-button" :disabled="!find.text.value || find.writing.value" data-xs-replace-one @click="find.replaceOne(run)">{{ m.replaceOne }}</button>
+      <button type="button" class="xs-button" :disabled="!find.text.value || find.writing.value" data-xs-replace-all @click="find.replaceAll(run)">{{ m.replaceAll }}</button>
+    </div>
+    <div v-if="find.optionsOpen.value || find.scope.value" class="xs-find-row xs-find-more">
+      <span v-if="find.scope.value" class="xs-find-scope" data-xs-find-scope>
+        {{ m.findWithin(find.scope.value) }}
+        <button type="button" class="xs-tool" :title="m.findWholeSheet" :aria-label="m.findWholeSheet" @click="find.scope.value = null">
+          <IconClose />
+        </button>
+      </span>
+      <template v-if="find.optionsOpen.value">
+        <label class="xs-find-opt">
+          <input v-model="find.options.matchCase" type="checkbox" data-xs-find-case />
+          {{ m.findMatchCase }}
+        </label>
+        <label class="xs-find-opt">
+          <input v-model="find.options.wholeCell" type="checkbox" data-xs-find-whole />
+          {{ m.findWholeCell }}
+        </label>
+        <label class="xs-find-opt">
+          {{ m.findLookIn }}
+          <select class="xs-find-select" :value="find.lookIn.value" :disabled="find.replacing.value" data-xs-find-look @change="find.options.lookIn = pick($event) === 'values' ? 'values' : 'formulas'">
+            <option value="formulas">{{ m.findInFormulas }}</option>
+            <option value="values">{{ m.findInValues }}</option>
+          </select>
+        </label>
+        <label class="xs-find-opt">
+          {{ m.findOrder }}
+          <select class="xs-find-select" :value="find.options.byColumns ? 'columns' : 'rows'" data-xs-find-order @change="find.options.byColumns = pick($event) === 'columns'">
+            <option value="rows">{{ m.findByRows }}</option>
+            <option value="columns">{{ m.findByColumns }}</option>
+          </select>
+        </label>
+      </template>
+    </div>
   </div>
 </template>
