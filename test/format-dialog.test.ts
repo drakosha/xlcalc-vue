@@ -71,6 +71,8 @@ describe('FormatDialog', () => {
     expect(w.find('[data-fmt-edge="insideH"]').attributes('aria-pressed')).toBe('false')
     await w.find('form').trigger('submit')
     const RED = { style: 'medium', color: '#C00000' }
+    // plain data, as a source in a thread clones it
+    expect(() => structuredClone(w.emitted('apply')![0]![0])).not.toThrow()
     expect(w.emitted('apply')![0]![0]).toEqual([
       { range: 'B2:C2', style: { border: { top: RED } } },
       { range: 'B3:C3', style: { border: { bottom: RED } } },

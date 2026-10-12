@@ -3,7 +3,7 @@
 // Border and Fill, what xlcalc's cell style holds; the Number tab is Excel's Number Format box in the book's locale
 // (xlcalc's list and categories). It opens at the active cell's look; OK emits the patches of `SheetView.format` for what
 // changed (one call, one step of undo) and closes, Cancel closes. Full screen on a phone.
-import { computed, nextTick, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, reactive, ref, shallowRef, toRaw, watch } from 'vue'
 import type { SheetViewState } from '../core/sheet'
 import type { SheetFormatPatch } from '../core/commands'
 import {
@@ -86,7 +86,8 @@ const category = computed(() => (draft.value ? numbers.categoryOf(draft.value.nu
 
 function ok(): void {
   if (!start.value || !draft.value || blocked.value) return
-  const patches = patchesOf(start.value, draft.value)
+  // plain objects: a source in a thread clones them, and a reactive proxy does not clone
+  const patches = patchesOf(start.value, toRaw(draft.value))
   if (patches.length) emit('apply', patches)
   emit('close')
 }
