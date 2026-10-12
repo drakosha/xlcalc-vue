@@ -20,7 +20,7 @@ export interface LocalSourceOptions {
 }
 
 /** Methods of `SheetSource` that the local source always has. */
-type Given = 'edit' | 'paste' | 'fill' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'subscribe' | 'validation' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues'
+type Given = 'edit' | 'paste' | 'fill' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'subscribe' | 'validation' | 'functionNames' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues'
 
 /** A sheet source over an xlcalc book: every method of `SheetSource`, and the host's handles on the book. */
 export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Required<Pick<SheetSource, Given>> {

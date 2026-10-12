@@ -2,7 +2,7 @@
 // The session holds the book, computes it and answers windows, sheets and edits as Excel makes them; this side keeps
 // the sheets' shown values for search and the display filter, and the texts cells open with for Find in formulas and
 // Replace, patched by the changes and dropped on a reload.
-import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { createInlineCalc, FUNCTION_NAMES, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
 import { loadLocale } from './locale'
@@ -473,6 +473,13 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const got = validationOf(await s.getValidation(sheet, cell))
       check(signal)
       return got
+    },
+    /** Every function a formula can call, by its name in the book's locale (English where the locale names none, as Excel ru-RU shows `ABS`), in the locale's alphabetical order. */
+    async functionNames(signal) {
+      await ready
+      check(signal)
+      const local = LOCALES.get(locale)?.functions ?? {}
+      return FUNCTION_NAMES.map((name) => local[name] ?? name).sort(new Intl.Collator(locale).compare)
     },
     async explain(sheet, cell) {
       return (await (await open()).explain(sheet, cell)).text

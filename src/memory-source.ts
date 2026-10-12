@@ -60,6 +60,8 @@ export interface MemorySheet extends Omit<SheetInfo, 'maxRow' | 'maxCol' | 'outl
 export interface MemoryBook {
   sheets: MemorySheet[]
   styles?: CellStyle[]
+  /** Formula AutoComplete's functions, by their names as the book's formulas type them, in the order its list shows them; without them the source has no `functionNames`. */
+  functions?: string[]
 }
 
 export interface MemorySourceOptions {
@@ -128,6 +130,7 @@ const abortError = () => new DOMException('The request was aborted', 'AbortError
 export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}): MemorySource {
   const delay = options.delay ?? 0
   const styles = book.styles ?? []
+  const functions = book.functions?.slice()
   const stores = book.sheets.map((sheet): Store => {
     const cells = new Map<string, MemoryCell>()
     for (const [addr, raw] of Object.entries(sheet.cells)) {
@@ -352,6 +355,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       })
     },
     validation: (sheet, cell, signal) => wait(() => storeOrThrow(sheet).rules.show(cell), signal),
+    ...(functions ? { functionNames: (signal?: AbortSignal) => wait(() => [...functions], signal) } : {}),
     layout(change: LayoutChange): Promise<EditOutcome> {
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)
