@@ -8,7 +8,7 @@ import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contrac
 import { textEditText } from './core/edit-text'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type QuerySheet } from './memory-query'
-import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './local/outline'
+import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './memory-outline'
 import { filterKey } from './local/query'
 import { MemoryRules, memoryRefusal, type MemoryValidation } from './memory-validation'
 
@@ -430,7 +430,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         return { ok: true, changes: [] }
       })
     },
-    /** Excel's outline commands by the rules of `./local/outline`; a hidden line is a size of 0, shown again it takes the default. */
+    /** Excel's outline commands by the rules of `./memory-outline`; a hidden line is a size of 0, shown again it takes the default. */
     outline(change: OutlineChange): Promise<EditOutcome> {
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)

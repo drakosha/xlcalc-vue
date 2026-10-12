@@ -1,8 +1,9 @@
 // @vitest-environment node
-// Excel's outline rules (src/local/outline.ts) against what Excel for Windows 16 (build 20430) did over COM on a synthetic
-// book, 12.10.2026: each case is a measured scenario, the hidden rows and the collapsed marks as Excel saved them.
+// Excel's outline rules of memorySource (src/memory-outline.ts) against what Excel for Windows 16 (build 20430) did over
+// COM on a synthetic book, 12.10.2026: each case is a measured scenario, the hidden rows and the collapsed marks as Excel
+// saved them. xlcalc's later measurements found more, which ./local follows (test/local-outline.test.ts).
 import { describe, expect, it } from 'vitest'
-import { groupsOf, outlineEdit, type OutlineLine } from '../src/local/outline'
+import { groupsOf, outlineEdit, type OutlineLine } from '../src/memory-outline'
 import type { OutlineChange } from '../src/source'
 
 /** A command without its sheet, each kind of `OutlineChange` kept apart. */
