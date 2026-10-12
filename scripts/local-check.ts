@@ -154,13 +154,17 @@ async function production(browser: Browser): Promise<void> {
       await page.waitForTimeout(300)
       await page.screenshot({ path: resolve(out, `local-${size.name}-open.png`) })
 
-      // A value in the table: its total below on screen.
+      // A value in the table: its total below on screen, and the colour scale over the shares recoloured (the edit's repaint).
+      const share = () => page.evaluate(() => getComputedStyle(document.querySelector('[data-cell="4:4"]')!).backgroundColor)
+      const before = await share()
       const shown: number[] = []
       for (const v of size.phone ? ['2500'] : ['2500', '3750,5', '1 000', '42', '7,25']) {
         shown.push(await typeAndWatch(page, v, '9:2', size.phone))
+        if (shown.length === 1) await page.waitForFunction((c) => getComputedStyle(document.querySelector('[data-cell="4:4"]')!).backgroundColor !== c, before, { timeout: 10_000 })
         // Enter moved down a row: back to B3
         if (!size.phone) await page.keyboard.press('ArrowUp')
       }
+      console.log(`[${size.name}] the share D4 recoloured by the edit: ${before} → ${await share()}`)
       const total = await page.locator('[data-cell="9:2"]').textContent()
       console.log(`[${size.name}] edit Витрина!B3, Enter to the total B9 on screen: ${fmt(shown)}; B9 = ${total}`)
       await page.waitForTimeout(200)
