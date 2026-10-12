@@ -66,6 +66,24 @@ describe('localSource: Control+Return', () => {
     const s = source(sheet())
     expect(await s.fill!('S', 'D1:D2', '-1', 'D1')).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', cells: [{ sheet: 'S', cell: 'D1' }] })
     expect((await win(s, 'S', 1, 2, 4, 1)).values).toEqual([[1], [null]])
+    expect(s.history).toEqual({ undo: 0, redo: 0 })
+  })
+
+  it('enters a value a warning or an information rule does not take, as their Yes and OK keep it', async () => {
+    const s = source({
+      sheets: [{
+        name: 'S',
+        cells: {},
+        validations: [
+          { range: 'A1:A9', type: 'whole', operator: 'greaterThan', formula1: '0', errorStyle: 'warning' },
+          { range: 'B1:B9', type: 'whole', operator: 'greaterThan', formula1: '0', errorStyle: 'information' },
+        ],
+      }],
+    })
+    expect(await s.fill!('S', 'A1:A2', '-1', 'A1')).toMatchObject({ ok: true, select: { sheet: 'S', range: 'A1:A2' } })
+    expect(await s.fill!('S', 'B1:B2', '-2', 'B2')).toMatchObject({ ok: true })
+    expect((await win(s, 'S', 1, 2, 1, 2)).values).toEqual([[-1, -2], [-1, -2]])
+    expect(s.history).toEqual({ undo: 2, redo: 0 })
   })
 })
 
@@ -110,16 +128,22 @@ describe('localSource: undo and redo', () => {
     expect(await s.redo!()).toEqual({ ok: true, changes: [] })
   })
 
-  it('has nothing to redo after a value a stop rule refused, as Excel never took it', async () => {
+  it('leaves the history as it was after a value a stop rule refused, as Excel never took it', async () => {
     const s = source(sheet())
+    const events: SourceEvent[] = []
+    s.subscribe((e) => events.push(e))
     expect(await s.edit([{ sheet: 'S', cell: 'D1', text: '-5' }])).toMatchObject({ ok: false, reason: 'refused' })
     expect(s.history).toEqual({ undo: 0, redo: 0 })
     expect(await s.redo!()).toEqual({ ok: true, changes: [] })
     expect((await win(s, 'S', 1, 1, 4, 1)).values).toEqual([[1]])
-    // the steps before it stay, and a new change forgets the refused one for good
+    expect(events).toEqual([])
+    // a step undone before a refusal stays to redo: the refused value wrote nothing that would forget it
     await s.edit([{ sheet: 'S', cell: 'B1', text: '1' }])
     await s.undo!()
+    expect(await s.fill!('S', 'D1:D2', '-1', 'D1')).toMatchObject({ ok: false, reason: 'refused' })
+    expect(await s.edit([{ sheet: 'S', cell: 'D2', text: '0' }])).toMatchObject({ ok: false, reason: 'refused' })
     expect(s.history).toEqual({ undo: 0, redo: 1 })
     expect(await s.redo!()).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: 1 }] })
+    expect(s.history).toEqual({ undo: 1, redo: 0 })
   })
 })
