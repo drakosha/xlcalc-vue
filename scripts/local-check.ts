@@ -138,19 +138,20 @@ async function outlineScenario(page: Page, base: string): Promise<void> {
  * on the message line (the sheet has no alert yet), and the cells keep their values.
  */
 async function validationScenario(page: Page, base: string): Promise<void> {
-  for (const [cell, at, typed, kept, text] of [
-    ['B4', '4:2', '500', '5', 'Целое число от 1 до 100'],
-    ['B5', '5:2', '50', '10%', 'Скидка больше 30% требует согласования'],
+  for (const [cell, at, typed, text, severity, button, after] of [
+    ['B4', '4:2', '500', 'Целое число от 1 до 100', 'stop', 'cancel', '5'],
+    ['B5', '5:2', '50', 'Скидка больше 30% требует согласования', 'warning', 'yes', '50%'],
   ] as const) {
     await open(page, base, `Проверка!${cell}`, at)
     await page.locator('.xs-scroller').focus()
     await page.keyboard.type(typed)
     await page.keyboard.press('Enter')
-    await page.waitForFunction((t) => document.querySelector('.xs-message')?.textContent?.trim() === t, text, { timeout: 10_000 })
-    await shows(page, at, kept)
+    await page.waitForFunction(([s, t]) => document.querySelector(`[data-xs-alert="${s}"]`)?.textContent?.includes(t), [severity, text] as const, { timeout: 10_000 })
+    if (severity === 'stop') await page.screenshot({ path: resolve(out, 'local-1920-validation.png') })
+    await page.locator(`[data-xs-alert-button="${button}"]`).click()
+    await shows(page, at, after)
   }
-  await page.screenshot({ path: resolve(out, 'local-1920-validation.png') })
-  console.log('[1920] validation: 500 under a stop rule and 50% under a warning refused with their texts, the cells kept')
+  console.log('[1920] validation: 500 under a stop rule refused through the pool, Cancel kept 5; 50% under a warning written on Yes')
 }
 
 /** A small ru-RU file opened from the field, typed into, filled with Control+Return, pasted into, undone, redone, saved and opened again. */
