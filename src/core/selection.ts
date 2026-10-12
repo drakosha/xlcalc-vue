@@ -143,7 +143,8 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
 
   /** Arrow keys and the like: move the active cell, or the corner with Shift; true when the key was one of them. */
   function navKey(e: KeyboardEvent): boolean {
-    const corner = s.extent.value ?? s.selected.value
+    // Excel moves the active cell from itself, and only Shift moves the selection's far corner
+    const corner = e.shiftKey ? (s.extent.value ?? s.selected.value) : s.selected.value
     if (!corner || s.rowCount.value === 0) return false
     const a = onGrid(corner)
     let d = s.indexOf(a.row) ?? 1

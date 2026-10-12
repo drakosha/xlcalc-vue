@@ -193,6 +193,22 @@ describe('selection', () => {
 })
 
 describe('keys on an editable sheet', () => {
+  it('an arrow without Shift moves from the active cell, not from the selection\'s far corner, as Excel', async () => {
+    const w = await mountSheet(memorySource(book()))
+    const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
+    await goTo(w, 'B2')
+    await key('ArrowDown', { shiftKey: true })
+    await key('ArrowRight', { shiftKey: true })
+    expect(sel(w).sort()).toEqual(['2:2', '2:3', '3:2', '3:3'])
+    await key('ArrowDown')
+    expect(active(w)).toBe('3:2')
+    expect(sel(w)).toEqual(['3:2'])
+    // a column's letter, then Down: the cell under the column's first
+    await w.findAll('.xs-head')[2]!.trigger('click')
+    await key('ArrowDown')
+    expect(active(w)).toBe('2:3')
+  })
+
   it('Ctrl jumps to the data edge first, then to the end of the grid', async () => {
     const w = await mountSheet(memorySource(book()))
     const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
