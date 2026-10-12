@@ -84,8 +84,10 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect(got).toMatchObject({ ok: true })
     expect(events).toEqual([{ kind: 'reload' }])
     expect(await names(s)).toEqual(['Лист1', 'Таблица', 'Люди'])
-    // Excel shows Люди!B2*2; xlcalc 0.19 keeps the stored text's quotes in formulaLocal (a request to the library)
-    expect((await win(s, 'Лист1', 1, 1, 8, 1)).formulas).toEqual({ H1: "'Люди'!B2*2" })
+    // the sheet in quotes only where Excel puts them, in the formula as shown and the text the cell opens with
+    const w = await win(s, 'Лист1', 1, 1, 8, 1)
+    expect(w.formulas).toEqual({ H1: 'Люди!B2*2' })
+    expect(w.editText).toEqual({ H1: '=Люди!B2*2' })
     const refused = await s.structure({ op: 'renameSheet', sheet: 'Люди', name: 'таблица' })
     expect(refused).toMatchObject({ ok: false, reason: 'refused' })
     // the library's message, in the book's locale

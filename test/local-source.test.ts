@@ -70,14 +70,14 @@ describe('localSource: sheets and windows', () => {
     expect(w.editText).toEqual({ A1: '15.03.2026', A2: '5%', A3: "'007", A4: '=СУММ(A1:A2)' })
   })
 
-  it('gives the number format each cell shows by, as a code, its column\'s too', async () => {
+  it('gives the number format each cell shows by, as a code, its row\'s and column\'s on an empty cell too', async () => {
     const s = source({
       locale: 'ru-RU',
-      sheets: [{ name: 'S', cells: { A1: { value: 46096, numberFormat: 14 }, A2: { value: 0.05, numberFormat: '0%' }, A3: { value: 5 }, B1: { value: 2 } }, columns: { B: { numberFormat: '0.00' } } }],
+      sheets: [{ name: 'S', cells: { A1: { value: 46096, numberFormat: 14 }, A2: { value: 0.05, numberFormat: '0%' }, A3: { value: 5 }, B1: { value: 2 } }, columns: { B: { numberFormat: '0.00' } }, rows: { '4': { numberFormat: '0%' } } }],
     })
-    const w = await win(s, 'S', 1, 3, 1, 2)
-    // TODO(xlcalc): an empty cell with only its column's format is not in the viewport, so B2 and B3 read as General
-    expect(w.numberFormats).toEqual({ A1: 'dd.mm.yyyy', A2: '0%', B1: '0.00' })
+    const w = await win(s, 'S', 1, 4, 1, 2)
+    // as Excel shows them: an empty cell by its column's format, by its row's where the two cross
+    expect(w.numberFormats).toEqual({ A1: 'dd.mm.yyyy', A2: '0%', B1: '0.00', B2: '0.00', B3: '0.00', A4: '0%', B4: '0%' })
   })
 
   it('keeps a window within maxCells', async () => {

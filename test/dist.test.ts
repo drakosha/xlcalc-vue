@@ -43,9 +43,8 @@ describe('dist/index.js', () => {
     expect(js).toContain('//#region node_modules/xlcalc/dist/a1.js')
     expect(js).toContain('//#region node_modules/xlcalc/dist/scan.js')
   })
-  it('has the string xlcalc in its code only in the message that names a locale module to import', () => {
-    expect(code(js).match(/xlcalc/g)).toEqual(['xlcalc'])
-    expect(code(js)).toMatch(/from 'xlcalc\/locales\/\$\{/)
+  it('has no string xlcalc in its code, which a host may look for as the engine\'s sign', () => {
+    expect(code(js)).not.toMatch(/xlcalc/)
   })
   it('comes with its style sheet', () => {
     expect(readFileSync(join(out, 'style.css'), 'utf8')).toContain('.xs-sheet')
