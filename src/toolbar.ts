@@ -1,21 +1,8 @@
 // The formatting toolbar's rules: Excel's buttons as patches of `SheetSource.format` over the selection, toggled by what
-// the active cell shows, and the number format it shows by among those offered.
-import type { BorderLine, CellRect, CellStyle, NumberFormat, StylePatch } from 'xlcalc/contract'
+// the active cell shows, and the borders the toolbar and the Format Cells dialog draw.
+import type { BorderLine, CellRect, CellStyle, StylePatch } from 'xlcalc/contract'
 import { parseRange, rangeAddress } from 'xlcalc/a1'
 import type { FormatPatch, SheetSource } from './source'
-
-/** The kinds of Excel's Number Format list the toolbar offers. */
-export type NumberKind = 'general' | 'number' | 'currency' | 'percent' | 'date' | 'time' | 'text'
-
-/**
- * A number format the toolbar offers: what it sets (a code, or a built-in format's number) and the code a cell shows by
- * with it in the book's locale (`SheetViewState.numberFormat`), by which the toolbar knows it on the active cell.
- */
-export interface ToolbarNumberFormat {
-  kind: NumberKind
-  format: NumberFormat
-  code: string
-}
 
 /** A source the toolbar formats through: `SheetSource`, whose `history` says whether undo and redo have a step. */
 export type ToolbarSource = SheetSource
@@ -122,13 +109,4 @@ export function borderPatches(ref: string, kind: BorderKind): FormatPatch[] {
     case 'none':
       return edgePatches(ref, every(null))
   }
-}
-
-/**
- * The offered kind the active cell's format code is: General without a code, else the one offered with the same code;
- * null for any other format (Excel's Custom). Which kind a code of its own is would take the library's rule.
- */
-export function numberKindOf(code: string | undefined, offered: readonly ToolbarNumberFormat[]): NumberKind | null {
-  if (code === undefined || code === 'General') return 'general'
-  return offered.find((f) => f.code === code)?.kind ?? null
 }

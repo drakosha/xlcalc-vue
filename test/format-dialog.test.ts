@@ -2,7 +2,7 @@
 // Esc close; Excel's limits hold OK back; the toolbar's Format Cells button asks the host to open it.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { FormatDialog, SheetToolbar, type SheetViewState, type ToolbarNumberFormat } from '../src'
+import { FormatDialog, SheetToolbar, type SheetViewState } from '../src'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/source'
 import { settle } from './helpers'
 
@@ -10,14 +10,10 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-const FORMATS: ToolbarNumberFormat[] = [
-  { kind: 'general', format: 0, code: 'General' },
-  { kind: 'number', format: 2, code: '0.00' },
-  { kind: 'percent', format: 9, code: '0%' },
-]
 const at = (ref: string, more: Partial<SheetViewState> = {}): SheetViewState => ({ sheet: 'S', ref, ...more })
-async function open(state: SheetViewState): Promise<VueWrapper> {
-  const w = mount(FormatDialog, { props: { open: true, state, numberFormats: FORMATS }, attachTo: document.body })
+async function open(state: SheetViewState, locale?: string): Promise<VueWrapper> {
+  const w = mount(FormatDialog, { props: { open: true, state, locale }, attachTo: document.body })
+  await vi.dynamicImportSettled()
   await settle()
   return w
 }
@@ -27,9 +23,10 @@ const value = (w: VueWrapper, sel: string) => (w.find(sel).element as HTMLInputE
 
 describe('FormatDialog', () => {
   it('opens at the active cell’s look: its number format, font, alignment and fill', async () => {
-    const w = await open(at('B2', { numberFormat: '0%', style: { font: { bold: true, size: 14 }, alignment: { horizontal: 'right', indent: 2 }, fill: { color: '#ffff00' } } }))
-    expect((w.find('[data-fmt-number="percent"]').element as HTMLInputElement).checked).toBe(true)
-    expect(value(w, '[data-fmt-code]')).toBe('0%')
+    const w = await open(at('B2', { numberFormat: '0.00%', style: { font: { bold: true, size: 14 }, alignment: { horizontal: 'right', indent: 2 }, fill: { color: '#ffff00' } } }))
+    expect((w.find('[data-fmt-number="percentage"]').element as HTMLInputElement).checked).toBe(true)
+    expect(value(w, '[data-fmt-code]')).toBe('0.00%')
+    expect(w.find('[data-fmt-category]').text()).toBe('Category: Percentage')
     expect([value(w, '[data-fmt-font-style]'), value(w, '[data-fmt-font-size]')]).toEqual(['bold', '14'])
     expect([value(w, '[data-fmt-horizontal]'), value(w, '[data-fmt-indent]'), value(w, '[data-fmt-vertical]')]).toEqual(['right', '2', 'bottom'])
     expect(w.find('[data-fmt-colour-of="fill"] [aria-pressed="true"]').attributes('data-fmt-colour')).toBe('#FFFF00')
@@ -93,13 +90,22 @@ describe('FormatDialog', () => {
     expect(w.emitted('apply')![0]![0]).toEqual([{ range: 'B2', style: { border: { bottom: null } } }])
   })
 
-  it('Custom takes a code of its own', async () => {
+  it('the Number tab is Excel’s list: an item puts its code in the field, a code typed is named by its category', async () => {
     const w = await open(at('A1'))
-    await w.find('[data-fmt-number="custom"]').setValue(true)
-    expect((w.find('[data-fmt-code]').element as HTMLInputElement).readOnly).toBe(false)
+    expect(w.find('[data-fmt-category]').text()).toBe('Category: General')
+    await w.find('[data-fmt-number="scientific"]').setValue(true)
+    expect(value(w, '[data-fmt-code]')).toBe('0.00E+00')
     await w.find('[data-fmt-code]').setValue('0.000')
+    expect(w.find('[data-fmt-category]').text()).toBe('Category: Number')
+    expect(w.findAll('[data-fmt-number]').filter((r) => (r.element as HTMLInputElement).checked)).toHaveLength(0)
     await w.find('form').trigger('submit')
     expect(w.emitted('apply')).toEqual([[[{ numberFormat: '0.000' }]]])
+  })
+
+  it('names the list’s items in the book’s locale', async () => {
+    const w = await open(at('A1', { numberFormat: '0%' }), 'ru-RU')
+    expect(w.findAll('.xs-fmt-choice').slice(0, 3).map((c) => c.text())).toEqual(['Общий', 'Числовой', 'Денежный'])
+    expect(w.find('[data-fmt-category]').attributes('data-fmt-category-key')).toBe('percentage')
   })
 
   it('holds OK back while a field is past Excel’s limits or a colour code is no colour', async () => {

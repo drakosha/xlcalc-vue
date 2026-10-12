@@ -6,11 +6,11 @@
 import { computed, onBeforeUnmount, ref, shallowRef, watchEffect } from 'vue'
 import type { BookInput } from 'xlcalc'
 import { quoteSheetIfNeeded } from 'xlcalc/text'
-import { FormatDialog, SheetToolbar, SheetView, enMessages, ruMessages, type SheetFormatPatch, type SheetViewApi, type SheetViewState, type ToolbarNumberFormat } from '../src'
+import { FormatDialog, SheetToolbar, SheetView, enMessages, ruMessages, type SheetFormatPatch, type SheetViewApi, type SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
 import SpaDialog from './SpaDialog.vue'
 import SpaLosses from './SpaLosses.vue'
-import { download, emptyBook, numberFormatsIn, timed } from './spa-book'
+import { download, emptyBook, timed } from './spa-book'
 import { IconNew, IconOpen, IconSave, IconSettings } from './spa-icons'
 import { bookLocaleOf, firstShownSheet, localeOfLang, lossesOf, type LossKind } from './spa-open'
 import { readInThread, writeInThread } from './spa-files'
@@ -31,7 +31,6 @@ interface Opened {
 }
 const book = shallowRef<Opened | null>(null)
 const name = ref('')
-const formats = shallowRef<ToolbarNumberFormat[]>([])
 const state = ref<SheetViewState | null>(null)
 /** The sheet the toolbar formats, undoes and redoes through, as the sheet's own keys do. */
 const sheet = shallowRef<SheetViewApi | null>(null)
@@ -77,7 +76,6 @@ function start(input: BookInput, bookName: string, lost: LossKind[] = [], since 
   name.value = bookName
   lostShown.value = true
   state.value = null
-  formats.value = []
   lastChange.value = 0
   opening.value = true
   const mine = () => book.value?.source === source
@@ -86,7 +84,6 @@ function start(input: BookInput, bookName: string, lost: LossKind[] = [], since 
       () => {
         if (!mine()) return
         lastOpen.value = performance.now() - since
-        formats.value = numberFormatsIn(source.locale)
       },
       (e: unknown) => mine() && say(t.value.openFailed(errorText(e))),
     )
@@ -238,12 +235,12 @@ onBeforeUnmount(() => void book.value?.source.close())
       :source="book.source"
       :state="state"
       :messages="messages"
-      :number-formats="formats"
+      :locale="book.source.locale"
       :sheet="sheet"
       @done="refocus"
       @format-cells="formatOpen = true"
     />
-    <FormatDialog :open="formatOpen" :state="state" :messages="messages" :number-formats="formats" @apply="formatCells" @close="closeFormat" />
+    <FormatDialog :open="formatOpen" :state="state" :messages="messages" :locale="book?.source.locale" @apply="formatCells" @close="closeFormat" />
     <SheetView
       v-if="book"
       :key="book.key"

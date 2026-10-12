@@ -2,7 +2,7 @@
 // selection, and show what the active cell shows (the `state` event of the sheet).
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SheetToolbar, SheetView, ruMessages, type SheetViewState, type ToolbarNumberFormat } from '../src'
+import { SheetToolbar, SheetView, ruMessages, type SheetViewState } from '../src'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/source'
 import { fakeSource, settle } from './helpers'
 
@@ -25,19 +25,8 @@ function source(extra: Record<string, unknown> = {}) {
   } as SheetSource & { format: ReturnType<typeof vi.fn>; undo: ReturnType<typeof vi.fn>; redo: ReturnType<typeof vi.fn> }
 }
 
-/** The ru-RU number formats as the example builds them with the library: built-in formats by number, money as typed. */
-const FORMATS: ToolbarNumberFormat[] = [
-  { kind: 'general', format: 0, code: 'General' },
-  { kind: 'number', format: 2, code: '0.00' },
-  { kind: 'currency', format: '#,##0.00\\ "₽";[Red]\\-#,##0.00\\ "₽"', code: '#,##0.00\\ "₽";[Red]\\-#,##0.00\\ "₽"' },
-  { kind: 'percent', format: 9, code: '0%' },
-  { kind: 'date', format: 14, code: 'dd.mm.yyyy' },
-  { kind: 'time', format: '[$-F400]h:mm:ss AM/PM', code: '[$-F400]h:mm:ss AM/PM' },
-  { kind: 'text', format: 49, code: '@' },
-]
-
 function mountBar(src: SheetSource, state: SheetViewState | null, props: Record<string, unknown> = {}) {
-  return mount(SheetToolbar, { props: { source: src, state, messages: ruMessages, numberFormats: FORMATS, ...props }, attachTo: document.body })
+  return mount(SheetToolbar, { props: { source: src, state, messages: ruMessages, ...props }, attachTo: document.body })
 }
 const at = (ref: string, more: Partial<SheetViewState> = {}): SheetViewState => ({ sheet: 'Лист1', ref, ...more })
 
@@ -121,16 +110,21 @@ describe('SheetToolbar: formatting through the source', () => {
     ])
   })
 
-  it('sets a number format by what it offers: a built-in format by its number', async () => {
+  it('sets a number format from Excel’s list, as xlcalc gives it: a built-in format by its number, a code as written', async () => {
     const src = source()
     const w = mountBar(src, at('A1:A3'))
-    await w.find('[data-tb="number"]').setValue('percent')
-    await w.find('[data-tb="number"]').setValue('date')
+    await settle()
+    await w.find('[data-tb="number"]').setValue('percentage')
+    await w.find('[data-tb="number"]').setValue('shortDate')
+    await w.find('[data-tb="number"]').setValue('time')
     await settle()
     expect(src.format.mock.calls).toEqual([
-      ['Лист1', [{ range: 'A1:A3', numberFormat: 9 }]],
+      ['Лист1', [{ range: 'A1:A3', numberFormat: 10 }]],
       ['Лист1', [{ range: 'A1:A3', numberFormat: 14 }]],
+      ['Лист1', [{ range: 'A1:A3', numberFormat: '[$-F400]h:mm:ss\\ AM/PM' }]],
     ])
+    // the box names the category again, as Excel's does
+    expect(w.find<HTMLSelectElement>('[data-tb="number"]').element.value).toBe('')
   })
 })
 
@@ -142,20 +136,32 @@ describe('SheetToolbar: what the active cell shows', () => {
     expect(['bold', 'italic', 'underline', 'align-left', 'align-center', 'align-right', 'wrap'].map(pressed)).toEqual(['true', 'false', 'true', 'false', 'false', 'true', 'true'])
   })
 
-  it('selects the number format the active cell shows by: General without a code, the offered one by its code, other formats as custom', async () => {
-    const w = mountBar(source(), at('A1', { numberFormat: '0%' }))
+  it('names the category of the active cell’s format as Excel’s box, by xlcalc’s rules', async () => {
+    const w = mountBar(source(), at('A1', { numberFormat: '0.00%' }), { messages: undefined })
+    await settle()
+    const shown = () => [w.find('[data-tb="number"]').attributes('data-tb-category'), w.find<HTMLSelectElement>('[data-tb="number"]').element.selectedOptions[0]!.textContent]
+    expect(shown()).toEqual(['percentage', 'Percentage'])
+    await w.setProps({ state: at('A2', { numberFormat: 'm/d/yyyy' }) })
+    expect(shown()).toEqual(['date', 'Date'])
+    await w.setProps({ state: at('A3') })
+    expect(shown()).toEqual(['general', 'General'])
+    await w.setProps({ state: at('A4', { numberFormat: '0.000' }) })
+    expect(shown()).toEqual(['number', 'Number'])
+    await w.setProps({ state: at('A5', { numberFormat: '0.00;-0.00' }) })
+    expect(shown()).toEqual(['custom', 'Custom'])
+    expect(w.findAll('[data-tb="number"] option').map((o) => o.attributes('value')).slice(1)).toEqual(['general', 'number', 'currency', 'accounting', 'shortDate', 'longDate', 'time', 'percentage', 'fraction', 'scientific', 'text'])
+  })
+
+  it('names the list’s items and the categories in the book’s locale', async () => {
+    const w = mountBar(source(), at('A1', { numberFormat: '0%' }), { locale: 'ru-RU' })
+    // the locale's module comes as a chunk of its own
+    await vi.dynamicImportSettled()
     await settle()
     const select = () => w.find<HTMLSelectElement>('[data-tb="number"]').element
-    expect(select().value).toBe('percent')
-    await w.setProps({ state: at('A2', { numberFormat: 'dd.mm.yyyy' }) })
-    expect(select().value).toBe('date')
-    await w.setProps({ state: at('A3') })
-    expect(select().value).toBe('general')
-    await w.setProps({ state: at('A4', { numberFormat: 'General' }) })
-    expect(select().value).toBe('general')
-    await w.setProps({ state: at('A5', { numberFormat: '0.000' }) })
-    expect(select().value).toBe('')
-    expect(select().selectedOptions[0]!.textContent).toBe(ruMessages.formatOther)
+    expect(select().selectedOptions[0]!.textContent).toBe('Процентный')
+    expect([...select().options].slice(1, 4).map((o) => o.textContent)).toEqual(['Общий', 'Числовой', 'Денежный'])
+    await w.setProps({ state: at('A2', { numberFormat: '@' }) })
+    expect(select().selectedOptions[0]!.textContent).toBe('Текстовый')
   })
 
   it('marks the colours the active cell has in the palettes, the automatic colour and no fill where it has none', async () => {
@@ -187,12 +193,11 @@ describe('SheetToolbar: when it shows', () => {
     expect(w.find('[data-tb="bold"]').exists()).toBe(false)
   })
 
-  it('has no number formats without the list of them, and no undo without the source’s undo', async () => {
+  it('has no undo without the source’s undo', async () => {
     const { undo: _u, ...rest } = source()
-    const w = mountBar(rest as SheetSource, at('A1'), { numberFormats: undefined })
+    const w = mountBar(rest as SheetSource, at('A1'))
     await settle()
     expect(w.find('.xs-toolbar').exists()).toBe(true)
-    expect(w.find('[data-tb="number"]').exists()).toBe(false)
     expect(w.find('[data-tb="undo"]').exists()).toBe(false)
     expect(w.find('[data-tb="redo"]').exists()).toBe(true)
   })

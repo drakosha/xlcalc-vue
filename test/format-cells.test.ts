@@ -2,24 +2,21 @@
 // The Format Cells dialog's rules: its fields as the active cell opens them, the Border tab's buttons, the limits OK
 // checks and the patches it sends, only for what changed, the borders on their ranges in the same call.
 import { describe, expect, it } from 'vitest'
-import type { SheetViewState, ToolbarNumberFormat } from '../src'
-import { draftErrors, patchesOf, pickNumber, pressEdge, pressPreset, shownEdge, startOf, type FormatDraft } from '../src/format-cells'
+import { numberFormatChoices } from 'xlcalc/text'
+import type { SheetViewState } from '../src'
+import { draftErrors, patchesOf, pickNumber, pressEdge, pressPreset, shownEdge, startOf, typeNumber, type FormatDraft } from '../src/format-cells'
 
-const FORMATS: ToolbarNumberFormat[] = [
-  { kind: 'general', format: 0, code: 'General' },
-  { kind: 'number', format: 2, code: '0.00' },
-  { kind: 'percent', format: 9, code: '0%' },
-  { kind: 'date', format: 14, code: 'dd.mm.yyyy' },
-]
+/** Excel's list as xlcalc gives it in en-US. */
+const item = (key: string) => numberFormatChoices().find((c) => c.key === key)!
 const THIN = { style: 'thin' } as const
 const RED = { style: 'medium', color: '#C00000' } as const
 const at = (ref: string, more: Partial<SheetViewState> = {}): SheetViewState => ({ sheet: 'S', ref, ...more })
 /** The dialog opened on `state`, its fields changed by `change`, and OK's patches. */
 function ok(state: SheetViewState, change: (d: FormatDraft, s: ReturnType<typeof startOf>) => void) {
-  const start = startOf(state, FORMATS)
+  const start = startOf(state)
   const draft = structuredClone(start.draft)
   change(draft, start)
-  return patchesOf(start, draft, FORMATS)
+  return patchesOf(start, draft)
 }
 
 describe('the fields as the active cell opens them', () => {
@@ -34,17 +31,16 @@ describe('the fields as the active cell opens them', () => {
           border: { top: THIN },
         },
       }),
-      FORMATS,
     )
-    expect(s.draft).toMatchObject({ numberKind: 'percent', numberCode: '0%', horizontal: 'center', vertical: 'top', wrap: true, indent: '2', fontName: 'Arial', fontSize: '14', fontStyle: 'boldItalic', underline: 'double', strike: true, fontColour: '#FF0000', fill: '#FFFF00' })
+    expect(s.draft).toMatchObject({ numberCode: '0%', numberFormat: null, horizontal: 'center', vertical: 'top', wrap: true, indent: '2', fontName: 'Arial', fontSize: '14', fontStyle: 'boldItalic', underline: 'double', strike: true, fontColour: '#FF0000', fill: '#FFFF00' })
     expect(s.single).toBe(true)
     expect(s.edges).toEqual({ top: THIN, bottom: null, left: null, right: null })
   })
 
   it('opens a cell without a look at Excel’s defaults, a code of its own as Custom, a range’s edges unknown', () => {
-    expect(startOf(at('A1'), FORMATS).draft).toMatchObject({ numberKind: 'general', numberCode: 'General', horizontal: 'general', vertical: 'bottom', wrap: false, indent: '0', fontName: '', fontSize: '', fontStyle: 'regular', underline: 'none', fontColour: null, fill: null })
-    expect(startOf(at('A1', { numberFormat: '0.000' }), FORMATS).draft).toMatchObject({ numberKind: 'custom', numberCode: '0.000' })
-    const range = startOf(at('B2:D4', { style: { border: { top: THIN } } }), FORMATS)
+    expect(startOf(at('A1')).draft).toMatchObject({ numberCode: 'General', numberFormat: null, horizontal: 'general', vertical: 'bottom', wrap: false, indent: '0', fontName: '', fontSize: '', fontStyle: 'regular', underline: 'none', fontColour: null, fill: null })
+    expect(startOf(at('A1', { numberFormat: '0.000' })).draft).toMatchObject({ numberCode: '0.000' })
+    const range = startOf(at('B2:D4', { style: { border: { top: THIN } } }))
     expect([range.single, range.edges]).toEqual([false, {}])
   })
 })
@@ -75,23 +71,21 @@ describe('OK’s patches', () => {
     ])
   })
 
-  it('a number format offered by what it sets, a code of the cell’s own as typed', () => {
-    expect(ok(at('A1:A3'), (d) => (d.numberKind = 'percent'))).toEqual([{ numberFormat: 9 }])
-    expect(ok(at('A1'), (d) => Object.assign(d, { numberKind: 'custom', numberCode: ' 0.000 ' }))).toEqual([{ numberFormat: '0.000' }])
-    expect(ok(at('A1', { numberFormat: '0.000' }), (d) => (d.numberCode = '0.000'))).toEqual([])
-    expect(ok(at('A1', { numberFormat: '0.000' }), (d) => (d.numberKind = 'general'))).toEqual([{ numberFormat: 0 }])
+  it('an item of Excel’s list by what it sets, a code typed as written; the same code sends nothing', () => {
+    expect(ok(at('A1:A3'), (d) => pickNumber(d, item('percentage')))).toEqual([{ numberFormat: 10 }])
+    expect(ok(at('A1'), (d) => typeNumber(d, ' 0.000 '))).toEqual([{ numberFormat: '0.000' }])
+    expect(ok(at('A1', { numberFormat: '0.000' }), (d) => typeNumber(d, '0.000'))).toEqual([])
+    expect(ok(at('A1', { numberFormat: '0.00%' }), (d) => pickNumber(d, item('percentage')))).toEqual([])
+    expect(ok(at('A1', { numberFormat: '0.000' }), (d) => pickNumber(d, item('general')))).toEqual([{ numberFormat: 0 }])
   })
 
-  it('Custom takes the code of the category picked before it; the same code sends nothing', () => {
-    const start = startOf(at('A1', { numberFormat: '0%' }), FORMATS)
-    const d = structuredClone(start.draft)
-    pickNumber(d, 'date', FORMATS)
-    pickNumber(d, 'custom', FORMATS)
-    expect(d.numberCode).toBe('dd.mm.yyyy')
-    d.numberCode = '0%'
-    expect(patchesOf(start, d, FORMATS)).toEqual([])
-    d.numberCode = '0.0%'
-    expect(patchesOf(start, d, FORMATS)).toEqual([{ numberFormat: '0.0%' }])
+  it('an item puts its code in the field, to be changed from there as Excel’s Custom', () => {
+    const patches = ok(at('A1'), (d) => {
+      pickNumber(d, item('percentage'))
+      expect(d.numberCode).toBe('0.00%')
+      typeNumber(d, '0.0%')
+    })
+    expect(patches).toEqual([{ numberFormat: '0.0%' }])
   })
 })
 
@@ -155,12 +149,12 @@ describe('the Border tab', () => {
 })
 
 describe('the limits OK checks', () => {
-  const errors = (d: Partial<FormatDraft>) => draftErrors({ ...startOf(at('A1'), FORMATS).draft, ...d })
+  const errors = (d: Partial<FormatDraft>) => draftErrors({ ...startOf(at('A1')).draft, ...d })
   it('a font of 1 to 409 points, an indent of 0 to 250, a code of the cell’s own not empty', () => {
     expect(errors({ fontSize: '10,5', indent: '250' })).toEqual({})
     expect(errors({ fontSize: '0', indent: '251' })).toEqual({ fontSize: true, indent: true })
     expect(errors({ fontSize: '409.5', indent: '-1' })).toEqual({ fontSize: true, indent: true })
     expect(errors({ fontSize: 'big', indent: '1.5' })).toEqual({ fontSize: true, indent: true })
-    expect(errors({ numberKind: 'custom', numberCode: '  ' })).toEqual({ numberCode: true })
+    expect(errors({ numberCode: '  ' })).toEqual({ numberCode: true })
   })
 })

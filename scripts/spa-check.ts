@@ -1,8 +1,8 @@
 // The app like Excel in a browser: the example's spa.html built for production and served by `vite preview`, driven by
 // Playwright on a desktop (1920 × 1200, mouse and keys) and a phone (390 × 844, touch). Each creates a ru-RU book, types
-// values and a formula, makes them bold and percent and draws outside borders from the toolbar, undoes and redoes, saves
+// values and a formula, makes them bold and Percentage (Excel's 0.00%) and draws outside borders from the toolbar, undoes and redoes, saves
 // the book, opens the saved file again (dropped on the page, or from the picker) and checks values and formatting; on
-// the desktop a column in percent shows its format in the list on its empty cell.
+// the desktop a column in percent shows its format's category in the box on its empty cell.
 // Then the structure menu on a new book: on the desktop a row inserted by a right click (the formula under it moves),
 // a column hidden and shown, a sheet added by "+", renamed and deleted, a column fitted by a double click on its edge;
 // on the phone a row inserted from the menu a long press opens.
@@ -16,6 +16,8 @@ import { resolve } from 'node:path'
 import { chromium, type Browser, type Page } from 'playwright'
 import { build, preview } from 'vite'
 import type { BookInput, CellStyle } from 'xlcalc'
+import { ruRU } from 'xlcalc/locales/ru-RU'
+import { numberFormatCategory } from 'xlcalc/text'
 
 const root = resolve(import.meta.dirname, '..')
 const config = resolve(root, 'vite.example.config.ts')
@@ -34,6 +36,15 @@ interface Size {
 /** Wait until a cell (`row:col`) shows `text`. */
 async function shows(page: Page, cell: string, text: string): Promise<void> {
   await page.waitForFunction(([c, t]) => document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim() === t, [cell, text] as const, { timeout: 30_000 })
+}
+/** The name ru-RU's box gives Percentage (`0.00%`), by xlcalc's rule, whichever Excel's the library follows. */
+const PERCENT = numberFormatCategory(10, ruRU).name
+/** Wait until the toolbar's Number Format box names `name`. */
+async function boxNames(page: Page, name: string, where: string): Promise<void> {
+  const shown = () => page.evaluate(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.trim())
+  await page.waitForFunction((n) => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.trim() === n, name, { timeout: 30_000 }).catch(async () => {
+    throw new Error(`${where}: the box names ${JSON.stringify(await shown())}, want ${JSON.stringify(name)}`)
+  })
 }
 /** Wait for the status bar's Ready. */
 async function ready(page: Page): Promise<void> {
@@ -174,11 +185,11 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await checkNoSideScroll(page, at('toolbar menu'))
     await shot('menu')
   }
-  await page.locator('[data-tb="number"]').selectOption('percent')
-  await shows(page, '1:1', '25%')
-  await shows(page, '3:1', '75%')
+  await page.locator('[data-tb="number"]').selectOption('percentage')
+  await shows(page, '1:1', '25,00%')
+  await shows(page, '3:1', '75,00%')
   // The source reloads after formatting: the list shows the new format of the active cell.
-  await page.waitForFunction(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.value === 'percent', null, { timeout: 30_000 })
+  await boxNames(page, PERCENT, at('the box after Percentage'))
   await shot('percent')
 
   // 5. Outside borders: four edges in one step.
@@ -243,19 +254,19 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await shot('drop')
     await page.dispatchEvent('.spa', 'drop', { dataTransfer: drop })
   }
-  await shows(page, '1:1', '25%')
+  await shows(page, '1:1', '25,00%')
   await ready(page)
 
   // 9. Values and formatting as saved; the cell typed after saving is not there.
-  for (const [cell, text] of [['1:1', '25%'], ['2:1', '50%'], ['3:1', '75%'], ['1:2', '']] as const) await shows(page, cell, text)
+  for (const [cell, text] of [['1:1', '25,00%'], ['2:1', '50,00%'], ['3:1', '75,00%'], ['1:2', '']] as const) await shows(page, cell, text)
   expect(at('name of the opened book'), await page.locator('[data-spa-name]').inputValue(), `Проверка-${size.name}`)
   const book = await bookOf(page)
   expect(at('reopened locale'), book.locale, 'ru-RU')
-  expect(at('reopened A3'), { formula: cellOf(book, 'A3').formula, bold: cellOf(book, 'A3').style?.font?.bold, format: cellOf(book, 'A3').numberFormat }, { formula: 'SUM(A1:A2)', bold: true, format: 9 })
+  expect(at('reopened A3'), { formula: cellOf(book, 'A3').formula, bold: cellOf(book, 'A3').style?.font?.bold, format: cellOf(book, 'A3').numberFormat }, { formula: 'SUM(A1:A2)', bold: true, format: 10 })
   expect(at('reopened borders'), bordersOf(book), OUTSIDE)
   await page.locator('[data-cell="2:1"]').click()
   await page.waitForSelector('[data-tb="bold"][aria-pressed="true"]')
-  expect(at('the list shows the opened percent'), await page.locator('[data-tb="number"]').inputValue(), 'percent')
+  await boxNames(page, PERCENT, at('the box on the opened percent'))
   const seen = await page.evaluate(() => [...((window as any).__seen as Set<string>)])
   if (!seen.includes('Пересчёт…')) throw new Error(`${at('status')}: never showed the recomputation: ${JSON.stringify(seen)}`)
   if (size.phone) {
@@ -264,17 +275,17 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   }
   await shot('reopened')
   if (!size.phone) {
-    // 10. Column C in percent: its empty cell shows the column's format in the list, as Excel's does.
+    // 10. Column C in percent: its empty cell shows the column's format's category in the box, as Excel's does.
     await page.locator('.xs-head[data-col="3"]').click()
-    await page.locator('[data-tb="number"]').selectOption('percent')
+    await page.locator('[data-tb="number"]').selectOption('percentage')
     await ready(page)
     const formatted = await bookOf(page)
-    expect(at('column C in percent'), (formatted.sheets[0]!.columns as Record<string, any>).C.numberFormat, 9)
+    expect(at('column C in percent'), (formatted.sheets[0]!.columns as Record<string, any>).C.numberFormat, 10)
     expect(at('C7 has no format of its own'), cellOf(formatted, 'C7').numberFormat, undefined)
     await page.locator('[data-cell="7:3"]').click()
-    await page.waitForFunction(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.value === 'percent', null, { timeout: 30_000 })
+    await boxNames(page, PERCENT, at('the box on C7'))
     await page.locator('[data-cell="7:4"]').click()
-    await page.waitForFunction(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.value === 'general', null, { timeout: 30_000 })
+    await boxNames(page, numberFormatCategory(0, ruRU).name, at('the box on D7'))
     await page.locator('[data-cell="7:3"]').click()
     await shot('column-format')
   }
@@ -521,18 +532,18 @@ async function findFormatScenario(browser: Browser, base: string, size: Size): P
   }
   await shot('dialog-border')
   await press(page, size, '[data-fmt-tab="number"]')
-  await press(page, size, '[data-fmt-number="percent"]')
+  await press(page, size, '[data-fmt-number="percentage"]')
   await shot('dialog-number')
   await press(page, size, '[data-fmt-ok]')
   await page.waitForSelector('[data-fmt]', { state: 'detached' })
-  await shows(page, '1:2', '25%')
+  await shows(page, '1:2', '25,00%')
   await ready(page)
   const MEDIUM = { style: 'medium' }
   const formatted = await bookOf(page)
   expect(
     at('A1 and B3 formatted'),
     [cellOf(formatted, 'A1').style, cellOf(formatted, 'B3').style?.border, cellOf(formatted, 'B1').numberFormat],
-    [{ font: { bold: true, size: 14 }, border: { top: MEDIUM, left: MEDIUM } }, { bottom: MEDIUM, right: MEDIUM }, 9],
+    [{ font: { bold: true, size: 14 }, border: { top: MEDIUM, left: MEDIUM } }, { bottom: MEDIUM, right: MEDIUM }, 10],
   )
   await shot('formatted')
   if (size.phone) await press(page, size, '[data-tb="undo"]')

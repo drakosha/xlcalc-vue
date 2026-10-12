@@ -1,10 +1,10 @@
 // Excel's Format Cells dialog without its look: the fields as the active cell's look opens them, what each tab's buttons
 // do to them, and the patches of `SheetView.format` that OK sends, only for what the person changed.
-import type { AlignmentStyle, BorderLine, CellStyle, FontStyle } from 'xlcalc/contract'
+import type { AlignmentStyle, BorderLine, CellStyle, FontStyle, FormatChoice, NumberFormat } from 'xlcalc/contract'
 import { parseRange } from 'xlcalc/a1'
 import type { SheetFormatPatch } from './core/commands'
 import type { SheetViewState } from './core/sheet'
-import { BORDER_EDGES, edgePatches, edgesOf, numberKindOf, sameLine, type BorderEdge, type EdgeLines, type NumberKind, type ToolbarNumberFormat } from './toolbar'
+import { BORDER_EDGES, edgePatches, edgesOf, sameLine, type BorderEdge, type EdgeLines } from './toolbar'
 
 export type FormatTab = 'number' | 'alignment' | 'font' | 'border' | 'fill'
 export const FORMAT_TABS: readonly FormatTab[] = ['number', 'alignment', 'font', 'border', 'fill']
@@ -24,9 +24,10 @@ export const FONT_NAMES: readonly string[] = ['Aptos', 'Arial', 'Calibri', 'Camb
 
 /** The dialog's fields; text fields hold what is typed until OK reads them. */
 export interface FormatDraft {
-  /** An offered number format, or a code of the cell's own (Excel's Custom). */
-  numberKind: NumberKind | 'custom'
+  /** The code the cells show by: an item's of Excel's list, or one typed (the box names its category). */
   numberCode: string
+  /** What OK sets: an item's format (a built-in one by number), or the code typed; null leaves the format as it is. */
+  numberFormat: NumberFormat | null
   horizontal: Horizontal
   vertical: Vertical
   wrap: boolean
@@ -58,16 +59,15 @@ export interface FormatStart {
 const upper = (c: string | undefined | null) => c?.toUpperCase() ?? null
 const fontStyleOf = (f: FontStyle | undefined): FontStyleKind => (f?.bold ? (f.italic ? 'boldItalic' : 'bold') : f?.italic ? 'italic' : 'regular')
 
-/** The fields as the active cell shows them: its style, its number format among those offered, Excel's thin black line to draw with. */
-export function startOf(state: SheetViewState, offered: readonly ToolbarNumberFormat[]): FormatStart {
+/** The fields as the active cell shows them: its style, its number format's code, Excel's thin black line to draw with. */
+export function startOf(state: SheetViewState): FormatStart {
   const s: CellStyle = state.style ?? {}
-  const kind = numberKindOf(state.numberFormat, offered)
   const r = parseRange(state.ref)
   const single = !r || (r.top === r.bottom && r.left === r.right)
   const own = s.border ?? {}
   const draft: FormatDraft = {
-    numberKind: kind ?? 'custom',
     numberCode: state.numberFormat ?? 'General',
+    numberFormat: null,
     horizontal: s.alignment?.horizontal ?? 'general',
     vertical: s.alignment?.vertical ?? 'bottom',
     wrap: !!s.alignment?.wrap,
@@ -120,7 +120,7 @@ export interface DraftErrors {
 /** Excel's limits: a font of 1 to 409 points, an indent of 0 to 250, a code of the cell's own not empty. */
 export function draftErrors(draft: FormatDraft): DraftErrors {
   const out: DraftErrors = {}
-  if (draft.numberKind === 'custom' && !draft.numberCode.trim()) out.numberCode = true
+  if (!draft.numberCode.trim()) out.numberCode = true
   const indent = Number(draft.indent.trim())
   if (!/^\d+$/.test(draft.indent.trim()) || indent > 250) out.indent = true
   const size = Number(draft.fontSize.trim().replace(',', '.'))
@@ -128,15 +128,15 @@ export function draftErrors(draft: FormatDraft): DraftErrors {
   return out
 }
 
-/** The code a draft's number format shows by: an offered one's, or the code typed (Custom). */
-export function numberCodeOf(draft: FormatDraft, offered: readonly ToolbarNumberFormat[]): string {
-  if (draft.numberKind === 'custom') return draft.numberCode.trim()
-  return offered.find((f) => f.kind === draft.numberKind)?.code ?? draft.numberCode
+/** An item of Excel's list: its format, and its code in the field to be changed from there, as Excel's Custom starts. */
+export function pickNumber(draft: FormatDraft, item: FormatChoice): void {
+  draft.numberCode = item.code
+  draft.numberFormat = item.format
 }
-/** Excel's Custom takes the code of the category picked before it, to be changed from there. */
-export function pickNumber(draft: FormatDraft, kind: FormatDraft['numberKind'], offered: readonly ToolbarNumberFormat[]): void {
-  if (kind === 'custom' && draft.numberKind !== 'custom') draft.numberCode = numberCodeOf(draft, offered)
-  draft.numberKind = kind
+/** A code typed into the field: OK sets it as written. */
+export function typeNumber(draft: FormatDraft, code: string): void {
+  draft.numberCode = code
+  draft.numberFormat = code.trim()
 }
 
 /** The font size typed, to Excel's half points; undefined for an empty field (the book's size). */
@@ -150,7 +150,7 @@ function sizeOf(text: string): number | undefined {
  * the Border tab's edges on their ranges, all for one call and so one step of undo; none when nothing changed. A field
  * back at its default takes the cell's own off (null), as Excel stores no default.
  */
-export function patchesOf(start: FormatStart, draft: FormatDraft, offered: readonly ToolbarNumberFormat[]): SheetFormatPatch[] {
+export function patchesOf(start: FormatStart, draft: FormatDraft): SheetFormatPatch[] {
   const was = start.draft
   const font: Record<string, unknown> = {}
   const name = draft.fontName.trim()
@@ -177,10 +177,7 @@ export function patchesOf(start: FormatStart, draft: FormatDraft, offered: reado
   const out: SheetFormatPatch[] = []
   const own: SheetFormatPatch = {}
   if (Object.keys(style).length) own.style = style
-  if (numberCodeOf(draft, offered) !== numberCodeOf(was, offered)) {
-    const offer = offered.find((f) => f.kind === draft.numberKind)
-    own.numberFormat = offer ? offer.format : draft.numberCode.trim()
-  }
+  if (draft.numberFormat !== null && draft.numberCode.trim() !== was.numberCode) own.numberFormat = draft.numberFormat
   if (own.style || own.numberFormat !== undefined) out.push(own)
   // only edges the person set to something else than they were; an unknown edge set at all
   const lines: EdgeLines = {}

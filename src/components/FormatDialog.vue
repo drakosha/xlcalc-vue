@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Excel's Format Cells dialog (Control+1) over the selection the sheet's `state` event gives: Number, Alignment, Font,
-// Border and Fill, what xlcalc's cell style holds. It opens at the active cell's look; OK emits the patches of
-// `SheetView.format` for what changed (one call, one step of undo) and closes, Cancel closes. Full screen on a phone.
+// Border and Fill, what xlcalc's cell style holds; the Number tab is Excel's Number Format box in the book's locale
+// (xlcalc's list and categories). It opens at the active cell's look; OK emits the patches of `SheetView.format` for what
+// changed (one call, one step of undo) and closes, Cancel closes. Full screen on a phone.
 import { computed, nextTick, reactive, ref, shallowRef, watch } from 'vue'
 import type { SheetViewState } from '../core/sheet'
 import type { SheetFormatPatch } from '../core/commands'
@@ -11,17 +12,17 @@ import {
   FONT_SIZES,
   FORMAT_TABS,
   HORIZONTALS,
-  numberCodeOf,
   patchesOf,
   pickNumber,
   startOf,
+  typeNumber,
   VERTICALS,
   type FormatDraft,
   type FormatStart,
   type FormatTab,
 } from '../format-cells'
 import { enMessages, type SheetMessages } from '../messages'
-import type { NumberKind, ToolbarNumberFormat } from '../toolbar'
+import { useNumberFormats } from '../number-formats'
 import FormatBorders from './FormatBorders.vue'
 import FormatColour from './FormatColour.vue'
 import { IconClose } from './icons'
@@ -34,10 +35,10 @@ const props = withDefaults(
     state: SheetViewState | null
     /** Interface texts; a part overrides the English defaults. */
     messages?: Partial<SheetMessages>
-    /** The number formats to offer, as the toolbar's (`ToolbarNumberFormat`); any other code is Custom. */
-    numberFormats?: readonly ToolbarNumberFormat[]
+    /** The book's locale (as `SheetView`'s): the Number tab names its categories and items in it; en-US without one. */
+    locale?: string
   }>(),
-  { messages: undefined, numberFormats: () => [] },
+  { messages: undefined, locale: undefined },
 )
 const emit = defineEmits<{
   /** OK with changes: patches for `SheetView.format`, a style without a range over the selection, borders on their ranges. */
@@ -47,16 +48,7 @@ const emit = defineEmits<{
 }>()
 
 const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
-const KIND_TITLE: Record<NumberKind, keyof SheetMessages> = {
-  general: 'formatGeneral',
-  number: 'formatNumber',
-  currency: 'formatCurrency',
-  percent: 'formatPercent',
-  date: 'formatDate',
-  time: 'formatTime',
-  text: 'formatText',
-}
-const kindTitle = (k: NumberKind) => m.value[KIND_TITLE[k]] as string
+const numbers = useNumberFormats(() => props.locale)
 /** Excel's indent goes with the left, right and distributed alignments. */
 const INDENTED = new Set(['left', 'right', 'distributed'])
 
@@ -71,7 +63,7 @@ watch(
   () => props.open && !!props.state,
   (shown) => {
     if (!shown || !props.state) return
-    start.value = startOf(props.state, props.numberFormats)
+    start.value = startOf(props.state)
     draft.value = structuredClone(start.value.draft)
     for (const k of Object.keys(badColour)) delete badColour[k]
     void nextTick(() => form.value?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus())
@@ -89,11 +81,12 @@ function setHorizontal(h: string): void {
 
 const errors = computed(() => (draft.value ? draftErrors(draft.value) : {}))
 const blocked = computed(() => Object.keys(errors.value).length > 0 || Object.values(badColour).some(Boolean))
-const shownCode = computed(() => (draft.value ? numberCodeOf(draft.value, props.numberFormats) : ''))
+/** The category Excel's box names for the code in the field. */
+const category = computed(() => (draft.value ? numbers.categoryOf(draft.value.numberCode.trim() || undefined) : null))
 
 function ok(): void {
   if (!start.value || !draft.value || blocked.value) return
-  const patches = patchesOf(start.value, draft.value, props.numberFormats)
+  const patches = patchesOf(start.value, draft.value)
   if (patches.length) emit('apply', patches)
   emit('close')
 }
@@ -118,16 +111,15 @@ const value = (e: Event) => (e.target as HTMLInputElement | HTMLSelectElement).v
 
       <div class="xs-fmt-body" role="tabpanel" :aria-label="m.fmtTab(tab)">
         <div v-show="tab === 'number'" class="xs-fmt-stack">
+          <p class="xs-fmt-category" data-fmt-category :data-fmt-category-key="category?.category">
+            {{ m.fmtCategory }}: <b>{{ category?.name ?? '' }}</b>
+          </p>
           <fieldset class="xs-fmt-box">
-            <legend>{{ m.fmtCategory }}</legend>
-            <div class="xs-fmt-list">
-              <label v-for="f in numberFormats" :key="f.kind" class="xs-fmt-choice">
-                <input type="radio" name="xs-fmt-number" :checked="draft.numberKind === f.kind" :data-fmt-number="f.kind" @change="pickNumber(draft, f.kind, numberFormats)" />
-                {{ kindTitle(f.kind) }}
-              </label>
-              <label class="xs-fmt-choice">
-                <input type="radio" name="xs-fmt-number" :checked="draft.numberKind === 'custom'" data-fmt-number="custom" @change="pickNumber(draft, 'custom', numberFormats)" />
-                {{ m.formatOther }}
+            <legend>{{ m.numberFormat }}</legend>
+            <div class="xs-fmt-list" role="radiogroup" :aria-label="m.numberFormat">
+              <label v-for="c in numbers.choices.value" :key="c.key" class="xs-fmt-choice">
+                <input type="radio" name="xs-fmt-number" :checked="draft.numberCode === c.code" :data-fmt-number="c.key" @change="pickNumber(draft, c)" />
+                {{ c.name }}
               </label>
             </div>
           </fieldset>
@@ -138,11 +130,10 @@ const value = (e: Event) => (e.target as HTMLInputElement | HTMLSelectElement).v
               type="text"
               spellcheck="false"
               autocomplete="off"
-              :value="shownCode"
-              :readonly="draft.numberKind !== 'custom'"
+              :value="draft.numberCode"
               :aria-invalid="!!errors.numberCode"
               data-fmt-code
-              @input="draft.numberCode = value($event)"
+              @input="typeNumber(draft, value($event))"
             />
           </label>
           <p v-if="errors.numberCode" class="xs-fmt-error" role="alert">{{ m.fmtCodeEmpty }}</p>

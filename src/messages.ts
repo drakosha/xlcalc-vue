@@ -160,15 +160,6 @@ export interface SheetMessages {
   alignRight: string
   wrapText: string
   numberFormat: string
-  formatGeneral: string
-  formatNumber: string
-  formatCurrency: string
-  formatPercent: string
-  formatDate: string
-  formatTime: string
-  formatText: string
-  /** A format none of the offered ones is (Excel's Custom). */
-  formatOther: string
   /** Excel's Format Cells dialog (`FormatDialog`): its tabs, fields and the names of what they offer. */
   formatCells: string
   formatCellsOpen: string
@@ -357,14 +348,6 @@ export const enMessages: SheetMessages = {
   alignRight: 'Align right',
   wrapText: 'Wrap text',
   numberFormat: 'Number format',
-  formatGeneral: 'General',
-  formatNumber: 'Number',
-  formatCurrency: 'Currency',
-  formatPercent: 'Percentage',
-  formatDate: 'Short date',
-  formatTime: 'Time',
-  formatText: 'Text',
-  formatOther: 'Custom',
   formatCells: 'Format Cells',
   formatCellsOpen: 'Format Cells… (Ctrl+1)',
   fmtTab: (tab) => ({ number: 'Number', alignment: 'Alignment', font: 'Font', border: 'Border', fill: 'Fill' })[tab],
@@ -581,18 +564,10 @@ export const ruMessages: SheetMessages = {
   alignRight: 'По правому краю',
   wrapText: 'Перенос текста',
   numberFormat: 'Числовой формат',
-  formatGeneral: 'Общий',
-  formatNumber: 'Числовой',
-  formatCurrency: 'Денежный',
-  formatPercent: 'Процентный',
-  formatDate: 'Краткая дата',
-  formatTime: 'Время',
-  formatText: 'Текстовый',
-  formatOther: 'Другой',
   formatCells: 'Формат ячеек',
   formatCellsOpen: 'Формат ячеек… (Ctrl+1)',
   fmtTab: (tab) => ({ number: 'Число', alignment: 'Выравнивание', font: 'Шрифт', border: 'Граница', fill: 'Заливка' })[tab],
-  fmtCategory: 'Числовые форматы',
+  fmtCategory: 'Категория',
   fmtCode: 'Тип',
   fmtCodeEmpty: 'Введите код формата',
   fmtHorizontal: 'По горизонтали',
