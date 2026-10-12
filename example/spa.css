@@ -79,9 +79,10 @@
   opacity: 0;
   pointer-events: none;
 }
+/* The name as wide as it is (the input's size follows it), shrinking when the bar is short. */
 .spa-name {
   display: flex;
-  flex: 0 1 260px;
+  flex: 0 1 auto;
   align-items: center;
   min-width: 0;
   margin: 0 6px;
@@ -112,21 +113,54 @@
   margin-left: auto;
 }
 
-/* ── what the file lost ── */
+/* ── what the file lost: one line as Excel's message bar, the details under it on demand ── */
 .spa-lost {
-  display: flex;
   flex-shrink: 0;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 4px 2px 10px;
   border-bottom: 1px solid var(--spa-warn-line);
   background: var(--spa-warn-bg);
   color: var(--spa-warn-fg);
 }
-.spa-lost p {
+.spa-lost-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 2px 4px 2px 10px;
+}
+.spa-lost-title {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+.spa-lost-summary {
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spa-lost-more {
+  text-decoration: underline;
+}
+.spa-lost .spa-btn:hover {
+  background: rgb(0 0 0 / 0.06);
+}
+.spa-lost-details {
+  max-height: 40vh;
+  overflow: auto;
+  padding: 2px 12px 8px 36px;
+  border-top: 1px solid var(--spa-warn-line);
+}
+.spa-lost-kind h3 {
+  margin: 8px 0 2px;
+  font-size: 13px;
+}
+.spa-lost-kind ul {
   margin: 0;
+  padding-left: 18px;
+}
+.spa-lost-kind p {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
 }
 .spa-icon-btn {
   padding: 0;
@@ -281,8 +315,12 @@
   }
   .spa-mark,
   .spa-label,
-  .spa-ext {
+  .spa-ext,
+  .spa-lost-title {
     display: none;
+  }
+  .spa-lost-details {
+    padding-left: 12px;
   }
   .spa-btn {
     padding: 0;

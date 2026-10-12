@@ -1,4 +1,4 @@
-// The app bar's icons: a new book, open, save as, settings and close, as small inline SVGs.
+// The app's icons: a new book, open, save as, settings, close and the warning of the notice, as small inline SVGs.
 import { h, type FunctionalComponent } from 'vue'
 
 const icon = (paths: string[]): FunctionalComponent => {
@@ -16,3 +16,4 @@ export const IconOpen = icon(['M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 
 export const IconSave = icon(['M12 4v11', 'm7 10 5 5 5-5', 'M5 20h14'])
 export const IconSettings = icon(['M4 7h10', 'M18 7h2', 'M4 17h2', 'M10 17h10', 'M16 5v4', 'M8 15v4'])
 export const IconClose = icon(['M18 6 6 18', 'm6 6 12 12'])
+export const IconWarn = icon(['M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z', 'M12 9v4', 'M12 17h.01'])

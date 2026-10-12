@@ -1,4 +1,5 @@
 // The example app's own texts, Russian and English; the sheet and the toolbar take the package's `ruMessages` or `enMessages`.
+import type { XlsxIssueCode } from 'xlcalc/xlsx'
 
 export type SpaLang = 'en' | 'ru'
 export type BookLocale = 'en-US' | 'ru-RU'
@@ -25,9 +26,20 @@ export interface SpaTexts {
   ready: string
   busy: string
   saving: string
-  lost: string
-  lostMore: (n: number) => string
+  /** The status while a file is read, and while its book computes for the first time. */
+  reading: string
+  computing: string
+  /** A number as the interface writes it: 3 406, 3,406. */
+  count: (n: number) => string
+  /** The notice of what a file lost: its title, each kind's name, and its details. */
+  lostTitle: string
+  lossKind: Record<XlsxIssueCode, string>
+  lostDetails: string
+  lostHide: string
+  lostOther: (n: number) => string
   lostSheets: (names: string[]) => string
+  lostCells: (count: number, examples: string[]) => string
+  lostNames: (count: number, examples: string[]) => string
   dropHere: string
   openFailed: (message: string) => string
   saveFailed: (message: string) => string
@@ -36,6 +48,10 @@ export interface SpaTexts {
 }
 
 const ms = (n: number) => Math.round(n)
+/** The first eight of a list, and how many more. */
+const firstOf = (xs: string[], more: (n: number) => string) => xs.slice(0, 8).join(', ') + (xs.length > 8 ? more(xs.length - 8) : '')
+const enCount = new Intl.NumberFormat('en-US')
+const ruCount = new Intl.NumberFormat('ru-RU')
 
 export const TEXTS: Record<SpaLang, SpaTexts> = {
   en: {
@@ -58,9 +74,54 @@ export const TEXTS: Record<SpaLang, SpaTexts> = {
     ready: 'Ready',
     busy: 'Calculating…',
     saving: 'Saving…',
-    lost: 'Not carried over from the file:',
-    lostMore: (n) => ` (and ${n} more)`,
-    lostSheets: (names) => `, ${names.length === 1 ? 'sheet' : 'sheets'} ${names.join(', ')}`,
+    reading: 'Reading the file…',
+    computing: 'Computing the book…',
+    count: (n) => enCount.format(n),
+    lostTitle: 'Not carried over',
+    lossKind: {
+      externalLink: 'links to other workbooks',
+      userFunction: 'user-defined functions',
+      formula: 'formulas',
+      dataTable: 'data tables',
+      errorValue: 'unknown errors',
+      errorConstant: 'errors typed as values',
+      part: 'damaged parts',
+      table: 'tables',
+      pivotTable: 'pivot tables',
+      drawing: 'pictures and charts',
+      sheetKind: 'chart and macro sheets',
+      cellMetadata: 'data types in cells',
+      connection: 'data connections',
+      macros: 'macros',
+      conditionalFormat: 'conditional formatting',
+      dataValidation: 'data validation',
+      hyperlink: 'hyperlinks',
+      comment: 'notes',
+      richText: 'formatted text',
+      style: 'formatting',
+      numberFormat: 'number formats',
+      defaultFont: 'default font',
+      defaultWidth: 'default column width',
+      frozenPanes: 'frozen panes',
+      autoFilter: 'filters',
+      outline: 'outline styles',
+      sparkline: 'sparklines',
+      print: 'print settings',
+      protection: 'protection',
+      calculation: 'calculation settings',
+      hidden: 'hidden sheets',
+      locale: 'book language',
+      name: 'names',
+      meta: 'cell data',
+      textLength: 'long text',
+      noCachedValues: 'stored values',
+    },
+    lostDetails: 'Details',
+    lostHide: 'Hide details',
+    lostOther: (n) => `and ${enCount.format(n)} more`,
+    lostSheets: (names) => `${names.length === 1 ? 'Sheet' : 'Sheets'}: ${firstOf(names, (n) => ` and ${n} more`)}`,
+    lostCells: (count, examples) => `${count === 1 ? 'Cell' : 'Cells'}: ${examples.join(', ')}${count > examples.length ? `, ${enCount.format(count)} in all` : ''}`,
+    lostNames: (count, examples) => `${count === 1 ? 'Name' : 'Names'}: ${examples.join(', ')}${count > examples.length ? `, ${enCount.format(count)} in all` : ''}`,
     dropHere: 'Drop an xlsx file to open it',
     openFailed: (message) => `Could not open the file: ${message}`,
     saveFailed: (message) => `Could not save the book: ${message}`,
@@ -87,9 +148,54 @@ export const TEXTS: Record<SpaLang, SpaTexts> = {
     ready: 'Готово',
     busy: 'Пересчёт…',
     saving: 'Сохранение…',
-    lost: 'Из файла не перенесено:',
-    lostMore: (n) => ` (и ещё ${n})`,
-    lostSheets: (names) => `, ${names.length === 1 ? 'лист' : 'листы'} ${names.join(', ')}`,
+    reading: 'Чтение файла…',
+    computing: 'Расчёт книги…',
+    count: (n) => ruCount.format(n),
+    lostTitle: 'Не перенесено',
+    lossKind: {
+      externalLink: 'связи с другими книгами',
+      userFunction: 'пользовательские функции',
+      formula: 'формулы',
+      dataTable: 'таблицы данных',
+      errorValue: 'неизвестные ошибки',
+      errorConstant: 'ошибки, введённые значением',
+      part: 'повреждённые части файла',
+      table: 'таблицы',
+      pivotTable: 'сводные таблицы',
+      drawing: 'рисунки и диаграммы',
+      sheetKind: 'листы диаграмм и макросов',
+      cellMetadata: 'типы данных в ячейках',
+      connection: 'подключения к данным',
+      macros: 'макросы',
+      conditionalFormat: 'условное форматирование',
+      dataValidation: 'проверка данных',
+      hyperlink: 'гиперссылки',
+      comment: 'примечания',
+      richText: 'форматирование текста',
+      style: 'оформление',
+      numberFormat: 'числовые форматы',
+      defaultFont: 'шрифт по умолчанию',
+      defaultWidth: 'ширина столбцов по умолчанию',
+      frozenPanes: 'закрепление областей',
+      autoFilter: 'фильтры',
+      outline: 'стили структуры',
+      sparkline: 'спарклайны',
+      print: 'параметры печати',
+      protection: 'защита',
+      calculation: 'параметры вычислений',
+      hidden: 'скрытые листы',
+      locale: 'язык книги',
+      name: 'имена',
+      meta: 'данные ячеек',
+      textLength: 'длинный текст',
+      noCachedValues: 'сохранённые значения',
+    },
+    lostDetails: 'Подробнее',
+    lostHide: 'Скрыть подробности',
+    lostOther: (n) => `и ещё ${ruCount.format(n)}`,
+    lostSheets: (names) => `${names.length === 1 ? 'Лист' : 'Листы'}: ${firstOf(names, (n) => ` и ещё ${n}`)}`,
+    lostCells: (count, examples) => `${count === 1 ? 'Ячейка' : 'Ячейки'}: ${examples.join(', ')}${count > examples.length ? `, всего ${ruCount.format(count)}` : ''}`,
+    lostNames: (count, examples) => `${count === 1 ? 'Имя' : 'Имена'}: ${examples.join(', ')}${count > examples.length ? `, всего ${ruCount.format(count)}` : ''}`,
     dropHere: 'Отпустите xlsx-файл, чтобы открыть его',
     openFailed: (message) => `Не удалось открыть файл: ${message}`,
     saveFailed: (message) => `Не удалось сохранить книгу: ${message}`,
