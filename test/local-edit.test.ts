@@ -51,7 +51,7 @@ describe('localSource: typed edits', () => {
     expect(by.C5).toMatchObject({ editText: '=СУММ(B2:B3)', formula: 'СУММ(B2:B3)', value: 35 })
   })
 
-  it('refuses a value a stop rule of data validation does not take and keeps the cell; a warning or an information rule keeps the value', async () => {
+  it('refuses a value a rule of data validation does not take, of any style, with its alert and keeps the cell; `accept` writes it', async () => {
     const s = source({
       sheets: [{
         name: 'S',
@@ -63,14 +63,17 @@ describe('localSource: typed edits', () => {
         ],
       }],
     })
-    expect(await s.edit([{ sheet: 'S', cell: 'A1', text: '-2' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', cells: [{ sheet: 'S', cell: 'A1' }] })
+    const alert = { severity: 'stop', message: 'Только больше нуля', sheet: 'S', cell: 'A1' }
+    expect(await s.edit([{ sheet: 'S', cell: 'A1', text: '-2' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', cells: [{ sheet: 'S', cell: 'A1' }], alert })
+    expect(await s.edit([{ sheet: 'S', cell: 'B1', text: '-3' }])).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'warning', cell: 'B1' } })
+    expect(await s.edit([{ sheet: 'S', cell: 'C1', text: '-4' }])).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'information', cell: 'C1' } })
     expect(s.history).toEqual({ undo: 0, redo: 0 })
-    expect(await s.edit([{ sheet: 'S', cell: 'B1', text: '-3' }])).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: -3 }] })
-    expect(await s.edit([{ sheet: 'S', cell: 'C1', text: '-4' }])).toMatchObject({ ok: true, changes: [{ cell: 'C1', value: -4 }] })
+    expect(await s.edit([{ sheet: 'S', cell: 'B1', text: '-3' }], { accept: true })).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: -3 }] })
+    expect(await s.edit([{ sheet: 'S', cell: 'C1', text: '-4' }], { accept: true })).toMatchObject({ ok: true, changes: [{ cell: 'C1', value: -4 }] })
     expect((await win(s, 'S', 1, 1, 1, 3)).values).toEqual([[5, -3, -4]])
     expect(s.history).toEqual({ undo: 2, redo: 0 })
     // several cells at once: a stop rule of any of them refuses all, a warning's cell coming first too
-    expect(await s.edit([{ sheet: 'S', cell: 'B2', text: '-5' }, { sheet: 'S', cell: 'A2', text: '-6' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', cells: [{ sheet: 'S', cell: 'A2' }] })
+    expect(await s.edit([{ sheet: 'S', cell: 'B2', text: '-5' }, { sheet: 'S', cell: 'A2', text: '-6' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', cells: [{ sheet: 'S', cell: 'A2' }], alert: { ...alert, cell: 'A2' } })
     expect((await win(s, 'S', 2, 1, 1, 2)).values).toEqual([[null, null]])
     expect(s.history).toEqual({ undo: 2, redo: 0 })
   })

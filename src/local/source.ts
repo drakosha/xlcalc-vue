@@ -4,12 +4,13 @@
 // Replace, patched by the changes and dropped on a reload.
 import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
-import type { CellEntry, CellUpdate, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
+import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
 import { loadLocale } from './locale'
 import { outlineLayout, sheetOutline } from './outline'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { columnValuesOf, filterActive, filterKey, findIn, replaceIn, SheetValues, statsOf, visibleList } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
+import { alertRefusalOf, validationOf } from './validation'
 import { windowOf } from './window'
 
 const MAX_CELLS = 20_000
@@ -233,11 +234,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
 
   /**
    * Typed texts, each read as typed into its cell, in one step; only empty cells (Delete over a selection) clear the content.
-   * A value a stop rule of data validation does not take refuses the call before anything is written, as Excel's alert
-   * holds the entry; a warning's or an information's is written, as their Yes and OK keep it (the sheet has no alert yet).
-   * The library refuses a batch by its strictest rule, so a warning refusal means no cell breaks a stop rule.
+   * A value a rule of data validation does not take, of any style, refuses the call with the rule's alert before anything is
+   * written, as Excel's alert holds the entry; the library picks the strictest rule a batch breaks. With `accept` (a
+   * warning's Yes, an information's OK) the texts are written without asking the rules again.
    */
-  async function edit(entries: CellEntry[]): Promise<EditOutcome> {
+  async function edit(entries: CellEntry[], opts?: EditOptions): Promise<EditOutcome> {
     const s = await open()
     const cells: { sheet: string; cell: string; text: string | null }[] = []
     for (const e of entries) {
@@ -250,9 +251,9 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     try {
       if (cells.every((c) => c.text === null)) return await settle(s, await s.clearCells(cells.map((c) => ({ sheet: c.sheet, range: c.cell })), 'contents'), boxes)
       const texts = cells.map((c) => ({ sheet: c.sheet, cell: c.cell, text: c.text ?? '' }))
-      let got = await s.setCellTexts(texts, { refuseInvalid: true })
-      if (!got.ok && got.code === 'validation' && got.severity !== 'stop') got = await s.setCellTexts(texts)
-      return got.ok ? await settle(s, got, boxes) : refusalOf(got)
+      const got = await s.setCellTexts(texts, { refuseInvalid: !opts?.accept })
+      if (got.ok) return await settle(s, got, boxes)
+      return got.code === 'validation' ? alertRefusalOf(got) : refusalOf(got)
     } catch (e) {
       return outcomeOf(e, 'refused')
     }
@@ -271,15 +272,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
-  /** Control+Return: the text read once in the active cell and entered into every cell of the range, which stays selected; its rule refuses as in `edit`. */
-  async function fill(sheet: string, range: string, text: string, active: string): Promise<EditOutcome> {
+  /** Control+Return: the text read once in the active cell and entered into every cell of the range, which stays selected; the active cell's rule refuses as in `edit`. */
+  async function fill(sheet: string, range: string, text: string, active: string, opts?: EditOptions): Promise<EditOutcome> {
     const s = await open()
     const rect = parseRange(range)
     if (!rect) return failed(`Not a range: ${range}`)
     try {
-      let got = await s.fillCellText(sheet, range, text, { active, refuseInvalid: true })
-      if (!got.ok && got.code === 'validation' && got.severity !== 'stop') got = await s.fillCellText(sheet, range, text, { active })
-      if (!got.ok) return refusalOf(got)
+      const got = await s.fillCellText(sheet, range, text, { active, refuseInvalid: !opts?.accept })
+      if (!got.ok) return got.code === 'validation' ? alertRefusalOf(got) : refusalOf(got)
       const out = await settle(s, got, [{ sheet, rect }])
       return out.ok ? { ...out, select: { sheet, range: rangeAddress(rect) } } : out
     } catch (e) {
@@ -461,6 +461,13 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
+    },
+    async validation(sheet, cell, signal) {
+      const s = await open()
+      check(signal)
+      const got = validationOf(await s.getValidation(sheet, cell))
+      check(signal)
+      return got
     },
     async explain(sheet, cell) {
       return (await (await open()).explain(sheet, cell)).text

@@ -3,9 +3,10 @@
 import { cellAddress, parseCell, parseLines, parseRange, rectsMeet } from 'xlcalc/a1'
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { textEditText } from './core/edit-text'
-import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
+import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type QuerySheet } from './memory-query'
 import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './local/outline'
+import { MemoryRules, memoryRefusal, type MemoryValidation } from './memory-validation'
 
 /** A cell of the memory book; a bare value is a cell with that value. */
 export interface MemoryCell {
@@ -52,6 +53,8 @@ export interface MemorySheet extends Omit<SheetInfo, 'maxRow' | 'maxCol' | 'outl
   tables?: { name: string; range: string; headerRow: number }[]
   notice?: string
   outline?: MemoryOutline
+  /** Rules of data validation: a cell's dropdown and input message, and the alert for a typed value a rule does not take. */
+  validations?: MemoryValidation[]
 }
 
 export interface MemoryBook {
@@ -103,6 +106,7 @@ interface Store {
   cells: Map<string, MemoryCell>
   widths: Map<number, number>
   heights: Map<number, number>
+  rules: MemoryRules
   /** Outline levels and collapsed marks by line. */
   levels: Record<OutlineAxis, Map<number, number>>
   marks: Record<OutlineAxis, Set<number>>
@@ -140,7 +144,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       for (const [key, level] of Object.entries(sheet.outline?.[axis] ?? {})) for (const i of linesOf(key, axis)) levels[axis].set(i, level)
       for (const key of sheet.outline?.collapsed ?? []) for (const i of linesOf(key, axis)) marks[axis].add(i)
     }
-    const store: Store = { sheet, cells, widths, heights, levels, marks, maxRow: 0, maxCol: 0 }
+    const store: Store = { sheet, cells, widths, heights, rules: new MemoryRules(sheet.validations), levels, marks, maxRow: 0, maxCol: 0 }
     measure(store)
     return store
   })
@@ -336,15 +340,18 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     maxCells: options.maxCells,
     sheets: (signal) => wait(() => stores.map(info), signal),
     window: (req, signal) => wait(() => windowOf(req), signal),
-    edit(entries: CellEntry[]): Promise<EditOutcome> {
+    /** Typed entries; a value a rule of data validation does not take refuses them all with its alert, unless `accept` keeps it. */
+    edit(entries: CellEntry[], opts?: EditOptions): Promise<EditOutcome> {
       return wait((): EditOutcome => {
         const failure = failures.shift()
         if (failure) return failure
         const unknown = entries.find((e) => !storeOf(e.sheet) || !parseCell(e.cell))
         if (unknown) return { ok: false, reason: 'failed', message: `No cell ${unknown.sheet}!${unknown.cell}` }
-        return { ok: true, changes: apply(entries) }
+        const refused = opts?.accept ? null : memoryRefusal(entries, (sheet) => storeOf(sheet)?.rules)
+        return refused ?? { ok: true, changes: apply(entries) }
       })
     },
+    validation: (sheet, cell, signal) => wait(() => storeOrThrow(sheet).rules.show(cell), signal),
     layout(change: LayoutChange): Promise<EditOutcome> {
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)
