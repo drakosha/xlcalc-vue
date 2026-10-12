@@ -1,4 +1,4 @@
-// The "all formatting" book: every 0.1.0 row of the the app parity table on its own sheet, conditional formats and data validation; synthetic data only.
+// The "all formatting" book: every 0.1.0 row of the the app parity table on its own sheet, conditional formats, data validation and a chain of formulas; synthetic data only.
 import { cellAddress } from 'xlcalc/a1'
 import type { BorderLine, CellStyle } from 'xlcalc/contract'
 import type { MemoryBook, MemoryCell, MemorySheet } from '../src'
@@ -168,6 +168,43 @@ function formulas(): MemorySheet {
   cells.B5 = { value: 1.5, text: '1,5', formula: 'ОКРУГЛ(A2/A3*1,5;2)' }
   cells.B6 = { value: 60, formula: 'СУММ(A:A)-СУММ(A2:A5)+Форматы!C2*0' }
   return { name: 'Формулы', cells, widths: { A: 12, B: 18 } }
+}
+
+/** A chain of formulas for the precedents' panel: profit from price and quantity, a rate beside, a plan from another sheet; values as the formulas give them. */
+function chain(): MemorySheet {
+  const head = st({ font: { bold: true }, fill: { color: '#d9e1f2' }, border: { bottom: { style: 'thin' } } })
+  const total = st({ font: { bold: true } })
+  const cells: Record<string, MemoryCell> = {
+    A1: { value: 'Показатель', style: head },
+    B1: { value: 'Значение', style: head },
+    A2: { value: 'Цена' },
+    B2: { value: 120 },
+    A3: { value: 'Количество' },
+    B3: { value: 450 },
+    A4: { value: 'Выручка' },
+    B4: { value: 54000, text: '54 000', formula: 'B2*B3' },
+    A5: { value: 'Затраты на единицу' },
+    B5: { value: 70 },
+    A6: { value: 'Затраты' },
+    B6: { value: 31500, text: '31 500', formula: 'B3*B5' },
+    A7: { value: 'Прибыль до налога' },
+    B7: { value: 22500, text: '22 500', formula: 'B4-B6' },
+    A8: { value: 'Налог' },
+    B8: { value: 4500, text: '4 500', formula: 'B7*E2' },
+    A9: { value: 'Чистая прибыль', style: total },
+    B9: { value: 18000, text: '18 000', formula: 'B7-B8', style: total },
+    A10: { value: 'Рентабельность' },
+    B10: { value: 1 / 3, text: '33,3%', formula: 'B9/B4' },
+    A11: { value: 'План по прибыли' },
+    B11: { value: 20000, text: '20 000', formula: 'Формулы!B2*100' },
+    A12: { value: 'Выполнение плана', style: total },
+    B12: { value: 0.9, text: '90,0%', formula: 'ЕСЛИ(B11>0;B9/B11;0)', style: total },
+    D1: { value: 'Параметр', style: head },
+    E1: { value: 'Значение', style: head },
+    D2: { value: 'Ставка налога' },
+    E2: { value: 0.2, text: '20%' },
+  }
+  return { name: 'Расчёт', cells, widths: { A: 22, B: 14, C: 3, D: 16, E: 10 } }
 }
 
 function merges(): MemorySheet {
@@ -376,6 +413,7 @@ export function allFormattingBook(longRows = 34_000): MemoryBook {
     links(),
     notes(),
     formulas(),
+    chain(),
     merges(),
     sizes(),
     grouping(),
