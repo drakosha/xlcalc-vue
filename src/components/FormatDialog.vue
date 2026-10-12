@@ -1,0 +1,221 @@
+<script setup lang="ts">
+// Excel's Format Cells dialog (Control+1) over the selection the sheet's `state` event gives: Number, Alignment, Font,
+// Border and Fill, what xlcalc's cell style holds; the Number tab is Excel's Number Format box in the book's locale
+// (xlcalc's list and categories). It opens at the active cell's look; OK emits the patches of `SheetView.format` for what
+// changed (one call, one step of undo) and closes, Cancel closes. Full screen on a phone.
+import { computed, nextTick, reactive, ref, shallowRef, toRaw, watch } from 'vue'
+import type { SheetViewState } from '../core/sheet'
+import type { SheetFormatPatch } from '../core/commands'
+import {
+  draftErrors,
+  FONT_NAMES,
+  FONT_SIZES,
+  FORMAT_TABS,
+  HORIZONTALS,
+  patchesOf,
+  pickNumber,
+  startOf,
+  typeNumber,
+  VERTICALS,
+  type FormatDraft,
+  type FormatStart,
+  type FormatTab,
+} from '../format-cells'
+import { enMessages, type SheetMessages } from '../messages'
+import { useNumberFormats } from '../number-formats'
+import FormatBorders from './FormatBorders.vue'
+import FormatColour from './FormatColour.vue'
+import { IconClose } from './icons'
+
+const props = withDefaults(
+  defineProps<{
+    /** Shown while true; each opening starts again from the active cell's look. */
+    open: boolean
+    /** What the sheet's `state` event gave: the selection and the active cell's look; null shows nothing. */
+    state: SheetViewState | null
+    /** Interface texts; a part overrides the English defaults. */
+    messages?: Partial<SheetMessages>
+    /** The book's locale (as `SheetView`'s): the Number tab names its categories and items in it; en-US without one. */
+    locale?: string
+  }>(),
+  { messages: undefined, locale: undefined },
+)
+const emit = defineEmits<{
+  /** OK with changes: patches for `SheetView.format`, a style without a range over the selection, borders on their ranges. */
+  apply: [patches: SheetFormatPatch[]]
+  /** OK or Cancel: the host hides the dialog. */
+  close: []
+}>()
+
+const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
+const numbers = useNumberFormats(() => props.locale)
+/** Excel's indent goes with the left, right and distributed alignments. */
+const INDENTED = new Set(['left', 'right', 'distributed'])
+
+const tab = ref<FormatTab>('number')
+const start = shallowRef<FormatStart | null>(null)
+const draft = ref<FormatDraft | null>(null)
+/** Colour fields holding what is no colour, by picker. */
+const badColour = reactive<Record<string, boolean>>({})
+const form = ref<HTMLFormElement | null>(null)
+
+watch(
+  () => props.open && !!props.state,
+  (shown) => {
+    if (!shown || !props.state) return
+    start.value = startOf(props.state)
+    draft.value = structuredClone(start.value.draft)
+    for (const k of Object.keys(badColour)) delete badColour[k]
+    void nextTick(() => form.value?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus())
+  },
+  { immediate: true },
+)
+/** An alignment without an indent takes it back to 0, as Excel's field greys out. */
+function setHorizontal(h: string): void {
+  const d = draft.value
+  const next = HORIZONTALS.find((x) => x === h)
+  if (!d || !next) return
+  d.horizontal = next
+  if (!INDENTED.has(next)) d.indent = '0'
+}
+
+const errors = computed(() => (draft.value ? draftErrors(draft.value) : {}))
+const blocked = computed(() => Object.keys(errors.value).length > 0 || Object.values(badColour).some(Boolean))
+/** The category Excel's box names for the code in the field. */
+const category = computed(() => (draft.value ? numbers.categoryOf(draft.value.numberCode.trim() || undefined) : null))
+
+function ok(): void {
+  if (!start.value || !draft.value || blocked.value) return
+  // plain objects: a source in a thread clones them, and a reactive proxy does not clone
+  const patches = patchesOf(start.value, toRaw(draft.value))
+  if (patches.length) emit('apply', patches)
+  emit('close')
+}
+const cancel = () => emit('close')
+const value = (e: Event) => (e.target as HTMLInputElement | HTMLSelectElement).value
+</script>
+
+<template>
+  <div v-if="open && draft && start" class="xs-fmt-back" @pointerdown.self="cancel">
+    <form ref="form" class="xs-fmt" role="dialog" aria-modal="true" :aria-label="m.formatCells" data-fmt novalidate @submit.prevent="ok" @keydown.esc.prevent.stop="cancel">
+      <header class="xs-fmt-head">
+        <span class="xs-fmt-title">{{ m.formatCells }}</span>
+        <button type="button" class="xs-fmt-x" :title="m.cancel" :aria-label="m.cancel" @click="cancel">
+          <IconClose />
+        </button>
+      </header>
+      <div class="xs-fmt-tabs" role="tablist">
+        <button v-for="t in FORMAT_TABS" :key="t" type="button" class="xs-fmt-tab" role="tab" :aria-selected="tab === t" :data-fmt-tab="t" @click="tab = t">
+          {{ m.fmtTab(t) }}
+        </button>
+      </div>
+
+      <div class="xs-fmt-body" role="tabpanel" :aria-label="m.fmtTab(tab)">
+        <div v-show="tab === 'number'" class="xs-fmt-stack">
+          <p class="xs-fmt-category" data-fmt-category :data-fmt-category-key="category?.category">
+            {{ m.fmtCategory }}: <b>{{ category?.name ?? '' }}</b>
+          </p>
+          <fieldset class="xs-fmt-box">
+            <legend>{{ m.numberFormat }}</legend>
+            <div class="xs-fmt-list" role="radiogroup" :aria-label="m.numberFormat">
+              <label v-for="c in numbers.choices.value" :key="c.key" class="xs-fmt-choice">
+                <input type="radio" name="xs-fmt-number" :checked="draft.numberCode === c.code" :data-fmt-number="c.key" @change="pickNumber(draft, c)" />
+                {{ c.name }}
+              </label>
+            </div>
+          </fieldset>
+          <label class="xs-fmt-field">
+            <span>{{ m.fmtCode }}</span>
+            <input
+              class="xs-fmt-input"
+              type="text"
+              spellcheck="false"
+              autocomplete="off"
+              :value="draft.numberCode"
+              :aria-invalid="!!errors.numberCode"
+              data-fmt-code
+              @input="typeNumber(draft, value($event))"
+            />
+          </label>
+          <p v-if="errors.numberCode" class="xs-fmt-error" role="alert">{{ m.fmtCodeEmpty }}</p>
+        </div>
+
+        <div v-show="tab === 'alignment'" class="xs-fmt-grid">
+          <label class="xs-fmt-field">
+            <span>{{ m.fmtHorizontal }}</span>
+            <select class="xs-fmt-select" :value="draft.horizontal" data-fmt-horizontal @change="setHorizontal(value($event))">
+              <option v-for="h in HORIZONTALS" :key="h" :value="h">{{ m.fmtHorizontalKind(h) }}</option>
+            </select>
+          </label>
+          <label class="xs-fmt-field">
+            <span>{{ m.fmtIndent }}</span>
+            <input v-model="draft.indent" class="xs-fmt-input" type="text" inputmode="numeric" :disabled="!INDENTED.has(draft.horizontal)" :aria-invalid="!!errors.indent" data-fmt-indent />
+          </label>
+          <label class="xs-fmt-field">
+            <span>{{ m.fmtVertical }}</span>
+            <select v-model="draft.vertical" class="xs-fmt-select" data-fmt-vertical>
+              <option v-for="v in VERTICALS" :key="v" :value="v">{{ m.fmtVerticalKind(v) }}</option>
+            </select>
+          </label>
+          <label class="xs-fmt-check">
+            <input v-model="draft.wrap" type="checkbox" data-fmt-wrap />
+            {{ m.wrapText }}
+          </label>
+          <p v-if="errors.indent" class="xs-fmt-error" role="alert">{{ m.fmtIndentRange }}</p>
+        </div>
+
+        <div v-show="tab === 'font'" class="xs-fmt-grid">
+          <label class="xs-fmt-field">
+            <span>{{ m.fmtFontName }}</span>
+            <input v-model="draft.fontName" class="xs-fmt-input" type="text" list="xs-fmt-fonts" spellcheck="false" autocomplete="off" :placeholder="m.fmtFontDefault" data-fmt-font-name />
+            <datalist id="xs-fmt-fonts">
+              <option v-for="f in FONT_NAMES" :key="f" :value="f" />
+            </datalist>
+          </label>
+          <label class="xs-fmt-field">
+            <span>{{ m.fmtFontStyle }}</span>
+            <select v-model="draft.fontStyle" class="xs-fmt-select" data-fmt-font-style>
+              <option v-for="k in ['regular', 'italic', 'bold', 'boldItalic'] as const" :key="k" :value="k">{{ m.fmtFontStyleKind(k) }}</option>
+            </select>
+          </label>
+          <label class="xs-fmt-field">
+            <span>{{ m.fmtSize }}</span>
+            <input v-model="draft.fontSize" class="xs-fmt-input" type="text" inputmode="decimal" list="xs-fmt-sizes" autocomplete="off" placeholder="11" :aria-invalid="!!errors.fontSize" data-fmt-font-size />
+            <datalist id="xs-fmt-sizes">
+              <option v-for="s in FONT_SIZES" :key="s" :value="String(s)" />
+            </datalist>
+          </label>
+          <label class="xs-fmt-field">
+            <span>{{ m.fmtUnderline }}</span>
+            <select v-model="draft.underline" class="xs-fmt-select" data-fmt-underline>
+              <option v-for="u in ['none', 'single', 'double'] as const" :key="u" :value="u">{{ m.fmtUnderlineKind(u) }}</option>
+            </select>
+          </label>
+          <label class="xs-fmt-check">
+            <input v-model="draft.strike" type="checkbox" data-fmt-strike />
+            {{ m.fmtStrike }}
+          </label>
+          <p v-if="errors.fontSize" class="xs-fmt-error" role="alert">{{ m.fmtSizeRange }}</p>
+          <fieldset class="xs-fmt-box xs-fmt-wide">
+            <legend>{{ m.fmtColour }}</legend>
+            <FormatColour v-model="draft.fontColour" :none-label="m.colourAuto" :messages="m" name="font" @invalid="badColour.font = $event" />
+          </fieldset>
+        </div>
+
+        <FormatBorders v-show="tab === 'border'" :start="start" :draft="draft" :messages="m" @invalid="badColour.line = $event" />
+
+        <fieldset v-show="tab === 'fill'" class="xs-fmt-box">
+          <legend>{{ m.fmtBackground }}</legend>
+          <FormatColour v-model="draft.fill" :none-label="m.fillNone" :messages="m" name="fill" @invalid="badColour.fill = $event" />
+        </fieldset>
+      </div>
+
+      <footer class="xs-fmt-foot">
+        <button type="button" class="xs-fmt-btn" data-fmt-cancel @click="cancel">{{ m.cancel }}</button>
+        <button type="submit" class="xs-fmt-btn xs-fmt-main" :disabled="blocked" data-fmt-ok>{{ m.ok }}</button>
+      </footer>
+    </form>
+  </div>
+</template>
+
+<style src="../format-dialog.css"></style>

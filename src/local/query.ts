@@ -1,8 +1,10 @@
-// Search, the display filter and sort, the funnel's values and totals, by the the app's rules (`sheet-filter.ts`):
-// conditions compare the shown text, the head rows stay on top, a sort puts numbers before text and empty cells last.
+// Search as Excel's Find, and the display filter and sort, the funnel's values and totals by the the app's rules
+// (`sheet-filter.ts`): conditions compare the shown text, the head rows stay on top, a sort puts numbers before text and
+// empty cells last.
 import type { CellValue, CellView } from 'xlcalc'
 import { parseCell } from 'xlcalc/a1'
-import type { RangeStats, SheetFilter } from '../source'
+import { findCells, replaceCells, type CellText, type EachCell } from '../find-match'
+import type { FindRequest, FindResult, RangeStats, SheetFilter } from '../source'
 
 /** Hits of a search in one answer; the total counts them all. */
 export const FIND_MAX_HITS = 500
@@ -17,11 +19,11 @@ interface Entry {
 
 const numOf = (value: CellValue | undefined): number => (typeof value === 'number' ? value : NaN)
 
-/** A sheet's shown text and numbers by column and row, kept current by the changes of edits. */
+/** A sheet's texts by column and row, kept current by the changes of edits: the shown text with numbers, or the text each cell opens with. */
 export class SheetValues {
   readonly cols = new Map<number, Map<number, Entry>>()
 
-  constructor(views: Record<string, CellView>) {
+  constructor(views: Record<string, CellView> = {}) {
     for (const [addr, v] of Object.entries(views)) {
       const at = parseCell(addr)
       if (at) this.set(at.row, at.col, v.text ?? '', v.value)
@@ -112,19 +114,21 @@ export function columnValuesOf(values: SheetValues, col: number, filter: SheetFi
   return { values: shown.map(([text, v]) => ({ text, count: v.count })), more: all.length - shown.length }
 }
 
-/** Cells whose shown text holds the query, without regard to case, in row order; only `visible` rows when given. */
-export function findIn(values: SheetValues, query: string, visible: Set<number> | null): { hits: { row: number; col: number; text: string }[]; total: number } {
-  const q = query.trim().toLocaleLowerCase()
-  if (!q) return { hits: [], total: 0 }
-  const found: { row: number; col: number; text: string }[] = []
-  for (const [col, column] of values.cols) {
-    for (const [row, e] of column) {
-      if (visible && !visible.has(row)) continue
-      if (e.text.toLocaleLowerCase().includes(q)) found.push({ row, col, text: e.text })
-    }
+/** Every cell of the texts with its text. */
+const eachOf =
+  (texts: SheetValues): EachCell =>
+  (visit) => {
+    for (const [col, column] of texts.cols) for (const [row, e] of column) visit(row, col, e.text)
   }
-  found.sort((a, b) => a.row - b.row || a.col - b.col)
-  return { hits: found.slice(0, FIND_MAX_HITS), total: found.length }
+
+/** Excel's Find over a sheet's texts (shown or opened with, as `lookIn` asks), in its order; only `visible` rows when given. */
+export function findIn(texts: SheetValues, req: FindRequest, visible: Set<number> | null): FindResult {
+  return findCells(eachOf(texts), req, visible, FIND_MAX_HITS)
+}
+
+/** Excel's Replace All over the texts cells open with: each changed cell's new text. */
+export function replaceIn(editTexts: SheetValues, req: FindRequest, by: string, visible: Set<number> | null): CellText[] {
+  return replaceCells(eachOf(editTexts), req, by, visible)
 }
 
 /** Totals of cells as Excel's status bar gives them: cells that show something, the numbers among them, their sum and ends. */

@@ -1,7 +1,7 @@
 // memorySource: the window's fields, edits without an engine, layout, refusals for tests, events, and the cell limit.
 import { describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
-import type { SheetWindow, SourceEvent } from '../src/source'
+import type { FindRequest, SheetWindow, SourceEvent } from '../src/source'
 
 const book = (): MemoryBook => ({
   styles: [{}, { font: { bold: true } }],
@@ -188,6 +188,43 @@ describe('memorySource', () => {
         total: 2,
       })
       expect((await src.find!({ sheet: 'T', query: 'app', filter: { head: 1, cols: { 1: { values: ['a'] } } } })).hits.map((h) => h.row)).toEqual([5])
+    })
+
+    /** Formulas, a number shown by a format and a text that reads as a number. */
+    const sums = (): MemoryBook => ({
+      sheets: [
+        {
+          name: 'F',
+          cells: { A1: 10, A2: { value: 1.5, text: '1,50' }, A3: { value: 11.5, text: '11,50', formula: 'SUM(A1:A2)' }, B1: 'sum of', B2: '007', B3: 'Sum' },
+        },
+      ],
+    })
+
+    it('find: Excel’s options, in formulas (the default) or in shown values, a range, by columns', async () => {
+      const src = memorySource(sums())
+      const at = async (req: Partial<FindRequest>) => (await src.find!({ sheet: 'F', query: '', ...req })).hits.map((h) => `${h.row}:${h.col} ${h.text}`)
+      expect(await at({ query: 'sum' })).toEqual(['1:2 sum of', '3:1 =SUM(A1:A2)', '3:2 Sum'])
+      expect(await at({ query: 'sum', lookIn: 'values' })).toEqual(['1:2 sum of', '3:2 Sum'])
+      expect(await at({ query: '1.5' })).toEqual(['2:1 1.5'])
+      expect(await at({ query: '1,5', lookIn: 'values' })).toEqual(['2:1 1,50', '3:1 11,50'])
+      expect(await at({ query: "'0" })).toEqual(["2:2 '007"])
+      expect(await at({ query: 'sum', matchCase: true })).toEqual(['1:2 sum of'])
+      expect(await at({ query: 'sum', wholeCell: true })).toEqual(['3:2 Sum'])
+      expect(await at({ query: 's*', range: 'B2:B3', lookIn: 'values' })).toEqual(['3:2 Sum'])
+      expect(await at({ query: '1', byColumns: true })).toEqual(['1:1 10', '2:1 1.5', '3:1 =SUM(A1:A2)'])
+      expect(await at({ query: '' })).toEqual([])
+    })
+
+    it('replace: every hit in formulas whatever `lookIn` says, the texts read as typed, the changes and how many cells', async () => {
+      const src = memorySource(sums())
+      const out = await src.replace!({ sheet: 'F', query: 'a2', lookIn: 'values' }, 'A1')
+      expect(out).toEqual({ ok: true, changes: [{ sheet: 'F', cell: 'A3', text: '', value: null, formula: 'SUM(A1:A1)' }], replaced: 1 })
+      // the apostrophe keeps a text that reads as a number a text
+      expect(await src.replace!({ sheet: 'F', query: '0' }, '1')).toMatchObject({ ok: true, replaced: 2 })
+      const w = (await src.window({ sheet: 'F', row: 1, rows: 3, col: 1, cols: 2 })) as SheetWindow
+      expect(w.values.map((r) => r[0])).toEqual([11, 1.5, null])
+      expect(w.values[1]![1]).toBe('117')
+      expect(await src.replace!({ sheet: 'F', query: 'nothing' }, 'x')).toEqual({ ok: true, changes: [], replaced: 0 })
     })
 
     it('stats: a rectangle’s totals, over shown rows under a filter', async () => {

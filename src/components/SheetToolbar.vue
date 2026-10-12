@@ -1,11 +1,13 @@
 <script setup lang="ts">
 // Excel's formatting toolbar over a sheet source: undo and redo, bold, italic, underline, font and fill colours, borders,
-// horizontal alignment, wrapping and the number format of the selection the sheet's `state` event gives. On a narrow
-// frame what does not fit goes into a menu; on a finger every target is 44 × 44 px.
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+// horizontal alignment, wrapping and Excel's Number Format box (xlcalc's, in the book's locale) over the selection the
+// sheet's `state` event gives, and Format Cells for a host that shows the dialog. On a narrow frame what does not fit
+// goes into a menu; on a finger every target is 44 × 44 px.
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { SheetViewApi } from '../core/commands'
 import type { SheetViewState } from '../core/sheet'
 import { enMessages, type SheetMessages } from '../messages'
+import { useNumberFormats } from '../number-formats'
 import type { EditOutcome, FormatPatch } from '../source'
 import {
   alignToggle,
@@ -14,14 +16,11 @@ import {
   FIRST_FONT_COLOUR,
   fontOn,
   fontToggle,
-  numberKindOf,
   PALETTE,
   wrapToggle,
   type BorderKind,
   type FontToggle,
   type HorizontalAlign,
-  type NumberKind,
-  type ToolbarNumberFormat,
   type ToolbarSource,
 } from '../toolbar'
 import { IconDown } from './icons'
@@ -36,6 +35,7 @@ import {
   IconBorderOutside,
   IconFillColour,
   IconFontColour,
+  IconFormatCells,
   IconItalic,
   IconMore,
   IconRedo,
@@ -51,15 +51,15 @@ const props = withDefaults(
     state: SheetViewState | null
     /** Interface texts; a part overrides the English defaults. */
     messages?: Partial<SheetMessages>
-    /** The number formats to offer, with their codes in the book's locale; without them there is no number format list. */
-    numberFormats?: readonly ToolbarNumberFormat[]
+    /** The book's locale (as `SheetView`'s): the Number Format box names its categories and items in it; en-US without one. */
+    locale?: string
     /**
      * The sheet (a `SheetView`'s template ref) to format, undo and redo through, as its keys do: it applies the outcome, sets
      * the selection and shows a refusal itself. Without it the toolbar calls the source and emits `select` and `error`.
      */
     sheet?: SheetViewApi | null
   }>(),
-  { messages: undefined, numberFormats: undefined, sheet: null },
+  { messages: undefined, locale: undefined, sheet: null },
 )
 const emit = defineEmits<{
   /** Where the selection goes after an undo or a redo (`EditOutcome.select`), for the sheet's `focus`; not with `sheet`. */
@@ -68,12 +68,17 @@ const emit = defineEmits<{
   error: [message: string]
   /** A call is done: the host may give the grid its focus back. */
   done: []
+  /** Format Cells… pressed: the host opens `FormatDialog`; without a listener there is no such button. */
+  formatCells: []
 }>()
 
 /** Under this width the toolbar keeps its first buttons in a row and the rest in a menu, as the sheet goes narrow. */
 const NARROW_PX = 600
 
 const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
+const instance = getCurrentInstance()
+/** Whether the host listens to `formatCells`, so that the button opens its dialog. */
+const hostDialog = typeof instance?.vnode.props?.onFormatCells === 'function' || Array.isArray(instance?.vnode.props?.onFormatCells)
 const style = computed(() => props.state?.style)
 
 const FONT: { what: FontToggle; icon: typeof IconBold; title: keyof SheetMessages }[] = [
@@ -92,19 +97,12 @@ const BORDERS: { kind: BorderKind; icon: typeof IconBold; title: keyof SheetMess
   { kind: 'bottom', icon: IconBorderBottom, title: 'borderBottom' },
   { kind: 'none', icon: IconBorderNone, title: 'borderNone' },
 ]
-const KIND_TITLE: Record<NumberKind, keyof SheetMessages> = {
-  general: 'formatGeneral',
-  number: 'formatNumber',
-  currency: 'formatCurrency',
-  percent: 'formatPercent',
-  date: 'formatDate',
-  time: 'formatTime',
-  text: 'formatText',
-}
 const text = (key: keyof SheetMessages) => m.value[key] as string
 
 // ── what the active cell shows ──
-const numberKind = computed(() => numberKindOf(props.state?.numberFormat, props.numberFormats ?? []))
+/** Excel's box: the list's items, and the name of the category the active cell's format is (General without one). */
+const numbers = useNumberFormats(() => props.locale)
+const category = computed(() => (props.state ? numbers.categoryOf(props.state.numberFormat) : null))
 const fontColour = computed(() => style.value?.font?.color?.toUpperCase() ?? null)
 const fillColour = computed(() => style.value?.fill?.color?.toUpperCase() ?? null)
 /** Bumped after the toolbar's calls and the source's events: `history` is a plain getter, read again (and copied) on them. */
@@ -226,9 +224,12 @@ function border(kind: BorderKind): void {
   open.value = null
   if (props.state) apply(borderPatches(props.state.ref, kind))
 }
+/** An item of the list applies its format; the box goes back to naming the category, as Excel's does. */
 function pickNumber(e: Event): void {
-  const f = props.numberFormats?.find((x) => x.kind === (e.target as HTMLSelectElement).value)
-  if (f) apply(over({ numberFormat: f.format }))
+  const el = e.target as HTMLSelectElement
+  const item = numbers.choices.value.find((x) => x.key === el.value)
+  el.value = ''
+  if (item) apply(over({ numberFormat: item.format }))
 }
 </script>
 
@@ -272,10 +273,19 @@ function pickNumber(e: Event): void {
       </button>
     </div>
     <div v-show="!narrow || menu" :class="narrow ? 'xs-tb-menu' : 'xs-tb-row'" data-tb-menu>
-      <span v-if="numberFormats?.length" class="xs-tb-group">
-        <select class="xs-tb-select" data-tb="number" :title="m.numberFormat" :aria-label="m.numberFormat" :value="numberKind ?? ''" :disabled="!state" @change="pickNumber">
-          <option v-if="!numberKind" value="" disabled>{{ m.formatOther }}</option>
-          <option v-for="f in numberFormats" :key="f.kind" :value="f.kind">{{ text(KIND_TITLE[f.kind]) }}</option>
+      <span v-if="numbers.choices.value.length" class="xs-tb-group">
+        <select
+          class="xs-tb-select"
+          data-tb="number"
+          :data-tb-category="category?.category"
+          :title="m.numberFormat"
+          :aria-label="m.numberFormat"
+          value=""
+          :disabled="!state"
+          @change="pickNumber"
+        >
+          <option value="" hidden>{{ category?.name ?? '' }}</option>
+          <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
         </select>
       </span>
       <span class="xs-tb-group">
@@ -370,6 +380,11 @@ function pickNumber(e: Event): void {
           @click="apply(over({ style: wrapToggle(style) }))"
         >
           <IconWrap />
+        </button>
+      </span>
+      <span v-if="hostDialog" class="xs-tb-group">
+        <button type="button" class="xs-tool" data-tb="format-cells" :title="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="emit('formatCells')">
+          <IconFormatCells />
         </button>
       </span>
     </div>

@@ -1,9 +1,10 @@
 // A source over a book in memory, for tests and examples: values, shown text, formulas as strings and every display field; no engine.
-// It has every optional method of 0.2.0 (search, filter, column values, totals) and can play a book being recomputed.
+// It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, and can play a book being recomputed.
 import { cellAddress, parseCell, parseLines, parseRange, rectsMeet } from 'xlcalc/a1'
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
-import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, OutlineChange, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
-import { columnList, findHits, rangeStats, visibleList, type QuerySheet } from './memory-query'
+import { textEditText } from './core/edit-text'
+import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
+import { columnList, findHits, rangeStats, replaceTexts, visibleList, type QuerySheet } from './memory-query'
 import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './local/outline'
 
 /** A cell of the memory book; a bare value is a cell with that value. */
@@ -161,6 +162,10 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         const cell = store.cells.get(cellAddress(r, c))
         return cell?.value ?? (cell?.text ? cell.text : null)
       },
+      editAt: (r, c) => {
+        const cell = store.cells.get(cellAddress(r, c))
+        return cell ? editTextOf(cell) : ''
+      },
     }
   }
   function storeOrThrow(name: string): Store {
@@ -191,6 +196,12 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   }
   const storeOf = (name: string) => stores.find((x) => x.sheet.name === name)
   const textOf = (cell: MemoryCell) => cell.text ?? plainText(cell.value)
+  /** What a cell opens with as `apply` reads it back: `=` and its formula, a text with Excel's apostrophe where it would read as a value, else the value as plain text. */
+  function editTextOf(cell: MemoryCell): string {
+    if (cell.formula !== undefined) return `=${cell.formula}`
+    if (typeof cell.value === 'string') return textEditText(cell.value)
+    return cell.value === undefined || cell.value === null ? (cell.text ?? '') : plainText(cell.value)
+  }
 
   function wait<T>(make: () => T, signal?: AbortSignal): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -370,7 +381,14 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         return { ok: true, changes: [] }
       })
     },
-    find: (req, signal) => wait(() => findHits(query(storeOrThrow(req.sheet)), req.query, req.filter), signal),
+    find: (req, signal) => wait(() => findHits(query(storeOrThrow(req.sheet)), req), signal),
+    replace: (req, by) =>
+      wait((): ReplaceOutcome => {
+        const store = storeOf(req.sheet)
+        if (!store) return { ok: false, reason: 'failed', message: `No sheet ${req.sheet}`, replaced: 0 }
+        const cells = replaceTexts(query(store), req, by)
+        return { ok: true, changes: apply(cells.map((c) => ({ sheet: req.sheet, cell: cellAddress(c.row, c.col), text: c.text }))), replaced: cells.length }
+      }),
     visibleRows: (sheet, filter, signal) =>
       wait(() => {
         const store = storeOrThrow(sheet)

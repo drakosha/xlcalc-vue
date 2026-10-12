@@ -1,38 +1,85 @@
-// Search on the sheet, as the the app's: the source finds (a substring in any case), the grid steps through the hits.
-import { computed, nextTick, ref, watch } from 'vue'
+// Excel's Find and Replace on the sheet: the bar's query and options go to the source's `find`, Find Next goes on from
+// the active cell in the order asked, a selection of several cells is where it looks, and Replace and Replace All go to
+// the source's `replace` as an edit goes.
+import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { cellAddress } from 'xlcalc/a1'
+import type { CellPosition } from 'xlcalc/contract'
+import type { EditOutcome, FindRequest, ReplaceOutcome } from '../source'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 
 /** A pause after typing before the source is asked. */
 const FIND_DELAY_MS = 250
 
+/** The options of Excel's Find dialog. */
+export interface FindOptions {
+  matchCase: boolean
+  wholeCell: boolean
+  lookIn: 'formulas' | 'values'
+  byColumns: boolean
+}
+
+/** A change sent to the source as an edit is sent (`Editing.run`): its outcome applied to the windows, a refusal told. */
+export type FindRunner = (call: () => Promise<EditOutcome>) => Promise<EditOutcome>
+
 export function useFind(s: SheetState, sel: Selection, notify: (text: string) => void) {
   const available = computed(() => typeof s.props.source.find === 'function')
+  const canReplace = computed(() => available.value && s.editable.value && typeof s.props.source.replace === 'function')
   const isOpen = ref(false)
+  /** The replace row shows: Ctrl+H, or its toggle on the bar. */
+  const replacing = ref(false)
+  const optionsOpen = ref(false)
   const text = ref('')
-  const hits = ref<{ row: number; col: number }[]>([])
+  const by = ref('')
+  const options = reactive<FindOptions>({ matchCase: false, wholeCell: false, lookIn: 'formulas', byColumns: false })
+  /** Excel's Replace looks in formulas whatever Find was set to. */
+  const lookIn = computed(() => (replacing.value ? 'formulas' : options.lookIn))
+  /** The range searched, as Excel searches a selection of more than one cell: taken when the bar opens or such a range is selected. */
+  const scope = ref<string | null>(null)
+  const hits = ref<CellPosition[]>([])
   const total = ref(0)
-  const index = ref(-1)
   const busy = ref(false)
+  /** A replacement is out: the replace buttons wait. */
+  const writing = ref(false)
+  /** What Replace All did, in the status until the search changes. */
+  const done = ref<string | null>(null)
   const input = ref<HTMLInputElement | null>(null)
   let timer: ReturnType<typeof setTimeout> | null = null
   let seq = 0
   let ctrl: AbortController | null = null
-  /** Hits by `row:col` (sheet rows): those in the frame are tinted, the current one pulses. */
+  /** A search asked for by the query or the options goes to its first hit after the active cell. */
+  let jump = false
+
+  /** Hits by `row:col` (sheet rows): those in the frame are tinted, the active one pulses. */
   const hitSet = computed(() => new Set(hits.value.map((h) => `${h.row}:${h.col}`)))
+  /** Excel's order: row by row, or column by column; negative when `a` comes first. */
+  const order = (a: CellPosition, b: CellPosition) => (options.byColumns ? a.col - b.col || a.row - b.row : a.row - b.row || a.col - b.col)
+  /** The hit at the active cell, -1 when the active cell is none. */
+  const index = computed(() => {
+    const a = s.selected.value
+    return a ? hits.value.findIndex((h) => h.row === a.row && h.col === a.col) : -1
+  })
   const current = computed(() => {
     const h = hits.value[index.value]
     return h ? `${h.row}:${h.col}` : ''
   })
 
-  function openFind(): void {
+  function open(replace: boolean): void {
     if (!available.value) return
     isOpen.value = true
+    replacing.value = replace && canReplace.value
+    scope.value = sel.multi.value ? sel.selectionRef.value : null
+    // the last query comes back with the bar: its hits are counted, the frame stays
+    if (text.value) schedule(false)
     void nextTick(() => {
       input.value?.focus()
       input.value?.select()
     })
   }
+  /** Ctrl+F: the bar without the replace row. */
+  const openFind = (): void => open(false)
+  /** Ctrl+H: the bar with the replace row, or without it where the source does not replace. */
+  const openReplace = (): void => open(true)
   function closeFind(): void {
     isOpen.value = false
     reset()
@@ -44,46 +91,124 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     if (timer) clearTimeout(timer)
     hits.value = []
     total.value = 0
-    index.value = -1
     busy.value = false
+    done.value = null
   }
-  // A new query jumps to its first hit; another sheet or filter only recounts the hits, the frame stays.
-  watch([text, () => s.sheetName.value, () => s.visible.value?.key ?? ''], ([q], [prevQ]) => {
-    const query = q.trim()
-    if (!query || !isOpen.value || !available.value) return reset()
-    const jump = q !== prevQ
-    const mine = ++seq
-    ctrl?.abort()
+
+  /** The request of the bar as it is now; null for an empty query. */
+  function request(): FindRequest | null {
+    if (!text.value || !s.sheet.value) return null
+    return {
+      sheet: s.sheetName.value,
+      query: text.value,
+      ...(scope.value ? { range: scope.value } : {}),
+      ...(options.matchCase ? { matchCase: true } : {}),
+      ...(options.wholeCell ? { wholeCell: true } : {}),
+      lookIn: lookIn.value,
+      ...(options.byColumns ? { byColumns: true } : {}),
+      ...(s.visible.value ? { filter: s.visible.value.spec } : {}),
+    }
+  }
+
+  /** Ask the source now; a newer search or a reset drops the answer. */
+  async function runSearch(): Promise<void> {
     if (timer) clearTimeout(timer)
+    timer = null
+    const req = request()
+    if (!req || !isOpen.value || !available.value) return reset()
+    const mine = ++seq
+    const leap = jump
+    jump = false
+    ctrl?.abort()
+    const c = (ctrl = new AbortController())
     busy.value = true
-    timer = setTimeout(async () => {
-      const c = (ctrl = new AbortController())
-      try {
-        const got = await s.props.source.find!({ sheet: s.sheetName.value, query, filter: s.visible.value?.spec }, c.signal)
-        if (mine !== seq) return
-        hits.value = got.hits.map((h) => ({ row: h.row, col: h.col }))
-        total.value = got.total
-        index.value = got.hits.length ? 0 : -1
-        if (got.hits.length && jump) show(0)
-      } catch (e) {
-        if (mine === seq && !(e instanceof DOMException && e.name === 'AbortError')) notify(s.messages.value.findFailed)
-      } finally {
-        if (mine === seq) busy.value = false
-      }
-    }, FIND_DELAY_MS)
+    try {
+      const got = await s.props.source.find!(req, c.signal)
+      if (mine !== seq) return
+      hits.value = got.hits.map((h) => ({ row: h.row, col: h.col }))
+      total.value = got.total
+      if (leap) step(1)
+    } catch (e) {
+      if (mine === seq && !(e instanceof DOMException && e.name === 'AbortError')) notify(s.messages.value.findFailed)
+    } finally {
+      if (mine === seq) busy.value = false
+    }
+  }
+  /** Ask the source after the pause; `leap`: go to the first hit after the active cell once it answers. */
+  function schedule(leap: boolean): void {
+    jump ||= leap
+    seq++
+    if (timer) clearTimeout(timer)
+    if (!text.value || !isOpen.value) return reset()
+    busy.value = true
+    timer = setTimeout(() => void runSearch(), FIND_DELAY_MS)
+  }
+  // A new query or option goes to its first hit; another sheet, filter or range only recounts, the frame stays.
+  watch([text, () => ({ ...options }), lookIn], () => {
+    done.value = null
+    schedule(true)
   })
+  watch([() => s.sheetName.value, () => s.visible.value?.key ?? '', scope], () => schedule(false))
+  // A range selected while the bar is open is where it looks next; the single cells of the hits leave it as it is.
+  watch(sel.selectionRef, (range) => {
+    if (isOpen.value && sel.multi.value && range !== scope.value) scope.value = range
+  })
+
   function show(i: number): void {
     const h = hits.value[i]
     if (!h) return
-    index.value = i
     s.selected.value = { row: h.row, col: h.col }
     s.extent.value = null
     void nextTick(() => sel.revealCell(h.row, h.col))
   }
+  /** Find Next and Find Previous, as Excel goes: from the active cell in the order asked, round past the end. */
   function step(dir: 1 | -1): void {
-    const n = hits.value.length
-    if (n) show((index.value + dir + n) % n)
+    const list = hits.value
+    if (!list.length) return
+    done.value = null
+    const a = s.selected.value
+    if (!a) return show(dir > 0 ? 0 : list.length - 1)
+    if (dir > 0) {
+      const i = list.findIndex((h) => order(h, a) > 0)
+      return show(i >= 0 ? i : 0)
+    }
+    for (let i = list.length - 1; i >= 0; i--) if (order(list[i]!, a) < 0) return show(i)
+    show(list.length - 1)
   }
+
+  /** Excel's Replace: the active cell when it is a hit, then Find Next; elsewhere only Find Next. */
+  async function replaceOne(run: FindRunner): Promise<void> {
+    const req = request()
+    const call = s.props.source.replace
+    const a = s.selected.value
+    if (!req || !call || !canReplace.value || writing.value) return
+    if (index.value < 0 || !a) return step(1)
+    writing.value = true
+    try {
+      const out = await run(() => call.call(s.props.source, { ...req, range: cellAddress(a.row, a.col) }, by.value))
+      if (!out.ok) return
+      await runSearch()
+      step(1)
+    } finally {
+      writing.value = false
+    }
+  }
+  /** Excel's Replace All over what the bar finds, one step of undo; the bar says how many cells it changed and counts again. */
+  async function replaceAll(run: FindRunner): Promise<void> {
+    const req = request()
+    const call = s.props.source.replace
+    if (!req || !call || !canReplace.value || writing.value) return
+    writing.value = true
+    try {
+      const out = await run(() => call.call(s.props.source, req, by.value))
+      if (!out.ok) return
+      await runSearch()
+      done.value = s.messages.value.replaceDone((out as ReplaceOutcome).replaced ?? 0)
+    } finally {
+      writing.value = false
+    }
+  }
+
   function onFindKey(e: KeyboardEvent): void {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -94,13 +219,42 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     }
   }
   const status = computed(() => {
-    if (!text.value.trim()) return ''
+    if (done.value) return done.value
+    if (!text.value) return ''
     if (busy.value) return '…'
-    if (!hits.value.length) return s.messages.value.findNone
-    return s.messages.value.findStatus(index.value + 1, total.value, hits.value.length)
+    const m = s.messages.value
+    if (!hits.value.length) return m.findNone
+    return index.value >= 0 ? m.findStatus(index.value + 1, total.value, hits.value.length) : m.findCount(total.value, hits.value.length)
   })
 
-  return { available, isOpen, text, hits, total, index, busy, input, hitSet, current, openFind, closeFind, step, onFindKey, status }
+  return {
+    available,
+    canReplace,
+    isOpen,
+    replacing,
+    optionsOpen,
+    text,
+    by,
+    options,
+    lookIn,
+    scope,
+    hits,
+    total,
+    index,
+    busy,
+    writing,
+    input,
+    hitSet,
+    current,
+    openFind,
+    openReplace,
+    closeFind,
+    step,
+    replaceOne,
+    replaceAll,
+    onFindKey,
+    status,
+  }
 }
 
 export type Find = ReturnType<typeof useFind>

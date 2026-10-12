@@ -1,0 +1,408 @@
+/* The Format Cells dialog (FormatDialog.vue) in the sheet's --xs-* variables: a box over the page, full screen on a phone, 44 px targets under a finger. */
+.xs-fmt-back {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.25);
+  -webkit-tap-highlight-color: transparent;
+}
+.xs-fmt-back *,
+.xs-fmt-back *::before,
+.xs-fmt-back *::after {
+  box-sizing: border-box;
+}
+.xs-fmt {
+  display: flex;
+  flex-direction: column;
+  width: min(600px, 100%);
+  max-height: calc(100vh - 32px);
+  border-radius: 8px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: var(--xs-font-size) var(--xs-font);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
+}
+.xs-fmt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 4px 14px;
+}
+.xs-fmt-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.xs-fmt-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--xs-muted);
+  cursor: pointer;
+}
+.xs-fmt-x:hover {
+  background: var(--xs-head-bg);
+  color: var(--xs-fg);
+}
+.xs-fmt-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--xs-grid);
+}
+.xs-fmt-tab {
+  padding: 6px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--xs-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.xs-fmt-tab[aria-selected='true'] {
+  border-bottom-color: var(--xs-accent);
+  color: var(--xs-fg);
+}
+.xs-fmt-body {
+  flex: 1 1 auto;
+  min-height: 320px;
+  padding: 12px 14px;
+  overflow: auto;
+}
+.xs-fmt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+.xs-fmt-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.xs-fmt-wide {
+  grid-column: 1 / -1;
+}
+.xs-fmt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.xs-fmt-label {
+  color: var(--xs-muted);
+}
+.xs-fmt-category {
+  margin: 0;
+  color: var(--xs-muted);
+}
+.xs-fmt-category b {
+  color: var(--xs-fg);
+  font-weight: 600;
+}
+.xs-fmt-input,
+.xs-fmt-select {
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: inherit;
+  outline: none;
+}
+.xs-fmt-input:focus,
+.xs-fmt-select:focus {
+  border-color: var(--xs-accent);
+}
+.xs-fmt-input[readonly],
+.xs-fmt-input:disabled {
+  background: var(--xs-head-bg);
+  color: var(--xs-muted);
+}
+.xs-fmt-input[aria-invalid='true'] {
+  border-color: var(--xs-error);
+}
+.xs-fmt-check,
+.xs-fmt-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.xs-fmt-choice {
+  padding: 3px 4px;
+  border-radius: 4px;
+}
+.xs-fmt-choice:hover {
+  background: var(--xs-head-bg);
+}
+.xs-fmt-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 6px;
+}
+.xs-fmt-box legend {
+  padding: 0 4px;
+  color: var(--xs-muted);
+}
+.xs-fmt-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow: auto;
+}
+.xs-fmt-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--xs-error);
+  font-size: 12px;
+}
+.xs-fmt-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--xs-grid);
+}
+.xs-fmt-btn {
+  min-width: 84px;
+  padding: 5px 14px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 6px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.xs-fmt-main {
+  border-color: var(--xs-accent);
+  background: var(--xs-accent);
+  color: #ffffff;
+}
+.xs-fmt-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── a colour: the choice without one, Excel's palette, a code ── */
+.xs-fmt-colour {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.xs-fmt-none {
+  padding: 3px 10px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.xs-fmt-swatches {
+  display: grid;
+  grid-template-columns: repeat(10, 20px);
+  gap: 4px;
+}
+.xs-fmt-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 0.18);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.xs-fmt-swatch[aria-pressed='true'],
+.xs-fmt-none[aria-pressed='true'] {
+  outline: 2px solid var(--xs-accent);
+  outline-offset: 1px;
+}
+.xs-fmt-hex {
+  width: 110px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ── the Border tab: lines, presets, edges round a preview ── */
+.xs-fmt-lines {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+.xs-fmt-line {
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--xs-fg);
+  cursor: pointer;
+}
+.xs-fmt-line svg {
+  display: block;
+  width: 100%;
+  height: 8px;
+}
+.xs-fmt-line[aria-checked='true'] {
+  border-color: var(--xs-accent);
+  background: var(--xs-sel-tint);
+}
+.xs-fmt-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.xs-fmt-preset,
+.xs-fmt-edge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.xs-fmt-preset {
+  flex-direction: column;
+  padding: 4px 10px;
+}
+.xs-fmt-preset .xs-icon,
+.xs-fmt-edge .xs-icon {
+  width: 22px;
+  height: 22px;
+}
+.xs-fmt-edge {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+.xs-fmt-edge[aria-pressed='true'] {
+  border-color: var(--xs-accent);
+  background: var(--xs-sel-tint);
+}
+.xs-fmt-preset:disabled,
+.xs-fmt-edge:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.xs-fmt-edges {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px;
+}
+.xs-fmt-edge-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+}
+.xs-fmt-edge-row {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+.xs-fmt-preview {
+  display: grid;
+  min-height: 110px;
+  padding: 10px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+}
+.xs-fmt-pcell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--xs-muted);
+  font-size: 11px;
+}
+
+/* ── a phone: the whole screen ── */
+@media (max-width: 599px) {
+  .xs-fmt-back {
+    padding: 0;
+  }
+  .xs-fmt {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+  }
+  .xs-fmt-body {
+    min-height: 0;
+  }
+}
+
+/* ── a phone or a finger: every target at least 44 × 44 px ── */
+@media (max-width: 599px), (pointer: coarse) {
+  .xs-fmt {
+    font-size: 15px;
+  }
+  .xs-fmt-x {
+    width: 44px;
+    height: 44px;
+  }
+  .xs-fmt-tab {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+  .xs-fmt-input,
+  .xs-fmt-select {
+    height: 44px;
+    font-size: 16px;
+  }
+  .xs-fmt-check,
+  .xs-fmt-choice,
+  .xs-fmt-none,
+  .xs-fmt-line,
+  .xs-fmt-preset,
+  .xs-fmt-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .xs-fmt-check input,
+  .xs-fmt-choice input {
+    width: 20px;
+    height: 20px;
+  }
+  .xs-fmt-line svg {
+    height: 10px;
+  }
+  .xs-fmt-edge {
+    width: 44px;
+    height: 44px;
+  }
+  .xs-fmt-swatches {
+    grid-template-columns: repeat(5, 44px);
+    gap: 6px;
+  }
+  .xs-fmt-swatch {
+    width: 44px;
+    height: 44px;
+  }
+  .xs-fmt-edges .xs-fmt-preview {
+    min-height: 150px;
+  }
+}

@@ -1,11 +1,13 @@
 // The app like Excel in a browser: the example's spa.html built for production and served by `vite preview`, driven by
 // Playwright on a desktop (1920 × 1200, mouse and keys) and a phone (390 × 844, touch). Each creates a ru-RU book, types
-// values and a formula, makes them bold and percent and draws outside borders from the toolbar, undoes and redoes, saves
+// values and a formula, makes them bold and Percentage (Excel's 0.00%) and draws outside borders from the toolbar, undoes and redoes, saves
 // the book, opens the saved file again (dropped on the page, or from the picker) and checks values and formatting; on
-// the desktop a column in percent shows its format in the list on its empty cell.
+// the desktop a column in percent shows its format's category in the box on its empty cell.
 // Then the structure menu on a new book: on the desktop a row inserted by a right click (the formula under it moves),
 // a column hidden and shown, a sheet added by "+", renamed and deleted, a column fitted by a double click on its edge;
 // on the phone a row inserted from the menu a long press opens.
+// Then Find and Replace and Format Cells on a new book: a search with Match case and in values, Replace All and its
+// Control+Z, the dialog's font, outline and percent with OK and their undo.
 // On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa.
 // Output: test-results/screens/spa-*.png and the saved files.
 import { mkdirSync } from 'node:fs'
@@ -14,6 +16,8 @@ import { resolve } from 'node:path'
 import { chromium, type Browser, type Page } from 'playwright'
 import { build, preview } from 'vite'
 import type { BookInput, CellStyle } from 'xlcalc'
+import { ruRU } from 'xlcalc/locales/ru-RU'
+import { numberFormatCategory } from 'xlcalc/text'
 
 const root = resolve(import.meta.dirname, '..')
 const config = resolve(root, 'vite.example.config.ts')
@@ -32,6 +36,15 @@ interface Size {
 /** Wait until a cell (`row:col`) shows `text`. */
 async function shows(page: Page, cell: string, text: string): Promise<void> {
   await page.waitForFunction(([c, t]) => document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim() === t, [cell, text] as const, { timeout: 30_000 })
+}
+/** The name ru-RU's box gives Percentage (`0.00%`), by xlcalc's rule, whichever Excel's the library follows. */
+const PERCENT = numberFormatCategory(10, ruRU).name
+/** Wait until the toolbar's Number Format box names `name`. */
+async function boxNames(page: Page, name: string, where: string): Promise<void> {
+  const shown = () => page.evaluate(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.trim())
+  await page.waitForFunction((n) => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.trim() === n, name, { timeout: 30_000 }).catch(async () => {
+    throw new Error(`${where}: the box names ${JSON.stringify(await shown())}, want ${JSON.stringify(name)}`)
+  })
 }
 /** Wait for the status bar's Ready. */
 async function ready(page: Page): Promise<void> {
@@ -59,14 +72,24 @@ const OUTSIDE = [
   { bottom: THIN, left: THIN, right: THIN },
 ]
 
-/** Every button, field and list visible in the app bar and the toolbar (and its menus) at least 44 × 44 px; fields by their height. */
+/** Every button, field and list visible in the app bar, the toolbar (and its menus), the find bar and the dialogs at least 44 × 44 px; fields by their height. */
 async function checkTargets(page: Page, where: string): Promise<void> {
   const small = await page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('.spa-top button, .spa-top input:not([type=file]), .xs-toolbar button, .xs-toolbar select, .spa-dialog button, .spa-dialog select, .spa-choice, .xs-menu button, .xs-dialog button, .xs-dialog input, .xs-tabs button')]
+    [
+      ...document.querySelectorAll<HTMLElement>(
+        '.spa-top button, .spa-top input:not([type=file]), .xs-toolbar button, .xs-toolbar select, .spa-dialog button, .spa-dialog select, .spa-choice, .xs-menu button, .xs-dialog button, .xs-dialog input, .xs-tabs button, ' +
+          '.xs-find button, .xs-find-input, .xs-find-select, .xs-find-opt, .xs-fmt button, .xs-fmt-input, .xs-fmt-select, .xs-fmt-choice, .xs-fmt-check',
+      ),
+    ]
       .filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
       .map((el) => {
         const r = el.getBoundingClientRect()
-        return { what: `${el.tagName.toLowerCase()}[${el.dataset.tb ?? el.dataset.spa ?? el.dataset.xsMenu ?? el.className}]`, w: Math.round(r.width), h: Math.round(r.height), field: el.matches('input, select, .spa-choice, .xs-tab') }
+        return {
+          what: `${el.tagName.toLowerCase()}[${el.dataset.tb ?? el.dataset.spa ?? el.dataset.xsMenu ?? el.className}]`,
+          w: Math.round(r.width),
+          h: Math.round(r.height),
+          field: el.matches('input, select, .spa-choice, .xs-tab, .xs-find-opt, .xs-fmt-choice, .xs-fmt-check'),
+        }
       })
       .filter((b) => b.h < 44 || (!b.field && b.w < 44)),
   )
@@ -162,11 +185,11 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await checkNoSideScroll(page, at('toolbar menu'))
     await shot('menu')
   }
-  await page.locator('[data-tb="number"]').selectOption('percent')
-  await shows(page, '1:1', '25%')
-  await shows(page, '3:1', '75%')
+  await page.locator('[data-tb="number"]').selectOption('percentage')
+  await shows(page, '1:1', '25,00%')
+  await shows(page, '3:1', '75,00%')
   // The source reloads after formatting: the list shows the new format of the active cell.
-  await page.waitForFunction(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.value === 'percent', null, { timeout: 30_000 })
+  await boxNames(page, PERCENT, at('the box after Percentage'))
   await shot('percent')
 
   // 5. Outside borders: four edges in one step.
@@ -231,19 +254,19 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await shot('drop')
     await page.dispatchEvent('.spa', 'drop', { dataTransfer: drop })
   }
-  await shows(page, '1:1', '25%')
+  await shows(page, '1:1', '25,00%')
   await ready(page)
 
   // 9. Values and formatting as saved; the cell typed after saving is not there.
-  for (const [cell, text] of [['1:1', '25%'], ['2:1', '50%'], ['3:1', '75%'], ['1:2', '']] as const) await shows(page, cell, text)
+  for (const [cell, text] of [['1:1', '25,00%'], ['2:1', '50,00%'], ['3:1', '75,00%'], ['1:2', '']] as const) await shows(page, cell, text)
   expect(at('name of the opened book'), await page.locator('[data-spa-name]').inputValue(), `Проверка-${size.name}`)
   const book = await bookOf(page)
   expect(at('reopened locale'), book.locale, 'ru-RU')
-  expect(at('reopened A3'), { formula: cellOf(book, 'A3').formula, bold: cellOf(book, 'A3').style?.font?.bold, format: cellOf(book, 'A3').numberFormat }, { formula: 'SUM(A1:A2)', bold: true, format: 9 })
+  expect(at('reopened A3'), { formula: cellOf(book, 'A3').formula, bold: cellOf(book, 'A3').style?.font?.bold, format: cellOf(book, 'A3').numberFormat }, { formula: 'SUM(A1:A2)', bold: true, format: 10 })
   expect(at('reopened borders'), bordersOf(book), OUTSIDE)
   await page.locator('[data-cell="2:1"]').click()
   await page.waitForSelector('[data-tb="bold"][aria-pressed="true"]')
-  expect(at('the list shows the opened percent'), await page.locator('[data-tb="number"]').inputValue(), 'percent')
+  await boxNames(page, PERCENT, at('the box on the opened percent'))
   const seen = await page.evaluate(() => [...((window as any).__seen as Set<string>)])
   if (!seen.includes('Пересчёт…')) throw new Error(`${at('status')}: never showed the recomputation: ${JSON.stringify(seen)}`)
   if (size.phone) {
@@ -252,17 +275,17 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   }
   await shot('reopened')
   if (!size.phone) {
-    // 10. Column C in percent: its empty cell shows the column's format in the list, as Excel's does.
+    // 10. Column C in percent: its empty cell shows the column's format's category in the box, as Excel's does.
     await page.locator('.xs-head[data-col="3"]').click()
-    await page.locator('[data-tb="number"]').selectOption('percent')
+    await page.locator('[data-tb="number"]').selectOption('percentage')
     await ready(page)
     const formatted = await bookOf(page)
-    expect(at('column C in percent'), (formatted.sheets[0]!.columns as Record<string, any>).C.numberFormat, 9)
+    expect(at('column C in percent'), (formatted.sheets[0]!.columns as Record<string, any>).C.numberFormat, 10)
     expect(at('C7 has no format of its own'), cellOf(formatted, 'C7').numberFormat, undefined)
     await page.locator('[data-cell="7:3"]').click()
-    await page.waitForFunction(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.value === 'percent', null, { timeout: 30_000 })
+    await boxNames(page, PERCENT, at('the box on C7'))
     await page.locator('[data-cell="7:4"]').click()
-    await page.waitForFunction(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.value === 'general', null, { timeout: 30_000 })
+    await boxNames(page, numberFormatCategory(0, ruRU).name, at('the box on D7'))
     await page.locator('[data-cell="7:3"]').click()
     await shot('column-format')
   }
@@ -401,6 +424,140 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
   await context.close()
 }
 
+/** The find bar's status. */
+const findStatus = (page: Page) => page.evaluate(() => document.querySelector('.xs-find-status')?.textContent?.trim() ?? '')
+async function statusIs(page: Page, text: string, where: string): Promise<void> {
+  await page.waitForFunction((t) => document.querySelector('.xs-find-status')?.textContent?.trim() === t, text, { timeout: 30_000 }).catch(async () => {
+    throw new Error(`${where}: the find bar says ${JSON.stringify(await findStatus(page))}, want ${JSON.stringify(text)}`)
+  })
+}
+
+/**
+ * Find and Replace and Format Cells on a new ru-RU book: a search with Match case, then in values, Replace All and its
+ * Control+Z, and the dialog's font, outline and percent over A1:B3 with OK, one step of undo.
+ */
+async function findFormatScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  let step = 0
+  const shot = (name: string) => page.screenshot({ path: resolve(out, `spa-${size.name}-f${String(++step).padStart(2, '0')}-${name}.png`) })
+  const at = (what: string) => `[${size.name} find and format] ${what}`
+
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await press(page, size, '[data-spa="new"]')
+  await press(page, size, '[data-spa-locale="ru-RU"]')
+  await press(page, size, '[data-spa="create"]')
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  for (const [cell, text] of [['1:1', 'tea'], ['2:1', 'coffee'], ['3:1', 'Tea time'], ['4:1', '=A1&" cup"'], ['1:2', '0,25'], ['2:2', '0,5']] as const) await enter(page, size, cell, text)
+  await shows(page, '4:1', 'tea cup')
+  await ready(page)
+
+  // 1. Find: "tea" in any case, then with Match case, then in values, where A4 shows it by its formula.
+  if (size.phone) await press(page, size, '[data-xs-find]')
+  else {
+    await page.locator('[data-cell="5:1"]').click()
+    await page.keyboard.press('Control+f')
+  }
+  await page.locator('.xs-find-input').fill('tea')
+  await statusIs(page, '1 из 2', at('tea'))
+  await press(page, size, '[data-xs-find-options]')
+  await press(page, size, '[data-xs-find-case]')
+  await statusIs(page, '1 из 1', at('tea, match case'))
+  if (size.phone) {
+    await checkTargets(page, at('find options'))
+    await checkNoSideScroll(page, at('find options'))
+  }
+  await shot('find-case')
+  await page.locator('[data-xs-find-look]').selectOption('values')
+  await statusIs(page, '2 из 2', at('tea, match case, in values'))
+  expect(at('the hit in values'), await page.evaluate(() => document.querySelector('.xs-cell.xs-active')?.getAttribute('data-cell')), '4:1')
+  await shot('find-values')
+
+  // 2. Replace All in formulas: tea in any case to milk, A4 computes from the new A1; Control+Z takes it back whole.
+  await press(page, size, '[data-xs-find-case]')
+  await press(page, size, '[data-xs-find-replace]')
+  await page.locator('[data-xs-replace-input]').fill('milk')
+  await statusIs(page, '1 из 2', at('tea, before Replace All'))
+  if (size.phone) {
+    await checkTargets(page, at('replace row'))
+    await checkNoSideScroll(page, at('replace row'))
+  }
+  await shot('replace-row')
+  await press(page, size, '[data-xs-replace-all]')
+  await statusIs(page, 'Сделано замен: 2', at('Replace All'))
+  for (const [cell, text] of [['1:1', 'milk'], ['3:1', 'milk time'], ['4:1', 'milk cup']] as const) await shows(page, cell, text)
+  await ready(page)
+  expect(at('A3 after Replace All'), cellOf(await bookOf(page), 'A3').value, 'milk time')
+  await shot('replaced')
+  await page.locator('[data-cell="6:3"]').click()
+  await page.keyboard.press('Control+z')
+  for (const [cell, text] of [['1:1', 'tea'], ['3:1', 'Tea time'], ['4:1', 'tea cup']] as const) await shows(page, cell, text)
+  await ready(page)
+  expect(at('A1 after Control+Z'), cellOf(await bookOf(page), 'A1').value, 'tea')
+  await shot('replace-undone')
+  await page.locator('.xs-find [aria-label="Закрыть"]').last().click()
+
+  // 3. Format Cells over A1:B3 from the toolbar: bold 14 pt, the outline, percent; OK formats it in one step of undo.
+  if (size.phone) {
+    await page.locator('.xs-address').tap()
+    await page.locator('.xs-address').fill('A1:B3')
+    await page.keyboard.press('Enter')
+    await press(page, size, '[data-tb="more"]')
+  } else {
+    await page.locator('[data-cell="1:1"]').click()
+    await page.locator('[data-cell="3:2"]').click({ modifiers: ['Shift'] })
+  }
+  await press(page, size, '[data-tb="format-cells"]')
+  await page.waitForSelector('[data-fmt]')
+  await press(page, size, '[data-fmt-tab="font"]')
+  await page.locator('[data-fmt-font-style]').selectOption('bold')
+  await page.locator('[data-fmt-font-size]').fill('14')
+  if (size.phone) {
+    await checkTargets(page, at('dialog, font'))
+    await checkNoSideScroll(page, at('dialog, font'))
+  }
+  await shot('dialog-font')
+  await press(page, size, '[data-fmt-tab="border"]')
+  await press(page, size, '[data-fmt-line="medium"]')
+  await press(page, size, '[data-fmt-preset="outline"]')
+  if (size.phone) {
+    await checkTargets(page, at('dialog, border'))
+    await checkNoSideScroll(page, at('dialog, border'))
+  }
+  await shot('dialog-border')
+  await press(page, size, '[data-fmt-tab="number"]')
+  await press(page, size, '[data-fmt-number="percentage"]')
+  await shot('dialog-number')
+  await press(page, size, '[data-fmt-ok]')
+  await page.waitForSelector('[data-fmt]', { state: 'detached' })
+  await shows(page, '1:2', '25,00%')
+  await ready(page)
+  const MEDIUM = { style: 'medium' }
+  const formatted = await bookOf(page)
+  expect(
+    at('A1 and B3 formatted'),
+    [cellOf(formatted, 'A1').style, cellOf(formatted, 'B3').style?.border, cellOf(formatted, 'B1').numberFormat],
+    [{ font: { bold: true, size: 14 }, border: { top: MEDIUM, left: MEDIUM } }, { bottom: MEDIUM, right: MEDIUM }, 10],
+  )
+  await shot('formatted')
+  if (size.phone) await press(page, size, '[data-tb="undo"]')
+  else await page.keyboard.press('Control+z')
+  await shows(page, '1:2', '0,25')
+  await ready(page)
+  const undone = await bookOf(page)
+  expect(at('Format Cells undone in one step'), [cellOf(undone, 'A1').style, cellOf(undone, 'B1').numberFormat], [undefined, undefined])
+  await shot('format-undone')
+  console.log(`${at('ok')}: found with Match case and in values, Replace All of 2 cells and its Control+Z, Format Cells (bold 14, outline, percent) and its undo`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 await build({ configFile: config, logLevel: 'error' })
 const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error' })
 const base = server.resolvedUrls!.local[0]!
@@ -412,6 +569,8 @@ try {
   await scenario(browser, base, phone)
   await structureScenario(browser, base, desktop)
   await structureScenario(browser, base, phone)
+  await findFormatScenario(browser, base, desktop)
+  await findFormatScenario(browser, base, phone)
 } finally {
   await browser.close()
   await new Promise<void>((done) => server.httpServer.close(() => done()))

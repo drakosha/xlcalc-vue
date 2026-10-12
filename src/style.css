@@ -1,6 +1,7 @@
-/* The sheet's look: colours, fonts and spacing are --xs-* variables, so a host restyles (or darkens) it by overriding them; the toolbar shares them. */
+/* The sheet's look: colours, fonts and spacing are --xs-* variables, so a host restyles (or darkens) it by overriding them; the toolbar and the Format Cells dialog share them. */
 .xs-sheet,
-.xs-toolbar {
+.xs-toolbar,
+.xs-fmt-back {
   --xs-bg: #ffffff;
   --xs-fg: #1f2328;
   --xs-muted: #6b7280;
@@ -182,18 +183,65 @@
   font-size: 11.5px;
 }
 
-/* ── search ── */
+/* ── search: rows of the query, the replacement and the options, each wrapping on a narrow frame ── */
 .xs-find {
   display: flex;
   flex-shrink: 0;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
   padding: 4px 8px;
   border-bottom: 1px solid var(--xs-grid);
   background: var(--xs-head-bg);
 }
+.xs-find-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+.xs-find-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.xs-find-toggle:not([aria-expanded='true']) .xs-icon {
+  transform: rotate(-90deg);
+}
+.xs-find-row .xs-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.xs-find-more {
+  gap: 4px 14px;
+  font-size: 12px;
+}
+.xs-find-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.xs-find-select {
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: 12px var(--xs-font);
+}
+.xs-find-scope {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 8px;
+  border-radius: 11px;
+  background: var(--xs-sel-tint);
+  white-space: nowrap;
+}
 .xs-find-input {
-  flex: 1 1 auto;
+  flex: 1 1 140px;
   min-width: 0;
   height: 24px;
   padding: 0 8px;
@@ -909,6 +957,20 @@
 }
 .xs-touch .xs-find-input,
 .xs-touch .xs-popover-input {
+  height: 44px;
+  font-size: 15px;
+}
+.xs-touch .xs-find-more {
+  font-size: 14px;
+}
+.xs-touch .xs-find-opt {
+  min-height: 44px;
+}
+.xs-touch .xs-find-opt input {
+  width: 20px;
+  height: 20px;
+}
+.xs-touch .xs-find-select {
   height: 44px;
   font-size: 15px;
 }
