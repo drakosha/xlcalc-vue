@@ -13,7 +13,7 @@ const excel = process.env.EXCEL
 if (!saved || !excel) throw new Error('SAVED: the file the app saved; EXCEL: its copy Excel saved after CalculateFull')
 const SHOWN = Number(process.env.SHOWN ?? 10)
 
-const isError = (v: CellValue | undefined): v is { error: string } => !!v && typeof v === 'object' && 'error' in v
+const isError = (v: CellValue | undefined): v is Extract<CellValue, { error: unknown }> => !!v && typeof v === 'object' && 'error' in v
 /** Numbers within 1e-12 or a relative 1e-14 (dates are serial numbers), text exactly, booleans and errors by kind and code. */
 function same(a: CellValue | undefined, b: CellValue | undefined): boolean {
   if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) <= 1e-12 || Math.abs(a - b) <= 1e-14 * Math.max(Math.abs(a), Math.abs(b))
@@ -30,7 +30,11 @@ const volatile = new Set(createSession(ours.book, { limits: { cells: 50_000_000 
 /** A sheet's values by address: the cells' own values and what formulas and spills computed, as each file stores them. */
 function valuesOf(file: typeof ours, i: number): Map<string, CellValue> {
   const out = new Map<string, CellValue>()
-  for (const [addr, cell] of Object.entries(file.book.sheets[i]?.cells ?? {})) if (cell.formula === undefined && !empty(cell.value)) out.set(addr, cell.value as CellValue)
+  for (const [addr, cell] of Object.entries(file.book.sheets[i]?.cells ?? {})) {
+    const v = cell.value
+    // A date typed into a book is { date }; a file read back gives serial numbers, so such a value shows as its text.
+    if (cell.formula === undefined && v !== undefined && !empty(v as CellValue)) out.set(addr, typeof v === 'object' && v !== null && 'date' in v ? v.date : v)
+  }
   for (const [addr, cell] of Object.entries(file.cached?.sheets?.[i]?.cells ?? {})) if (!empty(cell.value)) out.set(addr, cell.value)
   return out
 }
