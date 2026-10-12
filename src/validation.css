@@ -1,0 +1,214 @@
+/* Data validation (ValidationDropdown, ValidationPrompt, ValidationAlert) in the sheet's --xs-* variables: the dropdown and the input message lie in the grid's content, the alert over the page; a finger gets 44 px targets. */
+.xs-sheet,
+.xs-va-back {
+  --xs-prompt-bg: #ffffe1;
+  --xs-prompt-fg: #1f2328;
+  --xs-prompt-line: #767676;
+  --xs-alert-stop: #d13438;
+  --xs-alert-warning: #ffb900;
+  --xs-alert-information: #0f6cbd;
+}
+
+/* ── the dropdown: the arrow right of the cell, at its bottom as Excel's; the list under the cell ── */
+.xs-vd {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+.xs-vd-anchor {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+}
+.xs-vd-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: min(18px, 100%);
+  min-height: 12px;
+  padding: 0;
+  border: 1px solid #a0a0a0;
+  border-radius: 0;
+  background: #f0f0f0;
+  color: #1f2328;
+  cursor: default;
+}
+.xs-vd-arrow:hover,
+.xs-vd-arrow[aria-expanded='true'] {
+  border-color: var(--xs-accent);
+  background: var(--xs-head-on-bg);
+}
+.xs-vd-arrow svg {
+  width: 10px;
+  height: 10px;
+}
+.xs-vd-list {
+  position: absolute;
+  z-index: 7;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid #7a7a7a;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: var(--xs-font-size) / 18px var(--xs-font);
+  list-style: none;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
+}
+.xs-vd-item {
+  height: 18px;
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+.xs-vd-on {
+  background: var(--xs-accent);
+  color: #ffffff;
+}
+.xs-vd-touch .xs-vd-anchor {
+  align-items: center;
+}
+.xs-vd-touch .xs-vd-arrow {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.xs-vd-touch .xs-vd-arrow svg {
+  width: 16px;
+  height: 16px;
+}
+.xs-vd-touch .xs-vd-list {
+  font-size: 15px;
+  line-height: 44px;
+}
+.xs-vd-touch .xs-vd-item {
+  height: 44px;
+  padding: 0 12px;
+}
+
+/* ── the input message: a pale yellow box below the cell ── */
+.xs-vp {
+  position: absolute;
+  z-index: 7;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  max-width: 260px;
+  padding: 4px 7px 5px;
+  border: 1px solid var(--xs-prompt-line);
+  background: var(--xs-prompt-bg);
+  color: var(--xs-prompt-fg);
+  font: var(--xs-font-size) / 1.35 var(--xs-font);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-shadow: 1px 2px 4px rgb(0 0 0 / 0.18);
+  pointer-events: none;
+}
+
+/* ── the alert: a box over the page, as Excel's ── */
+.xs-va-back {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.2);
+  -webkit-tap-highlight-color: transparent;
+}
+.xs-va-back * {
+  box-sizing: border-box;
+}
+.xs-va {
+  display: flex;
+  flex-direction: column;
+  width: min(420px, 100%);
+  max-height: calc(100vh - 32px);
+  border-radius: 8px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: 13px / 1.4 var(--xs-font);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.28);
+}
+.xs-va-title {
+  padding: 10px 16px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.xs-va-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px 6px;
+  overflow: auto;
+}
+.xs-va-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+}
+.xs-va-text {
+  min-width: 0;
+  padding-top: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.xs-va-text p {
+  margin: 0 0 10px;
+}
+.xs-va-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px 14px;
+}
+.xs-va-btn {
+  min-width: 80px;
+  height: 28px;
+  padding: 0 14px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.xs-va-btn:hover {
+  background: var(--xs-head-bg);
+}
+.xs-va-main {
+  border-color: var(--xs-accent);
+  background: var(--xs-accent);
+  color: #ffffff;
+}
+.xs-va-main:hover {
+  background: color-mix(in srgb, var(--xs-accent) 88%, #000000);
+}
+.xs-va-btn:focus-visible {
+  outline: 2px solid var(--xs-accent);
+  outline-offset: 2px;
+}
+
+/* ── a phone or a finger: buttons of 44 px, the text larger ── */
+@media (max-width: 599px), (pointer: coarse) {
+  .xs-va {
+    font-size: 15px;
+  }
+  .xs-va-btn {
+    flex: 1 1 0;
+    min-width: 44px;
+    height: auto;
+    min-height: 44px;
+  }
+}
