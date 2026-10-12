@@ -106,6 +106,27 @@ describe('the display filter', () => {
     expect(active(w)).toBe('4:1')
   })
 
+  it('offers no Freeze Panes under the display filter, whose rows on screen are not the sheet\'s', async () => {
+    const source = memorySource(book())
+    const freeze = vi.fn(async () => ({ ok: true as const, changes: [] }))
+    const w = await mountSheet({ ...source, freeze })
+    const menuIds = async () => {
+      await w.find('[data-cell="2:1"]').trigger('contextmenu', { button: 2, clientX: 40, clientY: 40 })
+      await settle()
+      const ids = [...document.querySelectorAll('[data-xs-menu]')].map((e) => e.getAttribute('data-xs-menu'))
+      await key(w, 'Escape')
+      await settle()
+      return ids
+    }
+    expect(await menuIds()).toContain('freeze')
+    await funnel(w, 1)
+    await w.find('.xs-popover button[title="Sort descending"]').trigger('click')
+    await settle()
+    expect(await menuIds()).not.toContain('freeze')
+    expect(await (w.vm as unknown as { freezePanes: () => Promise<unknown> }).freezePanes()).toBeNull()
+    expect(freeze).not.toHaveBeenCalled()
+  })
+
   it('sorts from the funnel; clearing brings the sheet’s order back', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await funnel(w, 1)

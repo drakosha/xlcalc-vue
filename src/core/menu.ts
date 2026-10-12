@@ -127,7 +127,8 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
           { id: 'paste', label: m().menuPaste, disabled: !clip.canPaste.value, run: () => void clip.paste() },
         ]
     if (deps.filter.active.value && deps.filter.available.value) out.push({ id: 'reapply', label: m().menuReapply, run: () => void deps.filter.reapply(), group: true })
-    if (cmd.can('freeze')) {
+    // the display filter's rows on screen are not the sheet's, which panes freeze
+    if (cmd.can('freeze') && !s.visible.value) {
       const frozen = deps.frozen()
       out.push(
         { id: frozen ? 'unfreeze' : 'freeze', label: frozen ? m().menuUnfreezePanes : m().menuFreezePanes, run: () => void cmd.freeze(frozen ? 'unfreeze' : 'panes'), group: true },

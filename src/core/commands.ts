@@ -119,11 +119,14 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     return change(() => call.call(s.source(), command), null, false)
   }
 
-  /** Excel's Freeze Panes commands on the active sheet; a selection of whole columns or rows freezes left of or above it, as its active cell is in the first row or column. */
+  /**
+   * Excel's Freeze Panes commands on the active sheet; a selection of whole columns or rows freezes left of or above it, as its
+   * active cell is in the first row or column. None under the display filter, whose rows on screen are not the sheet's.
+   */
   async function freeze(mode: FreezeMode = 'panes'): Promise<EditOutcome | null> {
     const call = s.source().freeze
     const a = s.selected.value
-    if (!call || !can('freeze') || !s.sheet.value || !a) return null
+    if (!call || !can('freeze') || !s.sheet.value || !a || s.visible.value) return null
     let panes: { rows: number; cols: number } | null = null
     if (mode === 'topRow') panes = { rows: 1, cols: 0 }
     else if (mode === 'firstColumn') panes = { rows: 0, cols: 1 }

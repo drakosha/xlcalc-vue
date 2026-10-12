@@ -95,7 +95,8 @@ describe('Reapply of the display filter', () => {
 
     const { source, visibleRows, w } = await filtered()
     await context(w, '2:1')
-    expect(items()).toEqual(['cut', 'copy', 'paste', 'reapply', 'freeze', 'freezeTopRow', 'freezeFirstColumn', 'precedents'])
+    // no Freeze Panes under the filter: its rows on screen are not the sheet's
+    expect(items()).toEqual(['cut', 'copy', 'paste', 'reapply', 'precedents'])
     source.setCells('S', { B2: 'b' })
     await pick('reapply')
     expect(numbers(w)).toEqual(['1', '4', '6'])
@@ -115,14 +116,12 @@ describe('Reapply of the display filter', () => {
     localStorage.setItem('k:filter:S', JSON.stringify({ cols: { 2: { values: ['a'] } }, sort: null }))
     const w = await mountSheet(memorySource(book()), { storageKey: 'k', messages: ruMessages })
     await context(w, '2:1')
-    expect([label('reapply'), label('freeze'), label('freezeTopRow'), label('freezeFirstColumn'), label('precedents')]).toEqual([
-      'Применить повторно',
-      'Закрепить области',
-      'Закрепить верхнюю строку',
-      'Закрепить первый столбец',
-      'Влияющие ячейки',
-    ])
+    expect([label('reapply'), label('precedents')]).toEqual(['Применить повторно', 'Влияющие ячейки'])
     expect(w.find('[data-xs-filter-reapply]').attributes('title')).toBe(ruMessages.filterReapply)
+    document.body.innerHTML = ''
+    const plain = await mountSheet(memorySource(book()), { messages: ruMessages })
+    await context(plain, '2:1')
+    expect([label('freeze'), label('freezeTopRow'), label('freezeFirstColumn')]).toEqual(['Закрепить области', 'Закрепить верхнюю строку', 'Закрепить первый столбец'])
   })
 })
 
