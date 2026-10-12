@@ -36,30 +36,66 @@ async function open(page: Page, base: string, place: string, cell: string): Prom
   return { drawn, ready: t.ready, built: t.built, workers: page.workers().length }
 }
 
-/** Type into the active cell (the formula bar on a phone) and press Enter; ms from Enter to `watch` showing other text. */
-async function typeAndWatch(page: Page, text: string, watch: string, phone: boolean): Promise<number> {
+/** What an edit showed, in ms from Enter: the watched cell's new text, the first cell of `looks` recoloured (null: none within the watch), frames drawn with `steady` empty. */
+interface Watched {
+  shown: number
+  look: number | null
+  blank: number
+}
+
+/** How long frames are watched after Enter: a recolour and an empty frame come well within it. */
+const WATCH_MS = 1500
+
+/**
+ * Type into the active cell (the formula bar on a phone) and press Enter. Every frame until WATCH_MS after Enter is looked
+ * at: when `watch` shows other text, when a drawn cell of `looks` changes its background (a conditional format's repaint),
+ * and whether `steady`, a cell that always has text, was drawn empty (the windows dropped and read again).
+ */
+async function typeAndWatch(page: Page, text: string, watch: string, phone: boolean, looks: string[] = [], steady = '3:1'): Promise<Watched> {
   if (phone) {
     // the bar opens with the cell's text, as Excel's does: replace it
     await page.locator('.xs-fx').tap()
     await page.keyboard.press('ControlOrMeta+A')
   } else await page.locator('.xs-scroller').focus()
   await page.keyboard.type(text)
-  await page.evaluate((cell) => {
-    const w = window as any
-    const el = document.querySelector(`[data-cell="${cell}"]`)!
-    const before = el.textContent
-    w.__watch = { enter: 0, shown: 0 }
-    addEventListener('keydown', (e) => e.key === 'Enter' && (w.__watch.enter = performance.now()), { capture: true, once: true })
-    const check = () => {
-      const now = document.querySelector(`[data-cell="${cell}"]`)?.textContent
-      if (now !== before) w.__watch.shown = performance.now()
-      else requestAnimationFrame(check)
-    }
-    requestAnimationFrame(check)
-  }, watch)
+  await page.evaluate(
+    ([cell, looks, steady, ms]) => {
+      const w = window as any
+      const textOf = (c: string) => document.querySelector(`[data-cell="${c}"]`)?.textContent ?? ''
+      const bg = (c: string) => {
+        const el = document.querySelector(`[data-cell="${c}"]`)
+        return el ? getComputedStyle(el).backgroundColor : ''
+      }
+      const before = textOf(cell)
+      const colours = looks.map(bg)
+      w.__watch = { enter: 0, shown: 0, look: 0, blank: 0, done: false }
+      addEventListener('keydown', (e) => e.key === 'Enter' && (w.__watch.enter = performance.now()), { capture: true, once: true })
+      const check = () => {
+        const x = w.__watch
+        const now = performance.now()
+        if (x.enter) {
+          // a cell drawn empty (its window dropped) has neither its new text nor its new colour yet
+          const text = textOf(cell)
+          if (!x.shown && text.trim() && text !== before) x.shown = now
+          if (!x.look && looks.some((c, i) => textOf(c).trim() && bg(c) !== colours[i])) x.look = now
+          if (!textOf(steady).trim()) x.blank++
+          if (now - x.enter > ms && x.shown) {
+            x.done = true
+            return
+          }
+        }
+        requestAnimationFrame(check)
+      }
+      requestAnimationFrame(check)
+    },
+    [watch, looks, steady, WATCH_MS] as const,
+  )
   await page.keyboard.press('Enter')
-  await page.waitForFunction(() => (window as any).__watch.shown > 0, null, { timeout: 30_000 })
-  return page.evaluate(() => (window as any).__watch.shown - (window as any).__watch.enter)
+  await page.waitForFunction(() => (window as any).__watch.done, null, { timeout: 30_000 })
+  return page.evaluate(() => {
+    const x = (window as any).__watch
+    return { shown: x.shown - x.enter, look: x.look ? x.look - x.enter : null, blank: x.blank }
+  })
 }
 
 async function lastEdit(page: Page, count: number): Promise<{ ms: number; changes: number }> {
@@ -157,16 +193,21 @@ async function production(browser: Browser): Promise<void> {
       // A value in the table: its total below on screen, and the colour scale over the shares recoloured (the edit's repaint).
       const share = () => page.evaluate(() => getComputedStyle(document.querySelector('[data-cell="4:4"]')!).backgroundColor)
       const before = await share()
-      const shown: number[] = []
+      const watched: Watched[] = []
       for (const v of size.phone ? ['2500'] : ['2500', '3750,5', '1 000', '42', '7,25']) {
-        shown.push(await typeAndWatch(page, v, '9:2', size.phone))
-        if (shown.length === 1) await page.waitForFunction((c) => getComputedStyle(document.querySelector('[data-cell="4:4"]')!).backgroundColor !== c, before, { timeout: 10_000 })
+        watched.push(await typeAndWatch(page, v, '9:2', size.phone, ['3:4', '4:4', '5:4', '6:4', '7:4']))
+        if (watched.length === 1) await page.waitForFunction((c) => getComputedStyle(document.querySelector('[data-cell="4:4"]')!).backgroundColor !== c, before, { timeout: 10_000 })
         // Enter moved down a row: back to B3
         if (!size.phone) await page.keyboard.press('ArrowUp')
       }
       console.log(`[${size.name}] the share D4 recoloured by the edit: ${before} → ${await share()}`)
       const total = await page.locator('[data-cell="9:2"]').textContent()
-      console.log(`[${size.name}] edit Витрина!B3, Enter to the total B9 on screen: ${fmt(shown)}; B9 = ${total}`)
+      console.log(`[${size.name}] edit Витрина!B3, Enter to the total B9 on screen: ${fmt(watched.map((x) => x.shown))}; B9 = ${total}`)
+      const looks = watched.flatMap((x) => (x.look === null ? [] : [x.look]))
+      console.log(`[${size.name}] Enter to the shares D3:D7 recoloured: ${looks.length ? fmt(looks) : 'none'} (${looks.length} of ${watched.length} edits recoloured)`)
+      const blank = watched.map((x) => x.blank)
+      console.log(`[${size.name}] frames drawn with A3 empty within ${WATCH_MS} ms of Enter: ${blank.join(', ')}`)
+      if (blank.some((n) => n > 0)) throw new Error(`an edit drew the sheet empty: ${blank.join(', ')} frames`)
       await page.waitForTimeout(200)
       await page.screenshot({ path: resolve(out, `local-${size.name}-edit.png`) })
 
