@@ -1,14 +1,14 @@
 // The component's wiring: state, geometry, windows, selection, editing and jumps, the source's events and the frame's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { cellAddress, linesKey, MAX_COLS } from 'xlcalc/a1'
+import { cellAddress, linesKey } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
 import { useCommands, type SheetTarget } from './commands'
-import { useMenu } from './menu'
 import { useEditing, type EditorState } from './editing'
 import { useFormula } from './formula'
 import { MAX_COL_PX, MIN_COL_PX, useGeometry, widthFromPx } from './geometry'
+import { useMenu } from './menu'
 import { useNavigation } from './navigation'
 import { useSelection } from './selection'
 import { createState, type SheetViewProps } from './state'
@@ -45,7 +45,7 @@ const MESSAGE_MS = 6000
  * The sheet to show once the sheets were read again: the one asked for; else the same one (`keep`); else, as Excel goes
  * on from a sheet deleted or hidden, the next shown sheet from where it stood, or the one before it at the end.
  */
-export function sheetAfter(list: SheetInfo[], name: string, at: number, target: SheetTarget | null): { index: number; keep: boolean } {
+function sheetAfter(list: SheetInfo[], name: string, at: number, target: SheetTarget | null): { index: number; keep: boolean } {
   const shown = (i: number) => i >= 0 && !list[i]!.hidden
   if (target) {
     const i = list.findIndex((x) => x.name === target.name)
@@ -205,7 +205,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onEdgeDouble(col: number): void {
     if (!fitsOnEdge.value) return resetWidth(col)
     const whole = sel.wholeColumns.value
-    const [first, last] = whole && col >= whole.first && col <= whole.last ? [whole.first, Math.min(whole.last, MAX_COLS)] : [col, col]
+    const [first, last] = whole && col >= whole.first && col <= whole.last ? [whole.first, whole.last] : [col, col]
     void cmd.layout({ sheet: s.sheetName.value, columns: linesKey(first, last, 'columns'), fit: true })
   }
   /** The book's width back. */
