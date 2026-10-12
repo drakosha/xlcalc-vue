@@ -1,11 +1,12 @@
-// Excel's outline over one axis of a sheet: the groups Excel draws from the lines' outline levels and hidden state, and
-// the lines its commands change (Group, Ungroup, a group's button, a level button), as measured in Excel for Windows 16
-// (build 20430, 12.10.2026, COM over a synthetic book). Engine-free: `memorySource` in the main entry uses it too.
-// TODO(xlcalc): the library keeps the levels and the collapsed marks but has neither the groups nor these commands; ask it
-// for a sheet's outline as Excel draws it and for Group, Ungroup, Show and Hide Detail and ShowLevels measured in Excel.
-import type { ColumnInput, LayoutEdit, LinePatch, RowInput, SheetLayout } from 'xlcalc'
-import { linesKey, MAX_COLS, MAX_ROWS, parseLines, parseRange } from 'xlcalc/a1'
-import type { OutlineChange, OutlineGroup, SheetOutline } from '../source'
+// Excel's outline rules for `memorySource`, which has no engine: the groups Excel draws from one axis's outline levels and
+// hidden lines, and the lines its commands change (Group, Ungroup, a group's button, a level button), as measured in Excel
+// for Windows 16 (build 20430, 12.10.2026); `MAX_LEVEL` serves the grid too. `./local` takes xlcalc's groups and commands,
+// whose measurements found more (its docs/outline.md): a summary line two groups share acts on its whole detail, Excel marks
+// a summary line once its detail is all hidden and keeps the mark inside a hidden group, Group deepens the lines beside those
+// at level 7, and a group at the sheet's edge has no button.
+// TODO(xlcalc): the commands without the engine in `xlcalc/a1` would replace these, if the main entry has room (`outlineGroups` alone is 4.3 KB).
+import { MAX_COLS, MAX_ROWS, parseLines, parseRange } from 'xlcalc/a1'
+import type { OutlineChange, OutlineGroup, SheetOutline } from './source'
 
 /** Excel's deepest outline level: an eighth Group of the same lines fails. */
 export const MAX_LEVEL = 7
@@ -20,7 +21,7 @@ export interface OutlineLine {
 }
 
 /** What a command sets on lines `from`..`to`: the outline level (0: none), hidden or shown, the collapsed mark. */
-export interface OutlinePatch {
+interface OutlinePatch {
   from: number
   to: number
   level?: number
@@ -31,7 +32,7 @@ export interface OutlinePatch {
 export type OutlineAxis = 'rows' | 'columns'
 
 /** A command's lines to change, or why it is refused. */
-export type OutlineEdit = { ok: true; axis: OutlineAxis; patches: OutlinePatch[] } | { ok: false; message: string }
+type OutlineEdit = { ok: true; axis: OutlineAxis; patches: OutlinePatch[] } | { ok: false; message: string }
 
 /**
  * The groups of one axis: for each level, the longest runs of lines next to each other at that level or deeper. A group
@@ -66,7 +67,7 @@ export function outlineOf(rows: readonly OutlineLine[], columns: readonly Outlin
 }
 
 /** Lines as the component and a book name them: `3:6`, `5` or `B:D`, `C`; null for anything else. */
-export function spanOf(text: string, axis: OutlineAxis): { first: number; last: number } | null {
+function spanOf(text: string, axis: OutlineAxis): { first: number; last: number } | null {
   const lines = parseLines(text, axis)
   if (lines) return lines
   const r = parseRange(text)
@@ -182,59 +183,4 @@ export function outlineEdit(lines: readonly OutlineLine[], after: boolean, chang
   const patches: OutlinePatch[] = without(a, b, holes).map((r) => ({ ...r, hidden: false }))
   if (mark && markAt(summary)) patches.push({ from: summary, to: summary, collapsed: false })
   return { ok: true, axis, patches }
-}
-
-// ── the library's layout: lines from a sheet's `rows` and `columns`, commands as one `setLayout` call ──
-
-type LineEntry = Pick<RowInput, 'hidden' | 'outlineLevel' | 'collapsed'> & { height?: number; width?: number }
-
-/** A layout map's lines with an outline level, hidden (or of size 0) or marked collapsed, in order. */
-function linesOfMap(map: Record<string, LineEntry> | undefined, axis: OutlineAxis): OutlineLine[] {
-  const out: OutlineLine[] = []
-  for (const [key, e] of Object.entries(map ?? {})) {
-    const span = parseLines(key, axis)
-    if (!span) continue
-    const level = e.outlineLevel ?? 0
-    const hidden = !!e.hidden || (axis === 'rows' ? e.height : e.width) === 0
-    if (level > 0 || hidden || e.collapsed) out.push({ from: span.first, to: span.last, level, hidden, collapsed: !!e.collapsed })
-  }
-  return out.sort((a, b) => a.from - b.from)
-}
-
-/** A sheet's outline from the library's layout (`getLayout`); none without groups. */
-export const sheetOutline = (sheet: SheetLayout): SheetOutline | undefined => outlineOf(linesOfMap(sheet.rows, 'rows'), linesOfMap(sheet.columns, 'columns'), sheet.outline)
-
-/**
- * A command as the library's layout edits, for one `setLayout` call (one step of the undo): levels, hidden lines and
- * collapsed marks; a line of size 0 shown again loses its size, as Excel gives it the default.
- */
-export function outlineLayout(sheet: SheetLayout, change: OutlineChange): { ok: true; edits: LayoutEdit[] } | { ok: false; message: string } {
-  const axis: OutlineAxis = change.op === 'showLevel' ? change.axis : 'rows' in change ? 'rows' : 'columns'
-  const map: Record<string, LineEntry> | undefined = axis === 'rows' ? sheet.rows : sheet.columns
-  const after = (axis === 'rows' ? sheet.outline?.summaryBelow : sheet.outline?.summaryRight) ?? true
-  const got = outlineEdit(linesOfMap(map, axis), after, change)
-  if (!got.ok) return got
-  const zero = Object.entries(map ?? {}).flatMap(([key, e]) => {
-    const span = (axis === 'rows' ? e.height : e.width) === 0 ? parseLines(key, axis) : null
-    return span ? [span] : []
-  })
-  const edit = (from: number, to: number, set: LinePatch<RowInput> & LinePatch<ColumnInput>): LayoutEdit =>
-    axis === 'rows' ? { sheet: sheet.name, rows: linesKey(from, to, axis), set } : { sheet: sheet.name, columns: linesKey(from, to, axis), set }
-  const edits: LayoutEdit[] = []
-  for (const p of got.patches) {
-    edits.push(
-      edit(p.from, p.to, {
-        ...(p.level !== undefined ? { outlineLevel: p.level > 0 ? p.level : null } : {}),
-        ...(p.hidden !== undefined ? { hidden: p.hidden ? true : null } : {}),
-        ...(p.collapsed !== undefined ? { collapsed: p.collapsed ? true : null } : {}),
-      }),
-    )
-    if (p.hidden !== false) continue
-    for (const z of zero) {
-      const from = Math.max(z.first, p.from)
-      const to = Math.min(z.last, p.to)
-      if (from <= to) edits.push(edit(from, to, axis === 'rows' ? { height: null } : { width: null }))
-    }
-  }
-  return { ok: true, edits }
 }
