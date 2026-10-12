@@ -79,6 +79,8 @@ BIG_XLSX="$HOME/books/plan.xlsx:$HOME/books/budget.xlsx" npm run check:big
 BIG_PROFILE=1 BIG_XLSX=... npm run check:big   # also the page's CPU profiles of each step, test-results/big-*.cpuprofile
 ```
 
+`npm run check:excel-values` compares the library's values of a book with the values Excel saved in it: each formula cell after a session computes the book against `readXlsx`'s `cached`, numbers within a relative 1e-9. It prints how many differ and exits 1 when any does (`XLSX=a.xlsx:b.xlsx`; a large book wants `NODE_OPTIONS=--max-old-space-size=12288`).
+
 The table goes to the terminal, the numbers to `test-results/big-check.json` and the screenshots to `test-results/screens/big-*.png`. On the synthetic book (Apple M5 Pro, 12.10.2026, the machine busy with other builds) the first sheet is drawn 2.3 to 2.4 s after the file is picked, the dependent shows an edit in 40 to 50 ms and its undo in 25 to 40 ms, Save as takes 4.1 to 4.4 s, and no frame of the page waits longer than 0.3 s.
 
 ## A book computed in the browser: `xlcalc-sheet/local`
