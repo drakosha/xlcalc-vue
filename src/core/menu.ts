@@ -1,5 +1,6 @@
 // The menus as Excel's: on row numbers and column letters (insert, delete, sizes, hide, unhide, group, ungroup), on the
-// sheet tabs (insert, delete, rename, move, hide, unhide) and "+" after them, on cells (cut, copy, paste); a right click
+// sheet tabs (insert, delete, rename, move, hide, unhide) and "+" after them, on cells (cut, copy, paste, the display
+// filter's Reapply, Freeze Panes and its kinds, Trace Precedents); a right click
 // opens one, a finger's long press too. Its small dialogs ask a size, confirm a sheet's deletion, list hidden sheets, ask
 // rows or columns.
 import { computed, nextTick, ref, shallowRef } from 'vue'
@@ -8,6 +9,8 @@ import type { CellRect } from 'xlcalc/contract'
 import type { SheetInfo, SheetOp } from '../source'
 import type { Clip } from './clip'
 import type { Commands } from './commands'
+import type { Explain } from './explain'
+import type { Filter } from './filter'
 import { charsOfPx, ptFromPx, widthFromChars, type Geometry } from './geometry'
 import type { Outline, OutlineAxis, OutlineOp } from './outline'
 import type { Selection } from './selection'
@@ -54,6 +57,10 @@ export interface MenuDeps {
   tabs: () => { sheet: SheetInfo; i: number }[]
   outline: Outline
   clip: Clip
+  filter: Filter
+  explain: Explain
+  /** Whether the book freezes panes on the sheet shown: the first freeze item is then Unfreeze Panes, as Excel's. */
+  frozen: () => boolean
 }
 
 export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Commands, deps: MenuDeps) {
@@ -108,16 +115,28 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     if (o.kind === 'cells') return cellItems()
     return o.kind === 'sheet' ? sheetItems(o.first) : lineItems(o.kind, o.first, o.last)
   })
-  /** Cut, Copy and Paste inside the book; a read-only sheet only copies. */
+  /** Cut, Copy and Paste inside the book (a read-only sheet only copies), Reapply under a display filter, Freeze Panes with the source's `freeze`, Trace Precedents with its `explain`. */
   function cellItems(): MenuItem[] {
     const clip = deps.clip
     const copy: MenuItem = { id: 'copy', label: m().menuCopy, run: () => clip.copy(false) }
-    if (!s.editable.value) return [copy]
-    return [
-      { id: 'cut', label: m().menuCut, disabled: !clip.canCut.value, run: () => clip.copy(true) },
-      copy,
-      { id: 'paste', label: m().menuPaste, disabled: !clip.canPaste.value, run: () => void clip.paste() },
-    ]
+    const out: MenuItem[] = !s.editable.value
+      ? [copy]
+      : [
+          { id: 'cut', label: m().menuCut, disabled: !clip.canCut.value, run: () => clip.copy(true) },
+          copy,
+          { id: 'paste', label: m().menuPaste, disabled: !clip.canPaste.value, run: () => void clip.paste() },
+        ]
+    if (deps.filter.active.value && deps.filter.available.value) out.push({ id: 'reapply', label: m().menuReapply, run: () => void deps.filter.reapply(), group: true })
+    if (cmd.can('freeze')) {
+      const frozen = deps.frozen()
+      out.push(
+        { id: frozen ? 'unfreeze' : 'freeze', label: frozen ? m().menuUnfreezePanes : m().menuFreezePanes, run: () => void cmd.freeze(frozen ? 'unfreeze' : 'panes'), group: true },
+        { id: 'freezeTopRow', label: m().menuFreezeTopRow, run: () => void cmd.freeze('topRow') },
+        { id: 'freezeFirstColumn', label: m().menuFreezeFirstColumn, run: () => void cmd.freeze('firstColumn') },
+      )
+    }
+    if (deps.explain.available.value) out.push({ id: 'precedents', label: m().menuPrecedents, run: () => deps.explain.show(), group: true })
+    return out
   }
   function lineItems(axis: 'rows' | 'columns', first: number, last: number): MenuItem[] {
     const sheet = s.sheetName.value

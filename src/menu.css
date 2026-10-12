@@ -38,6 +38,10 @@
   text-align: left;
   cursor: pointer;
 }
+/* A menu's item on one line, as Excel's: the menu is measured at the pointer and moved left to fit, not narrowed there. */
+.xs-menu > .xs-menu-item {
+  white-space: nowrap;
+}
 .xs-menu-item:hover:not(:disabled),
 .xs-menu-item:focus-visible {
   background: var(--xs-head-on-bg);

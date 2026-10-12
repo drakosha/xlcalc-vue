@@ -1,4 +1,4 @@
-// Changes of the book the host or the grid's menus and keys ask for (format, structure, lines, outline, undo and redo): each goes
+// Changes of the book the host or the grid's menus and keys ask for (format, structure, lines, outline, frozen panes, undo and redo): each goes
 // through the source as Control+Z goes, and the sheet is read again after one a window's cells cannot carry.
 import { ref } from 'vue'
 import type { CellStyle } from 'xlcalc/contract'
@@ -10,6 +10,9 @@ import type { SheetState } from './state'
 
 /** A patch of `SheetView.format`: over its own range, or over the selection without one. */
 export type SheetFormatPatch = Omit<FormatPatch, 'range'> & { range?: string }
+
+/** Excel's Freeze Panes commands: the panes of the active cell, Unfreeze Panes, Freeze Top Row, Freeze First Column. */
+export type FreezeMode = 'panes' | 'unfreeze' | 'topRow' | 'firstColumn'
 
 /**
  * What `SheetView` exposes to its host (a template `ref`): changes made as the sheet's own keys make them, the outcome's
@@ -27,6 +30,17 @@ export interface SheetViewApi {
   outline(change: OutlineChange): Promise<EditOutcome | null>
   /** Excel's Format Cells dialog (Control+1) over the selection, at the active cell's look; false when the sheet cannot format. */
   formatCells(): boolean
+  /**
+   * Excel's Freeze Panes through the source's `freeze`, one step of undo, the sheet read again after it: `panes` (the
+   * default) keeps the rows above and the columns left of the active cell in view (from A1 the frame's middle, as Excel
+   * splits it), `unfreeze` drops the book's panes, `topRow` and `firstColumn` freeze one line. A freeze shows whatever
+   * the lock said before; null when nothing was sent (no `freeze`, a read-only sheet, nothing to freeze or unfreeze).
+   */
+  freezePanes(mode?: FreezeMode): Promise<EditOutcome | null>
+  /** Excel's Reapply (Control+Alt+L): the display filter's conditions and sort again over the data as they are now; false with none in force. */
+  reapplyFilter(): Promise<boolean>
+  /** Excel's Trace Precedents as a panel beside the grid: the source's tree of the active cell's precedents, following the cell; false without the source's `explain`. */
+  explain(): boolean
 }
 
 /** The sheet to show once the sheets are read again: by name, keeping the selection or starting over on it. */
@@ -43,12 +57,19 @@ export interface CommandsDeps {
   target: (t: SheetTarget | null) => void
   /** The style the active cell shows. */
   activeStyle: () => CellStyle | undefined
+  /** Whether the book freezes panes on the sheet shown, the panes Excel freezes from A1, and the view after a freeze made. */
+  frozen: () => boolean
+  middlePanes: () => { rows: number; cols: number }
+  showFreeze: (sheet: string, on: boolean) => void
+  /** The display filter's Reapply and the precedents' panel, for the host's methods. */
+  reapplyFilter: () => Promise<boolean>
+  explain: () => boolean
 }
 
 const FONT_KEYS: Record<string, FontToggle> = { b: 'bold', i: 'italic', u: 'underline' }
 
 export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: CommandsDeps) {
-  const can = (method: 'format' | 'structure' | 'layout' | 'outline'): boolean => !s.props.readOnly && typeof s.source()[method] === 'function'
+  const can = (method: 'format' | 'structure' | 'layout' | 'outline' | 'freeze'): boolean => !s.props.readOnly && typeof s.source()[method] === 'function'
 
   /** A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload` meanwhile; formatting and lines leave the copy mode on (`endsCopy`). */
   async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null, endsCopy = true): Promise<EditOutcome> {
@@ -97,6 +118,22 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     return change(() => call.call(s.source(), command), null, false)
   }
 
+  /** Excel's Freeze Panes commands on the active sheet; a selection of whole columns or rows freezes left of or above it, as its active cell is in the first row or column. */
+  async function freeze(mode: FreezeMode = 'panes'): Promise<EditOutcome | null> {
+    const call = s.source().freeze
+    const a = s.selected.value
+    if (!call || !can('freeze') || !s.sheet.value || !a) return null
+    let panes: { rows: number; cols: number } | null = null
+    if (mode === 'topRow') panes = { rows: 1, cols: 0 }
+    else if (mode === 'firstColumn') panes = { rows: 0, cols: 1 }
+    else if (mode === 'panes') panes = a.row === 1 && a.col === 1 ? deps.middlePanes() : { rows: a.row - 1, cols: a.col - 1 }
+    if (panes ? panes.rows <= 0 && panes.cols <= 0 : !deps.frozen()) return null
+    const sheet = s.sheetName.value
+    const out = await change(() => call.call(s.source(), sheet, panes), null, false)
+    if (out.ok) deps.showFreeze(sheet, panes !== null)
+    return out
+  }
+
   /** Control+B, Control+I and Control+U (Cmd on a Mac, any layout): the font toggled over the selection by the active cell; true when taken. */
   function fontKey(e: KeyboardEvent): boolean {
     if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || !can('format')) return false
@@ -126,9 +163,12 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     structure: (op) => structure(op),
     outline,
     formatCells: openFormat,
+    freezePanes: freeze,
+    reapplyFilter: deps.reapplyFilter,
+    explain: deps.explain,
   }
 
-  return { can, change, format, structure, layout, outline, fontKey, formatOpen, openFormat, closeFormat, api }
+  return { can, change, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat, api }
 }
 
 export type Commands = ReturnType<typeof useCommands>

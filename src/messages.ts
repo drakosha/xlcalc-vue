@@ -65,6 +65,18 @@ export interface SheetMessages {
   menuPaste: string
   pasteDenied: string
   fillHandle: string
+  /** Excel's commands in the cells' menu: Reapply of the display filter, Freeze Panes and its kinds, Trace Precedents as a panel beside the grid. */
+  menuReapply: string
+  filterReapply: string
+  menuFreezePanes: string
+  menuUnfreezePanes: string
+  menuFreezeTopRow: string
+  menuFreezeFirstColumn: string
+  menuPrecedents: string
+  explainTitle: string
+  explainReading: string
+  explainFailed: string
+  explainEmpty: string
   /** The size boxes: their labels in Excel's units and the limits. */
   columnWidth: string
   rowHeight: string
@@ -274,6 +286,17 @@ export const enMessages: SheetMessages = {
   menuPaste: 'Paste',
   pasteDenied: 'The browser does not let the page read the clipboard: paste with Ctrl+V (Cmd+V on a Mac)',
   fillHandle: 'Drag to fill the cells beside; double-click to fill down along the data',
+  menuReapply: 'Reapply',
+  filterReapply: 'Reapply the filter and sort to the data as they are now (Ctrl+Alt+L)',
+  menuFreezePanes: 'Freeze Panes',
+  menuUnfreezePanes: 'Unfreeze Panes',
+  menuFreezeTopRow: 'Freeze Top Row',
+  menuFreezeFirstColumn: 'Freeze First Column',
+  menuPrecedents: 'Trace Precedents',
+  explainTitle: 'Precedents',
+  explainReading: 'Reading…',
+  explainFailed: 'Could not read the cell’s precedents',
+  explainEmpty: 'The source says nothing of this cell',
   columnWidth: 'Column width, in characters',
   rowHeight: 'Row height, in points',
   widthRange: 'Column width must be between 0 and 255',
@@ -503,6 +526,17 @@ export const ruMessages: SheetMessages = {
   menuPaste: 'Вставить',
   pasteDenied: 'Браузер не даёт странице прочитать буфер обмена: вставьте сочетанием Ctrl+V (Cmd+V на Маке)',
   fillHandle: 'Потяните, чтобы заполнить соседние ячейки; двойной щелчок заполняет вниз до конца данных',
+  menuReapply: 'Применить повторно',
+  filterReapply: 'Применить фильтр и сортировку повторно к нынешним данным (Ctrl+Alt+L)',
+  menuFreezePanes: 'Закрепить области',
+  menuUnfreezePanes: 'Снять закрепление областей',
+  menuFreezeTopRow: 'Закрепить верхнюю строку',
+  menuFreezeFirstColumn: 'Закрепить первый столбец',
+  menuPrecedents: 'Влияющие ячейки',
+  explainTitle: 'Влияющие ячейки',
+  explainReading: 'Читаю…',
+  explainFailed: 'Не удалось получить влияющие ячейки',
+  explainEmpty: 'Источник ничего не сообщил об этой ячейке',
   columnWidth: 'Ширина колонки, в знаках',
   rowHeight: 'Высота строки, в пунктах',
   widthRange: 'Ширина колонки должна быть от 0 до 255',

@@ -80,9 +80,29 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     s.filterWait.value = !!(available.value && (Object.keys(cols.value).length || sort.value))
   }
   /** Read the list again (the source reloaded): the rows may have changed. */
-  function refresh(): void {
+  function refresh(): Promise<void> {
     if (s.visible.value) s.visible.value = { ...s.visible.value, key: '' }
-    void fetchVisible()
+    return fetchVisible()
+  }
+  /**
+   * Excel's Reapply (Control+Alt+L): the conditions and the sort again over the data as they are now, so rows an edit took
+   * out of them go and rows it brought in come; the scroll stays, and the active cell too unless its row went, when the row
+   * now at its place takes it. False when no filter is in force or the list could not be read.
+   */
+  async function reapply(): Promise<boolean> {
+    if (!active.value || !available.value) return false
+    const a = s.selected.value
+    const at = a ? (s.indexOf(a.row) ?? null) : null
+    const sheet = s.sheetName.value
+    await refresh()
+    if (!s.visible.value || s.visible.value.key !== key.value || s.sheetName.value !== sheet) return false
+    const cur = s.selected.value
+    const shown = s.visible.value.rows.length
+    if (cur && at !== null && shown && s.indexOf(cur.row) === undefined) {
+      s.selected.value = { row: s.rowOf(Math.min(at, shown)), col: cur.col }
+      s.extent.value = null
+    }
+    return true
   }
   /** Drop every condition at once: the rows go back to the sheet's order. */
   function clear(): void {
@@ -224,6 +244,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     status,
     restore,
     refresh,
+    reapply,
     clear,
     open,
     pos,

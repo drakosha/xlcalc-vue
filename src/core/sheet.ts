@@ -6,7 +6,8 @@ import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
 import { useClip } from './clip'
 import { useCommands, type SheetTarget } from './commands'
-import { useEditing, type EditorState } from './editing'
+import { shortcutLetter, useEditing, type EditorState } from './editing'
+import { useExplain } from './explain'
 import { useFill } from './fill'
 import { useFormula } from './formula'
 import { MAX_COL_PX, MIN_COL_PX, useGeometry, widthFromPx } from './geometry'
@@ -105,14 +106,25 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const totals = useTotals(s, w, sel)
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
+  const explain = useExplain(s, f)
   const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find })
   /** The look of the active cell, from its loaded window: the `state` event and the font keys take it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
-  const cmd = useCommands(s, sel, ed, { reload, reloads: () => reloads, target: (t) => (target = t), activeStyle: () => activeLook.value?.style })
+  const cmd = useCommands(s, sel, ed, {
+    reload,
+    reloads: () => reloads,
+    target: (t) => (target = t),
+    activeStyle: () => activeLook.value?.style,
+    frozen: () => v.bookFreeze.value,
+    middlePanes: () => v.middlePanes(),
+    showFreeze: (sheet, on) => v.showFreeze(sheet, on),
+    reapplyFilter: () => filter.reapply(),
+    explain: () => explain.show(),
+  })
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor })
   const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
-  const menu = useMenu(s, geo, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip })
+  const menu = useMenu(s, geo, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
 
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
@@ -193,7 +205,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     w.reset()
     w.resetSizes()
     if (hasLayout()) s.userWidths.value = {}
-    if (filter.active.value) filter.refresh()
+    if (filter.active.value) void filter.refresh()
     w.ensure()
   }
   function retry(): void {
@@ -283,7 +295,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     emit('openLink', { ...link, sheet: s.sheetName.value, cell: cellAddress(row, col) })
   }
 
-  // ── keys on the grid: search and Esc first (a popover, the find bar, the copy mode), then the font, editing and moves ──
+  // ── keys on the grid: search and Esc first (a popover, the find bar, the copy mode, the precedents), then the font, editing and moves ──
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
@@ -314,6 +326,17 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (e.key === 'Escape' && clip.mark.value) {
       e.preventDefault()
       clip.clear()
+      return
+    }
+    if (e.key === 'Escape' && explain.open.value) {
+      e.preventDefault()
+      explain.close()
+      return
+    }
+    // Excel's Reapply, Control+Alt+L on a Mac too: Cmd+Option+L is the browser's downloads.
+    if (e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey && shortcutLetter(e) === 'l' && filter.active.value) {
+      e.preventDefault()
+      void filter.reapply()
       return
     }
     ed.onGridKey(e)
@@ -359,8 +382,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
           if (event.message) notify(event.message)
           void reload()
         }
-        // A list of cells or the rules themselves may have changed.
-        if (event.kind !== 'repaint') validation.refresh()
+        // A list of cells or the rules themselves may have changed, and the precedents' values.
+        if (event.kind !== 'repaint') {
+          validation.refresh()
+          explain.refresh()
+        }
       }) ?? null
   }
   watch(
@@ -405,6 +431,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     totals,
     filter,
     find,
+    explain,
     views,
     cmd,
     clip,
