@@ -1,6 +1,7 @@
-/* The sheet's look: colours, fonts and spacing are --xs-* variables, so a host restyles (or darkens) it by overriding them; the toolbar shares them. */
+/* The sheet's look: colours, fonts and spacing are --xs-* variables, so a host restyles (or darkens) it by overriding them; the toolbar and the Format Cells dialog share them. */
 .xs-sheet,
-.xs-toolbar {
+.xs-toolbar,
+.xs-fmt-back {
   --xs-bg: #ffffff;
   --xs-fg: #1f2328;
   --xs-muted: #6b7280;

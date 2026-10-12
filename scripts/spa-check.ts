@@ -6,6 +6,8 @@
 // Then the structure menu on a new book: on the desktop a row inserted by a right click (the formula under it moves),
 // a column hidden and shown, a sheet added by "+", renamed and deleted, a column fitted by a double click on its edge;
 // on the phone a row inserted from the menu a long press opens.
+// Then Find and Replace and Format Cells on a new book: a search with Match case and in values, Replace All and its
+// Control+Z, the dialog's font, outline and percent with OK and their undo.
 // On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa.
 // Output: test-results/screens/spa-*.png and the saved files.
 import { mkdirSync } from 'node:fs'
@@ -59,14 +61,24 @@ const OUTSIDE = [
   { bottom: THIN, left: THIN, right: THIN },
 ]
 
-/** Every button, field and list visible in the app bar and the toolbar (and its menus) at least 44 × 44 px; fields by their height. */
+/** Every button, field and list visible in the app bar, the toolbar (and its menus), the find bar and the dialogs at least 44 × 44 px; fields by their height. */
 async function checkTargets(page: Page, where: string): Promise<void> {
   const small = await page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('.spa-top button, .spa-top input:not([type=file]), .xs-toolbar button, .xs-toolbar select, .spa-dialog button, .spa-dialog select, .spa-choice, .xs-menu button, .xs-dialog button, .xs-dialog input, .xs-tabs button')]
+    [
+      ...document.querySelectorAll<HTMLElement>(
+        '.spa-top button, .spa-top input:not([type=file]), .xs-toolbar button, .xs-toolbar select, .spa-dialog button, .spa-dialog select, .spa-choice, .xs-menu button, .xs-dialog button, .xs-dialog input, .xs-tabs button, ' +
+          '.xs-find button, .xs-find-input, .xs-find-select, .xs-find-opt, .xs-fmt button, .xs-fmt-input, .xs-fmt-select, .xs-fmt-choice, .xs-fmt-check',
+      ),
+    ]
       .filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
       .map((el) => {
         const r = el.getBoundingClientRect()
-        return { what: `${el.tagName.toLowerCase()}[${el.dataset.tb ?? el.dataset.spa ?? el.dataset.xsMenu ?? el.className}]`, w: Math.round(r.width), h: Math.round(r.height), field: el.matches('input, select, .spa-choice, .xs-tab') }
+        return {
+          what: `${el.tagName.toLowerCase()}[${el.dataset.tb ?? el.dataset.spa ?? el.dataset.xsMenu ?? el.className}]`,
+          w: Math.round(r.width),
+          h: Math.round(r.height),
+          field: el.matches('input, select, .spa-choice, .xs-tab, .xs-find-opt, .xs-fmt-choice, .xs-fmt-check'),
+        }
       })
       .filter((b) => b.h < 44 || (!b.field && b.w < 44)),
   )
@@ -401,6 +413,140 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
   await context.close()
 }
 
+/** The find bar's status. */
+const findStatus = (page: Page) => page.evaluate(() => document.querySelector('.xs-find-status')?.textContent?.trim() ?? '')
+async function statusIs(page: Page, text: string, where: string): Promise<void> {
+  await page.waitForFunction((t) => document.querySelector('.xs-find-status')?.textContent?.trim() === t, text, { timeout: 30_000 }).catch(async () => {
+    throw new Error(`${where}: the find bar says ${JSON.stringify(await findStatus(page))}, want ${JSON.stringify(text)}`)
+  })
+}
+
+/**
+ * Find and Replace and Format Cells on a new ru-RU book: a search with Match case, then in values, Replace All and its
+ * Control+Z, and the dialog's font, outline and percent over A1:B3 with OK, one step of undo.
+ */
+async function findFormatScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  let step = 0
+  const shot = (name: string) => page.screenshot({ path: resolve(out, `spa-${size.name}-f${String(++step).padStart(2, '0')}-${name}.png`) })
+  const at = (what: string) => `[${size.name} find and format] ${what}`
+
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await press(page, size, '[data-spa="new"]')
+  await press(page, size, '[data-spa-locale="ru-RU"]')
+  await press(page, size, '[data-spa="create"]')
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  for (const [cell, text] of [['1:1', 'tea'], ['2:1', 'coffee'], ['3:1', 'Tea time'], ['4:1', '=A1&" cup"'], ['1:2', '0,25'], ['2:2', '0,5']] as const) await enter(page, size, cell, text)
+  await shows(page, '4:1', 'tea cup')
+  await ready(page)
+
+  // 1. Find: "tea" in any case, then with Match case, then in values, where A4 shows it by its formula.
+  if (size.phone) await press(page, size, '[data-xs-find]')
+  else {
+    await page.locator('[data-cell="5:1"]').click()
+    await page.keyboard.press('Control+f')
+  }
+  await page.locator('.xs-find-input').fill('tea')
+  await statusIs(page, '1 из 2', at('tea'))
+  await press(page, size, '[data-xs-find-options]')
+  await press(page, size, '[data-xs-find-case]')
+  await statusIs(page, '1 из 1', at('tea, match case'))
+  if (size.phone) {
+    await checkTargets(page, at('find options'))
+    await checkNoSideScroll(page, at('find options'))
+  }
+  await shot('find-case')
+  await page.locator('[data-xs-find-look]').selectOption('values')
+  await statusIs(page, '2 из 2', at('tea, match case, in values'))
+  expect(at('the hit in values'), await page.evaluate(() => document.querySelector('.xs-cell.xs-active')?.getAttribute('data-cell')), '4:1')
+  await shot('find-values')
+
+  // 2. Replace All in formulas: tea in any case to milk, A4 computes from the new A1; Control+Z takes it back whole.
+  await press(page, size, '[data-xs-find-case]')
+  await press(page, size, '[data-xs-find-replace]')
+  await page.locator('[data-xs-replace-input]').fill('milk')
+  await statusIs(page, '1 из 2', at('tea, before Replace All'))
+  if (size.phone) {
+    await checkTargets(page, at('replace row'))
+    await checkNoSideScroll(page, at('replace row'))
+  }
+  await shot('replace-row')
+  await press(page, size, '[data-xs-replace-all]')
+  await statusIs(page, 'Сделано замен: 2', at('Replace All'))
+  for (const [cell, text] of [['1:1', 'milk'], ['3:1', 'milk time'], ['4:1', 'milk cup']] as const) await shows(page, cell, text)
+  await ready(page)
+  expect(at('A3 after Replace All'), cellOf(await bookOf(page), 'A3').value, 'milk time')
+  await shot('replaced')
+  await page.locator('[data-cell="6:3"]').click()
+  await page.keyboard.press('Control+z')
+  for (const [cell, text] of [['1:1', 'tea'], ['3:1', 'Tea time'], ['4:1', 'tea cup']] as const) await shows(page, cell, text)
+  await ready(page)
+  expect(at('A1 after Control+Z'), cellOf(await bookOf(page), 'A1').value, 'tea')
+  await shot('replace-undone')
+  await page.locator('.xs-find [aria-label="Закрыть"]').last().click()
+
+  // 3. Format Cells over A1:B3 from the toolbar: bold 14 pt, the outline, percent; OK formats it in one step of undo.
+  if (size.phone) {
+    await page.locator('.xs-address').tap()
+    await page.locator('.xs-address').fill('A1:B3')
+    await page.keyboard.press('Enter')
+    await press(page, size, '[data-tb="more"]')
+  } else {
+    await page.locator('[data-cell="1:1"]').click()
+    await page.locator('[data-cell="3:2"]').click({ modifiers: ['Shift'] })
+  }
+  await press(page, size, '[data-tb="format-cells"]')
+  await page.waitForSelector('[data-fmt]')
+  await press(page, size, '[data-fmt-tab="font"]')
+  await page.locator('[data-fmt-font-style]').selectOption('bold')
+  await page.locator('[data-fmt-font-size]').fill('14')
+  if (size.phone) {
+    await checkTargets(page, at('dialog, font'))
+    await checkNoSideScroll(page, at('dialog, font'))
+  }
+  await shot('dialog-font')
+  await press(page, size, '[data-fmt-tab="border"]')
+  await press(page, size, '[data-fmt-line="medium"]')
+  await press(page, size, '[data-fmt-preset="outline"]')
+  if (size.phone) {
+    await checkTargets(page, at('dialog, border'))
+    await checkNoSideScroll(page, at('dialog, border'))
+  }
+  await shot('dialog-border')
+  await press(page, size, '[data-fmt-tab="number"]')
+  await press(page, size, '[data-fmt-number="percent"]')
+  await shot('dialog-number')
+  await press(page, size, '[data-fmt-ok]')
+  await page.waitForSelector('[data-fmt]', { state: 'detached' })
+  await shows(page, '1:2', '25%')
+  await ready(page)
+  const MEDIUM = { style: 'medium' }
+  const formatted = await bookOf(page)
+  expect(
+    at('A1 and B3 formatted'),
+    [cellOf(formatted, 'A1').style, cellOf(formatted, 'B3').style?.border, cellOf(formatted, 'B1').numberFormat],
+    [{ font: { bold: true, size: 14 }, border: { top: MEDIUM, left: MEDIUM } }, { bottom: MEDIUM, right: MEDIUM }, 9],
+  )
+  await shot('formatted')
+  if (size.phone) await press(page, size, '[data-tb="undo"]')
+  else await page.keyboard.press('Control+z')
+  await shows(page, '1:2', '0,25')
+  await ready(page)
+  const undone = await bookOf(page)
+  expect(at('Format Cells undone in one step'), [cellOf(undone, 'A1').style, cellOf(undone, 'B1').numberFormat], [undefined, undefined])
+  await shot('format-undone')
+  console.log(`${at('ok')}: found with Match case and in values, Replace All of 2 cells and its Control+Z, Format Cells (bold 14, outline, percent) and its undo`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 await build({ configFile: config, logLevel: 'error' })
 const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error' })
 const base = server.resolvedUrls!.local[0]!
@@ -412,6 +558,8 @@ try {
   await scenario(browser, base, phone)
   await structureScenario(browser, base, desktop)
   await structureScenario(browser, base, phone)
+  await findFormatScenario(browser, base, desktop)
+  await findFormatScenario(browser, base, phone)
 } finally {
   await browser.close()
   await new Promise<void>((done) => server.httpServer.close(() => done()))

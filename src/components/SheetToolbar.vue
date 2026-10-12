@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // Excel's formatting toolbar over a sheet source: undo and redo, bold, italic, underline, font and fill colours, borders,
-// horizontal alignment, wrapping and the number format of the selection the sheet's `state` event gives. On a narrow
-// frame what does not fit goes into a menu; on a finger every target is 44 × 44 px.
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+// horizontal alignment, wrapping and the number format of the selection the sheet's `state` event gives, and Format Cells
+// for a host that shows the dialog. On a narrow frame what does not fit goes into a menu; on a finger every target is 44 × 44 px.
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { SheetViewApi } from '../core/commands'
 import type { SheetViewState } from '../core/sheet'
 import { enMessages, type SheetMessages } from '../messages'
@@ -36,6 +36,7 @@ import {
   IconBorderOutside,
   IconFillColour,
   IconFontColour,
+  IconFormatCells,
   IconItalic,
   IconMore,
   IconRedo,
@@ -68,12 +69,17 @@ const emit = defineEmits<{
   error: [message: string]
   /** A call is done: the host may give the grid its focus back. */
   done: []
+  /** Format Cells… pressed: the host opens `FormatDialog`; without a listener there is no such button. */
+  formatCells: []
 }>()
 
 /** Under this width the toolbar keeps its first buttons in a row and the rest in a menu, as the sheet goes narrow. */
 const NARROW_PX = 600
 
 const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
+const instance = getCurrentInstance()
+/** Whether the host listens to `formatCells`, so that the button opens its dialog. */
+const hostDialog = typeof instance?.vnode.props?.onFormatCells === 'function' || Array.isArray(instance?.vnode.props?.onFormatCells)
 const style = computed(() => props.state?.style)
 
 const FONT: { what: FontToggle; icon: typeof IconBold; title: keyof SheetMessages }[] = [
@@ -370,6 +376,11 @@ function pickNumber(e: Event): void {
           @click="apply(over({ style: wrapToggle(style) }))"
         >
           <IconWrap />
+        </button>
+      </span>
+      <span v-if="hostDialog" class="xs-tb-group">
+        <button type="button" class="xs-tool" data-tb="format-cells" :title="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="emit('formatCells')">
+          <IconFormatCells />
         </button>
       </span>
     </div>

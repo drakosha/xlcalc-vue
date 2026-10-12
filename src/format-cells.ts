@@ -1,0 +1,193 @@
+// Excel's Format Cells dialog without its look: the fields as the active cell's look opens them, what each tab's buttons
+// do to them, and the patches of `SheetView.format` that OK sends, only for what the person changed.
+import type { AlignmentStyle, BorderLine, CellStyle, FontStyle } from 'xlcalc/contract'
+import { parseRange } from 'xlcalc/a1'
+import type { SheetFormatPatch } from './core/commands'
+import type { SheetViewState } from './core/sheet'
+import { BORDER_EDGES, edgePatches, edgesOf, numberKindOf, sameLine, type BorderEdge, type EdgeLines, type NumberKind, type ToolbarNumberFormat } from './toolbar'
+
+export type FormatTab = 'number' | 'alignment' | 'font' | 'border' | 'fill'
+export const FORMAT_TABS: readonly FormatTab[] = ['number', 'alignment', 'font', 'border', 'fill']
+
+export type Horizontal = NonNullable<AlignmentStyle['horizontal']>
+export type Vertical = NonNullable<AlignmentStyle['vertical']>
+export const HORIZONTALS: readonly Horizontal[] = ['general', 'left', 'center', 'right', 'fill', 'justify', 'centerContinuous', 'distributed']
+export const VERTICALS: readonly Vertical[] = ['top', 'center', 'bottom', 'justify', 'distributed']
+/** The kinds of line Excel's Border tab offers, in the order of its list. */
+export const LINE_STYLES: readonly BorderLine['style'][] = ['hair', 'dotted', 'dashDotDot', 'dashDot', 'dashed', 'thin', 'mediumDashDotDot', 'slantDashDot', 'mediumDashDot', 'mediumDashed', 'medium', 'thick', 'double']
+export type FontStyleKind = 'regular' | 'italic' | 'bold' | 'boldItalic'
+export type Underline = 'none' | NonNullable<FontStyle['underline']>
+/** Excel's font sizes in its list; any size from 1 to 409 may be typed. */
+export const FONT_SIZES: readonly number[] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72]
+/** Fonts offered in the font field's list; any name may be typed. */
+export const FONT_NAMES: readonly string[] = ['Aptos', 'Arial', 'Calibri', 'Cambria', 'Courier New', 'Georgia', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Verdana']
+
+/** The dialog's fields; text fields hold what is typed until OK reads them. */
+export interface FormatDraft {
+  /** An offered number format, or a code of the cell's own (Excel's Custom). */
+  numberKind: NumberKind | 'custom'
+  numberCode: string
+  horizontal: Horizontal
+  vertical: Vertical
+  wrap: boolean
+  indent: string
+  fontName: string
+  fontSize: string
+  fontStyle: FontStyleKind
+  underline: Underline
+  strike: boolean
+  /** null: Automatic. */
+  fontColour: string | null
+  /** null: No Color. */
+  fill: string | null
+  /** The line the Border tab's buttons draw with. */
+  line: BorderLine
+  /** Edges as the Border tab set them; an edge left out stays as it is. */
+  edges: EdgeLines
+}
+
+/** The dialog as it opened: the fields, the range it formats and what its edges were (known for one cell, unknown for a range). */
+export interface FormatStart {
+  draft: FormatDraft
+  ref: string
+  /** One cell: the inside edges are off and the outline is the cell's own sides. */
+  single: boolean
+  edges: EdgeLines
+}
+
+const upper = (c: string | undefined | null) => c?.toUpperCase() ?? null
+const fontStyleOf = (f: FontStyle | undefined): FontStyleKind => (f?.bold ? (f.italic ? 'boldItalic' : 'bold') : f?.italic ? 'italic' : 'regular')
+
+/** The fields as the active cell shows them: its style, its number format among those offered, Excel's thin black line to draw with. */
+export function startOf(state: SheetViewState, offered: readonly ToolbarNumberFormat[]): FormatStart {
+  const s: CellStyle = state.style ?? {}
+  const kind = numberKindOf(state.numberFormat, offered)
+  const r = parseRange(state.ref)
+  const single = !r || (r.top === r.bottom && r.left === r.right)
+  const own = s.border ?? {}
+  const draft: FormatDraft = {
+    numberKind: kind ?? 'custom',
+    numberCode: state.numberFormat ?? 'General',
+    horizontal: s.alignment?.horizontal ?? 'general',
+    vertical: s.alignment?.vertical ?? 'bottom',
+    wrap: !!s.alignment?.wrap,
+    indent: String(s.alignment?.indent ?? 0),
+    fontName: s.font?.name ?? '',
+    fontSize: s.font?.size === undefined ? '' : String(s.font.size),
+    fontStyle: fontStyleOf(s.font),
+    underline: s.font?.underline ?? 'none',
+    strike: !!s.font?.strike,
+    fontColour: upper(s.font?.color),
+    fill: upper(s.fill?.color),
+    line: { style: 'thin' },
+    edges: {},
+  }
+  // a cell's own sides are its outline; a range's edges are not known from its active cell, as Excel's grey buttons
+  const edges: EdgeLines = single ? { top: own.top ?? null, bottom: own.bottom ?? null, left: own.left ?? null, right: own.right ?? null } : {}
+  return { draft, ref: state.ref, single, edges }
+}
+
+/** The edges the selection has: one cell has no inside lines. */
+export const edgesIn = (start: FormatStart): BorderEdge[] => {
+  const r = parseRange(start.ref)
+  return r ? edgesOf(r) : []
+}
+/** What an edge shows now: as set in the dialog, else as it was; undefined where that is not known. */
+export const shownEdge = (start: FormatStart, draft: FormatDraft, e: BorderEdge): BorderLine | null | undefined =>
+  draft.edges[e] !== undefined ? draft.edges[e] : start.edges[e]
+
+/** An edge's button, as Excel's: the line on it, or off when it already has that line. */
+export function pressEdge(start: FormatStart, draft: FormatDraft, e: BorderEdge): void {
+  draft.edges = { ...draft.edges, [e]: sameLine(shownEdge(start, draft, e), draft.line) ? null : { ...draft.line } }
+}
+/** Excel's presets: None takes every line off, Outline and Inside draw the line round the selection or inside it. */
+export function pressPreset(start: FormatStart, draft: FormatDraft, preset: 'none' | 'outline' | 'inside'): void {
+  const next: EdgeLines = { ...draft.edges }
+  for (const e of edgesIn(start)) {
+    const inside = e === 'insideH' || e === 'insideV'
+    if (preset === 'none') next[e] = null
+    else if ((preset === 'inside') === inside) next[e] = { ...draft.line }
+  }
+  draft.edges = next
+}
+
+/** A field OK cannot read, by its name: the code, the indent, the size. */
+export interface DraftErrors {
+  numberCode?: true
+  indent?: true
+  fontSize?: true
+}
+/** Excel's limits: a font of 1 to 409 points, an indent of 0 to 250, a code of the cell's own not empty. */
+export function draftErrors(draft: FormatDraft): DraftErrors {
+  const out: DraftErrors = {}
+  if (draft.numberKind === 'custom' && !draft.numberCode.trim()) out.numberCode = true
+  const indent = Number(draft.indent.trim())
+  if (!/^\d+$/.test(draft.indent.trim()) || indent > 250) out.indent = true
+  const size = Number(draft.fontSize.trim().replace(',', '.'))
+  if (draft.fontSize.trim() && !(Number.isFinite(size) && size >= 1 && size <= 409)) out.fontSize = true
+  return out
+}
+
+/** The code a draft's number format shows by: an offered one's, or the code typed (Custom). */
+export function numberCodeOf(draft: FormatDraft, offered: readonly ToolbarNumberFormat[]): string {
+  if (draft.numberKind === 'custom') return draft.numberCode.trim()
+  return offered.find((f) => f.kind === draft.numberKind)?.code ?? draft.numberCode
+}
+/** Excel's Custom takes the code of the category picked before it, to be changed from there. */
+export function pickNumber(draft: FormatDraft, kind: FormatDraft['numberKind'], offered: readonly ToolbarNumberFormat[]): void {
+  if (kind === 'custom' && draft.numberKind !== 'custom') draft.numberCode = numberCodeOf(draft, offered)
+  draft.numberKind = kind
+}
+
+/** The font size typed, to Excel's half points; undefined for an empty field (the book's size). */
+function sizeOf(text: string): number | undefined {
+  const t = text.trim().replace(',', '.')
+  return t ? Math.round(Number(t) * 2) / 2 : undefined
+}
+
+/**
+ * OK's patches: one over the selection with what changed of the font, the alignment, the fill and the number format, and
+ * the Border tab's edges on their ranges, all for one call and so one step of undo; none when nothing changed. A field
+ * back at its default takes the cell's own off (null), as Excel stores no default.
+ */
+export function patchesOf(start: FormatStart, draft: FormatDraft, offered: readonly ToolbarNumberFormat[]): SheetFormatPatch[] {
+  const was = start.draft
+  const font: Record<string, unknown> = {}
+  const name = draft.fontName.trim()
+  if (name !== was.fontName) font.name = name || null
+  const size = sizeOf(draft.fontSize)
+  if (size !== sizeOf(was.fontSize)) font.size = size ?? null
+  const bold = draft.fontStyle === 'bold' || draft.fontStyle === 'boldItalic'
+  const italic = draft.fontStyle === 'italic' || draft.fontStyle === 'boldItalic'
+  if (bold !== (was.fontStyle === 'bold' || was.fontStyle === 'boldItalic')) font.bold = bold || null
+  if (italic !== (was.fontStyle === 'italic' || was.fontStyle === 'boldItalic')) font.italic = italic || null
+  if (draft.underline !== was.underline) font.underline = draft.underline === 'none' ? null : draft.underline
+  if (draft.strike !== was.strike) font.strike = draft.strike || null
+  if (draft.fontColour !== was.fontColour) font.color = draft.fontColour
+  const alignment: Record<string, unknown> = {}
+  if (draft.horizontal !== was.horizontal) alignment.horizontal = draft.horizontal === 'general' ? null : draft.horizontal
+  if (draft.vertical !== was.vertical) alignment.vertical = draft.vertical === 'bottom' ? null : draft.vertical
+  if (draft.wrap !== was.wrap) alignment.wrap = draft.wrap || null
+  const indent = Number(draft.indent.trim())
+  if (indent !== Number(was.indent)) alignment.indent = indent || null
+  const style: Record<string, unknown> = {}
+  if (Object.keys(font).length) style.font = font
+  if (Object.keys(alignment).length) style.alignment = alignment
+  if (draft.fill !== was.fill) style.fill = draft.fill ? { color: draft.fill } : null
+  const out: SheetFormatPatch[] = []
+  const own: SheetFormatPatch = {}
+  if (Object.keys(style).length) own.style = style
+  if (numberCodeOf(draft, offered) !== numberCodeOf(was, offered)) {
+    const offer = offered.find((f) => f.kind === draft.numberKind)
+    own.numberFormat = offer ? offer.format : draft.numberCode.trim()
+  }
+  if (own.style || own.numberFormat !== undefined) out.push(own)
+  // only edges the person set to something else than they were; an unknown edge set at all
+  const lines: EdgeLines = {}
+  for (const e of BORDER_EDGES) {
+    const now = draft.edges[e]
+    if (now !== undefined && (start.edges[e] === undefined || !sameLine(now, start.edges[e]))) lines[e] = now
+  }
+  if (Object.keys(lines).length) out.push(...edgePatches(start.ref, lines))
+  return out
+}

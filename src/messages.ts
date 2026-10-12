@@ -159,6 +159,38 @@ export interface SheetMessages {
   formatText: string
   /** A format none of the offered ones is (Excel's Custom). */
   formatOther: string
+  /** Excel's Format Cells dialog (`FormatDialog`): its tabs, fields and the names of what they offer. */
+  formatCells: string
+  formatCellsOpen: string
+  fmtTab: (tab: 'number' | 'alignment' | 'font' | 'border' | 'fill') => string
+  fmtCategory: string
+  fmtCode: string
+  fmtCodeEmpty: string
+  fmtHorizontal: string
+  fmtVertical: string
+  fmtHorizontalKind: (h: 'general' | 'left' | 'center' | 'right' | 'fill' | 'justify' | 'centerContinuous' | 'distributed') => string
+  fmtVerticalKind: (v: 'top' | 'center' | 'bottom' | 'justify' | 'distributed') => string
+  fmtIndent: string
+  fmtIndentRange: string
+  fmtFontName: string
+  fmtFontDefault: string
+  fmtFontStyle: string
+  fmtFontStyleKind: (k: 'regular' | 'italic' | 'bold' | 'boldItalic') => string
+  fmtSize: string
+  fmtSizeRange: string
+  fmtUnderline: string
+  fmtUnderlineKind: (k: 'none' | 'single' | 'double') => string
+  fmtStrike: string
+  fmtColour: string
+  fmtColourCode: string
+  fmtColourBad: string
+  fmtBackground: string
+  fmtLine: string
+  fmtLineStyle: (style: string) => string
+  fmtPresets: string
+  fmtPreset: (p: 'none' | 'outline' | 'inside') => string
+  fmtEdges: string
+  fmtEdge: (e: 'top' | 'bottom' | 'left' | 'right' | 'insideH' | 'insideV') => string
 }
 
 export const enMessages: SheetMessages = {
@@ -314,6 +346,53 @@ export const enMessages: SheetMessages = {
   formatTime: 'Time',
   formatText: 'Text',
   formatOther: 'Custom',
+  formatCells: 'Format Cells',
+  formatCellsOpen: 'Format Cells… (Ctrl+1)',
+  fmtTab: (tab) => ({ number: 'Number', alignment: 'Alignment', font: 'Font', border: 'Border', fill: 'Fill' })[tab],
+  fmtCategory: 'Category',
+  fmtCode: 'Type',
+  fmtCodeEmpty: 'Type a format code',
+  fmtHorizontal: 'Horizontal',
+  fmtVertical: 'Vertical',
+  fmtHorizontalKind: (h) =>
+    ({ general: 'General', left: 'Left (Indent)', center: 'Center', right: 'Right (Indent)', fill: 'Fill', justify: 'Justify', centerContinuous: 'Center Across Selection', distributed: 'Distributed (Indent)' })[h],
+  fmtVerticalKind: (v) => ({ top: 'Top', center: 'Center', bottom: 'Bottom', justify: 'Justify', distributed: 'Distributed' })[v],
+  fmtIndent: 'Indent',
+  fmtIndentRange: 'The indent must be a whole number from 0 to 250',
+  fmtFontName: 'Font',
+  fmtFontDefault: 'The book’s font',
+  fmtFontStyle: 'Font style',
+  fmtFontStyleKind: (k) => ({ regular: 'Regular', italic: 'Italic', bold: 'Bold', boldItalic: 'Bold Italic' })[k],
+  fmtSize: 'Size',
+  fmtSizeRange: 'The size must be between 1 and 409',
+  fmtUnderline: 'Underline',
+  fmtUnderlineKind: (k) => ({ none: 'None', single: 'Single', double: 'Double' })[k],
+  fmtStrike: 'Strikethrough',
+  fmtColour: 'Colour',
+  fmtColourCode: 'Colour code, #RRGGBB',
+  fmtColourBad: 'A colour is # and six hexadecimal digits',
+  fmtBackground: 'Background colour',
+  fmtLine: 'Line',
+  fmtLineStyle: (style) =>
+    ({
+      hair: 'Hair',
+      dotted: 'Dotted',
+      dashDotDot: 'Dash dot dot',
+      dashDot: 'Dash dot',
+      dashed: 'Dashed',
+      thin: 'Thin',
+      mediumDashDotDot: 'Medium dash dot dot',
+      slantDashDot: 'Slanted dash dot',
+      mediumDashDot: 'Medium dash dot',
+      mediumDashed: 'Medium dashed',
+      medium: 'Medium',
+      thick: 'Thick',
+      double: 'Double',
+    })[style] ?? style,
+  fmtPresets: 'Presets',
+  fmtPreset: (p) => ({ none: 'None', outline: 'Outline', inside: 'Inside' })[p],
+  fmtEdges: 'Border',
+  fmtEdge: (e) => ({ top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right', insideH: 'Inside horizontal', insideV: 'Inside vertical' })[e],
 }
 
 /** Russian plural: one, few, many. */
@@ -482,4 +561,61 @@ export const ruMessages: SheetMessages = {
   formatTime: 'Время',
   formatText: 'Текстовый',
   formatOther: 'Другой',
+  formatCells: 'Формат ячеек',
+  formatCellsOpen: 'Формат ячеек… (Ctrl+1)',
+  fmtTab: (tab) => ({ number: 'Число', alignment: 'Выравнивание', font: 'Шрифт', border: 'Граница', fill: 'Заливка' })[tab],
+  fmtCategory: 'Числовые форматы',
+  fmtCode: 'Тип',
+  fmtCodeEmpty: 'Введите код формата',
+  fmtHorizontal: 'По горизонтали',
+  fmtVertical: 'По вертикали',
+  fmtHorizontalKind: (h) =>
+    ({
+      general: 'по значению',
+      left: 'по левому краю (отступ)',
+      center: 'по центру',
+      right: 'по правому краю (отступ)',
+      fill: 'с заполнением',
+      justify: 'по ширине',
+      centerContinuous: 'по центру выделения',
+      distributed: 'распределённый (отступ)',
+    })[h],
+  fmtVerticalKind: (v) => ({ top: 'по верхнему краю', center: 'по центру', bottom: 'по нижнему краю', justify: 'по высоте', distributed: 'распределённый' })[v],
+  fmtIndent: 'Отступ',
+  fmtIndentRange: 'Отступ должен быть целым числом от 0 до 250',
+  fmtFontName: 'Шрифт',
+  fmtFontDefault: 'Шрифт книги',
+  fmtFontStyle: 'Начертание',
+  fmtFontStyleKind: (k) => ({ regular: 'обычный', italic: 'курсив', bold: 'полужирный', boldItalic: 'полужирный курсив' })[k],
+  fmtSize: 'Размер',
+  fmtSizeRange: 'Размер должен быть от 1 до 409',
+  fmtUnderline: 'Подчёркивание',
+  fmtUnderlineKind: (k) => ({ none: 'нет', single: 'одинарное', double: 'двойное' })[k],
+  fmtStrike: 'Зачёркнутый',
+  fmtColour: 'Цвет',
+  fmtColourCode: 'Код цвета, #RRGGBB',
+  fmtColourBad: 'Цвет записывается как # и шесть шестнадцатеричных цифр',
+  fmtBackground: 'Цвет фона',
+  fmtLine: 'Линия',
+  fmtLineStyle: (style) =>
+    ({
+      hair: 'Волосяная',
+      dotted: 'Точечная',
+      dashDotDot: 'Штрихпунктирная с двумя точками',
+      dashDot: 'Штрихпунктирная',
+      dashed: 'Штриховая',
+      thin: 'Тонкая',
+      mediumDashDotDot: 'Средняя штрихпунктирная с двумя точками',
+      slantDashDot: 'Наклонная штрихпунктирная',
+      mediumDashDot: 'Средняя штрихпунктирная',
+      mediumDashed: 'Средняя штриховая',
+      medium: 'Средняя',
+      thick: 'Толстая',
+      double: 'Двойная',
+    })[style] ?? style,
+  fmtPresets: 'Все',
+  fmtPreset: (p) => ({ none: 'нет', outline: 'внешние', inside: 'внутренние' })[p],
+  fmtEdges: 'Отдельные',
+  fmtEdge: (e) =>
+    ({ top: 'верхняя', bottom: 'нижняя', left: 'левая', right: 'правая', insideH: 'внутренняя горизонтальная', insideV: 'внутренняя вертикальная' })[e],
 }
