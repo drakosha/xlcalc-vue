@@ -59,6 +59,6 @@
     "vitest": "^4.1.10",
     "vue": "^3.5.39",
     "vue-tsc": "^3.3.5",
-    "xlcalc": "file:vendor/xlcalc-0.28.0.tgz"
+    "xlcalc": "file:vendor/xlcalc-0.29.0.tgz"
   }
 }
