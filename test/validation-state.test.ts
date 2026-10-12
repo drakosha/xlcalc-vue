@@ -122,7 +122,7 @@ describe('useValidation: the list', () => {
     expect(v.index.value).toBe(2)
     v.onKey(key('ArrowUp'))
     expect(v.onKey(key('Enter'))).toBe(true)
-    expect(pick).toHaveBeenCalledWith('Нет', { sheet: 'S', cell: 'A1' })
+    expect(pick).toHaveBeenCalledWith('Нет', { sheet: 'S', cell: 'A1' }, 1)
     expect(v.open.value).toBe(false)
   })
 
@@ -161,7 +161,7 @@ describe('useValidation: the list', () => {
     expect(v.open.value).toBe(false)
     const { v: w, pick: chosen } = await ready()
     expect(w.choose(1)).toBe(true)
-    expect(chosen).toHaveBeenCalledWith('Нет', { sheet: 'S', cell: 'A1' })
+    expect(chosen).toHaveBeenCalledWith('Нет', { sheet: 'S', cell: 'A1' }, 1)
     expect(pick).not.toHaveBeenCalled()
   })
 })

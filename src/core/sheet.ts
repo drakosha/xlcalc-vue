@@ -88,19 +88,21 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const barInput = ref<HTMLTextAreaElement | null>(null)
   const alerts = useValidationAlert()
   const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, alert: alerts.ask })
-  // Excel's data validation on the active cell: its dropdown list and input message; an item goes in as typed, past the rule, as it is the rule's own.
+  // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, else in as typed past the rule.
   const validation = useValidation({
     source: () => s.source(),
     sheet: () => s.sheetName.value,
     active: () => s.selected.value,
     text: () => (s.selected.value ? w.textOfRow(s.selected.value.row, s.selected.value.col) : ''),
-    pick: (text, at) => {
+    pick: (text, at, item) => {
       const a = parseCell(at.cell)
       if (!s.editable.value || !a || at.sheet !== s.sheetName.value) return
       const lock = ed.lockAt(a.row, a.col)
       if (lock !== null) return notify(s.messages.value.locked(lock))
-      // TODO(xlcalc): what Excel enters for a picked item and whether it checks it are not measured; the item's text goes in as typed, without the rule.
-      void ed.send([{ sheet: at.sheet, cell: at.cell, text }], null, { accept: true })
+      const source = s.source()
+      const entry = [{ sheet: at.sheet, cell: at.cell, text }]
+      if (source.pick) void ed.run(() => source.pick!(at.sheet, at.cell, item, text), entry, null, null)
+      else void ed.send(entry, null, { accept: true })
     },
   })
   const totals = useTotals(s, w, sel)

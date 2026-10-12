@@ -29,8 +29,8 @@ export interface ValidationDeps {
   active: () => { row: number; col: number } | null
   /** The active cell's shown text: the list opens at the item it equals. */
   text?: () => string
-  /** An item chosen from the list (a click, Enter): the sheet enters it into the cell as typed. */
-  pick: (text: string, place: ValidationPlace) => void
+  /** An item chosen from the list (a click, Enter), by its text and its place in the list: the sheet enters it into the cell. */
+  pick: (text: string, place: ValidationPlace, item: number) => void
   /** Stops asking (the sheet's end); the end of the scope the composable runs in stops it too. */
   signal?: AbortSignal
   /** Milliseconds the active cell stays before it is asked, `VALIDATION_DELAY_MS` by default. */
@@ -121,7 +121,7 @@ export function useValidation(deps: ValidationDeps) {
     if (!items || !at || i < 0 || i >= items.length) return false
     const text = items[i]!
     close()
-    deps.pick(text, at)
+    deps.pick(text, at, i)
     return true
   }
 

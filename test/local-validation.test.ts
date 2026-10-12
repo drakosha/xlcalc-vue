@@ -115,3 +115,49 @@ describe('localSource: a value a rule does not take', () => {
     expect((await win(s, 'S', 2, 1, 2, 2)).values).toEqual([[99, -3]])
   })
 })
+
+describe('localSource: an item picked from a dropdown', () => {
+  /** ru-RU: a list of cells holding the text 001, the text 1/2 and 0.5 shown as 50 %; a literal list; both over General cells. */
+  const lists = (): BookInput => ({
+    locale: 'ru-RU',
+    sheets: [
+      {
+        name: 'S',
+        cells: { E1: { value: '001' }, E2: { value: '1/2' }, E3: { value: 0.5, numberFormat: '0%' }, A1: { value: 'x' } },
+        validations: [
+          { range: 'A1:A9', type: 'list', formula1: '$E$1:$E$3' },
+          { range: 'B1:B9', type: 'list', formula1: '"001,1/2,x"' },
+        ],
+      },
+    ],
+  })
+
+  it('writes a cell\'s item as its value, not as typed, and keeps the cell\'s format, in one step of undo', async () => {
+    const s = source(lists())
+    expect(await s.validation('S', 'A1')).toEqual({ list: ['001', '1/2', '50%'] })
+    expect(await s.pick('S', 'A1', 0, '001')).toMatchObject({ ok: true, changes: [{ cell: 'A1', value: '001', text: '001' }] })
+    expect(await s.pick('S', 'A2', 1, '1/2')).toMatchObject({ ok: true, changes: [{ cell: 'A2', value: '1/2' }] })
+    expect(await s.pick('S', 'A3', 2, '50%')).toMatchObject({ ok: true, changes: [{ cell: 'A3', value: 0.5, text: '0,5' }] })
+    expect((await win(s, 'S', 1, 3, 1, 1)).numberFormats ?? {}).toEqual({})
+    expect(s.history).toEqual({ undo: 3, redo: 0 })
+    expect(await s.undo()).toMatchObject({ ok: true, select: { sheet: 'S', range: 'A3' } })
+    expect((await win(s, 'S', 1, 3, 1, 1)).values).toEqual([['001'], ['1/2'], [null]])
+  })
+
+  it('reads a literal item as typed in en-US, whatever the book\'s locale', async () => {
+    const s = source(lists())
+    expect(await s.pick('S', 'B1', 0, '001')).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: 1 }] })
+    expect(await s.pick('S', 'B2', 1, '1/2')).toMatchObject({ ok: true })
+    // the 2nd of January of this year in Excel's built-in d-mmm (16), as the book stores it
+    const year = new Date().getFullYear()
+    expect((await s.book()).sheets[0]!.cells.B2).toEqual({ value: (Date.UTC(year, 0, 2) - Date.UTC(1899, 11, 30)) / 86_400_000, numberFormat: 16 })
+  })
+
+  it('refuses an item whose text the list no longer has at its place, nothing written', async () => {
+    const s = source(lists())
+    expect(await s.pick('S', 'A1', 0, '002')).toMatchObject({ ok: false, reason: 'conflict' })
+    expect(await s.pick('S', 'A1', 7, '001')).toMatchObject({ ok: false, reason: 'conflict' })
+    expect((await win(s, 'S', 1, 1, 1, 1)).values).toEqual([['x']])
+    expect(s.history).toEqual({ undo: 0, redo: 0 })
+  })
+})

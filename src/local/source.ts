@@ -272,6 +272,26 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
+  /**
+   * An item picked from a list's dropdown, as Excel writes it: the item's `input` the session gives (a cell's value as it is,
+   * a literal item read as typed in en-US), the cell's format kept, no rule asked, one step of the undo. The list is read
+   * again, as Excel computes it, and an item whose text is no longer at its place is refused.
+   */
+  async function pick(sheet: string, cell: string, item: number, text: string): Promise<EditOutcome> {
+    const s = await open()
+    const at = parseCell(cell)
+    if (!at) return failed(`No cell ${sheet}!${cell}`)
+    try {
+      const list = (await s.getValidation(sheet, cell))?.list
+      const got = Array.isArray(list) ? list[item] : undefined
+      if (!got || got.text !== text) return { ok: false, reason: 'conflict', message: `The list of ${sheet}!${cell} changed: open it again` }
+      const addr = cellAddress(at.row, at.col)
+      return await settle(s, await s.setCells([{ sheet, cell: addr, input: got.input }]), boxesOf([{ sheet, cell: addr }]))
+    } catch (e) {
+      return outcomeOf(e, 'refused')
+    }
+  }
+
   /** Control+Return: the text read once in the active cell and entered into every cell of the range, which stays selected; the active cell's rule refuses as in `edit`. */
   async function fill(sheet: string, range: string, text: string, active: string, opts?: EditOptions): Promise<EditOutcome> {
     const s = await open()
@@ -453,6 +473,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     edit: serial(edit),
     paste: serial(paste),
     fill: serial(fill),
+    pick: serial(pick),
     undo: serial(() => step('undo')),
     redo: serial(() => step('redo')),
     structure: serial(structure),
