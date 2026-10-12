@@ -8,6 +8,9 @@
 // on the phone a row inserted from the menu a long press opens.
 // Then Find and Replace and Format Cells on a new book: a search with Match case and in values, Replace All and its
 // Control+Z, the dialog's font, outline and percent with OK and their undo.
+// Then the fill handle and cut, copy and paste inside the book: a formula dragged three rows down by its handle, a range
+// with a formula copied and pasted, a formula cut and pasted, each undone (Control+C, X, V on the desktop, the cells' menu
+// on the phone).
 // On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa.
 // Output: test-results/screens/spa-*.png and the saved files.
 import { mkdirSync } from 'node:fs'
@@ -558,6 +561,179 @@ async function findFormatScenario(browser: Browser, base: string, size: Size): P
   await context.close()
 }
 
+/** The middle of an element on the page. */
+async function middle(page: Page, selector: string): Promise<{ x: number; y: number }> {
+  const box = (await page.locator(selector).boundingBox())!
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
+/** A finger put down at `from`, moved to `to` in steps and lifted, as Chromium's touch input gets it; `held` runs before the lift. */
+async function touchDrag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }, held: () => Promise<unknown>): Promise<void> {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] })
+  for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + ((to.x - from.x) * i) / 8, y: from.y + ((to.y - from.y) * i) / 8 }] })
+  await held()
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+}
+const addressOf = (page: Page) => page.locator('.xs-address').inputValue()
+const antsShown = async (page: Page) => (await page.locator('[data-xs-ants]').count()) > 0
+/** A cell's formula and value in the book as the app's source holds it. */
+const formulas = async (page: Page, cells: string[]) => {
+  const book = await bookOf(page)
+  return cells.map((a) => cellOf(book, a).formula ?? cellOf(book, a).value ?? null)
+}
+
+/**
+ * The fill handle and cut, copy and paste inside the book on a new ru-RU book: B1's formula dragged three rows down by
+ * its handle (the mouse, or a finger on the phone), A1:B1 copied and pasted at D6, B1 cut and pasted at D2 (Control+C, X
+ * and V on the desktop, the cells' menu a long press opens on the phone), each taken back by Control+Z (the toolbar's
+ * undo on the phone). The book is checked after each step, the grid too.
+ */
+async function fillCopyScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({
+    viewport: { width: size.width, height: size.height },
+    deviceScaleFactor: size.phone ? 2 : 1,
+    isMobile: size.phone,
+    hasTouch: size.phone,
+    permissions: ['clipboard-read', 'clipboard-write'],
+  })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  let step = 0
+  const shot = (name: string) => page.screenshot({ path: resolve(out, `spa-${size.name}-c${String(++step).padStart(2, '0')}-${name}.png`) })
+  const at = (what: string) => `[${size.name} fill and copy] ${what}`
+  /** Control+Z, or the toolbar's undo on the phone. */
+  const undo = async () => {
+    if (size.phone) await press(page, size, '[data-tb="undo"]')
+    else await page.keyboard.press('ControlOrMeta+z')
+    await ready(page)
+  }
+  /** Open the cells' menu on a cell (a right click, a long press) and pick an item. */
+  const menuItem = async (cell: string, item: string, check = false) => {
+    if (size.phone) await longPress(page, `[data-cell="${cell}"]`)
+    else await page.locator(`[data-cell="${cell}"]`).click({ button: 'right' })
+    await page.waitForSelector(`[data-xs-menu="${item}"]`)
+    if (check) {
+      await checkTargets(page, at('cells menu'))
+      await checkNoSideScroll(page, at('cells menu'))
+      await shot('cells-menu')
+    }
+    await press(page, size, `[data-xs-menu="${item}"]`)
+    await page.waitForFunction(() => !document.querySelector('[data-xs-menu]'))
+  }
+  /** Select a cell or a range: by the mouse, or through the address box on the phone (a second tap on a cell opens its field). */
+  /** TODO(xlcalc): the undo of a copy onto empty cells answers no change for them and `./local` sends no reload, so the grid shows them until read again; said, not failed. */
+  const stale = async (cells: string[], what: string) => {
+    const shown = await page.evaluate((list) => list.map((c) => document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim() ?? ''), cells)
+    if (shown.some(Boolean)) console.log(`${at('known')}: after ${what} the book has the cells empty, the grid still shows ${JSON.stringify(shown)} (xlcalc's undo of copyRange lists no cell it empties)`)
+  }
+  const select = async (from: string, to: string | null = null) => {
+    if (size.phone) {
+      const a1 = (cell: string) => {
+        const [r, c] = cell.split(':').map(Number)
+        return `${String.fromCharCode(64 + c!)}${r}`
+      }
+      await page.locator('.xs-address').tap()
+      await page.locator('.xs-address').fill(to ? `${a1(from)}:${a1(to)}` : a1(from))
+      await page.keyboard.press('Enter')
+    } else {
+      await page.locator(`[data-cell="${from}"]`).click()
+      if (to) await page.locator(`[data-cell="${to}"]`).click({ modifiers: ['Shift'] })
+    }
+  }
+
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await press(page, size, '[data-spa="new"]')
+  await press(page, size, '[data-spa-locale="ru-RU"]')
+  await press(page, size, '[data-spa="create"]')
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  for (const [cell, text] of [['1:1', '1'], ['2:1', '2'], ['3:1', '3'], ['4:1', '4'], ['1:2', '=A1*10']] as const) await enter(page, size, cell, text)
+  await shows(page, '1:2', '10')
+  await ready(page)
+
+  // 1. B1's fill handle dragged to B4: the formula is copied down, each copy reading its own row; B1:B4 is selected.
+  await select('1:2')
+  await page.waitForSelector('[data-xs-fill-handle]')
+  const handle = await middle(page, '[data-xs-fill-handle]')
+  if (size.phone) {
+    const box = (await page.locator('[data-xs-fill-handle]').boundingBox())!
+    if (box.width < 44 || box.height < 44) throw new Error(`${at('fill handle')}: its target is ${box.width} × ${box.height} px`)
+  }
+  const target = await middle(page, '[data-cell="4:2"]')
+  const dragged = async () => {
+    await page.waitForSelector('[data-xs-fill-frame]')
+    await shot('fill-drag')
+  }
+  if (size.phone) await touchDrag(page, handle, target, dragged)
+  else {
+    await page.mouse.move(handle.x, handle.y)
+    await page.mouse.down()
+    await page.mouse.move(target.x, target.y, { steps: 8 })
+    await dragged()
+    await page.mouse.up()
+  }
+  for (const [cell, text] of [['2:2', '20'], ['3:2', '30'], ['4:2', '40']] as const) await shows(page, cell, text)
+  await ready(page)
+  expect(at('the filled formulas'), await formulas(page, ['B2', 'B3', 'B4']), ['A2*10', 'A3*10', 'A4*10'])
+  expect(at('the selection after the fill'), await addressOf(page), 'B1:B4')
+  await shot('filled')
+  await undo()
+  expect(at('the fill undone'), await formulas(page, ['B2', 'B3', 'B4']), [null, null, null])
+  await stale(['2:2', '3:2', '4:2'], "the fill's undo")
+  await shot('fill-undone')
+
+  // 2. A1:B1 copied: its moving border; pasted at D6, where E6 reads D6; the border stays until Esc.
+  await select('1:1', '1:2')
+  if (size.phone) await menuItem('1:1', 'copy', true)
+  else await page.keyboard.press('ControlOrMeta+c')
+  await page.waitForSelector('[data-xs-ants]')
+  await shot('copied')
+  await select('6:4')
+  if (size.phone) await menuItem('6:4', 'paste')
+  else await page.keyboard.press('ControlOrMeta+v')
+  await shows(page, '6:4', '1')
+  await shows(page, '6:5', '10')
+  await ready(page)
+  expect(at('the pasted copy'), await formulas(page, ['D6', 'E6']), [1, 'D6*10'])
+  expect(at('the selection after the paste'), await addressOf(page), 'D6:E6')
+  expect(at('the border stays after a paste of a copy'), await antsShown(page), true)
+  await shot('pasted')
+  await undo()
+  expect(at('the paste undone'), await formulas(page, ['D6', 'E6']), [null, null])
+  expect(at('an undo ends the copy mode'), await antsShown(page), false)
+  await stale(['6:4', '6:5'], "the paste's undo")
+  await shot('paste-undone')
+
+  // 3. B1 cut and pasted at D2: the formula moves and still reads A1, B1 is empty, the border goes; the undo puts it back.
+  await select('1:2')
+  if (size.phone) await menuItem('1:2', 'cut')
+  else await page.keyboard.press('ControlOrMeta+x')
+  await page.waitForSelector('[data-xs-ants]')
+  await select('2:4')
+  if (size.phone) await menuItem('2:4', 'paste')
+  else await page.keyboard.press('ControlOrMeta+v')
+  await shows(page, '2:4', '10')
+  await shows(page, '1:2', '')
+  await ready(page)
+  expect(at('the moved formula'), await formulas(page, ['B1', 'D2']), [null, 'A1*10'])
+  expect(at('the border after a paste of a cut'), await antsShown(page), false)
+  await shot('moved')
+  await undo()
+  await shows(page, '1:2', '10')
+  await shows(page, '2:4', '')
+  expect(at('the move undone'), await formulas(page, ['B1', 'D2']), ['A1*10', null])
+  await shot('move-undone')
+  if (size.phone) await checkNoSideScroll(page, at('after the moves'))
+  console.log(`${at('ok')}: B1 filled to B4 by ${size.phone ? 'a finger' : 'the mouse'} (B4 is A4*10), A1:B1 pasted at D6 (E6 is D6*10), B1 moved to D2 (A1*10), each undone`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 await build({ configFile: config, logLevel: 'error' })
 const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error' })
 const base = server.resolvedUrls!.local[0]!
@@ -571,6 +747,8 @@ try {
   await structureScenario(browser, base, phone)
   await findFormatScenario(browser, base, desktop)
   await findFormatScenario(browser, base, phone)
+  await fillCopyScenario(browser, base, desktop)
+  await fillCopyScenario(browser, base, phone)
 } finally {
   await browser.close()
   await new Promise<void>((done) => server.httpServer.close(() => done()))
