@@ -71,8 +71,8 @@ describe('localSource: a value a rule does not take', () => {
     })
     expect(await s.edit([{ sheet: 'S', cell: 'C2', text: '-1' }])).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'warning', message: 'Лучше больше нуля', sheet: 'S', cell: 'C2' } })
     const info = await s.edit([{ sheet: 'S', cell: 'D2', text: '-2' }])
-    // without its own title and message: the component's title, the library's text in the book's locale
-    expect(info).toMatchObject({ ok: false, alert: { severity: 'information', message: 'Значение не соответствует правилу проверки данных этой ячейки' } })
+    // without its own title and message: the component's title, Excel's text in the book's locale (xlcalc 0.28)
+    expect(info).toMatchObject({ ok: false, alert: { severity: 'information', message: 'Это значение не соответствует ограничениям по проверке данных, установленным для этой ячейки.' } })
     expect(!info.ok && info.alert && 'title' in info.alert).toBe(false)
     expect(await s.edit([{ sheet: 'S', cell: 'A2', text: 'да ' }])).toMatchObject({ ok: false, alert: { severity: 'stop', cell: 'A2' } })
     expect((await win(s, 'S', 2, 1, 1, 4)).values).toEqual([[null, null, null, null]])

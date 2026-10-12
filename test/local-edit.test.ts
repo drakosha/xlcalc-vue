@@ -99,7 +99,11 @@ describe('localSource: typed edits', () => {
     const cells = (await s.book()).sheets[0]!.cells
     expect(cells.B1).toEqual({ note: { author: 'Аня', text: 'Проверить' } })
     expect(cells.B2).toBeUndefined()
-    expect(cells.C1).toEqual({ style: 1 })
+    // a cell left with its style alone is kept in the sheet's look layer (xlcalc 0.28), the grid draws it as before
+    expect(cells.C1).toBeUndefined()
+    const w = await win(s, 'Лист1', 1, 1, 3, 1)
+    expect(w.values).toEqual([[null]])
+    expect(styleOf(w, 'C1')).toEqual(BOLD)
   })
 
   it('reloads after a Delete that takes a hyperlink and after its undo: a cell update carries no note or link', async () => {
