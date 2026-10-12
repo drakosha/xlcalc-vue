@@ -2,6 +2,7 @@ node_modules/
 dist/
 release/
 example/dist/
+example/dist-demo/
 test-results/
 *.log
 .DS_Store

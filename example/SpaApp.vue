@@ -6,6 +6,7 @@
 import { computed, onBeforeUnmount, ref, shallowRef, watchEffect } from 'vue'
 import type { BookInput } from 'xlcalc'
 import { quoteSheetIfNeeded } from 'xlcalc/text'
+import type { XlsxCached } from 'xlcalc/xlsx'
 import { SheetToolbar, SheetView, enMessages, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
 import SpaDialog from './SpaDialog.vue'
@@ -61,11 +62,14 @@ const status = computed(() => {
 })
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
-/** Open a book on a sheet: a new source with its changes timed, the old one closed; `since` is when the opening began. */
-function start(input: BookInput, bookName: string, lost: LossKind[] = [], since = performance.now(), sheet?: string): void {
+/**
+ * Open a book on a sheet: a new source with its changes timed, the old one closed; `since` is when the opening began.
+ * `cached`, the values a file stores, opens a circular reference holding them, as Excel opens the file.
+ */
+function start(input: BookInput, bookName: string, lost: LossKind[] = [], since = performance.now(), sheet?: string, cached?: XlsxCached): void {
   const previous = book.value?.source
   const source = timed(
-    localSource(input),
+    localSource(input, cached ? { session: { cached } } : {}),
     () => out.value++,
     (ms) => {
       out.value--
@@ -110,7 +114,7 @@ async function openFile(file: File): Promise<void> {
     const read = await readInThread(file, localeOfLang(lang.value))
     lastRead.value = performance.now() - since
     const locale = bookLocaleOf(read.book.locale, lang.value)
-    start({ ...read.book, locale }, file.name.replace(/\.xlsx$/i, ''), lossesOf(read.issues), since, firstShownSheet(read.book))
+    start({ ...read.book, locale }, file.name.replace(/\.xlsx$/i, ''), lossesOf(read.issues), since, firstShownSheet(read.book), read.cached)
   } catch (e) {
     say(t.value.openFailed(errorText(e)))
   } finally {

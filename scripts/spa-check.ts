@@ -13,16 +13,22 @@
 // on the phone).
 // Then Formula AutoComplete: `=СУ` typed into a cell (the formula bar on the phone) lists СУММ first, Tab (a tap on the
 // phone) enters `СУММ(`, and `A1:A3)` with Enter sums the column.
+// Then, on the desktop, a file with a circular reference opened from the picker holds the values it stores, as Excel
+// opens it, through an edit elsewhere.
 // On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa.
+// DEMO=1 npm run check:spa runs it on the demo's build (`--mode demo`, served under /demo/), which /demo/ opens and
+// which holds no source map.
 // Output: test-results/screens/spa-*.png and the saved files.
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { chromium, type Browser, type Page } from 'playwright'
 import { build, preview } from 'vite'
 import type { BookInput, CellStyle } from 'xlcalc'
+import { parseCell, parseRange } from 'xlcalc/a1'
 import { ruRU } from 'xlcalc/locales/ru-RU'
 import { numberFormatCategory } from 'xlcalc/text'
+import { writeXlsx } from 'xlcalc/xlsx'
 
 const root = resolve(import.meta.dirname, '..')
 const config = resolve(root, 'vite.example.config.ts')
@@ -57,9 +63,19 @@ async function ready(page: Page): Promise<void> {
 }
 /** The book as the app's source holds it now. */
 const bookOf = (page: Page) => page.evaluate(() => (window as any).__spa.book() as Promise<BookInput>)
-/** A cell of the first sheet: its own style object and number format. */
+/** The last look of a sheet's look layer over a cell: what an empty cell with only a look of its own shows (xlcalc 0.28). */
+function lookOf(sheet: BookInput['sheets'][number], addr: string): { style?: number; numberFormat?: unknown } | undefined {
+  const at = parseCell(addr)!
+  const looks = sheet.looks ?? []
+  for (let i = looks.length - 1; i >= 0; i--) {
+    const r = parseRange(looks[i]!.range)
+    if (r && at.row >= r.top && at.row <= r.bottom && at.col >= r.left && at.col <= r.right) return looks[i]
+  }
+  return undefined
+}
+/** A cell of the first sheet: its own style object and number format, from its entry or else the sheet's look layer. */
 function cellOf(book: BookInput, addr: string): { style: CellStyle | undefined; numberFormat: unknown; formula?: string; value?: unknown } {
-  const c = (book.sheets[0]!.cells as Record<string, any>)[addr] ?? {}
+  const c = (book.sheets[0]!.cells as Record<string, any>)[addr] ?? lookOf(book.sheets[0]!, addr) ?? {}
   return { style: c.style === undefined ? undefined : book.styles?.[c.style], numberFormat: c.numberFormat, formula: c.formula, value: c.value }
 }
 /** JSON with keys in order, so that objects compare by their fields alone. */
@@ -800,9 +816,49 @@ async function autocompleteScenario(browser: Browser, base: string, size: Size):
   await context.close()
 }
 
-await build({ configFile: config, logLevel: 'error' })
-const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error' })
+/** A file whose A1 and B1 read each other, C1 reads them and E1 does not, with the values Excel would store; opened from the picker. */
+async function cycleScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  const at = (what: string) => `[${size.name} cycle] ${what}`
+
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  const cells = { A1: { formula: 'B1/2+1' }, B1: { formula: 'A1' }, C1: { formula: 'A1*10' }, D1: { value: 5 }, E1: { formula: 'D1*2' } }
+  const stored = { sheets: [{ name: 'S', cells: { A1: { value: 2 }, B1: { value: 2 }, C1: { value: 20 }, E1: { value: 10 } } }] }
+  const { data } = await writeXlsx({ book: { sheets: [{ name: 'S', cells }] }, result: stored })
+  await page.locator('[data-spa-file]').setInputFiles({ name: 'Цикл.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(data) })
+  await shows(page, '1:5', '10')
+  await ready(page)
+  for (const [cell, text] of [['1:1', '2'], ['1:2', '2'], ['1:3', '20']] as const) await shows(page, cell, text)
+  await enter(page, size, '1:4', '7')
+  await shows(page, '1:5', '14')
+  await ready(page)
+  for (const [cell, text] of [['1:1', '2'], ['1:2', '2'], ['1:3', '20']] as const) await shows(page, cell, text)
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-c01-cycle.png`) })
+  console.log(`${at('ok')}: A1, B1 and C1 hold the file's 2, 2 and 20 through an edit of D1, E1 computed`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
+const demo = process.env.DEMO === '1'
+const mode = demo ? { mode: 'demo' } : {}
+await build({ configFile: config, logLevel: 'error', ...mode })
+const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error', ...mode })
 const base = server.resolvedUrls!.local[0]!
+if (demo) {
+  // the demo's paths, its index and no source maps
+  if (!base.endsWith('/demo/')) throw new Error(`[demo] served at ${base}, want /demo/`)
+  const maps = readdirSync(resolve(root, 'example/dist-demo'), { recursive: true }).filter((f) => String(f).endsWith('.map'))
+  if (maps.length) throw new Error(`[demo] source maps in the build: ${maps.join(', ')}`)
+  const [index, spa] = await Promise.all([fetch(base).then((r) => r.text()), fetch(`${base}spa.html`).then((r) => r.text())])
+  if (index !== spa || !spa.includes('/demo/assets/')) throw new Error('[demo] /demo/ is not the app built under /demo/')
+  console.log(`[demo] ok: served at ${base}, /demo/ is the app, no source maps`)
+}
 const browser = await chromium.launch()
 try {
   const desktop = { name: '1920', width: 1920, height: 1200, phone: false }
@@ -817,6 +873,7 @@ try {
   await fillCopyScenario(browser, base, phone)
   await autocompleteScenario(browser, base, desktop)
   await autocompleteScenario(browser, base, phone)
+  await cycleScenario(browser, base, desktop)
 } finally {
   await browser.close()
   await new Promise<void>((done) => server.httpServer.close(() => done()))

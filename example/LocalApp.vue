@@ -63,7 +63,7 @@ async function openFile(event: Event): Promise<void> {
   try {
     const read = await openXlsx(file, { locale: 'ru-RU' })
     const previous = local.value
-    local.value = start(localSource(read.book, { calc }), since)
+    local.value = start(localSource(read.book, { calc, session: { cached: read.cached } }), since)
     fileName.value = file.name
     lost.value = groupIssues(read.issues)
     focus.value = null

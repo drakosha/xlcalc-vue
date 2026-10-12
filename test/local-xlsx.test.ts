@@ -103,6 +103,21 @@ describe('xlsx in and out', () => {
     expect(constants).toBeGreaterThan(500)
   })
 
+  it('opens a circular reference holding the values its file stores, with the session\'s `cached`, as Excel opens the file', async () => {
+    const cells = { A1: { formula: 'B1/2+1' }, B1: { formula: 'A1' }, C1: { formula: 'A1*10' }, D1: { value: 5 }, E1: { formula: 'D1*2' } }
+    const stored = { sheets: [{ name: 'S', cells: { A1: { value: 2 }, B1: { value: 2 }, C1: { value: 20 }, E1: { value: 10 } } }] }
+    const read = await openXlsx((await writeXlsx({ book: { sheets: [{ name: 'S', cells }] }, result: stored })).data)
+    // without them the cycle and its reader hold 0; a formula outside it is computed either way
+    expect((await win(source(read.book), 'S', 1, 1, 1, 5)).values).toEqual([[0, 0, 0, 5, 10]])
+    const s = source(read.book, { session: { cached: read.cached } })
+    expect((await win(s, 'S', 1, 1, 1, 5)).values).toEqual([[2, 2, 20, 5, 10]])
+    // an edit of another cell keeps them, and the saved file stores them again
+    expect(await s.edit([{ sheet: 'S', cell: 'D1', text: '7' }])).toMatchObject({ ok: true })
+    expect((await win(s, 'S', 1, 1, 1, 5)).values).toEqual([[2, 2, 20, 7, 14]])
+    const back = await openXlsx((await saveXlsx(s)).data)
+    expect(back.cached.sheets[0]!.cells).toMatchObject({ A1: { value: 2 }, B1: { value: 2 }, C1: { value: 20 }, E1: { value: 14 } })
+  })
+
   it('opens a Blob as a file input gives it', async () => {
     const { data } = await saveXlsx(source())
     const back = await openXlsx(new Blob([data as BlobPart]))

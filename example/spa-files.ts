@@ -2,18 +2,25 @@
 // and the page keeps drawing meanwhile. Books cross between the threads as their sheets without cells, then the cells
 // in slices, so that neither side stops for a whole book at once.
 import type { BookInput, BookSnapshot } from 'xlcalc'
-import type { XlsxIssue } from 'xlcalc/xlsx'
+import type { XlsxCached, XlsxIssue } from 'xlcalc/xlsx'
 
 /** Cells per message: a slice is taken in one task of a few milliseconds. */
 export const SLICE = 20_000
 
 type Cells = Record<string, unknown>
-/** Which sheets a slice belongs to: the book's, or the result's values. */
-export type Part = 'book' | 'result'
+/** Which sheets a slice belongs to: the book's, the result's values, or the values a file read stores. */
+export type Part = 'book' | 'result' | 'cached'
+
+/** A file read: the book, the values it stores for formulas (for a session to open it as Excel does) and what it lost. */
+export interface FileRead {
+  book: BookInput
+  cached: XlsxCached
+  issues: XlsxIssue[]
+}
 
 /** From the thread: a file read (the book without cells first), a file written, or why not. */
 export type FromThread =
-  | { kind: 'head'; book: BookInput; issues: XlsxIssue[] }
+  | ({ kind: 'head' } & FileRead)
   | { kind: 'cells'; part: Part; sheet: number; cells: Cells }
   | { kind: 'read' }
   | { kind: 'written'; data: Uint8Array }
@@ -74,14 +81,14 @@ function job<T>(send: (post: (m: ToThread, transfer?: Transferable[]) => void) =
   }).finally(() => worker.terminate())
 }
 
-/** Read a file into a book in a thread; `issues` say what the book cannot hold, in `locale`'s language. */
-export function readInThread(file: Blob, locale: string): Promise<{ book: BookInput; issues: XlsxIssue[] }> {
-  let head: { book: BookInput; issues: XlsxIssue[] } | null = null
+/** Read a file into a book and its stored values in a thread; `issues` say what the book cannot hold, in `locale`'s language. */
+export function readInThread(file: Blob, locale: string): Promise<FileRead> {
+  let head: FileRead | null = null
   return job(
     (post) => post({ kind: 'read', file, locale }),
     (m, done) => {
-      if (m.kind === 'head') head = { book: m.book, issues: m.issues }
-      else if (m.kind === 'cells') take(head!.book.sheets as { cells: Cells }[], m)
+      if (m.kind === 'head') head = { book: m.book, cached: m.cached, issues: m.issues }
+      else if (m.kind === 'cells') take((m.part === 'cached' ? head!.cached.sheets : head!.book.sheets) as { cells: Cells }[], m)
       else if (m.kind === 'read') done(head!)
     },
   )

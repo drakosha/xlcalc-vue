@@ -12,9 +12,10 @@ let snapshot: { book: BookInput; values: XlsxCached['sheets'] } | null = null
 
 async function run(m: ToThread): Promise<void> {
   if (m.kind === 'read') {
-    const { book, issues } = await openXlsx(m.file, { locale: m.locale })
-    post({ kind: 'head', book: { ...book, sheets: withoutCells(book.sheets) }, issues })
+    const { book, cached, issues } = await openXlsx(m.file, { locale: m.locale })
+    post({ kind: 'head', book: { ...book, sheets: withoutCells(book.sheets) }, cached: { sheets: withoutCells(cached.sheets) }, issues })
     for (const s of slicesOf(book.sheets)) post({ kind: 'cells', part: 'book', ...s })
+    for (const s of slicesOf(cached.sheets)) post({ kind: 'cells', part: 'cached', ...s })
     post({ kind: 'read' })
   } else if (m.kind === 'snapshot') snapshot = { book: m.book, values: m.values as XlsxCached['sheets'] }
   else if (m.kind === 'cells') take(m.part === 'book' ? snapshot!.book.sheets : snapshot!.values, m)

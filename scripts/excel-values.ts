@@ -1,5 +1,6 @@
 // The library's values of a book against the values Excel saved in it: every formula cell compared with readXlsx's
-// `cached` after a session computes the book, cells that depend on volatile functions left out (they differ by the clock).
+// `cached` after a session opened with them computes the book (a circular reference holds them, as Excel opens the file),
+// cells that depend on volatile functions left out (they differ by the clock).
 // Run: XLSX=a.xlsx[:b.xlsx] npm run check:excel-values (node 22.18+ strips the types; a large book wants
 // NODE_OPTIONS=--max-old-space-size=12288). Exits 1 when a value differs.
 import { readFile } from 'node:fs/promises'
@@ -24,7 +25,7 @@ for (const path of paths) {
   const started = performance.now()
   const { book, cached } = await readXlsx(await readFile(path), { locale: 'ru-RU' })
   const read = performance.now()
-  const result = createSession(book, { limits: { cells: 50_000_000 } }).getResult()
+  const result = createSession(book, { cached, limits: { cells: 50_000_000 } }).getResult()
   const computed = performance.now()
   const volatile = new Set(result.volatile.map((c) => `${c.sheet}!${c.cell}`))
   let compared = 0

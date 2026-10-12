@@ -32,6 +32,7 @@
     "pack:release": "npm run build && npm pack --pack-destination release",
     "dev:example": "vite --config vite.example.config.ts",
     "build:example": "vite build --config vite.example.config.ts",
+    "build:demo": "vite build --config vite.example.config.ts --mode demo",
     "screens": "node scripts/screens.ts",
     "check:local": "node scripts/local-check.ts",
     "check:spa": "node scripts/spa-check.ts",
