@@ -19,6 +19,21 @@ async function operate(op: SheetOp, prepare?: (s: LocalSource) => Promise<unknow
 const names = async (s: LocalSource) => (await s.sheets()).map((x) => x.name)
 
 describe('localSource: structure operations, each answered by a reload', () => {
+  it('undo and redo of a copy onto empty cells reload, as the step does not list the cells it empties', async () => {
+    const { s, got } = await operate({ op: 'copyRange', from: { sheet: 'Лист1', range: 'A1:A2' }, to: { sheet: 'Лист1', range: 'H1' } })
+    expect(got).toMatchObject({ ok: true })
+    expect((await win(s, 'Лист1', 1, 2, 8, 1)).values).toEqual([[1], [2]])
+    const events: SourceEvent[] = []
+    s.subscribe((e) => events.push(e))
+    await s.undo()
+    expect(events).toContainEqual({ kind: 'reload' })
+    expect((await win(s, 'Лист1', 1, 2, 8, 1)).values).toEqual([[null], [null]])
+    events.length = 0
+    await s.redo()
+    expect(events).toContainEqual({ kind: 'reload' })
+    expect((await win(s, 'Лист1', 1, 2, 8, 1)).values).toEqual([[1], [2]])
+  })
+
   it('insertRows: formulas move, the window reads the moved book', async () => {
     const { s, got, events } = await operate({ op: 'insertRows', sheet: 'Лист1', row: 2 })
     expect(got.ok).toBe(true)

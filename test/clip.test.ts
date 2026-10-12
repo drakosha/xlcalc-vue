@@ -359,8 +359,9 @@ describe('with the local source', () => {
     expect(states.at(-1)!.formula).toBe('D5*10')
     await key(w, 'z', { ctrlKey: true })
     await settle(12)
-    // TODO(xlcalc): the undo of a copy onto empty cells answers no change for them and `./local` sends no reload, so the grid keeps them until read again; the book has them empty.
+    // The undo of a copy onto empty cells lists no change for them: `./local` reads the sheet again, so the grid has them empty too.
     expect(((await source.window({ sheet: 'S', row: 5, rows: 1, col: 4, cols: 2 })) as SheetWindow).text).toEqual([['', '']])
+    expect([cellText(w, 5, 4), cellText(w, 5, 5)]).toEqual(['', ''])
     await goTo(w, 'B1')
     const cut = clipboard(w, 'cut')!
     await goTo(w, 'D2')

@@ -624,10 +624,10 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
     await page.waitForFunction(() => !document.querySelector('[data-xs-menu]'))
   }
   /** Select a cell or a range: by the mouse, or through the address box on the phone (a second tap on a cell opens its field). */
-  /** TODO(xlcalc): the undo of a copy onto empty cells answers no change for them and `./local` sends no reload, so the grid shows them until read again; said, not failed. */
+  /** After the undo of a copy onto empty cells the grid has them empty: `./local` reads the sheet again after a structure step. */
   const stale = async (cells: string[], what: string) => {
     const shown = await page.evaluate((list) => list.map((c) => document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim() ?? ''), cells)
-    if (shown.some(Boolean)) console.log(`${at('known')}: after ${what} the book has the cells empty, the grid still shows ${JSON.stringify(shown)} (xlcalc's undo of copyRange lists no cell it empties)`)
+    expect(`${at('grid')} after ${what}`, shown, cells.map(() => ''))
   }
   const select = async (from: string, to: string | null = null) => {
     if (size.phone) {

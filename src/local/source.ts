@@ -295,6 +295,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       if (!got) return { ok: true, changes: [] }
       // The display filters' lists stay as the component holds them; a step that needs more reloads, which drops them.
       values.clear()
+      // TODO(xlcalc): a structure step's undo does not list the cells it empties (a copy onto empty cells), so the sheet is read again, as after the operation.
+      if (got.call === 'editStructure') {
+        reload()
+        return { ok: true, changes: take(got.changes) }
+      }
       const boxes = boxesOf(got.cells ?? [])
       const out = await settle(s, got, boxes)
       const first = boxes[0]
