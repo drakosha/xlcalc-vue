@@ -39,7 +39,7 @@ describe('SpaLosses: what a file lost, in one line', () => {
     const details = w.find('[data-spa-lost-details]')
     expect(details.exists()).toBe(true)
     expect(w.find('[data-spa-lost-more]').attributes('aria-expanded')).toBe('true')
-    expect(w.find('[data-spa-lost-more]').text()).toBe('Скрыть подробности')
+    expect(w.find('[data-spa-lost-more]').text()).toBe('Скрыть')
     const kinds = details.findAll('[data-spa-lost-kind]')
     expect(kinds.map((k) => k.attributes('data-spa-lost-kind'))).toEqual(['externalLink', 'drawing', 'style', 'name'])
     const link = kinds[0]!

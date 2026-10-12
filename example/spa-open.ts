@@ -53,17 +53,24 @@ export interface LossKind {
   names: LossPlaces
 }
 
-function place(p: LossPlaces, text: string): void {
+/** A place counted once, however many issues of the kind are about it. */
+function place(p: LossPlaces, seen: Set<string>, text: string): void {
+  if (seen.has(text)) return
+  seen.add(text)
   if (p.examples.length < EXAMPLES) p.examples.push(text)
   p.count++
 }
 
 /** The reader's issues by kind, in the order of `ORDER`: for the notice of what a file lost and its details. */
 export function lossesOf(issues: XlsxIssue[]): LossKind[] {
-  const kinds = new Map<XlsxIssueCode, LossKind & { byText: Map<string, { text: string; count: number }> }>()
+  type Building = LossKind & { byText: Map<string, { text: string; count: number }>; cellsSeen: Set<string>; namesSeen: Set<string> }
+  const kinds = new Map<XlsxIssueCode, Building>()
   for (const i of issues) {
     let k = kinds.get(i.code)
-    if (!k) kinds.set(i.code, (k = { code: i.code, count: 0, messages: [], byText: new Map(), sheets: [], cells: { count: 0, examples: [] }, names: { count: 0, examples: [] } }))
+    if (!k) {
+      const empty = (): LossPlaces => ({ count: 0, examples: [] })
+      kinds.set(i.code, (k = { code: i.code, count: 0, messages: [], byText: new Map(), sheets: [], cells: empty(), names: empty(), cellsSeen: new Set(), namesSeen: new Set() }))
+    }
     k.count++
     let m = k.byText.get(i.message)
     if (!m) {
@@ -72,9 +79,9 @@ export function lossesOf(issues: XlsxIssue[]): LossKind[] {
     }
     m.count++
     if (i.sheet !== undefined && !k.sheets.includes(i.sheet)) k.sheets.push(i.sheet)
-    for (const c of i.cells ?? []) place(k.cells, i.sheet !== undefined ? `${quoteSheetIfNeeded(i.sheet)}!${c}` : c)
-    if (i.name !== undefined) place(k.names, i.name)
+    for (const c of i.cells ?? []) place(k.cells, k.cellsSeen, i.sheet !== undefined ? `${quoteSheetIfNeeded(i.sheet)}!${c}` : c)
+    if (i.name !== undefined) place(k.names, k.namesSeen, i.name)
   }
   const rank = (code: XlsxIssueCode) => (ORDER.includes(code) ? ORDER.indexOf(code) : ORDER.length)
-  return [...kinds.values()].sort((a, b) => rank(a.code) - rank(b.code)).map(({ byText: _, ...k }) => k)
+  return [...kinds.values()].sort((a, b) => rank(a.code) - rank(b.code)).map(({ code, count, messages, sheets, cells, names }) => ({ code, count, messages, sheets, cells, names }))
 }

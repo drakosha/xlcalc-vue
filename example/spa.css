@@ -154,6 +154,9 @@
   margin: 8px 0 2px;
   font-size: 13px;
 }
+.spa-lost-kind h3::first-letter {
+  text-transform: uppercase;
+}
 .spa-lost-kind ul {
   margin: 0;
   padding-left: 18px;

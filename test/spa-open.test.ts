@@ -77,4 +77,16 @@ describe('lossesOf: what a file lost, by kind', () => {
     expect(kinds[1]!.cells).toEqual({ count: 2, examples: ['Data!B2', 'Data!C2:D3'] })
     expect(kinds[2]!.names).toEqual({ count: 3, examples: ['n1', 'n2', '_xlnm.Print_Area'] })
   })
+  it('counts a cell or a name two issues of a kind are about once', () => {
+    const notes = lossesOf([
+      { code: 'comment', message: "a note's formatted text is read as its plain text", sheet: 'Data', cells: ['E5'] },
+      { code: 'comment', message: 'a note shown all the time is read as one shown on hover', sheet: 'Data', cells: ['E5', 'E6'] },
+      { code: 'name', message: 'a hidden name', name: 'Rate' },
+      { code: 'name', message: 'a name of a sheet left out', name: 'Rate' },
+    ])
+    expect(notes.map((k) => [k.cells, k.names])).toEqual([
+      [{ count: 2, examples: ['Data!E5', 'Data!E6'] }, { count: 0, examples: [] }],
+      [{ count: 0, examples: [] }, { count: 1, examples: ['Rate'] }],
+    ])
+  })
 })
