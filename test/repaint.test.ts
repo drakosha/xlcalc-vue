@@ -1,11 +1,13 @@
 // The source event `repaint`: the windows that meet its ranges are read again in place (no sheets, no empty frame, the display
-// filter's rows kept), one request per window, edits that come meanwhile kept.
+// filter's rows kept), one request per window, edits that come meanwhile kept; the local source sends it after an edit.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { BookInput } from 'xlcalc'
 import { cellAddress } from 'xlcalc/a1'
 import { memorySource, type MemoryBook } from '../src'
-import type { SheetInfo, WindowRequest } from '../src/source'
-import { cellText, fakeSource, gridWindow, mountSheet, settle } from './helpers'
+import { localSource } from '../src/local'
+import type { SheetInfo, SourceEvent, WindowRequest } from '../src/source'
+import { cellText, editorKey, fakeSource, gridWindow, goTo, key, mountSheet, settle, type } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -145,5 +147,92 @@ describe('repaint in the grid', () => {
     await settle()
     expect(cellText(w, 3, 3)).toBe('new')
     expect(cellText(w, 3, 2)).toBe('read')
+  })
+})
+
+describe('repaint from the local source', () => {
+  const MIN = '#F8696B'
+  const MAX = '#63BE7B'
+  /** Names in A, numbers in B under a colour scale; a funnel on B keeping 1 and 3 shows rows 1, 2, 4 and 6. */
+  const book = (): BookInput => ({
+    sheets: [
+      {
+        name: 'S',
+        cells: {
+          A1: { value: 'Name' }, B1: { value: 'Value' },
+          A2: { value: 'n2' }, B2: { value: 1 },
+          A3: { value: 'n3' }, B3: { value: 2 },
+          A4: { value: 'n4' }, B4: { value: 1 },
+          A5: { value: 'n5' }, B5: { value: 2 },
+          A6: { value: 'n6' }, B6: { value: 3 },
+        },
+        conditionalFormats: [{ type: 'colorScale', ranges: ['B2:B6'], points: [{ value: { type: 'min' }, color: MIN }, { value: { type: 'max' }, color: MAX }] }],
+      },
+    ],
+  })
+  const filter = { head: 1, cols: { 2: { values: ['1', '3'] } } }
+  const numbers = (w: VueWrapper) => w.findAll('.xs-num').map((n) => n.text())
+  const fill = (w: VueWrapper, r: number, c: number) => getComputedStyle(w.find(`[data-cell="${r}:${c}"]`).element).backgroundColor
+
+  it('sends changed and repaint after an edit in a book with rules, reload after formatting', async () => {
+    const s = localSource(book(), { calc: 'inline' })
+    const events: SourceEvent[] = []
+    s.subscribe((e) => events.push(e))
+    expect(await s.edit([{ sheet: 'S', cell: 'B4', text: '9' }])).toMatchObject({ ok: true })
+    expect(events.map((e) => e.kind)).toEqual(['changed', 'repaint'])
+    expect(events[0]).toMatchObject({ changes: [{ sheet: 'S', cell: 'B4', value: 9 }] })
+    expect(events[1]).toEqual({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'B2:B6' }] })
+    events.length = 0
+    expect(await s.format('S', [{ range: 'B1', style: { font: { bold: true } } }])).toMatchObject({ ok: true })
+    expect(events).toEqual([{ kind: 'reload' }])
+    await s.close()
+  })
+
+  it('keeps the display filter rows of the source after an edit and an undo that only repaint, a rule with a number format too', async () => {
+    for (const numberFormat of [undefined, '0.00']) {
+      const b = book()
+      if (numberFormat) b.sheets[0]!.conditionalFormats!.push({ type: 'cellIs', ranges: ['B2:B6'], operator: 'greaterThan', formulas: ['5'], style: { numberFormat } })
+      const s = localSource(b, { calc: 'inline' })
+      const rows = async () => {
+        const got = await s.window({ sheet: 'S', row: 1, rows: 10, col: 1, cols: 1, filter })
+        if ('pending' in got) throw new Error('pending')
+        return got.text.map((line) => line[0])
+      }
+      expect((await s.visibleRows('S', filter)).rows).toEqual([1, 2, 4, 6])
+      // B4 leaves the condition and B3 comes into it: the rows stay those the filter gave until it is applied again.
+      await s.edit([{ sheet: 'S', cell: 'B4', text: '9' }])
+      await s.edit([{ sheet: 'S', cell: 'B3', text: '3' }])
+      expect(await rows()).toEqual(['Name', 'n2', 'n4', 'n6'])
+      await s.undo!()
+      expect(await rows()).toEqual(['Name', 'n2', 'n4', 'n6'])
+      expect((await s.visibleRows('S', filter)).rows).toEqual([1, 2, 6])
+      await s.close()
+    }
+  })
+
+  it('keeps a row that left the display filter by an edit, recoloured, until the filter is applied again', async () => {
+    localStorage.setItem('k:filter:S', JSON.stringify({ cols: filter.cols, sort: null }))
+    const s = localSource(book(), { calc: 'inline' })
+    const w = await mountSheet(s, { storageKey: 'k' })
+    await settle(12)
+    expect(numbers(w)).toEqual(['1', '2', '4', '6'])
+    expect(fill(w, 4, 2)).toBe(MIN)
+    expect(fill(w, 6, 2)).toBe(MAX)
+    await goTo(w, 'B4')
+    await key(w, '9')
+    await type(w, '9')
+    await editorKey(w, 'Enter')
+    await settle(12)
+    // As in Excel the row stays until Reapply; the scale is drawn over the new values, the edited cell's too.
+    expect(numbers(w)).toEqual(['1', '2', '4', '6'])
+    expect(cellText(w, 4, 2)).toBe('9')
+    expect(fill(w, 4, 2)).toBe(MAX)
+    expect(fill(w, 6, 2)).not.toBe(MAX)
+    expect(fill(w, 2, 2)).toBe(MIN)
+    // A reload applies the filter again: the row goes.
+    expect(await s.format('S', [{ range: 'A1', style: { font: { bold: true } } }])).toMatchObject({ ok: true })
+    await settle(12)
+    expect(numbers(w)).toEqual(['1', '2', '6'])
+    await s.close()
   })
 })

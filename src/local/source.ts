@@ -1,7 +1,7 @@
 // localSource: a sheet source over an xlcalc book whose session runs in a Web Worker pool or in the page's thread.
 // The session holds the book, computes it and answers windows, sheets and edits as Excel makes them; this side keeps
 // the sheets' shown values for search and the display filter, patched by the changes and dropped on a reload.
-import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type PatchFields, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, parseCell, parseRange, rangeAddress } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOutcome, FormatPatch, LayoutChange, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
 import { loadLocale } from './locale'
@@ -92,13 +92,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   /** Whether a conditional format of the book shows numbers by a format of its own, which changes cells' shown text. */
   const rulesFormat = input.sheets.some((sh) => sh.conditionalFormats?.some((r) => 'style' in r && r.style?.numberFormat !== undefined))
   /**
-   * Conditional formats may show cells otherwise anywhere their rules meet (`repaint`), which cell updates do not carry:
-   * subscribers read the sheets and windows again. A rule changes no value, so the kept values stay unless a rule
-   * formats numbers (reading a sheet's values again is a pass over all its cells).
+   * Conditional formats may show cells otherwise anywhere their rules meet (the library's `repaint`), which cell updates do
+   * not carry: subscribers read the windows over those ranges again. A rule changes no value, so the kept values stay unless
+   * a rule formats numbers (reading a sheet's values again is a pass over all its cells). The display filters' lists stay:
+   * the component keeps its list until the filter is applied again, as Excel keeps rows until Reapply.
    */
-  function repaint(): void {
-    if (rulesFormat) reload()
-    else emit({ kind: 'reload' })
+  function repaint(ranges: RangeRef[]): void {
+    if (rulesFormat) values.clear()
+    emit({ kind: 'repaint', ranges: ranges.map((x) => ({ sheet: x.sheet, range: x.range })) })
   }
 
   /** The session's changes as cell updates, the edited cells' in their place, and the kept values brought up to date. */
@@ -159,13 +160,15 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { updates, truncated }
   }
 
-  /** A change made: its updates, the edited cells' as they are now, told to subscribers; a reload where updates cannot carry it. */
+  /** A change made: its updates, the edited cells' as they are now, told to subscribers, then the looks it may have changed; a reload where updates cannot carry it. */
   async function settle(s: AsyncSession, got: EditResult, boxes: CellsBox[]): Promise<EditOutcome> {
     const { updates, truncated } = await editedIn(s, boxes)
     const changes = take(got.changes, updates)
     if (truncated || needsReload(got)) reload()
-    else if (got.repaint?.length) repaint()
-    else if (changes.length) emit({ kind: 'changed', changes })
+    else {
+      if (changes.length) emit({ kind: 'changed', changes })
+      if (got.repaint?.length) repaint(got.repaint)
+    }
     return { ok: true, changes }
   }
 
@@ -231,8 +234,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     try {
       const got = await s[kind]()
       if (!got) return { ok: true, changes: [] }
+      // The display filters' lists stay as the component holds them; a step that needs more reloads, which drops them.
       values.clear()
-      lists.clear()
       const boxes = boxesOf(got.cells ?? [])
       const out = await settle(s, got, boxes)
       const first = boxes[0]

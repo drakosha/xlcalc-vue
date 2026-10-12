@@ -200,7 +200,7 @@ describe('conditional formats: the local source', () => {
       expect((await s.visibleRows('S', filter)).rows).toEqual([1])
       const before = reads.length
       expect(await s.edit([{ sheet: 'S', cell: 'A3', text: '11' }])).toMatchObject({ ok: true })
-      expect(events).toEqual([{ kind: 'reload' }])
+      expect(events.map((e) => e.kind)).toEqual(['changed', 'repaint'])
       expect((await s.visibleRows('S', filter)).rows).toEqual([1, 3])
       // the sheet's values read again (A1:A3) only where a rule's format may have changed the shown text
       expect(reads.slice(before).filter((r) => r === 'A1:A3')).toHaveLength(again)
