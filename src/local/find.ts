@@ -1,7 +1,7 @@
 // Excel's Find and Replace All over the session: xlcalc's `findCells` with the options of Excel's dialog gives the cells
 // Find gives, in its order, hidden ones skipped as Find skips them; the display filter keeps its rows of them, and
 // Replace All writes each found cell's text with the query's matches replaced.
-import type { AsyncSession, FindCellsOptions, ReadCell } from 'xlcalc'
+import { toLocal, type AsyncSession, type FindCellsOptions, type ReadCell } from 'xlcalc'
 import { cellAddress, parseCell, rangeAddress } from 'xlcalc/a1'
 import { replacer, type CellText } from '../find-match'
 import type { FindRequest, FindResult } from '../source'
@@ -29,10 +29,12 @@ function optionsOf(req: FindRequest, lookIn: FindRequest['lookIn']): FindCellsOp
 
 const rangesOf = (req: FindRequest) => [{ sheet: req.sheet, range: req.range ?? WHOLE_SHEET }]
 
-/** What matched, as the contract has it: the formula (as xlcalc keeps it, in en-US) in formulas, else the shown text. */
-function hitOf(cell: ReadCell): FindResult['hits'][number] {
+/** What matched, as the contract has it: the formula in the book's locale (as stored where it does not translate) in formulas, else the shown text. */
+function hitOf(cell: ReadCell, locale: string): FindResult['hits'][number] {
   const at = parseCell(cell.cell)!
-  return { row: at.row, col: at.col, text: cell.formula !== undefined ? `=${cell.formula}` : (cell.text ?? '') }
+  if (cell.formula === undefined) return { row: at.row, col: at.col, text: cell.text ?? '' }
+  const local = toLocal(cell.formula, locale)
+  return { row: at.row, col: at.col, text: `=${local.ok ? local.formula : cell.formula}` }
 }
 
 /**
@@ -60,16 +62,16 @@ async function eachFound(s: AsyncSession, req: FindRequest, opts: FindCellsOptio
 }
 
 /** Excel's Find: at most `FIND_MAX_HITS` hits in its order and the count of all; with `visible` only those rows', read over every page. */
-export async function findHits(s: AsyncSession, req: FindRequest, visible: Set<number> | null, signal?: AbortSignal): Promise<FindResult> {
+export async function findHits(s: AsyncSession, req: FindRequest, locale: string, visible: Set<number> | null, signal?: AbortSignal): Promise<FindResult> {
   const opts: FindCellsOptions = { ...optionsOf(req, req.lookIn), fields: req.lookIn === 'values' ? ['text'] : ['formula', 'text'] }
   if (!visible) {
     const page = await s.findCells(rangesOf(req), req.query, { ...opts, maxCells: FIND_MAX_HITS, count: true, ...(signal ? { signal } : {}) })
-    return { hits: page.cells.map(hitOf), total: page.total ?? page.cells.length }
+    return { hits: page.cells.map((c) => hitOf(c, locale)), total: page.total ?? page.cells.length }
   }
   const hits: FindResult['hits'] = []
   let total = 0
   const take = (cell: ReadCell) => {
-    if (total++ < FIND_MAX_HITS) hits.push(hitOf(cell))
+    if (total++ < FIND_MAX_HITS) hits.push(hitOf(cell, locale))
   }
   await eachFound(s, req, opts, visible, signal, take, () => {
     hits.length = 0

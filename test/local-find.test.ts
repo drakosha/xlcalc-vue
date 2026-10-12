@@ -61,16 +61,16 @@ const hidden = (filtered: boolean): BookInput => ({
 describe('localSource: find', () => {
   it('looks in formulas by default, as Excel: the text each cell opens with, formulas in the book’s locale', async () => {
     const s = source()
-    expect(await found(s, { sheet: 'Лист1', query: 'С' })).toEqual(['1:2 с примечанием', '2:2 ссылка', '3:1 =SUM(A1:A2)', '3:2 на лист', '4:2 место', '5:4 строка'])
+    expect(await found(s, { sheet: 'Лист1', query: 'С' })).toEqual(['1:2 с примечанием', '2:2 ссылка', '3:1 =СУММ(A1:A2)', '3:2 на лист', '4:2 место', '5:4 строка'])
     expect(await found(s, { sheet: 'Лист1', query: 'С', lookIn: 'values' })).toEqual(['1:2 с примечанием', '2:2 ссылка', '3:2 на лист', '4:2 место', '5:4 строка'])
-    expect(await found(s, { sheet: 'Таблица', query: '[@' })).toEqual(['2:3 =Продажи[[#This Row],[Сумма]]*2', '3:3 =Продажи[[#This Row],[Сумма]]*2'])
+    expect(await found(s, { sheet: 'Таблица', query: '[@' })).toEqual(['2:3 =Продажи[@Сумма]*2', '3:3 =Продажи[@Сумма]*2'])
   })
 
-  it('gives as the hit’s text the shown text, or in formulas the formula as xlcalc keeps it', async () => {
+  it('gives as the hit’s text the shown text, or in formulas the formula in the book’s locale', async () => {
     const s = source(formats())
     expect(await found(s, { sheet: 'S', query: '1250,5' })).toEqual(['1:2 1 250,50'])
     expect(await found(s, { sheet: 'S', query: '1250,5', lookIn: 'values' })).toEqual(['1:5 1250,55'])
-    expect(await found(s, { sheet: 'S', query: 'сумм' })).toEqual(['1:5 =SUM(B1:C1)'])
+    expect(await found(s, { sheet: 'S', query: 'сумм' })).toEqual(['1:5 =СУММ(B1:C1)'])
   })
 
   it('reads a value as its edit text in formulas and as shown in values: dates by the column’s format, numbers whole', async () => {
@@ -139,7 +139,7 @@ describe('localSource: find', () => {
       if (next instanceof Error) throw next
       return next
     })
-    const got = await findHits({ findCells } as unknown as AsyncSession, { sheet: 'S', query: 'x' }, new Set([1, 3, 4]))
+    const got = await findHits({ findCells } as unknown as AsyncSession, { sheet: 'S', query: 'x' }, 'en-US', new Set([1, 3, 4]))
     expect(got).toEqual({ hits: [{ row: 1, col: 1, text: '' }, { row: 3, col: 1, text: '' }, { row: 4, col: 1, text: '' }], total: 3 })
     expect(findCells.mock.calls.map((c) => (c as unknown[])[2])).toMatchObject([{ maxCells: 10_000 }, { cursor: 'c1' }, { maxCells: 10_000 }, { cursor: 'c2' }])
   })
@@ -168,7 +168,7 @@ describe('localSource: replace', () => {
     expect(out.ok && out.changes.find((c) => c.cell === 'A3')).toMatchObject({ text: '1', value: 1, formula: 'СУММ(A1:A1)', editText: '=СУММ(A1:A1)' })
     expect(s.history.undo).toBe(before + 1)
     expect(events).toEqual([{ kind: 'changed', changes: out.ok ? out.changes : [] }])
-    expect(await found(s, { sheet: 'Лист1', query: 'a1:a1' })).toEqual(['3:1 =SUM(A1:A1)'])
+    expect(await found(s, { sheet: 'Лист1', query: 'a1:a1' })).toEqual(['3:1 =СУММ(A1:A1)'])
     await s.undo()
     expect((await win(s, 'Лист1', 3, 1, 1, 1)).formulas).toEqual({ A3: 'СУММ(A1:A2)' })
   })

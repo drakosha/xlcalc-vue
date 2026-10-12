@@ -501,7 +501,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const rows = await searchedRows(s, req.sheet, req.filter)
       check(signal)
       try {
-        return await findHits(s, req, rows, signal)
+        return await findHits(s, req, locale, rows, signal)
       } catch (e) {
         // the library's refusal of an aborted call is the abort the component expects
         check(signal)
