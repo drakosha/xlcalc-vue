@@ -7,6 +7,16 @@ import { BOLD, closeAll, source, styleOf, win } from './local-fixture'
 afterEach(closeAll)
 
 describe('localSource: typed edits', () => {
+  it('a percent cell: a number typed over it takes %, the cell’s own text edited in place (F2) does not, as Excel', async () => {
+    const percent = () => source({ locale: 'ru-RU', sheets: [{ name: 'S', cells: { A1: { value: 0.05, numberFormat: '0%' }, A2: { value: 0.05, numberFormat: '0%' } } }] })
+    const over = await percent().edit([{ sheet: 'S', cell: 'A1', text: '6%' }])
+    expect(over.ok && over.changes.find((c) => c.cell === 'A1')?.value).toBe('6%%')
+    const inPlace = await percent().edit([{ sheet: 'S', cell: 'A1', text: '6%' }], { inPlace: true })
+    expect(inPlace.ok && inPlace.changes.find((c) => c.cell === 'A1')?.value).toBe(0.06)
+    const filled = await percent().fill('S', 'A1:A2', '7%', 'A1', { inPlace: true })
+    expect(filled.ok && filled.changes.filter((c) => c.value === 0.07).map((c) => c.cell)).toEqual(['A1', 'A2'])
+  })
+
   it('reads 1,5 as a number in ru-RU and sends the dependent cell', async () => {
     const got = await source().edit([{ sheet: 'Лист1', cell: 'A1', text: '1,5' }])
     expect(got.ok).toBe(true)

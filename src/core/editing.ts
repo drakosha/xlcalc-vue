@@ -22,6 +22,8 @@ export interface EditorState {
   place: 'cell' | 'bar'
   /** Where to put the caret once the field shows; null after that. */
   caret: number | null
+  /** The field opened with the cell's own text (F2, a double click, the formula bar), not with a key typed over the cell. */
+  inPlace: boolean
 }
 
 /** Cells one edit may carry. */
@@ -89,7 +91,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }
     const initial = editText(a.row, a.col)
     const text = opts.text ?? initial
-    editor.value = { sheet: s.sheetName.value, row: a.row, col: a.col, text, initial, mode: opts.mode, place: opts.place ?? 'cell', caret: opts.caret ?? text.length }
+    editor.value = { sheet: s.sheetName.value, row: a.row, col: a.col, text, initial, mode: opts.mode, place: opts.place ?? 'cell', caret: opts.caret ?? text.length, inPlace: opts.text === undefined }
     focusEditor()
     return true
   }
@@ -119,7 +121,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (refocus) s.scroller.value?.focus({ preventScroll: true })
     if (ed.sheet === s.sheetName.value && sel.isActive(ed.row, ed.col) && (dr || dc)) sel.step(dr, dc)
     if (ed.text === ed.initial) return
-    void send([{ sheet: ed.sheet, cell: cellAddress(ed.row, ed.col), text: ed.text === '' ? null : ed.text }], ed)
+    void send([{ sheet: ed.sheet, cell: cellAddress(ed.row, ed.col), text: ed.text === '' ? null : ed.text }], ed, ed.inPlace ? { inPlace: true } : undefined)
   }
   function cancel(): void {
     editor.value = null
@@ -139,7 +141,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     s.scroller.value?.focus({ preventScroll: true })
     const marks = marksOf(r, () => (ed.text === '' ? null : ed.text))
     const args = [ed.sheet, rangeAddress(r), ed.text, cellAddress(ed.row, ed.col)] as const
-    void run((o) => (o ? fill.call(s.source(), ...args, o) : fill.call(s.source(), ...args)), marks, ed, extent)
+    void run((o) => withOptions(ed.inPlace ? { inPlace: true } : undefined, o, (all) => (all ? fill.call(s.source(), ...args, all) : fill.call(s.source(), ...args))), marks, ed, extent)
   }
   /** Open the field again with the draft, after a conflict or a formula that did not parse; `extent` gives a range back its corner. */
   function reopen(ed: EditorState, caret: number | null, extent: CellPosition | null): void {
@@ -151,11 +153,15 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     focusEditor()
   }
 
-  /** Send entries; the cells show the typed text in the "pending" style until the outcome. `opts.accept` writes past the rules (a list's item). */
+  /** Send entries; the cells show the typed text in the "pending" style until the outcome. `opts`: `accept` writes past the rules (a list's item), `inPlace` the cell's own text edited. */
   async function send(entries: CellEntry[], draft: EditorState | null, opts?: EditOptions): Promise<void> {
     const edit = s.source().edit
-    const optsOf = (o?: EditOptions) => opts ?? o
-    if (edit) await run((o) => (optsOf(o) ? edit.call(s.source(), entries, optsOf(o)) : edit.call(s.source(), entries)), entries, draft, null)
+    if (edit) await run((o) => withOptions(opts, o, (all) => (all ? edit.call(s.source(), entries, all) : edit.call(s.source(), entries))), entries, draft, null)
+  }
+  /** A call with the options of the edit and of the alert's answer together; without any, a call as before options were. */
+  function withOptions(base: EditOptions | undefined, more: EditOptions | undefined, call: (all: EditOptions | undefined) => Promise<EditOutcome>): Promise<EditOutcome> {
+    const all = { ...base, ...more }
+    return call(Object.keys(all).length ? all : undefined)
   }
   /** A rectangle's shown cells on the sheet (rows a filter hides are not drawn) with their pending text, row by row, up to the limit. */
   function marksOf(r: CellRect, textAt: (row: number, col: number) => string | null): CellEntry[] {

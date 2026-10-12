@@ -251,7 +251,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     try {
       if (cells.every((c) => c.text === null)) return await settle(s, await s.clearCells(cells.map((c) => ({ sheet: c.sheet, range: c.cell })), 'contents'), boxes)
       const texts = cells.map((c) => ({ sheet: c.sheet, cell: c.cell, text: c.text ?? '' }))
-      const got = await s.setCellTexts(texts, { refuseInvalid: !opts?.accept })
+      const got = await s.setCellTexts(texts, { refuseInvalid: !opts?.accept, ...(opts?.inPlace ? { inPlace: true } : {}) })
       if (got.ok) return await settle(s, got, boxes)
       return got.code === 'validation' ? alertRefusalOf(got) : refusalOf(got)
     } catch (e) {
@@ -278,7 +278,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const rect = parseRange(range)
     if (!rect) return failed(`Not a range: ${range}`)
     try {
-      const got = await s.fillCellText(sheet, range, text, { active, refuseInvalid: !opts?.accept })
+      const got = await s.fillCellText(sheet, range, text, { active, refuseInvalid: !opts?.accept, ...(opts?.inPlace ? { inPlace: true } : {}) })
       if (!got.ok) return got.code === 'validation' ? alertRefusalOf(got) : refusalOf(got)
       const out = await settle(s, got, [{ sheet, rect }])
       return out.ok ? { ...out, select: { sheet, range: rangeAddress(rect) } } : out
