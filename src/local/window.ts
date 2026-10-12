@@ -1,6 +1,7 @@
 // A window of a sheet from xlcalc's viewport: shown text, values, formulas in the book's locale, the text each cell
-// opens with, looks, sizes, merged areas, tables, notes and links. Under a display filter only merged areas of one
-// shown row stay, as Excel shows them; that rule is the one part of the window xlcalc does not give.
+// opens with, looks and what conditional formats give cells, sizes, merged areas, tables, notes and links. Under a
+// display filter only merged areas of one shown row stay, as Excel shows them; that rule is the one part of the window
+// xlcalc does not give.
 import type { CellStyle, Viewport } from 'xlcalc'
 import { cellAddress, parseRange } from 'xlcalc/a1'
 import type { SheetWindow } from '../source'
@@ -39,6 +40,7 @@ export function windowOf(v: Viewport, a: WindowShape): SheetWindow {
     rowHeights: {},
     merges: [],
     tables: v.tables.map((t) => ({ name: t.name, range: t.range, headerRow: t.headers ? (parseRange(t.range)?.top ?? 0) : 0 })),
+    appearance: {},
     links: {},
     notes: {},
     ...(a.notice ? { notice: a.notice } : {}),
@@ -60,6 +62,7 @@ export function windowOf(v: Viewport, a: WindowShape): SheetWindow {
       if (cell.editText) win.editText![addr] = cell.editText
       if (cell.color) win.colors[addr] = cell.color
       if (cell.note) win.notes![addr] = cell.note
+      if (cell.appearance) win.appearance![addr] = cell.appearance
       if (cell.link) {
         // with an address the place is in what it points to (Excel's SubAddress), not in this book
         const { url, location, tooltip } = cell.link

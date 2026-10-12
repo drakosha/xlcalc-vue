@@ -366,6 +366,16 @@
 .xs-num .xs-in {
   justify-content: center;
 }
+/* A conditional format's icon at the cell's left, 2px from the grid line as in Excel; the text takes the rest. */
+.xs-in.xs-iconic {
+  margin-left: -3px;
+}
+.xs-in > .xs-cf-icon {
+  flex: none;
+  width: 1.28em;
+  height: 1.28em;
+  margin-right: 3px;
+}
 .xs-cell {
   background-color: var(--xs-bg);
 }

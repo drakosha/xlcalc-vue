@@ -3,6 +3,7 @@
 import { computed } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import { HEAD_H } from '../core/viewport'
+import { CfIcon } from './cf-icons'
 import { useSheetContext } from './context'
 import { IconFilter, IconSpinner } from './icons'
 
@@ -198,6 +199,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                   @dblclick="onCellDbl($event, row.r, k.c)"
                 >
                   <div :class="cv.box.class" :style="cv.box.style">
+                    <CfIcon v-if="cv.icon" :icon="cv.icon" />
                     <a
                       v-if="cv.kind === 'href'"
                       class="xs-link"
@@ -229,7 +231,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                     >
                       <span :style="{ ...cv.deco, background: cv.ov!.bg }">{{ cv.text }}</span>
                     </div>
-                    <span v-else :style="cv.deco">{{ cv.text }}</span>
+                    <span v-else-if="cv.kind !== 'icon'" :style="cv.deco">{{ cv.text }}</span>
                   </div>
                 </td>
               </template>

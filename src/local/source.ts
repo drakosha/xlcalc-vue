@@ -89,6 +89,17 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     lists.clear()
     emit({ kind: 'reload' })
   }
+  /** Whether a conditional format of the book shows numbers by a format of its own, which changes cells' shown text. */
+  const rulesFormat = input.sheets.some((sh) => sh.conditionalFormats?.some((r) => 'style' in r && r.style?.numberFormat !== undefined))
+  /**
+   * Conditional formats may show cells otherwise anywhere their rules meet (`repaint`), which cell updates do not carry:
+   * subscribers read the sheets and windows again. A rule changes no value, so the kept values stay unless a rule
+   * formats numbers (reading a sheet's values again is a pass over all its cells).
+   */
+  function repaint(): void {
+    if (rulesFormat) reload()
+    else emit({ kind: 'reload' })
+  }
 
   /** The session's changes as cell updates, the edited cells' in their place, and the kept values brought up to date. */
   function take(changes: CellChange[], edited: Map<string, CellUpdate> = new Map()): CellUpdate[] {
@@ -153,6 +164,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const { updates, truncated } = await editedIn(s, boxes)
     const changes = take(got.changes, updates)
     if (truncated || needsReload(got)) reload()
+    else if (got.repaint?.length) repaint()
     else if (changes.length) emit({ kind: 'changed', changes })
     return { ok: true, changes }
   }
