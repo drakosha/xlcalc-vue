@@ -89,6 +89,21 @@ describe('localSource: typed edits', () => {
     expect(cells.C1).toEqual({ style: 1 })
   })
 
+  it('reloads after a Delete that takes a hyperlink and after its undo: a cell update carries no note or link', async () => {
+    const s = source()
+    const events: SourceEvent[] = []
+    s.subscribe((e) => events.push(e))
+    await s.edit([{ sheet: 'Лист1', cell: 'B2', text: null }])
+    expect(events).toEqual([{ kind: 'reload' }])
+    expect((await win(s, 'Лист1', 1, 3, 1, 3)).links).toEqual({ B3: { location: "'Таблица'!A1" } })
+    await s.undo()
+    expect(events).toEqual([{ kind: 'reload' }, { kind: 'reload' }])
+    expect((await win(s, 'Лист1', 2, 1, 2, 1)).links).toEqual({ B2: { href: 'https://example.org/', tooltip: 'Пример' } })
+    // a cell whose note stays and a cell without either are cell updates
+    await s.edit([{ sheet: 'Лист1', cell: 'B1', text: null }, { sheet: 'Лист1', cell: 'A1', text: null }])
+    expect(events.at(-1)).toMatchObject({ kind: 'changed' })
+  })
+
   it('renames a table column by its header cell, and the formulas over it are shown anew', async () => {
     const s = source()
     const events: SourceEvent[] = []

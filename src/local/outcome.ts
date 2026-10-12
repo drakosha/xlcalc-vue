@@ -39,8 +39,9 @@ export function updateOf(sheet: string, addr: string, cell: ViewportCell | undef
   }
 }
 
-/** The change moved, laid out or restyled more than cell updates carry: the sheets and windows are read again. */
-export const needsReload = (got: EditResult): boolean => !!(got.layout?.length || got.styles || got.moved?.length || got.changes.some((c) => c.style !== undefined))
+/** The change moved, laid out, restyled or changed a note or a hyperlink, which cell updates do not carry: the sheets and windows are read again. */
+export const needsReload = (got: EditResult): boolean =>
+  !!(got.layout?.length || got.styles || got.moved?.length || got.changes.some((c) => c.style !== undefined || c.note !== undefined || c.link !== undefined))
 
 /** A key of a cell that matches sheets as the library does, in any case. */
 export const cellKey = (sheet: string, cell: string): string => `${nameKey(sheet)}!${cell}`
