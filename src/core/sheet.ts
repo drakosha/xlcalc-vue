@@ -1,11 +1,13 @@
-// The component's wiring: state, geometry, windows, selection, editing and jumps, the source's events and the frame's size.
+// The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the frame's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { cellAddress, linesKey } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
+import { useClip } from './clip'
 import { useCommands, type SheetTarget } from './commands'
 import { useEditing, type EditorState } from './editing'
+import { useFill } from './fill'
 import { useFormula } from './formula'
 import { MAX_COL_PX, MIN_COL_PX, useGeometry, widthFromPx } from './geometry'
 import { useMenu } from './menu'
@@ -83,15 +85,17 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const cellInput = ref<HTMLTextAreaElement | null>(null)
   const barInput = ref<HTMLTextAreaElement | null>(null)
   const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput })
-  const totals = useTotals(s, w, sel, notify)
+  const totals = useTotals(s, w, sel)
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
   const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find })
   /** The look of the active cell, from its loaded window: the `state` event and the font keys take it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
   const cmd = useCommands(s, sel, ed, { reload, reloads: () => reloads, target: (t) => (target = t), activeStyle: () => activeLook.value?.style })
+  const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor })
+  const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
-  const menu = useMenu(s, geo, sel, cmd, { pickSheet, tabs: () => tabs.value, outline })
+  const menu = useMenu(s, geo, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip })
 
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
@@ -129,6 +133,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   /** Read the book from the start: sheets, the first shown sheet, a focus waiting for it. */
   async function init(): Promise<void> {
     const mine = ++initSeq
+    clip.clear()
     w.reset()
     s.failure.value = null
     s.sheets.value = []
@@ -261,7 +266,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     emit('openLink', { ...link, sheet: s.sheetName.value, cell: cellAddress(row, col) })
   }
 
-  // ── keys on the grid: search and Esc first, then the font, editing and moves ──
+  // ── keys on the grid: search and Esc first (a popover, the find bar, the copy mode), then the font, editing and moves ──
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
     if (!e.isComposing && (cmd.fontKey(e) || outline.key(e))) return
@@ -285,6 +290,12 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       e.preventDefault()
       if (filter.open.value !== null) filter.close()
       else find.closeFind()
+      return
+    }
+    // Esc ends Excel's copy mode: the moving border goes.
+    if (e.key === 'Escape' && clip.mark.value) {
+      e.preventDefault()
+      clip.clear()
       return
     }
     ed.onGridKey(e)
@@ -376,6 +387,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     find,
     views,
     cmd,
+    clip,
+    fill,
     viewState,
     outline,
     menu,

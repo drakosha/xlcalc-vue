@@ -58,6 +58,13 @@ export interface SheetMessages {
   outlineLevel: (n: number) => string
   outlineDeepest: string
   outlineNone: string
+  /** Excel's menu on cells (cut, copy and paste inside the book), a paste the browser will not read, the fill handle. */
+  cellMenu: string
+  menuCut: string
+  menuCopy: string
+  menuPaste: string
+  pasteDenied: string
+  fillHandle: string
   /** The size boxes: their labels in Excel's units and the limits. */
   columnWidth: string
   rowHeight: string
@@ -253,6 +260,12 @@ export const enMessages: SheetMessages = {
   outlineLevel: (n) => `Show level ${n}`,
   outlineDeepest: 'Groups go seven levels deep at most',
   outlineNone: 'There is no group here to ungroup',
+  cellMenu: 'Cells',
+  menuCut: 'Cut',
+  menuCopy: 'Copy',
+  menuPaste: 'Paste',
+  pasteDenied: 'The browser does not let the page read the clipboard: paste with Ctrl+V (Cmd+V on a Mac)',
+  fillHandle: 'Drag to fill the cells beside; double-click to fill down along the data',
   columnWidth: 'Column width, in characters',
   rowHeight: 'Row height, in points',
   widthRange: 'Column width must be between 0 and 255',
@@ -469,6 +482,12 @@ export const ruMessages: SheetMessages = {
   outlineLevel: (n) => `Показать уровень ${n}`,
   outlineDeepest: 'Группы вкладываются не глубже семи уровней',
   outlineNone: 'Здесь нет группы, разгруппировывать нечего',
+  cellMenu: 'Ячейки',
+  menuCut: 'Вырезать',
+  menuCopy: 'Копировать',
+  menuPaste: 'Вставить',
+  pasteDenied: 'Браузер не даёт странице прочитать буфер обмена: вставьте сочетанием Ctrl+V (Cmd+V на Маке)',
+  fillHandle: 'Потяните, чтобы заполнить соседние ячейки; двойной щелчок заполняет вниз до конца данных',
   columnWidth: 'Ширина колонки, в знаках',
   rowHeight: 'Высота строки, в пунктах',
   widthRange: 'Ширина колонки должна быть от 0 до 255',

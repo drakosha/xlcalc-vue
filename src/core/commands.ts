@@ -50,11 +50,11 @@ const FONT_KEYS: Record<string, FontToggle> = { b: 'bold', i: 'italic', u: 'unde
 export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: CommandsDeps) {
   const can = (method: 'format' | 'structure' | 'layout' | 'outline'): boolean => !s.props.readOnly && typeof s.source()[method] === 'function'
 
-  /** A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload` meanwhile. */
-  async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null): Promise<EditOutcome> {
+  /** A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload` meanwhile; formatting and lines leave the copy mode on (`endsCopy`). */
+  async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null, endsCopy = true): Promise<EditOutcome> {
     const before = deps.reloads()
     deps.target(target)
-    const out = await ed.run(call, [], null, null)
+    const out = await ed.run(call, [], null, null, endsCopy)
     if (!out.ok) deps.target(null)
     else if (deps.reloads() === before) await deps.reload()
     return out
@@ -70,10 +70,11 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
       if (p.range === undefined && !range) return null
       list.push({ ...p, range: p.range ?? range })
     }
-    return change(() => call.call(s.source(), sheet, list))
+    return change(() => call.call(s.source(), sheet, list), null, false)
   }
 
-  async function structure(op: SheetOp): Promise<EditOutcome | null> {
+  /** A structure operation; a paste of the copied range keeps the copy mode on (`endsCopy` false), as Excel's does. */
+  async function structure(op: SheetOp, endsCopy = true): Promise<EditOutcome | null> {
     const call = s.source().structure
     if (!call || !can('structure')) return null
     // Excel shows a sheet it inserts or unhides, and keeps the selection of the active sheet it renames.
@@ -81,19 +82,19 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     if (op.op === 'insertSheet') target = { name: op.name, keep: false }
     else if (op.op === 'unhideSheet') target = { name: op.sheet, keep: false }
     else if (op.op === 'renameSheet' && op.sheet === s.sheetName.value) target = { name: op.name, keep: true }
-    return change(() => call.call(s.source(), op), target)
+    return change(() => call.call(s.source(), op), target, endsCopy)
   }
 
   async function layout(edit: LayoutChange): Promise<EditOutcome | null> {
     const call = s.source().layout
     if (!call || !can('layout')) return null
-    return change(() => call.call(s.source(), edit))
+    return change(() => call.call(s.source(), edit), null, false)
   }
 
   async function outline(command: OutlineChange): Promise<EditOutcome | null> {
     const call = s.source().outline
     if (!call || !can('outline')) return null
-    return change(() => call.call(s.source(), command))
+    return change(() => call.call(s.source(), command), null, false)
   }
 
   /** Control+B, Control+I and Control+U (Cmd on a Mac, any layout): the font toggled over the selection by the active cell; true when taken. */
@@ -122,7 +123,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     undo: () => ed.stepHistory('undo'),
     redo: () => ed.stepHistory('redo'),
     format,
-    structure,
+    structure: (op) => structure(op),
     outline,
     formatCells: openFormat,
   }

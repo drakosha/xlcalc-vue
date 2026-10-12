@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // The grid: a real <table> with sticky letters and numbers, Excel's outline bars beside them, frozen panes, spacers for
-// what is off screen, and the in-place field.
+// what is off screen, the marks over the cells (the copy's border, the fill handle) and the in-place field.
 import { computed } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import { CfIcon } from './cf-icons'
@@ -8,6 +8,7 @@ import { useSheetContext } from './context'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
+import SheetMarks from './SheetMarks.vue'
 
 const ctx = useSheetContext()
 const { v, geo, sel, views, ed } = ctx
@@ -60,6 +61,8 @@ const editorBox = computed(() => {
 })
 
 function onCellClick(e: MouseEvent, r: number, c: number): void {
+  // The lift of a long press that opened the cells' menu keeps the selection.
+  if (ctx.menu.afterPress()) return
   // A double tap on a phone opens the field inside the tap, so the keyboard shows.
   if (sel.onCellTap(e, r, c)) ed.startEdit({ mode: 'edit' })
 }
@@ -75,7 +78,7 @@ function openFunnel(e: MouseEvent, c: number): void {
   const th = (e.currentTarget as HTMLElement).closest('th')
   void ctx.filter.openFunnel(c, th?.getBoundingClientRect())
 }
-// ── the structure menu on numbers and letters: a right click, or a finger held still ──
+// ── the menus on numbers, letters and cells: a right click, or a finger held still ──
 /** The row number or column letter an event is on (not its edge or funnel). */
 function headerOf(e: Event): { kind: 'rows' | 'columns'; line: number } | null {
   const el = e.target as HTMLElement
@@ -83,17 +86,30 @@ function headerOf(e: Event): { kind: 'rows' | 'columns'; line: number } | null {
   if (!th || el.closest('.xs-grip, .xs-funnel')) return null
   return th.dataset.row ? { kind: 'rows', line: Number(th.dataset.row) } : { kind: 'columns', line: Number(th.dataset.col) }
 }
+/** The cell an event is on, not a web link in it (the browser's menu has its own items for a link). */
+function cellOf(e: Event): { row: number; col: number } | null {
+  const el = e.target as HTMLElement
+  const td = el.closest?.<HTMLElement>('td[data-cell]')
+  if (!td || el.closest('a[href]')) return null
+  const [row, col] = (td.dataset.cell ?? '').split(':').map(Number)
+  return row && col ? { row, col } : null
+}
 function onContext(e: MouseEvent): void {
   const h = headerOf(e)
-  if (!h || !ctx.menu.linesAvailable.value) return
+  const cell = h ? null : cellOf(e)
+  if (!(h && ctx.menu.linesAvailable.value) && !cell) return
   e.preventDefault()
   ctx.menu.pressCancel()
   // A browser that opens its own menu on a long press sends this after ours opened.
-  if (!ctx.menu.afterPress()) ctx.menu.openLines(h.kind, h.line, e.clientX, e.clientY)
+  if (ctx.menu.afterPress()) return
+  if (h) ctx.menu.openLines(h.kind, h.line, e.clientX, e.clientY)
+  else ctx.menu.openCells(cell!.row, cell!.col, e.clientX, e.clientY)
 }
 function onDown(e: PointerEvent): void {
   const h = headerOf(e)
-  if (h && ctx.menu.linesAvailable.value) ctx.menu.pressStart(e, (x, y) => ctx.menu.openLines(h.kind, h.line, x, y))
+  if (h && ctx.menu.linesAvailable.value) return ctx.menu.pressStart(e, (x, y) => ctx.menu.openLines(h.kind, h.line, x, y))
+  const cell = h ? null : cellOf(e)
+  if (cell) ctx.menu.pressStart(e, (x, y) => ctx.menu.openCells(cell.row, cell.col, x, y))
 }
 function onMove(e: PointerEvent): void {
   sel.onGridMove(e)
@@ -120,8 +136,9 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
     tabindex="0"
     @scroll.passive="ctx.onScroll"
     @keydown="ctx.onGridKey"
-    @copy="ctx.totals.onCopy"
-    @paste="ed.onPaste"
+    @copy="ctx.clip.onCopy"
+    @cut="ctx.clip.onCut"
+    @paste="ctx.clip.onPaste"
     @contextmenu="onContext"
     @pointerdown="onDown"
     @pointermove="onMove"
@@ -261,6 +278,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
         </template>
       </tbody>
     </table>
+    <SheetMarks v-if="ctx.sheet.value && !empty" />
     <textarea
       v-if="ctx.editable.value"
       :ref="setCellInput"

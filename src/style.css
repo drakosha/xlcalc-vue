@@ -26,6 +26,8 @@
   --xs-bar-bg: #fafafa;
   --xs-message-bg: #1f2328;
   --xs-message-fg: #ffffff;
+  --xs-copy-line: #1a73e8;
+  --xs-fill-frame: #5f6368;
   --xs-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --xs-font-size: 12.5px;
 }
@@ -596,6 +598,65 @@
   padding: 0;
   border: 0;
   opacity: 0;
+  pointer-events: none;
+}
+/* The copied or cut range: Excel's moving dashed border, still where motion is reduced. */
+.xs-ants {
+  position: absolute;
+  pointer-events: none;
+  background-image:
+    linear-gradient(90deg, var(--xs-copy-line) 50%, var(--xs-bg) 50%), linear-gradient(90deg, var(--xs-copy-line) 50%, var(--xs-bg) 50%),
+    linear-gradient(0deg, var(--xs-copy-line) 50%, var(--xs-bg) 50%), linear-gradient(0deg, var(--xs-copy-line) 50%, var(--xs-bg) 50%);
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-size: 8px 2px, 8px 2px, 2px 8px, 2px 8px;
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  animation: xs-ants 0.5s linear infinite;
+}
+@keyframes xs-ants {
+  to {
+    background-position: 8px 0, -8px 100%, 0 -8px, 100% 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xs-ants {
+    animation: none;
+  }
+}
+/* The fill handle: a small square at the selection's corner, its target a little wider; a finger's is 44 px. */
+.xs-fill-handle {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  transform: translate(-50%, -50%);
+  cursor: crosshair;
+  touch-action: none;
+}
+.xs-fill-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--xs-bg);
+  background: var(--xs-accent);
+  transform: translate(-50%, -50%);
+}
+.xs-fill-handle.xs-fill-touch {
+  width: 44px;
+  height: 44px;
+}
+.xs-fill-handle.xs-fill-touch::after {
+  width: 10px;
+  height: 10px;
+}
+.xs-fill-handle.xs-fill-dragging::after {
+  visibility: hidden;
+}
+/* The frame of a fill being dragged: the selection and the cells it adds. */
+.xs-fill-frame {
+  position: absolute;
+  border: 2px dashed var(--xs-fill-frame);
   pointer-events: none;
 }
 .xs-loading {
