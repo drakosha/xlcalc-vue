@@ -207,6 +207,9 @@ export interface SheetMessages {
   validationNo: string
   validationContinue: string
   validationStyle: (severity: 'stop' | 'warning' | 'information') => string
+  /** Excel's Formula AutoComplete: the list of functions under the field and its hint. */
+  functionList: string
+  functionHint: string
 }
 
 export const enMessages: SheetMessages = {
@@ -423,6 +426,8 @@ export const enMessages: SheetMessages = {
   validationNo: 'No',
   validationContinue: 'Continue?',
   validationStyle: (severity) => ({ stop: 'Stop', warning: 'Warning', information: 'Information' })[severity],
+  functionList: 'Functions',
+  functionHint: 'Tab or a double click enters the function',
 }
 
 /** Russian plural: one, few, many. */
@@ -662,4 +667,6 @@ export const ruMessages: SheetMessages = {
   validationNo: 'Нет',
   validationContinue: 'Продолжить?',
   validationStyle: (severity) => ({ stop: 'Останов', warning: 'Предупреждение', information: 'Сообщение' })[severity],
+  functionList: 'Функции',
+  functionHint: 'Tab или двойной щелчок вставляет функцию',
 }

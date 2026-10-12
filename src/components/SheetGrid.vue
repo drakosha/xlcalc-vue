@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // The grid: a real <table> with sticky letters and numbers, Excel's outline bars beside them, frozen panes, spacers for
-// what is off screen, the marks over the cells (the copy's border, the fill handle) and the in-place field.
+// what is off screen, the marks over the cells (the copy's border, the fill handle) and the in-place field with its list of functions.
 import { computed } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import { CfIcon } from './cf-icons'
 import { useSheetContext } from './context'
+import FunctionList from './FunctionList.vue'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
@@ -45,7 +46,7 @@ const colOn = (c: number) => !!sel.selRect.value && c >= sel.selRect.value.left 
 const rowOn = (r: number) => !!sel.selRect.value && r >= sel.selRect.value.top && r <= sel.selRect.value.bottom
 
 /** The in-place field over its cell, in the scroller's content coordinates (a frozen cell's place follows the scroll). */
-const editorBox = computed(() => {
+const editorRect = computed(() => {
   const e = ctx.editor.value
   if (!e || e.place !== 'cell' || e.sheet !== ctx.sheetName.value) return null
   const d = ctx.indexOf(e.row)
@@ -59,7 +60,11 @@ const editorBox = computed(() => {
   const room = Math.max(60, ctx.viewW.value - (left - ctx.scrollLeft.value) - 4)
   const width = Math.max(geo.spanWidth(e.col, sp?.cs ?? 1), Math.min(longest * 7.5 + 16, room))
   const height = Math.max(geo.spanHeight(d, sp?.rs ?? 1), lines.length * 17 + 5)
-  return { top: `${top}px`, left: `${left}px`, width: `${width}px`, height: `${height}px`, zIndex: frozen ? '7' : '1' }
+  return { top, left, width, height, frozen }
+})
+const editorBox = computed(() => {
+  const r = editorRect.value
+  return r && { top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: r.frozen ? '7' : '1' }
 })
 
 /** The active cell (a merged area whole) in the scroller's content coordinates, for the dropdown and the input message of its rule. */
@@ -315,8 +320,20 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
       :aria-hidden="editorBox ? undefined : 'true'"
       @input="ed.onEditorInput"
       @keydown="ed.onEditorKey"
+      @click="ed.ac.follow()"
       @blur="ed.onEditorBlur($event, 'cell')"
     ></textarea>
+    <FunctionList
+      v-if="editorRect && ed.ac.open.value"
+      :rect="editorRect"
+      :items="ed.ac.items.value"
+      :active="ed.ac.index.value"
+      :view="viewBox"
+      :touch="v.touch.value"
+      :messages="m"
+      @highlight="(i) => (ed.ac.index.value = i)"
+      @pick="(i) => ed.ac.accept(i)"
+    />
     <template v-if="activeBox && !ctx.editor.value">
       <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="viewBox" />
       <ValidationDropdown

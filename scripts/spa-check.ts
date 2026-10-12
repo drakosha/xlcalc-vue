@@ -11,6 +11,8 @@
 // Then the fill handle and cut, copy and paste inside the book: a formula dragged three rows down by its handle, a range
 // with a formula copied and pasted, a formula cut and pasted, each undone (Control+C, X, V on the desktop, the cells' menu
 // on the phone).
+// Then Formula AutoComplete: `=СУ` typed into a cell (the formula bar on the phone) lists СУММ first, Tab (a tap on the
+// phone) enters `СУММ(`, and `A1:A3)` with Enter sums the column.
 // On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa.
 // Output: test-results/screens/spa-*.png and the saved files.
 import { mkdirSync } from 'node:fs'
@@ -734,6 +736,70 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   await context.close()
 }
 
+/**
+ * Formula AutoComplete on a new ru-RU book: `=СУ` typed into A4 (in the cell on the desktop, in the formula bar on the
+ * phone) lists the functions it begins with СУММ highlighted first; Tab, or a tap on the phone, enters `СУММ(`, and
+ * `A1:A3)` with Enter gives the sum of A1:A3.
+ */
+async function autocompleteScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  let step = 0
+  const shot = (name: string) => page.screenshot({ path: resolve(out, `spa-${size.name}-a${String(++step).padStart(2, '0')}-${name}.png`) })
+  const at = (what: string) => `[${size.name} autocomplete] ${what}`
+
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await press(page, size, '[data-spa="new"]')
+  await press(page, size, '[data-spa-locale="ru-RU"]')
+  await press(page, size, '[data-spa="create"]')
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  for (const [cell, text] of [['1:1', '1'], ['2:1', '2'], ['3:1', '3']] as const) await enter(page, size, cell, text)
+  await shows(page, '3:1', '3')
+  await ready(page)
+
+  // 1. `=СУ`: the list under the field, СУММ first and highlighted.
+  const field = size.phone ? '.xs-fx-input' : '.xs-editor'
+  if (size.phone) {
+    await page.locator('[data-cell="4:1"]').tap()
+    await page.locator('.xs-fx').tap()
+  } else await page.locator('[data-cell="4:1"]').click()
+  await page.keyboard.type('=СУ')
+  await page.waitForSelector('[data-xs-functions] [data-xs-function="СУММ"]')
+  const list = await page.evaluate(() => [...document.querySelectorAll('[data-xs-function]')].map((li) => li.textContent!.trim()))
+  expect(at('the list for =СУ'), list.slice(0, 3), ['СУММ', 'СУММЕСЛИ', 'СУММЕСЛИМН'])
+  expect(at('the highlighted item'), await page.evaluate(() => document.querySelector('.xs-fl-on')?.textContent?.trim()), 'СУММ')
+  if (size.phone) {
+    const heights = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-xs-function]')].map((li) => li.getBoundingClientRect().height))
+    if (heights.some((h) => h < 44)) throw new Error(`${at('items')}: heights ${JSON.stringify(heights)}, want 44 px`)
+    await checkNoSideScroll(page, at('the list'))
+  }
+  await shot('autocomplete')
+
+  // 2. Tab, or a tap on the item: `СУММ(` with the caret after it, the field still open.
+  if (size.phone) await page.locator('[data-xs-function="СУММ"]').tap()
+  else await page.keyboard.press('Tab')
+  await page.waitForSelector('[data-xs-functions]', { state: 'detached' })
+  expect(at('the field after the pick'), await page.locator(field).inputValue(), '=СУММ(')
+  expect(at('the focus after the pick'), await page.evaluate((sel) => document.activeElement === document.querySelector(sel), field), true)
+
+  // 3. The range and Enter: A4 sums A1:A3.
+  await page.keyboard.type('A1:A3)')
+  await page.keyboard.press('Enter')
+  await shows(page, '4:1', '6')
+  await ready(page)
+  expect(at('A4 in the book'), cellOf(await bookOf(page), 'A4').formula, 'SUM(A1:A3)')
+  await shot('summed')
+  console.log(`${at('ok')}: =СУ listed СУММ first, ${size.phone ? 'a tap' : 'Tab'} entered СУММ(, A4 is SUM(A1:A3) = 6`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 await build({ configFile: config, logLevel: 'error' })
 const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error' })
 const base = server.resolvedUrls!.local[0]!
@@ -749,6 +815,8 @@ try {
   await findFormatScenario(browser, base, phone)
   await fillCopyScenario(browser, base, desktop)
   await fillCopyScenario(browser, base, phone)
+  await autocompleteScenario(browser, base, desktop)
+  await autocompleteScenario(browser, base, phone)
 } finally {
   await browser.close()
   await new Promise<void>((done) => server.httpServer.close(() => done()))

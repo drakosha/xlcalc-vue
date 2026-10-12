@@ -4,6 +4,7 @@ import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } 
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
 import type { CellEntry, EditOutcome, EditOptions, SheetValidationAlert } from '../source'
+import { useAutocomplete } from './autocomplete'
 import type { AlertAnswer } from './validation'
 import { numberEditText, textEditText } from './edit-text'
 import type { Formula } from './formula'
@@ -95,9 +96,9 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     focusEditor()
     return true
   }
+  const inputOf = () => (editor.value?.place === 'bar' ? deps.barInput.value : deps.cellInput.value)
   /** Focus the field at once (a phone opens its keyboard only inside the tap) and put the caret once it shows the draft. */
   function focusEditor(): void {
-    const inputOf = () => (editor.value?.place === 'bar' ? deps.barInput.value : deps.cellInput.value)
     inputOf()?.focus({ preventScroll: true })
     void nextTick(() => {
       const ed = editor.value
@@ -109,8 +110,13 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       ed.caret = null
     })
   }
+  /** Excel's Formula AutoComplete over the draft: the list of functions under the field. */
+  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor })
   function onEditorInput(e: Event): void {
-    if (editor.value) editor.value.text = (e.target as HTMLTextAreaElement).value
+    const el = e.target as HTMLTextAreaElement
+    if (!editor.value) return
+    editor.value.text = el.value
+    ac.update(el.value, el.selectionStart === el.selectionEnd ? el.selectionStart : null)
   }
 
   /** Finish the edit: the cursor moves at once, the source gets the text unless it did not change. */
@@ -367,11 +373,12 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       startEdit({ text: e.key, mode: 'enter' })
     }
   }
-  /** Keys in the field: Enter, Tab and their Shift commit and move, Control+Return (Cmd on a Mac) fills, Esc cancels, Alt+Enter breaks the line, F2 toggles arrows. */
+  /** Keys in the field: the list of functions first when it is open, then Enter, Tab and their Shift commit and move, Control+Return (Cmd on a Mac) fills, Esc cancels, Alt+Enter breaks the line, F2 toggles arrows. */
   function onEditorKey(e: KeyboardEvent): void {
     const ed = editor.value
     if (!ed || e.isComposing) return
     e.stopPropagation()
+    if (ac.onKey(e)) return
     if (e.key === 'Escape') {
       e.preventDefault()
       cancel()
@@ -413,7 +420,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, focusEditor, onEditorInput, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, focusEditor, ac, onEditorInput, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

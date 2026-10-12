@@ -1,9 +1,11 @@
 <script setup lang="ts">
-// The bar over the grid, as in Excel: back, the address box, the formula with clickable references (the edit field too), link and lock.
-import { computed } from 'vue'
+// The bar over the grid, as in Excel: back, the address box, the formula with clickable references (the edit field and its list of functions too), link and lock.
+import { computed, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import { safeHref } from '../core/cell-view'
+import type { ValidationRect } from '../core/validation'
 import { useSheetContext } from './context'
+import FunctionList from './FunctionList.vue'
 import { IconBack, IconFilter, IconLink, IconLock, IconLockOpen, IconSearch } from './icons'
 
 const ctx = useSheetContext()
@@ -53,6 +55,25 @@ function openBarFunnel(e: MouseEvent): void {
   void ctx.filter.openFunnel(col, (e.currentTarget as HTMLElement).getBoundingClientRect())
 }
 const setBarInput = (el: unknown) => (ctx.barInput.value = (el as HTMLTextAreaElement | null) ?? null)
+
+/** The list of functions under the bar's field, in the formula's coordinates, kept inside the window: measured as it opens and as the field grows. */
+const listPlace = shallowRef<{ rect: ValidationRect; view: ValidationRect } | null>(null)
+watch(
+  () => [editingBar.value && ed.ac.open.value, ctx.editor.value?.text] as const,
+  ([shown]) => {
+    const input = ctx.barInput.value
+    const fx = input?.parentElement
+    if (!shown || !input || !fx) return void (listPlace.value = null)
+    const f = fx.getBoundingClientRect()
+    const i = input.getBoundingClientRect()
+    const gutter = 8
+    listPlace.value = {
+      rect: { top: i.top - f.top, left: i.left - f.left, width: i.width, height: i.height },
+      view: { top: -f.top, left: gutter - f.left, width: document.documentElement.clientWidth - 2 * gutter, height: window.innerHeight },
+    }
+  },
+  { flush: 'post' },
+)
 
 function onAddressFocus(e: FocusEvent): void {
   nav.addressFocused.value = true
@@ -130,8 +151,20 @@ function onAddressEsc(e: KeyboardEvent): void {
         :aria-hidden="editingBar ? undefined : 'true'"
         @input="ed.onEditorInput"
         @keydown="ed.onEditorKey"
+        @click="ed.ac.follow()"
         @blur="ed.onEditorBlur($event, 'bar')"
       ></textarea>
+      <FunctionList
+        v-if="listPlace && editingBar && ed.ac.open.value"
+        :rect="listPlace.rect"
+        :view="listPlace.view"
+        :items="ed.ac.items.value"
+        :active="ed.ac.index.value"
+        :touch="ctx.v.touch.value"
+        :messages="m"
+        @highlight="(i) => (ed.ac.index.value = i)"
+        @pick="(i) => ed.ac.accept(i)"
+      />
     </div>
     <template v-if="activeLink && !editingBar">
       <a
