@@ -312,9 +312,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     unsubscribe =
       props.source.subscribe?.((event) => {
         if (event.kind === 'changed') w.applyChanges(event.changes)
+        else if (event.kind === 'repaint') w.repaint(event.ranges)
         else {
-          // TODO: repaint reads the windows that meet its ranges again in place; until then it reloads.
-          if (event.kind === 'reload' && event.message) notify(event.message)
+          if (event.message) notify(event.message)
           void reload()
         }
       }) ?? null

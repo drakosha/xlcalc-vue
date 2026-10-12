@@ -40,6 +40,7 @@ export function gridWindow(req: WindowRequest, cell: (row: number, col: number) 
 
 interface Pending {
   req: WindowRequest
+  signal?: AbortSignal
   resolve: (w: SheetWindow) => void
   reject: (e: unknown) => void
 }
@@ -63,10 +64,10 @@ export function fakeSource(sheets: SheetInfo[], opts: { manual?: boolean; cell?:
       sheetsCalls++
       return sheets
     },
-    window: (req) => {
+    window: (req, signal) => {
       requests.push(req)
       if (!opts.manual) return Promise.resolve(build(req))
-      return new Promise((resolve, reject) => held.push({ req, resolve, reject }))
+      return new Promise((resolve, reject) => held.push({ req, signal, resolve, reject }))
     },
     edit: async (entries) => {
       edits.push(entries)
