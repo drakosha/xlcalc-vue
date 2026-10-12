@@ -1,6 +1,6 @@
 // Public types of the local source: its options and what it offers beyond `SheetSource`.
 import type { AsyncSessionOptions, BookInput, BookSnapshot, Calc, CalcPoolOptions, SessionHistory } from 'xlcalc'
-import type { EditOutcome, SheetSource } from '../source'
+import type { SheetSource } from '../source'
 
 export interface LocalSourceOptions {
   /**
@@ -20,7 +20,7 @@ export interface LocalSourceOptions {
 }
 
 /** Methods of `SheetSource` that the local source always has. */
-type Given = 'edit' | 'paste' | 'fill' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'subscribe' | 'validation' | 'functionNames' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues'
+type Given = 'edit' | 'paste' | 'fill' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'freeze' | 'subscribe' | 'validation' | 'functionNames' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues'
 
 /** A sheet source over an xlcalc book: every method of `SheetSource`, and the host's handles on the book. */
 export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Required<Pick<SheetSource, Given>> {
@@ -35,8 +35,6 @@ export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Requ
   book(): Promise<BookInput>
   /** The book and its computed values taken at one moment, as `writeXlsx` takes them. */
   snapshot(): Promise<BookSnapshot>
-  /** Frozen panes of a sheet in the book (null unfreezes them); subscribers get `reload`. */
-  freeze(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome>
   /** Close the session, and the pool when the source started it. */
   close(): Promise<void>
 }

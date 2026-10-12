@@ -151,6 +151,18 @@ describe('the display filter', () => {
     expect(w.find('.xs-message').text()).toBe('The filter is cleared: it hid row 3')
   })
 
+  it('a jump to a shown row past the count of shown rows lands on that row', async () => {
+    const w = await mountSheet(memorySource(book()), { readOnly: true })
+    await funnel(w, 2)
+    await uncheck(w, 'b')
+    await w.find('[data-xs-apply]').trigger('click')
+    await settle()
+    expect(numbers(w)).toEqual(['1', '2', '4', '6'])
+    await goTo(w, 'A6:B6')
+    expect([active(w), (w.find('.xs-address').element as HTMLInputElement).value]).toEqual(['6:1', 'A6:B6'])
+    expect(w.find('[data-xs-filter-status]').exists()).toBe(true)
+  })
+
   it('there is no funnel without `visibleRows` and `columnValues`', async () => {
     const source = memorySource(book())
     delete (source as Partial<SheetSource>).visibleRows

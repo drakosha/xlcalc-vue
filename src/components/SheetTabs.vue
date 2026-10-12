@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// The bottom line, as in Excel: sheet tabs (scrolling sideways on a phone), the filter's state and the selection's totals.
+// The bottom line, as in Excel: sheet tabs (scrolling sideways on a phone), the filter's state with Reapply and Clear, and the selection's totals.
 import { computed } from 'vue'
 import { useSheetContext } from './context'
-import { IconFilterOff, IconPlus } from './icons'
+import { IconFilterOff, IconPlus, IconRetry } from './icons'
 
 const ctx = useSheetContext()
 const m = ctx.messages
@@ -66,6 +66,9 @@ const setRenameInput = (el: unknown) => (menu.renameInput.value = (el as HTMLInp
     </div>
     <span v-if="ctx.filter.status.value" class="xs-filter-status" :title="ctx.filter.status.value" data-xs-filter-status>
       <span class="xs-filter-text">{{ ctx.filter.status.value }}</span>
+      <button v-if="ctx.filter.available.value" type="button" class="xs-tool" :title="m.filterReapply" data-xs-filter-reapply @click="ctx.filter.reapply()">
+        <IconRetry />
+      </button>
       <button type="button" class="xs-tool" :title="m.filterClear" data-xs-filter-clear @click="ctx.filter.clear()">
         <IconFilterOff />
       </button>

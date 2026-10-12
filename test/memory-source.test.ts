@@ -255,3 +255,17 @@ describe('memorySource', () => {
   })
 })
 
+describe('memorySource under a display filter', () => {
+  it('reads windows by the list `visibleRows` last gave, so a row an edit took out stays where the sheet holds it until Reapply', async () => {
+    const filter = { head: 1, cols: { 2: { values: ['a'] } } }
+    const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 'Name', B1: 'Status', A2: 'n2', B2: 'a', A3: 'n3', B3: 'b', A4: 'n4', B4: 'a', A5: 'n5', B5: 'b', A6: 'n6', B6: 'a' } }] })
+    const column = async () => ((await source.window({ sheet: 'S', row: 1, rows: 10, col: 1, cols: 1, filter })) as { text: string[][] }).text.map((r) => r[0])
+    expect((await source.visibleRows!('S', filter)).rows).toEqual([1, 2, 4, 6])
+    source.setCells('S', { B4: 'b' })
+    expect(await column()).toEqual(['Name', 'n2', 'n4', 'n6'])
+    expect((await source.visibleRows!('S', filter)).rows).toEqual([1, 2, 6])
+    expect(await column()).toEqual(['Name', 'n2', 'n6'])
+    // Another filter, or none asked before, reads the sheet as it is.
+    expect(((await source.window({ sheet: 'S', row: 1, rows: 10, col: 1, cols: 1, filter: { head: 1, cols: { 2: { values: ['b'] } } } })) as { text: string[][] }).text.map((r) => r[0])).toEqual(['Name', 'n3', 'n4', 'n5'])
+  })
+})

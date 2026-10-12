@@ -1,11 +1,15 @@
 // A source over a book in memory, for tests and examples: values, shown text, formulas as strings and every display field; no engine.
-// It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, and can play a book being recomputed.
-import { cellAddress, parseCell, parseLines, parseRange, rectsMeet } from 'xlcalc/a1'
+// It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, a precedents'
+// tree from the formulas as given, and can play a book being recomputed.
+import { cellAddress, parseCell, parseLines, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
+import type { GridReference } from 'xlcalc/contract'
+import { scanReferences } from 'xlcalc/text'
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { textEditText } from './core/edit-text'
-import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
+import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type QuerySheet } from './memory-query'
 import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './local/outline'
+import { filterKey } from './local/query'
 import { MemoryRules, memoryRefusal, type MemoryValidation } from './memory-validation'
 
 /** A cell of the memory book; a bare value is a cell with that value. */
@@ -112,9 +116,15 @@ interface Store {
   /** Outline levels and collapsed marks by line. */
   levels: Record<OutlineAxis, Map<number, number>>
   marks: Record<OutlineAxis, Set<number>>
+  /** The sheet's frozen panes, as `freeze` leaves them. */
+  freeze?: { rows: number; cols: number }
   maxRow: number
   maxCol: number
 }
+
+/** Levels of precedents and nodes `explain` writes, as xlcalc's defaults. */
+const EXPLAIN_DEPTH = 3
+const EXPLAIN_NODES = 200
 
 /** Each column or row of a key as a book takes it (`B`, `B:D`; `5`, `5:9`); none for a key it does not take. */
 function linesOf(key: string, axis: 'columns' | 'rows'): number[] {
@@ -147,11 +157,13 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       for (const [key, level] of Object.entries(sheet.outline?.[axis] ?? {})) for (const i of linesOf(key, axis)) levels[axis].set(i, level)
       for (const key of sheet.outline?.collapsed ?? []) for (const i of linesOf(key, axis)) marks[axis].add(i)
     }
-    const store: Store = { sheet, cells, widths, heights, rules: new MemoryRules(sheet.validations), levels, marks, maxRow: 0, maxCol: 0 }
+    const store: Store = { sheet, cells, widths, heights, rules: new MemoryRules(sheet.validations), levels, marks, freeze: sheet.freeze, maxRow: 0, maxCol: 0 }
     measure(store)
     return store
   })
   const listeners = new Set<(event: SourceEvent) => void>()
+  /** Each sheet's rows under its display filter as `visibleRows` last gave them: windows under that filter read them, so a row an edit took out stays until the filter is applied again, as the component holds it and `./local` reads it. */
+  const lists = new Map<Store, { key: string; rows: number[] }>()
   const failures: Extract<EditOutcome, { ok: false }>[] = []
   /** A recomputation being played: when it started and when it ends. */
   let recomputing: { since: number; until: number } | null = null
@@ -229,9 +241,41 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   }
 
   function info(store: Store): SheetInfo {
-    const { name, freeze, hidden, locked, columns, rowNumbers, totals } = store.sheet
+    const { name, hidden, locked, columns, rowNumbers, totals } = store.sheet
     const outline = outlineOf(outlineLines(store, 'rows'), outlineLines(store, 'columns'), store.sheet.outline)
-    return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze, hidden, locked, columns, rowNumbers, totals, ...(outline ? { outline } : {}) }
+    return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze: store.freeze, hidden, locked, columns, rowNumbers, totals, ...(outline ? { outline } : {}) }
+  }
+
+  /**
+   * A cell's precedents as xlcalc's `explain` writes them in en-US, from the formulas as given (there is no engine): a node
+   * a line with its value and formula, two spaces of indent a level, three levels, a range one node with its filled cells.
+   */
+  function explainOf(sheet: string, cell: string): string {
+    const lines: string[] = []
+    const value = (v: CellValue | undefined) => (v === undefined || v === null ? 'empty' : typeof v === 'object' ? (ERROR_TEXT[v.error] ?? '#ERROR!') : JSON.stringify(v))
+    const visit = (store: Store, addr: string, depth: number, indent: string) => {
+      const c = store.cells.get(addr)
+      const name = quoteSheetIfNeeded(store.sheet.name)
+      lines.push(`${indent}${name}!${addr} = ${value(c?.value ?? (c?.text || null))}${c?.formula !== undefined ? `  ← ${c.formula}` : ''}`)
+      if (c?.formula === undefined || depth === 0) return
+      for (const r of scanReferences(c.formula).filter((x): x is GridReference => x.kind !== 'table' && x.sheetLast === undefined)) {
+        if (lines.length >= EXPLAIN_NODES) return
+        const target = r.sheet === undefined ? store : stores.find((x) => sameName(x.sheet.name, r.sheet!))
+        if (!target) continue
+        if (r.top === r.bottom && r.left === r.right) visit(target, cellAddress(r.top, r.left), depth - 1, `${indent}  `)
+        else {
+          let filled = 0
+          for (const key of target.cells.keys()) {
+            const at = parseCell(key)
+            if (at && at.row >= r.top && at.row <= r.bottom && at.col >= r.left && at.col <= r.right) filled++
+          }
+          lines.push(`${indent}  ${quoteSheetIfNeeded(target.sheet.name)}!${rangeAddress(r)} (${filled} cells)`)
+        }
+      }
+    }
+    const at = parseCell(cell)
+    if (at) visit(storeOrThrow(sheet), cellAddress(at.row, at.col), EXPLAIN_DEPTH, '')
+    return lines.join('\n')
   }
 
   /** A sheet's lines as the outline reads them: levels, hidden ones (size 0) and collapsed marks, one by one. */
@@ -244,11 +288,17 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     return [...at].sort((a, b) => a - b).map((i) => ({ from: i, to: i, level: levels.get(i) ?? 0, hidden: sizes.get(i) === 0, collapsed: marks.has(i) }))
   }
 
+  /** The rows under a filter: the list `visibleRows` gave for it, else the sheet's as it is; null without conditions. */
+  function listUnder(store: Store, filter: SheetFilter | undefined): number[] | null {
+    const kept = filter ? lists.get(store) : undefined
+    return kept && kept.key === filterKey(filter!) ? kept.rows : visibleList(query(store), filter)
+  }
+
   /** A rectangle; under a filter `row` is a display index and the rows come from the filter's list. */
   function windowOf(req: WindowRequest): SheetWindow | SheetPending {
     if (recomputing && Date.now() < recomputing.until) return { pending: { elapsedMs: Date.now() - recomputing.since } }
     const store = storeOrThrow(req.sheet)
-    const list = visibleList(query(store), req.filter)
+    const list = listUnder(store, req.filter)
     const cols = Math.max(0, req.cols)
     const limit = list ? Math.max(0, list.length - req.row + 1) : Infinity
     const rows = Math.max(0, Math.min(req.rows, limit, Math.floor((options.maxCells ?? 20_000) / Math.max(1, cols))))
@@ -356,6 +406,15 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     },
     validation: (sheet, cell, signal) => wait(() => storeOrThrow(sheet).rules.show(cell), signal),
     ...(functions ? { functionNames: (signal?: AbortSignal) => wait(() => [...functions], signal) } : {}),
+    /** Frozen panes as the book in memory keeps them; nothing frozen unfreezes. */
+    freeze: (sheet, panes) =>
+      wait((): EditOutcome => {
+        const store = storeOf(sheet)
+        if (!store) return { ok: false, reason: 'failed', message: `No sheet ${sheet}` }
+        store.freeze = panes && (panes.rows > 0 || panes.cols > 0) ? { rows: Math.max(0, panes.rows), cols: Math.max(0, panes.cols) } : undefined
+        return { ok: true, changes: [] }
+      }),
+    explain: (sheet, cell) => wait(() => explainOf(sheet, cell)),
     layout(change: LayoutChange): Promise<EditOutcome> {
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)
@@ -403,7 +462,10 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     visibleRows: (sheet, filter, signal) =>
       wait(() => {
         const store = storeOrThrow(sheet)
-        return { rows: visibleList(query(store), filter), total: store.maxRow }
+        const rows = visibleList(query(store), filter)
+        if (rows) lists.set(store, { key: filterKey(filter), rows })
+        else lists.delete(store)
+        return { rows, total: store.maxRow }
       }, signal),
     columnValues: (sheet, col, filter, signal) => wait(() => columnList(query(storeOrThrow(sheet)), col, filter), signal),
     stats: (sheet, range, filter, signal) =>

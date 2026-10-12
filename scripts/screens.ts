@@ -10,7 +10,7 @@ const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'test-results/screens')
 mkdirSync(out, { recursive: true })
 
-const SHEETS = ['Оформление', 'Форматы', 'Гистограммы', 'Ссылки', 'Примечания', 'Формулы', 'Объединения', 'Размеры', 'Закрепление', 'Таблица', 'Длинный лист', 'Запертые', 'Перелив', 'Плашка', 'Фильтр', 'Условное форматирование', 'Группировка', 'Проверка данных']
+const SHEETS = ['Оформление', 'Форматы', 'Гистограммы', 'Ссылки', 'Примечания', 'Формулы', 'Объединения', 'Размеры', 'Закрепление', 'Таблица', 'Длинный лист', 'Запертые', 'Перелив', 'Плашка', 'Фильтр', 'Условное форматирование', 'Группировка', 'Проверка данных', 'Расчёт']
 const SIZES = [
   { name: '390', width: 390, height: 844, mobile: true },
   { name: '1920', width: 1920, height: 1200, mobile: false },
@@ -51,16 +51,17 @@ async function checkDecorations(page: Page): Promise<void> {
   console.log(`decorations: ${got.join('; ')}`)
 }
 
-/** Every button, field and tab outside the grid at least 44 × 44 px on a phone (the address box by its height); a desktop unchanged. */
-async function checkTargets(page: Page, mobile: boolean): Promise<void> {
-  const boxes = await page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('.xs-sheet button, .xs-sheet input, .xs-sheet textarea, .xs-sheet [role=tab], .xs-sheet a')]
+/** Every button, field and tab outside the grid (within `scope`) at least 44 × 44 px on a phone (the address box by its height); a desktop unchanged. */
+async function checkTargets(page: Page, mobile: boolean, scope = '.xs-sheet'): Promise<void> {
+  const boxes = await page.evaluate((scope) =>
+    [...document.querySelectorAll<HTMLElement>(['button', 'input', 'textarea', '[role=tab]', 'a'].map((x) => `${scope} ${x}`).join(', '))]
       .filter((el) => !el.closest('.xs-table') && !el.matches('.xs-editor-idle, .xs-fx-idle') && el.getClientRects().length > 0)
       .map((el) => {
         const target = el.matches('input[type=checkbox]') ? (el.closest('label') ?? el) : el
         const r = target.getBoundingClientRect()
         return { what: `${el.tagName.toLowerCase()}.${el.className || el.getAttribute('title') || ''}`.slice(0, 60), w: Math.round(r.width), h: Math.round(r.height) }
       }),
+    scope,
   )
   if (mobile) {
     const small = boxes.filter((b) => b.h < 44 || (b.w < 44 && !b.what.includes('xs-address')))
@@ -138,6 +139,104 @@ async function validationScreens(page: Page, size: (typeof SIZES)[number]): Prom
   await shot(page, size.name, '46-validation-stop-default')
   await press('[data-xs-alert-button="retry"]')
   console.log(`validation ${size.name}: the message, the list and an item entered, Cancel, Yes and OK left 5, 50 and ASAP`)
+}
+
+/** A finger held still on an element for 0.7 s, as Chromium's touch input gets it (as `scripts/spa-check.ts` holds one). */
+async function longPress(page: Page, selector: string): Promise<void> {
+  const box = (await page.locator(selector).boundingBox())!
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] })
+  await page.waitForTimeout(700)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+}
+
+/**
+ * Excel's commands on the cells' menu: Freeze Panes from the menu and the sheet frozen at the cell, the precedents' panel
+ * of a chain of formulas and a reference in it followed to another sheet, Reapply of the display filter after an edit
+ * took a row out of its conditions (the row before and after).
+ */
+async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
+  const go = async (place: string) => {
+    await open(page, place)
+    // the jump's flash (2 s) goes first
+    await page.waitForTimeout(2200)
+  }
+  const menuOn = async (cell: string) => {
+    if (size.mobile) await longPress(page, `[data-cell="${cell}"]`)
+    else await page.locator(`[data-cell="${cell}"]`).click({ button: 'right' })
+    await page.waitForSelector('[data-xs-menu-box]')
+  }
+  const choose = (id: string) => (size.mobile ? page.locator(`[data-xs-menu="${id}"]`).tap() : page.locator(`[data-xs-menu="${id}"]`).click())
+
+  await go('Форматы!B3')
+  await menuOn('3:2')
+  await shot(page, size.name, '50-freeze-menu')
+  if (size.mobile) await checkTargets(page, true)
+  await choose('freeze')
+  await page.waitForSelector('[data-cell="2:1"].xs-fz-corner')
+  await page.locator('.xs-scroller').evaluate((el) => el.scrollTo({ top: 100, left: 120 }))
+  await page.waitForTimeout(400)
+  await shot(page, size.name, '51-frozen')
+  // The frozen corner stays in view whatever the scroll.
+  await menuOn('2:1')
+  const unfreeze = await page.locator('[data-xs-menu="unfreeze"]').textContent()
+  if (unfreeze?.trim() !== 'Снять закрепление областей') throw new Error(`the frozen sheet's menu offers ${unfreeze}`)
+  await choose('unfreeze')
+  await page.waitForFunction(() => !document.querySelector('.xs-fz-corner, .xs-fz-row, .xs-fz-col'))
+
+  await go('Расчёт!B12')
+  await menuOn('12:2')
+  await choose('precedents')
+  await page.waitForSelector('[data-xs-explain-line]')
+  await page.waitForTimeout(200)
+  await shot(page, size.name, '52-precedents')
+  // The panel's own targets: the formula bar's references of a formula cell are not 44 px on a phone (FormulaBar's, not the panel's).
+  await checkTargets(page, size.mobile, '[data-xs-explain]')
+  const ref = page.locator('[data-xs-explain-ref="Формулы!B2"]').first()
+  if (size.mobile) await ref.tap()
+  else await ref.click()
+  await page.waitForFunction(() => document.querySelector('[data-xs-explain-place]')?.textContent === 'Формулы!B2', null, { timeout: 5000 })
+  await page.waitForTimeout(300)
+  await shot(page, size.name, '53-precedents-followed')
+  await page.locator('[data-xs-explain-close]').click()
+
+  // The filter keeps «ожидает» and «оплачен»; row 3 goes out of it when its status is typed over, and stays until Reapply.
+  await go('Фильтр!B3')
+  const funnel = size.mobile ? page.locator('.xs-bar [data-xs-funnel]') : page.locator('.xs-head').nth(1).locator('.xs-funnel')
+  await funnel.click({ force: true })
+  await page.waitForSelector('[data-xs-values] .xs-value-all')
+  await page.locator('.xs-value', { hasText: 'отклонён' }).click()
+  await page.locator('.xs-value', { hasText: '(пусто)' }).click()
+  await page.locator('[data-xs-apply]').click()
+  await page.waitForSelector('[data-xs-filter-status]')
+  await page.waitForFunction(() => !document.querySelector('.xs-loading'))
+  // Through the formula bar: Cyrillic comes as text input without a key press, which types over a cell only in a field.
+  if (size.mobile) {
+    await page.locator('[data-cell="3:2"]').tap()
+    await page.locator('.xs-fx').tap()
+  } else {
+    await page.locator('[data-cell="3:2"]').click()
+    await page.locator('.xs-fx').click()
+  }
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.type('отклонён')
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => document.querySelector('[data-cell="3:2"]')?.textContent?.trim() === 'отклонён', null, { timeout: 5000 })
+  await page.waitForTimeout(300)
+  await shot(page, size.name, '54-reapply-before')
+  if (size.mobile) await page.locator('[data-xs-filter-reapply]').tap()
+  else {
+    await page.locator('.xs-scroller').focus()
+    await page.keyboard.press('Control+Alt+KeyL')
+  }
+  await page.waitForFunction(() => !document.querySelector('[data-cell="3:2"]') && !!document.querySelector('[data-cell="4:2"]'), null, { timeout: 5000 })
+  await page.waitForTimeout(300)
+  await shot(page, size.name, '55-reapply-after')
+  if (size.mobile) await checkTargets(page, true)
+  await page.locator('[data-xs-filter-clear]').click()
+  console.log(`commands ${size.name}: freeze at B3 and unfreeze, the precedents of B12 and Формулы!B2, row 3 gone after ${size.mobile ? 'the line\'s Reapply' : 'Control+Alt+L'}`)
 }
 
 for (const size of SIZES) {
@@ -246,6 +345,7 @@ for (const size of SIZES) {
   console.log(`outline ${size.name}: + ${size.mobile ? 'tapped 15 px below' : 'clicked'}, level 3 of the columns`)
 
   await validationScreens(page, size)
+  await commandScreens(page, size)
 
   // Editing in place: typing over a cell, then the edit in flight.
   await open(page, 'Формулы!C2')

@@ -256,12 +256,12 @@ describe('the cells’ menu', () => {
     return { api, store }
   }
 
-  it('a right click opens Cut, Copy and Paste over the selection; a cell outside it is selected first', async () => {
+  it('a right click opens Cut, Copy and Paste over the selection, then the freeze and the precedents; a cell outside it is selected first', async () => {
     const { source } = withStructure()
     const w = await mountSheet(source, { messages: ruMessages })
     await goTo(w, 'A1:B2')
     await context(w, '2:2')
-    expect(items()).toEqual(['cut', 'copy', 'paste'])
+    expect(items()).toEqual(['cut', 'copy', 'paste', 'freeze', 'freezeTopRow', 'freezeFirstColumn', 'precedents'])
     expect(document.querySelector('[data-xs-menu-box]')!.getAttribute('aria-label')).toBe('Ячейки')
     expect(document.querySelector('.xs-menu-caption')!.textContent).toBe('A1:B2')
     expect(document.querySelector('[data-xs-menu="paste"]')!.textContent!.trim()).toBe('Вставить')
@@ -313,10 +313,10 @@ describe('the cells’ menu', () => {
     expect(ops(structure)).toEqual([{ op: 'copyRange', from: { sheet: 'S', range: 'A2' }, to: { sheet: 'S', range: 'E5' } }])
   })
 
-  it('a read-only sheet’s menu only copies; without the clipboard API Paste waits for a copy', async () => {
+  it('a read-only sheet’s menu only copies and traces; without the clipboard API Paste waits for a copy', async () => {
     const ro = await mountSheet(withStructure().source, { readOnly: true })
     await context(ro, '1:1')
-    expect(items()).toEqual(['copy'])
+    expect(items()).toEqual(['copy', 'precedents'])
     document.body.innerHTML = ''
     Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
     const w = await mountSheet(withStructure().source)
@@ -335,7 +335,7 @@ describe('the cells’ menu', () => {
     await cell.trigger('pointerdown', touch)
     await new Promise((r) => setTimeout(r, 560))
     await settle()
-    expect(items()).toEqual(['cut', 'copy', 'paste'])
+    expect(items()).toEqual(['cut', 'copy', 'paste', 'freeze', 'freezeTopRow', 'freezeFirstColumn', 'precedents'])
     await cell.trigger('pointerup', touch)
     await cell.trigger('click')
     await settle()

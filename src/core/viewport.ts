@@ -66,7 +66,7 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const headH = computed(() => HEAD_H + barH.value)
   const leadW = computed(() => barW.value + numW.value)
 
-  // ── freeze: from the book, with a lock to drop it; it drops by itself when it eats over half the frame ──
+  // ── freeze: from the book, with a lock to drop it (a view: the book keeps its panes); it drops by itself when it eats over half the frame ──
   const bookFreeze = computed(() => {
     const f = i.sheet.value?.freeze
     return !!f && (f.rows > 0 || f.cols > 0)
@@ -85,6 +85,18 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   function toggleFreeze(): void {
     freezeChoice.value = !freezeOn.value
     i.memory.remember(freezeKey(), freezeChoice.value)
+  }
+  /** A freeze the person made with a command shows over the lock and the half-frame rule; an unfreeze forgets the lock's choice. */
+  function showFreeze(sheet: string, on: boolean): void {
+    if (i.sheet.value?.name !== sheet) return
+    freezeChoice.value = on ? true : null
+    i.memory.remember(freezeKey(), freezeChoice.value)
+  }
+  /** Excel's Freeze Panes from A1: the rows above and the columns left of the frame's middle, counted from the sheet's first. */
+  function middlePanes(): { rows: number; cols: number } {
+    const d = geo.rowAt(Math.max(0, (i.viewH.value - headH.value) / 2))
+    const c = geo.colAt(Math.max(0, (i.viewW.value - leadW.value) / 2))
+    return { rows: d - 1, cols: c - 1 }
   }
   /** Frozen rows and columns; the whole sheet cannot be frozen, the body keeps one at least. */
   const frozenRows = computed(() => (freezeOn.value ? clamp(i.sheet.value?.freeze?.rows ?? 0, 0, Math.max(0, i.rowCount.value - 1)) : 0))
@@ -165,6 +177,8 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     freezeOn,
     readFreeze,
     toggleFreeze,
+    showFreeze,
+    middlePanes,
     frozenRows,
     frozenCols,
     frozenH,

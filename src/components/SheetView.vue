@@ -1,10 +1,11 @@
 <script setup lang="ts">
-// A book's sheet over a SheetSource: the formula bar, the grid with windows, styles and editing, the tabs, and messages.
+// A book's sheet over a SheetSource: the formula bar, the grid with windows, styles and editing, the precedents' panel, the tabs, and messages.
 import { getCurrentInstance, provide } from 'vue'
 import type { SheetViewApi } from '../core/commands'
 import { useSheet, type SheetEmit, type SheetLinkEvent, type SheetViewState } from '../core/sheet'
 import type { SheetFailure, SheetViewProps } from '../core/state'
 import { sheetContextKey } from './context'
+import ExplainPanel from './ExplainPanel.vue'
 import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
 import FormatDialog from './FormatDialog.vue'
@@ -65,15 +66,18 @@ const wait = ctx.w.wait
       <FormulaBar v-if="formulaBar" />
       <div v-if="notice" class="xs-notice">{{ notice }}</div>
       <FindBar v-if="ctx.find.isOpen.value" />
-      <div class="xs-body">
-        <SheetGrid />
-        <!-- A book being recomputed: the sheet waits over the grid with a stopwatch, and asks again every second. -->
-        <div v-if="wait" class="xs-wait" role="status" aria-live="polite" data-xs-wait>
-          <IconSpinner class="xs-spin xs-wait-icon" />
-          <p class="xs-wait-title">{{ m.waiting }}</p>
-          <p class="xs-wait-seconds">{{ m.waitSeconds(ctx.w.waitSeconds.value) }}</p>
-          <p class="xs-muted">{{ m.waitHint }}</p>
+      <div class="xs-main">
+        <div class="xs-body">
+          <SheetGrid />
+          <!-- A book being recomputed: the sheet waits over the grid with a stopwatch, and asks again every second. -->
+          <div v-if="wait" class="xs-wait" role="status" aria-live="polite" data-xs-wait>
+            <IconSpinner class="xs-spin xs-wait-icon" />
+            <p class="xs-wait-title">{{ m.waiting }}</p>
+            <p class="xs-wait-seconds">{{ m.waitSeconds(ctx.w.waitSeconds.value) }}</p>
+            <p class="xs-muted">{{ m.waitHint }}</p>
+          </div>
         </div>
+        <ExplainPanel v-if="ctx.explain.open.value" />
       </div>
       <SheetTabs />
       <FilterPopover />

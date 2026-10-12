@@ -89,7 +89,8 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
   function selectRange(range: CellRect): void {
     // A whole column or row runs to Excel's limit: it stops at the grid, which an editable sheet stretches to the place.
     s.stretch(range.bottom >= MAX_ROWS ? range.top : range.bottom, range.right >= MAX_COLS ? range.left : range.right)
-    const rows = Math.max(1, s.rowCount.value)
+    // Sheet rows: under a display filter the grid's count is of the shown rows, not the last row.
+    const rows = Math.max(1, s.lastRow.value)
     const cols = Math.max(1, s.colCount.value)
     const top = Math.min(range.top, rows)
     const left = Math.min(range.left, cols)
