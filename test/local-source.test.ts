@@ -91,7 +91,7 @@ describe('localSource: sheets and windows', () => {
 describe('localSource: search, display filter, totals', () => {
   it('finds shown text without regard to case, in row order', async () => {
     const s = source()
-    expect(await s.find('Лист1', 'С')).toEqual({
+    expect(await s.find({ sheet: 'Лист1', query: 'С' })).toEqual({
       hits: [
         { row: 1, col: 2, text: 'с примечанием' },
         { row: 2, col: 2, text: 'ссылка' },
@@ -101,7 +101,7 @@ describe('localSource: search, display filter, totals', () => {
       ],
       total: 5,
     })
-    expect(await s.find('Лист1', '  ')).toEqual({ hits: [], total: 0 })
+    expect(await s.find({ sheet: 'Лист1', query: '  ' })).toEqual({ hits: [], total: 0 })
   })
 
   it('filters and sorts the display, the head stays on top', async () => {
@@ -165,7 +165,7 @@ describe('localSource: search, display filter, totals', () => {
   it('searches after an edit with the new text', async () => {
     const s = source()
     await s.edit([{ sheet: 'Список', cell: 'A5', text: 'бета' }])
-    expect((await s.find('Список', 'бет')).hits).toEqual([{ row: 5, col: 1, text: 'бета' }])
+    expect((await s.find({ sheet: 'Список', query: 'бет' })).hits).toEqual([{ row: 5, col: 1, text: 'бета' }])
   })
 })
 

@@ -41,7 +41,7 @@ describe('search', () => {
     await w.find('.xs-find-input').setValue('APPLE')
     await vi.advanceTimersByTimeAsync(300)
     await settle()
-    expect(find).toHaveBeenLastCalledWith('S', 'APPLE', undefined, expect.any(AbortSignal))
+    expect(find).toHaveBeenLastCalledWith({ sheet: 'S', query: 'APPLE', filter: undefined }, expect.any(AbortSignal))
     expect(active(w)).toBe('1:1')
     expect(w.find('.xs-find-status').text()).toBe('1 of 3')
     expect(w.findAll('.xs-cell.xs-hit').map((c) => c.attributes('data-cell'))).toEqual(['1:1', '3:2', '10:3'])

@@ -38,8 +38,10 @@ export interface SheetSource {
   explain?(sheet: string, cell: string): Promise<string>
   /** Totals of a rectangle; without it the component counts over the loaded windows. */
   stats?(sheet: string, range: string, filter?: SheetFilter, signal?: AbortSignal): Promise<RangeStats>
-  /** Case-insensitive substring search, hits in row order (with a filter only the visible rows). */
-  find?(sheet: string, query: string, filter?: SheetFilter, signal?: AbortSignal): Promise<{ hits: { row: number; col: number; text: string }[]; total: number }>
+  /** Excel's Find on a sheet: hits in Excel's order, by rows or by columns (under a display filter only its visible rows). Without it there is no search. */
+  find?(req: FindRequest, signal?: AbortSignal): Promise<FindResult>
+  /** Excel's Replace All: every cell `find` finds for `req`, looked for in formulas whatever `lookIn` says, as Excel replaces, with the matched text replaced by `by`, in one step of undo. */
+  replace?(req: FindRequest, by: string): Promise<ReplaceOutcome>
   /** Excel's outline commands: Group, Ungroup, a group's button and a level button. Without it the outline is drawn but does not change. */
   outline?(change: OutlineChange): Promise<EditOutcome>
   /** The sheet's rows in display order under the filter and sort; `rows: null` when there are no conditions. */
@@ -129,6 +131,34 @@ export type OutlineChange =
   | { op: 'collapse' | 'expand'; sheet: string; rows: string; level: number }
   | { op: 'collapse' | 'expand'; sheet: string; columns: string; level: number }
   | { op: 'showLevel'; sheet: string; axis: 'rows' | 'columns'; level: number }
+
+/** What Excel's Find looks for and where, as its dialog's options give it. */
+export interface FindRequest {
+  sheet: string
+  /** The text to find; `*` stands for any characters, `?` for one, and `~` before either of them or itself for that character, as in Excel. */
+  query: string
+  /** Only within this range, as Excel finds within a selection of more than one cell; the whole sheet without it. */
+  range?: string
+  /** Match case; without it the case is ignored. */
+  matchCase?: boolean
+  /** Match entire cell contents: the whole text matches the query, not a part of it. */
+  wholeCell?: boolean
+  /** Look in: the text a cell opens with (formulas as typed in the book's locale, Excel's default) or the text it shows. */
+  lookIn?: 'formulas' | 'values'
+  /** Search by columns: hits column by column; row by row without it. */
+  byColumns?: boolean
+  /** The display filter in force: only its visible rows. */
+  filter?: SheetFilter
+}
+
+/** Hits of a search, at most as many as the source gives in one answer; `total` counts them all. `text` is what matched: the formula or the shown text. */
+export interface FindResult {
+  hits: { row: number; col: number; text: string }[]
+  total: number
+}
+
+/** The outcome of Replace All and how many cells it changed (Excel's "We made N replacements"). */
+export type ReplaceOutcome = EditOutcome & { replaced: number }
 
 /** With a filter `row` is a display index (a place among the visible rows), as in the the app. */
 export interface WindowRequest {

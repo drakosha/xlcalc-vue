@@ -180,14 +180,14 @@ describe('memorySource', () => {
 
     it('find: a substring in any case, in row order, only shown rows under a filter', async () => {
       const src = memorySource(table())
-      expect(await src.find!('T', 'APP', undefined)).toEqual({
+      expect(await src.find!({ sheet: 'T', query: 'APP' })).toEqual({
         hits: [
           { row: 5, col: 3, text: 'Apple' },
           { row: 6, col: 3, text: 'apple pie' },
         ],
         total: 2,
       })
-      expect((await src.find!('T', 'app', { head: 1, cols: { 1: { values: ['a'] } } })).hits.map((h) => h.row)).toEqual([5])
+      expect((await src.find!({ sheet: 'T', query: 'app', filter: { head: 1, cols: { 1: { values: ['a'] } } } })).hits.map((h) => h.row)).toEqual([5])
     })
 
     it('stats: a rectangle’s totals, over shown rows under a filter', async () => {

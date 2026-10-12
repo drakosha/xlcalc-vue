@@ -59,7 +59,7 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     timer = setTimeout(async () => {
       const c = (ctrl = new AbortController())
       try {
-        const got = await s.props.source.find!(s.sheetName.value, query, s.visible.value?.spec, c.signal)
+        const got = await s.props.source.find!({ sheet: s.sheetName.value, query, filter: s.visible.value?.spec }, c.signal)
         if (mine !== seq) return
         hits.value = got.hits.map((h) => ({ row: h.row, col: h.col }))
         total.value = got.total

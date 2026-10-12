@@ -63,11 +63,11 @@ describe('localSource: structure operations, each answered by a reload', () => {
   })
 
   it('moveRange: the cells go, search finds them at their new place', async () => {
-    const { s, got, events } = await operate({ op: 'moveRange', from: { sheet: 'Список', range: 'A3:B3' }, to: { sheet: 'Список', cell: 'D3' } }, (s) => s.find('Список', 'а'))
+    const { s, got, events } = await operate({ op: 'moveRange', from: { sheet: 'Список', range: 'A3:B3' }, to: { sheet: 'Список', cell: 'D3' } }, (s) => s.find({ sheet: 'Список', query: 'а' }))
     expect(got.ok).toBe(true)
     expect(events).toEqual([{ kind: 'reload' }])
     expect((await win(s, 'Список', 3, 1, 1, 5)).text).toEqual([['', '', '', 'а', '30']])
-    expect((await s.find('Список', 'а')).hits).toEqual([{ row: 3, col: 4, text: 'а' }])
+    expect((await s.find({ sheet: 'Список', query: 'а' })).hits).toEqual([{ row: 3, col: 4, text: 'а' }])
   })
 
   it('copyRange: a formula is copied with its references moved', async () => {

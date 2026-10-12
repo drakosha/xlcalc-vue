@@ -119,7 +119,7 @@ describe('localSource: undo and redo', () => {
     expect(await s.undo!()).toMatchObject({ ok: true })
     expect(events).toEqual([{ kind: 'reload' }])
     expect((await win(s, 'S', 1, 1, 1, 1)).values).toEqual([[2]])
-    expect(await s.find('S', '4')).toMatchObject({ hits: [{ row: 3, col: 1 }] })
+    expect(await s.find({ sheet: 'S', query: '4' })).toMatchObject({ hits: [{ row: 3, col: 1 }] })
   })
 
   it('answers ok with no changes when there is nothing to undo or redo', async () => {

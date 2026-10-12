@@ -313,7 +313,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         return { ok: true, changes: [] }
       })
     },
-    find: (sheet, q, filter, signal) => wait(() => findHits(query(storeOrThrow(sheet)), q, filter), signal),
+    find: (req, signal) => wait(() => findHits(query(storeOrThrow(req.sheet)), req.query, req.filter), signal),
     visibleRows: (sheet, filter, signal) =>
       wait(() => {
         const store = storeOrThrow(sheet)

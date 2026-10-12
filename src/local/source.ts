@@ -371,7 +371,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       check(signal)
       return statsOf(views, rows ? new Set(rows) : null)
     },
-    async find(sheet, query, filter, signal) {
+    async find({ sheet, query, filter }, signal) {
       const s = await open()
       const [v, rows] = await Promise.all([sheetValues(s, sheet), filterActive(filter) ? rowsUnder(s, sheet, filter, false) : null])
       check(signal)
