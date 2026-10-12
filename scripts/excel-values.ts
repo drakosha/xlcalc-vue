@@ -1,6 +1,7 @@
 // The library's values of a book against the values Excel saved in it: every formula cell compared with readXlsx's
-// `cached` after a session computes the book. Run: XLSX=a.xlsx[:b.xlsx] npm run check:excel-values (node 22.18+ strips
-// the types; a large book wants NODE_OPTIONS=--max-old-space-size=12288). Exits 1 when a value differs.
+// `cached` after a session computes the book, cells that depend on volatile functions left out (they differ by the clock).
+// Run: XLSX=a.xlsx[:b.xlsx] npm run check:excel-values (node 22.18+ strips the types; a large book wants
+// NODE_OPTIONS=--max-old-space-size=12288). Exits 1 when a value differs.
 import { readFile } from 'node:fs/promises'
 import { createSession, registerLocale, sameValue, type CellValue } from 'xlcalc'
 import { ruRU } from 'xlcalc/locales/ru-RU'
@@ -25,7 +26,9 @@ for (const path of paths) {
   const read = performance.now()
   const result = createSession(book, { limits: { cells: 50_000_000 } }).getResult()
   const computed = performance.now()
+  const volatile = new Set(result.volatile.map((c) => `${c.sheet}!${c.cell}`))
   let compared = 0
+  let skipped = 0
   let errors = 0
   let other = 0
   const shown: string[] = []
@@ -34,6 +37,10 @@ for (const path of paths) {
     const theirs = cached?.sheets?.[i]?.cells ?? {}
     for (const [addr, cell] of Object.entries(sheet.cells)) {
       if (cell.formula === undefined || !(addr in theirs)) continue
+      if (volatile.has(`${sheet.name}!${addr}`)) {
+        skipped++
+        continue
+      }
       compared++
       const a = ours[addr]?.value
       const b = theirs[addr]!.value
@@ -44,7 +51,7 @@ for (const path of paths) {
     }
   })
   differ += errors + other
-  console.log(`${path.split('/').pop()}: read ${((read - started) / 1000).toFixed(1)} s, computed ${((computed - read) / 1000).toFixed(1)} s; ${compared} formulas, ${errors + other} differ (${errors} an error where Excel has a value, ${other} other)`)
+  console.log(`${path.split('/').pop()}: read ${((read - started) / 1000).toFixed(1)} s, computed ${((computed - read) / 1000).toFixed(1)} s; ${compared} formulas (${skipped} volatile left out), ${errors + other} differ (${errors} an error where Excel has a value, ${other} other)`)
   for (const line of shown) console.log(line)
 }
 if (differ) process.exit(1)
