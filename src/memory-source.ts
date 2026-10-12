@@ -2,8 +2,9 @@
 // It has every optional method of 0.2.0 (search, filter, column values, totals) and can play a book being recomputed.
 import { cellAddress, parseCell, parseLines, parseRange, rectsMeet } from 'xlcalc/a1'
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
-import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
+import type { CellEntry, CellUpdate, EditOutcome, LayoutChange, OutlineChange, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, visibleList, type QuerySheet } from './memory-query'
+import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './local/outline'
 
 /** A cell of the memory book; a bare value is a cell with that value. */
 export interface MemoryCell {
@@ -24,7 +25,21 @@ export interface MemoryCell {
   appearance?: ConditionalAppearance
 }
 
-export interface MemorySheet extends Omit<SheetInfo, 'maxRow' | 'maxCol'> {
+/**
+ * Excel's outline of a memory sheet: outline levels (1 to 7) of rows and columns by line or span, as `widths` and
+ * `heights` take them (`'3:9': 1`, `'C:E': 2`), the summary lines marked collapsed (`'10'`, `'F'`; a group inside a
+ * collapsed one stays collapsed when that one is expanded), and where the summaries are (below and right by default).
+ * A group's lines are hidden by a size of 0.
+ */
+export interface MemoryOutline {
+  rows?: Record<string, number>
+  columns?: Record<string, number>
+  collapsed?: string[]
+  summaryBelow?: boolean
+  summaryRight?: boolean
+}
+
+export interface MemorySheet extends Omit<SheetInfo, 'maxRow' | 'maxCol' | 'outline'> {
   /** Cells by A1 address. */
   cells: Record<string, MemoryCell | CellValue>
   /** Column widths by letters (`B`) or a span (`B:D`), in xlsx units; 0 hides. */
@@ -35,6 +50,7 @@ export interface MemorySheet extends Omit<SheetInfo, 'maxRow' | 'maxCol'> {
   merges?: string[]
   tables?: { name: string; range: string; headerRow: number }[]
   notice?: string
+  outline?: MemoryOutline
 }
 
 export interface MemoryBook {
@@ -86,6 +102,9 @@ interface Store {
   cells: Map<string, MemoryCell>
   widths: Map<number, number>
   heights: Map<number, number>
+  /** Outline levels and collapsed marks by line. */
+  levels: Record<OutlineAxis, Map<number, number>>
+  marks: Record<OutlineAxis, Set<number>>
   maxRow: number
   maxCol: number
 }
@@ -114,7 +133,13 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     for (const [key, w] of Object.entries(sheet.widths ?? {})) for (const c of linesOf(key, 'columns')) widths.set(c, w)
     const heights = new Map<number, number>()
     for (const [key, h] of Object.entries(sheet.heights ?? {})) for (const r of linesOf(key, 'rows')) heights.set(r, h)
-    const store: Store = { sheet, cells, widths, heights, maxRow: 0, maxCol: 0 }
+    const levels = { rows: new Map<number, number>(), columns: new Map<number, number>() }
+    const marks = { rows: new Set<number>(), columns: new Set<number>() }
+    for (const axis of ['rows', 'columns'] as const) {
+      for (const [key, level] of Object.entries(sheet.outline?.[axis] ?? {})) for (const i of linesOf(key, axis)) levels[axis].set(i, level)
+      for (const key of sheet.outline?.collapsed ?? []) for (const i of linesOf(key, axis)) marks[axis].add(i)
+    }
+    const store: Store = { sheet, cells, widths, heights, levels, marks, maxRow: 0, maxCol: 0 }
     measure(store)
     return store
   })
@@ -187,7 +212,18 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
 
   function info(store: Store): SheetInfo {
     const { name, freeze, hidden, locked, columns, rowNumbers, totals } = store.sheet
-    return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze, hidden, locked, columns, rowNumbers, totals }
+    const outline = outlineOf(outlineLines(store, 'rows'), outlineLines(store, 'columns'), store.sheet.outline)
+    return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze, hidden, locked, columns, rowNumbers, totals, ...(outline ? { outline } : {}) }
+  }
+
+  /** A sheet's lines as the outline reads them: levels, hidden ones (size 0) and collapsed marks, one by one. */
+  function outlineLines(store: Store, axis: OutlineAxis): OutlineLine[] {
+    const levels = store.levels[axis]
+    const marks = store.marks[axis]
+    const sizes = axis === 'rows' ? store.heights : store.widths
+    const at = new Set<number>([...levels.keys(), ...marks])
+    for (const [i, size] of sizes) if (size === 0) at.add(i)
+    return [...at].sort((a, b) => a - b).map((i) => ({ from: i, to: i, level: levels.get(i) ?? 0, hidden: sizes.get(i) === 0, collapsed: marks.has(i) }))
   }
 
   /** A rectangle; under a filter `row` is a display index and the rows come from the filter's list. */
@@ -310,6 +346,27 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         }
         if ('columns' in change) for (const c of linesOf(change.columns, 'columns')) put(store.widths, c, change.width)
         else for (const r of linesOf(change.rows, 'rows')) put(store.heights, r, change.height)
+        return { ok: true, changes: [] }
+      })
+    },
+    /** Excel's outline commands by the rules of `./local/outline`; a hidden line is a size of 0, shown again it takes the default. */
+    outline(change: OutlineChange): Promise<EditOutcome> {
+      return wait((): EditOutcome => {
+        const store = storeOf(change.sheet)
+        if (!store) return { ok: false, reason: 'failed', message: `No sheet ${change.sheet}` }
+        const axis: OutlineAxis = change.op === 'showLevel' ? change.axis : 'rows' in change ? 'rows' : 'columns'
+        const after = (axis === 'rows' ? store.sheet.outline?.summaryBelow : store.sheet.outline?.summaryRight) ?? true
+        const got = outlineEdit(outlineLines(store, axis), after, change)
+        if (!got.ok) return { ok: false, reason: 'refused', message: got.message }
+        const sizes = axis === 'rows' ? store.heights : store.widths
+        for (const p of got.patches) {
+          for (let i = p.from; i <= p.to; i++) {
+            if (p.level !== undefined) void (p.level > 0 ? store.levels[axis].set(i, p.level) : store.levels[axis].delete(i))
+            if (p.hidden) sizes.set(i, 0)
+            else if (p.hidden === false && sizes.get(i) === 0) sizes.delete(i)
+            if (p.collapsed !== undefined) void (p.collapsed ? store.marks[axis].add(i) : store.marks[axis].delete(i))
+          }
+        }
         return { ok: true, changes: [] }
       })
     },
