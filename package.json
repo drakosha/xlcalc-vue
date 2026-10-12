@@ -34,7 +34,8 @@
     "build:example": "vite build --config vite.example.config.ts",
     "screens": "node scripts/screens.ts",
     "check:local": "node scripts/local-check.ts",
-    "check:spa": "node scripts/spa-check.ts"
+    "check:spa": "node scripts/spa-check.ts",
+    "check:big": "node scripts/big-check.ts"
   },
   "peerDependencies": {
     "vue": "^3.5.0",
