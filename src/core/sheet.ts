@@ -1,6 +1,6 @@
 // The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the frame's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { cellAddress, linesKey } from 'xlcalc/a1'
+import { cellAddress, linesKey, parseCell } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
@@ -14,6 +14,7 @@ import { useMenu } from './menu'
 import { useNavigation } from './navigation'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
+import { useValidation, useValidationAlert } from './validation'
 import { createState, type SheetViewProps } from './state'
 import { useFilter } from './filter'
 import { useFind } from './find'
@@ -84,7 +85,23 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const nav = useNavigation(s, sel, f, { pickSheet, notify })
   const cellInput = ref<HTMLTextAreaElement | null>(null)
   const barInput = ref<HTMLTextAreaElement | null>(null)
-  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput })
+  const alerts = useValidationAlert()
+  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, alert: alerts.ask })
+  // Excel's data validation on the active cell: its dropdown list and input message; an item goes in as typed, past the rule, as it is the rule's own.
+  const validation = useValidation({
+    source: () => s.source(),
+    sheet: () => s.sheetName.value,
+    active: () => s.selected.value,
+    text: () => (s.selected.value ? w.textOfRow(s.selected.value.row, s.selected.value.col) : ''),
+    pick: (text, at) => {
+      const a = parseCell(at.cell)
+      if (!s.editable.value || !a || at.sheet !== s.sheetName.value) return
+      const lock = ed.lockAt(a.row, a.col)
+      if (lock !== null) return notify(s.messages.value.locked(lock))
+      // TODO(xlcalc): what Excel enters for a picked item and whether it checks it are not measured; the item's text goes in as typed, without the rule.
+      void ed.send([{ sheet: at.sheet, cell: at.cell, text }], null, { accept: true })
+    },
+  })
   const totals = useTotals(s, w, sel)
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
@@ -269,6 +286,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   // ── keys on the grid: search and Esc first (a popover, the find bar, the copy mode), then the font, editing and moves ──
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
+    if (validation.onKey(e)) return
     if (!e.isComposing && (cmd.fontKey(e) || outline.key(e))) return
     if ((e.ctrlKey || e.metaKey) && /^[fFаА]$/.test(e.key) && find.available.value) {
       e.preventDefault()
@@ -341,6 +359,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
           if (event.message) notify(event.message)
           void reload()
         }
+        // A list of cells or the rules themselves may have changed.
+        if (event.kind !== 'repaint') validation.refresh()
       }) ?? null
   }
   watch(
@@ -390,6 +410,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     clip,
     fill,
     viewState,
+    validation,
+    alerts,
     outline,
     menu,
     editor,

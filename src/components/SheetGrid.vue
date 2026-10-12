@@ -9,6 +9,8 @@ import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
 import SheetMarks from './SheetMarks.vue'
+import ValidationDropdown from './ValidationDropdown.vue'
+import ValidationPrompt from './ValidationPrompt.vue'
 
 const ctx = useSheetContext()
 const { v, geo, sel, views, ed } = ctx
@@ -59,6 +61,26 @@ const editorBox = computed(() => {
   const height = Math.max(geo.spanHeight(d, sp?.rs ?? 1), lines.length * 17 + 5)
   return { top: `${top}px`, left: `${left}px`, width: `${width}px`, height: `${height}px`, zIndex: frozen ? '7' : '1' }
 })
+
+/** The active cell (a merged area whole) in the scroller's content coordinates, for the dropdown and the input message of its rule. */
+const activeBox = computed(() => {
+  const a = ctx.selected.value
+  if (!a) return null
+  const d = ctx.indexOf(a.row)
+  if (d === undefined) return null
+  const sp = views.spanOf(a.row, a.col)
+  const top = v.headH.value + (geo.rowOffsets.value[d - 1] ?? 0) + (d <= v.frozenRows.value ? ctx.scrollTop.value : 0)
+  const left = v.leadW.value + (geo.offsets.value[a.col - 1] ?? 0) + (a.col <= v.frozenCols.value ? ctx.scrollLeft.value : 0)
+  return { top, left, width: geo.spanWidth(a.col, sp?.cs ?? 1), height: geo.spanHeight(d, sp?.rs ?? 1) }
+})
+/** What of the grid is in view, in the same coordinates: a list goes over its cell where it has no room below. */
+const viewBox = computed(() => ({
+  top: ctx.scrollTop.value + v.headH.value,
+  left: ctx.scrollLeft.value + v.leadW.value,
+  width: Math.max(0, ctx.viewW.value - v.leadW.value),
+  height: Math.max(0, ctx.viewH.value - v.headH.value),
+}))
+const vd = ctx.validation
 
 function onCellClick(e: MouseEvent, r: number, c: number): void {
   // The lift of a long press that opened the cells' menu keeps the selection.
@@ -295,6 +317,23 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
       @keydown="ed.onEditorKey"
       @blur="ed.onEditorBlur($event, 'cell')"
     ></textarea>
+    <template v-if="activeBox && !ctx.editor.value">
+      <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="viewBox" />
+      <ValidationDropdown
+        v-if="vd.list.value && ctx.editable.value"
+        :rect="activeBox"
+        :items="vd.list.value"
+        :open="vd.open.value"
+        :active="vd.index.value"
+        :view="viewBox"
+        :touch="v.touch.value"
+        :messages="m"
+        @toggle="vd.toggle()"
+        @pick="(i) => vd.choose(i)"
+        @hover="(i) => (vd.index.value = i)"
+        @close="vd.close()"
+      />
+    </template>
     <div v-if="ctx.loading.value" class="xs-loading">
       <IconSpinner class="xs-spin" />
       {{ m.loading }}

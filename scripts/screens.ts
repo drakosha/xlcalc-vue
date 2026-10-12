@@ -73,13 +73,12 @@ async function checkTargets(page: Page, mobile: boolean): Promise<void> {
 }
 
 /**
- * Excel's data validation on validation.html, where the components are mounted from outside until the sheet has them: the
- * input message with the arrow, the list (Alt+Down; a tap on a phone), an item entered, a long list, and the alerts of the
+ * Excel's data validation on the "all formatting" book's sheet of rules: the input message with the arrow, the list (Alt+Down; a tap on a phone), an item entered, a long list, and the alerts of the
  * three styles with what their buttons leave in the cell.
  */
 async function validationScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const go = async (cell: string) => {
-    await page.goto(`${base}validation.html?sheet=${encodeURIComponent(`'Проверка данных'!${cell}`)}`)
+    await page.goto(`${base}?sheet=${encodeURIComponent(`'Проверка данных'!${cell}`)}`)
     await settle(page)
     // the jump's flash (2 s) goes first
     await page.waitForTimeout(2200)

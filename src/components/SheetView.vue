@@ -8,6 +8,7 @@ import { sheetContextKey } from './context'
 import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
 import FormatDialog from './FormatDialog.vue'
+import ValidationAlert from './ValidationAlert.vue'
 import FormulaBar from './FormulaBar.vue'
 import SheetGrid from './SheetGrid.vue'
 import SheetMenu from './SheetMenu.vue'
@@ -85,6 +86,7 @@ const wait = ctx.w.wait
         @apply="(patches) => void ctx.cmd.format(patches)"
         @close="ctx.cmd.closeFormat()"
       />
+      <ValidationAlert :alert="ctx.alerts.alert.value" :messages="m" @answer="ctx.alerts.answer" />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>
         <button type="button" class="xs-tool" :title="m.close" @click="ctx.dismiss()">

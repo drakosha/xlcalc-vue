@@ -5,7 +5,7 @@
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
 import { SheetView, ruMessages, type SheetViewState } from '../src'
 import { groupIssues, localSource, openXlsx, saveXlsx, type IssueGroup, type LocalSource } from '../src/local'
-import type { CellEntry } from '../src/source'
+import type { CellEntry, EditOptions } from '../src/source'
 import { localBook } from './local-book'
 
 const params = new URLSearchParams(location.search)
@@ -40,9 +40,9 @@ const source = computed(() => {
   const s = local.value
   return {
     ...s,
-    async edit(entries: CellEntry[]) {
+    async edit(entries: CellEntry[], opts?: EditOptions) {
       const begun = performance.now()
-      const got = await s.edit(entries)
+      const got = await s.edit(entries, opts)
       const ms = performance.now() - begun
       const changes = got.ok ? got.changes.length : 0
       timings.value.edit = ms
