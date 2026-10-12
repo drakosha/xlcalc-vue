@@ -194,3 +194,5 @@ export type SourceEvent =
   | { kind: 'changed'; changes: CellUpdate[] }
   /** Much or something unknown changed: read the sheets and windows again. */
   | { kind: 'reload'; message?: string }
+  /** Cells of these ranges may look otherwise (conditional formats): windows that meet them are read again in place, the sheets, sizes and display filter as they are. */
+  | { kind: 'repaint'; ranges: { sheet: string; range: string }[] }
