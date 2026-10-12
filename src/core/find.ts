@@ -161,13 +161,17 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     s.extent.value = null
     void nextTick(() => sel.revealCell(h.row, h.col))
   }
-  /** Find Next and Find Previous, as Excel goes: from the active cell in the order asked, round past the end. */
+  /**
+   * Find Next and Find Previous, as Excel goes, round past the end: from a hit to its neighbour in the source's order (Find's,
+   * by blocks on a filtered sheet), from another cell to the first hit past it in the order asked.
+   */
   function step(dir: 1 | -1): void {
     const list = hits.value
     if (!list.length) return
     done.value = null
     const a = s.selected.value
     if (!a) return show(dir > 0 ? 0 : list.length - 1)
+    if (index.value >= 0) return show((index.value + dir + list.length) % list.length)
     if (dir > 0) {
       const i = list.findIndex((h) => order(h, a) > 0)
       return show(i >= 0 ? i : 0)

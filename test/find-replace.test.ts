@@ -69,6 +69,29 @@ describe('Find', () => {
     expect(active(w)).toBe('1:1')
   })
 
+  it('from a hit goes to the next one in the source\'s order, as Find gives it by blocks on a filtered sheet', async () => {
+    fakeTimers()
+    const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 'x', C1: 'x', A3: 'x', C3: 'x' } }] })
+    // Excel's Find on a filtered sheet with row 2 and column B hidden gives the blocks' cells first: A1, C1, A3, C3 by columns too
+    vi.spyOn(source, 'find').mockResolvedValue({ hits: [{ row: 1, col: 1, text: 'x' }, { row: 1, col: 3, text: 'x' }, { row: 3, col: 1, text: 'x' }, { row: 3, col: 3, text: 'x' }], total: 4 })
+    const w = await mountSheet(source)
+    await search(w, 'x')
+    expect(active(w)).toBe('1:3')
+    await w.find('[data-xs-find-options]').trigger('click')
+    await w.find('[data-xs-find-order]').setValue('columns')
+    await pause()
+    await goTo(w, 'C1')
+    const input = w.find('.xs-find-input')
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(active(w)).toBe('3:1')
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(active(w)).toBe('3:3')
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(active(w)).toBe('1:1')
+    await input.trigger('keydown', { key: 'Enter', shiftKey: true })
+    expect(active(w)).toBe('3:3')
+  })
+
   it('looks within a selection of more than one cell, as Excel does, until the person drops it', async () => {
     fakeTimers()
     const source = memorySource(book())
