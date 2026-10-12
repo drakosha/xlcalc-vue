@@ -1,7 +1,8 @@
 // The app like Excel in a browser: the example's spa.html built for production and served by `vite preview`, driven by
 // Playwright on a desktop (1920 × 1200, mouse and keys) and a phone (390 × 844, touch). Each creates a ru-RU book, types
 // values and a formula, makes them bold and percent and draws outside borders from the toolbar, undoes and redoes, saves
-// the book, opens the saved file again (dropped on the page, or from the picker) and checks values and formatting.
+// the book, opens the saved file again (dropped on the page, or from the picker) and checks values and formatting; on
+// the desktop a column in percent shows its format in the list on its empty cell.
 // Then the structure menu on a new book: on the desktop a row inserted by a right click (the formula under it moves),
 // a column hidden and shown, a sheet added by "+", renamed and deleted, a column fitted by a double click on its edge;
 // on the phone a row inserted from the menu a long press opens.
@@ -250,8 +251,23 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await checkNoSideScroll(page, at('reopened'))
   }
   await shot('reopened')
+  if (!size.phone) {
+    // 10. Column C in percent: its empty cell shows the column's format in the list, as Excel's does.
+    await page.locator('.xs-head[data-col="3"]').click()
+    await page.locator('[data-tb="number"]').selectOption('percent')
+    await ready(page)
+    const formatted = await bookOf(page)
+    expect(at('column C in percent'), (formatted.sheets[0]!.columns as Record<string, any>).C.numberFormat, 9)
+    expect(at('C7 has no format of its own'), cellOf(formatted, 'C7').numberFormat, undefined)
+    await page.locator('[data-cell="7:3"]').click()
+    await page.waitForFunction(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.value === 'percent', null, { timeout: 30_000 })
+    await page.locator('[data-cell="7:4"]').click()
+    await page.waitForFunction(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.value === 'general', null, { timeout: 30_000 })
+    await page.locator('[data-cell="7:3"]').click()
+    await shot('column-format')
+  }
   const t = await page.evaluate(() => (window as any).__spa.timings() as { open: number; change: number })
-  console.log(`${at('ok')}: new ru-RU book, values, bold, percent, outside borders, undo, redo, saved as ${download.suggestedFilename()}, opened again in ${Math.round(t.open)} ms`)
+  console.log(`${at('ok')}: new ru-RU book, values, bold, percent, outside borders, undo, redo, saved as ${download.suggestedFilename()}, opened again in ${Math.round(t.open)} ms${size.phone ? '' : ', a column\'s format on its empty cell'}`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
