@@ -21,6 +21,7 @@ const demoIndex = (): Plugin => ({
 
 export default defineConfig(({ mode }) => {
   const demo = mode === 'demo'
+  const input: Record<string, string> = demo ? { spa: example('spa.html') } : { index: example('index.html'), local: example('local.html'), spa: example('spa.html') }
   return {
     root: example(''),
     base: demo ? '/demo/' : '/',
@@ -30,7 +31,7 @@ export default defineConfig(({ mode }) => {
       outDir: example(demo ? 'dist-demo' : 'dist'),
       emptyOutDir: true,
       sourcemap: false,
-      rolldownOptions: { input: demo ? { spa: example('spa.html') } : { index: example('index.html'), local: example('local.html'), spa: example('spa.html') } },
+      rolldownOptions: { input },
     },
   }
 })
