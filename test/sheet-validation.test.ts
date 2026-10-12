@@ -97,6 +97,26 @@ describe('data validation on the sheet', () => {
     expect(w.find('[data-xs-prompt]').exists()).toBe(false)
   })
 
+  it('a pick the source refuses asks the cell\'s rule again, so the list shows what the source holds now', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const source = memorySource(book())
+    const validation = vi.spyOn(source, 'validation')
+    const pick = vi.fn(async () => ({ ok: false as const, reason: 'conflict' as const, message: 'The list changed' }))
+    const w = await mountSheet({ ...source, pick })
+    await goTo(w, 'B1')
+    await vi.advanceTimersByTimeAsync(100)
+    await settle()
+    await key(w, 'ArrowDown', { altKey: true })
+    await vi.advanceTimersByTimeAsync(100)
+    await settle()
+    const asked = validation.mock.calls.length
+    await key(w, 'Enter')
+    await vi.advanceTimersByTimeAsync(100)
+    await settle()
+    expect(pick).toHaveBeenCalledTimes(1)
+    expect(validation.mock.calls.length).toBeGreaterThan(asked)
+  })
+
   it('a list over a source with pick: an item goes to pick by its place and text, not to edit', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const source = memorySource(book())

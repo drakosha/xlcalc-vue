@@ -101,7 +101,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       if (lock !== null) return notify(s.messages.value.locked(lock))
       const source = s.source()
       const entry = [{ sheet: at.sheet, cell: at.cell, text }]
-      if (source.pick) void ed.run(() => source.pick!(at.sheet, at.cell, item, text), entry, null, null)
+      // a pick refused (the list changed meanwhile) asks the rule again, so the list shows what the source holds now
+      if (source.pick) void ed.run(() => source.pick!(at.sheet, at.cell, item, text), entry, null, null).then((out) => out.ok || validation.refresh())
       else void ed.send(entry, null, { accept: true })
     },
   })
