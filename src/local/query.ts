@@ -1,13 +1,9 @@
-// Search as Excel's Find, and the display filter and sort, the funnel's values and totals by the the app's rules
-// (`sheet-filter.ts`): conditions compare the shown text, the head rows stay on top, a sort puts numbers before text and
-// empty cells last.
+// The display filter and sort, the funnel's values and totals by the the app's rules (`sheet-filter.ts`): conditions
+// compare the shown text, the head rows stay on top, a sort puts numbers before text and empty cells last.
 import type { CellValue, CellView } from 'xlcalc'
 import { parseCell } from 'xlcalc/a1'
-import { findCells, replaceCells, type CellText, type EachCell } from '../find-match'
-import type { FindRequest, FindResult, RangeStats, SheetFilter } from '../source'
+import type { RangeStats, SheetFilter } from '../source'
 
-/** Hits of a search in one answer; the total counts them all. */
-export const FIND_MAX_HITS = 500
 /** Distinct values in the funnel's list; the rest are counted in `more`. */
 export const COLUMN_VALUES_MAX = 1000
 
@@ -19,7 +15,7 @@ interface Entry {
 
 const numOf = (value: CellValue | undefined): number => (typeof value === 'number' ? value : NaN)
 
-/** A sheet's texts by column and row, kept current by the changes of edits: the shown text with numbers, or the text each cell opens with. */
+/** A sheet's shown texts by column and row with the numbers among the values, kept current by the changes of edits. */
 export class SheetValues {
   readonly cols = new Map<number, Map<number, Entry>>()
 
@@ -112,23 +108,6 @@ export function columnValuesOf(values: SheetValues, col: number, filter: SheetFi
   const all = [...counts.entries()].sort(([, a], [, b]) => compareEntries(a.entry, b.entry, collator))
   const shown = all.slice(0, COLUMN_VALUES_MAX)
   return { values: shown.map(([text, v]) => ({ text, count: v.count })), more: all.length - shown.length }
-}
-
-/** Every cell of the texts with its text. */
-const eachOf =
-  (texts: SheetValues): EachCell =>
-  (visit) => {
-    for (const [col, column] of texts.cols) for (const [row, e] of column) visit(row, col, e.text)
-  }
-
-/** Excel's Find over a sheet's texts (shown or opened with, as `lookIn` asks), in its order; only `visible` rows when given. */
-export function findIn(texts: SheetValues, req: FindRequest, visible: Set<number> | null): FindResult {
-  return findCells(eachOf(texts), req, visible, FIND_MAX_HITS)
-}
-
-/** Excel's Replace All over the texts cells open with: each changed cell's new text. */
-export function replaceIn(editTexts: SheetValues, req: FindRequest, by: string, visible: Set<number> | null): CellText[] {
-  return replaceCells(eachOf(editTexts), req, by, visible)
 }
 
 /** Totals of cells as Excel's status bar gives them: cells that show something, the numbers among them, their sum and ends. */
