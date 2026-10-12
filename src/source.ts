@@ -40,6 +40,8 @@ export interface SheetSource {
   stats?(sheet: string, range: string, filter?: SheetFilter, signal?: AbortSignal): Promise<RangeStats>
   /** Case-insensitive substring search, hits in row order (with a filter only the visible rows). */
   find?(sheet: string, query: string, filter?: SheetFilter, signal?: AbortSignal): Promise<{ hits: { row: number; col: number; text: string }[]; total: number }>
+  /** Excel's outline commands: Group, Ungroup, a group's button and a level button. Without it the outline is drawn but does not change. */
+  outline?(change: OutlineChange): Promise<EditOutcome>
   /** The sheet's rows in display order under the filter and sort; `rows: null` when there are no conditions. */
   visibleRows?(sheet: string, filter: SheetFilter, signal?: AbortSignal): Promise<{ rows: number[] | null; total: number }>
   /** A column's values for the filter funnel, over the rows visible under the other columns' conditions. */
@@ -88,7 +90,45 @@ export interface SheetInfo {
   rowNumbers?: boolean
   /** A totals row held at the bottom: the shown text by the sheet's columns (null: empty). */
   totals?: (string | null)[]
+  /** Excel's outline (Data > Group): the sheet's groups of rows and columns; a sheet without groups has none. */
+  outline?: SheetOutline
 }
+
+/** A sheet's groups as Excel draws them in the bars beside the row numbers and above the column letters. */
+export interface SheetOutline {
+  /** Groups of rows by their first row, the outer before the inner where two begin together. */
+  rows: OutlineGroup[]
+  columns: OutlineGroup[]
+  /** A group's summary row, which holds its button, is below it (Excel's default) or above it. */
+  summaryBelow: boolean
+  /** A group's summary column is right of it (Excel's default) or left of it. */
+  summaryRight: boolean
+}
+
+/**
+ * A group: the lines `from`..`to` (rows, or columns by number) of outline level `level` or deeper, with no such line
+ * beside them; `level` is 1 to 7, so every line inside a group of level 2 is inside one of level 1 too. `collapsed`: its
+ * lines are hidden and its button shows +.
+ */
+export interface OutlineGroup {
+  from: number
+  to: number
+  level: number
+  collapsed: boolean
+}
+
+/**
+ * Excel's outline commands on a sheet, each one step of undo: Group and Ungroup put whole lines one level deeper or
+ * shallower (`rows: '3:6'`, `columns: 'B:D'`); collapse and expand are a group's button (Excel's Hide Detail and Show
+ * Detail), the group named by its lines and level as `SheetOutline` gives it; `showLevel` is a level button: groups of
+ * `level` and deeper collapsed, the shallower ones expanded, one past the deepest level expanding all.
+ */
+export type OutlineChange =
+  | { op: 'group' | 'ungroup'; sheet: string; rows: string }
+  | { op: 'group' | 'ungroup'; sheet: string; columns: string }
+  | { op: 'collapse' | 'expand'; sheet: string; rows: string; level: number }
+  | { op: 'collapse' | 'expand'; sheet: string; columns: string; level: number }
+  | { op: 'showLevel'; sheet: string; axis: 'rows' | 'columns'; level: number }
 
 /** With a filter `row` is a display index (a place among the visible rows), as in the the app. */
 export interface WindowRequest {
