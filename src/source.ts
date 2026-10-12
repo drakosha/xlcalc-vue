@@ -12,12 +12,12 @@ export interface SheetSource {
   sheets(signal?: AbortSignal): Promise<SheetInfo[]>
   /** A rectangle of a sheet, at most `maxCells` cells. */
   window(req: WindowRequest, signal?: AbortSignal): Promise<SheetWindow | SheetPending>
-  /** An edit as typed (`=SUM(A1:A3)`, `1.5`, `'007`); `null` clears. Without it the sheet is read-only. */
-  edit?(entries: CellEntry[]): Promise<EditOutcome>
+  /** An edit as typed (`=SUM(A1:A3)`, `1.5`, `'007`); `null` clears. Without it the sheet is read-only. `opts.accept`: see `EditOptions`. */
+  edit?(entries: CellEntry[], opts?: EditOptions): Promise<EditOutcome>
   /** Clipboard text pasted at a cell as Excel pastes it, one step of undo; `select` is what it filled. Without it the fields go to `edit`. */
   paste?(sheet: string, cell: string, text: string): Promise<EditOutcome>
   /** Control+Return: the text typed into the active cell entered into every cell of `range`. Without it only the active cell takes it. */
-  fill?(sheet: string, range: string, text: string, active: string): Promise<EditOutcome>
+  fill?(sheet: string, range: string, text: string, active: string, opts?: EditOptions): Promise<EditOutcome>
   /** Take back the book's last change, whole (`ok` with no changes when there is none); `select` is where it was. Without it there is no undo. */
   undo?(): Promise<EditOutcome>
   /** Do the last undone change again. */
@@ -34,6 +34,8 @@ export interface SheetSource {
   format?(sheet: string, patches: FormatPatch[]): Promise<EditOutcome>
   /** Changes made elsewhere: another tab, an agent, the clock. Returns the unsubscribe function. */
   subscribe?(listener: (event: SourceEvent) => void): () => void
+  /** A cell's data validation as Excel shows it on the cell: the list of its dropdown and its input message; null when no rule is over the cell. */
+  validation?(sheet: string, cell: string, signal?: AbortSignal): Promise<SheetValidation | null>
   /** A cell's precedents tree as text. */
   explain?(sheet: string, cell: string): Promise<string>
   /** Totals of a rectangle; without it the component counts over the loaded windows. */
@@ -219,6 +221,32 @@ export interface CellEntry {
   text: string | null
 }
 
+/** How an edit goes on. */
+export interface EditOptions {
+  /** The person kept a value the cell's rule does not take, by a warning's Yes or an information's OK: write it without asking the rule again. */
+  accept?: true
+}
+
+/** A cell's data validation as the person meets it: Excel's dropdown of a list rule and the message shown while the cell is selected. */
+export interface SheetValidation {
+  /** A list rule that shows its dropdown: the items as their text, in order; empty when its formula gives none. */
+  list?: string[]
+  /** The input message (Excel's title up to 32 characters, text up to 255). */
+  prompt?: { title?: string; text: string }
+}
+
+/** The alert of a rule of data validation for a value it does not take, as Excel shows it: stop (Retry, Cancel), warning (Continue? Yes, No, Cancel), information (OK, Cancel). */
+export interface SheetValidationAlert {
+  severity: 'stop' | 'warning' | 'information'
+  /** The rule's title, else the component's default ("Microsoft Excel"). */
+  title?: string
+  /** The rule's message, else the source's text of the rule. */
+  message: string
+  /** The cell the value was refused in. */
+  sheet: string
+  cell: string
+}
+
 export type SheetOp = Exclude<StructureOp, { op: 'addTable' | 'renameTable' | 'deleteTable' | 'convertTable' }>
 
 /** Columns or rows changed: a width or height set with the mouse, lines hidden or shown, columns fitted to what they show (Excel's double click on an edge). */
@@ -243,6 +271,8 @@ export type EditOutcome =
       message: string
       cells?: { sheet: string; cell: string }[]
       at?: number
+      /** A value a rule of data validation does not take (`refused`): the component shows Excel's alert, and sends the edit again with `accept` after a warning's Yes or an information's OK. */
+      alert?: SheetValidationAlert
     }
 
 /** A cell's new state after an edit or a recomputation. */
