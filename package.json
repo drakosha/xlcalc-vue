@@ -36,7 +36,8 @@
     "check:local": "node scripts/local-check.ts",
     "check:spa": "node scripts/spa-check.ts",
     "check:big": "node scripts/big-check.ts",
-    "check:excel-values": "node scripts/excel-values.ts"
+    "check:excel-values": "node scripts/excel-values.ts",
+    "check:compare-values": "node scripts/compare-values.ts"
   },
   "peerDependencies": {
     "vue": "^3.5.0",
