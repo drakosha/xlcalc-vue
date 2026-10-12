@@ -10,6 +10,7 @@ import { useFormula } from './formula'
 import { MAX_COL_PX, MIN_COL_PX, useGeometry, widthFromPx } from './geometry'
 import { useMenu } from './menu'
 import { useNavigation } from './navigation'
+import { useOutline } from './outline'
 import { useSelection } from './selection'
 import { createState, type SheetViewProps } from './state'
 import { useFilter } from './filter'
@@ -89,7 +90,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   /** The look of the active cell, from its loaded window: the `state` event and the font keys take it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
   const cmd = useCommands(s, sel, ed, { reload, reloads: () => reloads, target: (t) => (target = t), activeStyle: () => activeLook.value?.style })
-  const menu = useMenu(s, geo, sel, cmd, { pickSheet, tabs: () => tabs.value })
+  const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
+  const menu = useMenu(s, geo, sel, cmd, { pickSheet, tabs: () => tabs.value, outline })
 
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
@@ -262,7 +264,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   // ── keys on the grid: search and Esc first, then the font, editing and moves ──
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
-    if (!e.isComposing && cmd.fontKey(e)) return
+    if (!e.isComposing && (cmd.fontKey(e) || outline.key(e))) return
     if ((e.ctrlKey || e.metaKey) && /^[fFаА]$/.test(e.key) && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -366,6 +368,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     find,
     views,
     cmd,
+    outline,
     menu,
     editor,
     message,

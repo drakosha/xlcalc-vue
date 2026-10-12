@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // The structure menu at the pointer (kept on screen) and its small dialogs: a size in Excel's units, the question before a
-// sheet with data is deleted, the hidden sheets to show. A press outside or Esc closes them.
+// sheet with data is deleted, the hidden sheets to show, rows or columns to group. A press outside or Esc closes them.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSheetContext } from './context'
 
@@ -28,12 +28,19 @@ watch(menu.open, async (o) => {
 const size = computed(() => (menu.dialog.value?.kind === 'size' ? menu.dialog.value : null))
 const doomed = computed(() => (menu.dialog.value?.kind === 'deleteSheet' ? menu.dialog.value.sheet : null))
 const hidden = computed(() => (menu.dialog.value?.kind === 'unhide' ? menu.dialog.value.sheets : null))
+const grouping = computed(() => (menu.dialog.value?.kind === 'outline' ? menu.dialog.value : null))
 const input = ref<HTMLInputElement | null>(null)
 watch(size, async (d, was) => {
   if (!d || was) return
   await nextTick()
   input.value?.focus()
   input.value?.select()
+})
+const firstChoice = ref<HTMLInputElement | null>(null)
+watch(grouping, async (d, was) => {
+  if (!d || was) return
+  await nextTick()
+  firstChoice.value?.focus()
 })
 const closeDialog = () => (menu.dialog.value = null)
 
@@ -77,6 +84,13 @@ onBeforeUnmount(() => {
         <p class="xs-dialog-title">{{ m.deleteSheet }}</p>
         <p class="xs-dialog-text">{{ m.deleteSheetText(doomed) }}</p>
       </template>
+      <template v-else-if="grouping">
+        <p class="xs-dialog-title">{{ grouping.op === 'group' ? m.menuGroup : m.menuUngroup }}</p>
+        <div class="xs-dialog-choices" role="radiogroup" @keydown.enter.prevent="menu.applyOutline()">
+          <label class="xs-dialog-choice"><input ref="firstChoice" v-model="grouping.axis" type="radio" value="rows" data-xs-outline-axis="rows" />{{ m.outlineRows }}</label>
+          <label class="xs-dialog-choice"><input v-model="grouping.axis" type="radio" value="columns" data-xs-outline-axis="columns" />{{ m.outlineColumns }}</label>
+        </div>
+      </template>
       <template v-else-if="hidden">
         <p class="xs-dialog-title">{{ m.unhideSheet }}</p>
         <div class="xs-dialog-list">
@@ -86,6 +100,7 @@ onBeforeUnmount(() => {
       <div class="xs-dialog-foot">
         <button type="button" class="xs-button" data-xs-dialog-cancel @click="closeDialog">{{ m.cancel }}</button>
         <button v-if="size" type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="menu.applySize()">{{ m.ok }}</button>
+        <button v-else-if="grouping" type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="menu.applyOutline()">{{ m.ok }}</button>
         <button v-else-if="doomed !== null" type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="menu.confirmDelete()">{{ m.menuDelete }}</button>
       </div>
     </div>

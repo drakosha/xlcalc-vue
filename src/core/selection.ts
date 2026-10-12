@@ -6,7 +6,7 @@ import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { colPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
-import { HEAD_H, type Viewport } from './viewport'
+import type { Viewport } from './viewport'
 
 /** Space kept from the frame's edge when scrolling to a cell: a cell glued to the edge reads as cut. */
 const REVEAL_PAD = 24
@@ -121,11 +121,11 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     // Frozen rows and columns are always in the frame.
     if (d > v.frozenRows.value) {
       if (top - v.frozenH.value < y) y = top - v.frozenH.value - REVEAL_PAD
-      else if (bottom > y + s.viewH.value - HEAD_H) y = bottom - s.viewH.value + HEAD_H + REVEAL_PAD
+      else if (bottom > y + s.viewH.value - v.headH.value) y = bottom - s.viewH.value + v.headH.value + REVEAL_PAD
     }
     if (col > v.frozenCols.value) {
       if (left - v.frozenW.value < x) x = left - v.frozenW.value - REVEAL_PAD
-      else if (right > x + s.viewW.value - v.numW.value) x = right - s.viewW.value + v.numW.value + REVEAL_PAD
+      else if (right > x + s.viewW.value - v.leadW.value) x = right - s.viewW.value + v.leadW.value + REVEAL_PAD
     }
     if (y !== el.scrollTop || x !== el.scrollLeft) {
       el.scrollTo({ top: Math.max(0, y), left: Math.max(0, x) })
@@ -148,7 +148,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     const a = onGrid(corner)
     let d = s.indexOf(a.row) ?? 1
     let col = a.col
-    const page = Math.max(1, Math.floor((s.viewH.value - HEAD_H - v.frozenH.value) / s.defaultRowPx.value))
+    const page = Math.max(1, Math.floor((s.viewH.value - v.headH.value - v.frozenH.value) / s.defaultRowPx.value))
     const ctrl = e.ctrlKey || e.metaKey
     // Ctrl jumps to the data's edge first, then to the grid's (an editable grid goes on past the data).
     const lastRow = (x: number) => (x < s.dataShown.value ? s.dataShown.value : s.rowCount.value)
