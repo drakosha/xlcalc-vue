@@ -335,6 +335,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       explain.close()
       return
     }
+    // Excel's Control+Page Down and Page Up: the next or the previous shown sheet, no further than the ends.
+    if (e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && (e.key === 'PageDown' || e.key === 'PageUp')) {
+      e.preventDefault()
+      const next = tabs.value[tabs.value.findIndex((t) => t.i === s.active.value) + (e.key === 'PageDown' ? 1 : -1)]
+      if (next) void pickSheet(next.i)
+      return
+    }
     // Excel's Reapply, Control+Alt+L on a Mac too: Cmd+Option+L is the browser's downloads.
     if (e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey && shortcutLetter(e) === 'l' && filter.active.value) {
       e.preventDefault()

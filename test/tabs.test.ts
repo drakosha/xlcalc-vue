@@ -30,6 +30,24 @@ function book(names: string[], refuse = false) {
 }
 
 describe('tabs', () => {
+  it('Control+Page Down and Page Up show the next and the previous shown sheet, as Excel, and stop at the ends', async () => {
+    const src = memorySource({ sheets: [{ name: 'A', cells: { A1: 1 } }, { name: 'B', cells: {}, hidden: true }, { name: 'C', cells: {} }] })
+    const w = await mountSheet(src)
+    const on = () => w.find('.xs-tab-on').text()
+    const press = async (k: string) => {
+      await w.find('.xs-scroller').trigger('keydown', { key: k, ctrlKey: true })
+      await settle()
+    }
+    await press('PageDown')
+    expect(on()).toBe('C')
+    await press('PageDown')
+    expect(on()).toBe('C')
+    await press('PageUp')
+    expect(on()).toBe('A')
+    await press('PageUp')
+    expect(on()).toBe('A')
+  })
+
   it('show with one sheet, as Excel; hideLoneTab hides them then, as the the app', async () => {
     expect(tabs(await mountSheet(one()))).toEqual(['Sheet1'])
     expect((await mountSheet(one(), { hideLoneTab: true })).find('.xs-tabs').exists()).toBe(false)

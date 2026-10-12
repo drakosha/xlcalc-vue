@@ -149,6 +149,13 @@ describe('shape of the sheet', () => {
 })
 
 describe('props and slots', () => {
+  it('a book of no sheets stops reading and shows an empty frame, not "Reading the book…" for ever', async () => {
+    const w = await mountSheet(memorySource({ sheets: [] }))
+    await settle()
+    expect(w.find('.xs-loading').exists()).toBe(false)
+    expect(w.findAll('.xs-tab')).toHaveLength(0)
+  })
+
   it('formulaBar: false hides the bar', async () => {
     const w = await mountSheet(memorySource({ sheets: [{ name: 'S', cells: { A1: 1 } }] }), { formulaBar: false })
     expect(w.find('.xs-bar').exists()).toBe(false)
