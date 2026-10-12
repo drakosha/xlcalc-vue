@@ -201,6 +201,11 @@ describe('Group and Ungroup', () => {
     await menuOn(num(w, 3), 'group')
     expect(w.find('.xs-message').text()).toBe(ruMessages.outlineDeepest)
     expect(outline).not.toHaveBeenCalled()
+    // with a line above it Excel deepens that line: sent
+    await num(w, 2).trigger('click')
+    await num(w, 3).trigger('click', { shiftKey: true })
+    await menuOn(num(w, 3), 'group')
+    expect(sent(outline)).toEqual([{ op: 'group', sheet: 'S', rows: '2:3' }])
   })
 
   it('by Excel’s keys over whole lines: Shift+Alt+→ and ←, Cmd+Shift+K and J (any layout)', async () => {

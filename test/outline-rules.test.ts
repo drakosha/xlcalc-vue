@@ -66,6 +66,9 @@ describe('Group and Ungroup', () => {
     for (let i = 1; i <= 7; i++) expect(rows.run({ op: 'group', rows: '3:6' })).toBeNull()
     expect(rows.run({ op: 'group', rows: '3:6' })).toMatch(/deeper than 7 levels/)
     expect(rows.state(7)).toBe('1:0 2:0 3:7 4:7 5:7 6:7 7:0')
+    // over lines at 7 and others Excel deepens the others and leaves those at 7 (xlcalc's docs/outline.md)
+    expect(rows.run({ op: 'group', rows: '2:6' })).toBeNull()
+    expect(rows.state(7)).toBe('1:0 2:1 3:7 4:7 5:7 6:7 7:0')
   })
 
   it('S2: Ungroup of lines in no group is refused; over a mix it lowers the grouped ones; over a part of a group that part', () => {

@@ -2,8 +2,8 @@
 // hidden lines, and the lines its commands change (Group, Ungroup, a group's button, a level button), as measured in Excel
 // for Windows 16 (build 20430, 12.10.2026); `MAX_LEVEL` serves the grid too. `./local` takes xlcalc's groups and commands,
 // whose measurements found more (its docs/outline.md): a summary line two groups share acts on its whole detail, Excel marks
-// a summary line once its detail is all hidden and keeps the mark inside a hidden group, Group deepens the lines beside those
-// at level 7, and a group at the sheet's edge has no button.
+// a summary line once its detail is all hidden and keeps the mark inside a hidden group, and a group at the sheet's edge
+// has no button.
 // TODO(xlcalc): the commands without the engine in `xlcalc/a1` would replace these, if the main entry has room (`outlineGroups` alone is 4.3 KB).
 import { MAX_COLS, MAX_ROWS, parseLines, parseRange } from 'xlcalc/a1'
 import type { OutlineChange, OutlineGroup, SheetOutline } from './source'
@@ -157,8 +157,10 @@ export function outlineEdit(lines: readonly OutlineLine[], after: boolean, chang
   if (change.op === 'group' || change.op === 'ungroup') {
     const parts = pieces(lines, a, b)
     if (change.op === 'group') {
-      if (parts.some((p) => (p.line?.level ?? 0) >= MAX_LEVEL)) return { ok: false, message: `The ${words} ${text} cannot be grouped deeper than ${MAX_LEVEL} levels` }
-      return { ok: true, axis, patches: parts.map((p) => ({ from: p.from, to: p.to, level: (p.line?.level ?? 0) + 1 })) }
+      // Excel refuses only when every line is at the deepest level; those that are stay there
+      const deeper = parts.filter((p) => (p.line?.level ?? 0) < MAX_LEVEL)
+      if (!deeper.length) return { ok: false, message: `The ${words} ${text} cannot be grouped deeper than ${MAX_LEVEL} levels` }
+      return { ok: true, axis, patches: deeper.map((p) => ({ from: p.from, to: p.to, level: (p.line?.level ?? 0) + 1 })) }
     }
     const grouped = parts.filter((p) => (p.line?.level ?? 0) > 0)
     if (!grouped.length) return { ok: false, message: `The ${words} ${text} are in no group` }

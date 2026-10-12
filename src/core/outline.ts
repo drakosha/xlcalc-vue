@@ -115,13 +115,14 @@ export function useOutline(s: SheetState, v: Viewport, sel: Selection, cmd: Comm
 
   /**
    * Group or Ungroup lines `first`..`last`. What Excel refuses is said here in the interface's language and not sent: a
-   * Group past the deepest level, an Ungroup of lines in no group.
+   * Group of lines all at the deepest level (inside one group of it, as such groups are its longest runs), an Ungroup of
+   * lines in no group.
    */
   function lines(op: OutlineOp, axis: OutlineAxis, first: number, last: number): void {
     if (!can.value) return
     const groups = outline.value?.[axis] ?? []
     const meets = (g: OutlineGroup) => g.from <= last && g.to >= first
-    if (op === 'group' && groups.some((g) => g.level >= MAX_LEVEL && meets(g))) return deps.notify(m().outlineDeepest)
+    if (op === 'group' && groups.some((g) => g.level >= MAX_LEVEL && g.from <= first && g.to >= last)) return deps.notify(m().outlineDeepest)
     if (op === 'ungroup' && !groups.some(meets)) return deps.notify(m().outlineNone)
     send(axis, (lines) => ({ op, sheet: s.sheetName.value, ...lines }) as OutlineChange, first, last)
   }
