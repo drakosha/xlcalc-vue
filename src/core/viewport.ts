@@ -1,17 +1,23 @@
-// What the grid draws now: frozen panes with the lock, the body's rows and columns under the scroll, and spacers for the rest.
+// What the grid draws now: frozen panes with the lock, the body's rows and columns under the scroll, spacers for the rest,
+// and the room of Excel's outline bars beside the numbers and above the letters.
 import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
-import type { SheetInfo } from '../source'
+import type { OutlineGroup, SheetInfo } from '../source'
 import type { Geometry } from './geometry'
 import type { Memory } from './storage'
 
 /** Height of the column letters row (fixed in CSS); frozen rows stick below it. */
 export const HEAD_H = 24
+/** A slot of an outline bar for each level, in px: Excel's buttons are about 13 px; a finger gets wider slots. */
+const OUTLINE_SLOT_PX = 16
+const OUTLINE_SLOT_TOUCH_PX = 22
 /** Rows and columns drawn beyond the screen, so a short scroll needs no re-render. */
 const RENDER_ROWS = 8
 const RENDER_COLS = 2
 
 export interface ViewportInput {
   sheet: ComputedRef<SheetInfo | null>
+  /** The the app's display filter in force: its rows are not the sheet's in order, so the rows' outline bar is not drawn. */
+  visible: Readonly<Ref<object | null>>
   rowCount: ComputedRef<number>
   colCount: ComputedRef<number>
   scrollTop: Ref<number>
@@ -43,6 +49,22 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     if (!narrow.value) return 56
     return clamp(String(i.rowCount.value).length * 7 + 12, 28, 56)
   })
+
+  // ── Excel's outline bars: a slot for each level of groups and one more (the level buttons 1…N+1) ──
+  const deepest = (groups: OutlineGroup[] | undefined) => (groups ?? []).reduce((n, g) => Math.max(n, g.level), 0)
+  /** Slots of the rows' bar (left of the numbers) and of the columns' bar (above the letters); 0 without groups. */
+  const outlineSlots = computed(() => {
+    const o = i.sheet.value?.outline
+    const rows = i.visible.value ? 0 : deepest(o?.rows)
+    const cols = deepest(o?.columns)
+    return { rows: rows ? rows + 1 : 0, cols: cols ? cols + 1 : 0 }
+  })
+  const slotPx = computed(() => (touch.value ? OUTLINE_SLOT_TOUCH_PX : OUTLINE_SLOT_PX))
+  const barW = computed(() => outlineSlots.value.rows * slotPx.value)
+  const barH = computed(() => outlineSlots.value.cols * slotPx.value)
+  /** The header's height (letters and the columns' bar) and the width left of the cells (the rows' bar and numbers). */
+  const headH = computed(() => HEAD_H + barH.value)
+  const leadW = computed(() => barW.value + numW.value)
 
   // ── freeze: from the book, with a lock to drop it; it drops by itself when it eats over half the frame ──
   const bookFreeze = computed(() => {
@@ -80,8 +102,8 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     return out
   })
   /** Sticky place of a frozen row or column: below the letters, right of the numbers. */
-  const stickyTop = (d: number) => `${HEAD_H + (geo.rowOffsets.value[d - 1] ?? 0)}px`
-  const stickyLeft = (c: number) => `${numW.value + (geo.offsets.value[c - 1] ?? 0)}px`
+  const stickyTop = (d: number) => `${headH.value + (geo.rowOffsets.value[d - 1] ?? 0)}px`
+  const stickyLeft = (c: number) => `${leadW.value + (geo.offsets.value[c - 1] ?? 0)}px`
 
   // ── the body: what is not frozen, under the scroll ──
   const bodyRow0 = computed(() => frozenRows.value + 1)
@@ -109,13 +131,19 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const bottomPad = computed(() => Math.max(0, (geo.rowOffsets.value[i.rowCount.value] ?? 0) - (geo.rowOffsets.value[lastRow.value] ?? 0)))
   const leftPad = computed(() => Math.max(0, (geo.offsets.value[firstCol.value - 1] ?? 0) - frozenW.value))
   const rightPad = computed(() => Math.max(0, (geo.offsets.value[i.colCount.value] ?? 0) - (geo.offsets.value[lastCol.value] ?? 0)))
-  const tableWidth = computed(() => numW.value + (geo.offsets.value[i.colCount.value] ?? 0))
+  const tableWidth = computed(() => leadW.value + (geo.offsets.value[i.colCount.value] ?? 0))
 
   return {
     showNums,
     narrow,
     touch,
     numW,
+    outlineSlots,
+    slotPx,
+    barW,
+    barH,
+    headH,
+    leadW,
     bookFreeze,
     freezeOn,
     readFreeze,

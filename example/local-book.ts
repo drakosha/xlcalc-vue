@@ -1,4 +1,5 @@
-// A synthetic ru-RU book for the local source: a showcase sheet (a table, a note, links, formats, conditional formats) and xlcalc's synthetic book.
+// A synthetic ru-RU book for the local source: a showcase sheet (a table, a note, links, formats, conditional formats), a
+// sheet of Excel's outline and xlcalc's synthetic book.
 import type { BookInput, CellInput, CellStyle, ConditionalFormat } from 'xlcalc'
 import { synthBook } from 'xlcalc/unstable/synth'
 
@@ -10,6 +11,38 @@ const RULES: ConditionalFormat[] = [
   { type: 'dataBar', ranges: ['B3:B7'], min: { type: 'autoMin' }, max: { type: 'autoMax' }, color: '#638EC6', border: '#638EC6' },
   { type: 'colorScale', ranges: ['D3:D7'], points: [{ value: { type: 'min' }, color: '#F8696B' }, { value: { type: 'percentile', value: '50' }, color: '#FFEB84' }, { value: { type: 'max' }, color: '#63BE7B' }] },
 ]
+
+/**
+ * Excel's outline over formulas: costs by item under two sections, each section's SUBTOTAL on its summary row, the sections
+ * under the total; the second section collapsed (its rows hidden, its summary row marked); months under their quarter.
+ */
+function outlineSheet(): BookInput['sheets'][number] {
+  const cells: Record<string, CellInput> = { A1: { value: 'Статья', style: 1 }, B1: { value: 'Янв', style: 1 }, C1: { value: 'Фев', style: 1 }, D1: { value: 'Мар', style: 1 }, E1: { value: 'Кв. 1', style: 1 } }
+  const sections: [string, string[], number][] = [
+    ['Закупки', ['Сырьё', 'Упаковка', 'Логистика'], 2],
+    ['Персонал', ['Оклады', 'Премии', 'Обучение'], 6],
+  ]
+  for (const [title, items, top] of sections) {
+    items.forEach((item, i) => {
+      const r = top + i
+      cells[`A${r}`] = { value: item }
+      for (const [k, col] of ['B', 'C', 'D'].entries()) cells[`${col}${r}`] = { value: 100 * (i + 1) + 10 * k + top, numberFormat: '#,##0' }
+      cells[`E${r}`] = { formula: `SUM(B${r}:D${r})`, numberFormat: '#,##0' }
+    })
+    const sum = top + items.length
+    cells[`A${sum}`] = { value: title, style: 3 }
+    for (const col of ['B', 'C', 'D', 'E']) cells[`${col}${sum}`] = { formula: `SUBTOTAL(9,${col}${top}:${col}${sum - 1})`, numberFormat: '#,##0', style: 3 }
+  }
+  cells.A10 = { value: 'Всего', style: 3 }
+  for (const col of ['B', 'C', 'D', 'E']) cells[`${col}10`] = { formula: `SUBTOTAL(9,${col}2:${col}9)`, numberFormat: '#,##0', style: 3 }
+  return {
+    name: 'Структура',
+    cells,
+    columns: { A: { width: 16 }, 'B:D': { outlineLevel: 1 } },
+    rows: { '2:4': { outlineLevel: 2 }, '5': { outlineLevel: 1 }, '6:8': { outlineLevel: 2, hidden: true }, '9': { outlineLevel: 1, collapsed: true } },
+    frozen: { rows: 1 },
+  }
+}
 
 /** The synthetic book of `rows` data rows, with a showcase sheet first and the data sheet's header frozen and formatted. */
 export function localBook(rows: number): BookInput {
@@ -59,5 +92,5 @@ export function localBook(rows: number): BookInput {
       ? { ...s, frozen: { rows: 1 }, columns: { A: { numberFormat: 14, width: 11 }, B: { width: 14 }, D: { numberFormat: '#,##0.00', width: 13 }, J: { numberFormat: 14, width: 11 } }, rows: { '1': { style: 1 } } }
       : s,
   )
-  return { ...book, locale: 'ru-RU', styles, sheets: [showcase, ...sheets] }
+  return { ...book, locale: 'ru-RU', styles, sheets: [showcase, outlineSheet(), ...sheets] }
 }

@@ -258,7 +258,7 @@
   padding: 0;
   border: 0;
 }
-/* The letters row is exactly HEAD_H (23 + border): frozen rows stick below it. */
+/* The letters row is exactly HEAD_H (23 + border), below the columns' outline bar: frozen rows stick below both. */
 .xs-table th.xs-head,
 .xs-table th.xs-corner {
   padding: 0 5px;
@@ -281,7 +281,7 @@
 }
 .xs-head {
   position: sticky;
-  top: 0;
+  top: var(--xs-outline-h, 0px);
   z-index: 4;
 }
 /* The letters cell lets its edge grip reach over its border line (the label clips itself), or the line could not be grabbed. */
@@ -295,13 +295,13 @@
 }
 .xs-num {
   position: sticky;
-  left: 0;
+  left: var(--xs-outline-w, 0px);
   z-index: 2;
 }
 .xs-corner {
   position: sticky;
-  top: 0;
-  left: 0;
+  top: var(--xs-outline-h, 0px);
+  left: var(--xs-outline-w, 0px);
   z-index: 6;
 }
 /* Frozen panes: rows stick vertically, columns sideways, the corner both. Layers: corner > letters, frozen rows > numbers, frozen columns > body. */
@@ -325,7 +325,7 @@
   background-color: var(--xs-head-bg);
 }
 .xs-num.xs-fz-corner {
-  left: 0;
+  left: var(--xs-outline-w, 0px);
   z-index: 5;
   background-color: var(--xs-head-bg);
 }

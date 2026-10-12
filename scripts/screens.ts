@@ -10,7 +10,7 @@ const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'test-results/screens')
 mkdirSync(out, { recursive: true })
 
-const SHEETS = ['Оформление', 'Форматы', 'Гистограммы', 'Ссылки', 'Примечания', 'Формулы', 'Объединения', 'Размеры', 'Закрепление', 'Таблица', 'Длинный лист', 'Запертые', 'Перелив', 'Плашка', 'Фильтр', 'Условное форматирование']
+const SHEETS = ['Оформление', 'Форматы', 'Гистограммы', 'Ссылки', 'Примечания', 'Формулы', 'Объединения', 'Размеры', 'Закрепление', 'Таблица', 'Длинный лист', 'Запертые', 'Перелив', 'Плашка', 'Фильтр', 'Условное форматирование', 'Группировка']
 const SIZES = [
   { name: '390', width: 390, height: 844, mobile: true },
   { name: '1920', width: 1920, height: 1200, mobile: false },
@@ -160,6 +160,22 @@ for (const size of SIZES) {
   await page.waitForSelector('[data-xs-wait]')
   await page.waitForTimeout(1600)
   await shot(page, size.name, '33-recompute')
+
+  // Excel's outline: a group's + (on a phone a tap beside it, within a finger's reach), then a columns' level button.
+  await open(page, 'Группировка!A1')
+  const plus = (await page.locator('.xs-ol-rows [data-xs-outline="6:9:2"]').boundingBox())!
+  if (size.mobile) await page.touchscreen.tap(plus.x + plus.width / 2 + 4, plus.y + plus.height / 2 + 15)
+  else await page.mouse.click(plus.x + plus.width / 2, plus.y + plus.height / 2)
+  await page.waitForFunction(() => [...document.querySelectorAll('.xs-num')].some((n) => n.textContent!.trim() === '7'), null, { timeout: 5000 })
+  await page.waitForTimeout(200)
+  await shot(page, size.name, '34-outline-expanded')
+  const level = page.locator('.xs-ol-levels-columns [data-xs-outline-level="3"]')
+  if (size.mobile) await level.tap()
+  else await level.click()
+  await page.waitForFunction(() => [...document.querySelectorAll('.xs-head')].some((h) => h.textContent!.trim() === 'G'), null, { timeout: 5000 })
+  await page.waitForTimeout(200)
+  await shot(page, size.name, '35-outline-level')
+  console.log(`outline ${size.name}: + ${size.mobile ? 'tapped 15 px below' : 'clicked'}, level 3 of the columns`)
 
   // Editing in place: typing over a cell, then the edit in flight.
   await open(page, 'Формулы!C2')

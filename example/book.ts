@@ -197,6 +197,57 @@ function sizes(): MemorySheet {
   }
 }
 
+/**
+ * Excel's outline: a budget's rows in two levels (items under their sections, the sections under the profit), the costs'
+ * items collapsed; months under their quarters, the second quarter collapsed, and both quarters under the half-year.
+ */
+function grouping(): MemorySheet {
+  const head = st({ font: { bold: true }, fill: { color: '#d9e1f2' }, border: { bottom: { style: 'thin' } } })
+  const total = st({ font: { bold: true } })
+  const sum = st({ font: { bold: true }, border: { top: { style: 'thin' } } })
+  const titles = ['Статья', 'Янв', 'Фев', 'Мар', 'Кв. 1', 'Апр', 'Май', 'Июн', 'Кв. 2', 'Полугодие']
+  const cells: Record<string, MemoryCell> = {}
+  titles.forEach((t, i) => (cells[cellAddress(1, i + 1)] = { value: t, style: head }))
+  const lines: [string, number[], number | undefined][] = [
+    ['Продукт А', [120, 130, 125, 140, 150, 160], undefined],
+    ['Продукт Б', [80, 85, 90, 95, 92, 99], undefined],
+    ['Продукт В', [40, 42, 47, 51, 55, 58], undefined],
+    ['Выручка', [], total],
+    ['Сырьё', [-60, -62, -64, -70, -72, -75], undefined],
+    ['Упаковка', [-12, -12, -13, -14, -14, -15], undefined],
+    ['Логистика', [-20, -21, -22, -24, -25, -26], undefined],
+    ['Зарплата', [-70, -70, -70, -72, -72, -72], undefined],
+    ['Расходы', [], total],
+    ['Прибыль', [], sum],
+  ]
+  const months = [2, 3, 4, 6, 7, 8]
+  const value = (r: number, c: number): number => {
+    const [, nums] = lines[r - 2]!
+    if (nums.length) return nums[months.indexOf(c)]!
+    if (r === 5) return value(2, c) + value(3, c) + value(4, c)
+    if (r === 10) return value(6, c) + value(7, c) + value(8, c) + value(9, c)
+    return value(5, c) + value(10, c)
+  }
+  lines.forEach(([name, , style], i) => {
+    const r = i + 2
+    cells[`A${r}`] = { value: name, style }
+    for (const c of months) cells[cellAddress(r, c)] = { value: value(r, c), style }
+    const q1 = value(r, 2) + value(r, 3) + value(r, 4)
+    const q2 = value(r, 6) + value(r, 7) + value(r, 8)
+    cells[cellAddress(r, 5)] = { value: q1, style: total }
+    cells[cellAddress(r, 9)] = { value: q2, style: total }
+    cells[cellAddress(r, 10)] = { value: q1 + q2, style: sum }
+  })
+  return {
+    name: 'Группировка',
+    cells,
+    widths: { A: 16, 'F:H': 0 },
+    heights: { '6:9': 0 },
+    freeze: { rows: 1, cols: 1 },
+    outline: { rows: { '2:4': 2, 5: 1, '6:9': 2, 10: 1 }, columns: { 'B:D': 2, E: 1, 'F:H': 2, I: 1 }, collapsed: ['10', 'I'] },
+  }
+}
+
 function freeze(): MemorySheet {
   const cells: Record<string, MemoryCell> = {}
   const head = st({ font: { bold: true }, fill: { color: '#d9e1f2' }, border: { bottom: { style: 'thin' } } })
@@ -290,6 +341,7 @@ export function allFormattingBook(longRows = 34_000): MemoryBook {
     formulas(),
     merges(),
     sizes(),
+    grouping(),
     { name: 'Скрытый', hidden: true, cells: { A1: { value: 'Скрытый лист: во вкладках его нет' } } },
     freeze(),
     table(),

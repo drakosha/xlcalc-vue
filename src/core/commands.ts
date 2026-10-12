@@ -1,7 +1,7 @@
-// Changes of the book the host or the grid's menus and keys ask for (format, structure, lines, undo and redo): each goes
+// Changes of the book the host or the grid's menus and keys ask for (format, structure, lines, outline, undo and redo): each goes
 // through the source as Control+Z goes, and the sheet is read again after one a window's cells cannot carry.
 import type { CellStyle } from 'xlcalc/contract'
-import type { EditOutcome, FormatPatch, LayoutChange, SheetOp } from '../source'
+import type { EditOutcome, FormatPatch, LayoutChange, OutlineChange, SheetOp } from '../source'
 import { fontToggle, type FontToggle } from '../toolbar'
 import { shortcutLetter, type Editing } from './editing'
 import type { Selection } from './selection'
@@ -22,6 +22,8 @@ export interface SheetViewApi {
   format(patches: SheetFormatPatch[]): Promise<EditOutcome | null>
   /** A structure operation of the source; the sheet shown after it is the one Excel shows. */
   structure(op: SheetOp): Promise<EditOutcome | null>
+  /** An outline command of the source (Group, Ungroup, a group's button, a level button); the sheet is read again after it. */
+  outline(change: OutlineChange): Promise<EditOutcome | null>
 }
 
 /** The sheet to show once the sheets are read again: by name, keeping the selection or starting over on it. */
@@ -43,7 +45,7 @@ export interface CommandsDeps {
 const FONT_KEYS: Record<string, FontToggle> = { b: 'bold', i: 'italic', u: 'underline' }
 
 export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: CommandsDeps) {
-  const can = (method: 'format' | 'structure' | 'layout'): boolean => !s.props.readOnly && typeof s.source()[method] === 'function'
+  const can = (method: 'format' | 'structure' | 'layout' | 'outline'): boolean => !s.props.readOnly && typeof s.source()[method] === 'function'
 
   /** A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload` meanwhile. */
   async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null): Promise<EditOutcome> {
@@ -85,6 +87,12 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     return change(() => call.call(s.source(), edit))
   }
 
+  async function outline(command: OutlineChange): Promise<EditOutcome | null> {
+    const call = s.source().outline
+    if (!call || !can('outline')) return null
+    return change(() => call.call(s.source(), command))
+  }
+
   /** Control+B, Control+I and Control+U (Cmd on a Mac, any layout): the font toggled over the selection by the active cell; true when taken. */
   function fontKey(e: KeyboardEvent): boolean {
     if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || !can('format')) return false
@@ -100,9 +108,10 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     redo: () => ed.stepHistory('redo'),
     format,
     structure,
+    outline,
   }
 
-  return { can, change, format, structure, layout, fontKey, api }
+  return { can, change, format, structure, layout, outline, fontKey, api }
 }
 
 export type Commands = ReturnType<typeof useCommands>

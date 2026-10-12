@@ -1,11 +1,13 @@
 <script setup lang="ts">
-// The grid: a real <table> with sticky letters and numbers, frozen panes, spacers for what is off screen, and the in-place field.
+// The grid: a real <table> with sticky letters and numbers, Excel's outline bars beside them, frozen panes, spacers for
+// what is off screen, and the in-place field.
 import { computed } from 'vue'
 import { colLetters } from 'xlcalc/a1'
-import { HEAD_H } from '../core/viewport'
 import { CfIcon } from './cf-icons'
 import { useSheetContext } from './context'
 import { IconFilter, IconSpinner } from './icons'
+import OutlineCell from './OutlineCell.vue'
+import OutlineLevels from './OutlineLevels.vue'
 
 const ctx = useSheetContext()
 const { v, geo, sel, views, ed } = ctx
@@ -29,7 +31,9 @@ const rows = computed(() => {
   if (v.bottomPad.value) out.push({ key: 'bp', d: 0, r: 0, frozen: false, pad: v.bottomPad.value })
   return out
 })
-const span = computed(() => (v.showNums.value ? 1 : 0) + cols.value.length)
+const span = computed(() => (v.barW.value ? 1 : 0) + (v.showNums.value ? 1 : 0) + cols.value.length)
+/** The outline bars' sizes for the sticky headers and numbers: left of the numbers, above the letters. */
+const barVars = computed(() => ({ width: v.tableWidth.value + 'px', '--xs-outline-w': v.barW.value + 'px', '--xs-outline-h': v.barH.value + 'px' }))
 const empty = computed(() => ctx.rowCount.value === 0 || ctx.colCount.value === 0)
 const freezeRows = computed(() => ctx.sheet.value?.freeze?.rows ?? 0)
 const freezeCols = computed(() => ctx.sheet.value?.freeze?.cols ?? 0)
@@ -45,8 +49,8 @@ const editorBox = computed(() => {
   if (d === undefined) return null
   const sp = views.spanOf(e.row, e.col)
   const frozen = d <= v.frozenRows.value || e.col <= v.frozenCols.value
-  const top = HEAD_H + (geo.rowOffsets.value[d - 1] ?? 0) + (d <= v.frozenRows.value ? ctx.scrollTop.value : 0)
-  const left = v.numW.value + (geo.offsets.value[e.col - 1] ?? 0) + (e.col <= v.frozenCols.value ? ctx.scrollLeft.value : 0)
+  const top = v.headH.value + (geo.rowOffsets.value[d - 1] ?? 0) + (d <= v.frozenRows.value ? ctx.scrollTop.value : 0)
+  const left = v.leadW.value + (geo.offsets.value[e.col - 1] ?? 0) + (e.col <= v.frozenCols.value ? ctx.scrollLeft.value : 0)
   const lines = e.text.split('\n')
   const longest = Math.max(...lines.map((l) => l.length))
   const room = Math.max(60, ctx.viewW.value - (left - ctx.scrollLeft.value) - 4)
@@ -125,13 +129,29 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
     @pointercancel="onUp"
   >
     <p v-if="empty && ctx.sheet.value" class="xs-empty">{{ m.empty }}</p>
-    <table v-else-if="ctx.sheet.value" class="xs-table" :style="{ width: v.tableWidth.value + 'px' }">
+    <table v-else-if="ctx.sheet.value" class="xs-table" :style="barVars">
       <colgroup>
+        <col v-if="v.barW.value" :style="{ width: v.barW.value + 'px' }" />
         <col v-if="v.showNums.value" :style="{ width: v.numW.value + 'px' }" />
         <col v-for="k in cols" :key="k.key" :style="{ width: k.w + 'px' }" />
       </colgroup>
       <thead>
+        <tr v-if="v.barH.value" class="xs-ol-head" :style="{ height: v.barH.value + 'px' }">
+          <th v-if="v.barW.value && v.showNums.value" class="xs-ol-corner"></th>
+          <OutlineLevels v-if="v.barW.value || v.showNums.value" axis="columns" :class="v.showNums.value ? 'xs-ol-over-nums' : ''" />
+          <template v-for="k in cols" :key="k.key">
+            <th v-if="k.c === 0" class="xs-ol xs-ol-columns"></th>
+            <OutlineCell
+              v-else
+              axis="columns"
+              :line="k.c"
+              :class="k.c <= v.frozenCols.value ? 'xs-ol-fz' : ''"
+              :style="k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : undefined"
+            />
+          </template>
+        </tr>
         <tr>
+          <OutlineLevels v-if="v.barW.value" axis="rows" />
           <th v-if="v.showNums.value" class="xs-corner" :title="m.selectAll" @click="sel.selectAll()"></th>
           <template v-for="k in cols" :key="k.key">
             <th v-if="k.c === 0" class="xs-head"></th>
@@ -175,6 +195,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
             <td :colspan="span"></td>
           </tr>
           <tr v-else :style="{ height: geo.heightOf(row.d) + 'px' }">
+            <OutlineCell v-if="v.barW.value" axis="rows" :line="row.r" :class="row.frozen ? 'xs-ol-fz' : ''" :style="row.frozen ? { top: v.stickyTop(row.d) } : undefined" />
             <th
               v-if="v.showNums.value"
               :class="['xs-num', row.frozen ? 'xs-fz-corner' : '', rowOn(row.r) ? 'xs-on' : '', row.d === freezeRows ? 'xs-fz-edge-b' : '']"

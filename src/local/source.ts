@@ -2,9 +2,10 @@
 // The session holds the book, computes it and answers windows, sheets and edits as Excel makes them; this side keeps
 // the sheets' shown values for search and the display filter, patched by the changes and dropped on a reload.
 import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
-import { cellAddress, linesKey, nameKey, parseCell, parseRange, rangeAddress } from 'xlcalc/a1'
-import type { CellEntry, CellUpdate, EditOutcome, FormatPatch, LayoutChange, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
+import { cellAddress, linesKey, nameKey, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
+import type { CellEntry, CellUpdate, EditOutcome, FormatPatch, LayoutChange, OutlineChange, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
 import { loadLocale } from './locale'
+import { outlineLayout, sheetOutline } from './outline'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { columnValuesOf, filterActive, filterKey, findIn, SheetValues, statsOf, visibleList } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
@@ -27,12 +28,14 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
 /** A sheet of the book's layout with where its cells end, as the component lists it. */
 function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
   const f = sheet.frozen
+  const outline = sheetOutline(sheet)
   return {
     name: sheet.name,
     maxRow: used.rows,
     maxCol: used.columns,
     ...(f ? { freeze: { rows: f.rows ?? 0, cols: f.columns ?? 0 } } : {}),
     ...(sheet.hidden ? { hidden: sheet.hidden } : {}),
+    ...(outline ? { outline } : {}),
   }
 }
 
@@ -305,6 +308,23 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
+  /** Excel's outline commands (`./outline`): one `setLayout` call, one step of the undo, then the sheets and windows are read again. */
+  async function outline(change: OutlineChange): Promise<EditOutcome> {
+    const s = await open()
+    try {
+      const sheet = (await s.getLayout()).sheets.find((x) => sameName(x.name, change.sheet))
+      if (!sheet) return failed(`No sheet ${change.sheet}`)
+      const got = outlineLayout(sheet, change)
+      if (!got.ok) return { ok: false, reason: 'refused', message: got.message }
+      if (!got.edits.length) return { ok: true, changes: [] }
+      const changes = take((await s.setLayout(got.edits)).changes)
+      reload()
+      return { ok: true, changes }
+    } catch (e) {
+      return outcomeOf(e, 'failed')
+    }
+  }
+
   async function freeze(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome> {
     const s = await open()
     const frozen = panes && (panes.rows > 0 || panes.cols > 0) ? { ...(panes.rows > 0 ? { rows: panes.rows } : {}), ...(panes.cols > 0 ? { columns: panes.cols } : {}) } : null
@@ -354,6 +374,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     structure: serial(structure),
     layout: serial(setLayout),
     format: serial(format),
+    outline: serial(outline),
     freeze: serial(freeze),
     get history() {
       return session?.history ?? { undo: 0, redo: 0 }
