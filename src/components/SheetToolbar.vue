@@ -3,6 +3,7 @@
 // horizontal alignment, wrapping and the number format of the selection the sheet's `state` event gives. On a narrow
 // frame what does not fit goes into a menu; on a finger every target is 44 × 44 px.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { SheetViewApi } from '../core/commands'
 import type { SheetViewState } from '../core/sheet'
 import { enMessages, type SheetMessages } from '../messages'
 import type { EditOutcome, FormatPatch } from '../source'
@@ -52,13 +53,18 @@ const props = withDefaults(
     messages?: Partial<SheetMessages>
     /** The number formats to offer, with their codes in the book's locale; without them there is no number format list. */
     numberFormats?: readonly ToolbarNumberFormat[]
+    /**
+     * The sheet (a `SheetView`'s template ref) to format, undo and redo through, as its keys do: it applies the outcome, sets
+     * the selection and shows a refusal itself. Without it the toolbar calls the source and emits `select` and `error`.
+     */
+    sheet?: SheetViewApi | null
   }>(),
-  { messages: undefined, numberFormats: undefined },
+  { messages: undefined, numberFormats: undefined, sheet: null },
 )
 const emit = defineEmits<{
-  /** Where the selection goes after an undo or a redo (`EditOutcome.select`), for the sheet's `focus`. */
+  /** Where the selection goes after an undo or a redo (`EditOutcome.select`), for the sheet's `focus`; not with `sheet`. */
   select: [place: { sheet: string; range: string }]
-  /** The source refused or failed a call: its message. */
+  /** The source refused or failed a call: its message; not with `sheet`, which shows it. */
   error: [message: string]
   /** A call is done: the host may give the grid its focus back. */
   done: []
@@ -165,16 +171,16 @@ onBeforeUnmount(() => {
   coarseQuery?.removeEventListener?.('change', onCoarse)
 })
 
-// ── calls ──
-async function run(call: () => Promise<EditOutcome>): Promise<EditOutcome> {
-  let out: EditOutcome
+// ── calls: through the sheet when there is one, else the source's own ──
+async function run(call: () => Promise<EditOutcome | null>): Promise<EditOutcome | null> {
+  let out: EditOutcome | null
   try {
     out = await call()
   } catch (e) {
     out = { ok: false, reason: 'failed', message: e instanceof Error ? e.message : '' }
   }
   tick.value++
-  if (!out.ok) emit('error', out.message || m.value.editFailed)
+  if (out && !out.ok && !props.sheet) emit('error', out.message || m.value.editFailed)
   emit('done')
   return out
 }
@@ -182,8 +188,9 @@ async function run(call: () => Promise<EditOutcome>): Promise<EditOutcome> {
 function apply(patches: FormatPatch[]): void {
   const st = props.state
   const format = props.source.format
+  const sheet = props.sheet
   if (!st || !format || !patches.length) return
-  void run(() => format.call(props.source, st.sheet, patches))
+  void run(() => (sheet ? sheet.format(patches) : format.call(props.source, st.sheet, patches)))
 }
 const over = (p: Omit<FormatPatch, 'range'>): FormatPatch[] => (props.state ? [{ range: props.state.ref, ...p }] : [])
 
@@ -191,11 +198,12 @@ const over = (p: Omit<FormatPatch, 'range'>): FormatPatch[] => (props.state ? [{
 let stepping = false
 async function step(kind: 'undo' | 'redo'): Promise<void> {
   const call = props.source[kind]
+  const sheet = props.sheet
   if (!call || stepping) return
   stepping = true
   try {
-    const out = await run(() => call.call(props.source))
-    if (out.ok && out.select) emit('select', out.select)
+    const out = await run(() => (sheet ? sheet[kind]() : call.call(props.source)))
+    if (out?.ok && out.select && !sheet) emit('select', out.select)
   } finally {
     stepping = false
   }

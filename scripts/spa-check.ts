@@ -2,6 +2,9 @@
 // Playwright on a desktop (1920 × 1200, mouse and keys) and a phone (390 × 844, touch). Each creates a ru-RU book, types
 // values and a formula, makes them bold and percent and draws outside borders from the toolbar, undoes and redoes, saves
 // the book, opens the saved file again (dropped on the page, or from the picker) and checks values and formatting.
+// Then the structure menu on a new book: on the desktop a row inserted by a right click (the formula under it moves),
+// a column hidden and shown, a sheet added by "+", renamed and deleted, a column fitted by a double click on its edge;
+// on the phone a row inserted from the menu a long press opens.
 // On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa.
 // Output: test-results/screens/spa-*.png and the saved files.
 import { mkdirSync } from 'node:fs'
@@ -58,11 +61,11 @@ const OUTSIDE = [
 /** Every button, field and list visible in the app bar and the toolbar (and its menus) at least 44 × 44 px; fields by their height. */
 async function checkTargets(page: Page, where: string): Promise<void> {
   const small = await page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('.spa-top button, .spa-top input:not([type=file]), .xs-toolbar button, .xs-toolbar select, .spa-dialog button, .spa-dialog select, .spa-choice')]
+    [...document.querySelectorAll<HTMLElement>('.spa-top button, .spa-top input:not([type=file]), .xs-toolbar button, .xs-toolbar select, .spa-dialog button, .spa-dialog select, .spa-choice, .xs-menu button, .xs-dialog button, .xs-dialog input, .xs-tabs button')]
       .filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
       .map((el) => {
         const r = el.getBoundingClientRect()
-        return { what: `${el.tagName.toLowerCase()}[${el.dataset.tb ?? el.dataset.spa ?? el.className}]`, w: Math.round(r.width), h: Math.round(r.height), field: el.matches('input, select, .spa-choice') }
+        return { what: `${el.tagName.toLowerCase()}[${el.dataset.tb ?? el.dataset.spa ?? el.dataset.xsMenu ?? el.className}]`, w: Math.round(r.width), h: Math.round(r.height), field: el.matches('input, select, .spa-choice, .xs-tab') }
       })
       .filter((b) => b.h < 44 || (!b.field && b.w < 44)),
   )
@@ -253,13 +256,146 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   await context.close()
 }
 
+/** A finger held still on an element for 0.7 s, as Chromium's touch input gets it. */
+async function longPress(page: Page, selector: string): Promise<void> {
+  const box = (await page.locator(selector).boundingBox())!
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] })
+  await page.waitForTimeout(700)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+}
+/** The letters of the column headers the grid draws, in order. */
+const letters = (page: Page) => page.evaluate(() => [...document.querySelectorAll('.xs-head .xs-head-label')].map((h) => h.textContent!.trim()))
+const tabNames = (page: Page) => page.evaluate(() => [...document.querySelectorAll('.xs-tab')].map((t) => t.textContent!.trim()))
+const activeTab = (page: Page) => page.evaluate(() => document.querySelector('.xs-tab-on')?.textContent?.trim())
+
+/** The structure menu on a new ru-RU book: rows, columns, sheets and the fit by a double click (on a phone a long press). */
+async function structureScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  let step = 0
+  const shot = (name: string) => page.screenshot({ path: resolve(out, `spa-${size.name}-s${String(++step).padStart(2, '0')}-${name}.png`) })
+  const at = (what: string) => `[${size.name} structure] ${what}`
+
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await press(page, size, '[data-spa="new"]')
+  await press(page, size, '[data-spa-locale="ru-RU"]')
+  await press(page, size, '[data-spa="create"]')
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await enter(page, size, '1:1', '1')
+  await enter(page, size, '2:1', '2')
+  await enter(page, size, '3:1', '=СУММ(A1:A2)')
+  await shows(page, '3:1', '3')
+  await ready(page)
+  // One sheet has its tab and "+", as in Excel.
+  expect(at('one sheet has its tab'), await tabNames(page), ['Лист1'])
+
+  // 1. A row inserted above row 2 from the menu: the sum moves to A4 and reads A1:A3.
+  if (size.phone) await longPress(page, '.xs-num[data-row="2"]')
+  else await page.locator('.xs-num[data-row="2"]').click({ button: 'right' })
+  await page.waitForSelector('[data-xs-menu="insert"]')
+  if (size.phone) {
+    await checkTargets(page, at('menu'))
+    await checkNoSideScroll(page, at('menu'))
+  }
+  await shot('row-menu')
+  await press(page, size, '[data-xs-menu="insert"]')
+  await shows(page, '4:1', '3')
+  await ready(page)
+  expect(at('the sum moved'), cellOf(await bookOf(page), 'A4').formula, 'SUM(A1:A3)')
+  await shot('row-inserted')
+  if (size.phone) {
+    // The width box of a letter's menu and a tab's menu, by finger too.
+    await longPress(page, '.xs-head[data-col="2"]')
+    await press(page, size, '[data-xs-menu="size"]')
+    await page.waitForSelector('[data-xs-dialog-input]')
+    await checkTargets(page, at('width box'))
+    await checkNoSideScroll(page, at('width box'))
+    await shot('width-box')
+    await press(page, size, '[data-xs-dialog-cancel]')
+    await longPress(page, '.xs-tab')
+    await page.waitForSelector('[data-xs-menu="rename"]')
+    await checkTargets(page, at('tab menu'))
+    await checkNoSideScroll(page, at('tab menu'))
+    await shot('tab-menu')
+    await page.locator('[data-cell="6:3"]').tap()
+    await page.waitForFunction(() => !document.querySelector('[data-xs-menu]'))
+    console.log(`${at('ok')}: a row inserted from the menu a long press opened; the width box and a tab's menu by finger`)
+    if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+    await context.close()
+    return
+  }
+
+  // 2. Column B hidden from its letter's menu, shown again over A:C.
+  await page.locator('.xs-head[data-col="2"]').click({ button: 'right' })
+  await page.locator('[data-xs-menu="hide"]').click()
+  await page.waitForFunction(() => !document.querySelector('.xs-head[data-col="2"]'))
+  await ready(page)
+  expect(at('B hidden'), (await letters(page)).slice(0, 3), ['A', 'C', 'D'])
+  await shot('column-hidden')
+  await page.locator('.xs-head[data-col="1"]').click()
+  await page.locator('.xs-head[data-col="3"]').click({ modifiers: ['Shift'] })
+  await page.locator('.xs-head[data-col="1"]').click({ button: 'right' })
+  await page.locator('[data-xs-menu="unhide"]').click()
+  await page.waitForSelector('.xs-head[data-col="2"]')
+  await ready(page)
+  expect(at('B shown'), (await letters(page)).slice(0, 3), ['A', 'B', 'C'])
+
+  // 3. A sheet added by "+", renamed on its tab, deleted: the sheet before it shows again.
+  await page.locator('[data-xs-add-sheet]').click()
+  await page.waitForFunction(() => document.querySelector('.xs-tab-on')?.textContent?.trim() === 'Лист2')
+  await ready(page)
+  await page.locator('.xs-tab-on').click({ button: 'right' })
+  await page.locator('[data-xs-menu="rename"]').click()
+  await page.locator('.xs-tab-input').fill('Totals')
+  await shot('rename')
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => document.querySelector('.xs-tab-on')?.textContent?.trim() === 'Totals')
+  await ready(page)
+  expect(at('tabs after rename'), await tabNames(page), ['Лист1', 'Totals'])
+  await page.locator('.xs-tab-on').click({ button: 'right' })
+  await shot('sheet-menu')
+  await page.locator('[data-xs-menu="deleteSheet"]').click()
+  await page.waitForFunction(() => document.querySelectorAll('.xs-tab').length === 1)
+  await ready(page)
+  expect(at('after delete'), [await tabNames(page), await activeTab(page)], [['Лист1'], 'Лист1'])
+
+  // 4. A long text in B1, then a double click on B's edge fits B to it.
+  await enter(page, size, '1:2', 'a much longer text than the column')
+  await shows(page, '1:2', 'a much longer text than the column')
+  await ready(page)
+  const widthOf = () => page.evaluate(() => document.querySelector<HTMLElement>('.xs-head[data-col="2"]')!.getBoundingClientRect().width)
+  const before = await widthOf()
+  await page.locator('.xs-head[data-col="2"] .xs-grip').dblclick()
+  await page.waitForFunction((w) => document.querySelector<HTMLElement>('.xs-head[data-col="2"]')!.getBoundingClientRect().width > w + 40, before)
+  await ready(page)
+  const fitted = (await bookOf(page)).sheets[0]!.columns?.B?.width
+  if (!(typeof fitted === 'number' && fitted > 20)) throw new Error(`${at('fit')}: B is ${fitted} wide in the book`)
+  await shot('fitted')
+  console.log(`${at('ok')}: row inserted (A4 is SUM(A1:A3)), B hidden and shown, sheet added, renamed and deleted, B fitted from ${Math.round(before)} px to ${Math.round(await widthOf())} px (${fitted})`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 await build({ configFile: config, logLevel: 'error' })
 const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error' })
 const base = server.resolvedUrls!.local[0]!
 const browser = await chromium.launch()
 try {
-  await scenario(browser, base, { name: '1920', width: 1920, height: 1200, phone: false })
-  await scenario(browser, base, { name: '390', width: 390, height: 844, phone: true })
+  const desktop = { name: '1920', width: 1920, height: 1200, phone: false }
+  const phone = { name: '390', width: 390, height: 844, phone: true }
+  await scenario(browser, base, desktop)
+  await scenario(browser, base, phone)
+  await structureScenario(browser, base, desktop)
+  await structureScenario(browser, base, phone)
 } finally {
   await browser.close()
   await new Promise<void>((done) => server.httpServer.close(() => done()))

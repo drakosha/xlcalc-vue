@@ -19,11 +19,14 @@ export function colPx(width: number | null | undefined): number {
   return Math.trunc(((256 * w + Math.trunc(128 / DIGIT_PX)) / 256) * DIGIT_PX)
 }
 
+/** A column's pixels as Excel's Column Width box shows them: characters of the default font, to a hundredth. */
+export const charsOfPx = (px: number): number => Math.max(0, Math.trunc(((px - 5) / DIGIT_PX) * 100 + 0.5) / 100)
+
+/** Characters typed into the Column Width box to the stored width, as Excel records it. */
+export const widthFromChars = (chars: number): number => Math.trunc(((chars * DIGIT_PX + 5) / DIGIT_PX) * 256) / 256
+
 /** Pixels back to the stored width, as Excel records a width set with the mouse. */
-export function widthFromPx(px: number): number {
-  const chars = Math.trunc(((px - 5) / DIGIT_PX) * 100 + 0.5) / 100
-  return Math.trunc(((chars * DIGIT_PX + 5) / DIGIT_PX) * 256) / 256
-}
+export const widthFromPx = (px: number): number => widthFromChars(charsOfPx(px))
 
 /** Points to pixels at 96 dpi. */
 export const rowPx = (pt: number): number => (pt <= 0 ? 0 : Math.round((pt * 4) / 3))

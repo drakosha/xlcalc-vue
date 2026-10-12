@@ -1,8 +1,9 @@
 // Selection as in Excel: a rectangle from the active cell to the other corner, by cells, rows and columns, with Shift and drag.
 // It is kept in the sheet's rows; keys move along the display rows, so under a filter the next row is the next shown one.
+// Whole columns and rows reach Excel's last row and column, as Excel selects them; what is drawn stops at the grid's end.
 import { computed, nextTick } from 'vue'
-import { rangeAddress } from 'xlcalc/a1'
-import type { CellRect } from 'xlcalc/contract'
+import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
+import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { colPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
 import { HEAD_H, type Viewport } from './viewport'
@@ -11,18 +12,30 @@ import { HEAD_H, type Viewport } from './viewport'
 const REVEAL_PAD = 24
 
 export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
-  const selRect = computed<CellRect | null>(() => {
+  /** The selection as Excel holds it: whole columns reach the last row, whole rows the last column. */
+  const fullRect = computed<CellRect | null>(() => {
     const a = s.selected.value
     if (!a) return null
     const b = s.extent.value ?? a
     return { top: Math.min(a.row, b.row), left: Math.min(a.col, b.col), bottom: Math.max(a.row, b.row), right: Math.max(a.col, b.col) }
   })
+  /** The same cut to the grid's end, for what draws, counts and copies it. */
+  const selRect = computed<CellRect | null>(() => {
+    const r = fullRect.value
+    if (!r) return null
+    return { ...r, bottom: r.bottom >= MAX_ROWS ? Math.max(r.top, s.lastRow.value) : r.bottom, right: r.right >= MAX_COLS ? Math.max(r.left, s.colCount.value) : r.right }
+  })
+  /** Whole columns (`B:D`) or rows (`2:5`) the selection is, as their headers select them; null for a range of cells. */
+  const wholeColumns = computed(() => (fullRect.value && fullRect.value.top === 1 && fullRect.value.bottom >= MAX_ROWS ? { first: fullRect.value.left, last: fullRect.value.right } : null))
+  const wholeRows = computed(() => (fullRect.value && fullRect.value.left === 1 && fullRect.value.right >= MAX_COLS ? { first: fullRect.value.top, last: fullRect.value.bottom } : null))
   const multi = computed(() => {
     const r = selRect.value
     return !!r && (r.top !== r.bottom || r.left !== r.right)
   })
   /** `B12`, `B12:D15`, or `B:D` and `2:9` over every row or column, as Excel writes a range. */
-  const selectionRef = computed(() => (selRect.value ? rangeAddress(selRect.value) : ''))
+  const selectionRef = computed(() => (fullRect.value ? rangeAddress(fullRect.value) : ''))
+  /** The selection cut to the grid, as a range: what a source counts. */
+  const gridRef = computed(() => (selRect.value ? rangeAddress(selRect.value) : ''))
   const isActive = (row: number, col: number) => s.selected.value?.row === row && s.selected.value?.col === col
 
   function pickCell(row: number, col: number, extend = false): void {
@@ -32,27 +45,31 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
       s.extent.value = null
     }
   }
-  /** A whole column (a click on its letter) or row (on its number). */
+  /** Whole columns (a click on a letter, Shift from the active cell's column) or rows (on a number). */
   function pickColumn(col: number, extend = false): void {
-    const last = s.lastRow.value
-    if (extend && s.selected.value) s.extent.value = { row: last, col }
-    else {
-      s.selected.value = { row: 1, col }
-      s.extent.value = { row: last, col }
-    }
+    const from = extend && s.selected.value ? s.selected.value.col : col
+    s.selected.value = { row: 1, col: from }
+    s.extent.value = { row: MAX_ROWS, col }
   }
   function pickRow(row: number, extend = false): void {
-    const last = Math.max(1, s.colCount.value)
-    if (extend && s.selected.value) s.extent.value = { row, col: last }
-    else {
-      s.selected.value = { row, col: 1 }
-      s.extent.value = { row, col: last }
-    }
+    const from = extend && s.selected.value ? s.selected.value.row : row
+    s.selected.value = { row: from, col: 1 }
+    s.extent.value = { row, col: MAX_COLS }
   }
   function selectAll(): void {
     s.selected.value = { row: 1, col: 1 }
-    s.extent.value = { row: s.lastRow.value, col: Math.max(1, s.colCount.value) }
+    s.extent.value = { row: MAX_ROWS, col: MAX_COLS }
   }
+  /** Select a rectangle; one over every row or column stays whole, the grid stretches to its finite corner. */
+  function selectRect(r: CellRect): void {
+    const bottom = r.bottom >= MAX_ROWS ? MAX_ROWS : r.bottom
+    const right = r.right >= MAX_COLS ? MAX_COLS : r.right
+    s.stretch(bottom >= MAX_ROWS ? r.top : bottom, right >= MAX_COLS ? r.left : right)
+    s.selected.value = { row: r.top, col: r.left }
+    s.extent.value = r.top === bottom && r.left === right ? null : { row: bottom, col: right }
+  }
+  /** A corner of the selection cut to the grid: keys move from where the grid shows it. */
+  const onGrid = (p: CellPosition): CellPosition => ({ row: p.row >= MAX_ROWS ? s.lastRow.value : p.row, col: p.col >= MAX_COLS ? Math.max(1, s.colCount.value) : p.col })
 
   // A mouse drags the corner; a finger scrolls from the same pointerdown, so touch picks by a tap (click) and never drags.
   let dragging = false
@@ -126,8 +143,9 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
 
   /** Arrow keys and the like: move the active cell, or the corner with Shift; true when the key was one of them. */
   function navKey(e: KeyboardEvent): boolean {
-    const a = s.extent.value ?? s.selected.value
-    if (!a || s.rowCount.value === 0) return false
+    const corner = s.extent.value ?? s.selected.value
+    if (!corner || s.rowCount.value === 0) return false
+    const a = onGrid(corner)
     let d = s.indexOf(a.row) ?? 1
     let col = a.col
     const page = Math.max(1, Math.floor((s.viewH.value - HEAD_H - v.frozenH.value) / s.defaultRowPx.value))
@@ -186,7 +204,29 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     void nextTick(() => revealCell(row, col))
   }
 
-  return { selRect, multi, selectionRef, isActive, pickCell, pickColumn, pickRow, selectAll, onCellDown, onCellTap, onGridMove, onGridUp, revealCell, measure, navKey, step }
+  return {
+    fullRect,
+    selRect,
+    wholeColumns,
+    wholeRows,
+    multi,
+    selectionRef,
+    gridRef,
+    isActive,
+    pickCell,
+    pickColumn,
+    pickRow,
+    selectAll,
+    selectRect,
+    onCellDown,
+    onCellTap,
+    onGridMove,
+    onGridUp,
+    revealCell,
+    measure,
+    navKey,
+    step,
+  }
 }
 
 export type Selection = ReturnType<typeof useSelection>

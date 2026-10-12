@@ -27,6 +27,18 @@ Editing takes Excel's keys: typing over a cell, F2 or a double click opens the f
 - A successful outcome's `select` is where the selection goes after a paste, a fill, an undo or an edit; on another sheet the component goes there as the address box does. A selection moved while the call was out stays where it was moved.
 - A window's `editText` is the text a cell opens with, and the formula bar shows the same text, as Excel's does; a cell left out of it opens empty, and a `CellUpdate` with `editText` changes it. Without it the component writes the text from the formula and the value.
 - A column whose width is `null` in a window is 8.83203125, xlcalc's default (Excel for Mac, Calibri 11), which is 62 px.
+- Control+B, Control+I and Control+U (Cmd on a Mac, any keyboard layout) on the grid toggle bold, italic and underline over the selection by the active cell's look, through `format`, as the toolbar's buttons do. Without `format` the browser keeps the keys.
+- A click on a column letter or a row number selects the whole line to Excel's last row or column, so the `state` event and the address box give `B:D`, `2:5` or `1:1048576` for the whole sheet, and formatting goes on the lines.
+
+## Rows, columns and sheets
+
+A right click on a row number or a column letter, or a finger held on it for half a second, opens Excel's menu for the selected lines (a line outside a selection of whole lines is selected first): Insert and Delete as many lines as are selected through `structure(op)`, Row Height or Column Width in Excel's units (points; characters of the default font, the width Excel's box shows) with Excel's limits, Hide, and Unhide on a selection over hidden lines, through `layout(change)`; a size of 0 hides the lines. The same on a tab makes that sheet the active one and offers Insert (before it, under Excel's next name: `Sheet4`, `Лист4` with `ruMessages`), Delete (asked first when the sheet has data), Rename (in place on the tab, a double click too), Move Left and Move Right among the shown tabs, Hide, and Unhide with the list of hidden sheets. A refusal shows the source's message (`./local` gives the library's, in the book's locale), and after a change the sheet reads its sheets and windows again unless the source sent `reload`. The sheet shown after is Excel's: a sheet inserted or unhidden, and for one deleted or hidden the next shown sheet, or the one before it at the end. Without `structure` or `layout` their items are gone, without both the browser's own menu stays, and a read-only sheet has none.
+
+The tabs show with one sheet too and end with "+", which inserts a sheet at the end and shows it (with `structure`); hidden sheets are not on them. A double click on a column's edge fits the column to what it shows through `layout({ columns, fit: true })`, every selected whole column when it is one of them, as Excel does; without `layout` it brings back the book's width. Two properties of `SheetView` give back the the app's ways: `hide-lone-tab` (no tabs for a book of one sheet) and `edge-restores-width` (the double click brings back the book's width).
+
+## The sheet's methods
+
+`SheetView` exposes `undo()`, `redo()`, `format(patches)` and `structure(op)` through a template ref. Each goes through the source as the sheet's own keys go: the outcome is applied, its selection set without the flash and the step back that `focus` makes, a refusal shown in the sheet's message line, and after `format` or `structure` the sheet reads itself again unless the source sent `reload`. `format` formats the active sheet: a patch without `range` goes over the selection as Excel writes it (`B:B`, `2:5`). Each returns the source's outcome, or null when nothing was sent (no such method, a read-only sheet, an undo still out).
 
 ## The formatting toolbar: `SheetToolbar`
 
@@ -35,25 +47,26 @@ Editing takes Excel's keys: typing over a cell, F2 or a double click opens the f
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue'
-import { SheetToolbar, SheetView, ruMessages, type SheetViewState } from 'xlcalc-sheet'
+import { SheetToolbar, SheetView, ruMessages, type SheetViewApi, type SheetViewState } from 'xlcalc-sheet'
 
 // source: a SheetSource with format, such as localSource(book); formats: the number formats to offer (below)
 const state = ref<SheetViewState | null>(null)
+const sheet = ref<SheetViewApi | null>(null)
 </script>
 
 <template>
-  <SheetToolbar :source="source" :state="state" :messages="ruMessages" :number-formats="formats" />
-  <SheetView :source="source" :messages="ruMessages" @state="state = $event" />
+  <SheetToolbar :source="source" :sheet="sheet" :state="state" :messages="ruMessages" :number-formats="formats" />
+  <SheetView ref="sheet" :source="source" :messages="ruMessages" @state="state = $event" />
 </template>
 ```
 
-The main entry has no engine, so it does not know what code a built-in format shows by in a locale: the host passes the number formats to offer as `numberFormats`, each with what it sets (a code, or a built-in format's number) and the code a cell shows by with it (`{ kind: 'date', format: 14, code: 'dd.mm.yyyy' }` in ru-RU), and the list selects the one whose code the active cell has (General without one, Custom for any other). Without `numberFormats` there is no list; `example/spa-book.ts` builds them with xlcalc's `builtinFormatCode` and `parseEntry`. The toolbar emits `select` with where the selection goes after an undo or a redo (the example passes it to the sheet's `focus` as `'Sheet name'!B2:D5`), `error` with a source's refusal and `done` after each call, for the host to give the grid its focus back. Its buttons do not take the focus from the grid. Under 600 px it keeps undo, redo, bold, italic and underline in a row and the rest in a menu; on a narrow frame or under a finger every target is 44 × 44 px.
+The main entry has no engine, so it does not know what code a built-in format shows by in a locale: the host passes the number formats to offer as `numberFormats`, each with what it sets (a code, or a built-in format's number) and the code a cell shows by with it (`{ kind: 'date', format: 14, code: 'dd.mm.yyyy' }` in ru-RU), and the list selects the one whose code the active cell has (General without one, Custom for any other). Without `numberFormats` there is no list; `example/spa-book.ts` builds them with xlcalc's `builtinFormatCode` and `parseEntry`. With `sheet` (the sheet's template ref) the toolbar formats, undoes and redoes through the sheet's methods (above): the sheet sets the selection and shows a refusal itself. Without it the toolbar calls the source and emits `select` with where the selection goes after an undo or a redo (for the sheet's `focus`) and `error` with a source's refusal. It emits `done` after each call, for the host to give the grid its focus back. Its buttons do not take the focus from the grid. Under 600 px it keeps undo, redo, bold, italic and underline in a row and the rest in a menu; on a narrow frame or under a finger every target is 44 × 44 px.
 
 ## The example: an app like Excel
 
-`example/spa.html` is an app like Excel over the local source, all in the browser: New (an empty book in English or Russian), Open (the picker, or an xlsx file dropped on the page), Save as (the book with its values as `<name>.xlsx`, under the name in the bar), a notice of what the file lost, the toolbar, the sheet with its formula bar, tabs and selection totals, a status bar (ready, or calculating while a book opens or a change is out) and the book's settings (its language, in which formulas, numbers and dates are typed and shown; the book opens again in it). It speaks Russian or English by the browser's language (`?lang=ru` or `?lang=en` chooses).
+`example/spa.html` is an app like Excel over the local source, all in the browser: New (an empty book in English or Russian), Open (the picker, or an xlsx file dropped on the page), Save as (the book with its values as `<name>.xlsx`, under the name in the bar), a notice of what the file lost, the toolbar (through the sheet's methods), the sheet with its formula bar, tabs, the structure menu on row numbers, column letters and tabs, and selection totals, a status bar (ready, or calculating while a book opens or a change is out) and the book's settings (its language, in which formulas, numbers and dates are typed and shown; the book opens again in it). It speaks Russian or English by the browser's language (`?lang=ru` or `?lang=en` chooses).
 
-`npm run dev:example` serves it at `http://localhost:5181/spa.html`. `npm run build:example` builds it into `example/dist`, which any static server serves (`npx vite preview --config vite.example.config.ts`, or `python3 -m http.server -d example/dist`); there is no server of its own. `npm run check:spa` builds it, serves it and drives it in Chromium at 1920 × 1200 and on a phone at 390 × 844 by touch: a ru-RU book, values and a formula, bold, percent, outside borders, undo, redo, Save as, and the saved file opened again, with screenshots of each step in `test-results/screens/spa-*.png`.
+`npm run dev:example` serves it at `http://localhost:5181/spa.html`. `npm run build:example` builds it into `example/dist`, which any static server serves (`npx vite preview --config vite.example.config.ts`, or `python3 -m http.server -d example/dist`); there is no server of its own. `npm run check:spa` builds it, serves it and drives it in Chromium at 1920 × 1200 and on a phone at 390 × 844 by touch: a ru-RU book, values and a formula, bold, percent, outside borders, undo, redo, Save as, and the saved file opened again; then the structure menu (a row inserted by a right click and by a long press, a column hidden and shown, a sheet added, renamed and deleted, a column fitted by a double click), with screenshots of each step in `test-results/screens/spa-*.png`.
 
 ## A book computed in the browser: `xlcalc-sheet/local`
 

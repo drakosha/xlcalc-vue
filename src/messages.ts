@@ -33,13 +33,44 @@ export interface SheetMessages {
   statsCells: (n: string) => string
   sheetTitle: (name: string, rows: number, cols: number) => string
   sheetUnnamed: (n: number) => string
+  /** "+" after the tabs, and the word a new sheet's name begins with (Excel's `Sheet4`, `Лист4`). */
+  insertSheet: string
+  sheetNamePrefix: string
+  /** The structure menu on row numbers, column letters and tabs, as Excel names its items. */
+  menu: string
+  menuInsert: string
+  menuDelete: string
+  menuColumnWidth: string
+  menuRowHeight: string
+  menuHide: string
+  menuUnhide: string
+  menuRename: string
+  menuMoveLeft: string
+  menuMoveRight: string
+  menuUnhideSheet: string
+  /** The size boxes: their labels in Excel's units and the limits. */
+  columnWidth: string
+  rowHeight: string
+  widthRange: string
+  heightRange: string
+  ok: string
+  cancel: string
+  /** The question before a sheet with data is deleted, and the list of hidden sheets. */
+  deleteSheet: string
+  deleteSheetText: (name: string) => string
+  unhideSheet: string
+  rename: string
   selectColumn: string
   selectRow: string
   selectAll: string
   resize: string
+  /** A column's edge where a double click fits the column to what it shows. */
+  resizeFit: string
   conflict: string
   locked: (reason: string) => string
   editFailed: string
+  /** A paste whose rectangle would go past the sheet's last row or column. */
+  pasteOffSheet: string
   tooManyCells: string
   pending: string
   close: string
@@ -148,13 +179,38 @@ export const enMessages: SheetMessages = {
   statsCells: (n) => `Cells: ${n}`,
   sheetTitle: (name, rows, cols) => `${name}: ${rows} ${rows === 1 ? 'row' : 'rows'}, ${cols} ${cols === 1 ? 'column' : 'columns'}`,
   sheetUnnamed: (n) => `Sheet ${n}`,
+  insertSheet: 'New sheet',
+  sheetNamePrefix: 'Sheet',
+  menu: 'Rows, columns and sheets',
+  menuInsert: 'Insert',
+  menuDelete: 'Delete',
+  menuColumnWidth: 'Column Width…',
+  menuRowHeight: 'Row Height…',
+  menuHide: 'Hide',
+  menuUnhide: 'Unhide',
+  menuRename: 'Rename',
+  menuMoveLeft: 'Move Left',
+  menuMoveRight: 'Move Right',
+  menuUnhideSheet: 'Unhide…',
+  columnWidth: 'Column width, in characters',
+  rowHeight: 'Row height, in points',
+  widthRange: 'Column width must be between 0 and 255',
+  heightRange: 'Row height must be between 0 and 409',
+  ok: 'OK',
+  cancel: 'Cancel',
+  deleteSheet: 'Delete the sheet',
+  deleteSheetText: (name) => `The sheet “${name}” will be deleted with its data.`,
+  unhideSheet: 'Unhide a sheet',
+  rename: 'The sheet’s name',
   selectColumn: 'Click selects the column',
   selectRow: 'Click selects the row',
   selectAll: 'Click selects the whole sheet',
   resize: 'Drag to change the width; a double click restores the book’s width',
+  resizeFit: 'Drag to change the width; a double click fits it to the contents',
   conflict: 'The book was changed elsewhere: check and press Enter again',
   locked: (reason) => `This cell cannot be changed: ${reason}`,
   editFailed: 'The edit did not go through',
+  pasteOffSheet: 'Cannot paste here: the data would go past the edge of the sheet',
   tooManyCells: 'Too many cells for one edit',
   pending: 'Saving…',
   close: 'Close',
@@ -274,13 +330,38 @@ export const ruMessages: SheetMessages = {
   sheetTitle: (name, rows, cols) =>
     `${name}: ${rows} ${plural(rows, 'строка', 'строки', 'строк')}, ${cols} ${plural(cols, 'колонка', 'колонки', 'колонок')}`,
   sheetUnnamed: (n) => `Лист ${n}`,
+  insertSheet: 'Новый лист',
+  sheetNamePrefix: 'Лист',
+  menu: 'Строки, колонки и листы',
+  menuInsert: 'Вставить',
+  menuDelete: 'Удалить',
+  menuColumnWidth: 'Ширина колонки…',
+  menuRowHeight: 'Высота строки…',
+  menuHide: 'Скрыть',
+  menuUnhide: 'Показать',
+  menuRename: 'Переименовать',
+  menuMoveLeft: 'Переместить влево',
+  menuMoveRight: 'Переместить вправо',
+  menuUnhideSheet: 'Показать…',
+  columnWidth: 'Ширина колонки, в знаках',
+  rowHeight: 'Высота строки, в пунктах',
+  widthRange: 'Ширина колонки должна быть от 0 до 255',
+  heightRange: 'Высота строки должна быть от 0 до 409',
+  ok: 'ОК',
+  cancel: 'Отмена',
+  deleteSheet: 'Удалить лист',
+  deleteSheetText: (name) => `Лист «${name}» будет удалён вместе с данными.`,
+  unhideSheet: 'Показать лист',
+  rename: 'Имя листа',
   selectColumn: 'Щелчок выделяет колонку',
   selectRow: 'Щелчок выделяет строку',
   selectAll: 'Щелчок выделяет весь лист',
   resize: 'Потяните, чтобы изменить ширину. Двойной щелчок вернёт ширину из книги',
+  resizeFit: 'Потяните, чтобы изменить ширину. Двойной щелчок подберёт ширину по содержимому',
   conflict: 'Книгу изменили в другом месте: проверьте и нажмите Enter ещё раз',
   locked: (reason) => `Эту ячейку менять нельзя: ${reason}`,
   editFailed: 'Правка не прошла',
+  pasteOffSheet: 'Вставить нельзя: данные выйдут за край листа',
   tooManyCells: 'Слишком много ячеек для одной правки',
   pending: 'Сохраняю…',
   close: 'Закрыть',

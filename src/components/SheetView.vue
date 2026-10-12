@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // A book's sheet over a SheetSource: the formula bar, the grid with windows, styles and editing, the tabs, and messages.
 import { getCurrentInstance, provide } from 'vue'
+import type { SheetViewApi } from '../core/commands'
 import { useSheet, type SheetEmit, type SheetLinkEvent, type SheetViewState } from '../core/sheet'
 import type { SheetFailure, SheetViewProps } from '../core/state'
 import { sheetContextKey } from './context'
@@ -8,6 +9,7 @@ import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
 import FormulaBar from './FormulaBar.vue'
 import SheetGrid from './SheetGrid.vue'
+import SheetMenu from './SheetMenu.vue'
 import SheetTabs from './SheetTabs.vue'
 import { IconClose, IconRetry, IconSpinner } from './icons'
 
@@ -19,6 +21,8 @@ const props = withDefaults(defineProps<SheetViewProps>(), {
   readOnly: false,
   formulaBar: true,
   locale: undefined,
+  hideLoneTab: false,
+  edgeRestoresWidth: false,
 })
 const emit = defineEmits<{
   state: [state: SheetViewState | null]
@@ -34,6 +38,7 @@ const instance = getCurrentInstance()
 const hostLinks = () => typeof instance?.vnode.props?.onOpenLink === 'function' || Array.isArray(instance?.vnode.props?.onOpenLink)
 const ctx = useSheet(props, emit as SheetEmit, hostLinks)
 provide(sheetContextKey, ctx)
+defineExpose<SheetViewApi>(ctx.cmd.api)
 const m = ctx.messages
 const failure = ctx.failure
 const message = ctx.message
@@ -70,6 +75,7 @@ const wait = ctx.w.wait
       </div>
       <SheetTabs />
       <FilterPopover />
+      <SheetMenu />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>
         <button type="button" class="xs-tool" :title="m.close" @click="ctx.dismiss()">

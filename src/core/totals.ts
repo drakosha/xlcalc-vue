@@ -40,7 +40,7 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection, notify: (te
 
   // ── totals from the source ──
   const fromSource = shallowRef<{ key: string; stats: RangeStats } | null>(null)
-  const statsKey = () => `${s.sheetName.value}\u0000${sel.selectionRef.value}\u0000${s.visible.value?.key ?? ''}`
+  const statsKey = () => `${s.sheetName.value}\u0000${sel.gridRef.value}\u0000${s.visible.value?.key ?? ''}`
   let statsTimer: ReturnType<typeof setTimeout> | null = null
   let statsCtrl: AbortController | null = null
   watch(
@@ -51,7 +51,7 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection, notify: (te
       const stats = s.source().stats
       if (!key || !stats) return
       const sheet = s.sheetName.value
-      const range = sel.selectionRef.value
+      const range = sel.gridRef.value
       const filter = s.visible.value?.spec
       statsTimer = setTimeout(() => {
         const ctrl = (statsCtrl = new AbortController())

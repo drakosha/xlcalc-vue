@@ -252,15 +252,38 @@ describe('column width with the mouse', () => {
     expect(localStorage.getItem('k:widths:S')).toBeNull()
   })
 
-  it('with `layout` the width goes to the source in its units', async () => {
+  it('with `layout` the width goes to the source in its units; edgeRestoresWidth: a double click restores the book width', async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { C3: 'x' } }] })
     const layout = vi.spyOn(source, 'layout')
-    const w = await mountSheet(source, { storageKey: 'k' })
+    const w = await mountSheet(source, { storageKey: 'k', edgeRestoresWidth: true })
     await drag(w, 2, 38)
     expect(layout).toHaveBeenCalledWith({ sheet: 'S', columns: 'B', width: widthFromPx(100) })
     expect(localStorage.getItem('k:widths:S')).toBeNull()
     await w.findAll('.xs-head')[1]!.find('.xs-grip').trigger('dblclick')
     expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', width: widthFromPx(62) })
+  })
+
+  it('a double click on an edge fits the column through `layout`, as Excel; every selected whole column when it is one of them', async () => {
+    const source = memorySource({ sheets: [{ name: 'S', cells: { C3: 'x' } }] })
+    const layout = vi.spyOn(source, 'layout')
+    const sheets = vi.spyOn(source, 'sheets')
+    const w = await mountSheet(source)
+    const grip = (col: number) => w.findAll('.xs-head')[col - 1]!.find('.xs-grip')
+    const reads = sheets.mock.calls.length
+    await grip(2).trigger('dblclick')
+    await settle()
+    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', fit: true })
+    // The source tells nothing: the sheet reads its widths again itself.
+    expect(sheets.mock.calls.length).toBe(reads + 1)
+    await w.findAll('.xs-head')[1]!.trigger('click')
+    await w.findAll('.xs-head')[3]!.trigger('click', { shiftKey: true })
+    await grip(3).trigger('dblclick')
+    await settle()
+    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B:D', fit: true })
+    await grip(5).trigger('dblclick')
+    await settle()
+    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'E', fit: true })
+    expect(layout).toHaveBeenCalledTimes(3)
   })
 
   it("a column without a width of its own is the library's default, 8.83203125 (62 px)", async () => {

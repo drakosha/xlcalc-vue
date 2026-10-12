@@ -1,8 +1,9 @@
 // The active cell's formula in pieces with clickable references, and the formula's ranges highlighted on the grid as in Excel.
 import { computed, shallowRef, watch, type Ref } from 'vue'
 import { nameKey, parseCell, sameName } from 'xlcalc/a1'
-import type { GridReference, Locale, ScanOptions } from 'xlcalc/contract'
+import type { GridReference, ScanOptions } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
+import { LOCALE_MODULES } from '../locales'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
@@ -19,10 +20,6 @@ const REF_COLORS = ['#2563eb', '#dc2626', '#7c3aed', '#16a34a', '#ea580c', '#089
 /** How many formulas of a selection are read and how many ranges painted: past that it is noise and slow. */
 const PRECEDENT_CELLS_MAX = 500
 const PRECEDENT_RANGES_MAX = 24
-/** xlcalc's locale modules by tag, for reading formula text typed in the locale; each a chunk of its own, loaded for a book in it. */
-const LOCALES: Record<string, () => Promise<Locale>> = {
-  'ru-RU': () => import('xlcalc/locales/ru-RU').then((m) => m.ruRU),
-}
 
 /** A reference's key: equal references (`A1`, `$A$1`; a sheet in any case) get one colour. */
 const refKey = (r: GridReference): string => `${r.sheet === undefined ? '' : nameKey(r.sheet)}!${r.top}:${r.left}:${r.bottom}:${r.right}`
@@ -43,7 +40,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
   watch(
     s.locale,
     (tag) => {
-      const load = LOCALES[tag]
+      const load = LOCALE_MODULES[tag]
       scan.value = load ? null : {}
       if (!load) return
       // A module that fails to load leaves the text read as stored: addresses read alike in every locale.

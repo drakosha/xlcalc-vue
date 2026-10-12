@@ -17,6 +17,7 @@ const book = (): MemoryBook => ({
   ],
 })
 const active = (w: VueWrapper) => w.find('.xs-cell.xs-active').attributes('data-cell')
+const addressOf = (w: VueWrapper) => (w.find('.xs-address').element as HTMLInputElement).value
 const sel = (w: VueWrapper) => w.findAll('.xs-cell.xs-sel').map((c) => c.attributes('data-cell'))
 async function goTo(w: VueWrapper, address: string): Promise<void> {
   const input = w.find('.xs-address')
@@ -122,6 +123,29 @@ describe('selection', () => {
     expect(address()).toBe('B:B')
     await w.findAll('.xs-num')[1]!.trigger('click')
     expect(address()).toBe('2:2')
+  })
+
+  it('whole columns and rows of a small sheet stay whole, as Excel writes them: B:D, 2:5, the sheet, after the grid grows too', async () => {
+    const states: { ref: string }[] = []
+    const f = fakeSource([{ name: 'S', maxRow: 10, maxCol: 5 }])
+    const w = await mountSheet(f.source, { onState: (s: { ref: string } | null) => s && states.push(s) })
+    const ref = () => states.at(-1)!.ref
+    await w.findAll('.xs-head')[1]!.trigger('click')
+    expect([ref(), addressOf(w)]).toEqual(['B:B', 'B:B'])
+    await w.findAll('.xs-head')[3]!.trigger('click', { shiftKey: true })
+    expect(ref()).toBe('B:D')
+    await w.findAll('.xs-num')[1]!.trigger('click')
+    await w.findAll('.xs-num')[4]!.trigger('click', { shiftKey: true })
+    expect(ref()).toBe('2:5')
+    await w.find('.xs-corner').trigger('click')
+    expect(ref()).toBe('1:1048576')
+    await goTo(w, 'C:C')
+    expect(ref()).toBe('C:C')
+    expect(sel(w)).toContain('20:3')
+    // Data grows past the grid's rows: the column stays whole.
+    f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: 'A400', text: 'x', value: 'x' }] })
+    await settle()
+    expect(ref()).toBe('C:C')
   })
 
   it('a selection larger than the loaded windows shows only its size', async () => {

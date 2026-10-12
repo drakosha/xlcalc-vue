@@ -70,6 +70,40 @@ function openFunnel(e: MouseEvent, c: number): void {
   const th = (e.currentTarget as HTMLElement).closest('th')
   void ctx.filter.openFunnel(c, th?.getBoundingClientRect())
 }
+// ── the structure menu on numbers and letters: a right click, or a finger held still ──
+/** The row number or column letter an event is on (not its edge or funnel). */
+function headerOf(e: Event): { kind: 'rows' | 'columns'; line: number } | null {
+  const el = e.target as HTMLElement
+  const th = el.closest?.<HTMLElement>('th[data-row], th[data-col]')
+  if (!th || el.closest('.xs-grip, .xs-funnel')) return null
+  return th.dataset.row ? { kind: 'rows', line: Number(th.dataset.row) } : { kind: 'columns', line: Number(th.dataset.col) }
+}
+function onContext(e: MouseEvent): void {
+  const h = headerOf(e)
+  if (!h || !ctx.menu.linesAvailable.value) return
+  e.preventDefault()
+  ctx.menu.pressCancel()
+  // A browser that opens its own menu on a long press sends this after ours opened.
+  if (!ctx.menu.afterPress()) ctx.menu.openLines(h.kind, h.line, e.clientX, e.clientY)
+}
+function onDown(e: PointerEvent): void {
+  const h = headerOf(e)
+  if (h && ctx.menu.linesAvailable.value) ctx.menu.pressStart(e, (x, y) => ctx.menu.openLines(h.kind, h.line, x, y))
+}
+function onMove(e: PointerEvent): void {
+  sel.onGridMove(e)
+  ctx.menu.pressMove(e)
+}
+function onUp(): void {
+  sel.onGridUp()
+  ctx.menu.pressCancel()
+}
+/** A click on a letter or a number selects its line; the lift of a long press that opened the menu does not. */
+function pickLine(kind: 'rows' | 'columns', line: number, extend: boolean): void {
+  if (ctx.menu.afterPress()) return
+  if (kind === 'rows') sel.pickRow(line, extend)
+  else sel.pickColumn(line, extend)
+}
 const setCellInput = (el: unknown) => (ctx.cellInput.value = (el as HTMLTextAreaElement | null) ?? null)
 const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | null) ?? null)
 </script>
@@ -83,9 +117,11 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
     @keydown="ctx.onGridKey"
     @copy="ctx.totals.onCopy"
     @paste="ed.onPaste"
-    @pointermove="sel.onGridMove"
-    @pointerup="sel.onGridUp"
-    @pointercancel="sel.onGridUp"
+    @contextmenu="onContext"
+    @pointerdown="onDown"
+    @pointermove="onMove"
+    @pointerup="onUp"
+    @pointercancel="onUp"
   >
     <p v-if="empty && ctx.sheet.value" class="xs-empty">{{ m.empty }}</p>
     <table v-else-if="ctx.sheet.value" class="xs-table" :style="{ width: v.tableWidth.value + 'px' }">
@@ -103,7 +139,8 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
               :class="['xs-head', k.c <= v.frozenCols.value ? 'xs-fz-col' : '', colOn(k.c) ? 'xs-on' : '', k.c === freezeCols ? 'xs-fz-edge-r' : '', filtered(k.c) ? 'xs-filtered' : '']"
               :style="k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : undefined"
               :title="m.selectColumn"
-              @click="sel.pickColumn(k.c, $event.shiftKey)"
+              :data-col="k.c"
+              @click="pickLine('columns', k.c, $event.shiftKey)"
             >
               <span class="xs-head-label"
                 >{{ headLabel(k.c) }}<span v-if="ctx.filter.sort.value?.col === k.c" class="xs-sortmark">{{ ctx.filter.sort.value.dir === 'asc' ? '↑' : '↓' }}</span></span
@@ -119,13 +156,13 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
               </button>
               <span
                 class="xs-grip"
-                :title="m.resize"
+                :title="ctx.fitsOnEdge.value ? m.resizeFit : m.resize"
                 @pointerdown="ctx.startResize($event, k.c)"
                 @pointermove="ctx.onResizeMove"
                 @pointerup="ctx.endResize"
                 @pointercancel="ctx.endResize"
                 @click.stop
-                @dblclick.stop="ctx.resetWidth(k.c)"
+                @dblclick.stop="ctx.onEdgeDouble(k.c)"
               ></span>
             </th>
           </template>
@@ -142,7 +179,8 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
               :class="['xs-num', row.frozen ? 'xs-fz-corner' : '', rowOn(row.r) ? 'xs-on' : '', row.d === freezeRows ? 'xs-fz-edge-b' : '']"
               :style="row.frozen ? { top: v.stickyTop(row.d) } : undefined"
               :title="m.selectRow"
-              @click="sel.pickRow(row.r, $event.shiftKey)"
+              :data-row="row.r"
+              @click="pickLine('rows', row.r, $event.shiftKey)"
             >
               <div class="xs-in xs-top" :style="{ height: Math.max(0, geo.heightOf(row.d) - 3) + 'px' }">
                 <span>{{ row.r }}</span>
