@@ -45,7 +45,8 @@ export interface NavigationDeps {
 
 export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: NavigationDeps) {
   const history = ref<Place[]>([])
-  const flash = ref<CellRect | null>(null)
+  /** The range just jumped to, on its sheet: another sheet shown while it flashes has none. */
+  const flash = ref<{ sheet: string; rect: CellRect } | null>(null)
   let flashTimer: ReturnType<typeof setTimeout> | null = null
 
   /** Remember where we stand before a jump. */
@@ -80,8 +81,9 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     if (flashTimer) clearTimeout(flashTimer)
     // Reset and set in different ticks, so a second jump to the same place restarts the animation.
     flash.value = null
+    const sheet = s.sheetName.value
     void nextTick(() => {
-      flash.value = range
+      flash.value = { sheet, rect: range }
       flashTimer = setTimeout(() => (flash.value = null), FLASH_MS)
     })
   }

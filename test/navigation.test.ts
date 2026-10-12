@@ -43,6 +43,16 @@ describe('address box and history', () => {
     expect(active(w)).toBe('2:2')
   })
 
+  it('the flash stays on its sheet: another sheet shown while it lasts has none', async () => {
+    const w = await mountSheet(memorySource(book()), { readOnly: true })
+    await goTo(w, 'A1:B3')
+    expect(w.findAll('.xs-flash').length).toBe(6)
+    await w.findAll('.xs-tab').find((t) => t.text() === 'Two sheet')!.trigger('click')
+    await settle()
+    expect(w.find('.xs-tab-on').text()).toBe('Two sheet')
+    expect(w.findAll('.xs-flash').length).toBe(0)
+  })
+
   it('a sheet alone switches the tab; a bad address says so', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true, messages: { addressBad: 'Bad address' } })
     await goTo(w, "'Two sheet'")

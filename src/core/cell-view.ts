@@ -240,7 +240,7 @@ export function useCellView(
       'xs-cell',
       active ? 'xs-active' : '',
       rect && rectContains(rect, at) ? 'xs-sel' : '',
-      fl && rectContains(fl, at) ? 'xs-flash' : '',
+      fl && fl.sheet === s.sheetName.value && rectContains(fl.rect, at) ? 'xs-flash' : '',
       deps.find.hitSet.value.has(hitKey) ? 'xs-hit' : '',
       deps.find.current.value === hitKey ? 'xs-hit-now' : '',
       pendingText !== undefined ? 'xs-pending' : '',
