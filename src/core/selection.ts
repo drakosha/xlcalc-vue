@@ -1,7 +1,7 @@
 // Selection as in Excel: a rectangle from the active cell to the other corner, by cells, rows and columns, with Shift and drag.
 // It is kept in the sheet's rows; keys move along the display rows, so under a filter the next row is the next shown one.
 // Whole columns and rows reach Excel's last row and column, as Excel selects them; what is drawn stops at the grid's end.
-import { computed, nextTick } from 'vue'
+import { computed, nextTick, watch } from 'vue'
 import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { colPx, type Geometry } from './geometry'
@@ -14,11 +14,15 @@ const REVEAL_PAD = 24
 export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   /** The selection as Excel holds it: whole columns reach the last row, whole rows the last column. */
   const fullRect = computed<CellRect | null>(() => {
-    const a = s.selected.value
-    if (!a) return null
-    const b = s.extent.value ?? a
+    const sa = s.selected.value
+    if (!sa) return null
+    const a = s.anchor.value ?? sa
+    const b = s.extent.value ?? sa
     return { top: Math.min(a.row, b.row), left: Math.min(a.col, b.col), bottom: Math.max(a.row, b.row), right: Math.max(a.col, b.col) }
   })
+  // Any other move of the active cell or the corner starts the rectangle from the active cell again.
+  let inside = false
+  watch([() => s.selected.value, () => s.extent.value], () => !inside && (s.anchor.value = null), { flush: 'sync' })
   /** The same cut to the grid's end, for what draws, counts and copies it. */
   const selRect = computed<CellRect | null>(() => {
     const r = fullRect.value
@@ -193,15 +197,55 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     revealCell(row, col)
     return true
   }
-  /** Enter and Tab: the active cell one step down or right (back with Shift), the selection collapses to it. */
+  /** Enter and Tab: the active cell one step down or right (back with Shift); a selection of one cell collapses to it, one of several keeps it. */
   function step(dr: -1 | 0 | 1, dc: -1 | 0 | 1): void {
     const a = s.selected.value
     if (!a) return
+    const r = selRect.value
+    // under a display filter the selection's sheet rows are not its rows on screen: it collapses as before
+    if (multi.value && r && !s.visible.value) return stepInside(a, r, dr, dc)
     const d = s.indexOf(a.row) ?? 1
     const row = s.rowOf(dr ? geo.nextRow(d, dr) : d)
     const col = dc ? geo.nextCol(a.col, dc) : a.col
     pickCell(row, col)
     if (!s.visible.value) s.stretch(row, col)
+    void nextTick(() => revealCell(row, col))
+  }
+
+  /**
+   * Excel's Enter and Tab in a selection of several cells: the active cell moves inside it, down its column and on to the
+   * next column's top (Tab: along its row, on to the next row's start), back with Shift, round past the end, hidden lines
+   * skipped; the selection stays. Without a display filter a display index is the sheet's row.
+   */
+  function stepInside(a: CellPosition, r: CellRect, dr: -1 | 0 | 1, dc: -1 | 0 | 1): void {
+    const firstRow = (dir: 1 | -1) => (geo.heightOf(dir > 0 ? r.top : r.bottom) > 0 ? (dir > 0 ? r.top : r.bottom) : geo.nextRow(dir > 0 ? r.top : r.bottom, dir))
+    const firstCol = (dir: 1 | -1) => (geo.widthOf(dir > 0 ? r.left : r.right) > 0 ? (dir > 0 ? r.left : r.right) : geo.nextCol(dir > 0 ? r.left : r.right, dir))
+    const inRows = (x: number, from: number) => x !== from && x >= r.top && x <= r.bottom
+    const inCols = (x: number, from: number) => x !== from && x >= r.left && x <= r.right
+    let { row, col } = a
+    if (dr) {
+      const n = geo.nextRow(row, dr)
+      if (inRows(n, row)) row = n
+      else {
+        const c = geo.nextCol(col, dr)
+        col = inCols(c, col) ? c : firstCol(dr)
+        row = firstRow(dr)
+      }
+    } else if (dc) {
+      const c = geo.nextCol(col, dc)
+      if (inCols(c, col)) col = c
+      else {
+        const n = geo.nextRow(row, dc)
+        row = inRows(n, row) ? n : firstRow(dc)
+        col = firstCol(dc)
+      }
+    }
+    const full = fullRect.value!
+    const far = s.extent.value ?? a
+    inside = true
+    s.anchor.value ??= { row: far.row === full.top ? full.bottom : full.top, col: far.col === full.left ? full.right : full.left }
+    s.selected.value = { row, col }
+    inside = false
     void nextTick(() => revealCell(row, col))
   }
 

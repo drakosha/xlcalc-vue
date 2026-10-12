@@ -64,7 +64,7 @@ describe('a source without edit', () => {
     await goTo(w, 'B2')
     await key(w, 'b', { ctrlKey: true })
     expect(await api(w).format([{ style: { font: { bold: true } } }])).toBeNull()
-    expect(await api(w).structure({ op: 'insertRows', sheet: 'S', at: 2, count: 1 } as SheetOp)).toBeNull()
+    expect(await api(w).structure({ op: 'insertRows', sheet: 'S', row: 2, count: 1 })).toBeNull()
     expect(await api(w).freezePanes()).toBeNull()
     await w.find('.xs-num').trigger('contextmenu', { button: 2, clientX: 20, clientY: 40 })
     await settle()

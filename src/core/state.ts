@@ -94,6 +94,8 @@ export function createState(props: SheetViewProps) {
   /** The active cell and the selection's other corner. */
   const selected = ref<CellPosition | null>(null)
   const extent = ref<CellPosition | null>(null)
+  /** The selection's corner across from `extent` once Enter or Tab moved the active cell inside it; null: the active cell is that corner. */
+  const anchor = ref<CellPosition | null>(null)
 
   /** Ways back into modules made later: dropping the filter when a jump needs a row it hides; a change of the cells on its way from the sheet (Excel's copy mode ends). */
   const hooks = { unfilter: (_row: number): void => {}, changing: (): void => {} }
@@ -146,6 +148,7 @@ export function createState(props: SheetViewProps) {
     defaultRowPx,
     selected,
     extent,
+    anchor,
     hooks,
     grow,
     stretch,

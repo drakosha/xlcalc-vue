@@ -193,6 +193,41 @@ describe('selection', () => {
 })
 
 describe('keys on an editable sheet', () => {
+  it('Enter and Tab move the active cell inside a selection of several cells, which stays, round past its end, as Excel', async () => {
+    const w = await mountSheet(memorySource(book()))
+    const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
+    await goTo(w, 'B2:C3')
+    const all = ['2:2', '2:3', '3:2', '3:3']
+    const steps: string[] = []
+    for (let i = 0; i < 4; i++) {
+      await key('Enter')
+      steps.push(active(w)!)
+      expect(sel(w).sort()).toEqual(all)
+    }
+    // down the column, then the top of the next, then round to the first
+    expect(steps).toEqual(['3:2', '2:3', '3:3', '2:2'])
+    await key('Tab')
+    expect(active(w)).toBe('2:3')
+    await key('Tab')
+    expect(active(w)).toBe('3:2')
+    // back with Shift: up the column; left along the row and round to the last cell
+    await key('Enter', { shiftKey: true })
+    expect(active(w)).toBe('2:2')
+    await key('Tab', { shiftKey: true })
+    expect(active(w)).toBe('3:3')
+    expect(sel(w).sort()).toEqual(all)
+    // a value typed and entered goes to the active cell, and Enter goes on inside the selection
+    await key('7')
+    await w.find('.xs-editor').trigger('keydown', { key: 'Enter' })
+    await settle()
+    expect(w.find('[data-cell="3:3"]').text()).toBe('7')
+    expect(active(w)).toBe('2:2')
+    expect(sel(w).sort()).toEqual(all)
+    // an arrow drops the selection to the active cell's move
+    await key('ArrowRight')
+    expect(sel(w)).toEqual(['2:3'])
+  })
+
   it('an arrow without Shift moves from the active cell, not from the selection\'s far corner, as Excel', async () => {
     const w = await mountSheet(memorySource(book()))
     const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
