@@ -2,11 +2,10 @@
 // The session holds the book, computes it and answers windows, sheets and edits as Excel makes them; this side keeps
 // the sheets' shown values for search and the display filter, and the texts cells open with for Find in formulas and
 // Replace, patched by the changes and dropped on a reload.
-import { createInlineCalc, FUNCTION_NAMES, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
-import { cellAddress, linesKey, nameKey, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
-import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
+import { createInlineCalc, FUNCTION_NAMES, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type LineSpan, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { cellAddress, colLetters, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
+import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetOutline, SourceEvent, WindowRequest } from '../source'
 import { loadLocale } from './locale'
-import { outlineLayout, sheetOutline } from './outline'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { columnValuesOf, filterActive, filterKey, findIn, replaceIn, SheetValues, statsOf, visibleList } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
@@ -32,7 +31,7 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
 /** A sheet of the book's layout with where its cells end, as the component lists it. */
 function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
   const f = sheet.frozen
-  const outline = sheetOutline(sheet)
+  const outline = outlineOf(sheet)
   return {
     name: sheet.name,
     maxRow: used.rows,
@@ -43,11 +42,50 @@ function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
   }
 }
 
-/** Lines as `setLayout` names them (`C`, `B:D`; `5`, `5:9`) from what the component sends (`C`, `C:C`, `3:4`). */
-function linesOf(text: string, axis: 'columns' | 'rows'): string | null {
+/** A sheet's groups as xlcalc draws them (`outlineGroups`, Excel's marks), in the contract's terms; none without groups. */
+function outlineOf(sheet: SheetLayout): SheetOutline | undefined {
+  const { rows, columns } = outlineGroups(sheet)
+  if (!rows.length && !columns.length) return undefined
+  const groups = (list: typeof rows) => list.map((g) => ({ from: g.first, to: g.last, level: g.level, collapsed: g.collapsed }))
+  return { rows: groups(rows), columns: groups(columns), summaryBelow: sheet.outline?.summaryBelow ?? true, summaryRight: sheet.outline?.summaryRight ?? true }
+}
+
+/** The lines of one axis the component sends (`C`, `C:C`, `B:D`; `3:4`), or null. */
+function spanOf(text: string, axis: 'columns' | 'rows'): LineSpan | null {
   const got = parseRange(text.includes(':') ? text : `${text}:${text}`)
   if (got?.kind !== axis) return null
-  return axis === 'columns' ? linesKey(got.left, got.right, axis) : linesKey(got.top, got.bottom, axis)
+  return axis === 'columns' ? { first: got.left, last: got.right } : { first: got.top, last: got.bottom }
+}
+
+/** Lines as `setLayout` and the structure operations name them (`C`, `B:D`; `5`, `5:9`) from what the component sends. */
+function linesOf(text: string, axis: 'columns' | 'rows'): string | null {
+  const span = spanOf(text, axis)
+  return span && linesKey(span.first, span.last, axis)
+}
+
+/**
+ * Excel's outline command as xlcalc's structure operation (its docs/outline.md), or why there is none. A group's button is
+ * Show or Hide Detail at its summary line, the group found among the sheet's groups by its lines and level; a group at the
+ * sheet's edge has no summary line and, as in Excel, no button.
+ */
+async function outlineOp(s: AsyncSession, change: OutlineChange): Promise<SheetOp | EditOutcome> {
+  const { sheet } = change
+  const refused = (message: string): EditOutcome => ({ ok: false, reason: 'refused', message })
+  if (change.op === 'showLevel') return change.axis === 'rows' ? { op: 'showLevels', sheet, rows: change.level } : { op: 'showLevels', sheet, columns: change.level }
+  const [axis, text] = 'rows' in change ? (['rows', change.rows] as const) : (['columns', change.columns] as const)
+  const span = spanOf(text, axis)
+  if (!span) return refused(`Not ${axis}: ${text}`)
+  if (!('level' in change)) {
+    const lines = linesKey(span.first, span.last, axis)
+    return axis === 'rows' ? { op: change.op, sheet, rows: lines } : { op: change.op, sheet, columns: lines }
+  }
+  const layout = (await s.getLayout()).sheets.find((x) => sameName(x.name, sheet))
+  if (!layout) return failed(`No sheet ${sheet}`)
+  const g = outlineGroups(layout)[axis].find((x) => x.first === span.first && x.last === span.last && x.level === change.level)
+  if (!g) return refused(`No group of level ${change.level} over the ${axis} ${text}`)
+  if (g.summary === null) return refused(`The group of ${axis} ${text} has no summary ${axis === 'rows' ? 'row' : 'column'}, past the sheet's edge: Excel draws no button for it`)
+  const op = change.op === 'collapse' ? 'hideDetail' : 'showDetail'
+  return axis === 'rows' ? { op, sheet, row: g.summary } : { op, sheet, column: colLetters(g.summary) }
 }
 
 /**
@@ -391,18 +429,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
-  /** Excel's outline commands (`./outline`): one `setLayout` call, one step of the undo, then the sheets and windows are read again. */
+  /** Excel's outline commands as xlcalc's (`outlineOp`): a structure operation, one step of the undo with SUBTOTAL and AGGREGATE recomputed; a refusal is the library's, in the book's language. */
   async function outline(change: OutlineChange): Promise<EditOutcome> {
     const s = await open()
     try {
-      const sheet = (await s.getLayout()).sheets.find((x) => sameName(x.name, change.sheet))
-      if (!sheet) return failed(`No sheet ${change.sheet}`)
-      const got = outlineLayout(sheet, change)
-      if (!got.ok) return { ok: false, reason: 'refused', message: got.message }
-      if (!got.edits.length) return { ok: true, changes: [] }
-      const changes = take((await s.setLayout(got.edits)).changes)
-      reload()
-      return { ok: true, changes }
+      const op = await outlineOp(s, change)
+      return 'ok' in op ? op : await structure(op)
     } catch (e) {
       return outcomeOf(e, 'failed')
     }
