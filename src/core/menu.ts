@@ -99,16 +99,6 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     open.value = { kind: 'cells', x, y, first: 0, last: 0 }
   }
 
-  /** Whether lines first..last hold a hidden one the grid knows of (a size of 0). */
-  function hiddenIn(axis: 'rows' | 'columns', first: number, last: number): boolean {
-    if (axis === 'columns') {
-      for (let c = first; c <= Math.min(last, s.colCount.value); c++) if (geo.widthOf(c) === 0) return true
-      return false
-    }
-    for (const [r, px] of s.heights.value) if (px === 0 && r >= first && r <= last) return true
-    return false
-  }
-
   const items = computed<MenuItem[]>(() => {
     const o = open.value
     if (!o) return []
@@ -155,8 +145,9 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
       out.push(
         { id: 'size', label: axis === 'rows' ? m().menuRowHeight : m().menuColumnWidth, run: () => openSize(axis, first, last), group: out.length > 0 },
         { id: 'hide', label: m().menuHide, run: () => void cmd.layout({ sheet, ...lines, hidden: true }) },
+        // always there, as Excel's: the grid knows a hidden line only from the windows it has read
+        { id: 'unhide', label: m().menuUnhide, run: () => void cmd.layout({ sheet, ...lines, hidden: false }) },
       )
-      if (hiddenIn(axis, first, last)) out.push({ id: 'unhide', label: m().menuUnhide, run: () => void cmd.layout({ sheet, ...lines, hidden: false }) })
     }
     if (cmd.can('outline')) {
       out.push(

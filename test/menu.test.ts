@@ -55,7 +55,7 @@ describe('the menu on row numbers and column letters', () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await context(num(w, 3))
-    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'group', 'ungroup'])
+    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'unhide', 'group', 'ungroup'])
     await pick('insert')
     await num(w, 2).trigger('click')
     await num(w, 4).trigger('click', { shiftKey: true })
@@ -153,7 +153,7 @@ describe('the menu on row numbers and column letters', () => {
     const plain = memorySource(book())
     const w = await mountSheet(plain)
     await context(num(w, 2))
-    expect(items()).toEqual(['size', 'hide', 'group', 'ungroup'])
+    expect(items()).toEqual(['size', 'hide', 'unhide', 'group', 'ungroup'])
     document.body.innerHTML = ''
     delete (plain as { layout?: unknown }).layout
     delete (plain as { outline?: unknown }).outline
@@ -201,13 +201,13 @@ describe('a finger’s long press', () => {
     await num(w, 3).trigger('pointermove', touch(23, 32))
     await wait(560)
     await settle()
-    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'group', 'ungroup'])
+    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'unhide', 'group', 'ungroup'])
     // The lift and the browser's own context menu after it belong to the press: the selection stays, the menu too.
     await num(w, 3).trigger('pointerup', touch())
     await num(w, 3).trigger('contextmenu')
     await num(w, 3).trigger('click')
     await settle()
-    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'group', 'ungroup'])
+    expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'unhide', 'group', 'ungroup'])
     await pick('insert')
     expect(structure).toHaveBeenCalledWith({ op: 'insertRows', sheet: 'S', row: 3, count: 1 })
   })
