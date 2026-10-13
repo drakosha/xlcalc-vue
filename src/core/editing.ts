@@ -47,6 +47,8 @@ export interface EditingDeps {
   pickSheet: (index: number) => Promise<void>
   cellInput: Ref<HTMLTextAreaElement | null>
   barInput: Ref<HTMLTextAreaElement | null>
+  /** Excel's Point mode by an arrow in the field: true when the arrow went into the formula. */
+  point?: (e: KeyboardEvent) => boolean
   /** Excel's alert of a rule of data validation for a refused value, or the question on a formula that does not read, and the person's answer; without it the refusal is said in the message line. */
   alert?: (alert: SheetAlert) => Promise<AlertAnswer>
 }
@@ -380,12 +382,12 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       startEdit({ text: e.key, mode: 'enter' })
     }
   }
-  /** Keys in the field: the list of functions first when it is open, then Enter, Tab and their Shift commit and move, Control+Return (Cmd on a Mac) fills, Esc cancels, Alt+Enter breaks the line, F2 toggles arrows. */
+  /** Keys in the field: the list of functions first when it is open, then an arrow that points (Point mode), Enter, Tab and their Shift commit and move, Control+Return (Cmd on a Mac) fills, Esc cancels, Alt+Enter breaks the line, F2 toggles arrows. */
   function onEditorKey(e: KeyboardEvent): void {
     const ed = editor.value
     if (!ed || e.isComposing) return
     e.stopPropagation()
-    if (ac.onKey(e)) return
+    if (ac.onKey(e) || deps.point?.(e)) return
     if (e.key === 'Escape') {
       e.preventDefault()
       cancel()

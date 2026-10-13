@@ -4,7 +4,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import { refFits } from '../src/core/point'
-import { active, editorKey, editorOpen, key, mountSheet, settle, type } from './helpers'
+import { active, editorKey, editorOpen, goTo, key, mountSheet, settle, type } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -166,5 +166,98 @@ describe('Point mode', () => {
     await press(w, 2, 2)
     expect(bar.value).toBe('=1+B2')
     expect(active(w)).toBe('1:1')
+  })
+})
+
+describe('Point mode with the arrows', () => {
+  /** An arrow in the field, the caret where it stood. */
+  async function arrow(w: VueWrapper, k: string, shiftKey = false): Promise<void> {
+    await editorKey(w, k, { shiftKey })
+    await settle()
+  }
+
+  it('after = typed over a cell an arrow puts the cell beside it; arrows move the reference, Shift extends it, a typed operator fixes it', async () => {
+    const { source, edits } = recorded()
+    const w = await mountSheet(source)
+    await goTo(w, 'B2')
+    await typeIn(w, '=')
+    await arrow(w, 'ArrowRight')
+    expect(field(w).value).toBe('=C2')
+    expect(active(w)).toBe('2:2')
+    await arrow(w, 'ArrowRight')
+    expect(field(w).value).toBe('=D2')
+    await arrow(w, 'ArrowDown', true)
+    await arrow(w, 'ArrowDown', true)
+    expect(field(w).value).toBe('=D2:D4')
+    // a plain arrow moves from the reference's first cell and drops the range
+    await arrow(w, 'ArrowLeft')
+    expect(field(w).value).toBe('=C2')
+    await type(w, '=C2+')
+    field(w).setSelectionRange(4, 4)
+    // the next reference starts from the edited cell again
+    await arrow(w, 'ArrowUp')
+    expect(field(w).value).toBe('=C2+B1')
+    expect(field(w).selectionStart).toBe(6)
+    await editorKey(w, 'Enter')
+    await settle()
+    expect(edits).toEqual([[{ sheet: 'S', cell: 'B2', text: '=C2+B1' }]])
+  })
+
+  it('at the sheet’s edge the reference stays', async () => {
+    const w = await mountSheet(recorded().source)
+    await typeIn(w, '=')
+    await arrow(w, 'ArrowUp')
+    expect(field(w).value).toBe('=A1')
+    await arrow(w, 'ArrowLeft')
+    expect(field(w).value).toBe('=A1')
+  })
+
+  it('a reference the mouse put goes on with the arrows', async () => {
+    const w = await mountSheet(recorded().source)
+    await typeIn(w, '=')
+    await press(w, 3, 3)
+    await arrow(w, 'ArrowDown')
+    expect(field(w).value).toBe('=C4')
+  })
+
+  it('the arrows move the caret where no reference may stand and in a field F2 opened; F2 turns them to pointing', async () => {
+    const w = await mountSheet(recorded().source)
+    await typeIn(w, '=5')
+    await arrow(w, 'ArrowRight')
+    expect(field(w).value).toBe('=5')
+    expect(editorOpen(w)).toBe(true)
+    await editorKey(w, 'Escape')
+    await goTo(w, 'B2')
+    await key(w, 'F2')
+    await type(w, '=1+')
+    field(w).setSelectionRange(3, 3)
+    await arrow(w, 'ArrowRight')
+    expect(field(w).value).toBe('=1+')
+    // F2 turns the field to Enter mode, where the arrows point
+    await editorKey(w, 'F2')
+    await arrow(w, 'ArrowRight')
+    expect(field(w).value).toBe('=1+C2')
+  })
+
+  it('the arrows move the caret in the formula bar', async () => {
+    const w = await mountSheet(recorded().source)
+    await w.find('.xs-fx').trigger('click')
+    await settle()
+    const bar = w.find('.xs-fx textarea')
+    ;(bar.element as HTMLTextAreaElement).value = '=1+'
+    await bar.trigger('input')
+    ;(bar.element as HTMLTextAreaElement).setSelectionRange(3, 3)
+    await bar.trigger('keydown', { key: 'ArrowRight' })
+    await settle()
+    expect((bar.element as HTMLTextAreaElement).value).toBe('=1+')
+  })
+
+  it('the list separator of a ru-RU book', async () => {
+    const w = await mountSheet(recorded().source, { locale: 'ru-RU' })
+    await settle()
+    await goTo(w, 'B2')
+    await typeIn(w, '=СУММ(1;')
+    await arrow(w, 'ArrowDown')
+    expect(field(w).value).toBe('=СУММ(1;B3')
   })
 })

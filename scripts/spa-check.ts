@@ -853,7 +853,7 @@ async function cycleScenario(browser: Browser, base: string, size: Size): Promis
   await context.close()
 }
 
-/** A formula's range dragged on the sheet (Point mode), a formula that does not read put back, a row's edge dragged under two wrapped lines. */
+/** A formula's range dragged on the sheet and a reference by an arrow (Point mode), a formula that does not read put back, a row's edge dragged under two wrapped lines. */
 async function formulaRowScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
   const page = await context.newPage()
@@ -878,6 +878,14 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.keyboard.type(')')
   await page.keyboard.press('Enter')
   await shows(page, '1:3', '3')
+  // = typed over D1 and Left: C1 goes into the field, as Excel's arrows point
+  await page.locator('[data-cell="1:4"]').click()
+  await page.keyboard.type('=')
+  await page.keyboard.press('ArrowLeft')
+  expect(at('the field after Left'), await field(), '=C1')
+  await page.keyboard.type('*2')
+  await page.keyboard.press('Enter')
+  await shows(page, '1:4', '6')
   // a formula that does not read, left by a click where no reference may stand: the question, Restore leaves the cell empty
   await page.locator('[data-cell="2:3"]').click()
   await page.keyboard.type('=1)')
@@ -906,7 +914,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   expect(at('row 3 in the book'), rows?.['3']?.height, 30)
   await page.mouse.move(size.width / 2, size.height / 2)
   await page.screenshot({ path: resolve(out, `spa-${size.name}-p02-row-height.png`) })
-  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3; =1) asked and put back; row 3 dragged to 30 pt under two wrapped lines`)
+  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3, =C1*2 by Left gives 6; =1) asked and put back; row 3 dragged to 30 pt under two wrapped lines`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
