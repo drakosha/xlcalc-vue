@@ -427,7 +427,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, focusEditor, ac, onEditorInput, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, ac, onEditorInput, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

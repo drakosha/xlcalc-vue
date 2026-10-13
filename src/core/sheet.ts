@@ -10,6 +10,7 @@ import { shortcutLetter, useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
 import { useFill } from './fill'
 import { useFormula } from './formula'
+import { usePoint } from './point'
 import { MAX_COL_PX, MIN_COL_PX, useGeometry, widthFromPx } from './geometry'
 import { useMenu } from './menu'
 import { useNavigation } from './navigation'
@@ -88,6 +89,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const barInput = ref<HTMLTextAreaElement | null>(null)
   const alerts = useValidationAlert()
   const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, alert: alerts.ask })
+  const point = usePoint(s, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, separator: f.listSeparator })
   // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, else in as typed past the rule.
   const validation = useValidation({
     source: () => s.source(),
@@ -438,6 +440,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     f,
     nav,
     ed,
+    point,
     totals,
     filter,
     find,

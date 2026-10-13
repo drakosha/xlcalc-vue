@@ -13,15 +13,11 @@ const NAME_CHAR = /[\p{L}\p{N}._]/u
 /** What may stand right before a function's name: the formula's `=`, an operator, `(`, an argument separator, a space or a line break. */
 const BEFORE_NAME = /[=+\-*/^&<>@(,;\s]/
 
-/** The name being typed at `caret` in a formula: where it begins and ends and the part before the caret; null where no function can stand (in a string, a quoted sheet's name, a table's brackets, after `!` or `$`). */
-export function nameAt(text: string, caret: number): { from: number; to: number; typed: string } | null {
-  if (!text.startsWith('=') || caret < 2 || caret > text.length) return null
-  let from = caret
-  while (from > 1 && NAME_CHAR.test(text[from - 1]!)) from--
-  if (from === caret || !BEFORE_NAME.test(text[from - 1]!)) return null
+/** Whether a formula's text before `upTo` leaves a string, a quoted sheet's name or a table's brackets open. */
+export function inLiteral(text: string, upTo: number): boolean {
   let quote: string | null = null
   let depth = 0
-  for (let i = 1; i < from; i++) {
+  for (let i = 1; i < upTo; i++) {
     const c = text[i]!
     if (quote) {
       if (c === quote) quote = null
@@ -29,7 +25,15 @@ export function nameAt(text: string, caret: number): { from: number; to: number;
     else if (c === '[') depth++
     else if (c === ']') depth = Math.max(0, depth - 1)
   }
-  if (quote || depth) return null
+  return quote !== null || depth > 0
+}
+
+/** The name being typed at `caret` in a formula: where it begins and ends and the part before the caret; null where no function can stand (in a string, a quoted sheet's name, a table's brackets, after `!` or `$`). */
+export function nameAt(text: string, caret: number): { from: number; to: number; typed: string } | null {
+  if (!text.startsWith('=') || caret < 2 || caret > text.length) return null
+  let from = caret
+  while (from > 1 && NAME_CHAR.test(text[from - 1]!)) from--
+  if (from === caret || !BEFORE_NAME.test(text[from - 1]!) || inLiteral(text, from)) return null
   let to = caret
   while (to < text.length && NAME_CHAR.test(text[to]!)) to++
   return { from, to, typed: text.slice(from, caret) }

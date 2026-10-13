@@ -87,14 +87,18 @@ const viewBox = computed(() => ({
 }))
 const vd = ctx.validation
 
+/** A press on a cell: Excel's Point mode while a formula takes a reference there, else the selection's. */
+function onCellDown(e: PointerEvent, r: number, c: number): void {
+  if (!ctx.point.down(e, { kind: 'cells', row: r, col: c })) sel.onCellDown(e, r, c)
+}
 function onCellClick(e: MouseEvent, r: number, c: number): void {
-  // The lift of a long press that opened the cells' menu keeps the selection.
-  if (ctx.menu.afterPress()) return
+  // The lift of a long press that opened the cells' menu keeps the selection, and so does a press that pointed.
+  if (ctx.menu.afterPress() || ctx.point.took()) return
   // A double tap on a phone opens the field inside the tap, so the keyboard shows.
   if (sel.onCellTap(e, r, c)) ed.startEdit({ mode: 'edit' })
 }
 function onCellDbl(e: MouseEvent, r: number, c: number): void {
-  if ((e.target as HTMLElement).closest('a,button')) return
+  if (ctx.point.took() || (e.target as HTMLElement).closest('a,button')) return
   sel.pickCell(r, c)
   ed.startEdit({ mode: 'edit' })
 }
@@ -134,21 +138,25 @@ function onContext(e: MouseEvent): void {
 }
 function onDown(e: PointerEvent): void {
   const h = headerOf(e)
-  if (h && ctx.menu.linesAvailable.value) return ctx.menu.pressStart(e, (x, y) => ctx.menu.openLines(h.kind, h.line, x, y))
   const cell = h ? null : cellOf(e)
+  // A cell's own press went to Point mode or the selection already; a letter or a number may point at its line.
+  if (!cell && ctx.point.down(e, h && { kind: h.kind, row: h.kind === 'rows' ? h.line : 1, col: h.kind === 'columns' ? h.line : 1 })) return
+  if (h && ctx.menu.linesAvailable.value) return ctx.menu.pressStart(e, (x, y) => ctx.menu.openLines(h.kind, h.line, x, y))
   if (cell) ctx.menu.pressStart(e, (x, y) => ctx.menu.openCells(cell.row, cell.col, x, y))
 }
 function onMove(e: PointerEvent): void {
   sel.onGridMove(e)
+  ctx.point.move(e)
   ctx.menu.pressMove(e)
 }
 function onUp(): void {
   sel.onGridUp()
+  ctx.point.up()
   ctx.menu.pressCancel()
 }
-/** A click on a letter or a number selects its line; the lift of a long press that opened the menu does not. */
+/** A click on a letter or a number selects its line; the lift of a long press that opened the menu does not, nor a press that pointed. */
 function pickLine(kind: 'rows' | 'columns', line: number, extend: boolean): void {
-  if (ctx.menu.afterPress()) return
+  if (ctx.menu.afterPress() || ctx.point.took()) return
   if (kind === 'rows') sel.pickRow(line, extend)
   else sel.pickColumn(line, extend)
 }
@@ -168,6 +176,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
     @paste="ctx.clip.onPaste"
     @contextmenu="onContext"
     @pointerdown="onDown"
+    @mousedown="ctx.point.onMouseDown"
     @pointermove="onMove"
     @pointerup="onUp"
     @pointercancel="onUp"
@@ -259,7 +268,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                   v-for="cv in [views.cellView(row.d, row.r, k.c, row.frozen)]"
                   :key="0"
                   v-bind="cv.attrs"
-                  @pointerdown="sel.onCellDown($event, row.r, k.c)"
+                  @pointerdown="onCellDown($event, row.r, k.c)"
                   @click="onCellClick($event, row.r, k.c)"
                   @dblclick="onCellDbl($event, row.r, k.c)"
                 >
