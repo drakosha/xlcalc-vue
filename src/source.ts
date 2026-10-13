@@ -175,8 +175,11 @@ export interface FindResult {
   total: number
 }
 
-/** The outcome of Replace All and how many cells it changed (Excel's "We made N replacements"). */
-export type ReplaceOutcome = EditOutcome & { replaced: number }
+/**
+ * The outcome of Replace All and how many cells it changed (Excel's "We made N replacements"); `refused`: the cells whose new
+ * text Excel would not take (a formula that no longer reads), left as they were while the others are written, with why.
+ */
+export type ReplaceOutcome = EditOutcome & { replaced: number; refused?: { sheet: string; cell: string; message: string }[] }
 
 /** With a filter `row` is a display index (a place among the visible rows), as in the the app. */
 export interface WindowRequest {
