@@ -143,12 +143,13 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     busy.value = true
     timer = setTimeout(() => void runSearch(), FIND_DELAY_MS)
   }
-  // A new query or option goes to its first hit; another sheet, filter or range only recounts, the frame stays.
-  watch([text, () => ({ ...options }), lookIn], () => {
+  // A new query or option goes to its first hit; another sheet, filter or range, or the replace row's toggle (Replace looks
+  // in formulas), only recounts, the frame and the active cell stay.
+  watch([text, () => ({ ...options })], () => {
     done.value = null
     schedule(true)
   })
-  watch([() => s.sheetName.value, () => s.visible.value?.key ?? '', scope], () => schedule(false))
+  watch([() => s.sheetName.value, () => s.visible.value?.key ?? '', scope, lookIn], () => schedule(false))
   // A range selected while the bar is open is where it looks next; the single cells of the hits leave it as it is.
   watch(sel.selectionRef, (range) => {
     if (isOpen.value && sel.multi.value && range !== scope.value) scope.value = range

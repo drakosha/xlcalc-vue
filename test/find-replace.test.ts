@@ -92,6 +92,26 @@ describe('Find', () => {
     expect(active(w)).toBe('3:3')
   })
 
+  it('the replace row\'s toggle counts again but leaves the active cell, as Excel\'s Find and Replace tabs do', async () => {
+    fakeTimers()
+    const source = memorySource(book())
+    const find = vi.spyOn(source, 'find')
+    const w = await mountSheet(source)
+    await search(w, 'apple')
+    await w.find('[data-xs-find-options]').trigger('click')
+    await w.find('[data-xs-find-look]').setValue('values')
+    await pause()
+    await w.find('.xs-find-input').trigger('keydown', { key: 'Enter' })
+    const at = active(w)
+    const calls = find.mock.calls.length
+    await w.find('[data-xs-find-replace]').trigger('click')
+    await pause()
+    // Replace looks in formulas: the bar asks again, and the active cell stays
+    expect(find.mock.calls.length).toBeGreaterThan(calls)
+    expect(lastRequest(find).lookIn).toBe('formulas')
+    expect(active(w)).toBe(at)
+  })
+
   it('looks within a selection of more than one cell, as Excel does, until the person drops it', async () => {
     fakeTimers()
     const source = memorySource(book())
