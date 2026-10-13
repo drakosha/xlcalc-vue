@@ -38,6 +38,8 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   const scope = ref<string | null>(null)
   const hits = ref<CellPosition[]>([])
   const total = ref(0)
+  /** The cell the hits were asked from (Find After), null when they come from the range's first cell. */
+  const from = ref<string | null>(null)
   const busy = ref(false)
   /** A replacement is out: the replace buttons wait. */
   const writing = ref(false)
@@ -91,14 +93,16 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     if (timer) clearTimeout(timer)
     hits.value = []
     total.value = 0
+    from.value = null
     busy.value = false
     done.value = null
   }
 
-  /** The request of the bar as it is now; null for an empty query. */
-  function request(): FindRequest | null {
+  /** The request of the bar as it is now, from the cell `after` when given; null for an empty query. */
+  function request(after?: string): FindRequest | null {
     if (!text.value || !s.sheet.value) return null
     return {
+      ...(after ? { after } : {}),
       sheet: s.sheetName.value,
       query: text.value,
       ...(scope.value ? { range: scope.value } : {}),
@@ -110,11 +114,14 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     }
   }
 
-  /** Ask the source now; a newer search or a reset drops the answer. */
-  async function runSearch(): Promise<void> {
+  /**
+   * Ask the source now, from the range's first cell or from `after`; a newer search or a reset drops the answer. A new query
+   * goes to its first hit after the active cell: among the hits given when they are all, else asked from that cell.
+   */
+  async function runSearch(after?: string): Promise<void> {
     if (timer) clearTimeout(timer)
     timer = null
-    const req = request()
+    const req = request(after)
     if (!req || !isOpen.value || !available.value) return reset()
     const mine = ++seq
     const leap = jump
@@ -127,7 +134,12 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
       if (mine !== seq) return
       hits.value = got.hits.map((h) => ({ row: h.row, col: h.col }))
       total.value = got.total
-      if (leap) step(1)
+      from.value = after ?? null
+      const a = s.selected.value
+      if (after) show(0)
+      // more hits than given: the first after the active cell is asked from it
+      else if (leap && a && got.total > got.hits.length) return void runSearch(cellAddress(a.row, a.col))
+      else if (leap) step(1)
     } catch (e) {
       if (mine === seq && !(e instanceof DOMException && e.name === 'AbortError')) notify(s.messages.value.findFailed)
     } finally {
@@ -164,7 +176,8 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   }
   /**
    * Find Next and Find Previous, as Excel goes, round past the end: from a hit to its neighbour in the source's order (Find's,
-   * by blocks on a filtered sheet), from another cell to the first hit past it in the order asked.
+   * by blocks on a filtered sheet), from another cell to the first hit past it in the order asked. Past the hits the source
+   * gave (it gives some hundreds of them), Find Next asks for the next ones from the active cell, as Excel's Find After.
    */
   function step(dir: 1 | -1): void {
     const list = hits.value
@@ -172,7 +185,10 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     done.value = null
     const a = s.selected.value
     if (!a) return show(dir > 0 ? 0 : list.length - 1)
-    if (index.value >= 0) return show((index.value + dir + list.length) % list.length)
+    const i = index.value
+    const some = total.value > list.length
+    if (dir > 0 && some && (i < 0 || i === list.length - 1)) return void runSearch(cellAddress(a.row, a.col))
+    if (i >= 0) return show((i + dir + list.length) % list.length)
     if (dir > 0) {
       const i = list.findIndex((h) => order(h, a) > 0)
       return show(i >= 0 ? i : 0)
@@ -207,8 +223,11 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     try {
       const out = await run(() => call.call(s.props.source, req, by.value))
       if (!out.ok) return
+      const { replaced, refused } = out as ReplaceOutcome
+      // the cells Excel would not take are left as they were, the others written: the line says why
+      if (refused?.length) notify(s.messages.value.replaceRefused(refused.length, refused[0]!.message))
       await runSearch()
-      done.value = s.messages.value.replaceDone((out as ReplaceOutcome).replaced ?? 0)
+      done.value = s.messages.value.replaceDone(replaced ?? 0)
     } finally {
       writing.value = false
     }
@@ -229,7 +248,8 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     if (busy.value) return '…'
     const m = s.messages.value
     if (!hits.value.length) return m.findNone
-    return index.value >= 0 ? m.findStatus(index.value + 1, total.value, hits.value.length) : m.findCount(total.value, hits.value.length)
+    // a place among the hits is known only when they were asked from the range's first cell
+    return index.value >= 0 && !from.value ? m.findStatus(index.value + 1, total.value, hits.value.length) : m.findCount(total.value, hits.value.length)
   })
 
   return {

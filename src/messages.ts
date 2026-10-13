@@ -136,6 +136,8 @@ export interface SheetMessages {
   replaceOne: string
   replaceAll: string
   replaceDone: (n: number) => string
+  /** Replace All left `n` cells as they were: Excel would not take their new text, for the source's reason `why`. */
+  replaceRefused: (n: number, why: string) => string
   filter: string
   filterOn: string
   filterColumn: (letters: string) => string
@@ -351,6 +353,7 @@ export const enMessages: SheetMessages = {
   replaceOne: 'Replace',
   replaceAll: 'Replace All',
   replaceDone: (n) => (n ? `Replaced: ${n}` : 'Nothing to replace'),
+  replaceRefused: (n, why) => `${n} ${n === 1 ? 'cell was' : 'cells were'} left as ${n === 1 ? 'it was' : 'they were'}: ${why}`,
   filter: 'Filter and sort',
   filterOn: 'A filter on this column is on',
   filterColumn: (letters) => `Column ${letters}`,
@@ -593,6 +596,7 @@ export const ruMessages: SheetMessages = {
   replaceOne: 'Заменить',
   replaceAll: 'Заменить все',
   replaceDone: (n) => (n ? `Сделано замен: ${n}` : 'Нечего заменить'),
+  replaceRefused: (n, why) => `Не заменено ячеек: ${n}. ${why}`,
   filter: 'Фильтр и сортировка',
   filterOn: 'Фильтр по этой колонке включён',
   filterColumn: (letters) => `Колонка ${letters}`,

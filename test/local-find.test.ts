@@ -2,9 +2,8 @@
 // localSource's Find and Replace as Excel's, by xlcalc's `findCells`: in the text a cell opens with (formulas in the
 // book's locale, values by the format they show) or in the shown text, hidden cells skipped as Find skips them, hits in
 // Find's order; under the display filter only its rows. Replace All in one step of undo.
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { AsyncSession, BookInput, CellInput } from 'xlcalc'
-import { findHits } from '../src/local/find'
+import { afterEach, describe, expect, it } from 'vitest'
+import type { BookInput, CellInput } from 'xlcalc'
 import type { FindRequest, SourceEvent } from '../src/source'
 import { closeAll, source, win } from './local-fixture'
 
@@ -63,12 +62,12 @@ describe('localSource: find', () => {
     const s = source()
     expect(await found(s, { sheet: 'Лист1', query: 'С' })).toEqual(['1:2 с примечанием', '2:2 ссылка', '3:1 =СУММ(A1:A2)', '3:2 на лист', '4:2 место', '5:4 строка'])
     expect(await found(s, { sheet: 'Лист1', query: 'С', lookIn: 'values' })).toEqual(['1:2 с примечанием', '2:2 ссылка', '3:2 на лист', '4:2 место', '5:4 строка'])
-    expect(await found(s, { sheet: 'Таблица', query: '[@' })).toEqual(['2:3 =Продажи[@Сумма]*2', '3:3 =Продажи[@Сумма]*2'])
+    expect(await found(s, { sheet: 'Таблица', query: '[@' })).toEqual(['2:3 =[@Сумма]*2', '3:3 =[@Сумма]*2'])
   })
 
-  it('gives as the hit’s text the shown text, or in formulas the formula in the book’s locale', async () => {
+  it('gives as the hit’s text what Find read: the shown text, or in formulas the text the cell opens with', async () => {
     const s = source(formats())
-    expect(await found(s, { sheet: 'S', query: '1250,5' })).toEqual(['1:2 1 250,50'])
+    expect(await found(s, { sheet: 'S', query: '1250,5' })).toEqual(['1:2 1250,5'])
     expect(await found(s, { sheet: 'S', query: '1250,5', lookIn: 'values' })).toEqual(['1:5 1250,55'])
     expect(await found(s, { sheet: 'S', query: 'сумм' })).toEqual(['1:5 =СУММ(B1:C1)'])
   })
@@ -113,7 +112,7 @@ describe('localSource: find', () => {
     expect(await found(s, { sheet: 'Список', query: '?', wholeCell: true, filter })).toEqual(['2:1 б', '2:2 5', '4:1 б'])
   })
 
-  it('counts under the display filter only its rows, over the library’s pages, in Find’s order', async () => {
+  it('counts under the display filter only its rows, in Find’s order', async () => {
     // 12,001 hits in column A, more than a page; the filter keeps the head and every third row
     const cells: Record<string, CellInput> = {}
     for (let r = 1; r <= 12_001; r++) {
@@ -130,18 +129,13 @@ describe('localSource: find', () => {
     expect(got.hits.at(-1)).toMatchObject({ row: 1497, col: 1 })
   })
 
-  it('starts a search over pages again when an edit between two pages leaves the cursor stale', async () => {
-    const page = (cells: string[], cursor?: string) => ({ revision: 1, clock: {}, truncated: !!cursor, cells: cells.map((cell) => ({ sheet: 'S', cell })), ...(cursor ? { cursor } : {}) })
-    const stale = Object.assign(new Error('the cursor belongs to another revision'), { name: 'CalcError', code: 'stale_revision' })
-    const answers = [page(['A1', 'A2'], 'c1'), stale, page(['A1', 'A3'], 'c2'), page(['A4'])]
-    const findCells = vi.fn(async () => {
-      const next = answers.shift()!
-      if (next instanceof Error) throw next
-      return next
-    })
-    const got = await findHits({ findCells } as unknown as AsyncSession, { sheet: 'S', query: 'x' }, 'en-US', new Set([1, 3, 4]))
-    expect(got).toEqual({ hits: [{ row: 1, col: 1, text: '' }, { row: 3, col: 1, text: '' }, { row: 4, col: 1, text: '' }], total: 3 })
-    expect(findCells.mock.calls.map((c) => (c as unknown[])[2])).toMatchObject([{ maxCells: 10_000 }, { cursor: 'c1' }, { maxCells: 10_000 }, { cursor: 'c2' }])
+  it('goes on from a cell, as Find Next does: from the first hit after it, round past the end, the cell itself last', async () => {
+    const s = source(hidden(false))
+    const order = async (req: Partial<FindRequest>) => (await at(s, { ...req, query: 'x' })).join(' ')
+    expect(await order({ after: 'B2' })).toBe('2:3 3:1 3:2 3:3 1:1 1:2 1:3 2:1 2:2')
+    expect(await order({ after: 'B2', byColumns: true })).toBe('3:2 1:3 2:3 3:3 1:1 2:1 3:1 1:2 2:2')
+    // a cell outside the range searched: from the range's first cell
+    expect(await order({ after: 'E9', range: 'A1:B2' })).toBe('1:1 1:2 2:1 2:2')
   })
 
   it('finds the cells as they are after edits, a format and an undo', async () => {
@@ -185,14 +179,13 @@ describe('localSource: replace', () => {
     expect((await s.book()).sheets[0]!.columns?.F).toBeUndefined()
   })
 
-  it('replaces only in the cells Find finds: a text without its apostrophe, and not where our own match finds nothing', async () => {
+  it('replaces in the cells Find finds, by Excel’s rules: a text without its apostrophe, `?` one UTF-16 unit', async () => {
     const s = source(letters())
     expect(await s.replace({ sheet: 'S', query: '007', wholeCell: true }, '8')).toMatchObject({ ok: true, replaced: 1 })
     expect((await win(s, 'S', 1, 1, 2, 1)).values).toEqual([['8']])
-    // `a?b` is not Find's hit; `a??b` is, but the replacement's own pattern reads `?` as a whole character (TODO(xlcalc))
     expect(await s.replace({ sheet: 'S', query: 'a?b' }, 'y')).toEqual({ ok: true, changes: [], replaced: 0 })
-    expect(await s.replace({ sheet: 'S', query: 'a??b' }, 'y')).toEqual({ ok: true, changes: [], replaced: 0 })
-    expect((await win(s, 'S', 1, 1, 1, 1)).values).toEqual([['a😀b']])
+    expect(await s.replace({ sheet: 'S', query: 'a??b' }, 'y')).toMatchObject({ ok: true, replaced: 1 })
+    expect((await win(s, 'S', 1, 1, 1, 1)).values).toEqual([['y']])
   })
 
   it('replaces hidden cells as Excel’s Replace finds them, in formulas: all on a sheet without a filter, the visible ones with it', async () => {
@@ -220,12 +213,12 @@ describe('localSource: replace', () => {
     expect(events.map((e) => e.kind)).toEqual(['changed'])
   })
 
-  it('finds nothing to replace in shown text, and refuses a formula the replacement breaks with nothing written', async () => {
+  it('finds nothing to replace in shown text, and leaves a formula the replacement breaks as it was, with why', async () => {
     const s = source(formats())
     const before = s.history.undo
     expect(await s.replace({ sheet: 'S', query: '1 250', lookIn: 'values' }, '2')).toEqual({ ok: true, changes: [], replaced: 0 })
     const out = await s.replace({ sheet: 'S', query: ':', lookIn: 'formulas' }, '::')
-    expect(out).toMatchObject({ ok: false, reason: 'invalid', replaced: 0, cells: [{ sheet: 'S', cell: 'E1' }] })
+    expect(out).toMatchObject({ ok: true, replaced: 0, refused: [{ sheet: 'S', cell: 'E1', message: expect.any(String) }] })
     expect(s.history.undo).toBe(before)
     expect((await win(s, 'S', 1, 1, 5, 1)).formulas).toEqual({ E1: 'СУММ(B1:C1)' })
   })

@@ -112,6 +112,36 @@ describe('Find', () => {
     expect(active(w)).toBe(at)
   })
 
+  it('goes past the hits the source gave, as Excel\'s Find Next reaches every one: the next ones from the active cell', async () => {
+    fakeTimers()
+    // 2,500 hits in column A; memorySource gives 1,000 at a time
+    const cells: Record<string, string> = {}
+    for (let r = 1; r <= 2500; r++) cells[`A${r}`] = 'x'
+    const source = memorySource({ sheets: [{ name: 'S', cells }] })
+    const find = vi.spyOn(source, 'find')
+    const w = await mountSheet(source)
+    const next = () => w.find('.xs-find-input').trigger('keydown', { key: 'Enter' })
+    await goTo(w, 'B700')
+    await search(w, 'x')
+    // a new query from B700: the first hit after it, A701, asked from there as Excel's Find After
+    expect(active(w)).toBe('701:1')
+    expect(lastRequest(find).after).toBe('B700')
+    await goTo(w, 'A2500')
+    await next()
+    await settle()
+    // round past the end to A1, asked from A2500
+    expect(active(w)).toBe('1:1')
+    // the last of the hits given, A1000, then on
+    await goTo(w, 'A1000')
+    await next()
+    await settle()
+    // past the 1,000 hits given: the next ones come from the active cell
+    expect(active(w)).toBe('1001:1')
+    expect(lastRequest(find).after).toBe('A1000')
+    await next()
+    expect(active(w)).toBe('1002:1')
+  })
+
   it('looks within a selection of more than one cell, as Excel does, until the person drops it', async () => {
     fakeTimers()
     const source = memorySource(book())
@@ -178,6 +208,21 @@ describe('Replace', () => {
     expect(cellText(w, 3, 2)).toBe('pineapple')
     expect(active(w)).toBe('3:2')
     expect(status(w)).toBe('1 of 2')
+  })
+
+  it('Replace All tells the cells it left as they were, with the source\'s why', async () => {
+    fakeTimers()
+    const source = memorySource(book())
+    vi.spyOn(source, 'replace').mockResolvedValue({ ok: true, changes: [], replaced: 2, refused: [{ sheet: 'S', cell: 'E1', message: 'The formula does not read' }] })
+    const w = await mountSheet(source)
+    await key(w, 'h', { ctrlKey: true })
+    await settle()
+    await w.find('.xs-find-input').setValue('apple')
+    await pause()
+    await w.find('[data-xs-replace-all]').trigger('click')
+    await settle()
+    expect(status(w)).toBe('Replaced: 2')
+    expect(w.find('.xs-message').text()).toBe('1 cell was left as it was: The formula does not read')
   })
 
   it('a refusal shows in the sheet’s message line and changes nothing', async () => {

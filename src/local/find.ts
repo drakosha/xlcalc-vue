@@ -1,83 +1,64 @@
 // Excel's Find and Replace All over the session: xlcalc's `findCells` with the options of Excel's dialog gives the cells
-// Find gives, in its order, hidden ones skipped as Find skips them; the display filter keeps its rows of them, and
-// Replace All writes each found cell's text with the query's matches replaced.
-import { toLocal, type AsyncSession, type FindCellsOptions, type ReadCell } from 'xlcalc'
-import { cellAddress, parseCell, rangeAddress } from 'xlcalc/a1'
-import { replacer, type CellText } from '../find-match'
+// Find gives, in its order, from the cell Find Next goes on from, hidden ones skipped as Find skips them, the display
+// filter's rows alone; `replaceInCells` replaces as Excel's Replace All. The session keeps the texts it searches.
+import type { AsyncSession, FindCellsOptions, ReplaceResult } from 'xlcalc'
+import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
 import type { FindRequest, FindResult } from '../source'
 import type { CellsBox } from './outcome'
 
 /** Hits of a search in one answer; the total counts them all. */
 export const FIND_MAX_HITS = 500
-/** Cells of one page of `findCells`, the most it gives. */
-const PAGE = 10_000
-/** Times a search over pages starts again when an edit between two pages leaves its cursor stale. */
-const RESTARTS = 3
 const WHOLE_SHEET = 'A1:XFD1048576'
-
-/** The dialog's options as `findCells` takes them: Look in Formulas reads the text a cell opens with, Values the text it shows. */
-function optionsOf(req: FindRequest, lookIn: FindRequest['lookIn']): FindCellsOptions {
-  return {
-    wildcards: true,
-    in: lookIn === 'values' ? 'text' : 'edit',
-    skipHidden: true,
-    ...(req.matchCase ? { caseSensitive: true } : {}),
-    ...(req.wholeCell ? { wholeCell: true } : {}),
-    ...(req.byColumns ? { byColumns: true } : {}),
-  }
-}
 
 const rangesOf = (req: FindRequest) => [{ sheet: req.sheet, range: req.range ?? WHOLE_SHEET }]
 
-/** What matched, as the contract has it: the formula in the book's locale (as stored where it does not translate) in formulas, else the shown text. */
-function hitOf(cell: ReadCell, locale: string): FindResult['hits'][number] {
-  const at = parseCell(cell.cell)!
-  if (cell.formula === undefined) return { row: at.row, col: at.col, text: cell.text ?? '' }
-  const local = toLocal(cell.formula, locale)
-  return { row: at.row, col: at.col, text: `=${local.ok ? local.formula : cell.formula}` }
-}
-
-/**
- * Every cell the search finds in `visible` rows, page by page in Find's order; an edit between two pages leaves the
- * cursor stale, and the search starts again after `restart`.
- */
-async function eachFound(s: AsyncSession, req: FindRequest, opts: FindCellsOptions, visible: Set<number> | null, signal: AbortSignal | undefined, visit: (cell: ReadCell, row: number) => void, restart: () => void): Promise<void> {
-  for (let n = 0; ; n++) {
-    try {
-      let cursor: string | undefined
-      do {
-        const page = await s.findCells(rangesOf(req), req.query, { ...opts, maxCells: PAGE, ...(cursor ? { cursor } : {}), ...(signal ? { signal } : {}) })
-        for (const cell of page.cells) {
-          const row = parseCell(cell.cell)!.row
-          if (!visible || visible.has(row)) visit(cell, row)
-        }
-        cursor = page.cursor
-      } while (cursor)
-      return
-    } catch (e) {
-      if (n >= RESTARTS || (e as { code?: string }).code !== 'stale_revision') throw e
-      restart()
-    }
+/** The dialog's options both Find and Replace take, under the display filter its rows alone. */
+function matchOf(req: FindRequest, rows: number[] | null) {
+  return {
+    wildcards: true,
+    skipHidden: true,
+    ...(req.matchCase ? { caseSensitive: true } : {}),
+    ...(req.wholeCell ? { wholeCell: true } : {}),
+    ...(rows ? { rows } : {}),
   }
 }
 
-/** Excel's Find: at most `FIND_MAX_HITS` hits in its order and the count of all; with `visible` only those rows', read over every page. */
-export async function findHits(s: AsyncSession, req: FindRequest, locale: string, visible: Set<number> | null, signal?: AbortSignal): Promise<FindResult> {
-  const opts: FindCellsOptions = { ...optionsOf(req, req.lookIn), fields: req.lookIn === 'values' ? ['text'] : ['formula', 'text'] }
-  if (!visible) {
-    const page = await s.findCells(rangesOf(req), req.query, { ...opts, maxCells: FIND_MAX_HITS, count: true, ...(signal ? { signal } : {}) })
-    return { hits: page.cells.map((c) => hitOf(c, locale)), total: page.total ?? page.cells.length }
-  }
-  const hits: FindResult['hits'] = []
-  let total = 0
-  const take = (cell: ReadCell) => {
-    if (total++ < FIND_MAX_HITS) hits.push(hitOf(cell, locale))
-  }
-  await eachFound(s, req, opts, visible, signal, take, () => {
-    hits.length = 0
-    total = 0
+/** The cell Find Next goes on from, when it is one the search reads: the library refuses a cell outside the range, as Excel does. */
+function afterOf(req: FindRequest, rows: number[] | null): FindCellsOptions['after'] {
+  const at = req.after ? parseCell(req.after) : null
+  if (!at) return undefined
+  const r = req.range ? parseRange(req.range) : null
+  if (r && (at.row < r.top || at.row > r.bottom || at.col < r.left || at.col > r.right)) return undefined
+  if (rows && !rows.includes(at.row)) return undefined
+  return { sheet: req.sheet, cell: cellAddress(at.row, at.col) }
+}
+
+/** Excel's Find: at most `FIND_MAX_HITS` hits in its order, from the first after `after` round past the end, and the count of all; `rows`, the display filter's in ascending order. */
+export async function findHits(s: AsyncSession, req: FindRequest, rows: number[] | null, signal?: AbortSignal): Promise<FindResult> {
+  const values = req.lookIn === 'values'
+  const after = afterOf(req, rows)
+  const page = await s.findCells(rangesOf(req), req.query, {
+    ...matchOf(req, rows),
+    in: values ? 'text' : 'edit',
+    ...(req.byColumns ? { byColumns: true } : {}),
+    ...(after ? { after } : {}),
+    fields: [values ? 'text' : 'editText'],
+    maxCells: FIND_MAX_HITS,
+    count: true,
+    ...(signal ? { signal } : {}),
   })
-  return { hits, total }
+  return {
+    hits: page.cells.map((c) => {
+      const at = parseCell(c.cell)!
+      return { row: at.row, col: at.col, text: (values ? c.text : c.editText) ?? '' }
+    }),
+    total: page.total ?? page.cells.length,
+  }
+}
+
+/** Excel's Replace All: the cells Find finds in the text they open with, whatever Look in says, each with the matches replaced, in one step of undo. */
+export function replaceAll(s: AsyncSession, req: FindRequest, by: string, rows: number[] | null): Promise<ReplaceResult> {
+  return s.replaceInCells(rangesOf(req), req.query, by, matchOf(req, rows))
 }
 
 /**
@@ -95,35 +76,6 @@ export function boxesUnder(sheet: string, cells: { row: number; col: number }[],
       box.rect = rect
       box.only.add(addr)
     } else out.push((box = { sheet, rect: { top: c.row, left: c.col, bottom: c.row, right: c.col }, only: new Set([addr]) }))
-  }
-  return out
-}
-
-/**
- * Replace All's new texts: the cells Find finds in formulas, as Excel's Replace looks whatever Look in says (in `visible`
- * rows), each written as the text it opens with, the matches replaced by `by`. Only the found cells' texts are read.
- * TODO(xlcalc): the library has no Replace; the matches are our own pattern's (`find-match.ts`, where `?` is a whole
- * character, not Find's UTF-16 unit), and a cell Find found where it matches nothing is not written.
- */
-export async function replacements(s: AsyncSession, req: FindRequest, by: string, visible: Set<number> | null, maxCells: number): Promise<CellText[]> {
-  const replace = replacer(req, by)
-  if (!replace) return []
-  const cells: { row: number; col: number }[] = []
-  await eachFound(s, req, { ...optionsOf(req, 'formulas'), fields: [] }, visible, undefined, (cell, row) => cells.push({ row, col: parseCell(cell.cell)!.col }), () => (cells.length = 0))
-  const boxes = boxesUnder(req.sheet, cells, maxCells)
-  const views = await Promise.all(boxes.map((b) => s.getViewport(req.sheet, rangeAddress(b.rect), { editText: true, maxCells })))
-  const out: CellText[] = []
-  for (const [i, box] of boxes.entries()) {
-    for (const addr of box.only) {
-      const cell = views[i]!.cells[addr]
-      const typed = cell?.editText ?? ''
-      // Find reads a text as it is, without the apostrophe the formula bar shows before one that reads as something else; the new text keeps it
-      const text = cell && cell.formula === undefined && typeof cell.value === 'string' ? cell.value : typed
-      const next = replace(text)
-      if (next === null) continue
-      const at = parseCell(addr)!
-      out.push({ row: at.row, col: at.col, text: (typed === `'${text}` ? "'" : '') + next })
-    }
   }
   return out
 }

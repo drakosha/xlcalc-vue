@@ -1,8 +1,8 @@
 // Excel's Find and Replace over cells' texts for `memorySource`, free of the engine: the query's wildcards, match case,
-// the entire cell, a range, the display filter's rows, the order by rows or by columns. `./local` finds by the library
-// and takes only Replace All's matching from here.
-// TODO(xlcalc): ask the library for Excel's Find in its text subpath (engine-free), and for Replace (the matches' places).
-import { parseRange } from 'xlcalc/a1'
+// the entire cell, a range, the display filter's rows, the order by rows or by columns from a cell. `./local` finds and
+// replaces by the library.
+// TODO(xlcalc): Excel's Find and Replace without the engine (`xlcalc/text`) would replace this matching, close to Excel's.
+import { parseCell, parseRange } from 'xlcalc/a1'
 import type { FindRequest, FindResult } from './source'
 
 /** Visits every cell a search reads with its text (what it opens with, or what it shows), in any order. */
@@ -53,7 +53,7 @@ function sortCells(list: CellText[], byColumns: boolean | undefined): CellText[]
   return list.sort(byColumns ? (a, b) => a.col - b.col || a.row - b.row : (a, b) => a.row - b.row || a.col - b.col)
 }
 
-/** The cells whose text matches, in Excel's order, at most `max` of them; `total` counts them all. */
+/** The cells whose text matches, in Excel's order from the first after `req.after` round past the end, at most `max` of them; `total` counts them all. */
 export function findCells(each: EachCell, req: FindRequest, visible: Set<number> | null, max: number): FindResult {
   const re = findPattern(req)
   if (!re) return { hits: [], total: 0 }
@@ -62,14 +62,18 @@ export function findCells(each: EachCell, req: FindRequest, visible: Set<number>
   each((row, col, text) => {
     if (text !== '' && inside(row, col) && re.test(text)) found.push({ row, col, text })
   })
-  return { hits: sortCells(found, req.byColumns).slice(0, max), total: found.length }
+  const sorted = sortCells(found, req.byColumns)
+  const after = req.after ? parseCell(req.after) : null
+  const from = after ? sorted.findIndex((c) => (req.byColumns ? c.col - after.col || c.row - after.row : c.row - after.row || c.col - after.col) > 0) : 0
+  const round = from > 0 ? sorted.slice(from).concat(sorted.slice(0, from)) : sorted
+  return { hits: round.slice(0, max), total: found.length }
 }
 
 /**
  * A cell's new text under Replace All: every match (the whole text with Match entire cell contents) replaced by `by` as
  * it is; null where nothing matches or nothing would change. Null for an empty query.
  */
-export function replacer(req: Pick<FindRequest, 'query' | 'matchCase' | 'wholeCell'>, by: string): ((text: string) => string | null) | null {
+function replacer(req: Pick<FindRequest, 'query' | 'matchCase' | 'wholeCell'>, by: string): ((text: string) => string | null) | null {
   const re = findPattern(req)
   if (!re) return null
   const all = new RegExp(re.source, `${re.flags}g`)

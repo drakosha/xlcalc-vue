@@ -4,7 +4,7 @@
 import { createInlineCalc, FUNCTION_NAMES, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type LineSpan, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, colLetters, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetOutline, SourceEvent, WindowRequest } from '../source'
-import { boxesUnder, findHits, replacements } from './find'
+import { boxesUnder, findHits, replaceAll } from './find'
 import { loadLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { filterKey } from '../filter-key'
@@ -186,10 +186,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   }
 
   /** The rows a search under the display filter looks in; null without a filter or when it hides no row (a sort alone). */
-  async function searchedRows(s: AsyncSession, sheet: string, filter: SheetFilter | undefined): Promise<Set<number> | null> {
+  async function searchedRows(s: AsyncSession, sheet: string, filter: SheetFilter | undefined): Promise<number[] | null> {
     if (!filterActive(filter)) return null
     const [rows, used] = await Promise.all([rowsUnder(s, sheet, filter, false), s.getUsedRange(sheet)])
-    return rows.length < used.rows ? new Set(rows) : null
+    // the library takes the rows on the sheet in ascending order; a filter that hides none searches as without it
+    return rows.length < used.rows ? [...rows].sort((a, b) => a - b) : null
   }
 
   /** The edited cells as they are now, with their formulas as shown and edit texts; `truncated` when a sheet's rectangle held more than a window. */
@@ -389,18 +390,17 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   async function replace(req: FindRequest, by: string): Promise<ReplaceOutcome> {
     const s = await open()
     try {
-      const cells = await replacements(s, req, by, await searchedRows(s, req.sheet, req.filter), maxCells)
-      if (!cells.length) return { ok: true, changes: [], replaced: 0 }
-      const got = await s.setCellTexts(
-        cells.map((c) => ({ sheet: req.sheet, cell: cellAddress(c.row, c.col), text: c.text })),
-        { widen: false },
-      )
-      if (!got.ok) return { ...refusalOf(got), replaced: 0 }
-      return { ...(await settle(s, got, boxesUnder(req.sheet, cells, maxCells))), replaced: cells.length }
+      const got = await replaceAll(s, req, by, await searchedRows(s, req.sheet, req.filter))
+      const refused = got.refused?.length ? { refused: got.refused.map((r) => ({ sheet: r.sheet, cell: r.cell, message: r.message })) } : {}
+      if (!got.replaced) return { ok: true, changes: [], replaced: 0, ...refused }
+      // the written cells come back with their formulas and edit texts, read in windows of the cell limit
+      const cells = got.changes.filter((c) => sameName(c.sheet, req.sheet)).map((c) => parseCell(c.cell)!)
+      return { ...(await settle(s, got, boxesUnder(req.sheet, cells, maxCells))), replaced: got.replaced, ...refused }
     } catch (e) {
       return { ...outcomeOf(e, 'refused'), replaced: 0 }
     }
   }
+
 
   /** Excel's outline commands as xlcalc's (`outlineOp`): a structure operation, one step of the undo with SUBTOTAL and AGGREGATE recomputed; a refusal is the library's, in the book's language. */
   async function outline(change: OutlineChange): Promise<EditOutcome> {
@@ -502,7 +502,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const rows = await searchedRows(s, req.sheet, req.filter)
       check(signal)
       try {
-        return await findHits(s, req, locale, rows, signal)
+        return await findHits(s, req, rows, signal)
       } catch (e) {
         // the library's refusal of an aborted call is the abort the component expects
         check(signal)
