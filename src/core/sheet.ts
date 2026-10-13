@@ -135,6 +135,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     showFreeze: (sheet, on) => v.showFreeze(sheet, on),
     reapplyFilter: () => filter.reapply(),
     explain: () => explain.show(),
+    structured: () => originalWidths.clear(),
   })
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
   const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })

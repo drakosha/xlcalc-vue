@@ -64,6 +64,8 @@ export interface CommandsDeps {
   /** The display filter's Reapply and the precedents' panel, for the host's methods. */
   reapplyFilter: () => Promise<boolean>
   explain: () => boolean
+  /** A structure operation went through: lines may have moved, so what the sheet keeps by line number no longer holds. */
+  structured: () => void
 }
 
 const FONT_KEYS: Record<string, FontToggle> = { b: 'bold', i: 'italic', u: 'underline' }
@@ -104,7 +106,9 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     if (op.op === 'insertSheet') target = { name: op.name, keep: false }
     else if (op.op === 'unhideSheet') target = { name: op.sheet, keep: false }
     else if (op.op === 'renameSheet' && op.sheet === s.sheetName.value) target = { name: op.name, keep: true }
-    return change(() => call.call(s.source(), op), target, endsCopy)
+    const out = await change(() => call.call(s.source(), op), target, endsCopy)
+    if (out.ok) deps.structured()
+    return out
   }
 
   async function layout(edit: LayoutChange): Promise<EditOutcome | null> {

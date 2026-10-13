@@ -3,7 +3,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { SheetView, memorySource, type MemoryBook } from '../src'
+import { SheetView, memorySource, type MemoryBook, type SheetViewApi } from '../src'
 import { colPx, widthFromPx } from '../src/core/geometry'
 import { mountSheet, settle } from './helpers'
 
@@ -268,6 +268,21 @@ describe('column width with the mouse', () => {
     expect(localStorage.getItem('k:widths:S')).toBeNull()
     await w.findAll('.xs-head')[1]!.find('.xs-grip').trigger('dblclick')
     expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', width: widthFromPx(colPx(null)) })
+  })
+
+  it('edgeRestoresWidth: after a structure operation a double click does not give a column the width remembered for the one it replaced', async () => {
+    const source = memorySource({ sheets: [{ name: 'S', cells: { C3: 'x' }, widths: { C: 20 } }] })
+    const layout = vi.spyOn(source, 'layout')
+    source.structure = vi.fn(async () => ({ ok: true as const, changes: [] }))
+    const w = await mountSheet(source, { edgeRestoresWidth: true })
+    await drag(w, 3, 40)
+    await (w.vm as unknown as SheetViewApi).structure({ op: 'insertColumns', sheet: 'S', column: 'B' })
+    await settle()
+    layout.mockClear()
+    // C is now a new column; the remembered width was the old C's, which is D.
+    await w.findAll('.xs-head')[2]!.find('.xs-grip').trigger('dblclick')
+    await settle()
+    expect(layout).not.toHaveBeenCalled()
   })
 
   it('a double click on an edge fits the column through `layout`, as Excel; every selected whole column when it is one of them', async () => {
