@@ -11,7 +11,7 @@ import { useExplain } from './explain'
 import { useFill } from './fill'
 import { useFormula } from './formula'
 import { usePoint } from './point'
-import { MAX_COL_PX, MIN_COL_PX, useGeometry, widthFromPx } from './geometry'
+import { MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
 import { useMenu } from './menu'
 import { useNavigation } from './navigation'
 import { useOutline } from './outline'
@@ -287,6 +287,36 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     notify(text || s.messages.value.editFailed)
   }
 
+  // ── row height with the mouse ──
+  /** The grip on a number's edge, where the source sets heights; not for a finger, which snaps to it from the number (its long press opens the menu, with Row Height). */
+  const rowsResizable = computed(() => cmd.can('layout') && !v.touch.value)
+  /** The dragged row drawn at the new height meanwhile; the release sets it for every selected whole row it is one of. */
+  let rowDrag: { first: number; last: number; row: number; startY: number; startH: number; px: number } | null = null
+  function startRowResize(e: PointerEvent, row: number): void {
+    if (!rowsResizable.value || e.button !== 0) return
+    const whole = sel.wholeRows.value
+    const [first, last] = whole && row >= whole.first && row <= whole.last ? [whole.first, whole.last] : [row, row]
+    const startH = s.heights.value.get(row) ?? s.defaultRowPx.value
+    rowDrag = { first, last, row, startY: e.clientY, startH, px: startH }
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+    e.preventDefault()
+    e.stopPropagation()
+  }
+  function onRowResizeMove(e: PointerEvent): void {
+    if (!rowDrag) return
+    rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + e.clientY - rowDrag.startY)))
+    s.heights.value = new Map(s.heights.value).set(rowDrag.row, rowDrag.px)
+  }
+  async function endRowResize(): Promise<void> {
+    const d = rowDrag
+    rowDrag = null
+    if (!d || d.px === d.startH) return
+    const out = await cmd.layout({ sheet: s.sheetName.value, rows: linesKey(d.first, d.last, 'rows'), height: ptFromPx(d.px) })
+    // A refused height: the rows are read again as the source has them.
+    if (!out?.ok) await reload()
+    w.ensure()
+  }
+
   // ── links in cells ──
   /** A link clicked in a cell: a place in the book is the component's, anything else goes to the host if it listens. */
   function onLink(e: MouseEvent, link: NonNullable<SheetWindow['links']>[string], row: number, col: number): void {
@@ -468,6 +498,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     startResize,
     onResizeMove,
     endResize,
+    rowsResizable,
+    startRowResize,
+    onRowResizeMove,
+    endRowResize,
     fitsOnEdge,
     onEdgeDouble,
     onLink,

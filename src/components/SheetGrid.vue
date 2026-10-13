@@ -260,6 +260,17 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
               <div class="xs-in xs-top" :style="{ height: Math.max(0, geo.heightOf(row.d) - 3) + 'px' }">
                 <span>{{ row.r }}</span>
               </div>
+              <span
+                v-if="ctx.rowsResizable.value"
+                class="xs-grip xs-grip-row"
+                :title="m.resizeRow"
+                @pointerdown="ctx.startRowResize($event, row.r)"
+                @pointermove="ctx.onRowResizeMove"
+                @pointerup="ctx.endRowResize"
+                @pointercancel="ctx.endRowResize"
+                @click.stop
+                @dblclick.stop
+              ></span>
             </th>
             <template v-for="k in cols" :key="k.key">
               <td v-if="k.c === 0" :class="row.frozen ? 'xs-fz-row' : ''" :style="row.frozen ? { top: v.stickyTop(row.d) } : undefined"></td>

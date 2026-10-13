@@ -853,6 +853,64 @@ async function cycleScenario(browser: Browser, base: string, size: Size): Promis
   await context.close()
 }
 
+/** A formula's range dragged on the sheet (Point mode), a formula that does not read put back, a row's edge dragged under two wrapped lines. */
+async function formulaRowScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  const at = (what: string) => `[${size.name} formula-row] ${what}`
+  const field = () => page.locator('.xs-editor').inputValue()
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  for (const [cell, text] of [['1:1', '1'], ['2:1', '2']] as const) await enter(page, size, cell, text)
+  // =СУММ( and a drag from A1 to A2: the range goes into the field, which stays open
+  await page.locator('[data-cell="1:3"]').click()
+  await page.keyboard.type('=СУММ(')
+  const [a1, a2] = [await middle(page, '[data-cell="1:1"]'), await middle(page, '[data-cell="2:1"]')]
+  await page.mouse.move(a1.x, a1.y)
+  await page.mouse.down()
+  await page.mouse.move(a2.x, a2.y, { steps: 4 })
+  await page.mouse.up()
+  expect(at('the field after the drag'), await field(), '=СУММ(A1:A2')
+  await page.keyboard.type(')')
+  await page.keyboard.press('Enter')
+  await shows(page, '1:3', '3')
+  // a formula that does not read, left by a click where no reference may stand: the question, Restore leaves the cell empty
+  await page.locator('[data-cell="2:3"]').click()
+  await page.keyboard.type('=1)')
+  await page.locator('[data-cell="5:5"]').click()
+  await page.waitForSelector('[data-xs-alert="formula"]', { timeout: 30_000 })
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-p01-formula-question.png`) })
+  await page.locator('[data-xs-alert-button="revert"]').click()
+  await page.waitForSelector('[data-xs-alert]', { state: 'detached' })
+  expect(at('C2 after Restore'), cellOf(await bookOf(page), 'C2').formula, undefined)
+  // two lines wrapped in A3 and row 3 dragged 20 px taller: 30 points in the book
+  await page.locator('[data-cell="3:1"]').click()
+  await page.keyboard.type('one')
+  await page.keyboard.press('Alt+Enter')
+  await page.keyboard.type('two')
+  await page.keyboard.press('Enter')
+  await page.locator('[data-cell="3:1"]').click()
+  await page.locator('[data-tb="wrap"]').click()
+  const grip = await page.locator('th[data-row="3"] .xs-grip').boundingBox()
+  if (!grip) throw new Error(`${at('row grip')}: none on row 3`)
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + 3)
+  await page.mouse.down()
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + 23, { steps: 4 })
+  await page.mouse.up()
+  await ready(page)
+  const rows = (await bookOf(page)).sheets[0]!.rows as Record<string, { height?: number }> | undefined
+  expect(at('row 3 in the book'), rows?.['3']?.height, 30)
+  await page.mouse.move(size.width / 2, size.height / 2)
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-p02-row-height.png`) })
+  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3; =1) asked and put back; row 3 dragged to 30 pt under two wrapped lines`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 const demo = process.env.DEMO === '1'
 const mode = demo ? { mode: 'demo' } : {}
 /** A cell copied over a whole column: the app's limit of writes refuses it at once, as a source's refusal, and nothing changes. */
@@ -916,6 +974,7 @@ try {
   await autocompleteScenario(browser, base, phone)
   await cycleScenario(browser, base, desktop)
   await limitScenario(browser, base, desktop)
+  await formulaRowScenario(browser, base, desktop)
 } finally {
   await browser.close()
   await new Promise<void>((done) => server.httpServer.close(() => done()))

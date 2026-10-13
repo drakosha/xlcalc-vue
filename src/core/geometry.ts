@@ -29,6 +29,9 @@ export const widthFromChars = (chars: number): number => Math.trunc(((chars * DI
 export const widthFromPx = (px: number): number => widthFromChars(charsOfPx(px))
 
 /** Points to pixels at 96 dpi. */
+/** A row dragged by its edge: down to 2 px, up to Excel's 409 points. */
+export const MIN_ROW_PX = 2
+export const MAX_ROW_PX = 545
 export const rowPx = (pt: number): number => (pt <= 0 ? 0 : Math.round((pt * 4) / 3))
 
 /** Pixels back to points, rounded to Excel's quarter point. */
