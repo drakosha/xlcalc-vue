@@ -307,6 +307,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + e.clientY - rowDrag.startY)))
     s.heights.value = new Map(s.heights.value).set(rowDrag.row, rowDrag.px)
   }
+  /** A double click on a number's edge fits the row, every selected whole row when it is one of them, as Excel's AutoFit. */
+  function onRowEdgeDouble(row: number): void {
+    if (!rowsResizable.value) return
+    const whole = sel.wholeRows.value
+    const [first, last] = whole && row >= whole.first && row <= whole.last ? [whole.first, whole.last] : [row, row]
+    void cmd.layout({ sheet: s.sheetName.value, rows: linesKey(first, last, 'rows'), fit: true })
+  }
   async function endRowResize(): Promise<void> {
     const d = rowDrag
     rowDrag = null
@@ -502,6 +509,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     startRowResize,
     onRowResizeMove,
     endRowResize,
+    onRowEdgeDouble,
     fitsOnEdge,
     onEdgeDouble,
     onLink,

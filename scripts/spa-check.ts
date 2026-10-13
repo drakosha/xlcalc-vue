@@ -853,7 +853,7 @@ async function cycleScenario(browser: Browser, base: string, size: Size): Promis
   await context.close()
 }
 
-/** A formula's range dragged on the sheet and a reference by an arrow (Point mode), a formula that does not read put back, a row's edge dragged under two wrapped lines. */
+/** A formula's range dragged on the sheet and a reference by an arrow (Point mode), a formula that does not read put back, two typed lines wrapping and fitting their row, its edge dragged and double-clicked. */
 async function formulaRowScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
   const page = await context.newPage()
@@ -895,26 +895,35 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.locator('[data-xs-alert-button="revert"]').click()
   await page.waitForSelector('[data-xs-alert]', { state: 'detached' })
   expect(at('C2 after Restore'), cellOf(await bookOf(page), 'C2').formula, undefined)
-  // two lines wrapped in A3 and row 3 dragged 20 px taller: 30 points in the book
+  // two lines typed into A3: the cell wraps and its row fits them by itself (xlcalc 0.33), as Excel's
   await page.locator('[data-cell="3:1"]').click()
   await page.keyboard.type('one')
   await page.keyboard.press('Alt+Enter')
   await page.keyboard.type('two')
   await page.keyboard.press('Enter')
-  await page.locator('[data-cell="3:1"]').click()
-  await page.locator('[data-tb="wrap"]').click()
-  const grip = await page.locator('th[data-row="3"] .xs-grip').boundingBox()
-  if (!grip) throw new Error(`${at('row grip')}: none on row 3`)
-  await page.mouse.move(grip.x + grip.width / 2, grip.y + 3)
+  await ready(page)
+  type Rows = Record<string, { height?: number; bestFit?: boolean }> | undefined
+  const rowOf = async (r: string) => ((await bookOf(page)).sheets[0]!.rows as Rows)?.[r]
+  const fitted = await rowOf('3')
+  if (!fitted?.bestFit || !(fitted.height! > 15)) throw new Error(`${at('row 3 after two lines')}: ${JSON.stringify(fitted)}, want fitted above 15 pt`)
+  expect(at('A3 wraps'), cellOf(await bookOf(page), 'A3').style?.alignment?.wrap, true)
+  // its edge dragged 10 px up sets a height by hand, a double click fits the row again
+  const grip = async () => (await page.locator('th[data-row="3"] .xs-grip').boundingBox())!
+  let g = await grip()
+  await page.mouse.move(g.x + g.width / 2, g.y + 3)
   await page.mouse.down()
-  await page.mouse.move(grip.x + grip.width / 2, grip.y + 23, { steps: 4 })
+  await page.mouse.move(g.x + g.width / 2, g.y - 7, { steps: 4 })
   await page.mouse.up()
   await ready(page)
-  const rows = (await bookOf(page)).sheets[0]!.rows as Record<string, { height?: number }> | undefined
-  expect(at('row 3 in the book'), rows?.['3']?.height, 30)
+  const byHand = await rowOf('3')
+  if (byHand?.bestFit || byHand?.height === fitted.height) throw new Error(`${at('row 3 by hand')}: ${JSON.stringify(byHand)}`)
+  g = await grip()
+  await page.mouse.dblclick(g.x + g.width / 2, g.y + 3)
+  await ready(page)
+  expect(at('row 3 fitted again'), await rowOf('3'), fitted)
   await page.mouse.move(size.width / 2, size.height / 2)
   await page.screenshot({ path: resolve(out, `spa-${size.name}-p02-row-height.png`) })
-  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3, =C1*2 by Left gives 6; =1) asked and put back; row 3 dragged to 30 pt under two wrapped lines`)
+  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3, =C1*2 by Left gives 6; =1) asked and put back; two lines in A3 wrap and fit row 3 to ${fitted.height} pt, by hand ${byHand?.height} pt, a double click fits it again`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }

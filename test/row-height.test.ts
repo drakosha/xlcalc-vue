@@ -46,6 +46,20 @@ describe('row height with the mouse', () => {
     expect([rowPx(w, 2), rowPx(w, 3), rowPx(w, 4)]).toEqual([30, 30, 30])
   })
 
+  it('a double click on the grip fits the row, or every selected whole row it is one of, through `layout`', async () => {
+    const source = memorySource(book())
+    const layout = vi.spyOn(source, 'layout')
+    const w = await mountSheet(source)
+    await grip(w, 3).trigger('dblclick')
+    await goTo(w, '2:4')
+    await grip(w, 4).trigger('dblclick')
+    await settle()
+    expect(layout.mock.calls.map((c) => c[0])).toEqual([
+      { sheet: 'S', rows: '3', fit: true },
+      { sheet: 'S', rows: '2:4', fit: true },
+    ])
+  })
+
   it('a press without a move changes nothing and selects nothing', async () => {
     const source = memorySource(book())
     const layout = vi.spyOn(source, 'layout')

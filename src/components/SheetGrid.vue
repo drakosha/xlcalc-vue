@@ -269,7 +269,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                 @pointerup="ctx.endRowResize"
                 @pointercancel="ctx.endRowResize"
                 @click.stop
-                @dblclick.stop
+                @dblclick.stop="ctx.onRowEdgeDouble(row.r)"
               ></span>
             </th>
             <template v-for="k in cols" :key="k.key">

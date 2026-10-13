@@ -343,11 +343,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       if ('columns' in change) {
         const columns = linesOf(change.columns, 'columns')
         if (!columns) return failed(`Not columns: ${change.columns}`)
-        edit = change.fit ? { sheet: change.sheet, columns, fit: true } : { sheet: change.sheet, columns, set: { ...(change.width !== undefined ? { width: change.width } : {}), ...shown(change.width) } }
+        // a width set by hand is no longer the fitted one, which typing widens
+        edit = change.fit ? { sheet: change.sheet, columns, fit: true } : { sheet: change.sheet, columns, set: { ...(change.width !== undefined ? { width: change.width, bestFit: null } : {}), ...shown(change.width) } }
       } else {
         const rows = linesOf(change.rows, 'rows')
         if (!rows) return failed(`Not rows: ${change.rows}`)
-        edit = { sheet: change.sheet, rows, set: { ...(change.height !== undefined ? { height: change.height } : {}), ...shown(change.height) } }
+        edit = change.fit ? { sheet: change.sheet, rows, fit: true } : { sheet: change.sheet, rows, set: { ...(change.height !== undefined ? { height: change.height, bestFit: null } : {}), ...shown(change.height) } }
       }
       const got = await s.setLayout([edit])
       const changes = take(got.changes)

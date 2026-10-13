@@ -177,7 +177,26 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     const b = await s.book()
     expect(b.sheets[0]!.columns?.B).toMatchObject({ bestFit: true })
     expect(b.sheets[0]!.columns!.B!.width).toBeLessThan(20)
-    expect(events).toEqual([{ kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }])
+    // a width set by hand after the fit is no longer the fitted one
+    await s.layout({ sheet: 'Лист1', columns: 'B', width: 12 })
+    expect((await s.book()).sheets[0]!.columns?.B).toEqual({ width: 12 })
+    expect(events.slice(0, 5)).toEqual([{ kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }])
+  })
+
+  it('a line break typed wraps the cell and fits its row (xlcalc 0.33); Fit brings a row set by hand back to its text', async () => {
+    const s = source()
+    expect(await s.edit([{ sheet: 'Лист1', cell: 'F8', text: 'один\nдва' }])).toMatchObject({ ok: true })
+    let b = await s.book()
+    const fitted = b.sheets[0]!.rows?.['8']
+    expect(fitted).toMatchObject({ bestFit: true })
+    expect(fitted!.height!).toBeGreaterThan(15)
+    const w = await win(s, 'Лист1', 8, 1, 6, 1)
+    expect(styleOf(w, 'F8')?.alignment?.wrap).toBe(true)
+    expect(w.rowHeights[8]).toBe(fitted!.height)
+    expect(await s.layout({ sheet: 'Лист1', rows: '8', height: 60 })).toMatchObject({ ok: true })
+    expect(await s.layout({ sheet: 'Лист1', rows: '8', fit: true })).toMatchObject({ ok: true })
+    b = await s.book()
+    expect(b.sheets[0]!.rows?.['8']).toEqual(fitted)
   })
 
   it('formats a range: a new style in the table, a number format, and null removes them', async () => {
