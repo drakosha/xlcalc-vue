@@ -475,6 +475,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
+    /** The session's copy of a range as Excel puts it on the clipboard (xlcalc 0.34): values by their formats, hidden lines left out; a range too large is refused. */
+    async copyText(sheet, range, opts) {
+      const s = await open()
+      check(opts?.signal)
+      return s.copyText(sheet, range, { ...(opts?.trailingNewline === false ? { trailingNewline: false } : {}), ...(opts?.signal ? { signal: opts.signal } : {}) })
+    },
     async validation(sheet, cell, signal) {
       const s = await open()
       check(signal)

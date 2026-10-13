@@ -858,7 +858,7 @@ async function cycleScenario(browser: Browser, base: string, size: Size): Promis
 
 /** A formula's range dragged on the sheet and a reference by an arrow (Point mode), a formula that does not read put back, two typed lines wrapping and fitting their row, its edge dragged and double-clicked. */
 async function formulaRowScenario(browser: Browser, base: string, size: Size): Promise<void> {
-  const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, permissions: ['clipboard-read', 'clipboard-write'] })
   const page = await context.newPage()
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
@@ -924,9 +924,24 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.mouse.dblclick(g.x + g.width / 2, g.y + 3)
   await ready(page)
   expect(at('row 3 fitted again'), await rowOf('3'), fitted)
+  // a number wider than its column shows rounded to it; its copy is General without the column, 11 digits, the session's copyText as Excel copies it
+  await enter(page, size, '1:5', '1234567,891234')
+  await ready(page)
+  const shown = (await page.locator('[data-cell="1:5"]').textContent())!.trim()
+  await page.locator('[data-cell="1:5"]').click()
+  await page.keyboard.press('ControlOrMeta+c')
+  // Excel for Mac copies without the last CRLF, Excel for Windows with it
+  const want = (await page.evaluate(() => /Mac/.test(navigator.platform))) ? '1234567,891' : '1234567,891\r\n'
+  let copied = ''
+  for (let i = 0; i < 100 && copied !== want; i++) {
+    await page.waitForTimeout(50)
+    copied = await page.evaluate(() => navigator.clipboard.readText())
+  }
+  expect(at('E1 shown'), shown, '1234568')
+  expect(at('E1 copied'), copied, want)
   await page.mouse.move(size.width / 2, size.height / 2)
   await page.screenshot({ path: resolve(out, `spa-${size.name}-p02-row-height.png`) })
-  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3, =C1*2 by Left gives 6; =1) asked and put back; two lines in A3 wrap and fit row 3 to ${fitted.height} pt, by hand ${byHand?.height} pt, a double click fits it again`)
+  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3, =C1*2 by Left gives 6; =1) asked and put back; two lines in A3 wrap and fit row 3 to ${fitted.height} pt, by hand ${byHand?.height} pt, a double click fits it again; E1 shows ${shown} and copies ${JSON.stringify(copied)}`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }

@@ -21,6 +21,8 @@ export interface ClipMark {
   rect: CellRect
   text: string | null
   cut: boolean
+  /** The shown text the copy event took, when the source's own copy text replaced it on the clipboard: a paste of either is this copy. */
+  shown?: string
 }
 
 export interface ClipDeps {
@@ -98,13 +100,18 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     spent = null
     mark.value = m
     const now = loadedText(r)
+    const exact = sourceText(r)
     if (now !== null && write) {
       write(now)
-      return named(m, now)
+      named(m, now)
+      if (exact) void replaceWith(mark.value, now, exact)
+      return
     }
+    // the source's copy, else (none, or refused as too large) the windows' text
+    const fromWindows = async () => (now !== null ? { text: now, partial: false } : await fetchedText(r))
     let got: { text: string; partial: boolean }
     try {
-      got = now !== null ? { text: now, partial: false } : await fetchedText(r)
+      got = exact ? await exact.then((text) => ({ text, partial: false }), fromWindows) : await fromWindows()
     } catch {
       if (mark.value === m) mark.value = null
       return deps.notify(s.messages.value.copyFailed)
@@ -117,6 +124,26 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
       // The copy still pastes inside the book.
       deps.notify(s.messages.value.clipboardDenied)
     }
+  }
+  /** The source's copy of the selection cut to the data (values by their formats, as Excel copies them); null without `copyText`, under the display filter or past the data. */
+  function sourceText(r: CellRect): Promise<string> | null {
+    const copy = s.source().copyText
+    const bottom = Math.min(r.bottom, Math.max(r.top, s.dataRows.value))
+    const right = Math.min(r.right, Math.max(r.left, s.dataCols.value))
+    if (!copy || s.visible.value || r.top > s.dataRows.value || r.left > s.dataCols.value) return null
+    return copy.call(s.source(), s.sheetName.value, rangeAddress({ top: r.top, left: r.left, bottom, right }), { trailingNewline: !onMac() })
+  }
+  /** The source's text in place of the shown one the copy event took, through the clipboard API (a browser that refuses keeps the shown one); the mark knows both. */
+  async function replaceWith(m: ClipMark | null, shown: string, exact: Promise<string>): Promise<void> {
+    let text: string
+    try {
+      text = await exact
+      if (text === shown || mark.value !== m) return
+      await navigator.clipboard.writeText(text)
+    } catch {
+      return
+    }
+    if (m && mark.value === m) mark.value = { ...m, text, shown }
   }
   /** The mark takes its text once known, unless another copy came meanwhile. */
   function named(m: ClipMark | null, text: string): void {
@@ -137,7 +164,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   function pasteWith(text: string | null): void {
     if (!s.editable.value) return
     const m = mark.value
-    if (m && (!text || m.text === null || plain(text) === plain(m.text))) {
+    if (m && (!text || m.text === null || plain(text) === plain(m.text) || (m.shown !== undefined && plain(text) === plain(m.shown)))) {
       if (cmd.can('structure') && !s.visible.value) return void pasteMark(m)
       // Without `structure` (or under the display filter) the copy goes as its text; its last CRLF ends the rectangle, not an empty row to paste.
       text = m.text?.replace(/\r\n$/, '') ?? null

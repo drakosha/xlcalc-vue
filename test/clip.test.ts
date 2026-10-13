@@ -391,3 +391,51 @@ describe('with the local source', () => {
     await source.close()
   })
 })
+
+describe('the source’s copy text (SheetSource.copyText)', () => {
+  function writable() {
+    const api = { writeText: vi.fn(async (_t: string) => {}), readText: vi.fn(async () => '') }
+    Object.defineProperty(navigator, 'clipboard', { value: api, configurable: true })
+    return api
+  }
+
+  it('the copy event takes the shown text at once, the source’s text then goes through the clipboard API; a paste of either is the book’s copy', async () => {
+    const { source, structure } = withStructure()
+    const copyText = vi.fn(async () => 'EXACT\r\n')
+    source.copyText = copyText
+    const api = writable()
+    const w = await mountSheet(source)
+    await goTo(w, 'A1:B1')
+    expect(clipboard(w, 'copy')).toBe('1\t10\r\n')
+    await settle()
+    expect(copyText).toHaveBeenCalledWith('S', 'A1:B1', { trailingNewline: true })
+    expect(api.writeText).toHaveBeenCalledWith('EXACT\r\n')
+    await goTo(w, 'D5')
+    paste(w, 'EXACT\r\n')
+    await settle()
+    await goTo(w, 'D7')
+    paste(w, '1\t10\r\n')
+    await settle()
+    expect(ops(structure)).toEqual([
+      { op: 'copyRange', from: { sheet: 'S', range: 'A1:B1' }, to: { sheet: 'S', range: 'D5' } },
+      { op: 'copyRange', from: { sheet: 'S', range: 'A1:B1' }, to: { sheet: 'S', range: 'D7' } },
+    ])
+  })
+
+  it('the same text or a refusal writes nothing more; a Mac asks without the last CRLF', async () => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel')
+    const { source } = withStructure()
+    const copyText = vi.fn(async () => '1\t10')
+    source.copyText = copyText
+    const api = writable()
+    const w = await mountSheet(source)
+    await goTo(w, 'A1:B1')
+    expect(clipboard(w, 'copy')).toBe('1\t10')
+    await settle()
+    expect(copyText).toHaveBeenCalledWith('S', 'A1:B1', { trailingNewline: false })
+    copyText.mockRejectedValueOnce(new Error('too many cells'))
+    clipboard(w, 'copy')
+    await settle()
+    expect(api.writeText).not.toHaveBeenCalled()
+  })
+})

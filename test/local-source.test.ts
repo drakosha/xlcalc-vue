@@ -219,3 +219,16 @@ describe('localSource: Control and an arrow', () => {
     expect(await s.end('S', 'A5', 'right')).toBe('B5')
   })
 })
+
+describe('localSource: the clipboard text (xlcalc 0.34 copyText)', () => {
+  it('copies values by their formats without the column’s clipping, CRLF rows, none at the end for a Mac', async () => {
+    const s = source({
+      locale: 'ru-RU',
+      sheets: [{ name: 'S', cells: { A1: { value: { date: '2026-03-15' }, numberFormat: 'dd.mm.yyyy' }, B1: { value: 'a\tb' }, A2: { value: 2 } }, columns: { A: { width: 2 } } }],
+    })
+    const w = await win(s, 'S', 1, 1, 1, 1)
+    expect(w.text[0]![0]).toMatch(/^#+$/)
+    expect(await s.copyText!('S', 'A1:B2')).toBe('15.03.2026\t"a\tb"\r\n2\t\r\n')
+    expect(await s.copyText!('S', 'A2', { trailingNewline: false })).toBe('2')
+  })
+})
