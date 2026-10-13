@@ -134,6 +134,8 @@ A file opens as Excel opens it for its user. xlsx keeps no language, so a file t
 ```sh
 BIG_XLSX="$HOME/books/plan.xlsx:$HOME/books/budget.xlsx" npm run check:big
 BIG_PROFILE=1 BIG_XLSX=... npm run check:big   # also the page's CPU profiles of each step, test-results/big-*.cpuprofile
+BIG_URL=https://xlcalc.pridelab.dev/demo/ npm run check:big   # a published app instead of the build, the synthetic book only
+SPA_URL=https://xlcalc.pridelab.dev/demo/ npm run check:spa   # the app's scenarios on a published app
 ```
 
 `npm run check:excel-values` compares the library's values of a book with the values Excel saved in it: each formula cell after a session opened with the file's stored values computes the book (as the app opens a file, so a circular reference holds them) against `readXlsx`'s `cached`, numbers within a relative 1e-9. It prints how many differ and exits 1 when any does (`XLSX=a.xlsx:b.xlsx`; a large book wants `NODE_OPTIONS=--max-old-space-size=12288`).
