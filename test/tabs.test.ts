@@ -1,4 +1,4 @@
-// The sheet tabs as Excel's: shown with one sheet too (the the app's way back by `hideLoneTab`), hidden sheets left out,
+// The sheet tabs as Excel's: shown with one sheet too (an older way back by `hideLoneTab`), hidden sheets left out,
 // and "+" that inserts a sheet at the end under Excel's next name and shows it.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -48,7 +48,7 @@ describe('tabs', () => {
     expect(on()).toBe('A')
   })
 
-  it('show with one sheet, as Excel; hideLoneTab hides them then, as the the app', async () => {
+  it('show with one sheet, as Excel; hideLoneTab hides them then', async () => {
     expect(tabs(await mountSheet(one()))).toEqual(['Sheet1'])
     expect((await mountSheet(one(), { hideLoneTab: true })).find('.xs-tabs').exists()).toBe(false)
     const two = memorySource({ sheets: [{ name: 'A', cells: {} }, { name: 'B', cells: {} }] })

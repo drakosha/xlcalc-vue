@@ -14,7 +14,7 @@ const FETCH_ROWS = 120
 const FETCH_COLS = 12
 const MAX_CELLS = 20_000
 const MAX_COLS = 200
-/** Delay before asking again for a window that is not ready yet, and how many times (over the the app's recompute limit). */
+/** Delay before asking again for a window that is not ready yet, and how many times (over a host's recompute limit). */
 const PENDING_RETRY_MS = 1000
 const PENDING_POLLS_MAX = 200
 

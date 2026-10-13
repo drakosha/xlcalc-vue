@@ -1,4 +1,4 @@
-// Icons as small inline SVGs (24 × 24 strokes, the look of the the app's), so the package needs no icon library.
+// Icons as small inline SVGs (24 × 24 strokes), so the package needs no icon library.
 import { h, type FunctionalComponent } from 'vue'
 
 const icon = (paths: string[]): FunctionalComponent => {

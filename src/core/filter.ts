@@ -1,4 +1,4 @@
-// The display filter and sort, as the the app's funnel: the data do not change, the source lists the rows to show in order.
+// The display filter and sort, the funnel on a column's letter: the data do not change, the source lists the rows to show in order.
 import { computed, nextTick, ref, watch } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import type { SheetFilter } from '../source'

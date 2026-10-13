@@ -16,7 +16,7 @@ const RENDER_COLS = 2
 
 export interface ViewportInput {
   sheet: ComputedRef<SheetInfo | null>
-  /** The the app's display filter in force: its rows are not the sheet's in order, so the rows' outline bar is not drawn. */
+  /** The display filter in force: its rows are not the sheet's in order, so the rows' outline bar is not drawn. */
   visible: Readonly<Ref<object | null>>
   rowCount: ComputedRef<number>
   colCount: ComputedRef<number>

@@ -23,9 +23,9 @@ export interface SheetViewProps {
   formulaBar?: boolean
   /** The book's locale for numbers the component writes itself: a number's edit text and selection totals. */
   locale?: string
-  /** No tabs for a book of one sheet, as the the app has them; Excel shows them always, which is the default. */
+  /** No tabs for a book of one sheet, as some hosts want; Excel shows them always, which is the default. */
   hideLoneTab?: boolean
-  /** A double click on a column's edge brings the book's width back, as in the the app; by default it fits the columns to what they show, as Excel. */
+  /** A double click on a column's edge brings the book's width back, as some hosts want; by default it fits the columns to what they show, as Excel. */
   edgeRestoresWidth?: boolean
 }
 

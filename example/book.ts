@@ -1,4 +1,4 @@
-// The "all formatting" book: every 0.1.0 row of the the app parity table on its own sheet, conditional formats, data validation and a chain of formulas; synthetic data only.
+// The "all formatting" book: every formatting feature of 0.1.0 on its own sheet, conditional formats, data validation and a chain of formulas; synthetic data only.
 import { cellAddress } from 'xlcalc/a1'
 import type { BorderLine, CellStyle } from 'xlcalc/contract'
 import type { MemoryBook, MemoryCell, MemorySheet } from '../src'

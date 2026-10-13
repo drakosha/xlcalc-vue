@@ -347,7 +347,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       win.text.push(text)
       win.values.push(values)
     }
-    // Under a filter the rows are scattered: only one-row merges on shown rows stay, as the the app gives them.
+    // Under a filter the rows are scattered: only one-row merges on shown rows stay, as a display filter gives them.
     const area = { top: req.row, left: req.col, bottom: req.row + Math.max(rows, 1) - 1, right: req.col + Math.max(cols, 1) - 1 }
     const shown = new Set(sheetRows)
     win.merges = (store.sheet.merges ?? []).filter((m) => {

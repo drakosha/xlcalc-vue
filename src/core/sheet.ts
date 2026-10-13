@@ -134,7 +134,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
   const tabs = computed(() => s.sheets.value.map((x, i) => ({ sheet: x, i })).filter(({ sheet }) => !sheet.hidden))
-  /** Excel shows the tabs with one sheet too; the the app only from two (`hideLoneTab`). */
+  /** Excel shows the tabs with one sheet too; `hideLoneTab` only from two. */
   const showTabs = computed(() => tabs.value.length > (props.hideLoneTab ? 1 : 0))
   const hasLayout = () => typeof props.source.layout === 'function'
 

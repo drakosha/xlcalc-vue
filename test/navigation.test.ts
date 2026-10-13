@@ -175,7 +175,7 @@ describe('selection', () => {
     expect(data['text/plain']).toBe('1\t6\tx\r\n2\t4\t\r\n')
   })
 
-  it('keys move as in the the app: arrows, Ctrl+arrows, Shift extends, Ctrl+A selects all', async () => {
+  it('keys move as in a grid: arrows, Ctrl+arrows, Shift extends, Ctrl+A selects all', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
     await key('ArrowRight')

@@ -86,7 +86,7 @@ export interface FormatPatch {
   numberFormat?: NumberFormat | null
 }
 
-/** A display filter and sort, as the the app has them: the data do not change. */
+/** A display filter and sort: the data do not change. */
 export interface SheetFilter {
   /** Header rows on top that are never filtered. */
   head: number
@@ -109,7 +109,7 @@ export interface SheetInfo {
   freeze?: { rows: number; cols: number }
   /** Not on the tabs; `very` (xlsx's veryHidden) is not offered to show again either, as Excel offers it nowhere. */
   hidden?: boolean | 'very'
-  /** Rectangles that cannot be edited, with the reason for a tooltip (the app: the script's areas). */
+  /** Rectangles that cannot be edited, with the reason for a tooltip (for example a script's areas). */
   locked?: { range: string; reason: string }[]
   /** List mode: column titles in the header instead of letters; `sortable` lets a header click sort. */
   columns?: { title: string; align?: 'left' | 'center' | 'right'; sortable?: boolean }[]
@@ -194,7 +194,7 @@ export interface FindResult {
  */
 export type ReplaceOutcome = EditOutcome & { replaced: number; refused?: { sheet: string; cell: string; message: string }[] }
 
-/** With a filter `row` is a display index (a place among the visible rows), as in the the app. */
+/** With a filter `row` is a display index (a place among the visible rows). */
 export interface WindowRequest {
   sheet: string
   row: number
@@ -233,16 +233,16 @@ export interface SheetWindow {
   bars?: Record<string, { ratio: number; color: string }>
   /** What the sheet's conditional formats give cells, as xlcalc computes it: a style over the cell's, a data bar, an icon, the value hidden. Drawn in place of `bars` where given. */
   appearance?: Record<string, ConditionalAppearance>
-  /** Hyperlinks: an external address, a place in the book (`Sheet!B12`), a tooltip, a host's target (a the app file). */
+  /** Hyperlinks: an external address, a place in the book (`Sheet!B12`), a tooltip, a host's target (a file of the host). */
   links?: Record<string, { href?: string; location?: string; tooltip?: string; target?: string }>
   notes?: Record<string, { author?: string; text: string }>
-  /** A notice above the grid (the the app's "values computed by the the app"). */
+  /** A notice above the grid (for example "values computed on the server"). */
   notice?: string
   /** Cells with a drill-down (list mode): underlined, a click or Enter emits `cellDrill`. */
   drill?: Record<string, true>
 }
 
-/** The window is not ready yet (the the app's book is recomputing): the component waits and asks again. */
+/** The window is not ready yet (the host's book is recomputing): the component waits and asks again. */
 export interface SheetPending {
   pending: { elapsedMs: number }
 }
