@@ -1,0 +1,67 @@
+// The formula bar's height, as Excel's: one line by default, a button and Control+Shift+U expand and collapse it, the choice stays as the cell changes.
+import type { VueWrapper } from '@vue/test-utils'
+import { afterEach, describe, expect, it } from 'vitest'
+import { enMessages, memorySource, ruMessages, type MemoryBook } from '../src'
+import { goTo, key, mountSheet, settle } from './helpers'
+
+afterEach(() => {
+  document.body.innerHTML = ''
+})
+
+const book = (): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 'one\ntwo\nthree\nfour\nfive\nsix', A2: 'single' } }] })
+const toggle = (w: VueWrapper) => w.find('[data-xs-bar-toggle]')
+const expanded = (w: VueWrapper) => w.find('.xs-fx').classes().includes('xs-fx-open')
+
+describe('formula bar height', () => {
+  it('shows a cell of several lines collapsed to one line, with the button to expand it', async () => {
+    const w = await mountSheet(memorySource(book()))
+    expect(w.find('.xs-fx-text').text()).toBe('one\ntwo\nthree\nfour\nfive\nsix')
+    expect(expanded(w)).toBe(false)
+    expect(toggle(w).attributes('aria-expanded')).toBe('false')
+    expect(toggle(w).attributes('aria-label')).toBe(enMessages.expandBar)
+    expect(toggle(w).attributes('title')).toBe(enMessages.expandBar)
+  })
+
+  it('the button expands and collapses it; the labels follow', async () => {
+    const w = await mountSheet(memorySource(book()), { messages: ruMessages })
+    expect(toggle(w).attributes('aria-label')).toBe(ruMessages.expandBar)
+    await toggle(w).trigger('click')
+    expect(expanded(w)).toBe(true)
+    expect(toggle(w).attributes('aria-expanded')).toBe('true')
+    expect(toggle(w).attributes('aria-label')).toBe(ruMessages.collapseBar)
+    await toggle(w).trigger('click')
+    expect(expanded(w)).toBe(false)
+    expect(toggle(w).attributes('aria-expanded')).toBe('false')
+  })
+
+  it('Control+Shift+U on the grid toggles it, any layout; Control+U alone does not', async () => {
+    const w = await mountSheet(memorySource(book()))
+    await key(w, 'U', { ctrlKey: true, shiftKey: true, code: 'KeyU' })
+    expect(expanded(w)).toBe(true)
+    await key(w, 'Г', { ctrlKey: true, shiftKey: true, code: 'KeyU' })
+    expect(expanded(w)).toBe(false)
+    await key(w, 'u', { ctrlKey: true, code: 'KeyU' })
+    expect(expanded(w)).toBe(false)
+  })
+
+  it('Control+Shift+U in the bar field toggles it and the edit goes on', async () => {
+    const w = await mountSheet(memorySource(book()))
+    await w.find('.xs-fx').trigger('click')
+    await settle()
+    const input = w.find('.xs-fx-input')
+    expect(input.classes()).not.toContain('xs-fx-idle')
+    await input.trigger('keydown', { key: 'U', ctrlKey: true, shiftKey: true, code: 'KeyU' })
+    expect(expanded(w)).toBe(true)
+    expect(w.find('.xs-fx-input').classes()).not.toContain('xs-fx-idle')
+  })
+
+  it('stays expanded as the active cell changes, until toggled again', async () => {
+    const w = await mountSheet(memorySource(book()))
+    await toggle(w).trigger('click')
+    await goTo(w, 'A2')
+    expect(w.find('.xs-fx-text').text()).toBe('single')
+    expect(expanded(w)).toBe(true)
+    await goTo(w, 'A1')
+    expect(expanded(w)).toBe(true)
+  })
+})

@@ -39,6 +39,26 @@ export function shortcutLetter(e: KeyboardEvent): string {
   return /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : ''
 }
 
+/** The scroll that shows a field's caret line (setSelectionRange does not scroll a field of fixed height, as the collapsed formula bar's): the text up to the caret measured in the field itself; null when it all shows. */
+function caretTop(el: HTMLTextAreaElement, at: number): number | null {
+  if (el.scrollHeight <= el.clientHeight) return null
+  const cs = getComputedStyle(el)
+  const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2
+  const padTop = parseFloat(cs.paddingTop) || 0
+  const padBottom = parseFloat(cs.paddingBottom) || 0
+  const text = el.value
+  el.value = text.slice(0, at)
+  // The text up to the caret within the first screen: the top shows it.
+  const first = el.scrollHeight <= el.clientHeight
+  const bottom = el.scrollHeight - padBottom
+  el.value = text
+  if (first) return 0
+  const view = el.clientHeight - padTop - padBottom
+  const now = el.scrollTop
+  if (bottom - line < now + padTop) return bottom - line - padTop
+  return bottom > now + padTop + view ? bottom - padTop - view : now
+}
+
 export interface EditingDeps {
   notify: (text: string) => void
   /** Read the sheets and windows again (a conflict). */
@@ -47,6 +67,8 @@ export interface EditingDeps {
   pickSheet: (index: number) => Promise<void>
   cellInput: Ref<HTMLTextAreaElement | null>
   barInput: Ref<HTMLTextAreaElement | null>
+  /** A key that is the sheet's own in the field too (Control+Shift+U for the formula bar): true when taken. */
+  barKey?: (e: KeyboardEvent) => boolean
   /** Excel's Point mode by an arrow in the field: true when the arrow went into the formula. */
   point?: (e: KeyboardEvent) => boolean
   /** Excel's alert of a rule of data validation for a refused value, or the question on a formula that does not read, and the person's answer; without it the refusal is said in the message line. */
@@ -108,7 +130,9 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       if (!ed || !el || ed.caret === null) return
       if (document.activeElement !== el) el.focus({ preventScroll: true })
       el.value = ed.text
+      const top = caretTop(el, ed.caret)
       el.setSelectionRange(ed.caret, ed.caret)
+      if (top !== null) el.scrollTop = top
       ed.caret = null
     })
   }
@@ -382,12 +406,12 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       startEdit({ text: e.key, mode: 'enter' })
     }
   }
-  /** Keys in the field: the list of functions first when it is open, then an arrow that points (Point mode), Enter, Tab and their Shift commit and move, Control+Return (Cmd on a Mac) fills, Esc cancels, Alt+Enter breaks the line, F2 toggles arrows. */
+  /** Keys in the field: the list of functions first when it is open, then an arrow that points (Point mode), Enter, Tab and their Shift commit and move, Control+Return (Cmd on a Mac) fills, Esc cancels, Alt+Enter breaks the line, F2 toggles arrows, Control+Shift+U the formula bar's height. */
   function onEditorKey(e: KeyboardEvent): void {
     const ed = editor.value
     if (!ed || e.isComposing) return
     e.stopPropagation()
-    if (ac.onKey(e) || deps.point?.(e)) return
+    if (deps.barKey?.(e) || ac.onKey(e) || deps.point?.(e)) return
     if (e.key === 'Escape') {
       e.preventDefault()
       cancel()

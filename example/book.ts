@@ -65,12 +65,13 @@ function formatting(): MemorySheet {
   cells.H5 = { value: 'Перенос по словам: длинный текст в высокой строке', style: st({ alignment: { wrap: true, vertical: 'top' } }) }
   cells.H6 = { value: 'Без переноса: длинный текст обрезан краем, соседняя ячейка занята', style: st({}) }
   cells.I6 = { value: 'занято' }
+  cells.H8 = { value: 'Строки через Alt+Enter:\nвторая\nтретья\nчетвёртая\nпятая\nшестая', style: st({ alignment: { wrap: true, vertical: 'top' } }) }
   return {
     name: 'Оформление',
     cells,
     widths: { A: 24, B: 3, C: 18, D: 3, E: 22, F: 12, G: 3, H: 22 },
     // Excel stores a taller row for a bigger font; justify needs room for its lines.
-    heights: { '1': 16.5, '2': 40, '3': 40, '4': 40, '5': 58, '7': 21, '10': 45 },
+    heights: { '1': 16.5, '2': 40, '3': 40, '4': 40, '5': 58, '7': 21, '8': 90, '10': 45 },
   }
 }
 

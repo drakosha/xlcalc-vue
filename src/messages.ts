@@ -106,6 +106,9 @@ export interface SheetMessages {
   pending: string
   close: string
   editHint: string
+  /** Excel's button at the formula bar's right end and its Control+Shift+U: the bar one line high or several. */
+  expandBar: string
+  collapseBar: string
   /** A book being recomputed: the wait, its seconds, and the end of patience. */
   waiting: string
   waitSeconds: (n: number) => string
@@ -332,6 +335,8 @@ export const enMessages: SheetMessages = {
   pending: 'Saving…',
   close: 'Close',
   editHint: 'Click to edit the cell',
+  expandBar: 'Expand Formula Bar (Ctrl+Shift+U)',
+  collapseBar: 'Collapse Formula Bar (Ctrl+Shift+U)',
   waiting: 'The book is being recomputed…',
   waitSeconds: (n) => `${n} s`,
   waitHint: 'The values will show once the computation is done',
@@ -579,6 +584,8 @@ export const ruMessages: SheetMessages = {
   pending: 'Сохраняю…',
   close: 'Закрыть',
   editHint: 'Нажмите, чтобы править ячейку',
+  expandBar: 'Развернуть строку формул (Ctrl+Shift+U)',
+  collapseBar: 'Свернуть строку формул (Ctrl+Shift+U)',
   waiting: 'Книга пересчитывается…',
   waitSeconds: (n) => `${n} с`,
   waitHint: 'Значения появятся, когда расчёт закончится',
