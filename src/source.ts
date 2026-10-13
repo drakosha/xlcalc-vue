@@ -276,10 +276,10 @@ export interface SheetValidationAlert {
 
 export type SheetOp = Exclude<StructureOp, { op: 'addTable' | 'renameTable' | 'deleteTable' | 'convertTable' }>
 
-/** Columns or rows changed: a width or height set with the mouse, lines hidden or shown, columns fitted to what they show (Excel's double click on an edge). */
+/** Columns or rows changed: a width or height set with the mouse, lines hidden or shown, columns or rows fitted to what they show (Excel's double click on an edge). */
 export type LayoutChange =
   | { sheet: string; columns: string; width?: number; hidden?: boolean; fit?: true }
-  | { sheet: string; rows: string; height?: number; hidden?: boolean }
+  | { sheet: string; rows: string; height?: number; hidden?: boolean; fit?: true }
 
 export type EditOutcome =
   | {
