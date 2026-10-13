@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// The bar over the grid, as in Excel: back, the address box, the formula with clickable references (the edit field and its list of functions too), link and lock.
+// The bar over the grid, as in Excel: back, the address box, the formula with clickable references (the edit field and its list of functions too) one line high or expanded, link and lock.
 import { computed, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import { safeHref } from '../core/cell-view'
 import type { ValidationRect } from '../core/validation'
 import { useSheetContext } from './context'
 import FunctionList from './FunctionList.vue'
-import { IconBack, IconFilter, IconLink, IconLock, IconLockOpen, IconSearch } from './icons'
+import { IconBack, IconDown, IconFilter, IconLink, IconLock, IconLockOpen, IconSearch, IconUp } from './icons'
 
 const ctx = useSheetContext()
 const { sel, f, nav, ed, v } = ctx
@@ -56,10 +56,10 @@ function openBarFunnel(e: MouseEvent): void {
 }
 const setBarInput = (el: unknown) => (ctx.barInput.value = (el as HTMLTextAreaElement | null) ?? null)
 
-/** The list of functions under the bar's field, in the formula's coordinates, kept inside the window: measured as it opens and as the field grows. */
+/** The list of functions under the bar's field, in the formula's coordinates, kept inside the window: measured as it opens, as the text changes and as the bar expands or collapses. */
 const listPlace = shallowRef<{ rect: ValidationRect; view: ValidationRect } | null>(null)
 watch(
-  () => [editingBar.value && ed.ac.open.value, ctx.editor.value?.text] as const,
+  () => [editingBar.value && ed.ac.open.value, ctx.editor.value?.text, ctx.barOpen.value] as const,
   ([shown]) => {
     const input = ctx.barInput.value
     const fx = input?.parentElement
@@ -117,56 +117,73 @@ function onAddressEsc(e: KeyboardEvent): void {
       @keydown.enter.prevent="onAddressEnter"
       @keydown.esc.prevent="onAddressEsc"
     />
-    <div class="xs-fx" :class="{ 'xs-fx-edit': ctx.editable.value }" :title="editingBar ? undefined : barText || (ctx.editable.value ? m.editHint : '')" @mousedown="onBarDown" @click="onBarClick">
-      <span v-if="!editingBar" class="xs-fx-text">
-        <span v-if="activeName" class="xs-muted">{{ activeName }}</span>
-        <template v-if="showParts">
-          <span>=</span>
-          <template v-for="(part, i) in f.formulaParts.value" :key="i">
-            <!-- under a finger a reference is coloured text: a button the size of a word is no target, and Excel's bar has none -->
-            <span v-if="part.ref && part.color && ctx.v.touch.value" class="xs-ref-text" :style="{ color: part.color }">{{ part.text }}</span>
-            <button
-              v-else-if="part.ref && part.color && f.refSheet(part.ref) >= 0"
-              type="button"
-              class="xs-ref"
-              :style="{ color: part.color }"
-              :title="part.ref.sheet ? m.goSheet(part.ref.sheet) : m.showRange"
-              @click="nav.goRef(part.ref)"
-            >
-              {{ part.text }}
-            </button>
-            <span v-else>{{ part.text }}</span>
+    <div class="xs-fx-line">
+      <div class="xs-fx" :class="{ 'xs-fx-edit': ctx.editable.value, 'xs-fx-open': ctx.barOpen.value }" :title="editingBar ? undefined : barText || (ctx.editable.value ? m.editHint : '')" @mousedown="onBarDown" @click="onBarClick">
+        <span v-if="!editingBar" class="xs-fx-text">
+          <span v-if="activeName" class="xs-muted">{{ activeName }}</span>
+          <template v-if="showParts">
+            <span>=</span>
+            <template v-for="(part, i) in f.formulaParts.value" :key="i">
+              <!-- under a finger a reference is coloured text: a button the size of a word is no target, and Excel's bar has none -->
+              <span v-if="part.ref && part.color && ctx.v.touch.value" class="xs-ref-text" :style="{ color: part.color }">{{ part.text }}</span>
+              <button
+                v-else-if="part.ref && part.color && f.refSheet(part.ref) >= 0"
+                type="button"
+                class="xs-ref"
+                :style="{ color: part.color }"
+                :title="part.ref.sheet ? m.goSheet(part.ref.sheet) : m.showRange"
+                @click="nav.goRef(part.ref)"
+              >
+                {{ part.text }}
+              </button>
+              <span v-else>{{ part.text }}</span>
+            </template>
           </template>
-        </template>
-        <template v-else>{{ barText }}</template>
-      </span>
-      <textarea
-        v-if="ctx.editable.value"
-        :ref="setBarInput"
-        :class="['xs-fx-input', editingBar ? '' : 'xs-fx-idle']"
-        :value="editingBar ? ctx.editor.value!.text : ''"
-        rows="1"
-        spellcheck="false"
-        autocomplete="off"
-        autocapitalize="off"
-        :tabindex="editingBar ? 0 : -1"
-        :aria-hidden="editingBar ? undefined : 'true'"
-        @input="ed.onEditorInput"
-        @keydown="ed.onEditorKey"
-        @click="ed.ac.follow()"
-        @blur="ed.onEditorBlur($event, 'bar')"
-      ></textarea>
-      <FunctionList
-        v-if="listPlace && editingBar && ed.ac.open.value"
-        :rect="listPlace.rect"
-        :view="listPlace.view"
-        :items="ed.ac.items.value"
-        :active="ed.ac.index.value"
-        :touch="ctx.v.touch.value"
-        :messages="m"
-        @highlight="(i) => (ed.ac.index.value = i)"
-        @pick="(i) => ed.ac.accept(i)"
-      />
+          <template v-else>{{ barText }}</template>
+        </span>
+        <textarea
+          v-if="ctx.editable.value"
+          :ref="setBarInput"
+          :class="['xs-fx-input', editingBar ? '' : 'xs-fx-idle']"
+          :value="editingBar ? ctx.editor.value!.text : ''"
+          rows="1"
+          spellcheck="false"
+          autocomplete="off"
+          autocapitalize="off"
+          :tabindex="editingBar ? 0 : -1"
+          :aria-hidden="editingBar ? undefined : 'true'"
+          @input="ed.onEditorInput"
+          @keydown="ed.onEditorKey"
+          @click="ed.ac.follow()"
+          @blur="ed.onEditorBlur($event, 'bar')"
+        ></textarea>
+        <FunctionList
+          v-if="listPlace && editingBar && ed.ac.open.value"
+          :rect="listPlace.rect"
+          :view="listPlace.view"
+          :items="ed.ac.items.value"
+          :active="ed.ac.index.value"
+          :touch="ctx.v.touch.value"
+          :messages="m"
+          @highlight="(i) => (ed.ac.index.value = i)"
+          @pick="(i) => ed.ac.accept(i)"
+        />
+      </div>
+      <!-- Excel's arrow at the bar's right end; a press keeps an open field open -->
+      <button
+        type="button"
+        class="xs-tool xs-fx-toggle"
+        data-xs-bar-toggle
+        :title="ctx.barOpen.value ? m.collapseBar : m.expandBar"
+        :aria-label="ctx.barOpen.value ? m.collapseBar : m.expandBar"
+        :aria-expanded="ctx.barOpen.value ? 'true' : 'false'"
+        aria-keyshortcuts="Control+Shift+U"
+        @mousedown.prevent
+        @click="ctx.toggleBar()"
+      >
+        <IconUp v-if="ctx.barOpen.value" />
+        <IconDown v-else />
+      </button>
     </div>
     <template v-if="activeLink && !editingBar">
       <a

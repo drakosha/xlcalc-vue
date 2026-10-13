@@ -239,6 +239,48 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   console.log(`commands ${size.name}: freeze at B3 and unfreeze, the precedents of B12 and Формулы!B2, row 3 gone after ${size.mobile ? 'the line\'s Reapply' : 'Control+Alt+L'}`)
 }
 
+/** Excel's formula bar over a cell of six lines: one line high and the grid in place, expanded by its arrow, and the caret on the last line seen in the collapsed field. */
+async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
+  const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
+  const measure = () =>
+    page.evaluate(() => ({
+      bar: Math.round(document.querySelector('.xs-bar')!.getBoundingClientRect().height),
+      grid: Math.round(document.querySelector('.xs-scroller')!.getBoundingClientRect().top),
+      wide: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    }))
+  await open(page, 'Оформление!A1')
+  const plain = await measure()
+  await open(page, 'Оформление!H8')
+  await page.waitForTimeout(2200)
+  const collapsed = await measure()
+  if (collapsed.grid !== plain.grid) throw new Error(`a cell of six lines moved the grid from ${plain.grid} to ${collapsed.grid} px`)
+  await shot(page, size.name, '36-bar-collapsed')
+  if (size.mobile) await checkTargets(page, true)
+  await press('[data-xs-bar-toggle]')
+  await page.waitForSelector('.xs-fx-open')
+  const expanded = await measure()
+  await shot(page, size.name, '37-bar-expanded')
+  await press('[data-xs-bar-toggle]')
+  await page.waitForSelector('.xs-fx:not(.xs-fx-open)')
+  // The field opens in the bar with the caret at the end, on the sixth line: the collapsed field scrolls to it.
+  await press('.xs-fx')
+  await page.waitForSelector('.xs-fx-input:not(.xs-fx-idle)')
+  await page.waitForTimeout(100)
+  const caret = await page.locator('.xs-fx-input').evaluate((el: HTMLTextAreaElement) => ({ at: el.selectionStart, length: el.value.length, top: el.scrollTop, room: el.scrollHeight - el.clientHeight }))
+  if (caret.at !== caret.length || caret.room <= 0 || caret.top < caret.room - 2) throw new Error(`the caret's line is not in view: ${JSON.stringify(caret)}`)
+  await shot(page, size.name, '38-bar-caret')
+  // The open field is as high as the text it covers, collapsed and expanded (Control+Shift+U on a desktop, the arrow under a finger): the grid stays.
+  const editing = await measure()
+  if (size.mobile) await press('[data-xs-bar-toggle]')
+  else await page.keyboard.press('Control+Shift+KeyU')
+  await page.waitForSelector('.xs-fx-open .xs-fx-input:not(.xs-fx-idle)')
+  const editingOpen = await measure()
+  if (editing.grid !== collapsed.grid || editingOpen.grid !== expanded.grid) throw new Error(`the open field moved the grid: ${JSON.stringify({ collapsed, editing, expanded, editingOpen })}`)
+  await page.keyboard.press('Escape')
+  if ([plain, collapsed, expanded].some((m) => m.wide)) throw new Error(`the page scrolls sideways: ${JSON.stringify({ plain, collapsed, expanded })}`)
+  console.log(`bar ${size.name}: ${collapsed.bar} px collapsed over six lines (one line: ${plain.bar} px), ${expanded.bar} px expanded, the same with the field open; the caret's line scrolled into view (${caret.top} of ${caret.room} px)`)
+}
+
 for (const size of SIZES) {
   const context = await browser.newContext({
     viewport: { width: size.width, height: size.height },
@@ -344,6 +386,7 @@ for (const size of SIZES) {
   await shot(page, size.name, '35-outline-level')
   console.log(`outline ${size.name}: + ${size.mobile ? 'tapped 15 px below' : 'clicked'}, level 3 of the columns`)
 
+  await barScreens(page, size)
   await validationScreens(page, size)
   await commandScreens(page, size)
 

@@ -87,8 +87,18 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const nav = useNavigation(s, sel, f, { pickSheet, notify })
   const cellInput = ref<HTMLTextAreaElement | null>(null)
   const barInput = ref<HTMLTextAreaElement | null>(null)
+  /** Excel's formula bar expanded to several lines; it stays so until toggled, whatever the cell. */
+  const barOpen = ref(false)
+  const toggleBar = () => (barOpen.value = !barOpen.value)
+  /** Excel's Control+Shift+U (on a Mac too, any layout): the formula bar expanded or collapsed; true when taken. */
+  function barKey(e: KeyboardEvent): boolean {
+    if (!e.ctrlKey || !e.shiftKey || e.altKey || e.metaKey || shortcutLetter(e) !== 'u') return false
+    e.preventDefault()
+    toggleBar()
+    return true
+  }
   const alerts = useValidationAlert()
-  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, point: (e) => point.key(e), alert: alerts.ask })
+  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask })
   const point = usePoint(s, geo, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, separator: f.listSeparator, reveal: sel.revealCell })
   // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, else in as typed past the rule.
   const validation = useValidation({
@@ -341,7 +351,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
-    if (!e.isComposing && (cmd.fontKey(e) || outline.key(e))) return
+    if (!e.isComposing && (cmd.fontKey(e) || outline.key(e) || barKey(e))) return
     if ((e.ctrlKey || e.metaKey) && /^[fFаА]$/.test(e.key) && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -497,6 +507,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     dismiss,
     cellInput,
     barInput,
+    barOpen,
+    toggleBar,
     tabs,
     showTabs,
     pickSheet,

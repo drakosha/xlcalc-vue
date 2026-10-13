@@ -105,8 +105,17 @@
 .xs-address:focus {
   border-color: var(--xs-accent);
 }
-/* The formula: wraps anywhere, at most about four lines, then scrolls inside. */
+/* The formula and Excel's arrow at its right end, which expands the bar to several lines and collapses it. */
+.xs-fx-line {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+/* The formula: wraps anywhere; one line high (the rest scrolls inside, the grid stays put), expanded five, as Excel's bar. */
 .xs-fx {
+  --xs-fx-lines: 1;
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
@@ -114,13 +123,16 @@
   font-size: 12.5px;
   line-height: 1.35;
 }
+.xs-fx-open {
+  --xs-fx-lines: 5;
+}
 .xs-fx-edit {
   cursor: text;
 }
 .xs-fx-text {
   display: block;
-  max-height: 4.6em;
-  padding-top: 3px;
+  height: calc(var(--xs-fx-lines) * 1.35em);
+  margin: 3px 0 2px;
   overflow-y: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -129,15 +141,14 @@
 .xs-fx-input {
   display: block;
   width: 100%;
+  height: calc(var(--xs-fx-lines) * 1.35em + 5px);
   min-height: 22px;
-  max-height: 6.5em;
-  padding: 2px 4px;
+  padding: 2px 4px 1px;
   border: 1px solid var(--xs-accent);
   border-radius: 3px;
   background: var(--xs-bg);
   color: var(--xs-fg);
   font: inherit;
-  field-sizing: content;
   resize: none;
   outline: none;
 }
@@ -1009,11 +1020,18 @@
   font-size: 14px;
 }
 .xs-touch .xs-fx-text {
-  padding-top: 12px;
+  margin: 12px 0;
 }
 .xs-touch .xs-fx-input {
+  height: calc(var(--xs-fx-lines) * 1.35em + 24px);
   min-height: 44px;
   padding: 11px 6px;
+}
+/* Collapsed under a finger one line fills the field's height, so a scroll by lines shows no part of the next one in the padding. */
+.xs-touch .xs-fx:not(.xs-fx-open) .xs-fx-input {
+  height: 44px;
+  padding-block: 0;
+  line-height: 42px;
 }
 .xs-touch .xs-bar-link {
   line-height: 44px;
@@ -1062,7 +1080,7 @@
   flex-wrap: wrap;
   row-gap: 4px;
 }
-.xs-narrow .xs-fx {
+.xs-narrow .xs-fx-line {
   flex-basis: 100%;
   order: 3;
 }
