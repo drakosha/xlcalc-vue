@@ -48,6 +48,12 @@ export interface SheetSource {
   functionNames?(signal?: AbortSignal): Promise<string[]>
   /** A cell's precedents tree as text. */
   explain?(sheet: string, cell: string): Promise<string>
+  /**
+   * Excel's Control and an arrow key from a cell (`Range.End`): the cell it goes to (`B12`), the end of the block of cells
+   * that hold something, the next such cell, or the sheet's edge, hidden lines passed. Without it the sheet goes to the
+   * edge of the data it knows.
+   */
+  end?(sheet: string, cell: string, direction: 'up' | 'down' | 'left' | 'right', signal?: AbortSignal): Promise<string>
   /** Totals of a rectangle; without it the component counts over the loaded windows. */
   stats?(sheet: string, range: string, filter?: SheetFilter, signal?: AbortSignal): Promise<RangeStats>
   /** Excel's Find on a sheet: hits in Excel's order, by rows or by columns (under a display filter only its visible rows). Without it there is no search. */
