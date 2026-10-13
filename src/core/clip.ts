@@ -5,8 +5,8 @@
 import { computed, shallowRef, watch, type Ref } from 'vue'
 import { cellAddress, rangeAddress } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
+import { formatClipboard } from 'xlcalc/text'
 import type { SheetOp } from '../source'
-import { toTsv } from './clipboard'
 import type { Commands } from './commands'
 import type { Editing, EditorState } from './editing'
 import type { Selection } from './selection'
@@ -26,7 +26,12 @@ export interface ClipMark {
 export interface ClipDeps {
   notify: (text: string) => void
   editor: Ref<EditorState | null>
+  /** Whether a column is shown: Excel leaves hidden ones out of a copy. */
+  colShown: (col: number) => boolean
 }
+
+/** Excel for Mac ends a copy's text without a line break, Excel for Windows with CRLF. */
+const onMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
 
 /** Clipboard text as compared: line ends of any system, without the last one. */
 const plain = (t: string) => t.replace(/\r\n?/g, '\n').replace(/\n$/, '')
@@ -53,14 +58,15 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   function extentOf(r: CellRect): { ds: number[]; c2: number } {
     return { ds: totals.shownRows(r.top, Math.min(r.bottom, Math.max(r.top, s.dataRows.value))), c2: Math.min(r.right, Math.max(r.left, s.dataCols.value)) }
   }
-  const tsv = (cell: (d: number, col: number) => string, rows: number[], left: number, last: number) =>
-    toTsv(
-      rows.map((d) => {
-        const line: string[] = []
-        for (let col = left; col <= last; col++) line.push(cell(d, col))
-        return line
-      }),
+  /** The shown rows and columns as Excel puts plain text on the clipboard (xlcalc's formatClipboard): tabs, CRLF, quotes around a tab or a line break. */
+  const tsv = (cell: (d: number, col: number) => string, rows: number[], left: number, last: number) => {
+    const cols: number[] = []
+    for (let col = left; col <= last; col++) if (deps.colShown(col)) cols.push(col)
+    return formatClipboard(
+      rows.map((d) => cols.map((col) => cell(d, col))),
+      { trailingNewline: !onMac() },
     )
+  }
   /** The text from the loaded windows; null when they do not hold it all. */
   function loadedText(r: CellRect): string | null {
     const { ds, c2 } = extentOf(r)
@@ -133,8 +139,8 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     const m = mark.value
     if (m && (!text || m.text === null || plain(text) === plain(m.text))) {
       if (cmd.can('structure') && !s.visible.value) return void pasteMark(m)
-      // Without `structure` (or under the display filter) the copy goes as its text.
-      text = m.text
+      // Without `structure` (or under the display filter) the copy goes as its text; its last CRLF ends the rectangle, not an empty row to paste.
+      text = m.text?.replace(/\r\n$/, '') ?? null
     } else if (!m && text && spent !== null && plain(text) === plain(spent)) return
     if (text) ed.pasteText(text)
   }

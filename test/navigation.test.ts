@@ -165,14 +165,14 @@ describe('selection', () => {
     expect(w.find('.xs-stats').text()).toBe('Cells: 5,000')
   })
 
-  it('copies the selection as TSV', async () => {
+  it('copies the selection as Excel puts plain text on the clipboard', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'A1:C2')
     const data: Record<string, string> = {}
     const e = new Event('copy', { bubbles: true, cancelable: true }) as ClipboardEvent
     Object.defineProperty(e, 'clipboardData', { value: { setData: (t: string, v: string) => (data[t] = v) } })
     w.find('.xs-scroller').element.dispatchEvent(e)
-    expect(data['text/plain']).toBe('1\t6\tx\n2\t4\t')
+    expect(data['text/plain']).toBe('1\t6\tx\r\n2\t4\t\r\n')
   })
 
   it('keys move as in the the app: arrows, Ctrl+arrows, Shift extends, Ctrl+A selects all', async () => {

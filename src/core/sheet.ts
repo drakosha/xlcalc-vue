@@ -126,7 +126,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     reapplyFilter: () => filter.reapply(),
     explain: () => explain.show(),
   })
-  const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor })
+  const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
   const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
   const menu = useMenu(s, geo, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })

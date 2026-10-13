@@ -44,6 +44,22 @@ function pasteUnread(w: VueWrapper): void {
 const ants = (w: VueWrapper) => w.find('[data-xs-ants]').exists()
 const ops = (structure: ReturnType<typeof withStructure>['structure']) => structure.mock.calls.map((c) => c[0])
 
+describe('the clipboard’s plain text, as Excel copies it (xlcalc’s formatClipboard)', () => {
+  it('rows end with CRLF, a field with a tab or a line break goes in quotes, a hidden column is left out', async () => {
+    const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 'a\tb', B1: 'hidden', C1: 'say "hi"', A2: 'x\ny', C2: 3 }, widths: { B: 0 } }] })
+    const w = await mountSheet(source)
+    await goTo(w, 'A1:C2')
+    expect(clipboard(w, 'copy')).toBe('"a\tb"\tsay "hi"\r\n"x\ny"\t3\r\n')
+  })
+
+  it('on a Mac the text has no CRLF at the end, as Excel for Mac copies', async () => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel')
+    const w = await mountSheet(memorySource(book()))
+    await goTo(w, 'A1:A2')
+    expect(clipboard(w, 'copy')).toBe('1\r\n2')
+  })
+})
+
 describe('Control+C and Control+V inside the book', () => {
   it('a copy marks the range; a paste of its text copies the range from the top-left cell and selects what it pasted; the mark stays', async () => {
     const { source, structure, edit } = withStructure()
@@ -51,11 +67,11 @@ describe('Control+C and Control+V inside the book', () => {
     await goTo(w, 'A1:B2')
     expect(ants(w)).toBe(false)
     const text = clipboard(w, 'copy')
-    expect(text).toBe('1\t10\n2\t')
+    expect(text).toBe('1\t10\r\n2\t\r\n')
     await settle()
     expect(ants(w)).toBe(true)
     await goTo(w, 'D5')
-    paste(w, text!.replace(/\n/g, '\r\n') + '\r\n')
+    paste(w, text!)
     await settle()
     expect(ops(structure)).toEqual([{ op: 'copyRange', from: { sheet: 'S', range: 'A1:B2' }, to: { sheet: 'S', range: 'D5' } }])
     expect(edit).not.toHaveBeenCalled()
@@ -206,7 +222,7 @@ describe('Control+C and Control+V inside the book', () => {
     const { source, structure } = withStructure()
     const ro = await mountSheet(source, { readOnly: true })
     await goTo(ro, 'A1:A2')
-    expect(clipboard(ro, 'copy')).toBe('1\n2')
+    expect(clipboard(ro, 'copy')).toBe('1\r\n2\r\n')
     expect(clipboard(ro, 'cut')).toBeUndefined()
     await goTo(ro, 'D5')
     paste(ro, text)
@@ -278,7 +294,7 @@ describe('the cells’ menu', () => {
     await goTo(w, 'A1:B1')
     await context(w, '1:1')
     await pick('copy')
-    expect(api.writeText).toHaveBeenCalledWith('1\t10')
+    expect(api.writeText).toHaveBeenCalledWith('1\t10\r\n')
     expect(ants(w)).toBe(true)
     await context(w, '6:4')
     await pick('paste')
