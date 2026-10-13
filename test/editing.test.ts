@@ -153,14 +153,13 @@ describe('keys', () => {
     expect(edits[1]!.map((e) => `${e.cell}=${e.text}`)).toEqual(['E1=7', 'E2=7'])
   })
 
-  it('a paste takes quotes as text, fields at tabs and rows at line breaks', async () => {
+  it('a paste reads quoted fields as Excel pastes them, fields at tabs and rows at line breaks', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'B5')
-    // TODO(xlcalc): parseClipboard does not read quoted fields yet (asked in the library's tracker); once it does, this is one row, `x\ny` and `say "hi"`.
-    paste(w, '"x\ny"\t"say ""hi"""')
+    paste(w, '"x\ny"\t"say ""hi"""\nz')
     await settle()
-    expect(edits[0]!.map((e) => `${e.cell}=${e.text}`)).toEqual(['B5="x', 'C5=null', 'B6=y"', 'C6="say ""hi"""'])
+    expect(edits[0]!.map((e) => `${e.cell}=${e.text}`)).toEqual(['B5=x\ny', 'C5=say "hi"', 'B6=z', 'C6=null'])
   })
 
   it('a paste that would leave the sheet is refused whole, as Excel refuses it, and says why', async () => {
