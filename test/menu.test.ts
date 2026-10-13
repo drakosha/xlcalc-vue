@@ -7,7 +7,7 @@ import { memorySource, ruMessages, type MemoryBook } from '../src'
 import { widthFromChars } from '../src/core/geometry'
 import { localSource } from '../src/local'
 import type { EditOutcome, SheetOp } from '../src/source'
-import { cellText, mountSheet, settle } from './helpers'
+import { active, cellText, editorOpen, mountSheet, settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -178,6 +178,96 @@ describe('the menu on row numbers and column letters', () => {
     w.find('[data-cell="5:3"]').element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
     await settle()
     expect(items()).toEqual([])
+  })
+})
+
+describe('keys in the menu, as Excel’s and the system’s menus', () => {
+  const focused = () => (document.activeElement as HTMLElement | null)?.dataset.xsMenu
+  /** A key pressed where the focus is, as the browser sends it. */
+  async function press(k: string, extra: KeyboardEventInit = {}): Promise<KeyboardEvent> {
+    const e = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra })
+    ;(document.activeElement ?? document.body).dispatchEvent(e)
+    await settle()
+    return e
+  }
+  const scroller = (w: VueWrapper) => w.find('.xs-scroller').element as HTMLElement
+
+  it('focuses the first item on opening; Down and Up go round past disabled items, Home and End to the first and last', async () => {
+    const w = await mountSheet(withStructure().source)
+    await context(w.findAll('.xs-tab')[0]!)
+    const all = [...document.querySelectorAll<HTMLElement>('[data-xs-menu]')]
+    expect(all.every((b) => b.getAttribute('role') === 'menuitem' && b.getAttribute('tabindex') === '-1')).toBe(true)
+    expect(focused()).toBe('insertSheet')
+    const went: (string | undefined)[] = []
+    for (const k of ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowUp', 'End', 'ArrowDown', 'ArrowUp', 'Home', 'ArrowUp']) {
+      await press(k)
+      went.push(focused())
+    }
+    // moveLeft is disabled on the first tab
+    expect(went).toEqual(['deleteSheet', 'rename', 'moveRight', 'rename', 'hideSheet', 'insertSheet', 'hideSheet', 'insertSheet', 'hideSheet'])
+  })
+
+  it('keeps the focus on its item when the menu’s caption is pressed, as a system menu', async () => {
+    const w = await mountSheet(withStructure().source)
+    await context(num(w, 2))
+    await press('ArrowDown')
+    const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+    document.querySelector('.xs-menu-caption')!.dispatchEvent(down)
+    expect(down.defaultPrevented).toBe(true)
+    expect(focused()).toBe('delete')
+  })
+
+  it('chooses the focused item by Enter and by Space, as a click, and gives the focus back to the grid', async () => {
+    const { source, structure } = withStructure()
+    const w = await mountSheet(source)
+    scroller(w).focus()
+    await context(num(w, 3))
+    expect((await press('Enter')).defaultPrevented).toBe(true)
+    expect(items()).toEqual([])
+    expect(document.activeElement).toBe(scroller(w))
+    await context(num(w, 6))
+    await press('ArrowDown')
+    await press(' ')
+    expect(structure.mock.calls.map((c) => c[0])).toEqual([
+      { op: 'insertRows', sheet: 'S', row: 3, count: 1 },
+      { op: 'deleteRows', sheet: 'S', row: 6, count: 1 },
+    ])
+  })
+
+  it('keeps its keys from the grid and the page: the active cell stays, no edit opens', async () => {
+    const w = await mountSheet(withStructure().source)
+    scroller(w).focus()
+    await context(w.find('[data-cell="2:2"]'))
+    const outside = vi.fn()
+    document.addEventListener('keydown', outside)
+    try {
+      for (const k of ['ArrowDown', 'ArrowUp', 'End', 'Home']) expect((await press(k)).defaultPrevented).toBe(true)
+    } finally {
+      document.removeEventListener('keydown', outside)
+    }
+    expect(outside).not.toHaveBeenCalled()
+    expect(items().length).toBeGreaterThan(0)
+    expect(active(w)).toBe('2:2')
+    expect(editorOpen(w)).toBe(false)
+  })
+
+  it('closes on Esc and on Tab, as Excel, with the focus back where it was', async () => {
+    const w = await mountSheet(withStructure().source)
+    scroller(w).focus()
+    await context(w.find('[data-cell="2:2"]'))
+    expect(focused()).toBe('cut')
+    await press('Escape')
+    expect(items()).toEqual([])
+    expect(document.activeElement).toBe(scroller(w))
+    await context(w.find('[data-cell="2:2"]'))
+    expect((await press('Tab')).defaultPrevented).toBe(true)
+    expect(items()).toEqual([])
+    expect(document.activeElement).toBe(scroller(w))
+    await context(w.find('[data-cell="2:2"]'))
+    await press('Tab', { shiftKey: true })
+    expect(items()).toEqual([])
+    expect(document.activeElement).toBe(scroller(w))
+    expect(active(w)).toBe('2:2')
   })
 })
 

@@ -174,6 +174,11 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   await menuOn('3:2')
   await shot(page, size.name, '50-freeze-menu')
   if (size.mobile) await checkTargets(page, true)
+  // Keys in the menu: the focus on its first enabled item (Cut is off on a formula), Down to the next one, shown as focused.
+  await page.keyboard.press('ArrowDown')
+  const focused = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.xsMenu)
+  if (focused !== 'paste') throw new Error(`Down in the cells' menu went to ${focused}`)
+  await shot(page, size.name, '50-freeze-menu-keys')
   await choose('freeze')
   await page.waitForSelector('[data-cell="2:1"].xs-fz-corner')
   await page.locator('.xs-scroller').evaluate((el) => el.scrollTo({ top: 100, left: 120 }))
