@@ -193,6 +193,22 @@ describe('selection', () => {
 })
 
 describe('keys on an editable sheet', () => {
+  it('Control and an arrow go where the source\'s end says, as Excel\'s Range.End; Shift extends there', async () => {
+    const src = memorySource(book())
+    const end = vi.fn(async (_sheet: string, cell: string, dir: string) => (dir === 'down' ? 'A40' : cell === 'A40' ? 'F40' : 'A1'))
+    const w = await mountSheet({ ...src, end })
+    const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
+    await key('ArrowDown', { ctrlKey: true })
+    await settle()
+    expect(end).toHaveBeenLastCalledWith('One', 'A1', 'down')
+    expect(active(w)).toBe('40:1')
+    await key('ArrowRight', { ctrlKey: true, shiftKey: true })
+    await settle()
+    expect(end).toHaveBeenLastCalledWith('One', 'A40', 'right')
+    expect(active(w)).toBe('40:1')
+    expect(addressOf(w)).toBe('A40:F40')
+  })
+
   it('Enter and Tab move the active cell inside a selection of several cells, which stays, round past its end, as Excel', async () => {
     const w = await mountSheet(memorySource(book()))
     const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })

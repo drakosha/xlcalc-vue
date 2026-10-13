@@ -63,13 +63,19 @@ const status = computed(() => {
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 /**
+ * Cells one change may write with a value or a formula: a copy of a cell over a whole column (1,048,576 of them, seconds
+ * and hundreds of megabytes in the thread) is refused at once instead. Excel has no such limit; the library's is off by default.
+ */
+const WRITES_MAX = 100_000
+
+/**
  * Open a book on a sheet: a new source with its changes timed, the old one closed; `since` is when the opening began.
  * `cached`, the values a file stores, opens a circular reference holding them, as Excel opens the file.
  */
 function start(input: BookInput, bookName: string, lost: LossKind[] = [], since = performance.now(), sheet?: string, cached?: XlsxCached): void {
   const previous = book.value?.source
   const source = timed(
-    localSource(input, cached ? { session: { cached } } : {}),
+    localSource(input, { session: { ...(cached ? { cached } : {}), limits: { writes: WRITES_MAX } } }),
     () => out.value++,
     (ms) => {
       out.value--

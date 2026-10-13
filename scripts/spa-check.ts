@@ -14,7 +14,8 @@
 // Then Formula AutoComplete: `=СУ` typed into a cell (the formula bar on the phone) lists СУММ first, Tab (a tap on the
 // phone) enters `СУММ(`, and `A1:A3)` with Enter sums the column.
 // Then, on the desktop, a file with a circular reference opened from the picker holds the values it stores, as Excel
-// opens it, through an edit elsewhere.
+// opens it, through an edit elsewhere; Control+Down goes to the end of a block (Range.End); and a cell copied over a
+// whole column is refused at once by the app's limit of cells one change writes, the book as it was.
 // On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa.
 // DEMO=1 npm run check:spa runs it on the demo's build (`--mode demo`, served under /demo/), which /demo/ opens and
 // which holds no source map.
@@ -854,6 +855,39 @@ async function cycleScenario(browser: Browser, base: string, size: Size): Promis
 
 const demo = process.env.DEMO === '1'
 const mode = demo ? { mode: 'demo' } : {}
+/** A cell copied over a whole column: the app's limit of writes refuses it at once, as a source's refusal, and nothing changes. */
+async function limitScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  const at = (what: string) => `[${size.name} limit] ${what}`
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  for (const [cell, text] of [['1:1', 'x'], ['2:1', '1'], ['3:1', '2']] as const) await enter(page, size, cell, text)
+  await ready(page)
+  // Control+Down from A1 goes to the end of the block, A3, as Excel's Range.End
+  await page.locator('[data-cell="1:1"]').click()
+  await page.keyboard.press('Control+ArrowDown')
+  await page.waitForFunction(() => document.querySelector('.xs-cell.xs-active')?.getAttribute('data-cell') === '3:1', null, { timeout: 30_000 })
+  await page.locator('[data-cell="1:1"]').click()
+  await page.keyboard.press('ControlOrMeta+c')
+  await page.locator('.xs-head[data-col="2"]').click()
+  const t = Date.now()
+  await page.keyboard.press('ControlOrMeta+v')
+  await page.waitForFunction(() => /100000/.test(document.querySelector('.xs-message')?.textContent ?? ''), null, { timeout: 30_000 })
+  const ms = Date.now() - t
+  await ready(page)
+  expect(at('B1 after the refusal'), cellOf(await bookOf(page), 'B1').value, undefined)
+  if (ms > 2000) throw new Error(`${at('refusal')}: ${ms} ms, want under 2 s`)
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-l01-limit.png`) })
+  console.log(`${at('ok')}: Control+Down from A1 to A3; A1 copied over column B refused in ${ms} ms: ${await page.locator('.xs-message').textContent()}`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 await build({ configFile: config, logLevel: 'error', ...mode })
 const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error', ...mode })
 const base = server.resolvedUrls!.local[0]!
@@ -881,6 +915,7 @@ try {
   await autocompleteScenario(browser, base, desktop)
   await autocompleteScenario(browser, base, phone)
   await cycleScenario(browser, base, desktop)
+  await limitScenario(browser, base, desktop)
 } finally {
   await browser.close()
   await new Promise<void>((done) => server.httpServer.close(() => done()))

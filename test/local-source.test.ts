@@ -207,3 +207,15 @@ describe('localSource: explain, events, closing', () => {
     await expect(s.sheets()).rejects.toThrow()
   })
 })
+
+describe('localSource: Control and an arrow', () => {
+  it('goes where Excel\'s Range.End goes, by the session\'s getEnd', async () => {
+    const cells: Record<string, { value: number }> = {}
+    for (let r = 1; r <= 10; r++) cells[`A${r}`] = { value: r }
+    for (let r = 1; r <= 500; r++) cells[`B${r}`] = { value: r }
+    const s = source({ sheets: [{ name: 'S', cells }] })
+    expect(await s.end('S', 'A1', 'down')).toBe('A10')
+    expect(await s.end('S', 'A10', 'down')).toBe('A1048576')
+    expect(await s.end('S', 'A5', 'right')).toBe('B5')
+  })
+})

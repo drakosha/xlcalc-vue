@@ -491,6 +491,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     async explain(sheet, cell) {
       return (await (await open()).explain(sheet, cell)).text
     },
+    /** Excel's Control and an arrow: the session's `getEnd`, measured as Excel's Range.End. */
+    async end(sheet, cell, direction, signal) {
+      const s = await open()
+      check(signal)
+      return s.getEnd(sheet, cell, direction)
+    },
     async stats(sheet, range, filter, signal) {
       const s = await open()
       const [views, rows] = await Promise.all([s.getCells(sheet, range), filterActive(filter) ? rowsUnder(s, sheet, filter, false) : null])
