@@ -159,6 +159,12 @@ export interface FindRequest {
   lookIn?: 'formulas' | 'values'
   /** Search by columns: hits column by column; row by row without it. */
   byColumns?: boolean
+  /**
+   * Find Next from this cell (`B12`), as Excel's Find goes on from the active cell (`Range.Find`'s After): the hits in Find's
+   * order from the first after it, round past the end, the cell itself last. Without it they come from the range's first cell.
+   * A source that does not take it gives them from the first cell, and Find Next goes by the hits it gave.
+   */
+  after?: string
   /** The display filter in force: only its visible rows. */
   filter?: SheetFilter
 }
