@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { chromium, type Page } from 'playwright'
 import { createServer } from 'vite'
 import { quoteSheetIfNeeded } from 'xlcalc/a1'
+import { longPress } from './touch.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'test-results/screens')
@@ -139,17 +140,6 @@ async function validationScreens(page: Page, size: (typeof SIZES)[number]): Prom
   await shot(page, size.name, '46-validation-stop-default')
   await press('[data-xs-alert-button="retry"]')
   console.log(`validation ${size.name}: the message, the list and an item entered, Cancel, Yes and OK left 5, 50 and ASAP`)
-}
-
-/** A finger held still on an element for 0.7 s, as Chromium's touch input gets it (as `scripts/spa-check.ts` holds one). */
-async function longPress(page: Page, selector: string): Promise<void> {
-  const box = (await page.locator(selector).boundingBox())!
-  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-  const cdp = await page.context().newCDPSession(page)
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] })
-  await page.waitForTimeout(700)
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
-  await cdp.detach()
 }
 
 /**

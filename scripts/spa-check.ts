@@ -31,6 +31,7 @@ import { parseCell, parseRange } from 'xlcalc/a1'
 import { ruRU } from 'xlcalc/locales/ru-RU'
 import { numberFormatCategory } from 'xlcalc/text'
 import { writeXlsx } from 'xlcalc/xlsx'
+import { longPress } from './touch.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const config = resolve(root, 'vite.example.config.ts')
@@ -320,16 +321,6 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   await context.close()
 }
 
-/** A finger held still on an element for 0.7 s, as Chromium's touch input gets it. */
-async function longPress(page: Page, selector: string): Promise<void> {
-  const box = (await page.locator(selector).boundingBox())!
-  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-  const cdp = await page.context().newCDPSession(page)
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] })
-  await page.waitForTimeout(700)
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
-  await cdp.detach()
-}
 /** The letters of the column headers the grid draws, in order. */
 const letters = (page: Page) => page.evaluate(() => [...document.querySelectorAll('.xs-head .xs-head-label')].map((h) => h.textContent!.trim()))
 const tabNames = (page: Page) => page.evaluate(() => [...document.querySelectorAll('.xs-tab')].map((t) => t.textContent!.trim()))

@@ -5,7 +5,7 @@
 // new value, Control+Z, Save as (time and size; the saved file read back has the book's sheets and formulas), the heap
 // of the page and of the book's Web Worker, the longest pause of the page's frames, the book's language changed to
 // en-US in its settings (it opens again on the same sheet), page errors.
-// BIG_URL=<url> measures a published app instead of the built one (keep user books off it: synthetic only).
+// BIG_URL=<url> measures a published app instead of the built one (synthetic books only: what it opens goes to the published app).
 // Books: BIG_XLSX, paths joined by ':', read where they lie (nothing is copied, the saved file is deleted); without it,
 // xlcalc's synthetic book of 34,000 rows, written to test-results. BIG_PROFILE=1 also writes the page's CPU profiles
 // of the opening, the jump, the scrolling and the saving to test-results. Run: npm run check:big. Output: a table on stdout, test-results/big-check.json and
