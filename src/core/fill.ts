@@ -3,7 +3,7 @@
 // `structure` (`copyRange`, which tiles); a double click fills down as far as the data of the column beside goes.
 // TODO(xlcalc): Excel's fill handle extends series (1, 2 → 3, 4; dates by day; Item1 → Item2) and tiles a part of the
 // source at the end; `copyRange` copies whole tiles alone, so the frame grows by the source's size and a series is copied.
-import { computed, shallowRef, type Ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
 import type { Commands } from './commands'
@@ -42,6 +42,8 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     return r.bottom >= MAX_ROWS || r.right >= MAX_COLS ? null : r
   })
   const drag = shallowRef<FillDrag | null>(null)
+  /** The handle that took the pointer at the drag's start, to let it go on Esc. */
+  let held: Element | null = null
   /** The handle's centre: the selection's bottom-right corner in the scroller's content; it stays while a drag draws its frame, as it holds the pointer. */
   const handle = computed(() => {
     const r = source.value
@@ -109,8 +111,10 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     if (!from || e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
-    ;(e.currentTarget as Element | null)?.setPointerCapture?.(e.pointerId)
+    held = e.currentTarget as Element | null
+    held?.setPointerCapture?.(e.pointerId)
     drag.value = { from, to: null, pointer: e.pointerId, touch: e.pointerType === 'touch' }
+    document.addEventListener('keydown', onKey, true)
     s.scroller.value?.focus({ preventScroll: true })
   }
   function onMove(e: PointerEvent): void {
@@ -123,7 +127,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
   function onUp(e: PointerEvent): void {
     const d = drag.value
     if (!d || e.pointerId !== d.pointer) return
-    drag.value = null
+    end()
     if (d.to) return void fill(d.from, d.to)
     // A finger's tap on the handle's wide target meant the cell under it.
     if (d.touch) {
@@ -133,7 +137,24 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
       sel.pickCell(s.rowOf(p.d), p.col)
     }
   }
-  const onCancel = () => (drag.value = null)
+  const onCancel = end
+  /** Esc while dragged, before the grid's keys: Excel drops the drag, so the release copies nothing; the pointer is let go. */
+  function onKey(e: KeyboardEvent): void {
+    const d = drag.value
+    if (e.key !== 'Escape' || !d) return
+    e.preventDefault()
+    e.stopPropagation()
+    const el = held
+    end()
+    el?.releasePointerCapture?.(d.pointer)
+  }
+  /** The drag is over: no frame, no key listener, no element holding the pointer. */
+  function end(): void {
+    drag.value = null
+    held = null
+    document.removeEventListener('keydown', onKey, true)
+  }
+  if (getCurrentScope()) onScopeDispose(end)
 
   /** Copy `from` over `to` in one step of undo; the selection becomes both, as Excel leaves it. */
   async function fill(from: CellRect, to: CellRect): Promise<void> {

@@ -8,7 +8,8 @@
 // on the phone a row inserted from the menu a long press opens.
 // Then Find and Replace and Format Cells on a new book: a search with Match case and in values, Replace All and its
 // Control+Z, the dialog's font, outline and percent with OK and their undo.
-// Then the fill handle and cut, copy and paste inside the book: a formula dragged three rows down by its handle, a range
+// Then the fill handle and cut, copy and paste inside the book: a formula dragged three rows down by its handle (on the
+// desktop a drag dropped by Esc first, which copies nothing), a range
 // with a formula copied and pasted, a formula cut and pasted, each undone (Control+C, X, V on the desktop, the cells' menu
 // on the phone).
 // Then Formula AutoComplete: `=СУ` typed into a cell (the formula bar on the phone) lists СУММ first, Tab (a tap on the
@@ -689,6 +690,19 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   const dragged = async () => {
     await page.waitForSelector('[data-xs-fill-frame]')
     await shot('fill-drag')
+  }
+  if (!size.phone) {
+    // Esc while dragged drops the drag, as in Excel: the frame goes, the release copies nothing, B1 stays selected.
+    await page.mouse.move(handle.x, handle.y)
+    await page.mouse.down()
+    await page.mouse.move(target.x, target.y, { steps: 8 })
+    await page.waitForSelector('[data-xs-fill-frame]')
+    await page.keyboard.press('Escape')
+    await page.waitForSelector('[data-xs-fill-frame]', { state: 'detached' })
+    await page.mouse.up()
+    await ready(page)
+    expect(at('the fill dropped by Esc'), await formulas(page, ['B2', 'B3', 'B4']), [null, null, null])
+    expect(at('the selection after Esc'), await addressOf(page), 'B1')
   }
   if (size.phone) await touchDrag(page, handle, target, dragged)
   else {
