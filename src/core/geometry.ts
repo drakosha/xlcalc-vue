@@ -1,5 +1,6 @@
 // Grid geometry: Excel units to pixels, prefix sums of widths and heights, and lookups by offset.
 import { computed, type Ref, type ShallowRef } from 'vue'
+import { columnWidthFromPoints, columnWidthToPoints } from 'xlcalc/text'
 
 /** Excel's default row height in points. */
 export const DEFAULT_ROW_PT = 15
@@ -10,28 +11,36 @@ export const MIN_COL_PX = 20
 export const MAX_COL_PX = 900
 
 /** The width of a column without its own, as xlcalc counts it: Excel for Mac with Calibri 11. */
-const DEFAULT_COL_WIDTH = 8.83203125
+export const DEFAULT_COL_WIDTH = 8.83203125
+/** The widest column xlsx stores. */
+const MAX_COL_WIDTH = 255
 
-/** A column width as xlsx stores it (digits with padding) to pixels, Excel's formula; null is the library's default, 62 px. */
+/** A column width as xlsx stores it to whole pixels in the library's geometry (Excel for Mac, 53 points without a width), the one xlcalc lays out `####`, overflow and wrapping by. */
 export function colPx(width: number | null | undefined): number {
-  const w = width ?? DEFAULT_COL_WIDTH
-  if (w <= 0) return 0
-  return Math.trunc(((256 * w + Math.trunc(128 / DIGIT_PX)) / 256) * DIGIT_PX)
+  if (width !== null && width !== undefined && width <= 0) return 0
+  return Math.round((columnWidthToPoints(width) * 4) / 3)
 }
 
-/** A column's pixels as Excel's Column Width box shows them: characters of the default font, to a hundredth. */
-export const charsOfPx = (px: number): number => Math.max(0, Math.trunc(((px - 5) / DIGIT_PX) * 100 + 0.5) / 100)
+/** The widest column the library's geometry takes, in points. */
+const MAX_COL_PT = 1535
+
+/** Pixels back to the stored width, in whole points as the library stores them. */
+export const widthFromPx = (px: number): number => Math.min(MAX_COL_WIDTH, columnWidthFromPoints(Math.min(MAX_COL_PT, Math.max(0, (px * 3) / 4))))
+
+/** A stored width as Excel's Column Width box shows it: characters of the default font, to a hundredth. */
+export function charsOfWidth(width: number): number {
+  const px = Math.trunc(((256 * width + Math.trunc(128 / DIGIT_PX)) / 256) * DIGIT_PX)
+  return Math.max(0, Math.trunc(((px - 5) / DIGIT_PX) * 100 + 0.5) / 100)
+}
 
 /** Characters typed into the Column Width box to the stored width, as Excel records it. */
 export const widthFromChars = (chars: number): number => Math.trunc(((chars * DIGIT_PX + 5) / DIGIT_PX) * 256) / 256
 
-/** Pixels back to the stored width, as Excel records a width set with the mouse. */
-export const widthFromPx = (px: number): number => widthFromChars(charsOfPx(px))
-
-/** Points to pixels at 96 dpi. */
 /** A row dragged by its edge: down to 2 px, up to Excel's 409 points. */
 export const MIN_ROW_PX = 2
 export const MAX_ROW_PX = 545
+
+/** Points to pixels at 96 dpi. */
 export const rowPx = (pt: number): number => (pt <= 0 ? 0 : Math.round((pt * 4) / 3))
 
 /** Pixels back to points, rounded to Excel's quarter point. */
@@ -63,7 +72,8 @@ export interface GeometryInput {
   rowCount: Readonly<Ref<number>>
   colCount: Readonly<Ref<number>>
   /** Book widths in pixels by column, as the windows brought them. */
-  bookWidths: ShallowRef<Map<number, number>>
+  /** Columns' widths as the book stores them (null: the default). */
+  bookWidths: ShallowRef<Map<number, number | null>>
   /** Widths set with the mouse, pixels by column; they win over the book. */
   userWidths: Ref<Record<number, number>>
   /** Row heights in pixels that differ from the default (0 hides a row). */
@@ -75,7 +85,7 @@ export interface GeometryInput {
 
 /** Offsets of columns and rows, and the item under an offset; rows are display indexes (`d`). */
 export function useGeometry(i: GeometryInput) {
-  const widthOf = (c: number): number => i.userWidths.value[c] ?? i.bookWidths.value.get(c) ?? colPx(null)
+  const widthOf = (c: number): number => i.userWidths.value[c] ?? colPx(i.bookWidths.value.get(c))
   const heightOf = (d: number): number => i.heights.value.get(i.rowOf(d)) ?? i.defaultRowPx.value
   const offsets = computed(() => prefixSums(i.colCount.value, widthOf))
   const rowOffsets = computed(() => {

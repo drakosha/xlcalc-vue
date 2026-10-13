@@ -5,7 +5,7 @@ import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
 import type { BarLook, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
 import { lookStyle } from './conditional'
-import { colPx, DEFAULT_ROW_PT, rowPx, type Geometry } from './geometry'
+import { DEFAULT_ROW_PT, rowPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
 
@@ -343,9 +343,8 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const widths = new Map(s.bookWidths.value)
     let widthsChanged = false
     w.widths.forEach((width, i) => {
-      const px = colPx(width)
-      if (widths.get(w.col + i) !== px) {
-        widths.set(w.col + i, px)
+      if (widths.get(w.col + i) !== width) {
+        widths.set(w.col + i, width)
         widthsChanged = true
       }
     })

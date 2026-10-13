@@ -11,7 +11,7 @@ import { useExplain } from './explain'
 import { useFill } from './fill'
 import { useFormula } from './formula'
 import { usePoint } from './point'
-import { MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
+import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
 import { useMenu } from './menu'
 import { useNavigation } from './navigation'
 import { useOutline } from './outline'
@@ -223,7 +223,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   let drag: { col: number; startX: number; startW: number } | null = null
   function startResize(e: PointerEvent, col: number): void {
     drag = { col, startX: e.clientX, startW: geo.widthOf(col) }
-    if (!originalWidths.has(col)) originalWidths.set(col, s.bookWidths.value.get(col) ?? geo.widthOf(col))
+    if (!originalWidths.has(col)) originalWidths.set(col, s.bookWidths.value.has(col) ? colPx(s.bookWidths.value.get(col)) : geo.widthOf(col))
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     e.preventDefault()
     e.stopPropagation()

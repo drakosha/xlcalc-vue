@@ -3,18 +3,27 @@ import { describe, expect, it } from 'vitest'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, generalAlign, horizontalOf, verticalOf, wrapsOf } from '../src/core/cell-style'
 import { toTsv } from '../src/core/clipboard'
 import { numberEditText, textEditText } from '../src/core/edit-text'
-import { colPx, fontPx, indexAt, prefixSums, rowPx, widthFromPx } from '../src/core/geometry'
+import { charsOfWidth, colPx, fontPx, indexAt, prefixSums, rowPx, widthFromChars, widthFromPx } from '../src/core/geometry'
 
 describe('Excel units', () => {
-  it('column widths as Excel turns them into pixels and back', () => {
-    // A column without a width of its own is the library's default, 8.83203125.
-    expect(colPx(null)).toBe(62)
-    expect(colPx(8.83203125)).toBe(62)
-    expect(colPx(9.140625)).toBe(64)
+  it("column widths in the library's geometry (Excel for Mac) to whole pixels and back", () => {
+    // A column without a width of its own is 53 points, 70.67 px; xlcalc lays out `####` and overflow by these.
+    expect(colPx(null)).toBe(71)
+    expect(colPx(8.83203125)).toBe(71)
+    expect(colPx(9.140625)).toBe(73)
+    expect(colPx(15)).toBe(120)
     expect(colPx(0)).toBe(0)
-    expect(colPx(20.7109375)).toBe(145)
-    expect(widthFromPx(64)).toBe(9.140625)
-    for (const px of [20, 37, 64, 100, 333]) expect(colPx(widthFromPx(px))).toBe(px)
+    expect(widthFromPx(71)).toBe(8.83203125)
+    expect(widthFromPx(120)).toBe(15)
+    // a width goes back in whole points, as the library stores it; pixels of whole points come back as they were
+    for (const px of [20, 40, 72, 120, 332]) expect(colPx(widthFromPx(px))).toBe(px)
+    expect(widthFromPx(4000)).toBe(255)
+  })
+  it("the Column Width box counts characters of a stored width, Excel's formula", () => {
+    expect(charsOfWidth(8.83203125)).toBe(8.14)
+    expect(charsOfWidth(9.140625)).toBe(8.43)
+    expect(charsOfWidth(20.7109375)).toBe(20)
+    expect(widthFromChars(8.43)).toBe(9.140625)
   })
   it('row heights and font sizes', () => {
     expect(rowPx(15)).toBe(20)

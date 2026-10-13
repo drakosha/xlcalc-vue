@@ -11,7 +11,7 @@ import type { Clip } from './clip'
 import type { Commands } from './commands'
 import type { Explain } from './explain'
 import type { Filter } from './filter'
-import { charsOfPx, ptFromPx, widthFromChars, type Geometry } from './geometry'
+import { charsOfWidth, DEFAULT_COL_WIDTH, ptFromPx, widthFromChars, widthFromPx, type Geometry } from './geometry'
 import type { Outline, OutlineAxis, OutlineOp } from './outline'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -184,8 +184,13 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
 
   // ── sizes in Excel's units: characters for a width, points for a height ──
   const decimals = (x: number) => new Intl.NumberFormat(s.locale.value, { maximumFractionDigits: 2, useGrouping: false }).format(x)
+  /** A column's width as the book stores it: one dragged meanwhile from its pixels, else the book's, else the default. */
+  const storedWidth = (col: number): number => {
+    const px = s.userWidths.value[col]
+    return px !== undefined ? widthFromPx(px) : (s.bookWidths.value.get(col) ?? DEFAULT_COL_WIDTH)
+  }
   function openSize(axis: 'rows' | 'columns', first: number, last: number): void {
-    const size = axis === 'columns' ? charsOfPx(geo.widthOf(first)) : ptFromPx(s.heights.value.get(first) ?? s.defaultRowPx.value)
+    const size = axis === 'columns' ? charsOfWidth(storedWidth(first)) : ptFromPx(s.heights.value.get(first) ?? s.defaultRowPx.value)
     dialog.value = { kind: 'size', axis, first, last, draft: decimals(size), error: '' }
   }
   /** The box's number as typed, a decimal comma or point; NaN for anything else. */

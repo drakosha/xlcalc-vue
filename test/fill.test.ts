@@ -4,6 +4,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
+import { colPx } from '../src/core/geometry'
 import { localSource } from '../src/local'
 import type { EditOutcome, SheetOp } from '../src/source'
 import { address, cellText, goTo, key, mountSheet, settle } from './helpers'
@@ -29,8 +30,10 @@ function withStructure(answer: (op: SheetOp) => EditOutcome = () => OK) {
   source.structure = structure
   return { source, structure }
 }
-/** The middle of a cell on the page: the scroller is at 0, 0; letters 24 px high, numbers 56 px wide, rows 20 px, columns 62 px. */
-const at = (row: number, col: number) => ({ clientX: 56 + (col - 1) * 62 + 31, clientY: 24 + (row - 1) * 20 + 10 })
+/** A column without a width, in pixels. */
+const COL = colPx(null)
+/** The middle of a cell on the page: the scroller is at 0, 0; letters 24 px high, numbers 56 px wide, rows 20 px, columns `COL`. */
+const at = (row: number, col: number) => ({ clientX: 56 + (col - 1) * COL + COL / 2, clientY: 24 + (row - 1) * 20 + 10 })
 const handle = (w: VueWrapper) => w.find('[data-xs-fill-handle]')
 const frame = (w: VueWrapper) => w.find('[data-xs-fill-frame]')
 /** Drag the handle through points and let go at the last one. */
@@ -50,7 +53,7 @@ describe('the fill handle', () => {
   it('sits at the selection’s bottom-right corner', async () => {
     const w = await mountSheet(withStructure().source)
     await goTo(w, 'B2:C3')
-    expect(handle(w).attributes('style')).toContain(`top: ${24 + 3 * 20}px; left: ${56 + 3 * 62}px`)
+    expect(handle(w).attributes('style')).toContain(`top: ${24 + 3 * 20}px; left: ${56 + 3 * COL}px`)
   })
 
   it('dragged down three rows from a formula copies it over them; the selection becomes both', async () => {
@@ -96,7 +99,7 @@ describe('the fill handle', () => {
     const h = handle(w)
     await h.trigger('pointerdown', { button: 0, pointerId: 1, ...at(2, 2) })
     await h.trigger('pointermove', { pointerId: 1, ...at(4, 2) })
-    expect(frame(w).attributes('style')).toContain(`top: ${24 + 20}px; left: ${56 + 62}px; width: 62px; height: 60px`)
+    expect(frame(w).attributes('style')).toContain(`top: ${24 + 20}px; left: ${56 + COL}px; width: ${COL}px; height: 60px`)
     expect(handle(w).classes()).toContain('xs-fill-dragging')
     await h.trigger('pointermove', { pointerId: 1, ...at(2, 2) })
     expect(frame(w).exists()).toBe(false)

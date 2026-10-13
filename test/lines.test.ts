@@ -41,7 +41,7 @@ describe('styles of rows and columns past the data', () => {
     const fill = (c: number) => (w.find(`[data-cell="1:${c}"]`).element as HTMLElement).style.backgroundColor
     expect(fill(3)).toBe('#d9e1f2')
     expect(fill(20)).toBe('#d9e1f2')
-    expect(fill(30)).toBe('#d9e1f2')
+    expect(fill(25)).toBe('#d9e1f2')
   })
 
   it('a source cutting its windows at the data does not make the grid ask again on every scroll', async () => {

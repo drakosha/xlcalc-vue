@@ -188,9 +188,9 @@ describe('Freeze Panes', () => {
     const source = memorySource(book())
     const freeze = vi.spyOn(source, 'freeze')
     const w = await mountSheet(source)
-    // The frame is 800 × 600 in happy-dom: the letters take 24 px and the numbers 56 px; rows are 20 px, columns 62 px.
+    // The frame is 800 × 600 in happy-dom: the letters take 24 px and the numbers 56 px; rows are 20 px, columns 71 px.
     await api(w).freezePanes()
-    expect(freeze).toHaveBeenLastCalledWith('S', { rows: 14, cols: 6 })
+    expect(freeze).toHaveBeenLastCalledWith('S', { rows: 14, cols: 5 })
     await w.findAll('.xs-head')[2]!.trigger('click')
     await api(w).freezePanes()
     expect(freeze).toHaveBeenLastCalledWith('S', { rows: 0, cols: 2 })

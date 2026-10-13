@@ -3,6 +3,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
+import { colPx } from '../src/core/geometry'
 import { refFits } from '../src/core/point'
 import { active, editorKey, editorOpen, goTo, key, mountSheet, settle, type } from './helpers'
 
@@ -24,8 +25,10 @@ function recorded() {
   return { source, edits }
 }
 
-/** The middle of a cell on the page: the scroller is at 0, 0; letters 24 px high, numbers 56 px wide, rows 20 px, columns 62 px. */
-const at = (row: number, col: number) => ({ clientX: 56 + (col - 1) * 62 + 31, clientY: 24 + (row - 1) * 20 + 10 })
+/** A column without a width, in pixels. */
+const COL = colPx(null)
+/** The middle of a cell on the page: the scroller is at 0, 0; letters 24 px high, numbers 56 px wide, rows 20 px, columns `COL`. */
+const at = (row: number, col: number) => ({ clientX: 56 + (col - 1) * COL + COL / 2, clientY: 24 + (row - 1) * 20 + 10 })
 const field = (w: VueWrapper) => w.find('.xs-editor').element as HTMLTextAreaElement
 /** Open the field on the active cell with `text` typed, the caret at its end. */
 async function typeIn(w: VueWrapper, text: string): Promise<void> {
@@ -110,7 +113,7 @@ describe('Point mode', () => {
     const w = await mountSheet(recorded().source)
     await typeIn(w, '=SUM(')
     const letter = w.find('th[data-col="2"]')
-    await letter.trigger('pointerdown', { button: 0, pointerId: 1, pointerType: 'mouse', clientX: 56 + 62 + 31, clientY: 12 })
+    await letter.trigger('pointerdown', { button: 0, pointerId: 1, pointerType: 'mouse', clientX: 56 + COL + COL / 2, clientY: 12 })
     await letter.trigger('click', { button: 0 })
     await settle()
     expect(field(w).value).toBe('=SUM(B:B')
