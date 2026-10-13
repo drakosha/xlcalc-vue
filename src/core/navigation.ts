@@ -1,5 +1,5 @@
 // Jumps: the address box, references of the formula, links and `focus`; the history to go back, and the flash after a jump.
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, onScopeDispose, ref, watch } from 'vue'
 import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
 import type { CellRect, FormulaReference, GridReference } from 'xlcalc/contract'
 import { quoteSheetIfNeeded, scanReferences } from 'xlcalc/text'
@@ -48,6 +48,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
   /** The range just jumped to, on its sheet: another sheet shown while it flashes has none. */
   const flash = ref<{ sheet: string; rect: CellRect } | null>(null)
   let flashTimer: ReturnType<typeof setTimeout> | null = null
+  onScopeDispose(() => flashTimer && clearTimeout(flashTimer))
 
   /** Remember where we stand before a jump. */
   function rememberPlace(): void {

@@ -39,7 +39,6 @@ interface Asked extends Area {
 
 /** One window: what is loaded, the request in flight and the one already answered (so neither repeats). */
 export interface Slot {
-  sheet: string
   /** The sheet and the filter the window was asked under: another filter means other rows. */
   view: string
   win: SheetWindow | null
@@ -61,7 +60,7 @@ interface Need {
   c2: number
 }
 
-const newSlot = (): Slot => ({ sheet: '', view: '', win: null, rows: 0, cols: 0, merges: [], pendingKey: '', servedKey: '', ctrl: null, asked: null, stale: false })
+const newSlot = (): Slot => ({ view: '', win: null, rows: 0, cols: 0, merges: [], pendingKey: '', servedKey: '', ctrl: null, asked: null, stale: false })
 const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError'
 
 /** Everything a cell has in its window, for drawing it. */
@@ -290,7 +289,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       if (width < cols && req.col + width - 1 >= s.dataCols.value) edge = { ...edge, cols: req.col + width - 1 }
       if (got.text.length < rows && req.row + got.text.length - 1 >= s.dataShown.value) edge = { ...edge, rows: req.row + got.text.length - 1 }
       const merged = got.merges.flatMap((m) => { const r = parseRange(m); return r ? [r] : [] })
-      const next: Slot = { sheet: req.sheet, view, win: got, rows: got.text.length, cols: width, merges: merged, pendingKey: '', servedKey: key, ctrl: null, asked: null, stale: false }
+      const next: Slot = { view, win: got, rows: got.text.length, cols: width, merges: merged, pendingKey: '', servedKey: key, ctrl: null, asked: null, stale: false }
       for (const ch of slots[kind].value.asked?.missed ?? []) patch(next, ch)
       slots[kind].value = next
       s.failure.value = null

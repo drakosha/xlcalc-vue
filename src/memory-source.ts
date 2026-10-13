@@ -2,14 +2,13 @@
 // It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, a precedents'
 // tree from the formulas as given, and can play a book being recomputed.
 import { cellAddress, parseCell, parseLines, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
-import type { GridReference } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, GridReference } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
-import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { textEditText } from './core/edit-text'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type QuerySheet } from './memory-query'
 import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './memory-outline'
-import { filterKey } from './local/query'
+import { filterKey } from './filter-key'
 import { MemoryRules, memoryRefusal, type MemoryValidation } from './memory-validation'
 
 /** A cell of the memory book; a bare value is a cell with that value. */

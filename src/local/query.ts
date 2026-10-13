@@ -42,10 +42,6 @@ export function filterActive(filter: SheetFilter | undefined): filter is SheetFi
   return !!filter && (!!filter.sort || Object.values(filter.cols ?? {}).some((c) => !!c.values || !!c.text?.trim()))
 }
 
-/** A stable key of a filter, for remembering its list of rows. */
-export const filterKey = (f: SheetFilter): string =>
-  JSON.stringify([f.head, Object.entries(f.cols ?? {}).sort(([a], [b]) => Number(a) - Number(b)), f.sort ?? null])
-
 /** Text first by numbers' value, then text by the collator, the empty text last. */
 function compareEntries(a: Entry | undefined, b: Entry | undefined, collator: Intl.Collator): number {
   if (!a && !b) return 0

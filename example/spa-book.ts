@@ -10,7 +10,7 @@ export function emptyBook(locale: BookLocale): BookInput {
 }
 
 /** Methods that change the book: the status bar shows a recomputation while one is out. */
-const CHANGES = ['edit', 'paste', 'fill', 'undo', 'redo', 'structure', 'layout', 'format', 'replace', 'freeze'] as const
+const CHANGES = ['edit', 'paste', 'fill', 'pick', 'undo', 'redo', 'structure', 'layout', 'format', 'replace', 'outline', 'freeze'] as const
 
 /** The source with its changes timed: `begin` as one goes out, `end` with its milliseconds as it comes back. */
 export function timed(source: LocalSource, begin: () => void, end: (ms: number) => void): LocalSource {

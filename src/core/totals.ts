@@ -1,5 +1,5 @@
 // The selection's totals for the status line: the source's `stats` when it has them, else the loaded windows.
-import { computed, shallowRef, watch } from 'vue'
+import { computed, onScopeDispose, shallowRef, watch } from 'vue'
 import type { CellValue } from 'xlcalc/contract'
 import type { RangeStats } from '../source'
 import type { Selection } from './selection'
@@ -65,6 +65,11 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection) {
       }, STATS_DELAY_MS)
     },
   )
+
+  onScopeDispose(() => {
+    if (statsTimer) clearTimeout(statsTimer)
+    statsCtrl?.abort()
+  })
 
   /** Totals as Excel's status line: count of non-empty cells, and over numbers sum, average, min and max. */
   const statsText = computed(() => {
