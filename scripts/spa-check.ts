@@ -261,8 +261,10 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   await enter(page, size, '1:2', 'draft')
   await shows(page, '1:2', 'draft')
   const file = { name: download.suggestedFilename(), mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: await readFile(saved) }
-  if (size.phone) await page.locator('[data-spa-file]').setInputFiles(file)
-  else {
+  if (size.phone) {
+    const [picker] = await Promise.all([page.waitForEvent('filechooser'), press(page, size, '[data-spa="open"]')])
+    await picker.setFiles(file)
+  } else {
     const drop = await page.evaluateHandle(
       ([data, name, type]) => {
         const dt = new DataTransfer()
@@ -839,7 +841,8 @@ async function cycleScenario(browser: Browser, base: string, size: Size): Promis
   const cells = { A1: { formula: 'B1/2+1' }, B1: { formula: 'A1' }, C1: { formula: 'A1*10' }, D1: { value: 5 }, E1: { formula: 'D1*2' } }
   const stored = { sheets: [{ name: 'S', cells: { A1: { value: 2 }, B1: { value: 2 }, C1: { value: 20 }, E1: { value: 10 } } }] }
   const { data } = await writeXlsx({ book: { sheets: [{ name: 'S', cells }] }, result: stored })
-  await page.locator('[data-spa-file]').setInputFiles({ name: 'Цикл.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(data) })
+  const [picker] = await Promise.all([page.waitForEvent('filechooser'), press(page, size, '[data-spa="open"]')])
+  await picker.setFiles({ name: 'Цикл.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(data) })
   await shows(page, '1:5', '10')
   await ready(page)
   for (const [cell, text] of [['1:1', '2'], ['1:2', '2'], ['1:3', '20']] as const) await shows(page, cell, text)
