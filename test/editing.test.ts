@@ -256,7 +256,10 @@ describe('outcomes', () => {
     expect(cellText(w, 1, 1)).toBe('a1')
   })
 
-  it('invalid: the field opens again with the caret at `at`, the source message shown', async () => {
+  const alertBox = () => document.querySelector('[data-xs-alert="formula"]')
+  const alertButton = (b: string) => document.querySelector<HTMLElement>(`[data-xs-alert-button="${b}"]`)!
+
+  it('invalid: the sheet asks with the source message; Fix opens the field again with the caret at `at`', async () => {
     const h = held({ ok: false, reason: 'invalid', message: 'Missing bracket', at: 4 })
     const w = await mountSheet(h.source)
     await key(w, '=')
@@ -264,11 +267,39 @@ describe('outcomes', () => {
     await editorKey(w, 'Enter')
     h.release()
     await settle()
+    expect(editorOpen(w)).toBe(false)
+    expect(alertBox()?.querySelector('[data-xs-alert-message]')?.textContent).toBe('Missing bracket')
+    expect(alertBox()?.querySelector('[data-xs-alert-question]')).not.toBeNull()
+    expect(document.activeElement).toBe(alertButton('fix'))
+    expect(active(w)).toBe('1:1')
+    alertButton('fix').click()
+    await settle()
     const el = w.find('.xs-editor').element as HTMLTextAreaElement
+    expect(alertBox()).toBeNull()
     expect(editorOpen(w)).toBe(true)
     expect(el.value).toBe('=SUM(A1')
     expect(el.selectionStart).toBe(4)
-    expect(w.find('.xs-message').text()).toBe('Missing bracket')
+  })
+
+  it('invalid: Restore, or Esc in the question, leaves the cell as it was and the field closed', async () => {
+    for (const how of ['button', 'escape'] as const) {
+      const h = held({ ok: false, reason: 'invalid', message: 'Missing bracket', at: 4 })
+      const w = await mountSheet(h.source)
+      await key(w, '=')
+      await type(w, '=SUM(A1')
+      await editorKey(w, 'Tab')
+      h.release()
+      await settle()
+      if (how === 'button') alertButton('revert').click()
+      else alertBox()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await settle()
+      expect(alertBox()).toBeNull()
+      expect(editorOpen(w)).toBe(false)
+      expect(cellText(w, 1, 1)).toBe('a1')
+      expect(active(w)).toBe('1:1')
+      expect(h.edits).toHaveLength(1)
+      w.unmount()
+    }
   })
 
   it('refused, busy and failed: the cell comes back as it was, with a message', async () => {

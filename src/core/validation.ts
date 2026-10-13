@@ -179,12 +179,24 @@ export function useValidation(deps: ValidationDeps) {
 
 export type Validation = ReturnType<typeof useValidation>
 
+/** The sheet's own question on a formula that does not read: Fix opens the field again, Restore leaves the cell as it was, so Enter or a click away is a way out. */
+export interface FormulaAlert {
+  severity: 'formula'
+  title?: undefined
+  /** The source's reason. */
+  message: string
+  sheet: string
+  cell: string
+}
+/** What the alert shows: a rule's refusal or the question on a formula. */
+export type SheetAlert = SheetValidationAlert | FormulaAlert
+
 /** What the person's answer to an alert does with the refused edit: send it again with `accept`, open the field again with the text, or leave the cell as it was. */
 export type AlertAnswer = 'accept' | 'retry' | 'cancel'
-export type AlertButton = 'retry' | 'cancel' | 'yes' | 'no' | 'ok'
+export type AlertButton = 'retry' | 'cancel' | 'yes' | 'no' | 'ok' | 'fix' | 'revert'
 
-/** Excel's buttons of an alert by its style, in Excel's order, and what each answers (Help is left out). */
-export const ALERT_BUTTONS: Record<SheetValidationAlert['severity'], { button: AlertButton; answer: AlertAnswer }[]> = {
+/** Excel's buttons of an alert by its style, in Excel's order, and what each answers (Help is left out); the formula's question after them. */
+export const ALERT_BUTTONS: Record<SheetAlert['severity'], { button: AlertButton; answer: AlertAnswer }[]> = {
   stop: [
     { button: 'retry', answer: 'retry' },
     { button: 'cancel', answer: 'cancel' },
@@ -198,17 +210,21 @@ export const ALERT_BUTTONS: Record<SheetValidationAlert['severity'], { button: A
     { button: 'ok', answer: 'accept' },
     { button: 'cancel', answer: 'cancel' },
   ],
+  formula: [
+    { button: 'fix', answer: 'retry' },
+    { button: 'revert', answer: 'cancel' },
+  ],
 }
 /** The button an alert opens on, which Enter presses: Retry, No (a warning keeps a value only by a click on Yes), OK. */
-export const ALERT_DEFAULT: Record<SheetValidationAlert['severity'], AlertButton> = { stop: 'retry', warning: 'no', information: 'ok' }
+export const ALERT_DEFAULT: Record<SheetAlert['severity'], AlertButton> = { stop: 'retry', warning: 'no', information: 'ok', formula: 'fix' }
 
 /** The alert of a refused value: shown until the person answers; one at a time, a new one answering the old with Cancel. */
 export function useValidationAlert() {
-  const alert = shallowRef<SheetValidationAlert | null>(null)
+  const alert = shallowRef<SheetAlert | null>(null)
   let settle: ((a: AlertAnswer) => void) | null = null
 
   /** Show the alert and wait for the answer. */
-  function ask(next: SheetValidationAlert): Promise<AlertAnswer> {
+  function ask(next: SheetAlert): Promise<AlertAnswer> {
     answer('cancel')
     alert.value = next
     return new Promise((resolve) => (settle = resolve))

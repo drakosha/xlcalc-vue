@@ -221,6 +221,10 @@ export interface SheetMessages {
   validationNo: string
   validationContinue: string
   validationStyle: (severity: 'stop' | 'warning' | 'information') => string
+  /** The question on a formula that does not read, under the source's reason, and its buttons. */
+  formulaQuestion: string
+  formulaFix: string
+  formulaRevert: string
   /** Excel's Formula AutoComplete: the list of functions under the field and its hint. */
   functionList: string
   functionHint: string
@@ -452,6 +456,9 @@ export const enMessages: SheetMessages = {
   validationNo: 'No',
   validationContinue: 'Continue?',
   validationStyle: (severity) => ({ stop: 'Stop', warning: 'Warning', information: 'Information' })[severity],
+  formulaQuestion: 'Fix the formula, or restore what the cell had?',
+  formulaFix: 'Fix',
+  formulaRevert: 'Restore',
   functionList: 'Functions',
   functionHint: 'Tab or a double click enters the function',
 }
@@ -705,6 +712,9 @@ export const ruMessages: SheetMessages = {
   validationNo: 'Нет',
   validationContinue: 'Продолжить?',
   validationStyle: (severity) => ({ stop: 'Останов', warning: 'Предупреждение', information: 'Сообщение' })[severity],
+  formulaQuestion: 'Исправить формулу или вернуть прежнее значение ячейки?',
+  formulaFix: 'Исправить',
+  formulaRevert: 'Вернуть',
   functionList: 'Функции',
   functionHint: 'Tab или двойной щелчок вставляет функцию',
 }

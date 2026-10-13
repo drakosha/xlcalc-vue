@@ -3,9 +3,9 @@ import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
-import type { CellEntry, EditOutcome, EditOptions, SheetValidationAlert } from '../source'
+import type { CellEntry, EditOutcome, EditOptions } from '../source'
 import { useAutocomplete } from './autocomplete'
-import type { AlertAnswer } from './validation'
+import type { AlertAnswer, SheetAlert } from './validation'
 import { numberEditText, textEditText } from './edit-text'
 import type { Formula } from './formula'
 import type { Selection } from './selection'
@@ -47,8 +47,8 @@ export interface EditingDeps {
   pickSheet: (index: number) => Promise<void>
   cellInput: Ref<HTMLTextAreaElement | null>
   barInput: Ref<HTMLTextAreaElement | null>
-  /** Excel's alert of a rule of data validation for a refused value, and the person's answer; without it the refusal is said in the message line. */
-  alert?: (alert: SheetValidationAlert) => Promise<AlertAnswer>
+  /** Excel's alert of a rule of data validation for a refused value, or the question on a formula that does not read, and the person's answer; without it the refusal is said in the message line. */
+  alert?: (alert: SheetAlert) => Promise<AlertAnswer>
 }
 
 export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula, editor: Ref<EditorState | null>, deps: EditingDeps) {
@@ -234,6 +234,13 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       deps.notify(m.conflict)
       await deps.reload()
       if (draft) reopen(draft, null, extent)
+    } else if (outcome.reason === 'invalid' && draft && deps.alert && draft.sheet === s.sheetName.value) {
+      // A formula that does not read: Fix opens it again, Restore leaves the cell as it was; the edited cell is active meanwhile.
+      s.selected.value = { row: draft.row, col: draft.col }
+      s.extent.value = extent
+      const said = await deps.alert({ severity: 'formula', message: outcome.message || m.editFailed, sheet: draft.sheet, cell: cellAddress(draft.row, draft.col) })
+      if (said === 'retry') reopen(draft, outcome.at ?? null, extent)
+      else s.scroller.value?.focus({ preventScroll: true })
     } else if (outcome.reason === 'invalid') {
       deps.notify(outcome.message || m.editFailed)
       if (draft) reopen(draft, outcome.at ?? null, extent)

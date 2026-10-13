@@ -1,16 +1,16 @@
 <script setup lang="ts">
 // Excel's alert for a value a rule of data validation does not take: its style's icon, the rule's title ("Microsoft Excel"
 // without one) and message, and the style's buttons: Stop, Retry and Cancel; Warning, "Continue?" and Yes, No and Cancel;
-// Information, OK and Cancel. It opens on Excel's default button (Retry, No, OK), Esc is Cancel; 44 px targets on a phone.
+// Information, OK and Cancel; the sheet's question on a formula that does not read, Fix and Restore. It opens on the default
+// button (Retry, No, OK, Fix), Esc is Cancel (Restore); 44 px targets on a phone.
 import { computed, nextTick, ref, useId, watch } from 'vue'
-import { ALERT_BUTTONS, ALERT_DEFAULT, type AlertAnswer, type AlertButton } from '../core/validation'
+import { ALERT_BUTTONS, ALERT_DEFAULT, type AlertAnswer, type AlertButton, type SheetAlert } from '../core/validation'
 import { enMessages, type SheetMessages } from '../messages'
-import type { SheetValidationAlert } from '../source'
 
 const props = withDefaults(
   defineProps<{
     /** The alert to show; null shows nothing. */
-    alert: SheetValidationAlert | null
+    alert: SheetAlert | null
     messages?: Partial<SheetMessages>
   }>(),
   { messages: undefined },
@@ -25,7 +25,9 @@ const box = ref<HTMLElement | null>(null)
 const id = useId()
 const buttons = computed(() => (props.alert ? ALERT_BUTTONS[props.alert.severity] : []))
 const label = (b: AlertButton): string =>
-  ({ retry: m.value.validationRetry, cancel: m.value.cancel, yes: m.value.validationYes, no: m.value.validationNo, ok: m.value.ok })[b]
+  ({ retry: m.value.validationRetry, cancel: m.value.cancel, yes: m.value.validationYes, no: m.value.validationNo, ok: m.value.ok, fix: m.value.formulaFix, revert: m.value.formulaRevert })[b]
+/** The icon's style: the formula's question shows a warning's. */
+const style = computed(() => (props.alert?.severity === 'formula' ? 'warning' : (props.alert?.severity ?? 'stop')))
 
 // Each alert opens on its default button, as Excel's.
 watch(
@@ -66,12 +68,12 @@ function onKey(e: KeyboardEvent): void {
     >
       <header :id="`${id}-title`" class="xs-va-title">{{ alert.title || m.validationTitle }}</header>
       <div class="xs-va-body">
-        <svg class="xs-va-icon" viewBox="0 0 32 32" role="img" :aria-label="m.validationStyle(alert.severity)">
-          <template v-if="alert.severity === 'stop'">
+        <svg class="xs-va-icon" viewBox="0 0 32 32" role="img" :aria-label="m.validationStyle(style)">
+          <template v-if="style === 'stop'">
             <circle cx="16" cy="16" r="15" fill="var(--xs-alert-stop)" />
             <path d="M11 11l10 10M21 11 11 21" stroke="#fff" stroke-width="2.6" stroke-linecap="round" />
           </template>
-          <template v-else-if="alert.severity === 'warning'">
+          <template v-else-if="style === 'warning'">
             <path d="M16 2.5 30.5 28.5h-29z" fill="var(--xs-alert-warning)" stroke-linejoin="round" />
             <path d="M16 11v9" stroke="#1f2328" stroke-width="2.8" stroke-linecap="round" />
             <circle cx="16" cy="24.2" r="1.7" fill="#1f2328" />
@@ -85,6 +87,7 @@ function onKey(e: KeyboardEvent): void {
         <div :id="`${id}-text`" class="xs-va-text">
           <p data-xs-alert-message>{{ alert.message }}</p>
           <p v-if="alert.severity === 'warning'" data-xs-alert-question>{{ m.validationContinue }}</p>
+          <p v-else-if="alert.severity === 'formula'" data-xs-alert-question>{{ m.formulaQuestion }}</p>
         </div>
       </div>
       <footer class="xs-va-foot">
