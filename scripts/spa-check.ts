@@ -16,7 +16,7 @@
 // Then, on the desktop, a file with a circular reference opened from the picker holds the values it stores, as Excel
 // opens it, through an edit elsewhere; Control+Down goes to the end of a block (Range.End); and a cell copied over a
 // whole column is refused at once by the app's limit of cells one change writes, the book as it was.
-// On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa.
+// On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa; SPA_URL=<url> checks a published app instead.
 // DEMO=1 npm run check:spa runs it on the demo's build (`--mode demo`, served under /demo/), which /demo/ opens and
 // which holds no source map.
 // Output: test-results/screens/spa-*.png and the saved files.
@@ -981,10 +981,12 @@ async function limitScenario(browser: Browser, base: string, size: Size): Promis
   await context.close()
 }
 
-await build({ configFile: config, logLevel: 'error', ...mode })
-const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error', ...mode })
-const base = server.resolvedUrls!.local[0]!
-if (demo) {
+/** A published app to check instead of the built one (`SPA_URL=https://xlcalc.pridelab.dev/demo/`): nothing is built or served. */
+const live = process.env.SPA_URL
+if (!live) await build({ configFile: config, logLevel: 'error', ...mode })
+const server = live ? null : await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error', ...mode })
+const base = live ? live.replace(/\/?$/, '/') : server!.resolvedUrls!.local[0]!
+if (demo && !live) {
   // the demo's paths, its index and no source maps
   if (!base.endsWith('/demo/')) throw new Error(`[demo] served at ${base}, want /demo/`)
   const maps = readdirSync(resolve(root, 'example/dist-demo'), { recursive: true }).filter((f) => String(f).endsWith('.map'))
@@ -1012,6 +1014,6 @@ try {
   await formulaRowScenario(browser, base, desktop)
 } finally {
   await browser.close()
-  await new Promise<void>((done) => server.httpServer.close(() => done()))
+  if (server) await new Promise<void>((done) => server.httpServer.close(() => done()))
 }
 console.log(`screens in ${out}`)
