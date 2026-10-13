@@ -27,6 +27,13 @@ export interface SheetSource {
   /** Column widths and row heights set with the mouse; without it a width lives until the page reloads. */
   layout?(edit: LayoutChange): Promise<EditOutcome>
   /**
+   * A range's plain text as Excel puts it on the clipboard: values by their formats without the column's clipping (a
+   * narrow date is a date, not `##`), hidden rows and columns left out, rows at CRLF, with one at the end unless
+   * `trailingNewline` is false (Excel for Mac). A range too large to copy is refused with an error. Without it the
+   * sheet copies the texts its windows show.
+   */
+  copyText?(sheet: string, range: string, opts?: { trailingNewline?: boolean; signal?: AbortSignal }): Promise<string>
+  /**
    * Formatting of ranges (`B2:D9`, whole columns `B:D`, rows `2:5`) in one step of undo, as Excel formats a selection:
    * style fields go over the style each cell shows (null removes a field), `style: null` removes the cells' own style, a
    * number format or null; several patches carry what differs by place (outside borders). Without it there is no toolbar.
