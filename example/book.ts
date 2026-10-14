@@ -3,6 +3,7 @@ import { cellAddress } from 'xlcalc/a1'
 import type { BorderLine, CellStyle } from 'xlcalc/contract'
 import type { MemoryBook, MemoryCell, MemorySheet } from '../src'
 import { CF_CELLS, CF_SHEET, CF_WIDTHS } from './cf-book'
+import { listSheet } from './list-book'
 
 const styles: CellStyle[] = [{}]
 /** Add a style to the book's table and return its index. */
@@ -427,6 +428,7 @@ export function allFormattingBook(longRows = 34_000): MemoryBook {
     { name: 'Плашка', cells: { A1: { value: 'Значения посчитал источник' } }, notice: 'Значения формул посчитаны источником, в файле их нет' },
     filterable(300),
     validation(),
+    listSheet(),
   ]
   return { sheets, styles }
 }

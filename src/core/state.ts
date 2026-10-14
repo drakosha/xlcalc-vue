@@ -5,6 +5,7 @@ import type { CellPosition } from 'xlcalc/contract'
 import { enMessages, type SheetMessages } from '../messages'
 import type { SheetFilter, SheetInfo, SheetSource } from '../source'
 import { colPx, DEFAULT_ROW_PT, rowPx } from './geometry'
+import type { ListSort } from './list'
 import { createMemory } from './storage'
 
 /** Properties of `SheetView`. */
@@ -27,6 +28,10 @@ export interface SheetViewProps {
   hideLoneTab?: boolean
   /** A double click on a column's edge brings the book's width back, as some hosts want; by default it fits the columns to what they show, as Excel. */
   edgeRestoresWidth?: boolean
+  /** List mode: the order the host sorted the list in, shown as an arrow on the column's title; null for none. */
+  sort?: ListSort | null
+  /** List mode: the first column opens its row (`rowOpen`), and so does Enter on a cell that is not a drill-down. */
+  openRows?: boolean
 }
 
 /** Why the book cannot be shown: the source's error and its text. */

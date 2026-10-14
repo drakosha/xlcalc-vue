@@ -24,6 +24,8 @@ export interface MemoryCell {
   color?: string
   link?: { href?: string; location?: string; tooltip?: string; target?: string }
   note?: { author?: string; text: string }
+  /** List mode: the cell is a drill-down (`SheetWindow.drill`). */
+  drill?: true
   /** An old-style data bar (`SheetWindow.bars`); `appearance` takes its place where both are given. */
   bar?: { ratio: number; color: string }
   /** What conditional formats give the cell, as xlcalc computes it (`ConditionalAppearance`); the book in memory keeps it as given. */
@@ -319,6 +321,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       appearance: {},
       links: {},
       notes: {},
+      drill: {},
       ...(store.sheet.notice ? { notice: store.sheet.notice } : {}),
     }
     for (let c = req.col; c < req.col + cols; c++) win.widths.push(store.widths.get(c) ?? null)
@@ -341,6 +344,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         if (cell.style !== undefined) win.styleIds[addr] = cell.style
         if (cell.link) win.links![addr] = cell.link
         if (cell.note) win.notes![addr] = cell.note
+        if (cell.drill) win.drill![addr] = true
         if (cell.bar) win.bars![addr] = cell.bar
         if (cell.appearance) win.appearance![addr] = cell.appearance
       }

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // The example page: the sheet over the "all formatting" book, a language switch and the next edit's outcome for trying refusals.
 import { ref, shallowRef } from 'vue'
-import { SheetView, enMessages, memorySource, ruMessages, type SheetLinkEvent, type SheetViewState } from '../src'
+import { SheetView, enMessages, memorySource, ruMessages, type ListSort, type SheetLinkEvent, type SheetViewState } from '../src'
 import { allFormattingBook } from './book'
+import { LIST_SHEET, sortList } from './list-book'
 
 const params = new URLSearchParams(location.search)
 const lang = ref(params.get('lang') === 'en' ? 'en' : 'ru')
@@ -33,6 +34,14 @@ if (params.get('recompute')) source.recompute(Number(params.get('recompute')))
 function remoteEdit(): void {
   source.setCells('Формулы', { A2: String(Math.round(Math.random() * 100)) })
 }
+/** The list sheet: the page sorts it as a host sorts its list, and shows what a drill-down or a row opened. */
+const listSort = ref<ListSort | null>(null)
+function onSort(sort: ListSort): void {
+  listSort.value = sort
+  sortList(source, sort)
+}
+const onDrill = (at: { sheet: string; cell: string }) => (lastLink.value = `cellDrill ${at.sheet}!${at.cell}`)
+const onRowOpen = (at: { sheet: string; row: number }) => (lastLink.value = `rowOpen ${at.sheet} ${at.row}`)
 const cellUrl = (place: string) => `${location.origin}${location.pathname}?sheet=${encodeURIComponent(place)}`
 </script>
 
@@ -66,8 +75,13 @@ const cellUrl = (place: string) => `${location.origin}${location.pathname}?sheet
       storage-key="xs-example"
       :focus="focus"
       :cell-url="cellUrl"
+      :sort="listSort"
+      :open-rows="state?.sheet === LIST_SHEET"
       @state="state = $event"
       @open-link="onLink"
+      @sort="onSort"
+      @cell-drill="onDrill"
+      @row-open="onRowOpen"
     />
   </div>
 </template>

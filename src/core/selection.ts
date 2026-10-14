@@ -128,7 +128,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     // Frozen rows and columns are always in the frame.
     if (d > v.frozenRows.value) {
       if (top - v.frozenH.value < y) y = top - v.frozenH.value - REVEAL_PAD
-      else if (bottom > y + s.viewH.value - v.headH.value) y = bottom - s.viewH.value + v.headH.value + REVEAL_PAD
+      else if (bottom > y + s.viewH.value - v.headH.value - v.footH.value) y = bottom - s.viewH.value + v.headH.value + v.footH.value + REVEAL_PAD
     }
     if (col > v.frozenCols.value) {
       if (left - v.frozenW.value < x) x = left - v.frozenW.value - REVEAL_PAD

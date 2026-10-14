@@ -91,6 +91,9 @@ export interface SheetMessages {
   rename: string
   selectColumn: string
   selectRow: string
+  /** List mode: a sortable column's title, and the first column's cells that open their row. */
+  sortColumn: string
+  openRow: string
   selectAll: string
   resize: string
   /** A column's edge where a double click fits the column to what it shows. */
@@ -330,6 +333,8 @@ export const enMessages: SheetMessages = {
   rename: 'The sheet’s name',
   selectColumn: 'Click selects the column',
   selectRow: 'Click selects the row',
+  sortColumn: 'Click sorts by this column',
+  openRow: 'Open the row',
   selectAll: 'Click selects the whole sheet',
   resize: 'Drag to change the width; a double click restores the book’s width',
   resizeFit: 'Drag to change the width; a double click fits it to the contents',
@@ -585,6 +590,8 @@ export const ruMessages: SheetMessages = {
   rename: 'Имя листа',
   selectColumn: 'Щелчок выделяет столбец',
   selectRow: 'Щелчок выделяет строку',
+  sortColumn: 'Щелчок сортирует по этому столбцу',
+  openRow: 'Открыть строку',
   selectAll: 'Щелчок выделяет весь лист',
   resize: 'Потяните, чтобы изменить ширину. Двойной щелчок вернёт ширину из книги',
   resizeFit: 'Потяните, чтобы изменить ширину. Двойной щелчок подберёт ширину по содержимому',

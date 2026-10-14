@@ -21,6 +21,7 @@ import { useValidation, useValidationAlert } from './validation'
 import { createState, type SheetViewProps } from './state'
 import { useFilter } from './filter'
 import { useFind } from './find'
+import { useList, type ListSort } from './list'
 import { useTotals } from './totals'
 import { useViewport } from './viewport'
 import { useWindows } from './windows'
@@ -47,6 +48,9 @@ export type SheetLinkEvent = NonNullable<SheetWindow['links']>[string] & { sheet
 export interface SheetEmit {
   (e: 'state', state: SheetViewState | null): void
   (e: 'openLink', link: SheetLinkEvent): void
+  (e: 'sort', sort: ListSort): void
+  (e: 'cellDrill', cell: { sheet: string; cell: string }): void
+  (e: 'rowOpen', row: { sheet: string; row: number }): void
 }
 
 /** How long a message stays. */
@@ -128,6 +132,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const find = useFind(s, sel, notify)
   const explain = useExplain(s, f)
   const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find })
+  const list = useList(s, w, emit, props)
   /** The look of the active cell, from its loaded window: the `state` event and the font keys take it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
   const cmd = useCommands(s, sel, ed, {
@@ -406,6 +411,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       void filter.reapply()
       return
     }
+    // List mode's Enter opens the active cell's drill-down or row instead of moving.
+    if (list.key(e)) return
     ed.onGridKey(e)
   }
 
@@ -503,6 +510,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     find,
     explain,
     views,
+    list,
     cmd,
     clip,
     fill,
