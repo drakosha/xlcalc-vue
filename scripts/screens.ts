@@ -276,6 +276,38 @@ async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   console.log(`bar ${size.name}: ${collapsed.bar} px collapsed over six lines (one line: ${plain.bar} px), ${expanded.bar} px expanded, the same with the field open; the caret's line scrolled into view (${caret.top} of ${caret.room} px)`)
 }
 
+/** Merge & Center on the app's toolbar (spa.html): its list open (on a phone in the toolbar's menu), then A1:B2 merged and centred. */
+async function mergeScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
+  const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await page.waitForFunction(() => document.querySelector('[data-spa-status]')?.textContent?.trim() === 'Готово', null, { timeout: 30_000 })
+  // through the formula bar: Cyrillic comes as text input without a key press, which types over a cell only in a field
+  await press('[data-cell="1:1"]')
+  await press('.xs-fx')
+  await page.keyboard.type('Итого за квартал')
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => document.querySelector('[data-cell="1:1"]')?.textContent?.trim() === 'Итого за квартал', null, { timeout: 30_000 })
+  await press('.xs-address')
+  await page.locator('.xs-address').fill('A1:B2')
+  await page.keyboard.press('Enter')
+  if (size.mobile) await press('[data-tb="more"]')
+  await press('[data-tb="merge-menu"]')
+  await page.waitForSelector('[data-tb="unmerge"]')
+  await shot(page, size.name, '56-merge-menu')
+  await checkTargets(page, size.mobile, '.xs-toolbar')
+  await press('[data-tb="merge-center"]')
+  await page.waitForSelector('[data-cell="1:1"][colspan="2"][rowspan="2"]', { timeout: 30_000 })
+  await page.waitForSelector('[data-tb="merge"][aria-pressed="true"]')
+  // the phone's toolbar menu closed, the jump's flash (2 s) gone
+  if (size.mobile) await press('[data-tb="more"]')
+  await page.waitForTimeout(2200)
+  await shot(page, size.name, '57-merged')
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+  if (wide) throw new Error(`merge ${size.name}: the page scrolls sideways`)
+  console.log(`merge ${size.name}: the list under Merge & Center, A1:B2 merged and centred, the button pressed`)
+}
+
 for (const size of SIZES) {
   const context = await browser.newContext({
     viewport: { width: size.width, height: size.height },
@@ -384,6 +416,7 @@ for (const size of SIZES) {
   await barScreens(page, size)
   await validationScreens(page, size)
   await commandScreens(page, size)
+  await mergeScreens(page, size)
 
   // Editing in place: typing over a cell, then the edit in flight.
   await open(page, 'Формулы!C2')

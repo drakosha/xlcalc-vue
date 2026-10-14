@@ -1,6 +1,6 @@
 // The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the frame's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { cellAddress, linesKey, parseCell } from 'xlcalc/a1'
+import { cellAddress, linesKey, parseCell, rangeAddress } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
@@ -13,6 +13,7 @@ import { useFormula } from './formula'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
 import { useMenu } from './menu'
+import { useMerge } from './merge'
 import { useNavigation } from './navigation'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
@@ -34,6 +35,10 @@ export interface SheetViewState {
   style?: CellStyle
   /** The active cell's number format code, from a source whose windows give them; absent for General. */
   numberFormat?: string
+  /** The merged area the active cell is in (`A1:B2`), from the loaded windows: Excel's Merge & Center is pressed on it. */
+  merged?: string
+  /** The merge commands act (`SheetViewApi.merge`): the source has `structure`, the sheet is editable, no display filter. */
+  canMerge?: true
 }
 
 /** A link the component does not open itself, with the cell it is in. */
@@ -135,12 +140,14 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     showFreeze: (sheet, on) => v.showFreeze(sheet, on),
     reapplyFilter: () => filter.reapply(),
     explain: () => explain.show(),
+    merge: (command) => merge.run(command),
     structured: () => originalWidths.clear(),
   })
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
   const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
   const menu = useMenu(s, geo, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
+  const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
 
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
@@ -468,6 +475,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(f.selectedValue.value ? { value: f.selectedValue.value } : {}),
       ...(look?.style ? { style: look.style } : {}),
       ...(look?.numberFormat !== undefined ? { numberFormat: look.numberFormat } : {}),
+      ...(merge.area.value ? { merged: rangeAddress(merge.area.value) } : {}),
+      ...(merge.available.value ? { canMerge: true as const } : {}),
     }
   })
   watch(viewState, (state) => emit('state', state), { immediate: true })

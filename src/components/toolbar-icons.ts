@@ -36,3 +36,5 @@ export const IconAlignRight = icon(['M3 6h18', 'M9 12h12', 'M6 18h15'])
 export const IconWrap = icon(['M3 6h18', 'M3 12h15a3 3 0 1 1 0 6h-4', 'm16 16-2 2 2 2', 'M3 18h7'])
 export const IconMore = icon(['M5 12h.01', 'M12 12h.01', 'M19 12h.01'], { 'stroke-width': 3 })
 export const IconFormatCells = icon(['M3 4h18v16H3z', 'M3 10h18', 'M9 10v10', 'M13 14h5', 'M13 17h3'])
+/** Merge & Center: a cell's box over the cells it takes in, with the arrow both ways. */
+export const IconMerge = icon(['M3 5h18v14H3z', 'M7 12h10', 'm9 9.5-2.5 2.5L9 14.5', 'm15 9.5 2.5 2.5-2.5 2.5'])

@@ -5,6 +5,7 @@ import type { CellStyle } from 'xlcalc/contract'
 import type { EditOutcome, FormatPatch, LayoutChange, OutlineChange, SheetOp } from '../source'
 import { fontToggle, type FontToggle } from '../toolbar'
 import { shortcutLetter, type Editing } from './editing'
+import type { MergeCommand } from './merge'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 
@@ -41,6 +42,12 @@ export interface SheetViewApi {
   reapplyFilter(): Promise<boolean>
   /** Excel's Trace Precedents as a panel beside the grid: the source's tree of the active cell's precedents, following the cell; false without the source's `explain`. */
   explain(): boolean
+  /**
+   * Excel's Merge & Center (`mergeCenter`), Merge Across, Merge Cells and Unmerge Cells over the selection through the
+   * source's `structure`, one step of undo; Excel's warning first when more than one cell would lose its value. null when
+   * nothing was sent: no `structure`, a read-only sheet, a display filter, one cell outside a merged area, the warning's Cancel.
+   */
+  merge(command: MergeCommand): Promise<EditOutcome | null>
 }
 
 /** The sheet to show once the sheets are read again: by name, keeping the selection or starting over on it. */
@@ -64,6 +71,8 @@ export interface CommandsDeps {
   /** The display filter's Reapply and the precedents' panel, for the host's methods. */
   reapplyFilter: () => Promise<boolean>
   explain: () => boolean
+  /** Excel's merge commands over the selection. */
+  merge: (command: MergeCommand) => Promise<EditOutcome | null>
   /** A structure operation went through: lines may have moved, so what the sheet keeps by line number no longer holds. */
   structured: () => void
 }
@@ -174,6 +183,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     freezePanes: freeze,
     reapplyFilter: deps.reapplyFilter,
     explain: deps.explain,
+    merge: deps.merge,
   }
 
   return { can, change, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat, api }

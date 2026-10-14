@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // Excel's formatting toolbar over a sheet source: undo and redo, bold, italic, underline, font and fill colours, borders,
-// horizontal alignment, wrapping and Excel's Number Format box (xlcalc's, in the book's locale) over the selection the
-// sheet's `state` event gives, and Format Cells for a host that shows the dialog. On a narrow frame what does not fit
+// horizontal alignment, wrapping, Merge & Center with its list (through the sheet, with the source's `structure`) and
+// Excel's Number Format box (xlcalc's, in the book's locale) over the selection the sheet's `state` event gives, and
+// Format Cells for a host that shows the dialog. On a narrow frame what does not fit
 // goes into a menu; on a finger every target is 44 × 44 px.
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { SheetViewApi } from '../core/commands'
+import type { MergeCommand } from '../core/merge'
 import type { SheetViewState } from '../core/sheet'
 import { enMessages, type SheetMessages } from '../messages'
 import { useNumberFormats } from '../number-formats'
@@ -37,6 +39,7 @@ import {
   IconFontColour,
   IconFormatCells,
   IconItalic,
+  IconMerge,
   IconMore,
   IconRedo,
   IconUnderline,
@@ -101,6 +104,13 @@ const BORDERS: { kind: BorderKind; icon: typeof IconBold; title: keyof SheetMess
   { kind: 'bottom', icon: IconBorderBottom, title: 'borderBottom' },
   { kind: 'none', icon: IconBorderNone, title: 'borderNone' },
 ]
+/** Excel's list under Merge & Center. */
+const MERGES: { command: MergeCommand; tb: string; title: keyof SheetMessages }[] = [
+  { command: 'mergeCenter', tb: 'merge-center', title: 'mergeCenter' },
+  { command: 'mergeAcross', tb: 'merge-across', title: 'mergeAcross' },
+  { command: 'mergeCells', tb: 'merge-cells', title: 'mergeCells' },
+  { command: 'unmergeCells', tb: 'unmerge', title: 'unmergeCells' },
+]
 const text = (key: keyof SheetMessages) => m.value[key] as string
 
 // ── what the active cell shows ──
@@ -135,9 +145,9 @@ let coarseQuery: MediaQueryList | null = null
 const onCoarse = () => (coarse.value = !!coarseQuery?.matches)
 
 // ── menus: the colour palettes, the borders, and the narrow frame's menu ──
-const open = ref<'font' | 'fill' | 'borders' | null>(null)
+const open = ref<'font' | 'fill' | 'borders' | 'merge' | null>(null)
 const menu = ref(false)
-const toggle = (what: 'font' | 'fill' | 'borders') => (open.value = open.value === what ? null : what)
+const toggle = (what: 'font' | 'fill' | 'borders' | 'merge') => (open.value = open.value === what ? null : what)
 function closeAll(): void {
   open.value = null
   menu.value = false
@@ -227,6 +237,14 @@ function paintFill(colour: string | null): void {
 function border(kind: BorderKind): void {
   open.value = null
   if (props.state) apply(borderPatches(props.state.ref, kind))
+}
+/** Excel's Merge & Center is pressed on a merged cell, and pressed then it unmerges. */
+const merged = computed(() => !!props.state?.merged)
+/** A merge command through the sheet, which warns before values are lost and shows a refusal. */
+function merge(command: MergeCommand): void {
+  open.value = null
+  const sheet = props.sheet
+  if (sheet && props.state?.canMerge) void run(() => sheet.merge(command))
 }
 /** An item of the list applies its format; the box goes back to naming the category, as Excel's does. */
 function pickNumber(e: Event): void {
@@ -385,6 +403,30 @@ function pickNumber(e: Event): void {
         >
           <IconWrap />
         </button>
+      </span>
+      <span v-if="sheet && source.structure" class="xs-tb-group">
+        <span class="xs-tb-split">
+          <button
+            type="button"
+            :class="['xs-tool', { 'xs-tool-on': merged }]"
+            data-tb="merge"
+            :title="m.mergeCenter"
+            :aria-label="m.mergeCenter"
+            :aria-pressed="merged"
+            :disabled="!state?.canMerge"
+            @click="merge(merged ? 'unmergeCells' : 'mergeCenter')"
+          >
+            <IconMerge />
+          </button>
+          <button type="button" class="xs-tool xs-tb-caret" data-tb="merge-menu" :title="m.mergeMenu" :aria-label="m.mergeMenu" :aria-expanded="open === 'merge'" :disabled="!state?.canMerge" @click="toggle('merge')">
+            <IconDown />
+          </button>
+          <div v-if="open === 'merge'" class="xs-tb-pop" role="menu" :aria-label="m.mergeMenu">
+            <button v-for="x in MERGES" :key="x.command" type="button" class="xs-tb-item" role="menuitem" :data-tb="x.tb" @click="merge(x.command)">
+              {{ text(x.title) }}
+            </button>
+          </div>
+        </span>
       </span>
       <span v-if="hostDialog || sheet" class="xs-tb-group">
         <button type="button" class="xs-tool" data-tb="format-cells" :title="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="formatCells">
