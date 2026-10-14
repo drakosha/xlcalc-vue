@@ -99,7 +99,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   const alerts = useValidationAlert()
   const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask })
-  const point = usePoint(s, geo, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, separator: f.listSeparator, reveal: sel.revealCell })
+  const point = usePoint(s, sel, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, scan: f.scanOptions, commit: ed.commit })
   // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, else in as typed past the rule.
   const validation = useValidation({
     source: () => s.source(),

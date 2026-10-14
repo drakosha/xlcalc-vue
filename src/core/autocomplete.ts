@@ -14,7 +14,7 @@ const NAME_CHAR = /[\p{L}\p{N}._]/u
 const BEFORE_NAME = /[=+\-*/^&<>@(,;\s]/
 
 /** Whether a formula's text before `upTo` leaves a string, a quoted sheet's name or a table's brackets open. */
-export function inLiteral(text: string, upTo: number): boolean {
+function inLiteral(text: string, upTo: number): boolean {
   let quote: string | null = null
   let depth = 0
   for (let i = 1; i < upTo; i++) {

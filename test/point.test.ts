@@ -1,10 +1,9 @@
 // Excel's Point mode: while a formula is edited with the caret where a reference may stand, a click on the sheet puts the
 // cell's address at the caret, a drag a range's, a letter or a number a whole column's or row's; the next click replaces it.
 import type { VueWrapper } from '@vue/test-utils'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import { colPx } from '../src/core/geometry'
-import { refFits } from '../src/core/point'
 import { active, editorKey, editorOpen, goTo, key, mountSheet, settle, type } from './helpers'
 
 afterEach(() => {
@@ -48,18 +47,6 @@ async function press(w: VueWrapper, row: number, col: number, opts: { shiftKey?:
   await settle()
   return down
 }
-
-describe('where a reference may stand', () => {
-  it('after =, an operator, (, : and the list separator; not after a value or in a string', () => {
-    for (const t of ['=', '=1+', '=SUM(', '=SUM( ', '=A1:', '=SUM(A1,', '=A1>=', '=-', '=@']) expect([t, refFits(t, t.length, ',')]).toEqual([t, true])
-    for (const t of ['=5', '=A1', '=SUM(A1)', '="a+', "='a (", '=T[', 'abc+', '=1%']) expect([t, refFits(t, t.length, ',')]).toEqual([t, false])
-    // ru-RU: `;` separates arguments, `,` is the decimal point
-    expect(refFits('=СУММ(1;', 8, ';')).toBe(true)
-    expect(refFits('=СУММ(1,', 8, ';')).toBe(false)
-    // a selection's start counts: `A1` selected in `=A1+B1`
-    expect(refFits('=A1+B1', 1, ',')).toBe(true)
-  })
-})
 
 describe('Point mode', () => {
   it('a click after = puts the cell at the caret; the field stays open, the active cell stays, the focus stays', async () => {
@@ -139,13 +126,23 @@ describe('Point mode', () => {
   })
 
   it('where no reference may stand the click is the sheet’s as before: no address goes in, the cell is picked', async () => {
-    for (const text of ['=5', 'abc']) {
+    for (const text of ['=5', 'abc', '=A1)', '="a ']) {
       const w = await mountSheet(recorded().source)
       await typeIn(w, text)
       const down = await press(w, 3, 3)
       expect(down.defaultPrevented).toBe(false)
       expect(field(w).value).not.toContain('C3')
       expect(active(w)).toBe('3:3')
+      w.unmount()
+    }
+  })
+
+  it('a click puts the cell where an arrow would point: after a leading + or -, a space after an operand, a point', async () => {
+    for (const [text, got] of [['+', '+C3'], ['-', '-C3'], ['=A1 ', '=A1 C3'], ['=1.', '=1.C3'], ['=S!', '=S!C3']]) {
+      const w = await mountSheet(recorded().source)
+      await typeIn(w, text!)
+      await press(w, 3, 3)
+      expect([text, field(w).value, active(w)]).toEqual([text, got, '1:1'])
       w.unmount()
     }
   })
@@ -223,13 +220,8 @@ describe('Point mode with the arrows', () => {
     expect(field(w).value).toBe('=C4')
   })
 
-  it('the arrows move the caret where no reference may stand and in a field F2 opened; F2 turns them to pointing', async () => {
+  it('the arrows move the caret in a field F2 opened; F2 turns them to pointing', async () => {
     const w = await mountSheet(recorded().source)
-    await typeIn(w, '=5')
-    await arrow(w, 'ArrowRight')
-    expect(field(w).value).toBe('=5')
-    expect(editorOpen(w)).toBe(true)
-    await editorKey(w, 'Escape')
     await goTo(w, 'B2')
     await key(w, 'F2')
     await type(w, '=1+')
@@ -262,5 +254,111 @@ describe('Point mode with the arrows', () => {
     await typeIn(w, '=СУММ(1;')
     await arrow(w, 'ArrowDown')
     expect(field(w).value).toBe('=СУММ(1;B3')
+  })
+})
+
+describe('Point mode: what an arrow does with nothing pointed, as Excel measured (refAt)', () => {
+  /** A key in the field as the browser sends it; the event tells whether the field's own move was stopped. */
+  async function press(w: VueWrapper, k: string, init: KeyboardEventInit = {}): Promise<KeyboardEvent> {
+    const e = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...init })
+    field(w).dispatchEvent(e)
+    await settle()
+    return e
+  }
+
+  it('after a whole operand the arrow enters the formula and moves the selection, as Enter does that way', async () => {
+    for (const [text, k, to] of [['=5', 'ArrowRight', '2:3'], ['=A1', 'ArrowDown', '3:2'], ['=SUM(A1)', 'ArrowLeft', '2:1'], ['=D3+1', 'ArrowUp', '1:2'], ['=TRUE', 'ArrowRight', '2:3']] as const) {
+      const { source, edits } = recorded()
+      const w = await mountSheet(source)
+      await goTo(w, 'B2')
+      await typeIn(w, text)
+      await press(w, k)
+      expect([text, editorOpen(w), active(w), edits]).toEqual([text, false, to, [[{ sheet: 'S', cell: 'B2', text }]]])
+      w.unmount()
+    }
+  })
+
+  it('a leading + or - begins a formula: the arrow points', async () => {
+    for (const [text, k, got] of [['+', 'ArrowRight', '+D3'], ['-', 'ArrowDown', '-C4'], ['=-', 'ArrowLeft', '=-B3']] as const) {
+      const w = await mountSheet(recorded().source)
+      await goTo(w, 'C3')
+      await typeIn(w, text)
+      await press(w, k)
+      expect([text, field(w).value, editorOpen(w), active(w)]).toEqual([text, got, true, '3:3'])
+      w.unmount()
+    }
+  })
+
+  it('a space after an operand (the intersection), a point, a sheet’s ! take a reference', async () => {
+    for (const [text, got] of [['=A1 ', '=A1 D3'], ['=1.', '=1.D3'], ['=A1.', '=A1.D3'], ['=S!', '=S!D3'], ['=A1:', '=A1:D3']] as const) {
+      const w = await mountSheet(recorded().source)
+      await goTo(w, 'C3')
+      await typeIn(w, text)
+      await press(w, 'ArrowRight')
+      expect([text, field(w).value, active(w)]).toEqual([text, got, '3:3'])
+      w.unmount()
+    }
+  })
+
+  it('where the formula does not read, or inside a string, a quoted sheet’s name or a table’s brackets, the arrow does nothing', async () => {
+    for (const text of ['=A1)', '=1e', '={1', '=$', '="a', "='a b", '=T[']) {
+      const { source, edits } = recorded()
+      const w = await mountSheet(source)
+      await goTo(w, 'C3')
+      await typeIn(w, text)
+      const e = await press(w, 'ArrowRight')
+      expect([text, e.defaultPrevented, field(w).value, editorOpen(w), active(w), edits]).toEqual([text, true, text, true, '3:3', []])
+      w.unmount()
+    }
+  })
+
+  it('in a ru-RU book the locale decides: `=1,5` is entered, `=1.5` and `=A1,` do nothing', async () => {
+    for (const [text, open] of [['=1,5', false], ['=1.5', true], ['=A1,', true]] as const) {
+      const w = await mountSheet(recorded().source, { locale: 'ru-RU' })
+      await settle()
+      await goTo(w, 'C3')
+      await typeIn(w, text)
+      await press(w, 'ArrowRight')
+      expect([text, editorOpen(w)]).toEqual([text, open])
+      w.unmount()
+    }
+  })
+
+  it('the first Shift and arrow after = makes a range from the edited cell', async () => {
+    const w = await mountSheet(recorded().source)
+    await goTo(w, 'C3')
+    await typeIn(w, '=')
+    await press(w, 'ArrowRight', { shiftKey: true })
+    expect(field(w).value).toBe('=C3:D3')
+    await press(w, 'ArrowDown', { shiftKey: true })
+    expect(field(w).value).toBe('=C3:D4')
+    expect(active(w)).toBe('3:3')
+  })
+
+  it('Command and an arrow (Control on Windows) jump to the data’s edge by the source’s end, Shift extends; Home, Page Down and Page Up point', async () => {
+    const src = memorySource(book())
+    const end = vi.fn(async (_sheet: string, cell: string, dir: string) => (cell === 'D3' && dir === 'down' ? 'D6' : cell))
+    const w = await mountSheet({ ...src, end })
+    await goTo(w, 'C3')
+    await typeIn(w, '=')
+    await press(w, 'ArrowRight')
+    const meta = await press(w, 'ArrowDown', { metaKey: true })
+    expect(meta.defaultPrevented).toBe(true)
+    expect(end).toHaveBeenLastCalledWith('S', 'D3', 'down')
+    expect(field(w).value).toBe('=D6')
+    expect(active(w)).toBe('3:3')
+    await press(w, 'Escape')
+    await typeIn(w, '=')
+    await press(w, 'ArrowRight')
+    await press(w, 'ArrowDown', { ctrlKey: true, shiftKey: true })
+    expect(field(w).value).toBe('=D3:D6')
+    await press(w, 'Home')
+    expect(field(w).value).toBe('=A3')
+    await press(w, 'PageDown')
+    const row = Number(/^=A(\d+)$/.exec(field(w).value)?.[1])
+    expect(row).toBeGreaterThan(10)
+    await press(w, 'PageUp')
+    expect(field(w).value).toBe('=A3')
+    expect(active(w)).toBe('3:3')
   })
 })

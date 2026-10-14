@@ -54,11 +54,8 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     },
     { immediate: true },
   )
-  /** The book's separator of arguments: `,` in en-US, `;` in ru-RU. */
-  const listSeparator = (): string => {
-    const locale = scan.value?.locale
-    return typeof locale === 'object' ? locale.listSeparator : ','
-  }
+  /** How the book's formula text reads, for `xlcalc/text`; null while its locale loads. */
+  const scanOptions = (): ScanOptions | null => scan.value
   /** References the grid shows: to cells, columns or rows of one sheet; a table's and one across sheets stay text. */
   function gridRefs(formula: string): GridReference[] {
     const opts = scan.value
@@ -137,7 +134,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     return tints.length ? { edges, tints } : null
   }
 
-  return { formulaAt, selectedFormula, selectedValue, listSeparator, refColors, formulaParts, refSheet, sheetIndexByName, highlights, highlightAt }
+  return { formulaAt, selectedFormula, selectedValue, scanOptions, refColors, formulaParts, refSheet, sheetIndexByName, highlights, highlightAt }
 }
 
 export type Formula = ReturnType<typeof useFormula>

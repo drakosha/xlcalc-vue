@@ -12,7 +12,7 @@ import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
 
-/** The cell being edited and its draft. `enter` was started by typing (arrows commit), `edit` by F2 or a double click (arrows move the caret). */
+/** The cell being edited and its draft. `enter` was started by typing (arrows point or commit), `edit` by F2 or a double click (arrows move the caret). */
 export interface EditorState {
   sheet: string
   row: number
@@ -31,7 +31,6 @@ export interface EditorState {
 const MAX_EDIT_CELLS = 50_000
 /** Cells a fill or a paste through the source shows as pending; past that the rest wait unmarked. */
 const MAX_PENDING_CELLS = 10_000
-const ARROWS: Record<string, [-1 | 0 | 1, -1 | 0 | 1]> = { ArrowDown: [1, 0], ArrowUp: [-1, 0], ArrowRight: [0, 1], ArrowLeft: [0, -1] }
 
 /** A shortcut's Latin letter: the key's own, else its place on the keyboard (`KeyB` under Russian `и`); '' for anything else. */
 export function shortcutLetter(e: KeyboardEvent): string {
@@ -69,7 +68,7 @@ export interface EditingDeps {
   barInput: Ref<HTMLTextAreaElement | null>
   /** A key that is the sheet's own in the field too (Control+Shift+U for the formula bar): true when taken. */
   barKey?: (e: KeyboardEvent) => boolean
-  /** Excel's Point mode by an arrow in the field: true when the arrow went into the formula. */
+  /** Excel's Enter mode by a key in the field: an arrow points, enters the draft or does nothing (`refAt`); true when taken. */
   point?: (e: KeyboardEvent) => boolean
   /** Excel's alert of a rule of data validation for a refused value, or the question on a formula that does not read, and the person's answer; without it the refusal is said in the message line. */
   alert?: (alert: SheetAlert) => Promise<AlertAnswer>
@@ -406,7 +405,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       startEdit({ text: e.key, mode: 'enter' })
     }
   }
-  /** Keys in the field: the list of functions first when it is open, then an arrow that points (Point mode), Enter, Tab and their Shift commit and move, Control+Return (Cmd on a Mac) fills, Esc cancels, Alt+Enter breaks the line, F2 toggles arrows, Control+Shift+U the formula bar's height. */
+  /** Keys in the field: the list of functions first when it is open, then an arrow of Enter mode (it points, enters or does nothing), Enter, Tab and their Shift commit and move, Control+Return (Cmd on a Mac) fills, Esc cancels, Alt+Enter breaks the line, F2 toggles arrows, Control+Shift+U the formula bar's height. */
   function onEditorKey(e: KeyboardEvent): void {
     const ed = editor.value
     if (!ed || e.isComposing) return
@@ -434,10 +433,6 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     } else if (e.key === 'F2') {
       e.preventDefault()
       ed.mode = ed.mode === 'enter' ? 'edit' : 'enter'
-    } else if (ed.mode === 'enter' && ed.place === 'cell' && !ed.text.startsWith('=') && ARROWS[e.key]) {
-      e.preventDefault()
-      const [dr, dc] = ARROWS[e.key]!
-      commit(dr, dc)
     }
   }
   /** The field lost focus: moving to the other field keeps editing, anything else in the page commits in place. */
