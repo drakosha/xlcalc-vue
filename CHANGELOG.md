@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-The first public release. The versions before it were internal builds and were not published to npm; their changes are folded into this entry, and the README describes the package as it is.
+The first public release. The versions before it were internal builds and were not published to npm; their changes are folded into this entry, and the README with `docs/` describes the package as it is.
 
 What is in it:
 
@@ -11,6 +11,7 @@ What is in it:
 - The `SheetSource` contract (`src/source.ts`): every feature beyond reading windows is an optional method, so a source on a server and one in the page give what they have.
 - `memorySource`: a source over a book held in memory, for an example or a test.
 - `xlcalc-sheet/local`: `localSource`, a source over an xlcalc book that computes in a Web Worker or in the page's thread and does what the grid asks as Excel does it, with `openXlsx` and `saveXlsx`; it needs `xlcalc` 0.37.0 or later, an optional peer.
+- `docs/`: the API reference (`docs/api.md`) and a page for each feature.
 - The interface's texts in English by default and in Russian (`ruMessages`).
 - `example/spa.html`: an app like Excel over `./local`, all in the browser, without a server.
 - The main entry depends at runtime on `vue` alone and carries no engine.
