@@ -894,6 +894,17 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.keyboard.type('*2')
   await page.keyboard.press('Enter')
   await shows(page, '1:4', '6')
+  // = over F2, Up points at F1, Command+Left (Control on Windows) jumps to the data's edge, D1; Right after a typed operand enters the formula and moves on, as Excel's refAt
+  await page.locator('[data-cell="2:6"]').click()
+  await page.keyboard.type('=')
+  await page.keyboard.press('ArrowUp')
+  await page.keyboard.press('ControlOrMeta+ArrowLeft')
+  await page.waitForFunction(() => (document.querySelector('.xs-editor') as HTMLTextAreaElement | null)?.value === '=D1', null, { timeout: 10_000 }).catch(() => {})
+  expect(at('the field after Command+Left'), await field(), '=D1')
+  await page.keyboard.type('+0')
+  await page.keyboard.press('ArrowRight')
+  await shows(page, '2:6', '6')
+  expect(at('the active cell after Right'), await page.locator('.xs-cell.xs-active').getAttribute('data-cell'), '2:7')
   // a formula that does not read, left by a click where no reference may stand: the question, Restore leaves the cell empty
   await page.locator('[data-cell="2:3"]').click()
   await page.keyboard.type('=1)')
@@ -946,7 +957,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   expect(at('E1 copied'), copied, want)
   await page.mouse.move(size.width / 2, size.height / 2)
   await page.screenshot({ path: resolve(out, `spa-${size.name}-p02-row-height.png`) })
-  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3, =C1*2 by Left gives 6; =1) asked and put back; two lines in A3 wrap and fit row 3 to ${fitted.height} pt, by hand ${byHand?.height} pt, a double click fits it again; E1 shows ${shown} and copies ${JSON.stringify(copied)}`)
+  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3, =C1*2 by Left gives 6, =D1+0 by Up and Command+Left entered by Right; =1) asked and put back; two lines in A3 wrap and fit row 3 to ${fitted.height} pt, by hand ${byHand?.height} pt, a double click fits it again; E1 shows ${shown} and copies ${JSON.stringify(copied)}`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }

@@ -1,13 +1,13 @@
-// Excel's Point mode: while a formula is edited and the caret stands where a reference may (after `=`, an operator, `(`,
-// `:` or the list separator), a press on the sheet puts the cell's address at the caret, a drag a range's, a letter or a
-// number a whole column's or row's, and in a field typing opened over a cell an arrow the address of the cell beside the
-// edited one; the next press or arrow before anything is typed replaces the reference, Shift extends it.
+// Excel's Point mode: while a formula is edited and the caret stands where a reference may (`refAt` says `insert`), a
+// press on the sheet puts the cell's address at the caret, a drag a range's, a letter or a number a whole column's or
+// row's; in a field typing opened over a cell an arrow does what `refAt` says (a reference to the cell beside the edited
+// one, the text entered, nothing), and the next press or key before anything is typed moves the reference as on the sheet.
 import type { Ref } from 'vue'
 import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
-import type { CellPosition } from 'xlcalc/contract'
-import { inLiteral } from './autocomplete'
+import type { CellPosition, PointAction, ScanOptions } from 'xlcalc/contract'
+import { refAt } from 'xlcalc/text'
 import type { EditorState } from './editing'
-import type { Geometry } from './geometry'
+import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
 
@@ -16,18 +16,8 @@ export type PointKind = 'cells' | 'columns' | 'rows'
 
 /** The arrows' steps: rows and columns. */
 const ARROWS: Record<string, [-1 | 0 | 1, -1 | 0 | 1]> = { ArrowDown: [1, 0], ArrowUp: [-1, 0], ArrowRight: [0, 1], ArrowLeft: [0, -1] }
-
-/** What a reference may follow besides the list separator: the formula's `=`, the operators, `(` and the range's `:`. */
-const BEFORE_REF = new Set([...'=+-*/^&<>(:@'])
-
-/** Whether a reference may stand at `at` in formula text: after one of `BEFORE_REF` or `separator` (spaces between), not in a string, a quoted sheet's name or a table's brackets. */
-export function refFits(text: string, at: number, separator: string): boolean {
-  if (!text.startsWith('=') || at < 1 || at > text.length) return false
-  let i = at
-  while (i > 1 && /\s/.test(text[i - 1]!)) i--
-  const c = text[i - 1]!
-  return (BEFORE_REF.has(c) || c === separator) && !inLiteral(text, i - 1)
-}
+/** Keys that point besides the arrows, as they move on the sheet (Excel measured Home and Page Down). */
+const MOVES = new Set(['Home', 'PageDown', 'PageUp'])
 
 export interface PointDeps {
   /** The open field's element. */
@@ -36,13 +26,13 @@ export interface PointDeps {
   show: () => void
   /** Close the list of functions. */
   closeList: () => void
-  /** The book's separator of arguments. */
-  separator: () => string
-  /** Scroll a cell into the frame. */
-  reveal: (row: number, col: number) => void
+  /** How the book's formula text reads (its locale); null while the locale loads. */
+  scan: () => ScanOptions | null
+  /** Enter the draft and move the selection the arrow's way. */
+  commit: (dr: -1 | 0 | 1, dc: -1 | 0 | 1) => void
 }
 
-export function usePoint(s: SheetState, geo: Geometry, v: Viewport, editor: Ref<EditorState | null>, deps: PointDeps) {
+export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref<EditorState | null>, deps: PointDeps) {
   /** The reference the last press wrote: its field, its place in the draft, the draft with it, what it covers and where it began. */
   let run: { ed: EditorState; from: number; to: number; text: string; kind: PointKind; anchor: CellPosition; far: CellPosition } | null = null
   let dragging = false
@@ -62,7 +52,7 @@ export function usePoint(s: SheetState, geo: Geometry, v: Viewport, editor: Ref<
     const start = el.selectionStart ?? ed.text.length
     const end = el.selectionEnd ?? start
     const last = going(ed, start, end)
-    if (!last && !refFits(ed.text, start, deps.separator())) return false
+    if (!last && actionAt(ed.text, start).action !== 'insert') return false
     const [first, far] = corners(at.kind, at.row, at.col)
     const anchor = last && e.shiftKey && last.kind === at.kind ? last.anchor : first
     run = last ? { ...last, kind: at.kind, anchor } : { ed, from: start, to: end, text: ed.text, kind: at.kind, anchor, far }
@@ -72,32 +62,58 @@ export function usePoint(s: SheetState, geo: Geometry, v: Viewport, editor: Ref<
   }
   /** The run the caret stands at the end of, nothing typed since: the next press or arrow replaces its reference. */
   const going = (ed: EditorState, start: number, end: number) => (run !== null && run.ed === ed && run.text === ed.text && start === run.to && end === run.to ? run : null)
-  /** The cell one shown line from `p` the arrow's way; at the grid's edge `p`. */
-  function stepFrom(p: CellPosition, [dr, dc]: [-1 | 0 | 1, -1 | 0 | 1]): CellPosition {
-    const row = dr ? s.rowOf(geo.nextRow(s.indexOf(p.row) ?? p.row, dr)) : p.row
-    return { row, col: dc ? geo.nextCol(p.col, dc) : p.col }
+  /** What an arrow does at `caret` with nothing pointed (`refAt`); nothing while the locale loads, and before the formula's first character. */
+  const actionAt = (text: string, caret: number): PointAction => {
+    const scan = deps.scan()
+    return scan && caret > 0 ? refAt(text, caret, scan) : { action: 'none' }
   }
+  let seq = 0
   /**
-   * An arrow in a field typing opened over a cell (Enter mode; F2 or the formula bar move the caret): the cell beside the
-   * edited one, or the reference moved from its first cell, or with Shift its far corner moved. True when taken.
+   * A key in a field typing opened over a cell (Enter mode; F2 or the formula bar move the caret). A reference pointed
+   * moves as the selection moves on the sheet: from its first cell, or with Shift its far corner. With nothing pointed an
+   * arrow does what `refAt` says: a reference from the edited cell (with Shift a range from it), the text entered, or
+   * nothing; Home and Page Down or Up point only where a reference goes in. True when taken.
    */
   function key(e: KeyboardEvent): boolean {
     const way = ARROWS[e.key]
     const ed = editor.value
     const el = deps.input()
-    if (!way || !ed || !el || e.ctrlKey || e.metaKey || e.altKey || ed.mode !== 'enter' || ed.place !== 'cell' || ed.sheet !== s.sheetName.value) return false
+    const moves = MOVES.has(e.key) && !e.ctrlKey && !e.metaKey
+    if ((!way && !moves) || !ed || !el || e.altKey || ed.mode !== 'enter' || ed.place !== 'cell') return false
     const start = el.selectionStart ?? ed.text.length
     const end = el.selectionEnd ?? start
-    const last = going(ed, start, end)
-    if (!last && !refFits(ed.text, start, deps.separator())) return false
+    const last = ed.sheet === s.sheetName.value ? going(ed, start, end) : null
+    if (!last) {
+      const act = actionAt(ed.text, start).action
+      if (way && act === 'commit') {
+        e.preventDefault()
+        deps.commit(...way)
+        return true
+      }
+      if (way && act === 'none') {
+        e.preventDefault()
+        return true
+      }
+      if (act !== 'insert' || ed.sheet !== s.sheetName.value) return false
+    }
+    const extend = e.shiftKey && (!last || last.kind === 'cells')
+    const from = last ? (extend ? last.far : last.anchor) : { row: ed.row, col: ed.col }
+    const to = sel.keyTarget(from, e)
+    if (!to) return false
     e.preventDefault()
-    const extend = last && e.shiftKey && last.kind === 'cells'
-    const anchor = extend ? last.anchor : stepFrom(last ? last.anchor : { row: ed.row, col: ed.col }, way)
-    const far = extend ? stepFrom(last.far, way) : anchor
-    run = last ? { ...last, kind: 'cells', anchor } : { ed, from: start, to: end, text: ed.text, kind: 'cells', anchor, far }
-    write(far)
-    if (!s.visible.value) s.stretch(far.row, far.col)
-    deps.reveal(far.row, far.col)
+    const mine = ++seq
+    const text = ed.text
+    // the source's `end` answers later: a key, a press or typing meanwhile wins
+    const point = (p: CellPosition | null): void => {
+      if (!p || mine !== seq || editor.value !== ed || ed.text !== text) return
+      const anchor = extend ? (last ? last.anchor : from) : p
+      run = last ? { ...last, kind: 'cells', anchor } : { ed, from: start, to: end, text: ed.text, kind: 'cells', anchor, far: p }
+      write(p)
+      if (!s.visible.value) s.stretch(p.row, p.col)
+      sel.revealCell(p.row, p.col)
+    }
+    if (to instanceof Promise) void to.then(point)
+    else point(to)
     return true
   }
   /** The drag's far corner under the pointer. */

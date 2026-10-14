@@ -148,19 +148,15 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     s.viewW.value = el.clientWidth || 800
   }
 
-  /** Arrow keys and the like: move the active cell, or the corner with Shift; true when the key was one of them. */
-  function navKey(e: KeyboardEvent): boolean {
-    // Excel moves the active cell from itself, and only Shift moves the selection's far corner
-    const corner = e.shiftKey ? (s.extent.value ?? s.selected.value) : s.selected.value
-    if (!corner || s.rowCount.value === 0) return false
-    const a = onGrid(corner)
+  /**
+   * Where a key moves from `a` (a cell on the grid) as the sheet moves by it: the arrows, Control and an arrow (by the
+   * source's `end` when it has one, a promise of the cell, null when it fails), Page Down and Up, Home, End; null for another key.
+   */
+  function keyTarget(a: CellPosition, e: KeyboardEvent): CellPosition | Promise<CellPosition | null> | null {
+    if (s.rowCount.value === 0) return null
     const way = END_WAYS[e.key]
     // Control and an arrow go where the source's Range.End says; under the display filter its rows are not the sheet's
-    if (way && (e.ctrlKey || e.metaKey) && !e.altKey && s.source().end && !s.visible.value) {
-      e.preventDefault()
-      void endKey(a, way, e.shiftKey)
-      return true
-    }
+    if (way && (e.ctrlKey || e.metaKey) && !e.altKey && s.source().end && !s.visible.value) return endTarget(a, way)
     let d = s.indexOf(a.row) ?? 1
     let col = a.col
     const page = Math.max(1, Math.floor((s.viewH.value - v.headH.value - v.frozenH.value) / s.defaultRowPx.value))
@@ -196,37 +192,50 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
         if (ctrl) d = Math.max(1, s.dataShown.value)
         break
       default:
-        return false
+        return null
     }
-    e.preventDefault()
     // Moves went along display rows; the selection keeps sheet rows.
-    const row = s.rowOf(d)
-    if (e.shiftKey && s.selected.value) s.extent.value = { row, col }
+    return { row: s.rowOf(d), col }
+  }
+  /** The cell the source's `end` gives from `from`; a read-only grid ends with its data. */
+  async function endTarget(from: CellPosition, way: 'up' | 'down' | 'left' | 'right'): Promise<CellPosition | null> {
+    let to: CellPosition | null
+    try {
+      to = parseCell(await s.source().end!(s.sheetName.value, cellAddress(from.row, from.col), way))
+    } catch {
+      return null
+    }
+    if (!to) return null
+    return s.editable.value ? to : { row: Math.min(to.row, Math.max(1, s.lastRow.value)), col: Math.min(to.col, Math.max(1, s.colCount.value)) }
+  }
+
+  /** Arrow keys and the like: move the active cell, or the corner with Shift; true when the key was one of them. */
+  function navKey(e: KeyboardEvent): boolean {
+    // Excel moves the active cell from itself, and only Shift moves the selection's far corner
+    const corner = e.shiftKey ? (s.extent.value ?? s.selected.value) : s.selected.value
+    const to = corner && keyTarget(onGrid(corner), e)
+    if (!to) return false
+    e.preventDefault()
+    if (to instanceof Promise) void endKey(to, e.shiftKey)
+    else moveTo(to, e.shiftKey)
+    return true
+  }
+  /** The active cell to `p`, or the corner with Shift; the grid stretches to it, the frame scrolls to it. */
+  function moveTo({ row, col }: CellPosition, extend: boolean): void {
+    if (extend && s.selected.value) s.extent.value = { row, col }
     else pickCell(row, col)
     if (!s.visible.value) s.stretch(row, col)
     revealCell(row, col)
-    return true
   }
   let endSeq = 0
   /** Control and an arrow by the source's `end`: the active cell there, or the corner with Shift, unless the selection moved meanwhile. */
-  async function endKey(from: CellPosition, way: 'up' | 'down' | 'left' | 'right', extend: boolean): Promise<void> {
+  async function endKey(target: Promise<CellPosition | null>, extend: boolean): Promise<void> {
     const mine = ++endSeq
     const sheet = s.sheetName.value
     const was = [s.selected.value, s.extent.value]
-    let to: CellPosition | null
-    try {
-      to = parseCell(await s.source().end!(sheet, cellAddress(from.row, from.col), way))
-    } catch {
-      return
-    }
+    const to = await target
     if (!to || mine !== endSeq || sheet !== s.sheetName.value || was[0] !== s.selected.value || was[1] !== s.extent.value) return
-    // a read-only grid ends with its data
-    const row = s.editable.value ? to.row : Math.min(to.row, Math.max(1, s.lastRow.value))
-    const col = s.editable.value ? to.col : Math.min(to.col, Math.max(1, s.colCount.value))
-    if (extend && s.selected.value) s.extent.value = { row, col }
-    else pickCell(row, col)
-    s.stretch(row, col)
-    revealCell(row, col)
+    moveTo(to, extend)
   }
 
   /** Enter and Tab: the active cell one step down or right (back with Shift); a selection of one cell collapses to it, one of several keeps it. */
@@ -302,6 +311,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     revealCell,
     measure,
     navKey,
+    keyTarget,
     step,
   }
 }

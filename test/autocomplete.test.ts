@@ -161,6 +161,11 @@ describe('the list under the cell', () => {
     const w = await mountSheet(memorySource(book()))
     await typeFormula(w, '=СУММ')
     expect(shown()).toHaveLength(4)
+    // F2 to Edit mode, where the arrows move the caret: in Enter mode Left would enter `=С` (refAt's commit)
+    await editorKey(w, 'F2')
+    await new Promise((done) => setTimeout(done))
+    await settle()
+    expect(shown()).toHaveLength(4)
     // The browser moves the caret after the key; the list reads it once the key is done.
     field(w).setSelectionRange(2, 2)
     await editorKey(w, 'ArrowLeft')
