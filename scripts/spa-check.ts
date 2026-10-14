@@ -17,6 +17,7 @@
 // Then, on the desktop, a file with a circular reference opened from the picker holds the values it stores, as Excel
 // opens it, through an edit elsewhere; Control+Down goes to the end of a block (Range.End); and a cell copied over a
 // whole column is refused at once by the app's limit of cells one change writes, the book as it was.
+// Then, on the desktop, Merge & Center over A1:B1 holding two values: Excel's warning, Enter for OK, one centred cell, Control+Z.
 // On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa; SPA_URL=<url> checks a published app instead.
 // DEMO=1 npm run check:spa runs it on the demo's build (`--mode demo`, served under /demo/), which /demo/ opens and
 // which holds no source map.
@@ -951,6 +952,60 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await context.close()
 }
 
+/**
+ * Merge & Center on the desktop: A1 and B1 hold values, so Excel's warning comes first; Enter is its OK, A1:B1 becomes
+ * one centred cell with A1's value and B1's gone, the button pressed on it; Control+Z splits it and brings B1 back.
+ */
+async function mergeScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  const at = (what: string) => `[${size.name} merge] ${what}`
+  const shot = (n: number, name: string) => page.screenshot({ path: resolve(out, `spa-${size.name}-m${String(n).padStart(2, '0')}-${name}.png`) })
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await enter(page, size, '1:1', 'Total')
+  await enter(page, size, '1:2', '5')
+  await ready(page)
+  await page.locator('[data-cell="1:1"]').click()
+  await page.locator('[data-cell="1:2"]').click({ modifiers: ['Shift'] })
+  await page.locator('[data-tb="merge-menu"]').click()
+  await page.waitForSelector('[data-tb="merge-across"]')
+  await shot(1, 'merge-menu')
+  await page.locator('[data-tb="merge-menu"]').click()
+  await page.locator('[data-tb="merge"]').click()
+  await page.waitForSelector('[data-xs-alert="merge"]')
+  const warning = await page.locator('[data-xs-alert-message]').textContent()
+  if (!warning?.startsWith('При объединении ячеек сохраняется только значение из верхней левой ячейки')) throw new Error(`${at('warning')}: ${warning}`)
+  await shot(2, 'merge-warning')
+  await page.keyboard.press('Enter')
+  await page.waitForSelector('[data-cell="1:1"][colspan="2"]', { timeout: 30_000 })
+  await ready(page)
+  if (await page.locator('[data-cell="1:2"]').count()) throw new Error(`${at('merged')}: B1 is still drawn`)
+  await page.waitForSelector('[data-tb="merge"][aria-pressed="true"]')
+  const merged = await bookOf(page)
+  expect(at('merged areas'), merged.sheets[0]!.merges, ['A1:B1'])
+  expect(at('A1 merged'), cellOf(merged, 'A1').value, 'Total')
+  expect(at('A1 centred'), cellOf(merged, 'A1').style?.alignment?.horizontal, 'center')
+  expect(at('B1 merged'), cellOf(merged, 'B1').value, undefined)
+  await shot(3, 'merged')
+  await page.keyboard.press('Control+z')
+  await page.waitForSelector('[data-cell="1:2"]', { timeout: 30_000 })
+  await ready(page)
+  const back = await bookOf(page)
+  expect(at('merged areas after Control+Z'), back.sheets[0]!.merges ?? [], [])
+  expect(at('B1 after Control+Z'), cellOf(back, 'B1').value, 5)
+  await shows(page, '1:2', '5')
+  await page.waitForSelector('[data-tb="merge"][aria-pressed="false"]')
+  await shot(4, 'merge-undone')
+  console.log(`${at('ok')}: A1:B1 with two values warned, Enter merged and centred it (B1 gone, the button pressed), Control+Z split it with B1 back`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 const demo = process.env.DEMO === '1'
 const mode = demo ? { mode: 'demo' } : {}
 /** A cell copied over a whole column: the app's limit of writes refuses it at once, as a source's refusal, and nothing changes. */
@@ -1017,6 +1072,7 @@ try {
   await cycleScenario(browser, base, desktop)
   await limitScenario(browser, base, desktop)
   await formulaRowScenario(browser, base, desktop)
+  await mergeScenario(browser, base, desktop)
 } finally {
   await browser.close()
   if (server) await new Promise<void>((done) => server.httpServer.close(() => done()))

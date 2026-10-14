@@ -188,8 +188,17 @@ export interface FormulaAlert {
   sheet: string
   cell: string
 }
-/** What the alert shows: a rule's refusal or the question on a formula. */
-export type SheetAlert = SheetValidationAlert | FormulaAlert
+/** Excel's warning before cells holding more than one value are merged: OK merges, Cancel leaves them. */
+export interface MergeAlert {
+  severity: 'merge'
+  title?: undefined
+  /** The warning's text. */
+  message: string
+  sheet: string
+  cell: string
+}
+/** What the alert shows: a rule's refusal, the question on a formula or the warning before a merge. */
+export type SheetAlert = SheetValidationAlert | FormulaAlert | MergeAlert
 
 /** What the person's answer to an alert does with the refused edit: send it again with `accept`, open the field again with the text, or leave the cell as it was. */
 export type AlertAnswer = 'accept' | 'retry' | 'cancel'
@@ -214,9 +223,13 @@ export const ALERT_BUTTONS: Record<SheetAlert['severity'], { button: AlertButton
     { button: 'fix', answer: 'retry' },
     { button: 'revert', answer: 'cancel' },
   ],
+  merge: [
+    { button: 'ok', answer: 'accept' },
+    { button: 'cancel', answer: 'cancel' },
+  ],
 }
 /** The button an alert opens on, which Enter presses: Retry, No (a warning keeps a value only by a click on Yes), OK. */
-export const ALERT_DEFAULT: Record<SheetAlert['severity'], AlertButton> = { stop: 'retry', warning: 'no', information: 'ok', formula: 'fix' }
+export const ALERT_DEFAULT: Record<SheetAlert['severity'], AlertButton> = { stop: 'retry', warning: 'no', information: 'ok', formula: 'fix', merge: 'ok' }
 
 /** The alert of a refused value: shown until the person answers; one at a time, a new one answering the old with Cancel. */
 export function useValidationAlert() {

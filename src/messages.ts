@@ -233,6 +233,13 @@ export interface SheetMessages {
   /** Excel's Formula AutoComplete: the list of functions under the field and its hint. */
   functionList: string
   functionHint: string
+  /** Excel's Merge & Center button, its list's button and items, and the warning before values are lost. */
+  mergeCenter: string
+  mergeMenu: string
+  mergeAcross: string
+  mergeCells: string
+  unmergeCells: string
+  mergeWarning: string
 }
 
 export const enMessages: SheetMessages = {
@@ -469,6 +476,12 @@ export const enMessages: SheetMessages = {
   formulaRevert: 'Restore',
   functionList: 'Functions',
   functionHint: 'Tab or a double click enters the function',
+  mergeCenter: 'Merge & Center',
+  mergeMenu: 'Merge options',
+  mergeAcross: 'Merge Across',
+  mergeCells: 'Merge Cells',
+  unmergeCells: 'Unmerge Cells',
+  mergeWarning: 'Merging cells only keeps the upper-left value and discards other values.',
 }
 
 /** Russian plural: one, few, many. */
@@ -728,4 +741,10 @@ export const ruMessages: SheetMessages = {
   formulaRevert: 'Вернуть',
   functionList: 'Функции',
   functionHint: 'Tab или двойной щелчок вставляет функцию',
+  mergeCenter: 'Объединить и поместить в центре',
+  mergeMenu: 'Параметры объединения',
+  mergeAcross: 'Объединить по строкам',
+  mergeCells: 'Объединить ячейки',
+  unmergeCells: 'Отменить объединение ячеек',
+  mergeWarning: 'При объединении ячеек сохраняется только значение из верхней левой ячейки, а значения из остальных ячеек удаляются.',
 }

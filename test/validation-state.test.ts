@@ -180,11 +180,12 @@ describe('useValidationAlert', () => {
     expect(a.alert.value).toBeNull()
   })
 
-  it('has Excel’s buttons by style and their answers, the default Retry, No and OK; the formula’s question Fix and Restore', () => {
+  it('has Excel’s buttons by style and their answers, the default Retry, No and OK; the formula’s question Fix and Restore; the merge’s warning OK and Cancel', () => {
     expect(ALERT_BUTTONS.stop.map((b) => `${b.button}:${b.answer}`)).toEqual(['retry:retry', 'cancel:cancel'])
     expect(ALERT_BUTTONS.warning.map((b) => `${b.button}:${b.answer}`)).toEqual(['yes:accept', 'no:retry', 'cancel:cancel'])
     expect(ALERT_BUTTONS.information.map((b) => `${b.button}:${b.answer}`)).toEqual(['ok:accept', 'cancel:cancel'])
     expect(ALERT_BUTTONS.formula.map((b) => `${b.button}:${b.answer}`)).toEqual(['fix:retry', 'revert:cancel'])
-    expect(ALERT_DEFAULT).toEqual({ stop: 'retry', warning: 'no', information: 'ok', formula: 'fix' })
+    expect(ALERT_BUTTONS.merge.map((b) => `${b.button}:${b.answer}`)).toEqual(['ok:accept', 'cancel:cancel'])
+    expect(ALERT_DEFAULT).toEqual({ stop: 'retry', warning: 'no', information: 'ok', formula: 'fix', merge: 'ok' })
   })
 })

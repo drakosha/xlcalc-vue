@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // Excel's alert for a value a rule of data validation does not take: its style's icon, the rule's title ("Microsoft Excel"
 // without one) and message, and the style's buttons: Stop, Retry and Cancel; Warning, "Continue?" and Yes, No and Cancel;
-// Information, OK and Cancel; the sheet's question on a formula that does not read, Fix and Restore. It opens on the default
-// button (Retry, No, OK, Fix), Esc is Cancel (Restore); 44 px targets on a phone.
+// Information, OK and Cancel; the sheet's question on a formula that does not read, Fix and Restore; the warning before a
+// merge, OK and Cancel. It opens on the default button (Retry, No, OK, Fix), Esc is Cancel (Restore); 44 px targets on a phone.
 import { computed, nextTick, ref, useId, watch } from 'vue'
 import { ALERT_BUTTONS, ALERT_DEFAULT, type AlertAnswer, type AlertButton, type SheetAlert } from '../core/validation'
 import { enMessages, type SheetMessages } from '../messages'
@@ -26,8 +26,8 @@ const id = useId()
 const buttons = computed(() => (props.alert ? ALERT_BUTTONS[props.alert.severity] : []))
 const label = (b: AlertButton): string =>
   ({ retry: m.value.validationRetry, cancel: m.value.cancel, yes: m.value.validationYes, no: m.value.validationNo, ok: m.value.ok, fix: m.value.formulaFix, revert: m.value.formulaRevert })[b]
-/** The icon's style: the formula's question shows a warning's. */
-const style = computed(() => (props.alert?.severity === 'formula' ? 'warning' : (props.alert?.severity ?? 'stop')))
+/** The icon's style: the formula's question and the merge's warning show a warning's. */
+const style = computed(() => (props.alert?.severity === 'formula' || props.alert?.severity === 'merge' ? 'warning' : (props.alert?.severity ?? 'stop')))
 
 // Each alert opens on its default button, as Excel's.
 watch(
