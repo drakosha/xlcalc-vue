@@ -173,6 +173,12 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     return texts ? (texts[cellAddress(r, col)] ?? '') : undefined
   }
   /** The style a cell shows and its number format code (none: General), from its loaded window; null when none holds it. */
+  /** Whether a cell (a sheet row) is a drill-down of list mode: loaded, marked in its window's `drill` and not empty. */
+  const drillOfRow = (r: number, col: number): boolean => {
+    const d = s.indexOf(r)
+    const w = d === undefined ? undefined : slotAt(d, col)?.win
+    return !!w?.drill?.[cellAddress(r, col)] && textAt(d!, col) !== ''
+  }
   const lookOfRow = (r: number, col: number): { style?: CellStyle; numberFormat?: string } | null => {
     const d = s.indexOf(r)
     const w = d === undefined ? undefined : slotAt(d, col)?.win
@@ -506,6 +512,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     cellData,
     emptyAt,
     textOfRow,
+    drillOfRow,
     valueOfRow,
     formulaOfRow,
     emptyAtRow,

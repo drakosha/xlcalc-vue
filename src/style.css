@@ -565,6 +565,61 @@
   margin-left: 2px;
   font-size: 10px;
 }
+/* List mode: a sortable title is a button to the host's sort, its arrow in the accent, a hint of it on hover. */
+.xs-head.xs-sortable {
+  cursor: pointer;
+}
+.xs-head.xs-sortable:hover {
+  color: var(--xs-fg);
+}
+.xs-list-sort {
+  color: var(--xs-accent);
+}
+.xs-sorthint {
+  opacity: 0;
+}
+.xs-head.xs-sortable:hover .xs-sorthint {
+  opacity: 0.6;
+}
+/* List mode: a drill-down cell is underlined dotted, the first column's cells that open their row are links. */
+.xs-drill .xs-in span,
+.xs-rowlink .xs-in span {
+  color: var(--xs-link);
+  cursor: pointer;
+}
+.xs-drill .xs-in span {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.xs-drill:hover .xs-in span,
+.xs-rowlink:hover .xs-in span {
+  text-decoration: underline solid;
+}
+/* List mode: the totals row stays at the bottom of the frame, as frozen rows stay at its top. */
+.xs-table .xs-total {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  height: 24px;
+  padding: 0 5px;
+  line-height: 23px;
+  border-top: 1px solid var(--xs-freeze-line);
+  background: var(--xs-head-bg);
+  color: var(--xs-fg);
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+.xs-table .xs-total.xs-fz-col,
+.xs-table .xs-total-bar,
+.xs-table .xs-total-num {
+  z-index: 5;
+}
+.xs-table .xs-total-bar {
+  left: 0;
+}
+.xs-table .xs-total-num {
+  left: var(--xs-outline-w, 0px);
+}
 /* A touch screen has no hover: funnels show at all times there. */
 @media (hover: none) {
   .xs-funnel {

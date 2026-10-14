@@ -54,6 +54,7 @@ Every feature beyond reading windows is an optional method of the source: withou
 - [Formula AutoComplete](docs/autocomplete.md)
 - [The formatting toolbar and Format Cells](docs/toolbar.md)
 - [A book computed in the browser](docs/local.md): what `xlcalc-sheet/local` does and how, xlsx files.
+- [List mode](docs/list-mode.md): a host's list (a view, a report) on the sheet, sorted by the host, with drill-down and totals.
 - [The example app](docs/example-app.md) and [checks in a browser](docs/checks.md)
 
 ## Development

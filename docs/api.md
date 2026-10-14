@@ -32,6 +32,8 @@ The sheet: a windowed grid with the formula bar, tabs, menus, Find, the preceden
 | `locale` | `string` | none | The book's locale for numbers the component writes itself (a number's edit text, selection totals); `localSource(...).locale` for a local book. |
 | `hideLoneTab` | `boolean` | `false` | No tabs for a book of one sheet. |
 | `edgeRestoresWidth` | `boolean` | `false` | A double click on a column's edge brings the book's width back instead of fitting the column. |
+| `sort` | `ListSort \| null` | `null` | List mode: the order the host sorted the list in, an arrow on that column's title. |
+| `openRows` | `boolean` | `false` | List mode: the first column opens its row, and Enter on a cell that is not a drill-down does too. |
 
 ### Events
 
@@ -39,6 +41,9 @@ The sheet: a windowed grid with the formula bar, tabs, menus, Find, the preceden
 | --- | --- | --- |
 | `state` | `SheetViewState \| null` | The selection, the active cell or its look changed; `null` while there is no sheet. A toolbar and `FormatDialog` take it as their `state`. |
 | `openLink` | `SheetLinkEvent` | A cell's link that is not a place in the book was clicked, and the host listens: the host opens it (its `href`, or a `target` of its own). Without a listener a web link opens as an ordinary link. A link into the book (`location`) the sheet follows itself. |
+| `sort` | `ListSort` | List mode: a sortable column's title was clicked. The host sorts the list, sets `sort` and sends `reload`. |
+| `cellDrill` | `{ sheet: string; cell: string }` | List mode: a drill-down cell (`SheetWindow.drill`) was clicked or took Enter. |
+| `rowOpen` | `{ sheet: string; row: number }` | List mode, with `openRows`: a row was opened from its first column or by Enter. |
 
 ### Slot
 
@@ -78,7 +83,7 @@ The sheet: a windowed grid with the formula bar, tabs, menus, Find, the preceden
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` with no display filter in force. |
 | `explain()` | `boolean` | Opens the precedents' panel at the active cell; `false` without the source's `explain`. |
 
-`SheetFormatPatch` is a `FormatPatch` whose `range` may be left out. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`.
+`SheetFormatPatch` is a `FormatPatch` whose `range` may be left out. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, the column 1-based.
 
 ## `SheetToolbar`
 
@@ -183,7 +188,7 @@ The component knows its data only through this interface. Rows and columns are 1
 | `links` | `Record<string, { href?; location?; tooltip?; target? }>?` | Hyperlinks. |
 | `notes` | `Record<string, { author?; text }>?` | Notes. |
 | `notice` | `string?` | A notice above the grid. |
-| `drill` | `Record<string, true>?` | Declared for list mode; the component does not draw it yet. |
+| `drill` | `Record<string, true>?` | List mode: drill-down cells, underlined; a click or Enter emits `cellDrill`. An empty cell is no drill-down. |
 
 `SheetPending` is `{ pending: { elapsedMs } }`: the book is recomputing, and the sheet asks again.
 
@@ -196,9 +201,9 @@ The component knows its data only through this interface. Rows and columns are 1
 | `freeze` | `{ rows; cols }?` | The book's frozen panes. |
 | `hidden` | `boolean \| 'very'?` | Not on the tabs; `'very'` is not offered to unhide either. |
 | `locked` | `{ range; reason }[]?` | Rectangles that cannot be edited, with the reason shown. |
-| `columns` | `{ title; align?; sortable? }[]?` | List mode: titles in place of column letters. `align` and `sortable` are declared and not used yet. |
+| `columns` | `{ title; align?; sortable? }[]?` | List mode: titles in place of column letters, aligned by `align` (the totals too); a `sortable` title's click emits `sort`. |
 | `rowNumbers` | `boolean?` | Row numbers on the left, on by default. |
-| `totals` | `(string \| null)[]?` | Declared for list mode; the component does not draw it yet. |
+| `totals` | `(string \| null)[]?` | List mode: a totals row held at the bottom of the frame, the shown text by the sheet's columns. |
 | `outline` | `SheetOutline?` | Excel's outline: `rows` and `columns` as `OutlineGroup[]` (`{ from, to, level, collapsed }`), `summaryBelow`, `summaryRight`. |
 
 ### Edits and outcomes
@@ -249,7 +254,7 @@ const messages = { ...ruMessages, loading: 'Загружаю…' }
 | --- | --- |
 | `MemoryBook` | `{ sheets: MemorySheet[]; styles?: CellStyle[]; functions?: string[] }`; `functions` turns on `functionNames`. |
 | `MemorySheet` | `SheetInfo` without `maxRow`, `maxCol` and `outline`, plus `cells: Record<string, MemoryCell \| CellValue>`, `widths?` (by `B` or `B:D`, xlsx units, 0 hides), `heights?` (by `5` or `5:9`, points, 0 hides), `defaultRowHeight?`, `merges?`, `tables?`, `notice?`, `outline?` (levels by line or span, `collapsed`, `summaryBelow`, `summaryRight`), `validations?: MemoryValidation[]`. |
-| `MemoryCell` | `{ value?, text?, formula?, style?, color?, link?, note?, bar?, appearance? }` |
+| `MemoryCell` | `{ value?, text?, formula?, style?, color?, link?, note?, bar?, appearance?, drill? }` |
 | `MemoryValidation` | `{ range; list?: string[]; whole?: { min?; max? }; prompt?: { title?; text }; alert?: { severity?; title?; message? } }` |
 | `MemorySourceOptions` | `{ delay?: number; maxCells?: number }`; `delay` makes every answer take that many milliseconds. |
 

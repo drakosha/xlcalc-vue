@@ -2,6 +2,7 @@
 // A book's sheet over a SheetSource: the formula bar, the grid with windows, styles and editing, the precedents' panel, the tabs, and messages.
 import { getCurrentInstance, provide } from 'vue'
 import type { SheetViewApi } from '../core/commands'
+import type { ListSort } from '../core/list'
 import { useSheet, type SheetEmit, type SheetLinkEvent, type SheetViewState } from '../core/sheet'
 import type { SheetFailure, SheetViewProps } from '../core/state'
 import { sheetContextKey } from './context'
@@ -26,10 +27,18 @@ const props = withDefaults(defineProps<SheetViewProps>(), {
   locale: undefined,
   hideLoneTab: false,
   edgeRestoresWidth: false,
+  sort: null,
+  openRows: false,
 })
 const emit = defineEmits<{
   state: [state: SheetViewState | null]
   openLink: [link: SheetLinkEvent]
+  /** List mode: a sortable column's title was clicked; the host sorts the list and sends `reload`. */
+  sort: [sort: ListSort]
+  /** List mode: a drill-down cell was clicked or took Enter. */
+  cellDrill: [cell: { sheet: string; cell: string }]
+  /** List mode (`openRows`): a row was opened from its first column or by Enter. */
+  rowOpen: [row: { sheet: string; row: number }]
 }>()
 defineSlots<{
   /** The book cannot be shown: the source's error and a retry. */

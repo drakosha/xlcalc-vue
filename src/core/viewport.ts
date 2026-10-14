@@ -64,6 +64,8 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const barH = computed(() => outlineSlots.value.cols * slotPx.value)
   /** The header's height (letters and the columns' bar) and the width left of the cells (the rows' bar and numbers). */
   const headH = computed(() => HEAD_H + barH.value)
+  /** List mode's totals row at the bottom, as high as the letters' row. */
+  const footH = computed(() => (i.sheet.value?.totals ? HEAD_H : 0))
   const leadW = computed(() => barW.value + numW.value)
 
   // ── freeze: from the book, with a lock to drop it (a view: the book keeps its panes); it drops by itself when it eats over half the frame ──
@@ -172,6 +174,7 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     barW,
     barH,
     headH,
+    footH,
     leadW,
     bookFreeze,
     freezeOn,

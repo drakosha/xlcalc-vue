@@ -14,7 +14,7 @@ import ValidationDropdown from './ValidationDropdown.vue'
 import ValidationPrompt from './ValidationPrompt.vue'
 
 const ctx = useSheetContext()
-const { v, geo, sel, views, ed } = ctx
+const { v, geo, sel, views, ed, list } = ctx
 const m = ctx.messages
 
 /** Drawn columns: the frozen ones, a spacer for the scrolled-away ones, the body's, a spacer for the rest (c = 0). */
@@ -94,6 +94,8 @@ function onCellDown(e: PointerEvent, r: number, c: number): void {
 function onCellClick(e: MouseEvent, r: number, c: number): void {
   // The lift of a long press that opened the cells' menu keeps the selection, and so does a press that pointed.
   if (ctx.menu.afterPress() || ctx.point.took()) return
+  // List mode: a plain click on a drill-down cell, or on the first column's cell, opens what it leads to.
+  if (!ctx.editor.value && !e.shiftKey && !e.ctrlKey && !e.metaKey && list.click(r, c)) return
   // A double tap on a phone opens the field inside the tap, so the keyboard shows.
   if (sel.onCellTap(e, r, c)) ed.startEdit({ mode: 'edit' })
 }
@@ -154,9 +156,10 @@ function onUp(): void {
   ctx.point.up()
   ctx.menu.pressCancel()
 }
-/** A click on a letter or a number selects its line; the lift of a long press that opened the menu does not, nor a press that pointed. */
+/** A click on a letter or a number selects its line, a sortable title of list mode sorts; the lift of a long press that opened the menu does not, nor a press that pointed. */
 function pickLine(kind: 'rows' | 'columns', line: number, extend: boolean): void {
   if (ctx.menu.afterPress() || ctx.point.took()) return
+  if (kind === 'columns' && !extend && list.sortable(line)) return list.toggleSort(line)
   if (kind === 'rows') sel.pickRow(line, extend)
   else sel.pickColumn(line, extend)
 }
@@ -210,14 +213,24 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
             <th v-if="k.c === 0" class="xs-head"></th>
             <th
               v-else
-              :class="['xs-head', k.c <= v.frozenCols.value ? 'xs-fz-col' : '', colOn(k.c) ? 'xs-on' : '', k.c === freezeCols ? 'xs-fz-edge-r' : '', filtered(k.c) ? 'xs-filtered' : '']"
+              :class="[
+                'xs-head',
+                k.c <= v.frozenCols.value ? 'xs-fz-col' : '',
+                colOn(k.c) ? 'xs-on' : '',
+                k.c === freezeCols ? 'xs-fz-edge-r' : '',
+                filtered(k.c) ? 'xs-filtered' : '',
+                list.sortable(k.c) ? 'xs-sortable' : '',
+              ]"
               :style="k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : undefined"
-              :title="m.selectColumn"
+              :title="list.sortable(k.c) ? m.sortColumn : m.selectColumn"
+              :aria-sort="list.sortOf(k.c) === 'asc' ? 'ascending' : list.sortOf(k.c) === 'desc' ? 'descending' : undefined"
               :data-col="k.c"
               @click="pickLine('columns', k.c, $event.shiftKey)"
             >
-              <span class="xs-head-label"
-                >{{ headLabel(k.c) }}<span v-if="ctx.filter.sort.value?.col === k.c" class="xs-sortmark">{{ ctx.filter.sort.value.dir === 'asc' ? '↑' : '↓' }}</span></span
+              <span class="xs-head-label" :style="list.alignOf(k.c) ? { textAlign: list.alignOf(k.c) } : undefined"
+                >{{ headLabel(k.c) }}<span v-if="ctx.filter.sort.value?.col === k.c" class="xs-sortmark">{{ ctx.filter.sort.value.dir === 'asc' ? '↑' : '↓' }}</span
+                ><span v-else-if="list.sortOf(k.c)" class="xs-sortmark xs-list-sort">{{ list.sortOf(k.c) === 'asc' ? '↑' : '↓' }}</span
+                ><span v-else-if="list.sortable(k.c)" class="xs-sortmark xs-sorthint" aria-hidden="true">↕</span></span
               >
               <button
                 v-if="funnels"
@@ -279,6 +292,8 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                   v-for="cv in [views.cellView(row.d, row.r, k.c, row.frozen)]"
                   :key="0"
                   v-bind="cv.attrs"
+                  :class="{ 'xs-drill': list.drill(row.r, k.c), 'xs-rowlink': list.rowLink(row.r, k.c) }"
+                  :title="list.rowLink(row.r, k.c) ? m.openRow : cv.attrs.title"
                   @pointerdown="onCellDown($event, row.r, k.c)"
                   @click="onCellClick($event, row.r, k.c)"
                   @dblclick="onCellDbl($event, row.r, k.c)"
@@ -324,6 +339,24 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
           </tr>
         </template>
       </tbody>
+      <tfoot v-if="list.totals.value">
+        <tr class="xs-totals">
+          <th v-if="v.barW.value" class="xs-total xs-total-bar"></th>
+          <th v-if="v.showNums.value" class="xs-total xs-total-num"></th>
+          <template v-for="k in cols" :key="k.key">
+            <td v-if="k.c === 0" class="xs-total"></td>
+            <td
+              v-else
+              :class="['xs-total', k.c <= v.frozenCols.value ? 'xs-fz-col' : '', k.c === freezeCols ? 'xs-fz-edge-r' : '']"
+              :style="{ ...(k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : {}), ...(list.alignOf(k.c) ? { textAlign: list.alignOf(k.c) } : {}) }"
+              :data-col="k.c"
+              :title="list.totals.value[k.c - 1] ?? ''"
+            >
+              {{ list.totals.value[k.c - 1] ?? '' }}
+            </td>
+          </template>
+        </tr>
+      </tfoot>
     </table>
     <SheetMarks v-if="ctx.sheet.value && !empty" />
     <textarea
