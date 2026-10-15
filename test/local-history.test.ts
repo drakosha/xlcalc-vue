@@ -62,6 +62,10 @@ describe('localSource: Control+Return', () => {
     expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 10, cells: [{ sheet: 'S', cell: 'B2' }] })
   })
 
+  it('gives the formula Excel offers for a typo as `correction`, as typing does', async () => {
+    expect(await source(sheet()).fill!('S', 'B1:B3', '=(1+2', 'B2')).toMatchObject({ ok: false, reason: 'invalid', correction: '=(1+2)', cells: [{ sheet: 'S', cell: 'B2' }] })
+  })
+
   it('refuses every cell when the active cell\'s stop rule does not take the value', async () => {
     const s = source(sheet())
     expect(await s.fill!('S', 'D1:D2', '-1', 'D1')).toEqual({

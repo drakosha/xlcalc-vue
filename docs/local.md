@@ -8,7 +8,7 @@ The session does the work as Excel does it, and the source passes it on with eve
 
 ## Editing
 
-Typed text is read in the book's locale, several cells in one step of the undo (`=СУММ(A1:A2)`, `1 234,5`, `15.03.2026` in ru-RU), and a column a typed number does not fit widens; a number typed over a percent cell takes Excel's `%` (6 is 6%), the cell's own text edited in place (`inPlace`: F2, a double click, the formula bar) does not (6% is 0.06); Delete over a selection clears the content and the hyperlinks, as Excel's Delete. `paste` takes clipboard text by Excel's rules for a paste (an apostrophe stays in the text, a percent cell has no percent editor), `fill` is Control+Return, `undo` and `redo` are the session's, whole.
+Typed text is read in the book's locale, several cells in one step of the undo (`=СУММ(A1:A2)`, `1 234,5`, `15.03.2026` in ru-RU), and a column a typed number does not fit widens; a number typed over a percent cell takes Excel's `%` (6 is 6%), the cell's own text edited in place (`inPlace`: F2, a double click, the formula bar) does not (6% is 0.06); Delete over a selection clears the content and the hyperlinks, as Excel's Delete. A formula left open is closed or refused as Excel answers Return (xlcalc 0.44): one begun by a function whose bracket is the only one open is closed without a word (`=СУММ(1;2`), any other is `invalid` with the session's `correction` when Excel offers one (`=(1+2` gives `=(1+2)`, `=1+СУММ(2` gives `=1+СУММ(2)`), in `edit` and `fill` alike. `paste` takes clipboard text by Excel's rules for a paste (an apostrophe stays in the text, a percent cell has no percent editor), `fill` is Control+Return, `undo` and `redo` are the session's, whole.
 
 ## Data validation
 

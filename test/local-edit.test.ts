@@ -137,6 +137,16 @@ describe('localSource: typed edits', () => {
     expect((await win(s, 'Лист1', 3, 1, 1, 1)).formulas.A3).toBe('СУММ(A1:A2)')
   })
 
+  it('gives the formula Excel offers for a typo as `correction`, in the book\'s locale, and none where Excel offers none', async () => {
+    const s = source()
+    expect(await s.edit([{ sheet: 'Лист1', cell: 'C2', text: '=(1+2' }])).toMatchObject({ ok: false, reason: 'invalid', correction: '=(1+2)', cells: [{ sheet: 'Лист1', cell: 'C2' }] })
+    expect(await s.edit([{ sheet: 'Лист1', cell: 'C2', text: '=1+СУММ(2' }])).toMatchObject({ ok: false, reason: 'invalid', correction: '=1+СУММ(2)' })
+    const extra = await s.edit([{ sheet: 'Лист1', cell: 'A3', text: '=СУММ(A1:A2))' }])
+    expect(extra).toMatchObject({ ok: false, reason: 'invalid' })
+    expect(extra).not.toHaveProperty('correction')
+    expect((await win(s, 'Лист1', 2, 1, 3, 1)).text).toEqual([['']])
+  })
+
   it('closes a function left open as Excel does on Enter (xlcalc 0.44)', async () => {
     const s = source()
     expect(await s.edit([{ sheet: 'Лист1', cell: 'C3', text: '=СУММ(A1:A2' }])).toMatchObject({ ok: true })

@@ -18,10 +18,10 @@ export function outcomeOf(e: unknown, input: 'refused' | 'failed'): EditOutcome 
 /** Codes of a formula Excel does not take as typed: its window says where (`invalid` with `at`). */
 const INVALID = new Set(['syntax', 'empty', 'too_long', 'too_deep'])
 
-/** A text the session did not take, with its cell: a formula that does not read is invalid at its place, the rest refused. */
-export function refusalOf(r: { code: string; message: string; at?: number; sheet: string; cell: string }): EditOutcome {
+/** A text the session did not take, with its cell: a formula that does not read is invalid at its place, with the correction Excel offers, the rest refused. */
+export function refusalOf(r: { code: string; message: string; at?: number; correction?: string; sheet: string; cell: string }): EditOutcome {
   const cells = [{ sheet: r.sheet, cell: r.cell }]
-  if (INVALID.has(r.code)) return { ok: false, reason: 'invalid', message: r.message, ...(r.at !== undefined ? { at: r.at } : {}), cells }
+  if (INVALID.has(r.code)) return { ok: false, reason: 'invalid', message: r.message, ...(r.at !== undefined ? { at: r.at } : {}), ...(r.correction !== undefined ? { correction: r.correction } : {}), cells }
   return { ok: false, reason: 'refused', message: r.message, cells }
 }
 
