@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods turn features on: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, NumberFormat, StructureOp, StylePatch } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, StructureOp, StylePatch } from 'xlcalc/contract'
 
 /** Where a sheet takes its data from; the component knows only this. */
 export interface SheetSource {
@@ -53,6 +53,12 @@ export interface SheetSource {
   freeze?(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome>
   /** The functions a formula can call, by their names as typed in the source's locale (`СУММ` in ru-RU), for Excel's Formula AutoComplete. */
   functionNames?(signal?: AbortSignal): Promise<string[]>
+  /**
+   * A function's arguments for Excel's tip while a formula is typed (`SUM(number1, [number2], ...)`, in ru-RU
+   * `СУММ(число1;[число2];...)`): the name as typed, in English or the source's locale, any case; null for a function it
+   * does not know. Without it there is no tip.
+   */
+  functionSignature?(name: string, signal?: AbortSignal): Promise<FunctionSignature | null>
   /** A cell's precedents tree as text. */
   explain?(sheet: string, cell: string): Promise<string>
   /**
