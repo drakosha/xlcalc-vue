@@ -71,7 +71,7 @@ describe('tipParts: the tip in pieces with the current argument', () => {
   })
 
   it('a signature of the host’s own, with names the text does not hold, is shown as its text', () => {
-    const own: FunctionSignature = { name: 'F', args: [{ name: 'x', optional: false }], repeat: 0, text: 'F(value)' }
+    const own: FunctionSignature = { name: 'F', args: [{ name: 'x', optional: false }], repeat: 0, text: 'F(value)', category: 'math', categoryName: 'Math & Trig', description: 'The host’s own.' }
     expect(tipParts(own, 0)).toEqual([{ text: 'F(value)' }])
   })
 })

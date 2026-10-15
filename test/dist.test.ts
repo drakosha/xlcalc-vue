@@ -60,6 +60,7 @@ describe('the ru-RU chunk', () => {
     expect(staticImports(chunk)).toEqual([])
     expect(dynamicImports(chunk)).toEqual([])
     expect(code(chunk)).not.toMatch(/xlcalc/)
-    expect(chunk.length).toBeLessThan(60_000)
+    // Since xlcalc 0.42 the locale carries each function's description in Russian, for Insert Function.
+    expect(chunk.length).toBeLessThan(75_000)
   })
 })
