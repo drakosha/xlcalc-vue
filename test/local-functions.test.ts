@@ -33,3 +33,23 @@ describe('localSource: functionNames', () => {
     await expect(source().functionNames(ctrl.signal)).rejects.toThrow(/aborted/)
   })
 })
+
+describe('localSource: functionSignature', () => {
+  it('in en-US: SUM’s tip, the name in any case', async () => {
+    const sig = await source({ ...book(), locale: 'en-US' }).functionSignature('sum')
+    expect(sig).toEqual({ name: 'SUM', args: [{ name: 'number1', optional: false }, { name: 'number2', optional: true }], repeat: 1, text: 'SUM(number1, [number2], ...)' })
+  })
+
+  it('in ru-RU: the Russian tip, by the Russian name or the English one; null for no function', async () => {
+    const src = source()
+    expect((await src.functionSignature('СУММ'))?.text).toBe('СУММ(число1;[число2];...)')
+    expect((await src.functionSignature('sum'))?.text).toBe('СУММ(число1;[число2];...)')
+    expect(await src.functionSignature('НЕТТАКОЙ')).toBeNull()
+  })
+
+  it('an aborted request rejects', async () => {
+    const ctrl = new AbortController()
+    ctrl.abort()
+    await expect(source().functionSignature('СУММ', ctrl.signal)).rejects.toThrow(/aborted/)
+  })
+})

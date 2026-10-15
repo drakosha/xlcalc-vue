@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// The bar over the grid, as in Excel: back, the address box, the formula with clickable references (the edit field and its list of functions too) one line high or expanded, link and lock.
+// The bar over the grid, as in Excel: back, the address box, the formula with clickable references (the edit field with its list of functions and tip of arguments too) one line high or expanded, link and lock.
 import { computed, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import { safeHref } from '../core/cell-view'
 import type { ValidationRect } from '../core/validation'
 import { useSheetContext } from './context'
 import FunctionList from './FunctionList.vue'
+import FunctionTip from './FunctionTip.vue'
 import { IconBack, IconDown, IconFilter, IconLink, IconLock, IconLockOpen, IconSearch, IconUp } from './icons'
 
 const ctx = useSheetContext()
@@ -56,10 +57,10 @@ function openBarFunnel(e: MouseEvent): void {
 }
 const setBarInput = (el: unknown) => (ctx.barInput.value = (el as HTMLTextAreaElement | null) ?? null)
 
-/** The list of functions under the bar's field, in the formula's coordinates, kept inside the window: measured as it opens, as the text changes and as the bar expands or collapses. */
+/** The list of functions or the tip of arguments under the bar's field, in the formula's coordinates, kept inside the window: measured as one opens, as the text changes and as the bar expands or collapses. */
 const listPlace = shallowRef<{ rect: ValidationRect; view: ValidationRect } | null>(null)
 watch(
-  () => [editingBar.value && ed.ac.open.value, ctx.editor.value?.text, ctx.barOpen.value] as const,
+  () => [editingBar.value && (ed.ac.open.value || !!ed.tip.parts.value), ctx.editor.value?.text, ctx.barOpen.value] as const,
   ([shown]) => {
     const input = ctx.barInput.value
     const fx = input?.parentElement
@@ -154,7 +155,7 @@ function onAddressEsc(e: KeyboardEvent): void {
           :aria-hidden="editingBar ? undefined : 'true'"
           @input="ed.onEditorInput"
           @keydown="ed.onEditorKey"
-          @click="ed.ac.follow()"
+          @click="ed.onEditorClick()"
           @blur="ed.onEditorBlur($event, 'bar')"
         ></textarea>
         <FunctionList
@@ -168,6 +169,7 @@ function onAddressEsc(e: KeyboardEvent): void {
           @highlight="(i) => (ed.ac.index.value = i)"
           @pick="(i) => ed.ac.accept(i)"
         />
+        <FunctionTip v-if="listPlace && editingBar && ed.tip.parts.value" :rect="listPlace.rect" :view="listPlace.view" :parts="ed.tip.parts.value" />
       </div>
       <!-- Excel's arrow at the bar's right end; a press keeps an open field open -->
       <button

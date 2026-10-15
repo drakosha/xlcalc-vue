@@ -16,7 +16,7 @@ Typed text is read in the book's locale, several cells in one step of the undo (
 
 ## Merging, structure and the rest
 
-Merge Cells and Unmerge Cells are xlcalc's `mergeCells` and `unmergeCells` structure operations (xlcalc 0.37): the area keeps its top-left value, its cells take the top-left cell's look, and a range that meets a table or an array formula of the old kind is refused with the library's message. Structure operations, widths and heights, formatting over each cell's look (`format`, as Excel's Bold over a selection), frozen panes (`freeze`, one `setLayout` call and one step of the undo), `explain`, `end` (the session's `getEnd`, Excel's Range.End as xlcalc measured it), totals, Find and Replace, the display filter and sort complete it.
+Merge Cells and Unmerge Cells are xlcalc's `mergeCells` and `unmergeCells` structure operations (xlcalc 0.37): the area keeps its top-left value, its cells take the top-left cell's look, and a range that meets a table or an array formula of the old kind is refused with the library's message. Structure operations, widths and heights, formatting over each cell's look (`format`, as Excel's Bold over a selection), frozen panes (`freeze`, one `setLayout` call and one step of the undo), `explain`, `end` (the session's `getEnd`, Excel's Range.End as xlcalc measured it), totals, Find and Replace, the display filter and sort complete it. Formula AutoComplete's `functionNames` are every function xlcalc computes by its name in the book's locale, and the tip's `functionSignature` is xlcalc's `functionSignature` (xlcalc 0.40) in the book's locale, by a name in English or the locale in any case, null for a function xlcalc does not have ([autocomplete.md](autocomplete.md)).
 
 ## Find and Replace
 

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // The grid: a real <table> with sticky letters and numbers, Excel's outline bars beside them, frozen panes, spacers for
-// what is off screen, the marks over the cells (the copy's border, the fill handle) and the in-place field with its list of functions.
+// what is off screen, the marks over the cells (the copy's border, the fill handle) and the in-place field with its list of functions and tip of arguments.
 import { computed } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import { CfIcon } from './cf-icons'
 import { useSheetContext } from './context'
 import FunctionList from './FunctionList.vue'
+import FunctionTip from './FunctionTip.vue'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
@@ -373,7 +374,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
       :aria-hidden="editorBox ? undefined : 'true'"
       @input="ed.onEditorInput"
       @keydown="ed.onEditorKey"
-      @click="ed.ac.follow()"
+      @click="ed.onEditorClick()"
       @blur="ed.onEditorBlur($event, 'cell')"
     ></textarea>
     <FunctionList
@@ -387,6 +388,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
       @highlight="(i) => (ed.ac.index.value = i)"
       @pick="(i) => ed.ac.accept(i)"
     />
+    <FunctionTip v-if="editorRect && ed.tip.parts.value" :rect="editorRect" :parts="ed.tip.parts.value" :view="viewBox" />
     <template v-if="activeBox && !ctx.editor.value">
       <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="viewBox" />
       <ValidationDropdown
