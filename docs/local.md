@@ -1,6 +1,6 @@
 # A book computed in the browser: `xlcalc-sheet/local`
 
-`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It needs `xlcalc` 0.39.0 or later, an optional peer of the package that the host installs. The book computes in a Web Worker (`xlcalc/worker`), or in the page's thread with `calc: 'inline'`. The book's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); a locale xlcalc has no module for fails the opening with the library's message.
+`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It needs `xlcalc` 0.40.0 or later, an optional peer of the package that the host installs. The book computes in a Web Worker (`xlcalc/worker`), or in the page's thread with `calc: 'inline'`. The book's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); a locale xlcalc has no module for fails the opening with the library's message.
 
 ## What the source does
 
