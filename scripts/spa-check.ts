@@ -958,12 +958,7 @@ async function insertScenario(browser: Browser, base: string, size: Size): Promi
   expect(at('the bar after OK'), field, { text: '=СУММ(', caret: 6, focused: true })
   await page.keyboard.type('1;2')
   await page.screenshot({ path: resolve(out, `spa-${size.name}-i03-typed.png`) })
-  // The bracket left open: ✓ asks as Enter does (xlcalc reads `=СУММ(1;2` as unfinished); Fix opens the field again at the end.
-  await press(page, size, '[data-xs-bar-enter]')
-  await page.waitForSelector('[data-xs-alert="formula"]')
-  await press(page, size, '[data-xs-alert-button="fix"]')
-  await page.waitForSelector('.xs-bar-editing')
-  await page.keyboard.type(')')
+  // The function's bracket left open: ✓ closes it as Excel's Enter does (xlcalc 0.44)
   await press(page, size, '[data-xs-bar-enter]')
   await shows(page, '1:1', '3')
   await ready(page)
@@ -975,7 +970,7 @@ async function insertScenario(browser: Browser, base: string, size: Size): Promi
   expect(at('the recently used'), again, { category: 'recent', first: 'СУММ' })
   await page.keyboard.press('Escape')
   await page.waitForSelector('[data-xs-insert-function]', { state: 'detached' })
-  console.log(`${at('ok')}: fx found СУММ with its syntax and description, ${logical.length} logical functions, OK and 1;2 and ✓ asked of the bracket, ) and ✓ wrote 3 in A1, which stayed active; СУММ heads the recently used`)
+  console.log(`${at('ok')}: fx found СУММ with its syntax and description, ${logical.length} logical functions, OK and 1;2 and ✓ closed the bracket and wrote 3 in A1, which stayed active; СУММ heads the recently used`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
