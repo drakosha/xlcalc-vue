@@ -16,6 +16,9 @@ export const IconLink = icon(['M9 17H7A5 5 0 0 1 7 7h2', 'M15 7h2a5 5 0 1 1 0 10
 export const IconLock = icon(['M7 11V7a5 5 0 0 1 10 0v4', 'M5 11h14v10H5z'])
 export const IconLockOpen = icon(['M7 11V7a5 5 0 0 1 9.9-1', 'M5 11h14v10H5z'])
 export const IconClose = icon(['M18 6 6 18', 'm6 6 12 12'])
+export const IconCheck = icon(['M20 6 9 17l-5-5'])
+/** Excel's fx: an italic f and an x. */
+export const IconFx = icon(['M11 4.5a2.5 2.5 0 0 0-3.6 1.6L5.2 17.9a2.5 2.5 0 0 1-3.6 1.6', 'M4.5 10H10', 'm13.5 10 7 9', 'm20.5 10-7 9'])
 export const IconRetry = icon(['M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8', 'M3 3v5h5'])
 export const IconSpinner = icon(['M21 12a9 9 0 1 1-6.22-8.56'])
 export const IconSearch = icon(['M11 3a8 8 0 1 0 0 16a8 8 0 1 0 0-16', 'm21 21-4.3-4.3'])

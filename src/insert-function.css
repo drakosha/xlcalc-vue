@@ -1,0 +1,113 @@
+/* Excel's Insert Function window (InsertFunction.vue) in the sheet's --xs-* variables: a box over the page, the whole screen on a phone, 44 px targets under a finger. */
+.xs-ifn-back {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.25);
+}
+.xs-ifn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, 100%);
+  max-height: calc(100vh - 32px);
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: 12.5px var(--xs-font);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
+}
+.xs-ifn:focus {
+  outline: none;
+}
+.xs-ifn p {
+  margin: 0;
+}
+/* Only the list gives way when the box is short. */
+.xs-ifn > * {
+  flex-shrink: 0;
+}
+.xs-ifn-title {
+  font-weight: 600;
+}
+.xs-ifn-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.xs-ifn-input {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: inherit;
+  outline: none;
+}
+.xs-ifn-input:focus {
+  border-color: var(--xs-accent);
+}
+/* The list: eight names high, a scroll past them. */
+.xs-ifn .xs-ifn-list {
+  flex: 0 1 auto;
+  height: calc(8 * 24px + 2px);
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+}
+.xs-ifn-item {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  cursor: default;
+  user-select: none;
+}
+.xs-ifn-on {
+  background: var(--xs-accent);
+  color: var(--xs-bg);
+}
+.xs-ifn-syntax {
+  min-height: 1.35em;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.xs-ifn-about {
+  min-height: 2.7em;
+  color: var(--xs-muted);
+}
+
+/* ── a phone: the whole screen, the list takes the room left ── */
+.xs-narrow .xs-ifn-back {
+  padding: 0;
+}
+.xs-narrow .xs-ifn {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+}
+.xs-narrow .xs-ifn .xs-ifn-list {
+  flex: 1 1 0;
+  height: auto;
+}
+
+/* ── a finger ── */
+.xs-touch .xs-ifn {
+  font-size: 15px;
+}
+.xs-touch .xs-ifn-input {
+  height: 44px;
+  font-size: 16px;
+}
+.xs-touch .xs-ifn-item {
+  height: 44px;
+  padding: 0 12px;
+}

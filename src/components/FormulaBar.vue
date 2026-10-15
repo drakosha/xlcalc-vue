@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // The bar over the grid, as in Excel: back, the address box, the formula's field (its references coloured, its list of functions and tip of arguments) one line high or expanded, link and lock.
-import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { GridReference } from 'xlcalc/contract'
 import { safeHref } from '../core/cell-view'
@@ -11,7 +11,8 @@ import type { ValidationRect } from '../core/validation'
 import { useSheetContext } from './context'
 import FunctionList from './FunctionList.vue'
 import FunctionTip from './FunctionTip.vue'
-import { IconBack, IconDown, IconFilter, IconLink, IconLock, IconLockOpen, IconSearch, IconUp } from './icons'
+import InsertFunction from './InsertFunction.vue'
+import { IconBack, IconCheck, IconClose, IconDown, IconFilter, IconFx, IconLink, IconLock, IconLockOpen, IconSearch, IconUp } from './icons'
 
 const ctx = useSheetContext()
 const { sel, f, nav, ed, v } = ctx
@@ -130,6 +131,18 @@ if (painting) {
   )
   onBeforeUnmount(() => (painted = paintRefs(null, [], painted)))
 }
+/** Excel's Insert Function: on an editable sheet whose source names its functions; its window keeps an open edit open. */
+const canInsert = computed(() => ctx.editable.value && !!ctx.source().functionNames)
+const inserting = ref(false)
+function onInsertPick(name: string): void {
+  inserting.value = false
+  ed.insertFunction(name)
+}
+function onInsertClose(): void {
+  inserting.value = false
+  if (ctx.editor.value) ed.focusEditor()
+  else ctx.scroller.value?.focus({ preventScroll: true })
+}
 /** A finger has no funnels on the letters (too small to hit): one in the bar opens the active cell's column. */
 const barFunnel = computed(() => v.touch.value && ctx.filter.available.value && ctx.dataRows.value > 1)
 function openBarFunnel(e: MouseEvent): void {
@@ -201,6 +214,16 @@ function onAddressEsc(e: KeyboardEvent): void {
       @keydown.esc.prevent="onAddressEsc"
     />
     <div class="xs-fx-line">
+      <!-- Excel's Cancel, Enter and Insert Function left of the field; a press keeps an open field's focus until the button acts -->
+      <button type="button" class="xs-tool" :disabled="!ctx.editor.value" :title="m.cancel" :aria-label="m.cancel" data-xs-bar-cancel @mousedown.prevent @click="ed.cancel()">
+        <IconClose />
+      </button>
+      <button type="button" class="xs-tool" :disabled="!ctx.editor.value" :title="m.barEnter" :aria-label="m.barEnter" data-xs-bar-enter @mousedown.prevent @click="ed.commit(0, 0)">
+        <IconCheck />
+      </button>
+      <button type="button" class="xs-tool" :disabled="!canInsert" :title="m.insertFunction" :aria-label="m.insertFunction" data-xs-bar-fx @mousedown.prevent @click="inserting = true">
+        <IconFx />
+      </button>
       <div class="xs-fx" :class="{ 'xs-fx-open': ctx.barOpen.value }">
         <textarea
           :ref="setBarInput"
@@ -252,6 +275,7 @@ function onAddressEsc(e: KeyboardEvent): void {
         <IconDown v-else />
       </button>
     </div>
+    <InsertFunction v-if="inserting" @pick="onInsertPick" @close="onInsertClose" />
     <template v-if="activeLink && !editingBar">
       <a
         v-if="safeHref(activeLink.href)"

@@ -465,8 +465,25 @@ async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   const bar = await check('in the formula bar', 'разряды')
   await shot(page, size.name, '59-tip-bar')
   await checkOverlay(page, 'a draft under the tip')
+  // Excel's Cancel and Enter by the bar, on while the edit is open
+  await shot(page, size.name, '60-bar-buttons')
   await page.keyboard.press('Escape')
   console.log(`tip ${size.name}: SUMIFS in a cell (${cell.lines} lines), ROUND in the bar (${bar.lines} lines), inside the window, no list, no side scroll`)
+
+  // Excel's Insert Function: the window over the whole list, then a category with the syntax and description of the one selected.
+  await press('[data-xs-bar-fx]')
+  await page.waitForSelector('[data-xs-insert-function] [data-xs-if-item]')
+  await page.waitForFunction(() => document.querySelector('[data-xs-if-about]')?.textContent?.trim())
+  await shot(page, size.name, '61-insert-function')
+  if (size.mobile) await checkTargets(page, true, '.xs-ifn-back')
+  await page.locator('[data-xs-if-category]').selectOption('date')
+  await page.locator('[data-xs-if-item]').nth(2).click()
+  await page.waitForTimeout(100)
+  await shot(page, size.name, '62-insert-category')
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+  if (wide) throw new Error(`insert ${size.name}: the page scrolls sideways`)
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[data-xs-insert-function]', { state: 'detached' })
 }
 
 for (const size of SIZES) {

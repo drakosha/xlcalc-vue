@@ -104,7 +104,7 @@ async function checkTargets(page: Page, where: string): Promise<void> {
     [
       ...document.querySelectorAll<HTMLElement>(
         '.spa-top button, .spa-top input:not([type=file]), .xs-toolbar button, .xs-toolbar select, .spa-dialog button, .spa-dialog select, .spa-choice, .xs-menu button, .xs-dialog button, .xs-dialog input, .xs-tabs button, .xs-bar button, ' +
-          '.xs-find button, .xs-find-input, .xs-find-select, .xs-find-opt, .xs-fmt button, .xs-fmt-input, .xs-fmt-select, .xs-fmt-choice, .xs-fmt-check',
+          '.xs-find button, .xs-find-input, .xs-find-select, .xs-find-opt, .xs-fmt button, .xs-fmt-input, .xs-fmt-select, .xs-fmt-choice, .xs-fmt-check, .xs-ifn button, .xs-ifn-input, .xs-ifn-item',
       ),
     ]
       .filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
@@ -114,7 +114,7 @@ async function checkTargets(page: Page, where: string): Promise<void> {
           what: `${el.tagName.toLowerCase()}[${el.dataset.tb ?? el.dataset.spa ?? el.dataset.xsMenu ?? el.className}]`,
           w: Math.round(r.width),
           h: Math.round(r.height),
-          field: el.matches('input, select, .spa-choice, .xs-tab, .xs-find-opt, .xs-fmt-choice, .xs-fmt-check'),
+          field: el.matches('input, select, .spa-choice, .xs-tab, .xs-find-opt, .xs-fmt-choice, .xs-fmt-check, .xs-ifn-item'),
         }
       })
       .filter((b) => b.h < 44 || (!b.field && b.w < 44)),
@@ -903,6 +903,83 @@ async function tipScenario(browser: Browser, base: string, size: Size): Promise<
   await context.close()
 }
 
+/**
+ * Excel's Insert Function on a new ru-RU book: fx by the formula bar opens the window, the search finds СУММ with its syntax and
+ * description, a category narrows the list, OK opens A1's edit in the bar with `=СУММ(`, `1;2` and the bar's Enter (✓) ask of the open
+ * bracket as Enter does, Fix and `)` and ✓ write 3 and keep A1 active; the window opens next on the recently used, СУММ among them.
+ */
+async function insertScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  const at = (what: string) => `[${size.name} insert] ${what}`
+
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await press(page, size, '[data-spa="new"]')
+  await press(page, size, '[data-spa-locale="ru-RU"]')
+  await press(page, size, '[data-spa="create"]')
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+
+  await press(page, size, '[data-cell="1:1"]')
+  expect(at('Cancel and Enter outside an edit'), await page.evaluate(() => ['cancel', 'enter'].map((b) => document.querySelector<HTMLButtonElement>(`[data-xs-bar-${b}]`)!.disabled)), [true, true])
+  await press(page, size, '[data-xs-bar-fx]')
+  await page.waitForSelector('[data-xs-insert-function] [data-xs-if-item]')
+  await page.locator('[data-xs-if-search]').fill('сумм')
+  await page.waitForFunction(() => document.querySelector('[data-xs-if-about]')?.textContent?.trim())
+  const found = await page.evaluate(() => ({
+    first: document.querySelector('.xs-ifn-on')?.textContent?.trim(),
+    syntax: document.querySelector('[data-xs-if-syntax]')!.textContent!.trim(),
+    categories: [...document.querySelectorAll('[data-xs-if-category] option')].length,
+  }))
+  expect(at('the search'), { first: found.first, syntax: found.syntax }, { first: 'СУММ', syntax: 'СУММ(число1;[число2];...)' })
+  if (found.categories < 10) throw new Error(`${at('the categories')}: ${found.categories} items in the box`)
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-i01-insert-function.png`) })
+  if (size.phone) {
+    await checkTargets(page, at('the window'))
+    await checkNoSideScroll(page, at('the window'))
+  }
+  await page.locator('[data-xs-if-search]').fill('')
+  await page.locator('[data-xs-if-category]').selectOption('logical')
+  await page.waitForSelector('[data-xs-if-item]')
+  const logical = await page.evaluate(() => [...document.querySelectorAll('[data-xs-if-item]')].map((i) => i.textContent!.trim()))
+  if (!logical.includes('ЕСЛИ') || logical.includes('СУММ')) throw new Error(`${at('the logical functions')}: ${logical.join(', ')}`)
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-i02-category.png`) })
+  await page.locator('[data-xs-if-category]').selectOption('all')
+  await page.locator('[data-xs-if-search]').fill('сумм')
+  await page.waitForFunction(() => document.querySelector('.xs-ifn-on')?.textContent?.trim() === 'СУММ')
+  await press(page, size, '[data-xs-dialog-ok]')
+  await page.waitForSelector('.xs-bar-editing')
+  const field = await page.locator('.xs-fx-input').evaluate((el: HTMLTextAreaElement) => ({ text: el.value, caret: el.selectionStart, focused: document.activeElement === el }))
+  expect(at('the bar after OK'), field, { text: '=СУММ(', caret: 6, focused: true })
+  await page.keyboard.type('1;2')
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-i03-typed.png`) })
+  // The bracket left open: ✓ asks as Enter does (xlcalc reads `=СУММ(1;2` as unfinished); Fix opens the field again at the end.
+  await press(page, size, '[data-xs-bar-enter]')
+  await page.waitForSelector('[data-xs-alert="formula"]')
+  await press(page, size, '[data-xs-alert-button="fix"]')
+  await page.waitForSelector('.xs-bar-editing')
+  await page.keyboard.type(')')
+  await press(page, size, '[data-xs-bar-enter]')
+  await shows(page, '1:1', '3')
+  await ready(page)
+  expect(at('A1 in the book'), cellOf(await bookOf(page), 'A1').formula, 'SUM(1,2)')
+  expect(at('the active cell after Enter'), await page.locator('.xs-address').inputValue(), 'A1')
+  await press(page, size, '[data-xs-bar-fx]')
+  await page.waitForSelector('[data-xs-insert-function] [data-xs-if-item]')
+  const again = await page.evaluate(() => ({ category: document.querySelector<HTMLSelectElement>('[data-xs-if-category]')!.value, first: document.querySelector('[data-xs-if-item]')?.textContent?.trim() }))
+  expect(at('the recently used'), again, { category: 'recent', first: 'СУММ' })
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[data-xs-insert-function]', { state: 'detached' })
+  console.log(`${at('ok')}: fx found СУММ with its syntax and description, ${logical.length} logical functions, OK and 1;2 and ✓ asked of the bracket, ) and ✓ wrote 3 in A1, which stayed active; СУММ heads the recently used`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 /** A file whose A1 and B1 read each other, C1 reads them and E1 does not, with the values Excel would store; opened from the picker. */
 async function cycleScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
@@ -1153,6 +1230,8 @@ try {
   await autocompleteScenario(browser, base, phone)
   await tipScenario(browser, base, desktop)
   await tipScenario(browser, base, phone)
+  await insertScenario(browser, base, desktop)
+  await insertScenario(browser, base, phone)
   await cycleScenario(browser, base, desktop)
   await limitScenario(browser, base, desktop)
   await formulaRowScenario(browser, base, desktop)

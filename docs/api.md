@@ -24,7 +24,7 @@ The sheet: a windowed grid with the formula bar, tabs, menus, Find, the preceden
 | --- | --- | --- | --- |
 | `source` | `SheetSource` | required | Where the sheet takes its data from. A new source is a new book. |
 | `messages` | `Partial<SheetMessages>` | English | Interface texts; a part overrides the English defaults. |
-| `storageKey` | `string` | none | Key in the browser's storage for the freeze choice and widths; without it they live with the component. |
+| `storageKey` | `string` | none | Key in the browser's storage for the freeze choice, widths and the recently used functions of Insert Function; without it they live with the component. |
 | `focus` | `{ ref: string } \| null` | `null` | A place to show: `Sheet!B12:D15`, `B7`, `Sheet`. A new object is a new jump. |
 | `cellUrl` | `(ref: string) => string` | none | The host's page address for a place; without it there is no "Link to the cell" button. |
 | `readOnly` | `boolean` | `false` | No editing whatever the source offers. A source without `edit` is read-only anyway. |
@@ -147,8 +147,8 @@ The component knows its data only through this interface. Rows and columns are 1
 | `validation(sheet, cell, signal?) => Promise<SheetValidation \| null>` | Excel's dropdown and input message. | None. | [validation.md](validation.md) |
 | `pick(sheet, cell, item, text)` | A picked list item written as Excel writes it. | The item goes to `edit` with `accept`. | [validation.md](validation.md) |
 | `freeze(sheet, panes: { rows; cols } \| null)` | Freeze Panes in the menu. | The lock alone hides a book's freeze. | [view.md](view.md) |
-| `functionNames(signal?) => Promise<string[]>` | Formula AutoComplete. | No list. | [autocomplete.md](autocomplete.md) |
-| `functionSignature(name, signal?) => Promise<FunctionSignature \| null>` | A function's arguments for Excel's tip while a formula is typed (`SUM(number1, [number2], ...)`); the name as typed, any case; null for a function the source does not know. | No tip. | [autocomplete.md](autocomplete.md) |
+| `functionNames(signal?) => Promise<string[]>` | Formula AutoComplete and Insert Function. | No list, the fx button off. | [autocomplete.md](autocomplete.md) |
+| `functionSignature(name, signal?) => Promise<FunctionSignature \| null>` | A function's arguments for Excel's tip while a formula is typed (`SUM(number1, [number2], ...)`), and in Insert Function its syntax, `description` and `category` with `categoryName` (xlcalc 0.42); the name as typed, any case; null for a function the source does not know. | No tip; Insert Function lists the names alone. | [autocomplete.md](autocomplete.md) |
 | `explain(sheet, cell) => Promise<string>` | Trace Precedents. | No panel. | [view.md](view.md) |
 | `end(sheet, cell, direction, signal?) => Promise<string>` | Control and an arrow as Excel's Range.End. | The edge of the data the sheet knows. | [editing.md](editing.md) |
 | `stats(sheet, range, filter?, signal?) => Promise<RangeStats>` | Selection totals over the whole range. | Counted over the loaded windows. | |

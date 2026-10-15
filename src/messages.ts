@@ -110,6 +110,16 @@ export interface SheetMessages {
   close: string
   /** The formula bar's tip over a formula with references: Ctrl+click (Cmd on a Mac, the key given) goes to one. */
   goRefHint: (key: string) => string
+  /** Excel's Enter button left of the formula bar (its Cancel button is `cancel`): the edit entered, the selection kept. */
+  barEnter: string
+  /** Excel's Insert Function: the fx button, then its window's title, search, category box with its first two items, and the list's label. */
+  insertFunction: string
+  insertFunctionTitle: string
+  insertFunctionSearch: string
+  insertFunctionCategory: string
+  insertFunctionRecent: string
+  insertFunctionAll: string
+  insertFunctionPick: string
   /** Excel's button at the formula bar's right end and its Control+Shift+U: the bar one line high or several. */
   expandBar: string
   collapseBar: string
@@ -348,6 +358,14 @@ export const enMessages: SheetMessages = {
   pending: 'Saving…',
   close: 'Close',
   goRefHint: (key) => `${key}+click a reference to go to it`,
+  barEnter: 'Enter',
+  insertFunction: 'Insert Function',
+  insertFunctionTitle: 'Insert Function',
+  insertFunctionSearch: 'Search for a function',
+  insertFunctionCategory: 'Or select a category',
+  insertFunctionRecent: 'Most Recently Used',
+  insertFunctionAll: 'All',
+  insertFunctionPick: 'Select a function',
   expandBar: 'Expand Formula Bar (Ctrl+Shift+U)',
   collapseBar: 'Collapse Formula Bar (Ctrl+Shift+U)',
   waiting: 'The book is being recomputed…',
@@ -605,6 +623,14 @@ export const ruMessages: SheetMessages = {
   pending: 'Сохраняю…',
   close: 'Закрыть',
   goRefHint: (key) => `${key}+щелчок по ссылке: перейти к ней`,
+  barEnter: 'Ввод',
+  insertFunction: 'Вставить функцию',
+  insertFunctionTitle: 'Вставка функции',
+  insertFunctionSearch: 'Поиск функции',
+  insertFunctionCategory: 'Категория',
+  insertFunctionRecent: '10 недавно использовавшихся',
+  insertFunctionAll: 'Полный алфавитный перечень',
+  insertFunctionPick: 'Выберите функцию',
   expandBar: 'Развернуть строку формул (Ctrl+Shift+U)',
   collapseBar: 'Свернуть строку формул (Ctrl+Shift+U)',
   waiting: 'Книга пересчитывается…',

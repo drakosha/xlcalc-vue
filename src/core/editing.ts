@@ -141,6 +141,17 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       ed.caretEnd = undefined
     })
   }
+  /** Excel's Insert Function: `name(` at the open draft's caret (`=` first in an empty draft), else the active cell's edit opened in the formula bar with `=name(`; the caret after the bracket. */
+  function insertFunction(name: string): void {
+    const ed = editor.value
+    if (!ed) return void startEdit({ text: `=${name}(`, mode: 'edit', place: 'bar' })
+    const el = inputOf()
+    const from = el?.selectionStart ?? ed.text.length
+    const piece = `${ed.text === '' ? '=' : ''}${name}(`
+    ed.text = `${ed.text.slice(0, from)}${piece}${ed.text.slice(el?.selectionEnd ?? from)}`
+    ed.caret = from + piece.length
+    focusEditor()
+  }
   /** Excel's Formula AutoComplete over the draft: the list of functions under the field. */
   const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor })
   /** Excel's tip with the arguments of the function the caret stands in, under the field; the list goes first. */
@@ -460,11 +471,13 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       ed.place = to === deps.barInput.value ? 'bar' : 'cell'
       return
     }
+    // A dialog that works on the draft (Insert Function) keeps the edit open.
+    if (to instanceof Element && to.closest('[data-xs-keep-edit]')) return
     // Another window took the focus: the edit waits, as in Excel.
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>
