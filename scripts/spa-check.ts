@@ -847,7 +847,7 @@ async function autocompleteScenario(browser: Browser, base: string, size: Size):
   if (size.phone) {
     // the formula bar over a formula with references: no target under 44 px
     await page.locator('[data-cell="4:1"]').tap()
-    await page.waitForFunction(() => document.querySelector('.xs-fx-text')?.textContent?.includes('СУММ(A1:A3)'))
+    await page.waitForFunction(() => document.querySelector<HTMLTextAreaElement>('.xs-fx-input')?.value.includes('СУММ(A1:A3)'))
     await checkTargets(page, at('the formula bar over a formula'))
     await shot('formula-bar')
   }

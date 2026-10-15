@@ -126,3 +126,15 @@ export function paste(w: VueWrapper, text: string): void {
   Object.defineProperty(e, 'clipboardData', { value: { getData: () => text } })
   w.find('.xs-scroller').element.dispatchEvent(e)
 }
+/** The formula bar's field. */
+export const barField = (w: VueWrapper) => w.find('.xs-fx-input').element as HTMLTextAreaElement
+/** A press on the formula bar's field as the browser sends it: the caret (or a dragged selection) where the mouse put it, then mousedown, focus and click, with `keys` held. */
+export async function pressBar(w: VueWrapper, from: number, to = from, keys: MouseEventInit = {}): Promise<void> {
+  const el = barField(w)
+  el.setSelectionRange(from, to)
+  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, ...keys }))
+  el.focus()
+  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, ...keys }))
+  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...keys }))
+  await settle()
+}

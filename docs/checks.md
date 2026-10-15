@@ -1,6 +1,6 @@
 # Checks in a browser
 
-The checks build the example app ([example-app.md](example-app.md)) or the local page, drive them in Chromium through Playwright and put screenshots under `test-results/screens/`. `npm run screens` takes the screenshots of the example with every kind of formatting.
+The checks build the example app ([example-app.md](example-app.md)) or the local page, drive them in Chromium through Playwright and put screenshots under `test-results/screens/`. `npm run screens` takes the screenshots of the example with every kind of formatting; on the way it checks that the formula bar's layer of coloured references lies on the field's text to the pixel (one line and expanded, idle and with a long draft, at both widths) and drives the bar by the mouse on the desktop: Ctrl+click on a reference, a drag over the text, a click while the cell's field is open.
 
 ## The app's scenarios: `check:spa`
 

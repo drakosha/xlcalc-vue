@@ -126,50 +126,49 @@
 .xs-fx-open {
   --xs-fx-lines: 5;
 }
-.xs-fx-edit {
-  cursor: text;
-}
-.xs-fx-text {
-  display: block;
-  height: calc(var(--xs-fx-lines) * 1.35em);
-  margin: 3px 0 2px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  user-select: text;
-}
-.xs-fx-input {
+/* The field and the layer over it that colours a formula's references: one box and one text flow, so the layer's text lies on the field's to the pixel. */
+.xs-fx-input,
+.xs-fx-layer {
   display: block;
   width: 100%;
   height: calc(var(--xs-fx-lines) * 1.35em + 5px);
   min-height: 22px;
+  margin: 0;
   padding: 2px 4px 1px;
-  border: 1px solid var(--xs-accent);
+  border: 1px solid transparent;
   border-radius: 3px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
   font: inherit;
+  letter-spacing: normal;
+  text-align: start;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+/* The field's own text is transparent: its caret and selection show under the layer's text. */
+.xs-fx-input {
+  border-color: var(--xs-grid);
+  background: var(--xs-bg);
+  color: transparent;
+  caret-color: var(--xs-fg);
   resize: none;
   outline: none;
 }
-/* The bar's field waits unseen over the formula, so a tap can focus it at once and a phone shows its keyboard. */
-.xs-fx-idle {
+.xs-fx-input::selection {
+  color: transparent;
+}
+.xs-fx-input:focus {
+  border-color: var(--xs-accent);
+}
+/* Presses go through to the field; its scroll bar, of the same width, is the field's to see. */
+.xs-fx-layer {
   position: absolute;
-  inset: 0;
-  opacity: 0;
+  top: 0;
+  left: 0;
+  color: var(--xs-fg);
   pointer-events: none;
-}
-.xs-ref {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-  text-decoration: underline dotted;
-  text-underline-offset: 2px;
-}
-.xs-ref:hover {
-  text-decoration-style: solid;
+  scrollbar-color: transparent transparent;
 }
 .xs-bar-link {
   max-width: 40%;
@@ -1074,16 +1073,15 @@
   min-height: 44px;
   font-size: 14px;
 }
-.xs-touch .xs-fx-text {
-  margin: 12px 0;
-}
-.xs-touch .xs-fx-input {
+.xs-touch .xs-fx-input,
+.xs-touch .xs-fx-layer {
   height: calc(var(--xs-fx-lines) * 1.35em + 24px);
   min-height: 44px;
   padding: 11px 6px;
 }
 /* Collapsed under a finger one line fills the field's height, so a scroll by lines shows no part of the next one in the padding. */
-.xs-touch .xs-fx:not(.xs-fx-open) .xs-fx-input {
+.xs-touch .xs-fx:not(.xs-fx-open) .xs-fx-input,
+.xs-touch .xs-fx:not(.xs-fx-open) .xs-fx-layer {
   height: 44px;
   padding-block: 0;
   line-height: 42px;

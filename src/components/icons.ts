@@ -11,7 +11,7 @@ const icon = (paths: string[]): FunctionalComponent => {
   return c
 }
 
-export const IconBack = icon(['M9 14 4 9l5-5', 'M4 9h10.5a5.5 5.5 0 0 1 0 11H11'])
+export const IconBack = icon(['M19 12H5', 'm12 19-7-7 7-7'])
 export const IconLink = icon(['M9 17H7A5 5 0 0 1 7 7h2', 'M15 7h2a5 5 0 1 1 0 10h-2', 'M8 12h8'])
 export const IconLock = icon(['M7 11V7a5 5 0 0 1 10 0v4', 'M5 11h14v10H5z'])
 export const IconLockOpen = icon(['M7 11V7a5 5 0 0 1 9.9-1', 'M5 11h14v10H5z'])

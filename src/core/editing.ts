@@ -24,6 +24,8 @@ export interface EditorState {
   place: 'cell' | 'bar'
   /** Where to put the caret once the field shows; null after that. */
   caret: number | null
+  /** The end of a selection to put with the caret (the formula bar's text dragged over), else the caret alone. */
+  caretEnd?: number
   /** The field opened with the cell's own text (F2, a double click, the formula bar), not with a key typed over the cell. */
   inPlace: boolean
 }
@@ -106,7 +108,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   }
 
   /** Open the field on the active cell; a locked cell is explained instead. False when nothing opened. */
-  function startEdit(opts: { text?: string; mode: 'enter' | 'edit'; place?: 'cell' | 'bar'; caret?: number }): boolean {
+  function startEdit(opts: { text?: string; mode: 'enter' | 'edit'; place?: 'cell' | 'bar'; caret?: number; caretEnd?: number }): boolean {
     const a = s.selected.value
     if (!s.editable.value || !a) return false
     const lock = lockAt(a.row, a.col)
@@ -116,7 +118,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }
     const initial = editText(a.row, a.col)
     const text = opts.text ?? initial
-    editor.value = { sheet: s.sheetName.value, row: a.row, col: a.col, text, initial, mode: opts.mode, place: opts.place ?? 'cell', caret: opts.caret ?? text.length, inPlace: opts.text === undefined }
+    editor.value = { sheet: s.sheetName.value, row: a.row, col: a.col, text, initial, mode: opts.mode, place: opts.place ?? 'cell', caret: opts.caret ?? text.length, caretEnd: opts.caretEnd, inPlace: opts.text === undefined }
     focusEditor()
     return true
   }
@@ -131,10 +133,12 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       if (document.activeElement !== el) el.focus({ preventScroll: true })
       el.value = ed.text
       const top = caretTop(el, ed.caret)
-      el.setSelectionRange(ed.caret, ed.caret)
+      const end = Math.max(ed.caret, ed.caretEnd ?? ed.caret)
+      el.setSelectionRange(ed.caret, end)
       if (top !== null) el.scrollTop = top
-      tip.update(ed.text, ed.caret)
+      tip.update(ed.text, end === ed.caret ? ed.caret : null)
       ed.caret = null
+      ed.caretEnd = undefined
     })
   }
   /** Excel's Formula AutoComplete over the draft: the list of functions under the field. */

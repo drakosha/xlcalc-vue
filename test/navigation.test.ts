@@ -3,7 +3,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
-import { fakeSource, mountSheet, settle } from './helpers'
+import { barField, fakeSource, mountSheet, pressBar, settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -91,21 +91,18 @@ describe('address box and history', () => {
 })
 
 describe('formula bar', () => {
-  it('shows the formula with references; a click selects the range, on another sheet too', async () => {
+  it('shows the formula with its references coloured; Ctrl+click on one selects the range, on another sheet too', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'B1')
-    const refs = w.findAll('.xs-ref')
-    expect(refs.map((r) => r.text())).toEqual(['A1:A3'])
+    expect(w.findAll('.xs-fx-layer .xs-ref').map((r) => r.text())).toEqual(['A1:A3'])
     // As Excel's formula bar: the text the cell opens with, no value after it.
-    expect(w.find('.xs-fx-text').text()).toBe('=SUM(A1:A3)')
+    expect(barField(w).value).toBe('=SUM(A1:A3)')
     // The formula's range is highlighted on the grid.
     expect((w.find('[data-cell="2:1"]').element as HTMLElement).style.backgroundImage).toContain('linear-gradient')
-    await refs[0]!.trigger('click')
-    await settle()
+    await pressBar(w, 7, 7, { ctrlKey: true })
     expect(sel(w).sort()).toEqual(['1:1', '2:1', '3:1'])
     await goTo(w, 'B2')
-    await w.findAll('.xs-ref')[1]!.trigger('click')
-    await settle()
+    await pressBar(w, 8, 8, { ctrlKey: true })
     expect(w.find('.xs-tab-on').text()).toBe('Two sheet')
     expect(active(w)).toBe('2:2')
   })
@@ -287,17 +284,19 @@ describe('keys on an editable sheet', () => {
 })
 
 describe('a phone', () => {
-  it('the formula bar colours a formula\'s references without buttons, which a finger could not hit', async () => {
+  it('the formula bar colours a formula\'s references, and a press with a key held does not go to them', async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-scroller') ? 390 : 0
     })
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'B1')
-    expect(w.find('.xs-fx-text').text()).toBe('=SUM(A1:A3)')
-    expect(w.findAll('.xs-fx-text button')).toHaveLength(0)
-    const ref = w.find('.xs-fx-text .xs-ref-text')
+    expect(barField(w).value).toBe('=SUM(A1:A3)')
+    expect(barField(w).title).toBe('')
+    const ref = w.find('.xs-fx-layer .xs-ref')
     expect(ref.text()).toBe('A1:A3')
     expect((ref.element as HTMLElement).style.color).not.toBe('')
+    await pressBar(w, 7, 7, { ctrlKey: true })
+    expect(active(w)).toBe('1:2')
   })
 
   it('a narrow frame narrows the numbers; a tap selects, a double tap and a tap on the bar open the field', async () => {
@@ -318,8 +317,7 @@ describe('a phone', () => {
     expect(w.find('.xs-editor').classes()).not.toContain('xs-editor-idle')
     expect(document.activeElement).toBe(w.find('.xs-editor').element)
     await w.find('.xs-editor').trigger('keydown', { key: 'Escape' })
-    await w.find('.xs-fx').trigger('click')
-    await settle()
+    await pressBar(w, 1)
     expect(document.activeElement).toBe(w.find('.xs-fx-input').element)
     expect((w.find('.xs-fx-input').element as HTMLTextAreaElement).value).toBe('3')
     width.mockRestore()

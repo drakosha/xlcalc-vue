@@ -1,8 +1,12 @@
 <script setup lang="ts">
-// The bar over the grid, as in Excel: back, the address box, the formula with clickable references (the edit field with its list of functions and tip of arguments too) one line high or expanded, link and lock.
-import { computed, shallowRef, watch } from 'vue'
+// The bar over the grid, as in Excel: back, the address box, the formula's field (its references coloured, its list of functions and tip of arguments) one line high or expanded, link and lock.
+import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
+import type { GridReference } from 'xlcalc/contract'
 import { safeHref } from '../core/cell-view'
+import { onMac } from '../core/clip'
+import type { FormulaPart } from '../core/formula'
+import { canPaint, paintRefs, type Painted } from '../core/ref-paint'
 import type { ValidationRect } from '../core/validation'
 import { useSheetContext } from './context'
 import FunctionList from './FunctionList.vue'
@@ -14,39 +18,117 @@ const { sel, f, nav, ed, v } = ctx
 const m = ctx.messages
 
 const editingBar = computed(() => ctx.editor.value?.place === 'bar')
-const editingCell = computed(() => ctx.editor.value?.place === 'cell')
 const active = computed(() => ctx.selected.value)
 const activeLink = computed(() => {
   const a = active.value
   return a ? ctx.w.cellData(a.row, a.col, cellAddress(a.row, a.col)).link : undefined
 })
-/** What the bar shows: the draft of a field open in the cell, else the text the field opens with, as Excel's formula bar. */
+/** What the field holds: the draft of an open field, in the cell too, else the text the active cell opens with, as Excel's formula bar. */
 const barText = computed(() => {
-  if (editingCell.value) return ctx.editor.value!.text
+  const open = ctx.editor.value
+  if (open) return open.text
   const a = active.value
   return a ? ed.editText(a.row, a.col) : ''
 })
-/** The window's formula of the active cell, when that is the bar's text, shows in pieces with clickable references. */
-const showParts = computed(() => !editingCell.value && f.formulaParts.value.length > 0 && barText.value === `=${f.selectedFormula.value}`)
-/** With a range selected, the text is the active cell's: it is named. */
-const activeName = computed(() => (sel.multi.value && active.value && barText.value ? `${cellAddress(active.value.row, active.value.col)}: ` : ''))
+/** Outside an edit the field takes no typing where none can start: a read-only sheet, a locked cell, no active cell. */
+const barReadonly = computed(() => {
+  const a = active.value
+  return !ctx.editor.value && (!ctx.editable.value || !a || ed.lockAt(a.row, a.col) !== null)
+})
+/** The text in pieces for the layer over the field: a formula's references in the colours of their frames on the grid (the draft's while one is typed), else the text whole. */
+const parts = computed<FormulaPart[]>(() => {
+  const text = barText.value
+  const refs = f.formulaParts.value
+  return refs.length && text === `=${f.shownFormula.value}` ? [{ text: '=' }, ...refs] : [{ text }]
+})
+/** The layer's text: a last line break shows an empty line in the field, so the layer needs a character on it to have that line too. */
+const layerText = computed(() => (barText.value.endsWith('\n') ? `${barText.value} ` : barText.value))
+/** Highlights colour the references on the layer's one text node, which then lies on the field's text to the pixel; without them, spans. */
+const painting = canPaint()
+let painted: Painted = []
 
-/** A press on the bar keeps the focus where it is (an open field must not blur and commit); the click opens the field here. */
-function onBarDown(e: MouseEvent): void {
-  if (!ctx.editable.value || editingBar.value || (e.target as HTMLElement).closest('button,a')) return
-  e.preventDefault()
-}
-function onBarClick(e: MouseEvent): void {
-  if (!ctx.editable.value || editingBar.value || (e.target as HTMLElement).closest('button,a')) return
-  const open = ctx.editor.value
-  if (open) {
-    // A field open in the cell moves to the bar with its draft.
-    open.place = 'bar'
-    open.caret = open.text.length
-    ed.focusEditor()
-    return
+/** The reference whose characters the caret stands at (either edge counts), when its sheet is in the book. */
+function refAt(at: number): GridReference | null {
+  let from = 0
+  for (const part of parts.value) {
+    const to = from + part.text.length
+    if (part.ref && at >= from && at <= to && f.refSheet(part.ref) >= 0) return part.ref
+    from = to
   }
-  ed.startEdit({ mode: 'edit', place: 'bar' })
+  return null
+}
+/** Outside an edit with the mouse, Ctrl+click (Cmd+click) goes to a reference, as in a code editor: said in the field's tip. */
+const goTip = computed(() => (!ctx.editor.value && !v.touch.value && parts.value.some((p) => p.ref && f.refSheet(p.ref) >= 0) ? m.value.goRefHint(onMac() ? 'Cmd' : 'Ctrl') : undefined))
+/** A press with Ctrl or Cmd outside an edit: its click goes to the reference under the caret instead of editing. */
+let going = false
+function onFieldDown(e: MouseEvent): void {
+  going = !ctx.editor.value && !v.touch.value && (e.ctrlKey || e.metaKey)
+}
+/** The field's focus starts the edit in the bar where the press put the caret or the selection, as F2 does; a field open in the cell moves here with its draft. */
+function onFieldFocus(e: FocusEvent): void {
+  if (going || !ctx.editable.value) return
+  const open = ctx.editor.value
+  if (open) return void (open.place = 'bar')
+  const el = e.target as HTMLTextAreaElement
+  ed.startEdit({ mode: 'edit', place: 'bar', caret: el.selectionStart, caretEnd: el.selectionEnd })
+}
+function onFieldClick(e: MouseEvent): void {
+  const el = e.target as HTMLTextAreaElement
+  if (going) {
+    going = false
+    const ref = refAt(el.selectionStart)
+    if (ref) {
+      ctx.scroller.value?.focus({ preventScroll: true })
+      return void nav.goRef(ref)
+    }
+  }
+  if (ctx.editor.value) return ed.onEditorClick()
+  if (!barReadonly.value) ed.startEdit({ mode: 'edit', place: 'bar', caret: el.selectionStart, caretEnd: el.selectionEnd })
+}
+function onFieldBlur(e: FocusEvent): void {
+  going = false
+  ed.onEditorBlur(e, 'bar')
+}
+/** A key in the field outside an edit (the edit ended while it kept the focus) starts one, so the field never parts from the cell; on a read-only field Esc goes back to the grid. */
+function onFieldKey(e: KeyboardEvent): void {
+  if (!ctx.editor.value && !e.isComposing && !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
+    const el = e.target as HTMLTextAreaElement
+    if (!barReadonly.value) ed.startEdit({ mode: 'edit', place: 'bar', caret: el.selectionStart, caretEnd: el.selectionEnd })
+    else if (e.key === 'Escape') ctx.scroller.value?.focus({ preventScroll: true })
+  }
+  ed.onEditorKey(e)
+}
+/** The layer scrolls with the field; outside an edit in the bar a new text shows from its top. */
+const layer = shallowRef<HTMLElement | null>(null)
+function syncLayer(): void {
+  const el = ctx.barInput.value
+  if (el && layer.value) layer.value.scrollTop = el.scrollTop
+}
+watch(
+  barText,
+  () => {
+    const el = ctx.barInput.value
+    if (el && !editingBar.value) el.scrollTop = 0
+    syncLayer()
+  },
+  { flush: 'post' },
+)
+if (painting) {
+  watch(
+    [parts, layerText],
+    () => {
+      const pieces = []
+      let from = 0
+      for (const part of parts.value) {
+        if (part.color) pieces.push({ from, to: from + part.text.length, color: part.color })
+        from += part.text.length
+      }
+      const node = layer.value?.firstChild
+      painted = paintRefs(node instanceof Text ? node : null, pieces, painted)
+    },
+    { flush: 'post', immediate: true },
+  )
+  onBeforeUnmount(() => (painted = paintRefs(null, [], painted)))
 }
 /** A finger has no funnels on the letters (too small to hit): one in the bar opens the active cell's column. */
 const barFunnel = computed(() => v.touch.value && ctx.filter.available.value && ctx.dataRows.value > 1)
@@ -119,45 +201,28 @@ function onAddressEsc(e: KeyboardEvent): void {
       @keydown.esc.prevent="onAddressEsc"
     />
     <div class="xs-fx-line">
-      <div class="xs-fx" :class="{ 'xs-fx-edit': ctx.editable.value, 'xs-fx-open': ctx.barOpen.value }" :title="editingBar ? undefined : barText || (ctx.editable.value ? m.editHint : '')" @mousedown="onBarDown" @click="onBarClick">
-        <span v-if="!editingBar" class="xs-fx-text">
-          <span v-if="activeName" class="xs-muted">{{ activeName }}</span>
-          <template v-if="showParts">
-            <span>=</span>
-            <template v-for="(part, i) in f.formulaParts.value" :key="i">
-              <!-- under a finger a reference is coloured text: a button the size of a word is no target, and Excel's bar has none -->
-              <span v-if="part.ref && part.color && ctx.v.touch.value" class="xs-ref-text" :style="{ color: part.color }">{{ part.text }}</span>
-              <button
-                v-else-if="part.ref && part.color && f.refSheet(part.ref) >= 0"
-                type="button"
-                class="xs-ref"
-                :style="{ color: part.color }"
-                :title="part.ref.sheet ? m.goSheet(part.ref.sheet) : m.showRange"
-                @click="nav.goRef(part.ref)"
-              >
-                {{ part.text }}
-              </button>
-              <span v-else>{{ part.text }}</span>
-            </template>
-          </template>
-          <template v-else>{{ barText }}</template>
-        </span>
+      <div class="xs-fx" :class="{ 'xs-fx-open': ctx.barOpen.value }">
         <textarea
-          v-if="ctx.editable.value"
           :ref="setBarInput"
-          :class="['xs-fx-input', editingBar ? '' : 'xs-fx-idle']"
-          :value="editingBar ? ctx.editor.value!.text : ''"
+          class="xs-fx-input"
+          :value="barText"
+          :readonly="barReadonly"
+          :title="goTip"
           rows="1"
           spellcheck="false"
           autocomplete="off"
           autocapitalize="off"
-          :tabindex="editingBar ? 0 : -1"
-          :aria-hidden="editingBar ? undefined : 'true'"
+          @mousedown="onFieldDown"
+          @focus="onFieldFocus"
+          @click="onFieldClick"
           @input="ed.onEditorInput"
-          @keydown="ed.onEditorKey"
-          @click="ed.onEditorClick()"
-          @blur="ed.onEditorBlur($event, 'bar')"
+          @keydown="onFieldKey"
+          @scroll="syncLayer"
+          @blur="onFieldBlur"
         ></textarea>
+        <!-- the same text over the transparent field's, its references coloured; the caret and the selection are the field's -->
+        <div v-if="painting" ref="layer" class="xs-fx-layer" aria-hidden="true">{{ layerText }}</div>
+        <div v-else ref="layer" class="xs-fx-layer" aria-hidden="true"><template v-for="(part, i) in parts" :key="i"><span v-if="part.color" class="xs-ref" :style="{ color: part.color }">{{ part.text }}</span><template v-else>{{ part.text }}</template></template>{{ layerText.slice(barText.length) }}</div>
         <FunctionList
           v-if="listPlace && editingBar && ed.ac.open.value"
           :rect="listPlace.rect"

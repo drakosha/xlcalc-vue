@@ -2,7 +2,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { enMessages, memorySource, ruMessages, type MemoryBook } from '../src'
-import { goTo, key, mountSheet, settle } from './helpers'
+import { barField, goTo, key, mountSheet, pressBar } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -15,7 +15,7 @@ const expanded = (w: VueWrapper) => w.find('.xs-fx').classes().includes('xs-fx-o
 describe('formula bar height', () => {
   it('shows a cell of several lines collapsed to one line, with the button to expand it', async () => {
     const w = await mountSheet(memorySource(book()))
-    expect(w.find('.xs-fx-text').text()).toBe('one\ntwo\nthree\nfour\nfive\nsix')
+    expect(barField(w).value).toBe('one\ntwo\nthree\nfour\nfive\nsix')
     expect(expanded(w)).toBe(false)
     expect(toggle(w).attributes('aria-expanded')).toBe('false')
     expect(toggle(w).attributes('aria-label')).toBe(enMessages.expandBar)
@@ -46,20 +46,19 @@ describe('formula bar height', () => {
 
   it('Control+Shift+U in the bar field toggles it and the edit goes on', async () => {
     const w = await mountSheet(memorySource(book()))
-    await w.find('.xs-fx').trigger('click')
-    await settle()
-    const input = w.find('.xs-fx-input')
-    expect(input.classes()).not.toContain('xs-fx-idle')
-    await input.trigger('keydown', { key: 'U', ctrlKey: true, shiftKey: true, code: 'KeyU' })
+    await pressBar(w, 3)
+    const editing = () => w.find('.xs-bar').classes().includes('xs-bar-editing')
+    expect(editing()).toBe(true)
+    await w.find('.xs-fx-input').trigger('keydown', { key: 'U', ctrlKey: true, shiftKey: true, code: 'KeyU' })
     expect(expanded(w)).toBe(true)
-    expect(w.find('.xs-fx-input').classes()).not.toContain('xs-fx-idle')
+    expect(editing()).toBe(true)
   })
 
   it('stays expanded as the active cell changes, until toggled again', async () => {
     const w = await mountSheet(memorySource(book()))
     await toggle(w).trigger('click')
     await goTo(w, 'A2')
-    expect(w.find('.xs-fx-text').text()).toBe('single')
+    expect(barField(w).value).toBe('single')
     expect(expanded(w)).toBe(true)
     await goTo(w, 'A1')
     expect(expanded(w)).toBe(true)

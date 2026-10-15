@@ -1,4 +1,4 @@
-// The active cell's formula in pieces with clickable references, and the formula's ranges highlighted on the grid as in Excel.
+// The formula the bar shows (the draft's while one is typed) in pieces with coloured references, and the formula's ranges highlighted on the grid as in Excel.
 import { computed, shallowRef, watch, type Ref } from 'vue'
 import { nameKey, parseCell, sameName } from 'xlcalc/a1'
 import type { GridReference, ScanOptions } from 'xlcalc/contract'
@@ -91,9 +91,9 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     }
     return out
   })
-  /** Pieces of the active cell's formula: the text between references, and each reference with its range and colour. */
+  /** Pieces of the shown formula (the draft's while one is typed, else the active cell's): the text between references, and each reference with its range and the colour its frame has on the grid. */
   const formulaParts = computed<FormulaPart[]>(() => {
-    const formula = selectedFormula.value
+    const formula = shownFormula.value
     if (!formula) return []
     const out: FormulaPart[] = []
     let at = 0
@@ -134,7 +134,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     return tints.length ? { edges, tints } : null
   }
 
-  return { formulaAt, selectedFormula, selectedValue, scanOptions, refColors, formulaParts, refSheet, sheetIndexByName, highlights, highlightAt }
+  return { formulaAt, selectedFormula, selectedValue, shownFormula, scanOptions, refColors, formulaParts, refSheet, sheetIndexByName, highlights, highlightAt }
 }
 
 export type Formula = ReturnType<typeof useFormula>

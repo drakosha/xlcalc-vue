@@ -1,16 +1,16 @@
-// References of a formula as the sheet shows them (xlcalc's scanReferences): pieces of the bar, ranges on the grid, places to go to.
+// References of a formula as the sheet shows them (xlcalc's scanReferences): colours in the bar, ranges on the grid, places to go to.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
-import { address, goTo, key, mountSheet, settle, type } from './helpers'
+import { address, barField, goTo, key, mountSheet, pressBar, settle, type } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
   vi.restoreAllMocks()
 })
 
-const refs = (w: VueWrapper) => w.findAll('.xs-ref').map((r) => r.text())
-const colorOf = (w: VueWrapper, text: string) => (w.findAll('.xs-ref').find((r) => r.text() === text)!.element as HTMLElement).style.color
+const refs = (w: VueWrapper) => w.findAll('.xs-fx-layer .xs-ref').map((r) => r.text())
+const colorOf = (w: VueWrapper, text: string) => (w.findAll('.xs-fx-layer .xs-ref').find((r) => r.text() === text)!.element as HTMLElement).style.color
 const tinted = (w: VueWrapper, cell: string) => (w.find(`[data-cell="${cell}"]`).element as HTMLElement).style.backgroundImage.includes('linear-gradient')
 
 describe('a formula in en-US', () => {
@@ -22,12 +22,12 @@ describe('a formula in en-US', () => {
     ],
   })
 
-  it('shows its references to cells as buttons and the rest as text; equal references share a colour', async () => {
+  it('colours its references to cells in the bar and leaves the rest plain; equal references share a colour', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'B1')
     // A table's reference, one across sheets and a string's text stay text.
     expect(refs(w)).toEqual(['A1:A2', "'Two sheet'!B2", '$A$1', 'A1'])
-    expect(w.find('.xs-fx-text').text()).toBe(`=${formula}`)
+    expect(barField(w).value).toBe(`=${formula}`)
     expect(colorOf(w, '$A$1')).toBe(colorOf(w, 'A1'))
     expect(colorOf(w, 'A1')).not.toBe(colorOf(w, 'A1:A2'))
     expect(tinted(w, '1:1')).toBe(true)
@@ -56,7 +56,7 @@ describe('a formula in ru-RU', () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true, locale: 'ru-RU' })
     await goTo(w, 'F1')
     await vi.waitFor(() => expect(refs(w)).toEqual(['A1', 'B2', 'C2', 'D2']))
-    expect(w.find('.xs-fx-text').text()).toBe(`=${formula}`)
+    expect(barField(w).value).toBe(`=${formula}`)
     expect(tinted(w, '2:3')).toBe(true)
     expect(tinted(w, '3:5')).toBe(false)
   })
@@ -92,8 +92,7 @@ describe('places', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     const w = await mountSheet(memorySource(book()), { readOnly: true, cellUrl: (ref: string) => `at=${ref}` })
     await goTo(w, 'B1')
-    await w.find('.xs-ref').trigger('click')
-    await settle()
+    await pressBar(w, 3, 3, { ctrlKey: true })
     expect(w.find('.xs-tab-on').text()).toBe('Straße')
     await goTo(w, "'2024'!B2")
     await w.find('.xs-tools .xs-tool').trigger('click')

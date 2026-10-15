@@ -4,7 +4,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import type { CellUpdate, EditOutcome } from '../src/source'
-import { active, address, cellText, editorKey, editorOpen, goTo, key, mountSheet, paste, settle, type } from './helpers'
+import { active, address, barField, cellText, editorKey, editorOpen, goTo, key, mountSheet, paste, pressBar, settle, type } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -62,7 +62,7 @@ describe('Control+Return', () => {
     source.fill = fill.call
     const w = await mountSheet(source)
     await goTo(w, 'B1:C2')
-    await w.find('.xs-fx').trigger('click')
+    await pressBar(w, 0)
     await settle()
     await w.find('.xs-fx-input').trigger('keydown', { key: 'Enter', metaKey: true })
     await settle()
@@ -275,7 +275,7 @@ describe('the text a cell opens with', () => {
     await editorKey(w, 'Escape')
     return text
   }
-  const bar = (w: VueWrapper) => w.find('.xs-fx-text').text()
+  const bar = (w: VueWrapper) => barField(w).value
 
   it("opens with the window's editText, empty for a cell left out; the formula bar shows the same", async () => {
     const source = withEditText({ A1: '15.03.2026', A2: '5%', A4: '=A2+1' })

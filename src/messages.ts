@@ -108,7 +108,8 @@ export interface SheetMessages {
   tooManyCells: string
   pending: string
   close: string
-  editHint: string
+  /** The formula bar's tip over a formula with references: Ctrl+click (Cmd on a Mac, the key given) goes to one. */
+  goRefHint: (key: string) => string
   /** Excel's button at the formula bar's right end and its Control+Shift+U: the bar one line high or several. */
   expandBar: string
   collapseBar: string
@@ -346,7 +347,7 @@ export const enMessages: SheetMessages = {
   tooManyCells: 'Too many cells for one edit',
   pending: 'Saving…',
   close: 'Close',
-  editHint: 'Click to edit the cell',
+  goRefHint: (key) => `${key}+click a reference to go to it`,
   expandBar: 'Expand Formula Bar (Ctrl+Shift+U)',
   collapseBar: 'Collapse Formula Bar (Ctrl+Shift+U)',
   waiting: 'The book is being recomputed…',
@@ -603,7 +604,7 @@ export const ruMessages: SheetMessages = {
   tooManyCells: 'Слишком много ячеек для одной правки',
   pending: 'Сохраняю…',
   close: 'Закрыть',
-  editHint: 'Нажмите, чтобы править ячейку',
+  goRefHint: (key) => `${key}+щелчок по ссылке: перейти к ней`,
   expandBar: 'Развернуть строку формул (Ctrl+Shift+U)',
   collapseBar: 'Свернуть строку формул (Ctrl+Shift+U)',
   waiting: 'Книга пересчитывается…',
