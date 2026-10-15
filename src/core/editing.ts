@@ -3,7 +3,7 @@ import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
-import type { CellEntry, EditOutcome, EditOptions } from '../source'
+import type { CellEntry, EditOutcome, EditOptions, SheetSource } from '../source'
 import { useAutocomplete } from './autocomplete'
 import { useFunctionTip } from './function-tip'
 import type { AlertAnswer, SheetAlert } from './validation'
@@ -178,7 +178,12 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (refocus) s.scroller.value?.focus({ preventScroll: true })
     if (ed.sheet === s.sheetName.value && sel.isActive(ed.row, ed.col) && (dr || dc)) sel.step(dr, dc)
     if (ed.text === ed.initial) return
-    void send([{ sheet: ed.sheet, cell: cellAddress(ed.row, ed.col), text: ed.text === '' ? null : ed.text }], ed, ed.inPlace ? { inPlace: true } : undefined)
+    void enterDraft(ed)
+  }
+  /** Send the draft into its cell; Excel's correction of it is sent the same way. */
+  function enterDraft(ed: EditorState): Promise<EditOutcome | undefined> {
+    const entries = [{ sheet: ed.sheet, cell: cellAddress(ed.row, ed.col), text: ed.text === '' ? null : ed.text }]
+    return send(entries, ed, ed.inPlace ? { inPlace: true } : undefined, (text) => enterDraft({ ...ed, text }))
   }
   function cancel(): void {
     editor.value = null
@@ -196,9 +201,14 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const extent = s.extent.value
     editor.value = null
     s.scroller.value?.focus({ preventScroll: true })
+    void fillDraft(ed, r, extent, fill)
+  }
+  /** Send the draft into every cell of the range from its cell; Excel's correction of it is sent the same way. */
+  function fillDraft(ed: EditorState, r: CellRect, extent: CellPosition | null, fill: NonNullable<SheetSource['fill']>): Promise<EditOutcome> {
     const marks = marksOf(r, () => (ed.text === '' ? null : ed.text))
     const args = [ed.sheet, rangeAddress(r), ed.text, cellAddress(ed.row, ed.col)] as const
-    void run((o) => withOptions(ed.inPlace ? { inPlace: true } : undefined, o, (all) => (all ? fill.call(s.source(), ...args, all) : fill.call(s.source(), ...args))), marks, ed, extent)
+    const call = (o?: EditOptions) => withOptions(ed.inPlace ? { inPlace: true } : undefined, o, (all) => (all ? fill.call(s.source(), ...args, all) : fill.call(s.source(), ...args)))
+    return run(call, marks, ed, extent, true, (text) => fillDraft({ ...ed, text }, r, extent, fill))
   }
   /** Open the field again with the draft, after a conflict or a formula that did not parse; `extent` gives a range back its corner. */
   function reopen(ed: EditorState, caret: number | null, extent: CellPosition | null): void {
@@ -210,10 +220,10 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     focusEditor()
   }
 
-  /** Send entries; the cells show the typed text in the "pending" style until the outcome. `opts`: `accept` writes past the rules (a list's item), `inPlace` the cell's own text edited. */
-  async function send(entries: CellEntry[], draft: EditorState | null, opts?: EditOptions): Promise<void> {
+  /** Send entries; the cells show the typed text in the "pending" style until the outcome. `opts`: `accept` writes past the rules (a list's item), `inPlace` the cell's own text edited; `retype` sends the draft's correction. */
+  async function send(entries: CellEntry[], draft: EditorState | null, opts?: EditOptions, retype?: (text: string) => Promise<EditOutcome | undefined>): Promise<EditOutcome | undefined> {
     const edit = s.source().edit
-    if (edit) await run((o) => withOptions(opts, o, (all) => (all ? edit.call(s.source(), entries, all) : edit.call(s.source(), entries))), entries, draft, null)
+    if (edit) return run((o) => withOptions(opts, o, (all) => (all ? edit.call(s.source(), entries, all) : edit.call(s.source(), entries))), entries, draft, null, true, retype)
   }
   /** A call with the options of the edit and of the alert's answer together; without any, a call as before options were. */
   function withOptions(base: EditOptions | undefined, more: EditOptions | undefined, call: (all: EditOptions | undefined) => Promise<EditOutcome>): Promise<EditOutcome> {
@@ -233,9 +243,10 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
    * Call the source: `marks` show in the "pending" style until the outcome; a failure opens `draft` again, over its range
    * with `extent`; a change of cells ends the copy mode unless `endsCopy` is false. A value a rule of data validation does
    * not take shows Excel's alert, the marks kept: Yes or OK calls again with `accept`, Retry or No opens the draft again,
-   * Cancel leaves the cell as it was.
+   * Cancel leaves the cell as it was. A formula the source offers to correct asks to accept it: Yes sends the correction by
+   * `retype`, the selection put back where the edit left it.
    */
-  async function run(call: (opts?: EditOptions) => Promise<EditOutcome>, marks: CellEntry[], draft: EditorState | null, extent: CellPosition | null, endsCopy = true): Promise<EditOutcome> {
+  async function run(call: (opts?: EditOptions) => Promise<EditOutcome>, marks: CellEntry[], draft: EditorState | null, extent: CellPosition | null, endsCopy = true, retype?: (text: string) => Promise<EditOutcome | undefined>): Promise<EditOutcome> {
     const mine = ++seq
     if (endsCopy) s.hooks.changing()
     if (marks.length) {
@@ -286,10 +297,26 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       await deps.reload()
       if (draft) reopen(draft, null, extent)
     } else if (outcome.reason === 'invalid' && draft && deps.alert && draft.sheet === s.sheetName.value) {
-      // A formula that does not read: Fix opens it again, Restore leaves the cell as it was; the edited cell is active meanwhile.
+      // The edited cell is active while the question is up; where the edit moved the selection is kept for Excel's correction.
+      const moved = { selected: s.selected.value, extent: s.extent.value }
       s.selected.value = { row: draft.row, col: draft.col }
       s.extent.value = extent
-      const said = await deps.alert({ severity: 'formula', message: outcome.message || m.editFailed, sheet: draft.sheet, cell: cellAddress(draft.row, draft.col) })
+      const place = { sheet: draft.sheet, cell: cellAddress(draft.row, draft.col) }
+      if (outcome.correction !== undefined && retype) {
+        // Excel's correction of a formula left open: Yes enters it as the same key would, No (Esc) says what is missing and opens the field again.
+        const said = await deps.alert({ severity: 'typo', message: m.typoFound(outcome.correction), ...place })
+        if (said === 'accept') {
+          s.selected.value = moved.selected
+          s.extent.value = moved.extent
+          s.scroller.value?.focus({ preventScroll: true })
+          return (await retype(outcome.correction)) ?? outcome
+        }
+        await deps.alert({ severity: 'parenthesis', message: m.missingParenthesis, ...place })
+        reopen(draft, outcome.at ?? null, extent)
+        return outcome
+      }
+      // A formula that does not read: Fix opens it again, Restore leaves the cell as it was.
+      const said = await deps.alert({ severity: 'formula', message: outcome.message || m.editFailed, ...place })
       if (said === 'retry') reopen(draft, outcome.at ?? null, extent)
       else s.scroller.value?.focus({ preventScroll: true })
     } else if (outcome.reason === 'invalid') {

@@ -244,6 +244,9 @@ export interface SheetMessages {
   formulaQuestion: string
   formulaFix: string
   formulaRevert: string
+  /** Excel's window on a formula left open that it offers to correct (Yes and No are `validationYes` and `validationNo`), and its message after No. */
+  typoFound: (correction: string) => string
+  missingParenthesis: string
   /** Excel's Formula AutoComplete: the list of functions under the field and its hint. */
   functionList: string
   functionHint: string
@@ -498,6 +501,8 @@ export const enMessages: SheetMessages = {
   formulaQuestion: 'Fix the formula, or restore what the cell had?',
   formulaFix: 'Fix',
   formulaRevert: 'Restore',
+  typoFound: (correction) => `We found a typo in your formula and tried to correct it to: ${correction}. Would you like to accept this correction?`,
+  missingParenthesis: 'This formula is missing an opening or closing parenthesis.',
   functionList: 'Functions',
   functionHint: 'Tab or a double click enters the function',
   mergeCenter: 'Merge & Center',
@@ -773,6 +778,8 @@ export const ruMessages: SheetMessages = {
   formulaQuestion: 'Исправить формулу или вернуть прежнее значение ячейки?',
   formulaFix: 'Исправить',
   formulaRevert: 'Вернуть',
+  typoFound: (correction) => `Мы обнаружили опечатку в формуле и попытались ее исправить: ${correction}. Принять исправление?`,
+  missingParenthesis: 'В формуле не хватает открывающей или закрывающей круглой скобки',
   functionList: 'Функции',
   functionHint: 'Tab или двойной щелчок вставляет функцию',
   mergeCenter: 'Объединить и поместить в центре',
