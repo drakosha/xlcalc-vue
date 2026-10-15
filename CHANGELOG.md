@@ -15,4 +15,4 @@ What is in it:
 - `docs/`: the API reference (`docs/api.md`) and a page for each feature.
 - The interface's texts in English by default and in Russian (`ruMessages`).
 - `example/spa.html`: an app like Excel over `./local`, all in the browser, without a server.
-- The main entry depends at runtime on `vue` alone and carries no engine.
+- The main entry depends at runtime on `vue` alone and carries no engine. Its test holds it under 380,000 characters (357,000 now): the engine would add hundreds of thousands.
