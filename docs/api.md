@@ -214,7 +214,7 @@ The component knows its data only through this interface. Rows and columns are 1
 `EditOutcome` is one of:
 
 - `{ ok: true; changes: CellUpdate[]; select?: { sheet; range } }`: `select` is where the selection goes after `paste`, `fill`, `undo` or `redo`.
-- `{ ok: false; reason; message; cells?; at?; alert? }`, where `reason` is `'conflict'` (the book changed elsewhere), `'refused'` (locked or not allowed), `'invalid'` (the formula does not parse; `at` is the position in the typed text), `'busy'` (try again later) or `'failed'`. `alert` (`SheetValidationAlert`) makes the sheet show Excel's validation alert.
+- `{ ok: false; reason; message; cells?; at?; correction?; alert? }`, where `reason` is `'conflict'` (the book changed elsewhere), `'refused'` (locked or not allowed), `'invalid'` (the formula does not parse; `at` is the position in the typed text; `correction` the formula Excel offers instead in its "We found a typo" window, which the sheet asks to accept), `'busy'` (try again later) or `'failed'`. `alert` (`SheetValidationAlert`) makes the sheet show Excel's validation alert.
 
 `CellUpdate` is `{ sheet, cell, text, value, color?, formula?, editText?, numberFormat? }`; `formula`, `editText` and `numberFormat` come only for edited cells.
 

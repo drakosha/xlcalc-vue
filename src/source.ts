@@ -314,6 +314,11 @@ export type EditOutcome =
       message: string
       cells?: { sheet: string; cell: string }[]
       at?: number
+      /**
+       * For `invalid`: the formula Excel offers instead in its "We found a typo in your formula" window, in the source's locale
+       * (brackets left open closed, `=(1+2` → `=(1+2)`); the component asks to accept it and sends the edit again with it.
+       */
+      correction?: string
       /** A value a rule of data validation does not take (`refused`): the component shows Excel's alert, and sends the edit again with `accept` after a warning's Yes or an information's OK. */
       alert?: SheetValidationAlert
     }
