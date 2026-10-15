@@ -278,6 +278,28 @@ describe('Point mode: what an arrow does with nothing pointed, as Excel measured
     }
   })
 
+  it('with the caret before the formula the arrow puts the cell with an = of its own, as Excel; a value is entered', async () => {
+    for (const [text, k, got] of [['=A1', 'ArrowRight', '=D3=A1'], ['+1', 'ArrowDown', '=C4+1']] as const) {
+      const w = await mountSheet(recorded().source)
+      await goTo(w, 'C3')
+      await typeIn(w, text)
+      field(w).setSelectionRange(0, 0)
+      await press(w, k)
+      expect([text, field(w).value, editorOpen(w), active(w)]).toEqual([text, got, true, '3:3'])
+      // the reference goes on with the arrows, the = staying
+      await press(w, 'ArrowRight')
+      expect(field(w).value).toBe(got.replace(/^=([A-Z]+)(\d+)/, (_, c: string, r: string) => `=${String.fromCharCode(c.charCodeAt(0) + 1)}${r}`))
+      w.unmount()
+    }
+    const { source, edits } = recorded()
+    const w = await mountSheet(source)
+    await goTo(w, 'C3')
+    await typeIn(w, '5')
+    field(w).setSelectionRange(0, 0)
+    await press(w, 'ArrowRight')
+    expect([editorOpen(w), active(w), edits]).toEqual([false, '3:4', [[{ sheet: 'S', cell: 'C3', text: '5' }]]])
+  })
+
   it('a leading + or - begins a formula: the arrow points', async () => {
     for (const [text, k, got] of [['+', 'ArrowRight', '+D3'], ['-', 'ArrowDown', '-C4'], ['=-', 'ArrowLeft', '=-B3']] as const) {
       const w = await mountSheet(recorded().source)

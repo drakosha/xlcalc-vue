@@ -52,20 +52,27 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     const start = el.selectionStart ?? ed.text.length
     const end = el.selectionEnd ?? start
     const last = going(ed, start, end)
-    if (!last && actionAt(ed.text, start).action !== 'insert') return false
+    const act = last ? null : actionAt(ed.text, start)
+    if (act && act.action !== 'insert') return false
     const [first, far] = corners(at.kind, at.row, at.col)
     const anchor = last && e.shiftKey && last.kind === at.kind ? last.anchor : first
-    run = last ? { ...last, kind: at.kind, anchor } : { ed, from: start, to: end, text: ed.text, kind: at.kind, anchor, far }
+    run = last ? { ...last, kind: at.kind, anchor } : { ...begin(ed, start, end, act), kind: at.kind, anchor, far }
     write(far)
     taken = dragging = true
     return true
   }
   /** The run the caret stands at the end of, nothing typed since: the next press or arrow replaces its reference. */
   const going = (ed: EditorState, start: number, end: number) => (run !== null && run.ed === ed && run.text === ed.text && start === run.to && end === run.to ? run : null)
-  /** What an arrow does at `caret` with nothing pointed (`refAt`); nothing while the locale loads, and before the formula's first character. */
+  /** What an arrow does at `caret` with nothing pointed (`refAt`); nothing while the locale loads. */
   const actionAt = (text: string, caret: number): PointAction => {
     const scan = deps.scan()
-    return scan && caret > 0 ? refAt(text, caret, scan) : { action: 'none' }
+    return scan ? refAt(text, caret, scan) : { action: 'none' }
+  }
+  /** A new reference's place in the draft; before the formula's first character it comes with an `=` of its own (`equals`), as Excel puts it. */
+  function begin(ed: EditorState, start: number, end: number, act: PointAction | null): { ed: EditorState; from: number; to: number; text: string } {
+    if (act?.action !== 'insert' || !act.equals) return { ed, from: start, to: end, text: ed.text }
+    ed.text = ed.text.slice(0, start) + '=' + ed.text.slice(end)
+    return { ed, from: start + 1, to: start + 1, text: ed.text }
   }
   let seq = 0
   /**
@@ -83,8 +90,9 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     const start = el.selectionStart ?? ed.text.length
     const end = el.selectionEnd ?? start
     const last = ed.sheet === s.sheetName.value ? going(ed, start, end) : null
-    if (!last) {
-      const act = actionAt(ed.text, start).action
+    const action = last ? null : actionAt(ed.text, start)
+    if (action) {
+      const act = action.action
       if (way && act === 'commit') {
         e.preventDefault()
         deps.commit(...way)
@@ -107,7 +115,7 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     const point = (p: CellPosition | null): void => {
       if (!p || mine !== seq || editor.value !== ed || ed.text !== text) return
       const anchor = extend ? (last ? last.anchor : from) : p
-      run = last ? { ...last, kind: 'cells', anchor } : { ed, from: start, to: end, text: ed.text, kind: 'cells', anchor, far: p }
+      run = last ? { ...last, kind: 'cells', anchor } : { ...begin(ed, start, end, action), kind: 'cells', anchor, far: p }
       write(p)
       if (!s.visible.value) s.stretch(p.row, p.col)
       sel.revealCell(p.row, p.col)
