@@ -100,13 +100,18 @@ describe('the tip under the cell', () => {
     expect(tip()).toContain('[criteria_range3, criteria3]')
   })
 
-  it('ru-RU: `=СУММ(1;` is at the second argument', async () => {
-    const { source } = signed(ruRU)
+  it('ru-RU: `=СУММ(1;` is at the second argument; the source is asked by the English name', async () => {
+    const { source, asked } = signed(ruRU)
     const w = await mountSheet(source, { locale: 'ru-RU' })
     await settle()
     await typeFormula(w, '=СУММ(1;')
     expect(tip()).toBe('СУММ(число1;[число2];...)')
     expect(current()).toBe('число2')
+    // the source is asked by the English name, one for every spelling of it
+    await type(w, '=СУММ(1;сумм(')
+    await settle()
+    expect(current()).toBe('число1')
+    expect(asked.mock.calls.map((c) => c[0])).toEqual(['SUM'])
   })
 
   it('a call inside a call: the inner one', async () => {

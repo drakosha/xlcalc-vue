@@ -2,6 +2,7 @@
 // caret stands in, its signature asked of the source once per name, the argument the caret is at in bold.
 import { computed, getCurrentScope, onScopeDispose, shallowRef, watch, type Ref } from 'vue'
 import type { FunctionSignature, ScanOptions } from 'xlcalc/contract'
+import { callAt } from 'xlcalc/text'
 import type { SheetSource } from '../source'
 import type { EditorState } from './editing'
 
@@ -11,46 +12,13 @@ export interface TipPart {
   current?: boolean
 }
 
-/** The call the caret stands in: the function's name as typed and the argument's index from 0. */
-export interface CallAt {
-  name: string
-  index: number
-}
-
-/** A character of a function's name, as autocomplete's. */
-const NAME_CHAR = /[\p{L}\p{N}._]/u
-
 /**
- * The innermost function call around `caret` in formula text typed in `opts.locale`; null outside one, in a string,
- * outside a formula. TODO(xlcalc 0.41.0): a stand-in until `callAt` of `xlcalc/text`, the engine's tokenizer, takes its place.
+ * The innermost function call around `caret` in formula text typed in `opts.locale` (`callAt` of `xlcalc/text`): the name
+ * the source is asked by, English in upper case (`SUM` for a typed `сумм`), and the argument's index from 0; null outside one.
  */
-export function callUnder(text: string, caret: number, opts: ScanOptions): CallAt | null {
-  if (!text.startsWith('=') || caret > text.length) return null
-  const sep = typeof opts.locale === 'object' ? opts.locale.listSeparator : ','
-  const calls: CallAt[] = []
-  let quote: string | null = null
-  let square = 0
-  let curly = 0
-  for (let i = 1; i < caret; i++) {
-    const c = text[i]!
-    if (quote) {
-      if (c === quote) quote = null
-    } else if (c === '"' || c === "'") quote = c
-    else if (c === '[') square++
-    else if (c === ']') square = Math.max(0, square - 1)
-    else if (square) continue
-    else if (c === '{') curly++
-    else if (c === '}') curly = Math.max(0, curly - 1)
-    else if (curly) continue
-    else if (c === '(') {
-      let from = i
-      while (from > 1 && NAME_CHAR.test(text[from - 1]!)) from--
-      calls.push({ name: text.slice(from, i), index: 0 })
-    } else if (c === ')') calls.pop()
-    else if (c === sep && calls.length) calls[calls.length - 1]!.index++
-  }
-  const call = calls.at(-1)
-  return quote || square || !call?.name ? null : call
+export function callUnder(text: string, caret: number, opts: ScanOptions): { name: string; index: number } | null {
+  const call = callAt(text, caret, opts)
+  return call && { name: call.fn || call.name, index: call.index }
 }
 
 /** An argument's name past the list: the one `repeat` before it with its number counted on (`number2` → `number3`). */
