@@ -58,8 +58,8 @@ describe('localSource: Control+Return', () => {
   })
 
   it('gives invalid at the place of a formula that does not read, with the active cell', async () => {
-    const got = await source(sheet()).fill!('S', 'B1:B3', '=СУММ(A1;', 'B2')
-    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 9, cells: [{ sheet: 'S', cell: 'B2' }] })
+    const got = await source(sheet()).fill!('S', 'B1:B3', '=СУММ(A1;))', 'B2')
+    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 10, cells: [{ sheet: 'S', cell: 'B2' }] })
   })
 
   it('refuses every cell when the active cell\'s stop rule does not take the value', async () => {

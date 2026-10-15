@@ -132,9 +132,15 @@ describe('localSource: typed edits', () => {
 
   it('gives invalid with the position for a formula that does not parse, and changes nothing', async () => {
     const s = source()
-    const got = await s.edit([{ sheet: 'Лист1', cell: 'A3', text: '=СУММ(A1:A2' }])
-    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 11, cells: [{ sheet: 'Лист1', cell: 'A3' }] })
+    const got = await s.edit([{ sheet: 'Лист1', cell: 'A3', text: '=СУММ(A1:A2))' }])
+    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 12, cells: [{ sheet: 'Лист1', cell: 'A3' }] })
     expect((await win(s, 'Лист1', 3, 1, 1, 1)).formulas.A3).toBe('СУММ(A1:A2)')
+  })
+
+  it('closes a function left open as Excel does on Enter (xlcalc 0.44)', async () => {
+    const s = source()
+    expect(await s.edit([{ sheet: 'Лист1', cell: 'C3', text: '=СУММ(A1:A2' }])).toMatchObject({ ok: true })
+    expect((await win(s, 'Лист1', 3, 1, 3, 1)).formulas.C3).toBe('СУММ(A1:A2)')
   })
 
   it('returns the edited formula in the locale, percent, boolean and apostrophe text', async () => {
