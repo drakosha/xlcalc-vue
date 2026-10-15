@@ -148,6 +148,7 @@ The component knows its data only through this interface. Rows and columns are 1
 | `pick(sheet, cell, item, text)` | A picked list item written as Excel writes it. | The item goes to `edit` with `accept`. | [validation.md](validation.md) |
 | `freeze(sheet, panes: { rows; cols } \| null)` | Freeze Panes in the menu. | The lock alone hides a book's freeze. | [view.md](view.md) |
 | `functionNames(signal?) => Promise<string[]>` | Formula AutoComplete. | No list. | [autocomplete.md](autocomplete.md) |
+| `functionSignature(name, signal?) => Promise<FunctionSignature \| null>` | A function's arguments for Excel's tip while a formula is typed (`SUM(number1, [number2], ...)`); the name as typed, any case; null for a function the source does not know. | No tip. | [autocomplete.md](autocomplete.md) |
 | `explain(sheet, cell) => Promise<string>` | Trace Precedents. | No panel. | [view.md](view.md) |
 | `end(sheet, cell, direction, signal?) => Promise<string>` | Control and an arrow as Excel's Range.End. | The edge of the data the sheet knows. | [editing.md](editing.md) |
 | `stats(sheet, range, filter?, signal?) => Promise<RangeStats>` | Selection totals over the whole range. | Counted over the loaded windows. | |
