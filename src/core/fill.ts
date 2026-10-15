@@ -1,11 +1,11 @@
-// Excel's fill handle: the square at the selection's corner. Dragged down, up, right or left, its frame grows along the
-// axis the pointer went furthest, and the release copies the selection over the cells added through the source's
-// `structure` (`copyRange`, which tiles); a double click fills down as far as the data of the column beside goes.
-// TODO(xlcalc): Excel's fill handle extends series (1, 2 → 3, 4; dates by day; Item1 → Item2) and tiles a part of the
-// source at the end; `copyRange` copies whole tiles alone, so the frame grows by the source's size and a series is copied.
+// Excel's fill handle: the square at the selection's corner. Dragged down, up, right or left, its frame grows cell by
+// cell along the axis the pointer went furthest, and the release fills the frame from the selection through the source's
+// `structure` (`fillRange`, Excel's AutoFill: series go on, the rest is copied; Ctrl makes a single number go on); a
+// double click fills down as far as the data of the column beside goes.
 import { computed, getCurrentScope, onScopeDispose, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
-import type { CellRect } from 'xlcalc/contract'
+import type { CellRect, FillType } from 'xlcalc/contract'
+import { onMac } from './clip'
 import type { Commands } from './commands'
 import type { Editing, EditorState } from './editing'
 import type { Geometry } from './geometry'
@@ -22,7 +22,7 @@ export interface FillDeps {
   editor: Ref<EditorState | null>
 }
 
-/** A drag of the handle: the selection it copies, the cells added so far, the pointer. */
+/** A drag of the handle: the selection it fills from, the cells added so far, the pointer. */
 export interface FillDrag {
   from: CellRect
   to: CellRect | null
@@ -31,11 +31,9 @@ export interface FillDrag {
 }
 
 const union = (a: CellRect, b: CellRect): CellRect => ({ top: Math.min(a.top, b.top), left: Math.min(a.left, b.left), bottom: Math.max(a.bottom, b.bottom), right: Math.max(a.right, b.right) })
-/** Cells `n` rounded up to whole tiles of `size`, as `copyRange` tiles them. */
-const tiles = (n: number, size: number) => Math.ceil(n / size) * size
 
 export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selection, ed: Editing, cmd: Commands, deps: FillDeps) {
-  /** The range the handle copies: a finite selection of an editable sheet with `structure`, not under the display filter or while a field is open. */
+  /** The range the handle fills from: a finite selection of an editable sheet with `structure`, not under the display filter or while a field is open. */
   const source = computed<CellRect | null>(() => {
     const r = sel.fullRect.value
     if (!r || !s.sheet.value || !s.editable.value || !cmd.can('structure') || s.visible.value || deps.editor.value) return null
@@ -59,7 +57,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     return v.boxOf(u.top, u.left, u.bottom, u.right)
   })
 
-  /** The cells a drag adds with the pointer at a point of the page: along the axis it went furthest from the selection, in whole tiles. */
+  /** The cells a drag adds with the pointer at a point of the page: along the axis it went furthest from the selection, up to the pointer's cell. */
   function targetAt(from: CellRect, clientX: number, clientY: number): CellRect | null {
     const el = s.scroller.value
     if (!el) return null
@@ -74,22 +72,20 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     const dy = p.y >= bottom ? p.y - bottom : p.y < top ? top - p.y : 0
     const dx = p.x >= right ? p.x - right : p.x < left ? left - p.x : 0
     if (dy === 0 && dx === 0) return null
-    const h = from.bottom - from.top + 1
-    const w = from.right - from.left + 1
     if (dy >= dx) {
       if (p.y >= bottom) {
-        const n = Math.min(tiles(p.d - from.bottom, h), Math.floor((MAX_ROWS - from.bottom) / h) * h)
-        return n > 0 ? { ...from, top: from.bottom + 1, bottom: from.bottom + n } : null
+        const end = Math.min(p.d, MAX_ROWS)
+        return end > from.bottom ? { ...from, top: from.bottom + 1, bottom: end } : null
       }
-      const n = Math.min(tiles(from.top - p.d, h), Math.floor((from.top - 1) / h) * h)
-      return n > 0 ? { ...from, top: from.top - n, bottom: from.top - 1 } : null
+      const start = Math.max(p.d, 1)
+      return start < from.top ? { ...from, top: start, bottom: from.top - 1 } : null
     }
     if (p.x >= right) {
-      const n = Math.min(tiles(p.col - from.right, w), Math.floor((MAX_COLS - from.right) / w) * w)
-      return n > 0 ? { ...from, left: from.right + 1, right: from.right + n } : null
+      const end = Math.min(p.col, MAX_COLS)
+      return end > from.right ? { ...from, left: from.right + 1, right: end } : null
     }
-    const n = Math.min(tiles(from.left - p.col, w), Math.floor((from.left - 1) / w) * w)
-    return n > 0 ? { ...from, left: from.left - n, right: from.left - 1 } : null
+    const start = Math.max(p.col, 1)
+    return start < from.left ? { ...from, left: start, right: from.left - 1 } : null
   }
   /** Scroll the grid while the pointer is at or past the frame's edge, so a drag reaches cells off screen. */
   function edgeScroll(clientX: number, clientY: number): void {
@@ -128,7 +124,8 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     const d = drag.value
     if (!d || e.pointerId !== d.pointer) return
     end()
-    if (d.to) return void fill(d.from, d.to)
+    // Excel for Windows takes Ctrl at the release, Excel for Mac Option (Control there is the right click).
+    if (d.to) return void fill(d.from, d.to, e.ctrlKey || (e.altKey && onMac()) ? 'series' : undefined)
     // A finger's tap on the handle's wide target meant the cell under it.
     if (d.touch) {
       const box = s.scroller.value?.getBoundingClientRect()
@@ -138,7 +135,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     }
   }
   const onCancel = end
-  /** Esc while dragged, before the grid's keys: Excel drops the drag, so the release copies nothing; the pointer is let go. */
+  /** Esc while dragged, before the grid's keys: Excel drops the drag, so the release fills nothing; the pointer is let go. */
   function onKey(e: KeyboardEvent): void {
     const d = drag.value
     if (e.key !== 'Escape' || !d) return
@@ -156,26 +153,25 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
   }
   if (getCurrentScope()) onScopeDispose(end)
 
-  /** Copy `from` over `to` in one step of undo; the selection becomes both, as Excel leaves it. */
-  async function fill(from: CellRect, to: CellRect): Promise<void> {
+  /** Fill the frame of `from` and the cells added `to` from `from` in one step of undo; the selection becomes the frame, as Excel leaves it. */
+  async function fill(from: CellRect, to: CellRect, type?: FillType): Promise<void> {
     const lock = ed.lockIn(to)
     if (lock !== null) return deps.notify(s.messages.value.locked(lock))
     const sheet = s.sheetName.value
+    const frame = union(from, to)
     const before = { selected: s.selected.value, extent: s.extent.value }
-    const out = await cmd.structure({ op: 'copyRange', from: { sheet, range: rangeAddress(from) }, to: { sheet, range: rangeAddress(to) } })
-    if (out?.ok && sheet === s.sheetName.value && s.selected.value === before.selected && s.extent.value === before.extent) sel.selectRect(union(from, to))
+    const out = await cmd.structure({ op: 'fillRange', sheet, range: rangeAddress(from), to: rangeAddress(frame), ...(type ? { type } : {}) })
+    if (out?.ok && sheet === s.sheetName.value && s.selected.value === before.selected && s.extent.value === before.extent) sel.selectRect(frame)
   }
 
-  /** Excel's double click on the handle: down to the last row of the data in the column left of the selection, else right of it, in whole tiles. */
+  /** Excel's double click on the handle: down to the last row of the data in the column left of the selection, else right of it. */
   async function autofill(): Promise<void> {
     const from = source.value
     if (!from) return
-    const h = from.bottom - from.top + 1
     for (const col of [from.left - 1, from.right + 1]) {
       if (col < 1 || col > MAX_COLS) continue
       const end = await dataEnd(col, from.bottom + 1)
-      const n = Math.floor((end - from.bottom) / h) * h
-      if (end > from.bottom) return n > 0 ? fill(from, { ...from, top: from.bottom + 1, bottom: from.bottom + n }) : undefined
+      if (end > from.bottom) return fill(from, { ...from, top: from.bottom + 1, bottom: end })
     }
   }
   /** The last row of the run of filled cells in a column from `row` down, as the source has it, read in windows of the cell limit. */
