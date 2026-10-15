@@ -43,7 +43,7 @@
   },
   "peerDependencies": {
     "vue": "^3.5.0",
-    "xlcalc": ">=0.37.0"
+    "xlcalc": ">=0.39.0"
   },
   "peerDependenciesMeta": {
     "xlcalc": {

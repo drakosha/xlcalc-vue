@@ -1,6 +1,6 @@
 # A book computed in the browser: `xlcalc-sheet/local`
 
-`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It needs `xlcalc` 0.37.0 or later, an optional peer of the package that the host installs. The book computes in a Web Worker (`xlcalc/worker`), or in the page's thread with `calc: 'inline'`. The book's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); a locale xlcalc has no module for fails the opening with the library's message.
+`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It needs `xlcalc` 0.39.0 or later, an optional peer of the package that the host installs. The book computes in a Web Worker (`xlcalc/worker`), or in the page's thread with `calc: 'inline'`. The book's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); a locale xlcalc has no module for fails the opening with the library's message.
 
 ## What the source does
 
@@ -16,7 +16,7 @@ Typed text is read in the book's locale, several cells in one step of the undo (
 
 ## Merging, structure and the rest
 
-Merge Cells and Unmerge Cells are xlcalc's `mergeCells` and `unmergeCells` structure operations (xlcalc 0.37): the area keeps its top-left value, its cells take the top-left cell's look, and a range that meets a table or an array formula of the old kind is refused with the library's message. Structure operations, widths and heights, formatting over each cell's look (`format`, as Excel's Bold over a selection), frozen panes (`freeze`, one `setLayout` call and one step of the undo), `explain`, `end` (the session's `getEnd`, Excel's Range.End as xlcalc measured it), totals, Find and Replace, the display filter and sort complete it.
+The fill handle's `fillRange` is xlcalc's AutoFill (xlcalc 0.39, measured in Excel for Windows): the frame is filled from the source as `copyRange` copies it, then series go on (numbers by their trend, dates by days, steps or months, times, text with a number, quarters, names of days and months), backwards up and left; on a sheet with a filter only the visible rows are filled, where Excel fills the hidden ones too. Merge Cells and Unmerge Cells are xlcalc's `mergeCells` and `unmergeCells` structure operations (xlcalc 0.37): the area keeps its top-left value, its cells take the top-left cell's look, and a range that meets a table or an array formula of the old kind is refused with the library's message. Structure operations, widths and heights, formatting over each cell's look (`format`, as Excel's Bold over a selection), frozen panes (`freeze`, one `setLayout` call and one step of the undo), `explain`, `end` (the session's `getEnd`, Excel's Range.End as xlcalc measured it), totals, Find and Replace, the display filter and sort complete it.
 
 ## Find and Replace
 
