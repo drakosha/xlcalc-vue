@@ -58,7 +58,7 @@ export interface SheetSource {
    * `СУММ(число1;[число2];...)`): the name as typed, in English or the source's locale, any case; null for a function it
    * does not know. Without it there is no tip.
    */
-  functionSignature?(name: string, signal?: AbortSignal): Promise<FunctionSignature | null>
+  functionSignature?(name: string, signal?: AbortSignal): Promise<SheetFunctionSignature | null>
   /** A cell's precedents tree as text. */
   explain?(sheet: string, cell: string): Promise<string>
   /**
@@ -84,6 +84,9 @@ export interface SheetSource {
   /** The steps `undo` and `redo` can take, as of the last finished call: a toolbar turns its buttons on by them. */
   readonly history?: { readonly undo: number; readonly redo: number }
 }
+
+/** A function's signature as a source gives it, with what Excel's Insert Function shows under the syntax: one line of what the function does, in the source's locale. */
+export type SheetFunctionSignature = FunctionSignature & { description?: string }
 
 /** A range's formatting in `SheetSource.format`. */
 export interface FormatPatch {
