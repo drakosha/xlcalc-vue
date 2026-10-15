@@ -4,9 +4,9 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { functionSignature } from 'xlcalc'
-import type { FunctionSignature } from 'xlcalc/contract'
+import { ruRUFunctionText } from 'xlcalc/function-text/ru-RU'
 import { ruRU } from 'xlcalc/locales/ru-RU'
-import { memorySource, type MemoryBook } from '../src'
+import { memorySource, type MemoryBook, type SheetFunctionSignature } from '../src'
 import FunctionTip from '../src/components/FunctionTip.vue'
 import { tipParts } from '../src/core/function-tip'
 import { editorKey, editorOpen, key, mountSheet, pressBar, settle, type } from './helpers'
@@ -20,7 +20,7 @@ const book = (functions?: string[]): MemoryBook => ({ sheets: [{ name: 'S', cell
 /** A memory source with the library's signatures in a locale. */
 function signed(locale?: typeof ruRU, functions?: string[]) {
   const source = memorySource(book(functions))
-  const asked = vi.fn(async (name: string, _signal?: AbortSignal) => functionSignature(name, locale))
+  const asked = vi.fn(async (name: string, _signal?: AbortSignal) => functionSignature(name, locale && { ...locale, ...ruRUFunctionText }))
   source.functionSignature = asked
   return { source, asked }
 }
@@ -61,7 +61,7 @@ describe('tipParts: the tip in pieces with the current argument', () => {
     expect(text(tipParts(sumifs, 5))).toBe('SUMIFS(sum_range, criteria_range1, criteria1, [criteria_range2, criteria2], [criteria_range3, criteria3], ...)')
     expect(on(tipParts(sumifs, 5))).toEqual(['criteria_range3'])
     expect(on(tipParts(sumifs, 6))).toEqual(['criteria3'])
-    expect(text(tipParts(functionSignature('СУММ', ruRU)!, 2))).toBe('СУММ(число1;[число2];[число3];...)')
+    expect(text(tipParts(functionSignature('СУММ', { ...ruRU, ...ruRUFunctionText })!, 2))).toBe('СУММ(число1;[число2];[число3];...)')
   })
 
   it('past the arguments of a function that takes no more: none in bold', () => {
@@ -71,7 +71,7 @@ describe('tipParts: the tip in pieces with the current argument', () => {
   })
 
   it('a signature of the host’s own, with names the text does not hold, is shown as its text', () => {
-    const own: FunctionSignature = { name: 'F', args: [{ name: 'x', optional: false }], repeat: 0, text: 'F(value)', category: 'math', categoryName: 'Math & Trig', description: 'The host’s own.' }
+    const own: SheetFunctionSignature = { name: 'F', fn: 'F', args: [{ name: 'x', optional: false }], repeat: 0, text: 'F(value)', category: 'math', categoryName: 'Math & Trig', description: 'The host’s own.' }
     expect(tipParts(own, 0)).toEqual([{ text: 'F(value)' }])
   })
 })
@@ -215,7 +215,7 @@ describe('the source’s signatures', () => {
   it('an answer for a call the caret left is aborted and not shown', async () => {
     const { source } = signed()
     const signals: AbortSignal[] = []
-    const gives: ((s: FunctionSignature | null) => void)[] = []
+    const gives: ((s: SheetFunctionSignature | null) => void)[] = []
     source.functionSignature = (_name, signal) => {
       signals.push(signal!)
       return new Promise((resolve) => gives.push(resolve))
@@ -266,7 +266,7 @@ describe('the tip under the formula bar', () => {
 describe('FunctionTip', () => {
   const FIELD = { top: 100, left: 300, width: 80, height: 20 }
   const VIEW = { top: 0, left: 0, width: 360, height: 400 }
-  const parts = tipParts(functionSignature('СУММ', ruRU)!, 1)
+  const parts = tipParts(functionSignature('СУММ', { ...ruRU, ...ruRUFunctionText })!, 1)
 
   it('under the field, kept inside the view by its measured width; over the field where the view has no room below', async () => {
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(300)

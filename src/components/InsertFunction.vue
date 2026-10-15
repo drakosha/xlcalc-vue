@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Excel's Insert Function window: a search, the category box (recently used, all, the source's categories), the functions, and the syntax and description of the one selected.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import type { FunctionCategory, FunctionSignature } from 'xlcalc/contract'
+import type { FunctionCategory } from 'xlcalc/contract'
+import type { SheetFunctionSignature } from '../source'
 import { useSheetContext } from './context'
 
 const emit = defineEmits<{ pick: [name: string]; close: [] }>()
@@ -15,7 +16,7 @@ const RECENT = 'recentFunctions'
 const RECENT_MAX = 10
 
 const names = shallowRef<string[]>([])
-const sigs = shallowRef(new Map<string, FunctionSignature | null>())
+const sigs = shallowRef(new Map<string, SheetFunctionSignature | null>())
 const recent = (ctx.memory.recall<string[]>(RECENT) ?? []).filter((n) => typeof n === 'string')
 const category = ref<string>(recent.length ? 'recent' : 'all')
 const query = ref('')

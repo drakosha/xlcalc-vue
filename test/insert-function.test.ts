@@ -23,7 +23,7 @@ function signed() {
   const asked: string[] = []
   source.functionSignature = async (name: string) => {
     asked.push(name)
-    return { name: name.toUpperCase(), args: [{ name: 'число1', optional: false }], repeat: 1, text: `${name.toUpperCase()}(число1;[число2];...)`, ...about[name.toUpperCase()]! }
+    return { name: name.toUpperCase(), fn: name.toUpperCase(), args: [{ name: 'число1', optional: false }], repeat: 1, text: `${name.toUpperCase()}(число1;[число2];...)`, ...about[name.toUpperCase()]! }
   }
   return { source, asked }
 }

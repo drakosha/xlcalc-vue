@@ -1,11 +1,11 @@
 // localSource: a sheet source over an xlcalc book whose session runs in a Web Worker pool or in the page's thread.
 // The session holds the book, computes it, finds as Excel's Find and answers windows, sheets and edits as Excel makes
 // them; this side keeps the sheets' shown values for the display filter, patched by the changes and dropped on a reload.
-import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type LineSpan, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type LineSpan, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, colLetters, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetOutline, SourceEvent, WindowRequest } from '../source'
 import { boxesUnder, findHits, replaceAll } from './find'
-import { loadLocale } from './locale'
+import { loadLocale, tipLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { filterKey } from '../filter-key'
 import { columnValuesOf, filterActive, SheetValues, statsOf, visibleList } from './query'
@@ -90,6 +90,8 @@ async function outlineOp(s: AsyncSession, change: OutlineChange): Promise<SheetO
 /** A source over `input`: the book goes to the session as it is (its cells are not copied), so do not change it afterwards. */
 export function localSource(input: BookInput, opts: LocalSourceOptions = {}): LocalSource {
   const locale = input.locale ?? 'en-US'
+  // What each function does, for Insert Function: loaded with the first tip, as a host that only computes needs none of it.
+  let describe: Promise<((fn: string, words: Locale | string) => string | null) | null> | undefined
   // Text sorts in the book's locale once it is loaded; an unknown locale fails the opening.
   let collator: Intl.Collator
   const maxCells = opts.maxCells ?? MAX_CELLS
@@ -495,11 +497,16 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const local = LOCALES.get(locale)?.functions ?? {}
       return FUNCTION_NAMES.map((name) => local[name] ?? name).sort(new Intl.Collator(locale).compare)
     },
-    /** A function's tip in the book's locale, by its name in English or the locale; a table lookup, the component keeps what it got. */
+    /** A function's tip and description in the book's locale (its words loaded on the first ask), by its name in English or the locale; a table lookup, the component keeps what it got. */
     async functionSignature(name, signal) {
       await ready
       check(signal)
-      return functionSignature(name, locale)
+      const words = await tipLocale(locale)
+      check(signal)
+      const sig = functionSignature(name, words)
+      describe ??= import('xlcalc/function-text').then((m) => m.functionDescription, () => null)
+      const description = sig && (await describe)?.(sig.fn, words)
+      return sig && description ? { ...sig, description } : sig
     },
     async explain(sheet, cell) {
       return (await (await open()).explain(sheet, cell)).text

@@ -37,7 +37,7 @@ describe('localSource: functionNames', () => {
 describe('localSource: functionSignature', () => {
   it('in en-US: SUM’s tip, the name in any case', async () => {
     const sig = await source({ ...book(), locale: 'en-US' }).functionSignature('sum')
-    expect(sig).toEqual({ name: 'SUM', args: [{ name: 'number1', optional: false }, { name: 'number2', optional: true }], repeat: 1, text: 'SUM(number1, [number2], ...)', category: 'math', categoryName: 'Math & Trig', description: 'The sum of numbers.' })
+    expect(sig).toEqual({ name: 'SUM', fn: 'SUM', args: [{ name: 'number1', optional: false }, { name: 'number2', optional: true }], repeat: 1, text: 'SUM(number1, [number2], ...)', category: 'math', categoryName: 'Math & Trig', description: 'The sum of numbers.' })
   })
 
   it('in ru-RU: the Russian tip, by the Russian name or the English one; null for no function', async () => {

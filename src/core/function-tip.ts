@@ -1,9 +1,9 @@
 // Excel's tip with a function's arguments while a formula is typed (`SUMIFS(sum_range, criteria_range1, …)`): the call the
 // caret stands in, its signature asked of the source once per name, the argument the caret is at in bold.
 import { computed, getCurrentScope, onScopeDispose, shallowRef, watch, type Ref } from 'vue'
-import type { FunctionSignature, ScanOptions } from 'xlcalc/contract'
+import type { ScanOptions } from 'xlcalc/contract'
 import { callAt } from 'xlcalc/text'
-import type { SheetSource } from '../source'
+import type { SheetFunctionSignature, SheetSource } from '../source'
 import type { EditorState } from './editing'
 
 /** A piece of the tip's text; the argument the caret is at is `current`. */
@@ -32,7 +32,7 @@ function nameAfter(names: string[], i: number, repeat: number): string {
  * counted on until it holds the argument (`SUM(number1, [number2], [number3], ...)`), as Excel's tip. A text that does
  * not hold the names in order is shown whole, nothing current.
  */
-export function tipParts(sig: FunctionSignature, index: number): TipPart[] {
+export function tipParts(sig: SheetFunctionSignature, index: number): TipPart[] {
   const { text, args, repeat } = sig
   const spans: { at: number; end: number }[] = []
   let pos = text.indexOf('(') + 1
@@ -84,10 +84,10 @@ export interface FunctionTipDeps {
 /** The tip's state over the editor's draft: the signature of the call at the caret and its argument, asked once per name. */
 export function useFunctionTip(deps: FunctionTipDeps) {
   /** The signature shown and the argument the caret is at. */
-  const tip = shallowRef<{ sig: FunctionSignature; index: number } | null>(null)
+  const tip = shallowRef<{ sig: SheetFunctionSignature; index: number } | null>(null)
   const parts = computed(() => (tip.value && !deps.listOpen() ? tipParts(tip.value.sig, tip.value.index) : null))
   /** Signatures by the name's upper case for one source; null for a name it does not know. */
-  let cache = new Map<string, FunctionSignature | null>()
+  let cache = new Map<string, SheetFunctionSignature | null>()
   let cacheOf: SheetSource | null = null
   /** The call the caret stands in now, by the name's key. */
   let want: { key: string; index: number } | null = null
@@ -154,7 +154,7 @@ export function useFunctionTip(deps: FunctionTipDeps) {
   }
 
   /** A function's signature for Insert Function, from the tip's cache or asked of the source and kept; null for a name the source does not know or without `functionSignature`. */
-  async function signature(name: string): Promise<FunctionSignature | null> {
+  async function signature(name: string): Promise<SheetFunctionSignature | null> {
     const src = deps.source()
     if (!src.functionSignature) return null
     if (cacheOf !== src) {
