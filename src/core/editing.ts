@@ -5,6 +5,7 @@ import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
 import type { CellEntry, EditOutcome, EditOptions } from '../source'
 import { useAutocomplete } from './autocomplete'
+import { useFunctionTip } from './function-tip'
 import type { AlertAnswer, SheetAlert } from './validation'
 import { numberEditText, textEditText } from './edit-text'
 import type { Formula } from './formula'
@@ -132,16 +133,26 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       const top = caretTop(el, ed.caret)
       el.setSelectionRange(ed.caret, ed.caret)
       if (top !== null) el.scrollTop = top
+      tip.update(ed.text, ed.caret)
       ed.caret = null
     })
   }
   /** Excel's Formula AutoComplete over the draft: the list of functions under the field. */
   const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor })
+  /** Excel's tip with the arguments of the function the caret stands in, under the field; the list goes first. */
+  const tip = useFunctionTip({ source: s.source, editor, input: inputOf, scan: f.scanOptions, listOpen: () => ac.open.value })
   function onEditorInput(e: Event): void {
     const el = e.target as HTMLTextAreaElement
     if (!editor.value) return
     editor.value.text = el.value
-    ac.update(el.value, el.selectionStart === el.selectionEnd ? el.selectionStart : null)
+    const caret = el.selectionStart === el.selectionEnd ? el.selectionStart : null
+    ac.update(el.value, caret)
+    tip.update(el.value, caret)
+  }
+  /** A click in the field moved the caret: the list and the tip follow it. */
+  function onEditorClick(): void {
+    ac.follow()
+    tip.follow()
   }
 
   /** Finish the edit: the cursor moves at once, the source gets the text unless it did not change. */
@@ -410,6 +421,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const ed = editor.value
     if (!ed || e.isComposing) return
     e.stopPropagation()
+    tip.follow()
     if (deps.barKey?.(e) || ac.onKey(e) || deps.point?.(e)) return
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -448,7 +460,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, ac, onEditorInput, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

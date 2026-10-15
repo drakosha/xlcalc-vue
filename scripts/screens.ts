@@ -308,6 +308,48 @@ async function mergeScreens(page: Page, size: (typeof SIZES)[number]): Promise<v
   console.log(`merge ${size.name}: the list under Merge & Center, A1:B2 merged and centred, the button pressed`)
 }
 
+/**
+ * Excel's tip with a function's arguments in the app (spa.html, the local source): SUMIFS at its third group of criteria in
+ * a cell near the right edge (a phone's view is narrower than the tip: it wraps inside it), then ROUND inside a sum in
+ * the formula bar. The tip stays in the window, never with the list of functions, and the page does not scroll sideways.
+ */
+async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
+  const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
+  const check = async (where: string, current: string) => {
+    await page.waitForSelector('[data-xs-tip] .xs-ft-on')
+    const got = await page.evaluate(() => {
+      const tip = document.querySelector('[data-xs-tip]')!
+      const r = tip.getBoundingClientRect()
+      return {
+        current: tip.querySelector('.xs-ft-on')!.textContent!.trim(),
+        inside: r.left >= 0 && r.right <= document.documentElement.clientWidth && r.bottom <= window.innerHeight,
+        list: !!document.querySelector('[data-xs-functions]'),
+        wide: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        lines: Math.round(r.height / 18),
+      }
+    })
+    if (got.current !== current || !got.inside || got.list || got.wide) throw new Error(`tip ${size.name} ${where}: ${JSON.stringify(got)}, want ${current} in the window alone`)
+    return got
+  }
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await page.waitForFunction(() => document.querySelector('[data-spa-status]')?.textContent?.trim() === 'Готово', null, { timeout: 30_000 })
+  // `=` opens the cell's field by its key; Cyrillic then comes as text input into the field
+  await press(size.mobile ? '[data-cell="1:4"]' : '[data-cell="2:6"]')
+  await page.keyboard.press('=')
+  await page.keyboard.type('СУММЕСЛИМН(A1:A9;B1:B9;"x";C1:C9;"y";')
+  const cell = await check('in the cell', 'диапазон_условия3')
+  await shot(page, size.name, '58-tip-cell')
+  await page.keyboard.press('Escape')
+  await press('[data-cell="3:2"]')
+  await press('.xs-fx')
+  await page.keyboard.type('=СУММ(1;ОКРУГЛ(2,5;')
+  const bar = await check('in the formula bar', 'разряды')
+  await shot(page, size.name, '59-tip-bar')
+  await page.keyboard.press('Escape')
+  console.log(`tip ${size.name}: SUMIFS in a cell (${cell.lines} lines), ROUND in the bar (${bar.lines} lines), inside the window, no list, no side scroll`)
+}
+
 for (const size of SIZES) {
   const context = await browser.newContext({
     viewport: { width: size.width, height: size.height },
@@ -417,6 +459,7 @@ for (const size of SIZES) {
   await validationScreens(page, size)
   await commandScreens(page, size)
   await mergeScreens(page, size)
+  await tipScreens(page, size)
 
   // Editing in place: typing over a cell, then the edit in flight.
   await open(page, 'Формулы!C2')

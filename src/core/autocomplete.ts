@@ -1,6 +1,5 @@
 // Excel's Formula AutoComplete in the field being edited: the functions whose names begin with the name typed at the
 // caret, the source's names asked once per source; Tab or a double click enters one with its "(", Esc closes the list.
-// TODO(xlcalc): Excel's tip with a function's arguments (`СУММ(число1;[число2];…)`) waits for the library's signatures of functions.
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
 import type { SheetSource } from '../source'
 import type { EditorState } from './editing'

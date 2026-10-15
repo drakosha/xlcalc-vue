@@ -14,6 +14,7 @@
 // on the phone).
 // Then Formula AutoComplete: `=СУ` typed into a cell (the formula bar on the phone) lists СУММ first, Tab (a tap on the
 // phone) enters `СУММ(`, and `A1:A3)` with Enter sums the column.
+// Then the tip with a function's arguments: `=СУММ(1;` shows `СУММ(число1;[число2];...)` with число2 in bold, Esc takes it.
 // Then, on the desktop, a file with a circular reference opened from the picker holds the values it stores, as Excel
 // opens it, through an edit elsewhere; Control+Down goes to the end of a block (Range.End); and a cell copied over a
 // whole column is refused at once by the app's limit of cells one change writes, the book as it was.
@@ -855,6 +856,53 @@ async function autocompleteScenario(browser: Browser, base: string, size: Size):
   await context.close()
 }
 
+/**
+ * Excel's tip with a function's arguments on a new ru-RU book: `=СУММ(1;` typed into A1 (in the cell on the desktop, in
+ * the formula bar on the phone) shows `СУММ(число1;[число2];...)` under the field with число2 in bold, inside the window;
+ * Esc cancels the edit and the tip goes with it.
+ */
+async function tipScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  const at = (what: string) => `[${size.name} tip] ${what}`
+
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await press(page, size, '[data-spa="new"]')
+  await press(page, size, '[data-spa-locale="ru-RU"]')
+  await press(page, size, '[data-spa="create"]')
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+
+  if (size.phone) {
+    await page.locator('[data-cell="1:1"]').tap()
+    await page.locator('.xs-fx').tap()
+  } else await page.locator('[data-cell="1:1"]').click()
+  // `=` by its key opens the cell's field; the Cyrillic comes as text input into it
+  await page.keyboard.press('=')
+  await page.keyboard.type('СУММ(1;')
+  await page.waitForSelector('[data-xs-tip] .xs-ft-on')
+  const tip = await page.evaluate(() => {
+    const el = document.querySelector('[data-xs-tip]')!
+    const r = el.getBoundingClientRect()
+    return { text: el.textContent!.trim(), current: el.querySelector('.xs-ft-on')!.textContent!.trim(), inside: r.left >= 0 && r.right <= window.innerWidth && r.top >= 0 && r.bottom <= window.innerHeight }
+  })
+  expect(at('the tip'), tip, { text: 'СУММ(число1;[число2];...)', current: 'число2', inside: true })
+  expect(at('the tip’s place'), await page.locator(size.phone ? '.xs-fx [data-xs-tip]' : '.xs-scroller [data-xs-tip]').count(), 1)
+  if (size.phone) await checkNoSideScroll(page, at('the tip'))
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-t01-tip.png`) })
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[data-xs-tip]', { state: 'detached' })
+  expect(at('A1 after Esc'), cellOf(await bookOf(page), 'A1').formula, undefined)
+  console.log(`${at('ok')}: =СУММ(1; showed СУММ(число1;[число2];...) with число2 in bold ${size.phone ? 'under the formula bar' : 'under the cell'}; Esc took the edit and the tip`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 /** A file whose A1 and B1 read each other, C1 reads them and E1 does not, with the values Excel would store; opened from the picker. */
 async function cycleScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
@@ -1103,6 +1151,8 @@ try {
   await fillCopyScenario(browser, base, phone)
   await autocompleteScenario(browser, base, desktop)
   await autocompleteScenario(browser, base, phone)
+  await tipScenario(browser, base, desktop)
+  await tipScenario(browser, base, phone)
   await cycleScenario(browser, base, desktop)
   await limitScenario(browser, base, desktop)
   await formulaRowScenario(browser, base, desktop)
