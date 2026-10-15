@@ -32,8 +32,8 @@ export interface ClipDeps {
   colShown: (col: number) => boolean
 }
 
-/** Excel for Mac ends a copy's text without a line break, Excel for Windows with CRLF. */
-const onMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+/** A Mac, where Excel ends a copy's text without a line break (Windows with CRLF) and drags a series with Option. */
+export const onMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
 
 /** Clipboard text as compared: line ends of any system, without the last one. */
 const plain = (t: string) => t.replace(/\r\n?/g, '\n').replace(/\n$/, '')

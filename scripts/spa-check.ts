@@ -9,7 +9,7 @@
 // Then Find and Replace and Format Cells on a new book: a search with Match case and in values, Replace All and its
 // Control+Z, the dialog's font, outline and percent with OK and their undo.
 // Then the fill handle and cut, copy and paste inside the book: a formula dragged three rows down by its handle (on the
-// desktop a drag dropped by Esc first, which copies nothing), a range
+// desktop a drag dropped by Esc first, which copies nothing), a series 1, 2 dragged on to 3, 4, a range
 // with a formula copied and pasted, a formula cut and pasted, each undone (Control+C, X, V on the desktop, the cells' menu
 // on the phone).
 // Then Formula AutoComplete: `=СУ` typed into a cell (the formula bar on the phone) lists СУММ first, Tab (a tap on the
@@ -599,9 +599,9 @@ const formulas = async (page: Page, cells: string[]) => {
 
 /**
  * The fill handle and cut, copy and paste inside the book on a new ru-RU book: B1's formula dragged three rows down by
- * its handle (the mouse, or a finger on the phone), A1:B1 copied and pasted at D6, B1 cut and pasted at D2 (Control+C, X
- * and V on the desktop, the cells' menu a long press opens on the phone), each taken back by Control+Z (the toolbar's
- * undo on the phone). The book is checked after each step, the grid too.
+ * its handle (the mouse, or a finger on the phone), C1:C2 (1, 2) dragged to C4 going on as a series, A1:B1 copied and
+ * pasted at D6, B1 cut and pasted at D2 (Control+C, X and V on the desktop, the cells' menu a long press opens on the
+ * phone), each taken back by Control+Z (the toolbar's undo on the phone). The book is checked after each step, the grid too.
  */
 async function fillCopyScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({
@@ -666,7 +666,7 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   await press(page, size, '[data-spa="create"]')
   await page.waitForSelector('[data-cell="1:1"]')
   await ready(page)
-  for (const [cell, text] of [['1:1', '1'], ['2:1', '2'], ['3:1', '3'], ['4:1', '4'], ['1:2', '=A1*10']] as const) await enter(page, size, cell, text)
+  for (const [cell, text] of [['1:1', '1'], ['2:1', '2'], ['3:1', '3'], ['4:1', '4'], ['1:2', '=A1*10'], ['1:3', '1'], ['2:3', '2']] as const) await enter(page, size, cell, text)
   await shows(page, '1:2', '10')
   await ready(page)
 
@@ -714,6 +714,29 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   await stale(['2:2', '3:2', '4:2'], "the fill's undo")
   await shot('fill-undone')
 
+  // 1b. C1:C2 (1, 2) dragged by the handle to C4: the series goes on with 3 and 4, as Excel's fill handle; C1:C4 is selected.
+  await select('1:3', '2:3')
+  await page.waitForSelector('[data-xs-fill-handle]')
+  const seriesHandle = await middle(page, '[data-xs-fill-handle]')
+  const seriesTarget = await middle(page, '[data-cell="4:3"]')
+  if (size.phone) await touchDrag(page, seriesHandle, seriesTarget, () => page.waitForSelector('[data-xs-fill-frame]'))
+  else {
+    await page.mouse.move(seriesHandle.x, seriesHandle.y)
+    await page.mouse.down()
+    await page.mouse.move(seriesTarget.x, seriesTarget.y, { steps: 8 })
+    await page.waitForSelector('[data-xs-fill-frame]')
+    await page.mouse.up()
+  }
+  await shows(page, '3:3', '3')
+  await shows(page, '4:3', '4')
+  await ready(page)
+  expect(at('the filled series'), await formulas(page, ['C3', 'C4']), [3, 4])
+  expect(at('the selection after the series'), await addressOf(page), 'C1:C4')
+  await shot('series')
+  await undo()
+  expect(at('the series undone'), await formulas(page, ['C3', 'C4']), [null, null])
+  await stale(['3:3', '4:3'], "the series' undo")
+
   // 2. A1:B1 copied: its moving border; pasted at D6, where E6 reads D6; the border stays until Esc.
   await select('1:1', '1:2')
   if (size.phone) await menuItem('1:1', 'copy', true)
@@ -756,7 +779,7 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   expect(at('the move undone'), await formulas(page, ['B1', 'D2']), ['A1*10', null])
   await shot('move-undone')
   if (size.phone) await checkNoSideScroll(page, at('after the moves'))
-  console.log(`${at('ok')}: B1 filled to B4 by ${size.phone ? 'a finger' : 'the mouse'} (B4 is A4*10), A1:B1 pasted at D6 (E6 is D6*10), B1 moved to D2 (A1*10), each undone`)
+  console.log(`${at('ok')}: B1 filled to B4 by ${size.phone ? 'a finger' : 'the mouse'} (B4 is A4*10), 1, 2 filled on to 3, 4, A1:B1 pasted at D6 (E6 is D6*10), B1 moved to D2 (A1*10), each undone`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
