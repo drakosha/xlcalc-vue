@@ -153,6 +153,23 @@ export function useFunctionTip(deps: FunctionTipDeps) {
     })
   }
 
+  /** A function's signature for Insert Function, from the tip's cache or asked of the source and kept; null for a name the source does not know or without `functionSignature`. */
+  async function signature(name: string): Promise<FunctionSignature | null> {
+    const src = deps.source()
+    if (!src.functionSignature) return null
+    if (cacheOf !== src) {
+      cache = new Map()
+      cacheOf = src
+    }
+    const key = name.toUpperCase()
+    if (cache.has(key)) return cache.get(key)!
+    // A failed request is not kept, as the tip's.
+    const sig = await src.functionSignature(name).catch(() => undefined)
+    if (sig === undefined) return null
+    if (cacheOf === src) cache.set(key, sig)
+    return sig
+  }
+
   // A field opened, moved between the cell and the bar or closed (Esc, a commit), or a new source: the tip goes.
   watch([() => deps.editor.value, () => deps.editor.value?.place, deps.source], close)
   if (getCurrentScope())
@@ -161,7 +178,7 @@ export function useFunctionTip(deps: FunctionTipDeps) {
       if (timer) clearTimeout(timer)
     })
 
-  return { parts, update, follow, close }
+  return { parts, update, follow, close, signature }
 }
 
 export type FunctionTip = ReturnType<typeof useFunctionTip>

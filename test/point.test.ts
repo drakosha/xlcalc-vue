@@ -4,7 +4,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import { colPx } from '../src/core/geometry'
-import { active, editorKey, editorOpen, goTo, key, mountSheet, settle, type } from './helpers'
+import { active, editorKey, editorOpen, goTo, key, mountSheet, pressBar, settle, type } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -157,7 +157,7 @@ describe('Point mode', () => {
 
   it('works from the formula bar too', async () => {
     const w = await mountSheet(recorded().source)
-    await w.find('.xs-fx').trigger('click')
+    await pressBar(w, 0)
     await settle()
     const bar = w.find('.xs-fx textarea').element as HTMLTextAreaElement
     bar.value = '=1+'
@@ -236,7 +236,7 @@ describe('Point mode with the arrows', () => {
 
   it('the arrows move the caret in the formula bar', async () => {
     const w = await mountSheet(recorded().source)
-    await w.find('.xs-fx').trigger('click')
+    await pressBar(w, 0)
     await settle()
     const bar = w.find('.xs-fx textarea')
     ;(bar.element as HTMLTextAreaElement).value = '=1+'

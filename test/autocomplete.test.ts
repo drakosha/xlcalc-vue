@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import FunctionList from '../src/components/FunctionList.vue'
 import { nameAt } from '../src/core/autocomplete'
-import { active, editorKey, editorOpen, fakeSource, key, mountSheet, settle, type } from './helpers'
+import { active, editorKey, editorOpen, fakeSource, key, mountSheet, pressBar, settle, type } from './helpers'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -253,7 +253,7 @@ describe('the source’s names', () => {
 describe('the list under the formula bar', () => {
   it('shows under the bar’s field; Tab enters the name there', async () => {
     const w = await mountSheet(memorySource(book()))
-    await w.find('.xs-fx').trigger('click')
+    await pressBar(w, 0)
     const bar = w.find('.xs-fx-input')
     ;(bar.element as HTMLTextAreaElement).value = '=СР'
     await bar.trigger('input')

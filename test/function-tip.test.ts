@@ -9,7 +9,7 @@ import { ruRU } from 'xlcalc/locales/ru-RU'
 import { memorySource, type MemoryBook } from '../src'
 import FunctionTip from '../src/components/FunctionTip.vue'
 import { tipParts } from '../src/core/function-tip'
-import { editorKey, editorOpen, key, mountSheet, settle, type } from './helpers'
+import { editorKey, editorOpen, key, mountSheet, pressBar, settle, type } from './helpers'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -71,7 +71,7 @@ describe('tipParts: the tip in pieces with the current argument', () => {
   })
 
   it('a signature of the host’s own, with names the text does not hold, is shown as its text', () => {
-    const own: FunctionSignature = { name: 'F', args: [{ name: 'x', optional: false }], repeat: 0, text: 'F(value)' }
+    const own: FunctionSignature = { name: 'F', args: [{ name: 'x', optional: false }], repeat: 0, text: 'F(value)', category: 'math', categoryName: 'Math & Trig', description: 'The host’s own.' }
     expect(tipParts(own, 0)).toEqual([{ text: 'F(value)' }])
   })
 })
@@ -252,7 +252,7 @@ describe('the tip under the formula bar', () => {
   it('shows under the bar’s field', async () => {
     const { source } = signed()
     const w = await mountSheet(source)
-    await w.find('.xs-fx').trigger('click')
+    await pressBar(w, 0)
     await settle()
     const bar = w.find('.xs-fx-input')
     ;(bar.element as HTMLTextAreaElement).value = '=SUMIFS(A1:A3, B1:B3, '

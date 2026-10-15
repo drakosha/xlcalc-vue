@@ -180,7 +180,7 @@ async function fileScenario(browser: Browser, base: string): Promise<void> {
   await page.keyboard.press('Control+Enter')
   await shows(page, '3:2', '8')
   await page.locator('[data-cell="3:2"]').click()
-  const bar = (await page.locator('.xs-fx').textContent())?.trim()
+  const bar = await page.locator('.xs-fx-input').inputValue()
   if (bar !== '=A3*2') throw new Error(`B3 after Control+Return: ${bar}`)
   await shot('fill')
   // A paste at C1, a percent cell: 5 is 500 % (no percent editor), '007 keeps its apostrophe.

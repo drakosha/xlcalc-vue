@@ -1,6 +1,6 @@
 // Screenshots of the example at a phone's and a desktop's width: every sheet of the "all formatting" book and the editing states.
 // Run: npm run screens (node 22.18+ strips the types). Output: test-results/screens/, not in git.
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { chromium, type Page } from 'playwright'
 import { createServer } from 'vite'
@@ -56,7 +56,7 @@ async function checkDecorations(page: Page): Promise<void> {
 async function checkTargets(page: Page, mobile: boolean, scope = '.xs-sheet'): Promise<void> {
   const boxes = await page.evaluate((scope) =>
     [...document.querySelectorAll<HTMLElement>(['button', 'input', 'textarea', '[role=tab]', 'a'].map((x) => `${scope} ${x}`).join(', '))]
-      .filter((el) => !el.closest('.xs-table') && !el.matches('.xs-editor-idle, .xs-fx-idle') && el.getClientRects().length > 0)
+      .filter((el) => !el.closest('.xs-table') && !el.matches('.xs-editor-idle') && el.getClientRects().length > 0)
       .map((el) => {
         const target = el.matches('input[type=checkbox]') ? (el.closest('label') ?? el) : el
         const r = target.getBoundingClientRect()
@@ -234,7 +234,102 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   console.log(`commands ${size.name}: freeze at B3 and unfreeze, the precedents of B12 and Формулы!B2, row 3 gone after ${size.mobile ? 'the line\'s Reapply' : 'Control+Alt+L'}`)
 }
 
-/** Excel's formula bar over a cell of six lines: one line high and the grid in place, expanded by its arrow, and the caret on the last line seen in the collapsed field. */
+/**
+ * The formula bar's layer lies on its field's transparent text to the pixel: the bar drawn with the layer's text, then with the field's own
+ * (both black, the caret hidden), must be the same picture, but for a faint step of antialiasing; with `refs` the layer colours them by highlights.
+ */
+async function checkOverlay(page: Page, label: string, refs = false): Promise<void> {
+  if (refs) {
+    const painted = await page.evaluate(() => [...CSS.highlights.keys()].filter((k) => k.startsWith('xs-ref-') && CSS.highlights.get(k)!.size > 0).length)
+    if (!painted) throw new Error(`the bar's references are not coloured (${label})`)
+  }
+  const fx = page.locator('.xs-fx')
+  const black = Array.from({ length: 24 }, (_, i) => `.xs-fx-layer::highlight(xs-ref-${i}) { color: #000 !important }`).join(' ')
+  const style = await page.addStyleTag({ content: `.xs-fx-input { caret-color: transparent !important } .xs-fx-layer { color: #000 !important } ${black}` })
+  const layer = (await fx.screenshot()).toString('base64')
+  await style.evaluate((el) => (el.textContent = '.xs-fx-input { caret-color: transparent !important; color: #000 !important } .xs-fx-layer { visibility: hidden !important }'))
+  const field = (await fx.screenshot()).toString('base64')
+  await style.evaluate((el) => (el as HTMLElement).remove())
+  const diff = await page.evaluate(async ([a, b]) => {
+    const load = (src: string) =>
+      new Promise<HTMLImageElement>((ok, fail) => {
+        const img = new Image()
+        img.onload = () => ok(img)
+        img.onerror = fail
+        img.src = `data:image/png;base64,${src}`
+      })
+    const [x, y] = await Promise.all([load(a), load(b)])
+    const pixels = (img: HTMLImageElement) => {
+      const c = document.createElement('canvas')
+      c.width = img.width
+      c.height = img.height
+      const g = c.getContext('2d')!
+      g.drawImage(img, 0, 0)
+      return g.getImageData(0, 0, c.width, c.height).data
+    }
+    if (x.width !== y.width || x.height !== y.height) return -1
+    const p = pixels(x)
+    const q = pixels(y)
+    let n = 0
+    for (let i = 0; i < p.length; i += 4) if (Math.max(Math.abs(p[i]! - q[i]!), Math.abs(p[i + 1]! - q[i + 1]!), Math.abs(p[i + 2]! - q[i + 2]!)) > 4) n++
+    return n
+  }, [layer, field] as const)
+  if (diff === 0) return
+  const name = label.replace(/\W+/g, '-')
+  writeFileSync(resolve(out, `overlay-${name}-layer.png`), Buffer.from(layer, 'base64'))
+  writeFileSync(resolve(out, `overlay-${name}-field.png`), Buffer.from(field, 'base64'))
+  throw new Error(`the bar's layer does not lie on its field (${label}): ${diff} pixels differ, test-results/screens/overlay-${name}-*.png`)
+}
+
+/** The formula bar by the mouse, as Excel's and a code editor's: Ctrl+click (Cmd on a Mac) on a reference goes to it, a drag starts the edit with the text dragged over, a click moves a field open in the cell to the bar at the caret. */
+async function barMouse(page: Page): Promise<void> {
+  const text = '=СУММ(A:A)-СУММ(A2:A5)+Форматы!C2*0'
+  // the layer's characters lie on the field's: their boxes say where to press
+  const edge = (i: number, side: 'left' | 'right') =>
+    page.evaluate(
+      ([i, side]) => {
+        const r = new Range()
+        const t = document.querySelector('.xs-fx-layer')!.firstChild!
+        r.setStart(t, i)
+        r.setEnd(t, i + 1)
+        const b = r.getBoundingClientRect()
+        return { x: side === 'left' ? b.left + 1 : b.right - 1, y: b.top + b.height / 2 }
+      },
+      [i, side] as const,
+    )
+  const field = () => page.evaluate(() => ({ editing: !!document.querySelector('.xs-bar-editing'), at: [document.querySelector<HTMLTextAreaElement>('.xs-fx-input')!.selectionStart, document.querySelector<HTMLTextAreaElement>('.xs-fx-input')!.selectionEnd], address: document.querySelector<HTMLInputElement>('.xs-address')!.value }))
+  await open(page, 'Формулы!B6')
+  const ref = await edge(text.indexOf('A2:A5') + 2, 'left')
+  await page.keyboard.down('ControlOrMeta')
+  await page.mouse.click(ref.x, ref.y)
+  await page.keyboard.up('ControlOrMeta')
+  await page.waitForFunction(() => document.querySelector<HTMLInputElement>('.xs-address')!.value === 'A2:A5', null, { timeout: 5000 })
+  const went = await field()
+  if (went.editing) throw new Error(`Ctrl+click on a reference started an edit: ${JSON.stringify(went)}`)
+  await open(page, 'Формулы!B6')
+  const from = await edge(1, 'left')
+  const to = await edge(4, 'right')
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.mouse.move(to.x, to.y, { steps: 5 })
+  await page.mouse.up()
+  await page.waitForTimeout(100)
+  const dragged = await field()
+  if (!dragged.editing || dragged.at[0] !== 1 || dragged.at[1] !== 5) throw new Error(`a drag over СУММ did not start the edit with it selected: ${JSON.stringify(dragged)}`)
+  await page.keyboard.press('Escape')
+  await page.locator('.xs-scroller').focus()
+  await page.keyboard.press('F2')
+  await page.waitForSelector('.xs-editor:not(.xs-editor-idle)')
+  const caret = await edge(3, 'left')
+  await page.mouse.click(caret.x, caret.y)
+  await page.waitForTimeout(100)
+  const moved = await field()
+  if (!moved.editing || moved.at[0] !== 3 || moved.at[1] !== 3 || (await page.locator('.xs-editor:not(.xs-editor-idle)').count())) throw new Error(`a click on the bar did not take the cell's field there at the caret: ${JSON.stringify(moved)}`)
+  await page.keyboard.press('Escape')
+  console.log(`bar mouse: Ctrl+click went to A2:A5, a drag selected [1, 5] in an edit, the cell's field moved to the bar at 3`)
+}
+
+/** Excel's formula bar over a cell of six lines: one line high and the grid in place, expanded by its arrow, a click's caret where it was put, and the caret moved to the last line seen in the collapsed field. */
 async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
   const measure = () =>
@@ -250,27 +345,50 @@ async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   const collapsed = await measure()
   if (collapsed.grid !== plain.grid) throw new Error(`a cell of six lines moved the grid from ${plain.grid} to ${collapsed.grid} px`)
   await shot(page, size.name, '36-bar-collapsed')
+  await checkOverlay(page, 'six lines collapsed')
   if (size.mobile) await checkTargets(page, true)
   await press('[data-xs-bar-toggle]')
   await page.waitForSelector('.xs-fx-open')
   const expanded = await measure()
   await shot(page, size.name, '37-bar-expanded')
+  await checkOverlay(page, 'six lines expanded')
   await press('[data-xs-bar-toggle]')
   await page.waitForSelector('.xs-fx:not(.xs-fx-open)')
-  // The field opens in the bar with the caret at the end, on the sixth line: the collapsed field scrolls to it.
+  // A click opens the field in the bar with the caret where it was put, as Excel's; the caret taken to the end, on the sixth line, scrolls the collapsed field and its layer there.
   await press('.xs-fx')
-  await page.waitForSelector('.xs-fx-input:not(.xs-fx-idle)')
+  await page.waitForSelector('.xs-bar-editing')
   await page.waitForTimeout(100)
-  const caret = await page.locator('.xs-fx-input').evaluate((el: HTMLTextAreaElement) => ({ at: el.selectionStart, length: el.value.length, top: el.scrollTop, room: el.scrollHeight - el.clientHeight }))
-  if (caret.at !== caret.length || caret.room <= 0 || caret.top < caret.room - 2) throw new Error(`the caret's line is not in view: ${JSON.stringify(caret)}`)
+  const field = () =>
+    page.evaluate(() => {
+      const el = document.querySelector<HTMLTextAreaElement>('.xs-fx-input')!
+      return { at: el.selectionStart, length: el.value.length, top: el.scrollTop, room: el.scrollHeight - el.clientHeight, layer: document.querySelector('.xs-fx-layer')!.scrollTop }
+    })
+  const clicked = await field()
+  if (clicked.at === clicked.length) throw new Error(`a click put the caret at the end: ${JSON.stringify(clicked)}`)
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End')
+  await page.waitForTimeout(100)
+  const caret = await field()
+  if (caret.at !== caret.length || caret.room <= 0 || caret.top < caret.room - 2 || caret.layer !== caret.top) throw new Error(`the caret's line is not in view: ${JSON.stringify(caret)}`)
   await shot(page, size.name, '38-bar-caret')
+  await checkOverlay(page, 'the caret on the sixth line')
   // The open field is as high as the text it covers, collapsed and expanded (Control+Shift+U on a desktop, the arrow under a finger): the grid stays.
   const editing = await measure()
   if (size.mobile) await press('[data-xs-bar-toggle]')
   else await page.keyboard.press('Control+Shift+KeyU')
-  await page.waitForSelector('.xs-fx-open .xs-fx-input:not(.xs-fx-idle)')
+  await page.waitForSelector('.xs-bar-editing .xs-fx-open')
   const editingOpen = await measure()
   if (editing.grid !== collapsed.grid || editingOpen.grid !== expanded.grid) throw new Error(`the open field moved the grid: ${JSON.stringify({ collapsed, editing, expanded, editingOpen })}`)
+  // A long formula's draft wraps over lines with its references coloured: the layer lies on the field expanded and collapsed.
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.insertText(`=${Array.from({ length: 12 }, (_, i) => `СУММ(A${i + 1}:C${i + 9})*$B$${i + 2}`).join('+')}`)
+  await page.waitForTimeout(100)
+  await checkOverlay(page, 'a long draft expanded', true)
+  await shot(page, size.name, '39-bar-draft')
+  if (size.mobile) await press('[data-xs-bar-toggle]')
+  else await page.keyboard.press('Control+Shift+KeyU')
+  await page.waitForSelector('.xs-bar-editing .xs-fx:not(.xs-fx-open)')
+  await page.waitForTimeout(100)
+  await checkOverlay(page, 'a long draft collapsed', true)
   await page.keyboard.press('Escape')
   if ([plain, collapsed, expanded].some((m) => m.wide)) throw new Error(`the page scrolls sideways: ${JSON.stringify({ plain, collapsed, expanded })}`)
   console.log(`bar ${size.name}: ${collapsed.bar} px collapsed over six lines (one line: ${plain.bar} px), ${expanded.bar} px expanded, the same with the field open; the caret's line scrolled into view (${caret.top} of ${caret.room} px)`)
@@ -346,8 +464,26 @@ async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   await page.keyboard.type('=СУММ(1;ОКРУГЛ(2,5;')
   const bar = await check('in the formula bar', 'разряды')
   await shot(page, size.name, '59-tip-bar')
+  await checkOverlay(page, 'a draft under the tip')
+  // Excel's Cancel and Enter by the bar, on while the edit is open
+  await shot(page, size.name, '60-bar-buttons')
   await page.keyboard.press('Escape')
   console.log(`tip ${size.name}: SUMIFS in a cell (${cell.lines} lines), ROUND in the bar (${bar.lines} lines), inside the window, no list, no side scroll`)
+
+  // Excel's Insert Function: the window over the whole list, then a category with the syntax and description of the one selected.
+  await press('[data-xs-bar-fx]')
+  await page.waitForSelector('[data-xs-insert-function] [data-xs-if-item]')
+  await page.waitForFunction(() => document.querySelector('[data-xs-if-about]')?.textContent?.trim())
+  await shot(page, size.name, '61-insert-function')
+  if (size.mobile) await checkTargets(page, true, '.xs-ifn-back')
+  await page.locator('[data-xs-if-category]').selectOption('date')
+  await page.locator('[data-xs-if-item]').nth(2).click()
+  await page.waitForTimeout(100)
+  await shot(page, size.name, '62-insert-category')
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+  if (wide) throw new Error(`insert ${size.name}: the page scrolls sideways`)
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[data-xs-insert-function]', { state: 'detached' })
 }
 
 for (const size of SIZES) {
@@ -372,6 +508,8 @@ for (const size of SIZES) {
   // A formula's ranges highlighted, its references in the bar.
   await open(page, 'Формулы!B6')
   await shot(page, size.name, '20-formula-refs')
+  await checkOverlay(page, 'a formula with references', true)
+  if (!size.mobile) await barMouse(page)
   // A selection with its totals.
   await open(page, 'Форматы!B2:C11')
   await shot(page, size.name, '21-selection-totals')

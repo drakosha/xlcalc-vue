@@ -24,6 +24,8 @@ export interface EditorState {
   place: 'cell' | 'bar'
   /** Where to put the caret once the field shows; null after that. */
   caret: number | null
+  /** The end of a selection to put with the caret (the formula bar's text dragged over), else the caret alone. */
+  caretEnd?: number
   /** The field opened with the cell's own text (F2, a double click, the formula bar), not with a key typed over the cell. */
   inPlace: boolean
 }
@@ -106,7 +108,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   }
 
   /** Open the field on the active cell; a locked cell is explained instead. False when nothing opened. */
-  function startEdit(opts: { text?: string; mode: 'enter' | 'edit'; place?: 'cell' | 'bar'; caret?: number }): boolean {
+  function startEdit(opts: { text?: string; mode: 'enter' | 'edit'; place?: 'cell' | 'bar'; caret?: number; caretEnd?: number }): boolean {
     const a = s.selected.value
     if (!s.editable.value || !a) return false
     const lock = lockAt(a.row, a.col)
@@ -116,7 +118,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }
     const initial = editText(a.row, a.col)
     const text = opts.text ?? initial
-    editor.value = { sheet: s.sheetName.value, row: a.row, col: a.col, text, initial, mode: opts.mode, place: opts.place ?? 'cell', caret: opts.caret ?? text.length, inPlace: opts.text === undefined }
+    editor.value = { sheet: s.sheetName.value, row: a.row, col: a.col, text, initial, mode: opts.mode, place: opts.place ?? 'cell', caret: opts.caret ?? text.length, caretEnd: opts.caretEnd, inPlace: opts.text === undefined }
     focusEditor()
     return true
   }
@@ -131,11 +133,24 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       if (document.activeElement !== el) el.focus({ preventScroll: true })
       el.value = ed.text
       const top = caretTop(el, ed.caret)
-      el.setSelectionRange(ed.caret, ed.caret)
+      const end = Math.max(ed.caret, ed.caretEnd ?? ed.caret)
+      el.setSelectionRange(ed.caret, end)
       if (top !== null) el.scrollTop = top
-      tip.update(ed.text, ed.caret)
+      tip.update(ed.text, end === ed.caret ? ed.caret : null)
       ed.caret = null
+      ed.caretEnd = undefined
     })
+  }
+  /** Excel's Insert Function: `name(` at the open draft's caret (`=` first in an empty draft), else the active cell's edit opened in the formula bar with `=name(`; the caret after the bracket. */
+  function insertFunction(name: string): void {
+    const ed = editor.value
+    if (!ed) return void startEdit({ text: `=${name}(`, mode: 'edit', place: 'bar' })
+    const el = inputOf()
+    const from = el?.selectionStart ?? ed.text.length
+    const piece = `${ed.text === '' ? '=' : ''}${name}(`
+    ed.text = `${ed.text.slice(0, from)}${piece}${ed.text.slice(el?.selectionEnd ?? from)}`
+    ed.caret = from + piece.length
+    focusEditor()
   }
   /** Excel's Formula AutoComplete over the draft: the list of functions under the field. */
   const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor })
@@ -456,11 +471,13 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       ed.place = to === deps.barInput.value ? 'bar' : 'cell'
       return
     }
+    // A dialog that works on the draft (Insert Function) keeps the edit open.
+    if (to instanceof Element && to.closest('[data-xs-keep-edit]')) return
     // Another window took the focus: the edit waits, as in Excel.
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>
