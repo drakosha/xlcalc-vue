@@ -299,7 +299,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     try {
       const got = await layout.call(props.source, { sheet, columns: linesKey(col, col, 'columns'), width: widthFromPx(px) })
       ok = got.ok
-      if (!got.ok) text = got.message
+      // cells the width shows otherwise (a date past its #####) come back as changes, as an edit's do
+      if (got.ok) w.applyChanges(got.changes)
+      else text = got.message
     } catch (e) {
       text = e instanceof Error ? e.message : ''
     }

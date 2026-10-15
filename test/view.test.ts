@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { SheetView, memorySource, type MemoryBook, type SheetViewApi } from '../src'
 import { colPx, widthFromPx } from '../src/core/geometry'
-import { mountSheet, settle } from './helpers'
+import { cellText, mountSheet, settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -268,6 +268,15 @@ describe('column width with the mouse', () => {
     expect(localStorage.getItem('k:widths:S')).toBeNull()
     await w.findAll('.xs-head')[1]!.find('.xs-grip').trigger('dblclick')
     expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', width: widthFromPx(colPx(null)) })
+  })
+
+  it("a width set with the mouse shows the cells the source says it changed: a date that did not fit shows itself", async () => {
+    const source = memorySource({ sheets: [{ name: 'S', cells: { A5: '#####' } }] })
+    vi.spyOn(source, 'layout').mockResolvedValue({ ok: true, changes: [{ sheet: 'S', cell: 'A5', text: '15.03.2026', value: 46096 }] })
+    const w = await mountSheet(source)
+    expect(cellText(w, 5, 1)).toBe('#####')
+    await drag(w, 1, 40)
+    expect(cellText(w, 5, 1)).toBe('15.03.2026')
   })
 
   it('edgeRestoresWidth: after a structure operation a double click does not give a column the width remembered for the one it replaced', async () => {
