@@ -161,7 +161,7 @@
   outline: 2px solid var(--xs-accent);
   outline-offset: 1px;
 }
-.xs-fmt-hex {
+.xs-field.xs-fmt-hex {
   width: 110px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }

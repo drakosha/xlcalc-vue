@@ -61,7 +61,7 @@
   width: 10px;
   height: 10px;
 }
-.xs-field.xs-tb-select {
+.xs-tb-select {
   max-width: 140px;
   font-size: 12px;
 }
@@ -141,7 +141,7 @@
 }
 
 /* ── a finger: every target at least 44 × 44 px ── */
-.xs-touch .xs-field.xs-tb-select {
+.xs-touch .xs-tb-select {
   max-width: none;
 }
 .xs-touch .xs-tb-item {
