@@ -4,7 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 import { cellAddress } from 'xlcalc/a1'
 import type { GridReference } from 'xlcalc/contract'
 import { safeHref } from '../core/cell-view'
-import { onMac } from '../core/clip'
+import { isMod, onMac } from '../core/keys'
 import type { FormulaPart } from '../core/formula'
 import { canPaint, paintRefs, pieceAtPoint, type Painted } from '../core/ref-paint'
 import type { ValidationRect } from '../core/validation'
@@ -68,7 +68,7 @@ let going = false
 function onFieldDown(e: MouseEvent): void {
   // the mouse's press a browser may send after a finger's long press that went: the field takes no focus
   if (ctx.menu.afterPress()) return void e.preventDefault()
-  going = !ctx.editor.value && !v.touch.value && (e.ctrlKey || e.metaKey)
+  going = !ctx.editor.value && !v.touch.value && isMod(e)
 }
 /** The field's focus starts the edit in the bar where the press put the caret or the selection, as F2 does; a field open in the cell moves here with its draft. */
 function onFieldFocus(e: FocusEvent): void {
@@ -121,7 +121,7 @@ function updateHover(): void {
 }
 const hoveredPart = computed(() => goable.value[hovered.value]?.part ?? -1)
 function onFieldMove(e: MouseEvent): void {
-  modHeld.value = e.ctrlKey || e.metaKey
+  modHeld.value = isMod(e)
   mouseAt = { x: e.clientX, y: e.clientY }
   updateHover()
 }
@@ -131,7 +131,7 @@ function onFieldLeave(): void {
 }
 function onModKey(e: KeyboardEvent): void {
   if (e.key !== 'Control' && e.key !== 'Meta') return
-  modHeld.value = e.ctrlKey || e.metaKey
+  modHeld.value = isMod(e)
   updateHover()
 }
 function onWindowBlur(): void {

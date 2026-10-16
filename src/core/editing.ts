@@ -5,6 +5,7 @@ import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
 import type { CellEntry, EditOutcome, EditOptions, SheetSource } from '../source'
 import { useAutocomplete } from './autocomplete'
+import { isMod, isShortcut, shortcutLetter } from './keys'
 import { useFunctionTip } from './function-tip'
 import type { AlertAnswer, SheetAlert } from './validation'
 import { numberEditText, textEditText } from './edit-text'
@@ -34,12 +35,6 @@ export interface EditorState {
 const MAX_EDIT_CELLS = 50_000
 /** Cells a fill or a paste through the source shows as pending; past that the rest wait unmarked. */
 const MAX_PENDING_CELLS = 10_000
-
-/** A shortcut's Latin letter: the key's own, else its place on the keyboard (`KeyB` under Russian `и`); '' for anything else. */
-export function shortcutLetter(e: KeyboardEvent): string {
-  if (/^[a-z]$/i.test(e.key)) return e.key.toLowerCase()
-  return /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : ''
-}
 
 /** The scroll that shows a field's caret line (setSelectionRange does not scroll a field of fixed height, as the collapsed formula bar's): the text up to the caret measured in the field itself; null when it all shows. */
 function caretTop(el: HTMLTextAreaElement, at: number): number | null {
@@ -356,7 +351,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   }
   /** Control+Z, Control+Y and Control+Shift+Z (Cmd on a Mac); another layout's letters by the key's place. */
   function historyKey(e: KeyboardEvent): 'undo' | 'redo' | null {
-    if (!(e.ctrlKey || e.metaKey) || e.altKey) return null
+    if (!isMod(e) || e.altKey) return null
     const letter = shortcutLetter(e)
     if (letter === 'z') return e.shiftKey ? 'redo' : 'undo'
     return letter === 'y' && !e.shiftKey ? 'redo' : null
@@ -423,14 +418,14 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Keys on the grid: Enter and Tab move, F2 edits, Delete clears, Control+Z and Control+Y undo and redo, a character starts a new text, the rest navigates. */
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value || e.isComposing) return
-    const ctrl = e.ctrlKey || e.metaKey
+    const ctrl = isMod(e)
     const history = historyKey(e)
     if (history && s.editable.value && s.source()[history]) {
       e.preventDefault()
       void stepHistory(history)
       return
     }
-    if (ctrl && /^[aAфФ]$/.test(e.key)) {
+    if (isShortcut(e) && shortcutLetter(e) === 'a') {
       e.preventDefault()
       sel.selectAll()
       return
@@ -456,8 +451,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       return
     }
     if (sel.navKey(e)) return
-    // AltGr comes as Ctrl+Alt and types a character (`@` on many layouts): only Ctrl alone or Cmd is a shortcut.
-    if (e.key.length === 1 && !((e.ctrlKey && !e.altKey) || e.metaKey) && s.editable.value) {
+    if (e.key.length === 1 && !isShortcut(e) && s.editable.value) {
       e.preventDefault()
       startEdit({ text: e.key, mode: 'enter' })
     }
@@ -479,7 +473,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       ed.text = `${ed.text.slice(0, at)}\n${ed.text.slice(el.selectionEnd ?? at)}`
       ed.caret = at + 1
       focusEditor()
-    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    } else if (e.key === 'Enter' && isMod(e)) {
       e.preventDefault()
       commitFill()
     } else if (e.key === 'Enter') {

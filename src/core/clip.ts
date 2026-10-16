@@ -9,6 +9,7 @@ import { formatClipboard } from 'xlcalc/text'
 import type { SheetOp } from '../source'
 import type { Commands } from './commands'
 import type { Editing, EditorState } from './editing'
+import { onMac } from './keys'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 import { listOf, type Totals } from './totals'
@@ -31,9 +32,6 @@ export interface ClipDeps {
   /** Whether a column is shown: Excel leaves hidden ones out of a copy. */
   colShown: (col: number) => boolean
 }
-
-/** A Mac, where Excel ends a copy's text without a line break (Windows with CRLF) and drags a series with Option. */
-export const onMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
 
 /** Clipboard text as compared: line ends of any system, without the last one. */
 const plain = (t: string) => t.replace(/\r\n?/g, '\n').replace(/\n$/, '')

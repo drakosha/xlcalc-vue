@@ -5,6 +5,7 @@ import { computed, nextTick, watch } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseCell, rangeAddress } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { colPx, type Geometry } from './geometry'
+import { isMod } from './keys'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
 
@@ -160,11 +161,11 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     if (s.rowCount.value === 0) return null
     const way = END_WAYS[e.key]
     // Control and an arrow go where the source's Range.End says; under the display filter its rows are not the sheet's
-    if (way && (e.ctrlKey || e.metaKey) && !e.altKey && s.source().end && !s.visible.value) return endTarget(a, way)
+    const ctrl = isMod(e)
+    if (way && ctrl && !e.altKey && s.source().end && !s.visible.value) return endTarget(a, way)
     let d = s.indexOf(a.row) ?? 1
     let col = a.col
     const page = Math.max(1, Math.floor((s.viewH.value - v.headH.value - v.frozenH.value) / s.defaultRowPx.value))
-    const ctrl = e.ctrlKey || e.metaKey
     // Ctrl jumps to the data's edge first, then to the grid's (an editable grid goes on past the data).
     const lastRow = (x: number) => (x < s.dataShown.value ? s.dataShown.value : s.rowCount.value)
     const lastCol = (c: number) => (c < s.dataCols.value ? s.dataCols.value : s.colCount.value)

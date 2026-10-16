@@ -6,12 +6,13 @@ import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
 import { useClip } from './clip'
 import { useCommands, type SheetTarget } from './commands'
-import { shortcutLetter, useEditing, type EditorState } from './editing'
+import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
 import { useFill } from './fill'
 import { useFormula } from './formula'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
+import { isShortcut, shortcutLetter } from './keys'
 import { useMenu } from './menu'
 import { useMerge } from './merge'
 import { useNavigation } from './navigation'
@@ -369,13 +370,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
     if (!e.isComposing && (cmd.fontKey(e) || outline.key(e) || barKey(e))) return
-    if ((e.ctrlKey || e.metaKey) && /^[fFаА]$/.test(e.key) && find.available.value) {
+    if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
       return
     }
     // Control+H on a Mac too, as Excel for Mac: Cmd+H hides the browser.
-    if (e.ctrlKey && !e.altKey && /^[hHрР]$/.test(e.key) && find.available.value) {
+    if (e.ctrlKey && !e.altKey && shortcutLetter(e) === 'h' && find.available.value) {
       e.preventDefault()
       find.openReplace()
       return

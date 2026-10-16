@@ -4,7 +4,8 @@ import { ref } from 'vue'
 import type { CellStyle } from 'xlcalc/contract'
 import type { EditOutcome, FormatPatch, LayoutChange, OutlineChange, SheetOp } from '../source'
 import { fontToggle, type FontToggle } from '../toolbar'
-import { shortcutLetter, type Editing } from './editing'
+import type { Editing } from './editing'
+import { isMod, shortcutLetter } from './keys'
 import type { MergeCommand } from './merge'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -153,7 +154,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
 
   /** Control+B, Control+I and Control+U (Cmd on a Mac, any layout): the font toggled over the selection by the active cell; true when taken. */
   function fontKey(e: KeyboardEvent): boolean {
-    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || !can('format')) return false
+    if (!isMod(e) || e.altKey || e.shiftKey || !can('format')) return false
     const what = FONT_KEYS[shortcutLetter(e)]
     if (!what) return false
     e.preventDefault()

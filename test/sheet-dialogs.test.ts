@@ -28,7 +28,7 @@ describe('the sheet’s dialogs', () => {
     await key(w, 'Escape')
     await settle()
     expect(w.find('.xs-find').exists()).toBe(false)
-    await key(w, 'р', { ctrlKey: true })
+    await key(w, 'р', { ctrlKey: true, code: 'KeyH' })
     await settle()
     expect(w.find('[data-xs-replace-input]').exists()).toBe(true)
   })
