@@ -71,12 +71,12 @@ export function createState(props: SheetViewProps) {
   const viewH = ref(600)
   const viewW = ref(800)
   /** The display filter in force: the sheet's rows in display order and the way back; null without one. */
-  const visible = shallowRef<{ key: string; spec: SheetFilter; rows: Int32Array; index: Map<number, number> } | null>(null)
+  const visible = shallowRef<{ key: string; spec: SheetFilter; rows: Int32Array; index: Int32Array } | null>(null)
   /** A filter's list of rows is on its way: windows wait for it, their rows would be another's. */
   const filterWait = ref(false)
   /** Display index (`d`, the grid's geometry and windows) to the sheet's row (`r`, numbers, addresses, selection) and back. */
   const rowOf = (d: number): number => (visible.value ? (visible.value.rows[d - 1] ?? d) : d)
-  const indexOf = (r: number): number | undefined => (visible.value ? visible.value.index.get(r) : r)
+  const indexOf = (r: number): number | undefined => (visible.value ? visible.value.index[r] || undefined : r)
   /** Rows with data in display order: the filter's list, else the data rows. */
   const dataShown = computed(() => (visible.value ? visible.value.rows.length : dataRows.value))
   /** Rows the grid shows: a filter's list as is; an editable sheet goes on past the data, up to Excel's last row. */
@@ -93,7 +93,7 @@ export function createState(props: SheetViewProps) {
 
   /** Columns' widths as the book stores them (null: the default); the grid draws them in the library's geometry. */
   const bookWidths = shallowRef(new Map<number, number | null>())
-  const userWidths = ref<Record<number, number>>({})
+  const userWidths = shallowRef<Record<number, number>>({})
   const heights = shallowRef(new Map<number, number>())
   const defaultRowPx = ref(rowPx(DEFAULT_ROW_PT))
 

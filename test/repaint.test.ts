@@ -32,6 +32,8 @@ async function drain(f: Fake): Promise<void> {
 }
 const rect = (q: WindowRequest) => ({ row: q.row, rows: q.rows, col: q.col, cols: q.cols })
 const loadingShown = (w: VueWrapper) => w.find('.xs-loading').exists()
+/** Longer than the wait of a repaint that follows another closely. */
+const pause = () => new Promise((r) => setTimeout(r, 100))
 
 describe('repaint in the grid', () => {
   it('reads again in place only the windows that meet its ranges: no sheets, the old window drawn until the new one comes', async () => {
@@ -79,6 +81,7 @@ describe('repaint in the grid', () => {
     // A2000 is in the body and the frozen column.
     version = 2
     f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A2000' }] })
+    await pause()
     await settle()
     expect(f.requests.slice(before).map(rect).sort((a, b) => a.cols - b.cols)).toEqual([left, body])
     await drain(f)
@@ -97,6 +100,7 @@ describe('repaint in the grid', () => {
     await settle()
     const first = f.held[0]!
     f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'B2' }] })
+    await pause()
     await settle()
     expect(f.held).toHaveLength(2)
     const second = f.held[1]!
@@ -112,6 +116,34 @@ describe('repaint in the grid', () => {
     expect(f.held).toHaveLength(0)
   })
 
+  it('reads the repaints of one task together; one that follows closely asks once they stop', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    try {
+      const f = fakeSource([{ name: 'S', maxRow: 100, maxCol: 5 }])
+      await mountSheet(f.source, { readOnly: true })
+      let before = f.requests.length
+      for (let i = 1; i <= 20; i++) f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: `A${i}` }] })
+      await settle()
+      expect(f.requests.length - before).toBe(1)
+      vi.advanceTimersByTime(100)
+      before = f.requests.length
+      f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A1' }] })
+      await settle()
+      expect(f.requests.length - before).toBe(1)
+      for (let i = 0; i < 4; i++) {
+        vi.advanceTimersByTime(20)
+        f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'B2' }] })
+        await settle()
+      }
+      expect(f.requests.length - before).toBe(1)
+      vi.advanceTimersByTime(100)
+      await settle()
+      expect(f.requests.length - before).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('under a display filter meets the ranges by the sheet rows the windows show', async () => {
     localStorage.setItem('k:filter:S', JSON.stringify({ cols: { 1: { values: ['x'] } }, sort: null }))
     const cells: MemoryBook['sheets'][number]['cells'] = { A1: 'head' }
@@ -123,6 +155,10 @@ describe('repaint in the grid', () => {
     const before = window.mock.calls.length
     // Row 3 is hidden by the filter, though its display place 3 is near the window's two.
     source.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A2:A3' }] })
+    await settle()
+    expect(window.mock.calls.length).toBe(before)
+    // A range taller than the window is met by the window's rows: none of 3 to 499 is shown.
+    source.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A3:A499' }] })
     await settle()
     expect(window.mock.calls.length).toBe(before)
     source.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A500' }] })

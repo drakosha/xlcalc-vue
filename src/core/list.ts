@@ -26,9 +26,6 @@ export function useList(s: SheetState, w: Windows, emit: SheetEmit, props: { sor
 
   /** Rows a list opens: past the book's frozen rows, which hold its header. */
   const dataRow = (r: number) => r > (s.sheet.value?.freeze?.rows ?? 0)
-  /** The first column opens its row (`openRows`), unless the cell is a drill-down. */
-  const rowLink = (r: number, c: number) => !!props.openRows && c === 1 && dataRow(r) && !w.drillOfRow(r, c)
-
   /** What a cell leads to, sent to the host: its drill-down, else its row when rows open from anywhere (`fromAny`, Enter) or from it. */
   function open(r: number, c: number, fromAny: boolean): boolean {
     if (w.drillOfRow(r, c)) {
@@ -55,7 +52,7 @@ export function useList(s: SheetState, w: Windows, emit: SheetEmit, props: { sor
   /** The totals row: the shown text by the sheet's columns, null when the sheet has none. */
   const totals = computed(() => s.sheet.value?.totals ?? null)
 
-  return { sortable, sortOf, toggleSort, alignOf, drill: w.drillOfRow, rowLink, click, key, totals }
+  return { sortable, sortOf, toggleSort, alignOf, click, key, totals }
 }
 
 export type List = ReturnType<typeof useList>

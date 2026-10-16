@@ -9,25 +9,46 @@ import type { Windows } from './windows'
 /** A pause before asking the source for totals: a drag or Shift+arrows changes the selection many times a second. */
 const STATS_DELAY_MS = 150
 
+/** Display rows of a selection: a run of them without a filter (a whole column is a million), else the filter's list. */
+export type ShownRows = { from: number; to: number } | number[]
+const countOf = (ds: ShownRows): number => (Array.isArray(ds) ? ds.length : Math.max(0, ds.to - ds.from + 1))
+/** The rows as a list, for what needs each one (a copy's text). */
+export const listOf = (ds: ShownRows): number[] => (Array.isArray(ds) ? ds : Array.from({ length: countOf(ds) }, (_, i) => ds.from + i))
+
 export function useTotals(s: SheetState, w: Windows, sel: Selection) {
   /** Display rows of the selection: under a filter only the shown rows between its corners, in display order. */
-  function shownRows(r1: number, r2: number): number[] {
-    const out: number[] = []
+  function shownRows(r1: number, r2: number): ShownRows {
     const list = s.visible.value?.rows
-    if (list) list.forEach((r, i) => r >= r1 && r <= r2 && out.push(i + 1))
-    else for (let r = r1; r <= r2; r++) out.push(r)
+    if (!list) return { from: r1, to: r2 }
+    const out: number[] = []
+    list.forEach((r, i) => r >= r1 && r <= r2 && out.push(i + 1))
     return out
   }
-  /** Whether the loaded windows hold these display rows across the columns. */
-  function inWindows(ds: number[], c1: number, c2: number): boolean {
-    return ds.every((d) => {
+  /** Whether the loaded windows hold these display rows across the columns; a run is walked window by window. */
+  function inWindows(ds: ShownRows, c1: number, c2: number): boolean {
+    const holds = (d: number) => {
       const slot = w.slotAt(d, c1)
-      return !!slot && c2 < slot.win!.col + slot.cols
-    })
+      return slot && c2 < slot.win!.col + slot.cols ? slot : null
+    }
+    if (Array.isArray(ds)) return ds.every((d) => !!holds(d))
+    for (let d = ds.from; d <= ds.to; ) {
+      const slot = holds(d)
+      if (!slot) return false
+      d = slot.win!.row + slot.rows
+    }
+    return true
+  }
+  /** Number formats by locale: made once, a drag changes the totals many times a second. */
+  const formats = new Map<string, Intl.NumberFormat>()
+  const numberFormat = (locale: string, digits?: number): Intl.NumberFormat => {
+    const key = `${locale}\u0000${digits ?? ''}`
+    let fmt = formats.get(key)
+    if (!fmt) formats.set(key, (fmt = new Intl.NumberFormat(locale, digits === undefined ? undefined : { maximumFractionDigits: digits })))
+    return fmt
   }
   const format = (st: RangeStats): string => {
     const m = s.messages.value
-    const fmt = new Intl.NumberFormat(s.locale.value, { maximumFractionDigits: 2 })
+    const fmt = numberFormat(s.locale.value, 2)
     const parts = [m.statsCount(fmt.format(st.cells))]
     if (st.numbers) {
       parts.push(m.statsSum(fmt.format(st.sum)), m.statsAverage(fmt.format(st.sum / st.numbers)))
@@ -81,15 +102,18 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection) {
     const c2 = Math.min(r.right, s.dataCols.value)
     const ds = shownRows(r.top, r2)
     if (r2 >= r.top && c2 >= r.left && !inWindows(ds, r.left, c2)) {
-      const fmt = new Intl.NumberFormat(s.locale.value)
-      const rows = s.visible.value ? ds.length : r.bottom - r.top + 1
-      return s.messages.value.statsCells(fmt.format(rows * (r.right - r.left + 1)))
+      const rows = s.visible.value ? countOf(ds) : r.bottom - r.top + 1
+      return s.messages.value.statsCells(numberFormat(s.locale.value).format(rows * (r.right - r.left + 1)))
     }
     const st: RangeStats = { cells: 0, numbers: 0, sum: 0, min: null, max: null }
-    for (const d of ds) {
+    // Each row's cells straight from the window holding its first one, which holds them all (inWindows).
+    const add = (d: number) => {
+      const win = w.slotAt(d, r.left)!.win!
+      const text = win.text[d - win.row]
+      const values = win.values[d - win.row]
       for (let col = r.left; col <= c2; col++) {
-        const value: CellValue | undefined = w.valueAt(d, col)
-        if (w.textAt(d, col) === '' && (value === null || value === undefined || value === '')) continue
+        const value: CellValue | undefined = values?.[col - win.col]
+        if ((text?.[col - win.col] ?? '') === '' && (value === null || value === undefined || value === '')) continue
         st.cells++
         if (typeof value !== 'number') continue
         st.numbers++
@@ -97,6 +121,10 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection) {
         st.min = st.min === null ? value : Math.min(st.min, value)
         st.max = st.max === null ? value : Math.max(st.max, value)
       }
+    }
+    if (c2 >= r.left) {
+      if (Array.isArray(ds)) ds.forEach(add)
+      else for (let d = ds.from; d <= ds.to; d++) add(d)
     }
     return format(st)
   })

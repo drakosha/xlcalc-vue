@@ -11,6 +11,12 @@ import type { Viewport } from './viewport'
 /** The arrows' ways for Control and an arrow (`SheetSource.end`). */
 const END_WAYS: Record<string, 'up' | 'down' | 'left' | 'right'> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }
 
+/** A drawn cell's place from its `data-cell` (`row:col`); null for anything else. */
+export function cellOfData(data: string | null | undefined): CellPosition | null {
+  const [row, col] = (data ?? '').split(':').map(Number)
+  return row && col ? { row, col } : null
+}
+
 /** Space kept from the frame's edge when scrolling to a cell: a cell glued to the edge reads as cut. */
 const REVEAL_PAD = 24
 
@@ -102,10 +108,8 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   }
   function onGridMove(e: PointerEvent): void {
     if (!dragging || typeof document.elementFromPoint !== 'function') return
-    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-cell]')
-    if (!el) return
-    const [row, col] = (el.getAttribute('data-cell') ?? '').split(':').map(Number)
-    if (row && col && (s.extent.value?.row !== row || s.extent.value?.col !== col)) s.extent.value = { row, col }
+    const at = cellOfData(document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-cell]')?.getAttribute('data-cell'))
+    if (at && (s.extent.value?.row !== at.row || s.extent.value?.col !== at.col)) s.extent.value = at
   }
   function onGridUp(): void {
     dragging = false

@@ -7,7 +7,7 @@ import { defineComponent, h, ref } from 'vue'
 import { memorySource, ruMessages, SheetToolbar, SheetView, type MemoryBook, type SheetViewApi, type SheetViewState } from '../src'
 import { localSource } from '../src/local'
 import type { EditOutcome, SheetOp, SheetSource } from '../src/source'
-import { goTo, key, settle } from './helpers'
+import { goTo, key, mountSheet, settle } from './helpers'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -183,5 +183,38 @@ describe('Merge Cells through the local source', () => {
     expect(w.find('[data-cell="1:1"]').attributes('colspan')).toBeUndefined()
     expect(w.find('[data-cell="1:2"]').exists()).toBe(true)
     await source.close()
+  })
+})
+
+describe('the field over a merged cell, by frozen rows', () => {
+  /** Rows 1 and 2 frozen; A1:B2 merged within them, D2:E3 across their edge (drawn as plain cells), A5:B6 in the body. */
+  const book = (): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 'a', D2: 'd', A5: 'b' }, merges: ['A1:B2', 'D2:E3', 'A5:B6'], freeze: { rows: 2, cols: 0 } }] })
+  const box = (w: VueWrapper) => {
+    const st = (w.find('.xs-editor').element as HTMLElement).style
+    return { top: parseFloat(st.top), height: parseFloat(st.height), width: parseFloat(st.width) }
+  }
+
+  it('spans the merge and follows the scroll in frozen rows; a merge across their edge is its own cell', async () => {
+    const w = await mountSheet(memorySource(book()))
+    const scroller = w.find('.xs-scroller')
+    scroller.element.scrollTop = 100
+    await scroller.trigger('scroll')
+    await settle()
+    // Columns are 71 px, rows 20 px; the letters' row is 24 px high.
+    await goTo(w, 'A1')
+    await key(w, 'F2')
+    await settle()
+    expect(box(w)).toEqual({ top: 24 + 100, height: 40, width: 142 })
+    await key(w, 'Escape')
+    await goTo(w, 'D2')
+    await key(w, 'F2')
+    await settle()
+    expect(box(w)).toEqual({ top: 24 + 20 + 100, height: 22, width: 71 })
+    await key(w, 'Escape')
+    await goTo(w, 'A5')
+    await key(w, 'F2')
+    await settle()
+    expect(box(w).top).toBe(24 + 80)
+    expect(box(w).height).toBe(40)
   })
 })

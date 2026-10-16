@@ -56,7 +56,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     try {
       const got = await s.props.source.visibleRows!(s.sheetName.value, want, ctrl.signal)
       if (mine !== seq) return
-      apply(got.rows ? { key: wantKey, spec: want, rows: Int32Array.from(got.rows), index: new Map(got.rows.map((r, i) => [r, i + 1])) } : null)
+      apply(got.rows ? { key: wantKey, spec: want, rows: Int32Array.from(got.rows), index: displayIndex(got.rows) } : null)
     } catch (e) {
       if (mine !== seq || (e instanceof DOMException && e.name === 'AbortError')) return
       notify(s.messages.value.filterFailed)
@@ -64,6 +64,12 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     }
   }
   watch([() => s.sheetName.value, key], () => void fetchVisible())
+  /** Each sheet row's display index (0: not shown), a row listed twice at its last place: a typed array, a million rows are 4 MB. */
+  function displayIndex(rows: number[]): Int32Array {
+    const index = new Int32Array(rows.reduce((m, r) => Math.max(m, r), 0) + 1)
+    rows.forEach((r, i) => (index[r] = i + 1))
+    return index
+  }
 
   /** Conditions are remembered by sheet (under the host's storage key). */
   const memoryName = () => `filter:${s.sheetName.value}`

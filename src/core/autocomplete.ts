@@ -121,7 +121,9 @@ export function useAutocomplete(deps: AutocompleteDeps) {
       timer = null
       const el = deps.input()
       const ed = deps.editor.value
-      if (open.value && el && ed) update(ed.text, el.selectionStart === el.selectionEnd ? el.selectionStart : null)
+      const caret = el && el.selectionStart === el.selectionEnd ? el.selectionStart : null
+      // The input's update already matched this draft and caret: a key's follow does it once.
+      if (open.value && el && ed && !(last && last.text === ed.text && last.caret === caret)) update(ed.text, caret)
     })
   }
   /** Highlight the item `by` steps away, within the list. */

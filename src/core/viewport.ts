@@ -13,6 +13,9 @@ const OUTLINE_SLOT_TOUCH_PX = 22
 /** Rows and columns drawn beyond the screen, so a short scroll needs no re-render. */
 const RENDER_ROWS = 8
 const RENDER_COLS = 2
+/** The drawn piece's edges move by steps of rows and columns: a scroll redraws the grid once a step, not once a row. */
+const ROW_STEP = 4
+const COL_STEP = 2
 
 export interface ViewportInput {
   sheet: ComputedRef<SheetInfo | null>
@@ -28,6 +31,16 @@ export interface ViewportInput {
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+/** The previous list when the new one holds the same lines: what reads it is not drawn again for a size changed. */
+const same = (prev: number[] | undefined, next: number[]): number[] => (prev && prev.length === next.length && prev.every((x, i) => x === next[i]) ? prev : next)
+/**
+ * The drawn lines around the screen's `first..last`: `spare` beyond each end, and up to `step - 1` more, as the first one
+ * on screen stands from the start of its step; both edges move together, once the screen crosses a step.
+ */
+function drawnLines(first: number, last: number, spare: number, step: number): [number, number] {
+  const lead = (first - 1) % step
+  return [first - lead - spare, last + step - 1 - lead + spare]
+}
 
 export function useViewport(i: ViewportInput, geo: Geometry) {
   const showNums = computed(() => i.sheet.value?.rowNumbers !== false)
@@ -105,15 +118,15 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const frozenCols = computed(() => (freezeOn.value ? clamp(i.sheet.value?.freeze?.cols ?? 0, 0, Math.max(0, i.colCount.value - 1)) : 0))
   const frozenH = computed(() => geo.rowOffsets.value[frozenRows.value] ?? 0)
   const frozenW = computed(() => geo.offsets.value[frozenCols.value] ?? 0)
-  const frozenRowList = computed(() => {
+  const frozenRowList = computed((prev?: number[]) => {
     const out: number[] = []
     for (let r = 1; r <= frozenRows.value; r++) if (geo.heightOf(r) > 0) out.push(r)
-    return out
+    return same(prev, out)
   })
-  const frozenColList = computed(() => {
+  const frozenColList = computed((prev?: number[]) => {
     const out: number[] = []
     for (let c = 1; c <= frozenCols.value; c++) if (geo.widthOf(c) > 0) out.push(c)
-    return out
+    return same(prev, out)
   })
   /** Sticky place of a frozen row or column: below the letters, right of the numbers. */
   const stickyTop = (d: number) => `${headH.value + (geo.rowOffsets.value[d - 1] ?? 0)}px`
@@ -122,24 +135,22 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   // ── the body: what is not frozen, under the scroll ──
   const bodyRow0 = computed(() => frozenRows.value + 1)
   const bodyCol0 = computed(() => frozenCols.value + 1)
-  const firstRow = computed(() =>
-    clamp(geo.rowAt(i.scrollTop.value + frozenH.value) - RENDER_ROWS, bodyRow0.value, Math.max(bodyRow0.value, i.rowCount.value)),
-  )
-  const lastRow = computed(() => clamp(geo.rowAt(i.scrollTop.value + i.viewH.value) + RENDER_ROWS, bodyRow0.value, i.rowCount.value))
-  const firstCol = computed(() =>
-    clamp(geo.colAt(i.scrollLeft.value + frozenW.value) - RENDER_COLS, bodyCol0.value, Math.max(bodyCol0.value, i.colCount.value)),
-  )
-  const lastCol = computed(() => clamp(geo.colAt(i.scrollLeft.value + i.viewW.value) + RENDER_COLS, bodyCol0.value, i.colCount.value))
+  const drawnRows = computed(() => drawnLines(geo.rowAt(i.scrollTop.value + frozenH.value), geo.rowAt(i.scrollTop.value + i.viewH.value), RENDER_ROWS, ROW_STEP))
+  const drawnCols = computed(() => drawnLines(geo.colAt(i.scrollLeft.value + frozenW.value), geo.colAt(i.scrollLeft.value + i.viewW.value), RENDER_COLS, COL_STEP))
+  const firstRow = computed(() => clamp(drawnRows.value[0], bodyRow0.value, Math.max(bodyRow0.value, i.rowCount.value)))
+  const lastRow = computed(() => clamp(drawnRows.value[1], bodyRow0.value, i.rowCount.value))
+  const firstCol = computed(() => clamp(drawnCols.value[0], bodyCol0.value, Math.max(bodyCol0.value, i.colCount.value)))
+  const lastCol = computed(() => clamp(drawnCols.value[1], bodyCol0.value, i.colCount.value))
   /** Shown body rows; hidden ones (height 0) are not drawn at all. */
-  const shownRows = computed(() => {
+  const shownRows = computed((prev?: number[]) => {
     const out: number[] = []
     for (let d = firstRow.value; d <= lastRow.value; d++) if (geo.heightOf(d) > 0) out.push(d)
-    return out
+    return same(prev, out)
   })
-  const shownCols = computed(() => {
+  const shownCols = computed((prev?: number[]) => {
     const out: number[] = []
     for (let c = firstCol.value; c <= lastCol.value; c++) if (geo.widthOf(c) > 0) out.push(c)
-    return out
+    return same(prev, out)
   })
   const topPad = computed(() => Math.max(0, (geo.rowOffsets.value[firstRow.value - 1] ?? 0) - frozenH.value))
   const bottomPad = computed(() => Math.max(0, (geo.rowOffsets.value[i.rowCount.value] ?? 0) - (geo.rowOffsets.value[lastRow.value] ?? 0)))
@@ -155,6 +166,13 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     const left = (cols[c1 - 1] ?? 0) + (c2 <= frozenCols.value ? i.scrollLeft.value : 0)
     return { top: headH.value + top, left: leadW.value + left, width: (cols[c2] ?? 0) - (cols[c1 - 1] ?? 0), height: (rows[d2] ?? 0) - (rows[d1 - 1] ?? 0), frozen: d2 <= frozenRows.value || c2 <= frozenCols.value }
   }
+  /** What of the grid is in view, in the same coordinates: a popup goes over its cell where it has no room below. */
+  const viewBox = computed(() => ({
+    top: i.scrollTop.value + headH.value,
+    left: i.scrollLeft.value + leadW.value,
+    width: Math.max(0, i.viewW.value - leadW.value),
+    height: Math.max(0, i.viewH.value - headH.value),
+  }))
   /** The display row and column under a point of the frame (pixels from its top-left corner), with the point in the offsets' space (`x`, `y`). */
   function cellAt(px: number, py: number): { d: number; col: number; x: number; y: number } {
     const cy = Math.max(0, py - headH.value)
@@ -202,6 +220,7 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     rightPad,
     tableWidth,
     boxOf,
+    viewBox,
     cellAt,
   }
 }

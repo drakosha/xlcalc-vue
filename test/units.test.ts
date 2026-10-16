@@ -1,8 +1,9 @@
 // Pure pieces: Excel units, prefix sums and the style's CSS.
 import { describe, expect, it } from 'vitest'
+import { ref, shallowRef } from 'vue'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, generalAlign, horizontalOf, verticalOf, wrapsOf } from '../src/core/cell-style'
 import { numberEditText, textEditText } from '../src/core/edit-text'
-import { charsOfWidth, colPx, fontPx, indexAt, prefixSums, rowPx, widthFromChars, widthFromPx } from '../src/core/geometry'
+import { charsOfWidth, colPx, fontPx, indexAt, prefixSums, rowPx, useGeometry, widthFromChars, widthFromPx } from '../src/core/geometry'
 
 describe('Excel units', () => {
   it("column widths in the library's geometry (Excel for Mac) to whole pixels and back", () => {
@@ -128,3 +129,48 @@ describe("a text's edit text: an apostrophe where the book would read it as some
   })
 })
 
+
+describe("rows' offsets", () => {
+  /** Geometry over a state of its own: `visible` a display order of sheet rows, or null. */
+  function rig(count: number) {
+    const heights = shallowRef(new Map<number, number>())
+    const visible = shallowRef<number[] | null>(null)
+    const rowCount = ref(count)
+    const geo = useGeometry({
+      rowCount,
+      colCount: ref(1),
+      bookWidths: shallowRef(new Map()),
+      userWidths: shallowRef({}),
+      heights,
+      defaultRowPx: ref(20),
+      visible,
+      rowOf: (d) => visible.value?.[d - 1] ?? d,
+      indexOf: (r) => (visible.value ? (visible.value.indexOf(r) + 1 || undefined) : r),
+    })
+    const full = () => prefixSums(rowCount.value, (d) => heights.value.get(visible.value?.[d - 1] ?? d) ?? 20)
+    return { geo, heights, visible, rowCount, full }
+  }
+
+  it('changed heights sum again from the first changed row, the same as summing all; a filter, a reset and a new count too', () => {
+    const { geo, heights, visible, rowCount, full } = rig(500)
+    expect([...geo.rowOffsets.value]).toEqual([...full()])
+    const steps: (() => void)[] = [
+      () => geo.setHeights([[10, 40], [300, 0]]),
+      () => geo.setHeights([[10, undefined], [499, 7]]),
+      () => geo.setHeights([[1, 30]]),
+      () => geo.setHeights([[500, 11], [250, 25], [251, 26]]),
+      () => (visible.value = Array.from({ length: 200 }, (_, i) => 500 - i * 2)),
+      () => geo.setHeights([[498, 50], [3, 60]]),
+      () => (visible.value = null),
+      () => (rowCount.value = 520),
+      () => geo.setHeights([[515, 33]]),
+      () => (heights.value = new Map([[2, 45]])),
+      () => geo.setHeights([[2, 45]]),
+    ]
+    for (const step of steps) {
+      step()
+      rowCount.value = visible.value ? visible.value.length : Math.max(rowCount.value, 500)
+      expect([...geo.rowOffsets.value]).toEqual([...full()])
+    }
+  })
+})

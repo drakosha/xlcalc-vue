@@ -1,5 +1,5 @@
 // The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the frame's size.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, triggerRef, watch } from 'vue'
 import { cellAddress, linesKey, parseCell, rangeAddress } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import type { SheetInfo, SheetWindow } from '../source'
@@ -17,7 +17,7 @@ import { useMerge } from './merge'
 import { useNavigation } from './navigation'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
-import { useValidation, useValidationAlert } from './validation'
+import { useValidation, useValidationAlert, VALIDATION_DELAY_MS } from './validation'
 import { createState, type SheetViewProps } from './state'
 import { useFilter } from './filter'
 import { useFind } from './find'
@@ -131,7 +131,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
   const explain = useExplain(s, f)
-  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find })
+  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows })
   const list = useList(s, w, emit, props)
   /** The look of the active cell, from its loaded window: the `state` event and the font keys take it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
@@ -254,7 +254,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onResizeMove(e: PointerEvent): void {
     if (!drag) return
     const px = Math.min(MAX_COL_PX, Math.max(MIN_COL_PX, drag.startW + e.clientX - drag.startX))
-    s.userWidths.value = { ...s.userWidths.value, [drag.col]: px }
+    // In place: a drag sets one width many times a second.
+    s.userWidths.value[drag.col] = px
+    triggerRef(s.userWidths)
   }
   function endResize(): void {
     if (!drag) return
@@ -330,7 +332,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onRowResizeMove(e: PointerEvent): void {
     if (!rowDrag) return
     rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + e.clientY - rowDrag.startY)))
-    s.heights.value = new Map(s.heights.value).set(rowDrag.row, rowDrag.px)
+    geo.setHeights([[rowDrag.row, rowDrag.px]])
   }
   /** A double click on a number's edge fits the row, every selected whole row when it is one of them, as Excel's AutoFit. */
   function onRowEdgeDouble(row: number): void {
@@ -458,9 +460,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
           if (event.message) notify(event.message)
           void reload()
         }
-        // A list of cells or the rules themselves may have changed, and the precedents' values.
+        // A list of cells or the rules themselves may have changed, and the precedents' values: asked once a stream of events stops.
         if (event.kind !== 'repaint') {
-          validation.refresh()
+          validation.refresh(VALIDATION_DELAY_MS)
           explain.refresh()
         }
       }) ?? null
