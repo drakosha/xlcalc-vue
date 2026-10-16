@@ -1,11 +1,13 @@
 // The formula bar is always a field, as Excel's: it holds the active cell's text, a press starts the edit with the caret or the selection where the mouse put it, and a read-only sheet lets the text be selected only.
 import type { VueWrapper } from '@vue/test-utils'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import { active, address, barField, cellText, editorOpen, goTo, key, mountSheet, pressBar, settle, type } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 const book = (): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 1, A2: 2, B1: { value: 3, formula: 'SUM(A1:A2)' }, C1: 'text' } }] })
@@ -152,5 +154,148 @@ describe('the formula bar field', () => {
     expect(color(0)).not.toBe(color(1))
     expect((w.find('[data-cell="1:1"]').element as HTMLElement).style.boxShadow).toContain(color(0))
     expect((w.find('[data-cell="1:3"]').element as HTMLElement).style.boxShadow).toContain(color(1))
+  })
+})
+
+/** The layer's text laid out on one line, ten pixels a character from x 0, y 0 to 20: a point at character `i` is x i * 10 + 5. */
+function layoutLayer(): void {
+  const offset = (node: Node, at: number): number => {
+    const walker = document.createTreeWalker(document.querySelector('.xs-fx-layer')!, NodeFilter.SHOW_TEXT)
+    let n = 0
+    for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+      if (t === node) return n + at
+      n += t.textContent!.length
+    }
+    return n
+  }
+  vi.spyOn(Range.prototype, 'getClientRects').mockImplementation(function (this: Range) {
+    const from = offset(this.startContainer, this.startOffset)
+    const to = offset(this.endContainer, this.endOffset)
+    return [new DOMRect(from * 10, 0, (to - from) * 10, 20)] as unknown as DOMRectList
+  })
+}
+const at = (i: number) => ({ clientX: i * 10 + 5, clientY: 10 })
+const field = (w: VueWrapper) => w.find('.xs-fx-input')
+const hover = (w: VueWrapper, i: number, keys: MouseEventInit = {}) => field(w).trigger('mousemove', { ...at(i), ...keys })
+const modKey = async (type: 'keydown' | 'keyup', key: 'Control' | 'Meta') => {
+  window.dispatchEvent(new KeyboardEvent(type, { key, ctrlKey: type === 'keydown' && key === 'Control', metaKey: type === 'keydown' && key === 'Meta' }))
+  await settle()
+}
+const going = (w: VueWrapper) => field(w).classes().includes('xs-fx-go')
+const underlined = (w: VueWrapper) => w.findAll('.xs-fx-layer .xs-ref-go').map((r) => r.text())
+const touch = (w: VueWrapper, type: string, i: number, dx = 0) =>
+  barField(w).dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true, clientX: i * 10 + 5 + dx, clientY: 10 }))
+
+describe('going to a reference from the formula bar', () => {
+  it('with Ctrl or Cmd held the reference under the mouse is underlined and the cursor a hand; a key pressed after the move does it too', async () => {
+    const w = await mountSheet(memorySource(book()))
+    await goTo(w, 'B1')
+    layoutLayer()
+    // '=SUM(A1:A2)': A1:A2 is characters 5 to 9
+    await modKey('keydown', 'Control')
+    await hover(w, 6, { ctrlKey: true })
+    expect(going(w)).toBe(true)
+    expect(underlined(w)).toEqual(['A1:A2'])
+    await hover(w, 2, { ctrlKey: true })
+    expect(going(w)).toBe(false)
+    expect(underlined(w)).toEqual([])
+    await hover(w, 9, { ctrlKey: true })
+    expect(underlined(w)).toEqual(['A1:A2'])
+    await modKey('keyup', 'Control')
+    expect(going(w)).toBe(false)
+    expect(underlined(w)).toEqual([])
+    // the move first, then Cmd
+    await hover(w, 7)
+    expect(going(w)).toBe(false)
+    await modKey('keydown', 'Meta')
+    expect(going(w)).toBe(true)
+    expect(underlined(w)).toEqual(['A1:A2'])
+    await field(w).trigger('mouseleave')
+    expect(going(w)).toBe(false)
+    expect(underlined(w)).toEqual([])
+    await hover(w, 7, { metaKey: true })
+    expect(going(w)).toBe(true)
+    window.dispatchEvent(new Event('blur'))
+    await settle()
+    expect(going(w)).toBe(false)
+    expect(underlined(w)).toEqual([])
+  })
+
+  it('shows nothing while the bar edits', async () => {
+    const w = await mountSheet(memorySource(book()))
+    await goTo(w, 'B1')
+    await pressBar(w, 2)
+    expect(editingBar(w)).toBe(true)
+    layoutLayer()
+    await modKey('keydown', 'Control')
+    await hover(w, 6, { ctrlKey: true })
+    expect(going(w)).toBe(false)
+    expect(underlined(w)).toEqual([])
+  })
+
+  it('a finger held on a reference outside an edit goes to its range, no edit starts and the browser’s menu is held back', async () => {
+    const w = await mountSheet(memorySource(book()))
+    await goTo(w, 'B1')
+    layoutLayer()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    touch(w, 'pointerdown', 6)
+    vi.advanceTimersByTime(600)
+    await settle()
+    expect(address(w)).toBe('A1:A2')
+    expect(editingBar(w)).toBe(false)
+    const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+    barField(w).dispatchEvent(menu)
+    expect(menu.defaultPrevented).toBe(true)
+    touch(w, 'pointerup', 6)
+    barField(w).focus()
+    barField(w).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    await settle()
+    expect(editingBar(w)).toBe(false)
+    expect(address(w)).toBe('A1:A2')
+  })
+
+  it('a browser’s menu of a long press that comes first goes at once and is held back', async () => {
+    const w = await mountSheet(memorySource(book()))
+    await goTo(w, 'B1')
+    layoutLayer()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    touch(w, 'pointerdown', 6)
+    await settle()
+    expect(field(w).classes()).toContain('xs-fx-held')
+    vi.advanceTimersByTime(300)
+    const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+    barField(w).dispatchEvent(menu)
+    await settle()
+    expect(menu.defaultPrevented).toBe(true)
+    expect(address(w)).toBe('A1:A2')
+    expect(field(w).classes()).not.toContain('xs-fx-held')
+  })
+
+  it('a finger that moves, a hold off the references and a tap do not go; a tap starts the edit as before', async () => {
+    const w = await mountSheet(memorySource(book()))
+    await goTo(w, 'B1')
+    layoutLayer()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    touch(w, 'pointerdown', 6)
+    touch(w, 'pointermove', 6, 30)
+    vi.advanceTimersByTime(600)
+    touch(w, 'pointerup', 9)
+    await settle()
+    expect(address(w)).toBe('B1')
+    touch(w, 'pointerdown', 2)
+    vi.advanceTimersByTime(600)
+    touch(w, 'pointerup', 2)
+    await settle()
+    expect(address(w)).toBe('B1')
+    const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+    barField(w).dispatchEvent(menu)
+    expect(menu.defaultPrevented).toBe(false)
+    touch(w, 'pointerdown', 6)
+    vi.advanceTimersByTime(100)
+    touch(w, 'pointerup', 6)
+    vi.advanceTimersByTime(1000)
+    await pressBar(w, 6)
+    expect(address(w)).toBe('B1')
+    expect(editingBar(w)).toBe(true)
   })
 })

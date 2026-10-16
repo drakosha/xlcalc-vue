@@ -313,6 +313,8 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
   }
   /** Whether a click or a context menu now is the tail of a long press that opened the menu. */
   const afterPress = () => Date.now() - pressedAt < PRESS_TAIL_MS
+  /** Whether a finger is down and still, its long press yet to come. */
+  const pressing = () => press !== null
 
   /** The range the open menu acts on, for its caption (`2:5`, `B:D`, `B2:C4`, the sheet's name). */
   const caption = computed(() => {
@@ -350,6 +352,7 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     pressMove,
     pressCancel,
     afterPress,
+    pressing,
   }
 }
 
