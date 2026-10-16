@@ -30,13 +30,49 @@ A sheet's `outline` is xlcalc's `outlineGroups`: a group of level L is a longest
 
 `openXlsx` reads a file into a book and the values it stores (`cached`), and `saveXlsx` writes the source's book with its values; with `locale` (the language the person chose: a tag, its module loaded on demand, or a locale object) their issues' messages are in that language, in English without it; a tag xlcalc has no module for fails with the library's message.
 
-```ts
-import { SheetView } from 'xlcalc-sheet'
-import { localSource, openXlsx, saveXlsx } from 'xlcalc-sheet/local'
+A page that opens an xlsx file, tells what the file lost and saves the book back under the file's name:
 
-const { book, cached, issues } = await openXlsx(file, { locale: 'ru-RU' }) // a File from an input or a drop; issues: what the book cannot hold
-const source = localSource(book, { session: { cached } })                   // <SheetView :source="source" :locale="source.locale" />
-const { data } = await saveXlsx(source)                                     // the xlsx bytes, formulas with their values
+```vue
+<script setup lang="ts">
+import { onUnmounted, shallowRef } from 'vue'
+import { SheetView } from 'xlcalc-sheet'
+import { groupIssues, localSource, openXlsx, saveXlsx, type LocalSource } from 'xlcalc-sheet/local'
+import 'xlcalc-sheet/style.css'
+
+const source = shallowRef<LocalSource | null>(null)
+const lost = shallowRef<string[]>([])
+let fileName = 'book.xlsx'
+
+async function open(event: Event): Promise<void> {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  // cached: the values the file stores, so a circular reference holds them; issues: what the book cannot hold
+  const { book, cached, issues } = await openXlsx(file)
+  void source.value?.close()
+  source.value = localSource(book, { session: { cached } })
+  fileName = file.name
+  lost.value = groupIssues(issues).map((group) => `${group.message} (${group.count})`)
+}
+
+async function save(): Promise<void> {
+  if (!source.value) return
+  const { data } = await saveXlsx(source.value) // the xlsx bytes, formulas with their values
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(new Blob([data as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+  link.download = fileName
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(link.href))
+}
+
+onUnmounted(() => void source.value?.close())
+</script>
+
+<template>
+  <input type="file" accept=".xlsx" @change="open" />
+  <button :disabled="!source" @click="save">Save as</button>
+  <p v-for="line in lost" :key="line">{{ line }}</p>
+  <SheetView v-if="source" :source="source" :locale="source.locale" style="height: 420px" />
+</template>
 ```
 
 A book read from a file opens as Excel opens the file with the values it stores, given to the session as `session: { cached }` (xlcalc's `SessionOptions.cached`, 0.27 or later): a circular reference without iterative calculation is not computed, and its cells and those that read them hold the values the file stores, through edits elsewhere, until a value typed into the cycle breaks it (xlcalc's `docs/cycles.md`). Without them those cells hold 0. The session's book keeps what they hold (`held`), so a book taken with `book()` opens holding it again, and `saveXlsx` stores it.

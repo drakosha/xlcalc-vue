@@ -2,4 +2,21 @@
 
 Control+F, or the magnifier on the formula bar, opens Excel's Find under the formula bar when the source has `find(req, signal)`. The sheet asks it with a `FindRequest`: the query with Excel's wildcards (`*` any characters, `?` one, `~` before either of them or itself for that character) and the options of Excel's dialog under the bar's Options button: Match case, Match entire cell contents, Look in formulas (the text a cell opens with, Excel's default) or values (the text it shows), and Search by rows or by columns. A selection of more than one cell when the bar opens, or one selected while it is open, is where it looks (`range`), shown on the bar until the person drops it; under a display filter only its visible rows count. Enter and Shift+Enter, or the arrows, go to the next and the previous hit from the active cell in the order asked, round past the end, as Find Next does, and a new query or option goes to its first hit after the active cell. A source gives some hundreds of hits at a time: past them Find Next asks for the next ones from the active cell (`after`, Excel's Find After), so it reaches every hit, and the bar then counts them without a place among them; Find Previous goes back over the hits given. Hits in the frame are tinted and the active one pulses.
 
+`memorySource` has both: press Control+F for Find, Control+H for Replace, and try `?ar*` or Replace All of `Paris` by `Lyon`.
+
+```vue
+<script setup lang="ts">
+import { SheetView, memorySource } from 'xlcalc-sheet'
+import 'xlcalc-sheet/style.css'
+
+const cities = ['Paris', 'Berlin', 'Madrid', 'Rome', 'Paris', 'Vienna', 'Warsaw', 'Paris']
+const cells = Object.fromEntries(cities.flatMap((city, i) => [[`A${i + 1}`, city], [`B${i + 1}`, (i + 1) * 100]]))
+const source = memorySource({ sheets: [{ name: 'Offices', cells }] })
+</script>
+
+<template>
+  <SheetView :source="source" style="height: 320px" />
+</template>
+```
+
 Control+H (on a Mac too, as in Excel for Mac) opens the bar with its replace row (its toggle sits at the bar's left), when the sheet is editable and the source has `replace(req, by)`. Replace replaces the active cell when it is a hit and goes on to the next, elsewhere it only finds, as Excel's does; Replace All replaces every hit in one step of undo. Both look in formulas whatever the bar is set to, as Excel's Replace does, and their outcome goes as an edit's: its changes are drawn, a refusal shows in the sheet's message line. The bar then says how many cells changed and counts the hits again; cells the source left as they were (`refused`) are told in the sheet's message line with the first one's reason. `memorySource` finds with this package's own matching over its cells, close to Excel's but not measured against it: `?` stands for a whole character, hidden rows and columns are searched, and hits come plainly by rows or by columns.

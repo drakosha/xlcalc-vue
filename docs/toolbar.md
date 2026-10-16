@@ -8,17 +8,24 @@ With `sheet` and the source's `structure` the toolbar has Excel's Merge & Center
 
 ```vue
 <script setup lang="ts">
-import { ref } from 'vue'
-import { SheetToolbar, SheetView, ruMessages, type SheetViewApi, type SheetViewState } from 'xlcalc-sheet'
+import { onUnmounted, ref } from 'vue'
+import { SheetToolbar, SheetView, type SheetViewApi, type SheetViewState } from 'xlcalc-sheet'
+import { localSource } from 'xlcalc-sheet/local'
+import 'xlcalc-sheet/style.css'
 
-// source: a SheetSource with format, such as localSource(book), whose locale is the book's
+// A source with format, undo and structure: the toolbar shows only over a source with format
+const source = localSource({
+  sheets: [{ name: 'Sheet1', cells: { A1: { value: 'Region' }, B1: { value: 'Sales' }, A2: { value: 'North' }, B2: { value: 0.125 }, A3: { value: 'South' }, B3: { value: 0.3 } } }],
+})
+onUnmounted(() => void source.close())
+
 const state = ref<SheetViewState | null>(null)
 const sheet = ref<SheetViewApi | null>(null)
 </script>
 
 <template>
-  <SheetToolbar :source="source" :sheet="sheet" :state="state" :messages="ruMessages" locale="ru-RU" />
-  <SheetView ref="sheet" :source="source" :messages="ruMessages" @state="state = $event" />
+  <SheetToolbar :source="source" :sheet="sheet" :state="state" :locale="source.locale" />
+  <SheetView :source="source" ref="sheet" :locale="source.locale" style="height: 360px" @state="state = $event" />
 </template>
 ```
 
@@ -31,8 +38,27 @@ The Number Format box is Excel's, as xlcalc measured it (`numberFormatCategory` 
 A host with a dialog of its own listens to the toolbar's `formatCells`, which the button then emits instead:
 
 ```vue
-<SheetToolbar :source="source" :sheet="sheet" :state="state" locale="ru-RU" @format-cells="formatOpen = true" />
-<FormatDialog :open="formatOpen" :state="state" :messages="ruMessages" locale="ru-RU" @apply="sheet?.format($event)" @close="formatOpen = false" />
+<script setup lang="ts">
+import { onUnmounted, ref } from 'vue'
+import { FormatDialog, SheetToolbar, SheetView, ruMessages, type SheetViewApi, type SheetViewState } from 'xlcalc-sheet'
+import { localSource } from 'xlcalc-sheet/local'
+import 'xlcalc-sheet/style.css'
+
+// A book in ru-RU: its locale module loads as the source opens
+const source = localSource({ locale: 'ru-RU', sheets: [{ name: 'Лист1', cells: { A1: { value: 1234.5 }, A2: { value: 0.25 } } }] })
+onUnmounted(() => void source.close())
+
+const state = ref<SheetViewState | null>(null)
+const sheet = ref<SheetViewApi | null>(null)
+const formatOpen = ref(false)
+</script>
+
+<template>
+  <SheetToolbar :source="source" :sheet="sheet" :state="state" :messages="ruMessages" :locale="source.locale" @format-cells="formatOpen = true" />
+  <SheetView :source="source" ref="sheet" :messages="ruMessages" :locale="source.locale" style="height: 360px" @state="state = $event" />
+  <!-- The host's dialog, in the host's place: OK formats through the sheet -->
+  <FormatDialog :open="formatOpen" :state="state" :messages="ruMessages" :locale="source.locale" @apply="sheet?.format($event)" @close="formatOpen = false" />
+</template>
 ```
 
 Patterns of a fill, diagonal borders, rotated and shrunk text, merging, text direction, superscript, subscript and the Protection tab are not there: xlcalc's cell style has none of them.

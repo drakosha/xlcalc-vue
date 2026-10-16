@@ -18,6 +18,47 @@ Types of cells and styles come from `xlcalc/contract` (`CellValue`, `CellStyle`,
 
 The sheet: a windowed grid with the formula bar, tabs, menus, Find, the precedents' panel and the dialogs. It reads its data only through `source`.
 
+```vue
+<script setup lang="ts">
+import { shallowRef } from 'vue'
+import { SheetView, memorySource, type SheetLinkEvent, type SheetViewState } from 'xlcalc-sheet'
+import 'xlcalc-sheet/style.css'
+
+const source = memorySource({
+  sheets: [
+    {
+      name: 'Summary',
+      cells: {
+        A1: 'Total',
+        B1: { value: 60, formula: 'SUM(Data!B1:B3)' },
+        A2: { value: 'The data', link: { location: 'Data!A1' } }, // a place in the book: the sheet goes there itself
+        A3: { value: 'The report', link: { href: 'https://example.com/report' } }, // a web link: the host opens it
+      },
+    },
+    { name: 'Data', cells: { A1: 'North', B1: 10, A2: 'South', B2: 20, A3: 'West', B3: 30 } },
+  ],
+})
+
+const focus = shallowRef<{ ref: string } | null>(null)
+const state = shallowRef<SheetViewState | null>(null)
+// A new object is a new jump, to the same place too
+const show = (ref: string) => (focus.value = { ref })
+// The address of a place on the host's page, for the cells' menu's "Link to the cell"
+const cellUrl = (ref: string) => `${location.origin}${location.pathname}#${encodeURIComponent(ref)}`
+const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noopener')
+</script>
+
+<template>
+  <button @click="show('Data!B1:B3')">Show the data</button>
+  <span>{{ state ? `${state.sheet}!${state.ref}` : '' }}</span>
+  <SheetView :source="source" :focus="focus" :cell-url="cellUrl" style="height: 360px" @state="state = $event" @open-link="openLink">
+    <template #fallback="{ failure, retry }">
+      <p>{{ failure.text }} <button @click="retry">Try again</button></p>
+    </template>
+  </SheetView>
+</template>
+```
+
 ### Props (`SheetViewProps`)
 
 | Prop | Type | Default | Meaning |
@@ -85,6 +126,45 @@ The sheet: a windowed grid with the formula bar, tabs, menus, Find, the preceden
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` may be left out. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, the column 1-based.
 
+The host's own buttons over the sheet's methods; the source here is `localSource`, which has `format`, `undo`, `structure` and `freeze`:
+
+```vue
+<script setup lang="ts">
+import { onUnmounted, ref } from 'vue'
+import { SheetView, type SheetViewApi } from 'xlcalc-sheet'
+import { localSource } from 'xlcalc-sheet/local'
+import 'xlcalc-sheet/style.css'
+
+const source = localSource({
+  sheets: [
+    {
+      name: 'Plan',
+      cells: {
+        A1: { value: 'Item' }, B1: { value: 'Sum' },
+        A2: { value: 'Rent' }, B2: { value: 1200 },
+        A3: { value: 'Food' }, B3: { value: 400 },
+        A4: { value: 'Total' }, B4: { formula: 'SUM(B2:B3)' },
+      },
+    },
+  ],
+})
+onUnmounted(() => void source.close())
+
+const sheet = ref<SheetViewApi | null>(null)
+// Bold on a yellow fill over the selection, one step of undo
+const highlight = () => sheet.value?.format([{ style: { font: { bold: true }, fill: { color: '#FFF2CC' } } }])
+</script>
+
+<template>
+  <button @click="sheet?.undo()">Undo</button>
+  <button @click="highlight">Highlight</button>
+  <button @click="sheet?.freezePanes('topRow')">Freeze the top row</button>
+  <button @click="sheet?.merge('mergeCenter')">Merge and center</button>
+  <button @click="sheet?.formatCells()">Format Cells…</button>
+  <SheetView ref="sheet" :source="source" :locale="source.locale" style="height: 360px" />
+</template>
+```
+
 ## `SheetToolbar`
 
 Excel's formatting row over the same source; shown only when the source has `format`. See [toolbar.md](toolbar.md).
@@ -123,6 +203,37 @@ Excel's Format Cells over the selection, for a host that places its own dialog. 
 ## The source: `SheetSource`
 
 The component knows its data only through this interface. Rows and columns are 1-based, cells are A1 addresses, formulas are shown and typed in the source's own locale. Two methods are required; each optional one turns a feature on. An editing method answers with an `EditOutcome`.
+
+A source over a book on the host's server: windows and sheets by GET, edits by POST, changes made elsewhere by server-sent events. The server answers with the contract's types as JSON; everything else (undo, Find, formatting) is another optional method the same way.
+
+```ts
+import type { EditOutcome, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent } from 'xlcalc-sheet'
+
+export function serverSource(base: string): SheetSource {
+  const get = async <T>(path: string, signal?: AbortSignal): Promise<T> => {
+    const res = await fetch(base + path, { signal })
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+    return (await res.json()) as T
+  }
+  const post = async <T>(path: string, body: unknown): Promise<T> => {
+    const res = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+    return (await res.json()) as T
+  }
+  return {
+    sheets: (signal) => get<SheetInfo[]>('/sheets', signal),
+    // No visibleRows, so a request never carries a filter
+    window: ({ sheet, row, rows, col, cols }, signal) =>
+      get<SheetWindow | SheetPending>(`/window?${new URLSearchParams({ sheet, row: `${row}`, rows: `${rows}`, col: `${col}`, cols: `${cols}` })}`, signal),
+    edit: (entries, opts) => post<EditOutcome>('/edit', { entries, ...opts }),
+    subscribe(listener) {
+      const events = new EventSource(`${base}/events`)
+      events.onmessage = (e) => listener(JSON.parse(e.data) as SourceEvent)
+      return () => events.close()
+    },
+  }
+}
+```
 
 ### Required
 
@@ -262,6 +373,50 @@ const messages = { ...ruMessages, loading: 'Загружаю…' }
 
 `MemorySource` is a `SheetSource` with four more methods for tests and examples: `failNext(...outcomes)` refuses the next edits with these outcomes, `emit(event)` sends an event to the subscribers, `setCells(sheet, entries)` changes cells as another tab would, `recompute(ms)` makes windows answer `pending` for that long.
 
+A book with styles, a formula, a note, a frozen header, a list rule and the functions of Formula AutoComplete:
+
+```ts
+import { memorySource } from 'xlcalc-sheet'
+
+const source = memorySource(
+  {
+    styles: [{ font: { bold: true }, fill: { color: '#E8EEF8' } }, { alignment: { horizontal: 'right' } }],
+    functions: ['SUM', 'AVERAGE', 'COUNT', 'IF'],
+    sheets: [
+      {
+        name: 'Orders',
+        freeze: { rows: 1, cols: 0 },
+        widths: { A: 18, B: 12 },
+        cells: {
+          A1: { value: 'Client', style: 0 },
+          B1: { value: 'Amount', style: 0 },
+          C1: { value: 'Status', style: 0 },
+          A2: 'Acme',
+          B2: { value: 1250.5, text: '1,250.50', style: 1 },
+          C2: { value: 'Open', note: { author: 'Ann', text: 'Due on Friday' } },
+          A3: 'Total',
+          B3: { value: 1250.5, text: '1,250.50', formula: 'SUM(B2:B2)', style: 1 },
+        },
+        validations: [{ range: 'C2:C100', list: ['Open', 'Paid', 'Cancelled'] }],
+      },
+    ],
+  },
+  { delay: 100 }, // every answer waits 100 ms, to see the sheet wait
+)
+```
+
+In a test the extra methods play what a server would do:
+
+```ts
+import { memorySource } from 'xlcalc-sheet'
+
+const source = memorySource({ sheets: [{ name: 'Sheet1', cells: { A1: 1 } }] })
+source.failNext({ ok: false, reason: 'conflict', message: 'The book changed elsewhere' })
+console.log(await source.edit?.([{ sheet: 'Sheet1', cell: 'A1', text: '2' }])) // the conflict
+console.log(await source.edit?.([{ sheet: 'Sheet1', cell: 'A1', text: '2' }])) // ok, with A1's change
+source.setCells('Sheet1', { B1: '5' }) // the subscribers get it as `changed`
+```
+
 ## `xlcalc-sheet/local`
 
 A source over an xlcalc book computed in the browser, and xlsx in and out. See [local.md](local.md).
@@ -277,6 +432,18 @@ The options, `LocalSourceOptions`:
 | `session` | `AsyncSessionOptions` | Options of the book's session; `{ cached }` from `openXlsx` holds a file's stored values. |
 | `maxCells` | `number` | The cell limit of one window, 20,000 by default. |
 | `notice` | `string` | A notice every window carries. |
+
+```ts
+import { localSource } from 'xlcalc-sheet/local'
+
+const source = localSource(
+  { sheets: [{ name: 'Sheet1', cells: { A1: { value: 2 }, A2: { formula: 'A1*21' } } }] },
+  { calc: 'inline', notice: 'A copy: changes are not saved' }, // computed in the page's thread, a notice over the grid
+)
+await source.ready // the book is computed
+console.log(source.locale, await source.book())
+await source.close() // when the sheet goes, as in onUnmounted
+```
 
 `LocalSource` has every method of `SheetSource` (the type marks `copyText` optional, the source has it), and:
 
@@ -302,6 +469,23 @@ The options, `LocalSourceOptions`:
 ## CSS variables
 
 `xlcalc-sheet/style.css` styles `.xs-sheet`, `.xs-toolbar` and the dialog by `--xs-*` variables; a host restyles or darkens the sheet by overriding them on `.xs-sheet` (and `.xs-toolbar`) or an ancestor.
+
+```css
+/* A dark sheet and toolbar under the host's .dark */
+.dark {
+  --xs-bg: #1e1f22;
+  --xs-fg: #e3e3e3;
+  --xs-muted: #9aa0a6;
+  --xs-grid: #3a3b3e;
+  --xs-head-bg: #2b2c2f;
+  --xs-head-fg: #b0b3b8;
+  --xs-head-on-bg: #2d4a75;
+  --xs-head-on-fg: #d3e3fd;
+  --xs-bar-bg: #26272a;
+  --xs-link: #8ab4f8;
+  --xs-font-size: 13px;
+}
+```
 
 | Variable | Default | What |
 | --- | --- | --- |
