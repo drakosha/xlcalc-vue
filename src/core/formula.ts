@@ -3,6 +3,7 @@ import { computed, shallowRef, watch, type Ref } from 'vue'
 import { cellAddress, nameKey, sameName } from 'xlcalc/a1'
 import type { CellRect, GridReference, ScanOptions } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
+import { isGridRef } from '../grid-ref'
 import { LOCALE_MODULES } from '../locales'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -82,7 +83,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     }
     let refs = scanned.get(formula)
     if (!refs) {
-      refs = scanReferences(formula, opts).filter((r): r is GridReference => r.kind !== 'table' && r.sheetLast === undefined)
+      refs = scanReferences(formula, opts).filter(isGridRef)
       scanned.set(formula, refs)
     }
     return refs

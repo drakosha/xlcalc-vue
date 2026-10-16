@@ -4,6 +4,8 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
+import { isAbort } from '../abort'
+import { cellOrder } from '../find-match'
 import type { EditOutcome, FindRequest, ReplaceOutcome } from '../source'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -55,7 +57,7 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   /** Hits by `row:col` (sheet rows): those in the frame are tinted, the active one pulses. */
   const hitSet = computed(() => new Set(hits.value.map((h) => `${h.row}:${h.col}`)))
   /** Excel's order: row by row, or column by column; negative when `a` comes first. */
-  const order = (a: CellPosition, b: CellPosition) => (options.byColumns ? a.col - b.col || a.row - b.row : a.row - b.row || a.col - b.col)
+  const order = (a: CellPosition, b: CellPosition) => cellOrder(options.byColumns)(a, b)
   /** The hit at the active cell, -1 when the active cell is none. */
   const index = computed(() => {
     const a = s.selected.value
@@ -141,7 +143,7 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
       else if (leap && a && got.total > got.hits.length) return void runSearch(cellAddress(a.row, a.col))
       else if (leap) step(1)
     } catch (e) {
-      if (mine === seq && !(e instanceof DOMException && e.name === 'AbortError')) notify(s.messages.value.findFailed)
+      if (mine === seq && !isAbort(e)) notify(s.messages.value.findFailed)
     } finally {
       if (mine === seq) busy.value = false
     }

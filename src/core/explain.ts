@@ -4,6 +4,7 @@ import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { cellAddress, quoteSheetIfNeeded } from 'xlcalc/a1'
 import type { GridReference } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
+import { isGridRef } from '../grid-ref'
 import type { Formula } from './formula'
 import type { SheetState } from './state'
 
@@ -42,7 +43,7 @@ export function explainLines(text: string, sheet: string): ExplainLine[] {
       if (cut > a) parts.push({ text: body.slice(a, cut), ...(arrow >= 0 && a >= arrow ? { from: true } : {}) })
       if (cut < b) parts.push({ text: body.slice(cut, b), from: true })
     }
-    const refs = scanReferences(body).filter((r): r is GridReference => r.kind !== 'table' && r.sheetLast === undefined)
+    const refs = scanReferences(body).filter(isGridRef)
     const own = refs[0]?.at === 0 ? refs[0].sheet : undefined
     let at = 0
     for (const r of refs) {

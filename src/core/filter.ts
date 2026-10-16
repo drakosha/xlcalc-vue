@@ -1,6 +1,8 @@
 // The display filter and sort, the funnel on a column's letter: the data do not change, the source lists the rows to show in order.
 import { computed, nextTick, ref, watch } from 'vue'
 import { colLetters } from 'xlcalc/a1'
+import { isAbort } from '../abort'
+import { filterKey } from '../filter-key'
 import type { SheetFilter } from '../source'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
@@ -28,7 +30,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     if (sort.value) out.sort = sort.value
     return out
   })
-  const key = computed(() => (spec.value ? JSON.stringify(spec.value) : ''))
+  const key = computed(() => (spec.value ? filterKey(spec.value) : ''))
 
   // ── the list of shown rows: asked when the conditions change, windows wait for it ──
   let seq = 0
@@ -58,7 +60,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
       if (mine !== seq) return
       apply(got.rows ? { key: wantKey, spec: want, rows: Int32Array.from(got.rows), index: displayIndex(got.rows) } : null)
     } catch (e) {
-      if (mine !== seq || (e instanceof DOMException && e.name === 'AbortError')) return
+      if (mine !== seq || isAbort(e)) return
       notify(s.messages.value.filterFailed)
       clear()
     }

@@ -3,6 +3,7 @@ import { nextTick, onScopeDispose, ref, watch } from 'vue'
 import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
 import type { CellRect, FormulaReference, GridReference } from 'xlcalc/contract'
 import { quoteSheetIfNeeded, scanReferences } from 'xlcalc/text'
+import { isGridRef } from '../grid-ref'
 import type { Formula } from './formula'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -26,7 +27,7 @@ function parsePlace(text: string): { sheet?: string; range?: CellRect } | null {
   if (!raw) return null
   const whole = (refs: FormulaReference[], end: number): GridReference | null => {
     const r = refs.length === 1 ? refs[0]! : null
-    return r && r.kind !== 'table' && r.at === 0 && r.end === end && r.sheetLast === undefined && !r.spill ? r : null
+    return r && isGridRef(r) && r.at === 0 && r.end === end && !r.spill ? r : null
   }
   const refs = scanReferences(raw)
   if (refs.length) {

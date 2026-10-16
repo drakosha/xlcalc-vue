@@ -3,8 +3,10 @@
 import { computed, nextTick, ref, shallowRef, triggerRef, type ShallowRef } from 'vue'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
 import type { CellPosition, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
+import { isAbort } from '../abort'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
 import { isBlank } from '../stats'
+import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import { lookStyle } from './conditional'
 import { DEFAULT_ROW_PT, rowPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
@@ -13,7 +15,6 @@ import type { Viewport } from './viewport'
 /** Fetch margins: a window is taken with spare rows and columns so an ordinary scroll needs no request. */
 const FETCH_ROWS = 120
 const FETCH_COLS = 12
-const MAX_CELLS = 20_000
 const MAX_COLS = 200
 /** Delay before asking again for a window that is not ready yet, and how many times (over a host's recompute limit). */
 const PENDING_RETRY_MS = 1000
@@ -69,7 +70,6 @@ interface Need {
 export type SheetTable = NonNullable<SheetWindow['tables']>[number] & { rect: CellRect }
 
 const newSlot = (): Slot => ({ view: '', win: null, rows: 0, cols: 0, merges: [], tables: [], pendingKey: '', servedKey: '', ctrl: null, asked: null, stale: false })
-const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError'
 
 /** Everything a cell has in its window, for drawing it. */
 export interface CellData {
@@ -268,14 +268,14 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
 
   async function load(kind: SlotKind, need: Need): Promise<void> {
     const slot = slots[kind].value
-    const maxCells = s.source().maxCells ?? MAX_CELLS
+    const maxCells = s.source().maxCells ?? DEFAULT_MAX_CELLS
     // Margins only up to the grid's end; past the source's known edge there is nothing to ask for.
     const lastCol = Math.max(1, Math.min(s.colCount.value, edgeCols()))
     const lastRow = Math.max(1, Math.min(s.rowCount.value, edgeRows()))
     const col = kind === 'left' ? 1 : Math.max(1, Math.min(need.c1, lastCol) - FETCH_COLS)
     const cols = kind === 'left' ? Math.min(need.c2, lastCol) : Math.min(MAX_COLS, Math.min(need.c2 + FETCH_COLS, lastCol) - col + 1)
     const row = kind === 'top' ? 1 : Math.max(1, Math.min(need.r1, lastRow) - FETCH_ROWS)
-    const rows = kind === 'top' ? Math.min(need.r2, lastRow) : Math.min(Math.min(need.r2 + FETCH_ROWS, lastRow) - row + 1, Math.max(1, Math.floor(maxCells / cols)))
+    const rows = kind === 'top' ? Math.min(need.r2, lastRow) : Math.max(1, rowsFor(maxCells, Math.min(need.r2 + FETCH_ROWS, lastRow) - row + 1, cols))
     const filter = s.visible.value
     const req: WindowRequest = { sheet: s.sheetName.value, row, rows, col, cols, ...(filter ? { filter: filter.spec } : {}) }
     const view = viewKey()

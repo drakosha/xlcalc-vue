@@ -6,6 +6,7 @@ import { computed, getCurrentScope, onScopeDispose, shallowRef, type Ref } from 
 import { cellAddress, MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellRect, FillType } from 'xlcalc/contract'
 import { isBlank } from '../stats'
+import { DEFAULT_MAX_CELLS } from '../window-size'
 import type { Commands } from './commands'
 import type { Editing, EditorState } from './editing'
 import type { Geometry } from './geometry'
@@ -179,7 +180,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
   async function dataEnd(col: number, row: number): Promise<number> {
     const sheet = s.sheetName.value
     const last = s.dataRows.value
-    const step = s.source().maxCells ?? 20_000
+    const step = s.source().maxCells ?? DEFAULT_MAX_CELLS
     let r = row
     while (r <= last) {
       let got

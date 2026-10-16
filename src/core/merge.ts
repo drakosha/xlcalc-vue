@@ -5,6 +5,7 @@ import { cellAddress, rangeAddress, rectContains, rectsMeet } from 'xlcalc/a1'
 import type { CellRect, CellValue } from 'xlcalc/contract'
 import type { EditOutcome, SheetOp } from '../source'
 import { isBlank } from '../stats'
+import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import type { Commands } from './commands'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -78,12 +79,12 @@ export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Command
       return false
     }
     const source = s.source()
-    const max = Math.max(1, source.maxCells ?? 20_000)
+    const max = Math.max(1, source.maxCells ?? DEFAULT_MAX_CELLS)
     const step = Math.min(right - r.left + 1, max)
     for (let col = r.left; col <= right; col += step) {
       const cols = Math.min(step, right - col + 1)
       for (let row = r.top; row <= bottom; ) {
-        const rows = Math.min(bottom - row + 1, Math.max(1, Math.floor(max / cols)))
+        const rows = rowsFor(max, bottom - row + 1, cols)
         let got
         try {
           got = await source.window({ sheet, row, rows, col, cols })

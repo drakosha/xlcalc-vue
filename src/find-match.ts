@@ -26,7 +26,7 @@ function placeOf(req: FindRequest, visible: Set<number> | null): (row: number, c
 }
 
 /** Excel's order of cells for Find: row by row, or column by column. */
-const cellOrder =
+export const cellOrder =
   (byColumns: boolean | undefined) =>
   (a: { row: number; col: number }, b: { row: number; col: number }): number =>
     byColumns ? a.col - b.col || a.row - b.row : a.row - b.row || a.col - b.col
