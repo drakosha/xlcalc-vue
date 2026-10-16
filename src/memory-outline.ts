@@ -1,46 +1,36 @@
-// Excel's outline for the sources: the groups xlcalc draws (`outlineGroups` of `xlcalc/a1`, Excel's marks) in the
-// contract's terms, and for `memorySource`, which has no engine, the lines Excel's commands change (Group, Ungroup, a
-// group's button, a level button), as measured in Excel for Windows 16 (build 20430, 12.10.2026). `./local` takes
-// xlcalc's commands, whose measurements found more (its docs/outline.md): a summary line two groups share acts on its
-// whole detail, a summary line keeps the mark under a level button, and a group at the sheet's edge has no button.
-// TODO(xlcalc): the commands without the engine in `xlcalc/a1` would replace these.
-import type { ColumnInput, OutlineGroup as BookGroup, OutlineSettings } from 'xlcalc/contract'
-import { linesKey, outlineGroups } from 'xlcalc/a1'
-import { MAX_OUTLINE } from 'xlcalc/text'
+// Excel's outline for the sources: the groups xlcalc draws (`outlineGroups` of `xlcalc/a1`) in the contract's terms, and
+// for `memorySource`, which has no engine, Excel's commands as xlcalc's `outlineEdit` runs them on a sheet's lines alone,
+// the same commands and refusals as `./local`'s `editStructure` (xlcalc's docs/outline.md).
+import type { OutlineEditOp, OutlineGroup as BookGroup, OutlineSettings, RowInput, SheetInput } from 'xlcalc/contract'
+import { colLetters, linesKey, outlineEdit, outlineGroups } from 'xlcalc/a1'
 import { axisOf, lineSpan, type LineAxis } from './lines'
 import type { OutlineChange, SheetOutline } from './source'
 
-/** Lines `from`..`to` of one axis with the same outline level, hidden state and collapsed mark; lines left out have none. */
-export interface OutlineLine {
-  from: number
-  to: number
-  level: number
-  hidden: boolean
-  collapsed: boolean
+/** One axis's lines as `memorySource` keeps them, line by line: outline levels, collapsed marks and hidden lines. */
+export interface AxisLines {
+  levels: Map<number, number>
+  marks: Set<number>
+  hidden: Set<number>
 }
 
-/** What a command sets on lines `from`..`to`: the outline level (0: none), hidden or shown, the collapsed mark. */
-interface OutlinePatch {
-  from: number
-  to: number
-  level?: number
-  hidden?: boolean
-  collapsed?: boolean
+/** The summary settings alone, as xlcalc takes them: a field left out is Excel's default. */
+export function outlineSettings(o?: OutlineSettings | null): OutlineSettings {
+  return { ...(o?.summaryBelow !== undefined ? { summaryBelow: o.summaryBelow } : {}), ...(o?.summaryRight !== undefined ? { summaryRight: o.summaryRight } : {}) }
 }
 
-/** A command's lines to change, or why it is refused. */
-type OutlineEdit = { ok: true; patches: OutlinePatch[] } | { ok: false; message: string }
+/** One axis's lines as `SheetInput.rows` or `columns` hold them, a key a line, which xlcalc's outline reads. */
+function inputOf(lines: AxisLines, axis: LineAxis): Record<string, RowInput> {
+  const out: Record<string, RowInput> = {}
+  for (const i of new Set([...lines.levels.keys(), ...lines.marks, ...lines.hidden])) {
+    const level = lines.levels.get(i)
+    out[linesKey(i, i, axis)] = { ...(level ? { outlineLevel: level } : {}), ...(lines.hidden.has(i) ? { hidden: true } : {}), ...(lines.marks.has(i) ? { collapsed: true } : {}) }
+  }
+  return out
+}
 
-/**
- * One axis's groups as xlcalc draws them from its lines, the summaries after the detail (below, right) or before it: a
- * group is collapsed when Excel keeps the mark on its summary line, which it sets once the lines under it are all hidden.
- */
-export function groupsOf(lines: readonly OutlineLine[], axis: LineAxis, after: boolean): BookGroup[] {
-  // the lines as `SheetInput.rows` or `columns` hold them, which `outlineGroups` reads
-  const input: Record<string, ColumnInput> = {}
-  for (const l of lines) input[linesKey(l.from, l.to, axis)] = { ...(l.level ? { outlineLevel: l.level } : {}), ...(l.hidden ? { hidden: true } : {}), ...(l.collapsed ? { collapsed: true } : {}) }
-  const side = { summaryBelow: after, summaryRight: after }
-  return outlineGroups(axis === 'rows' ? { rows: input, outline: side } : { columns: input, outline: side })[axis]
+/** A sheet's lines on both axes as xlcalc's outline reads them, its summaries where the settings put them. */
+export function outlineSheet(axes: Record<LineAxis, AxisLines>, settings?: OutlineSettings | null): Pick<SheetInput, 'rows' | 'columns' | 'outline'> {
+  return { rows: inputOf(axes.rows, 'rows'), columns: inputOf(axes.columns, 'columns'), outline: outlineSettings(settings) }
 }
 
 /** A sheet's outline in the contract's terms from xlcalc's groups of both axes; none for a sheet without groups. */
@@ -50,104 +40,51 @@ export function outlineOf(groups: Record<LineAxis, BookGroup[]>, settings?: Outl
   return { rows: list('rows'), columns: list('columns'), summaryBelow: settings?.summaryBelow ?? true, summaryRight: settings?.summaryRight ?? true }
 }
 
-/** Lines `a`..`b` in pieces: each with the line entry over it, or null where no entry is. */
-function pieces(lines: readonly OutlineLine[], a: number, b: number): { from: number; to: number; line: OutlineLine | null }[] {
-  const out: { from: number; to: number; line: OutlineLine | null }[] = []
-  let at = a
-  for (const l of lines) {
-    if (l.to < at) continue
-    if (l.from > b) break
-    if (l.from > at) out.push({ from: at, to: l.from - 1, line: null })
-    const to = Math.min(l.to, b)
-    out.push({ from: Math.max(l.from, at), to, line: l })
-    at = to + 1
-    if (at > b) break
+/**
+ * The component's outline command as xlcalc's, or why there is none. A group's button is Show or Hide Detail at its summary
+ * line, the group found among the axis's groups by its lines and level; a group at the sheet's edge has no summary line
+ * and, as in Excel, no button.
+ */
+export function outlineOp(change: OutlineChange, groups: (axis: LineAxis) => readonly BookGroup[]): OutlineEditOp | { refused: string } {
+  if (change.op === 'showLevel') return change.axis === 'rows' ? { op: 'showLevels', rows: change.level } : { op: 'showLevels', columns: change.level }
+  const axis = axisOf(change)
+  const text = 'rows' in change ? change.rows : change.columns
+  const span = lineSpan(text, axis)
+  if (!span) return { refused: `Not ${axis}: ${text}` }
+  if (!('level' in change)) {
+    const lines = linesKey(span.first, span.last, axis)
+    return axis === 'rows' ? { op: change.op, rows: lines } : { op: change.op, columns: lines }
   }
-  if (at <= b) out.push({ from: at, to: b, line: null })
-  return out
-}
-
-/** The entry over a line, by binary search. */
-function lineAt(lines: readonly OutlineLine[], i: number): OutlineLine | null {
-  let lo = 0
-  let hi = lines.length - 1
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1
-    const l = lines[mid]!
-    if (l.to < i) lo = mid + 1
-    else if (l.from > i) hi = mid - 1
-    else return l
-  }
-  return null
-}
-
-/** Ranges `a`..`b` less the sorted, merged holes. */
-function without(a: number, b: number, holes: { from: number; to: number }[]): { from: number; to: number }[] {
-  const out: { from: number; to: number }[] = []
-  let at = a
-  for (const h of holes) {
-    if (h.to < at) continue
-    if (h.from > b) break
-    if (h.from > at) out.push({ from: at, to: h.from - 1 })
-    at = Math.max(at, h.to + 1)
-  }
-  if (at <= b) out.push({ from: at, to: b })
-  return out
+  const g = groups(axis).find((x) => x.first === span.first && x.last === span.last && x.level === change.level)
+  if (!g) return { refused: `No group of level ${change.level} over the ${axis} ${text}` }
+  if (g.summary === null) return { refused: `The group of ${axis} ${text} has no summary ${axis === 'rows' ? 'row' : 'column'}, past the sheet's edge: Excel draws no button for it` }
+  const op = change.op === 'collapse' ? 'hideDetail' : 'showDetail'
+  return axis === 'rows' ? { op, row: g.summary } : { op, column: colLetters(g.summary) }
 }
 
 /**
- * The lines Excel's command changes on one axis, its `groups` as `groupsOf` gives them. Group puts each line one level
- * deeper and is refused when a line is at the deepest level already; Ungroup takes a level off the lines that have one and
- * leaves hidden lines hidden, refused when none has one. Collapse hides a group's lines and marks its summary line; Expand
- * shows them, all but those of the groups inside it whose summary line keeps the mark (one sharing its summary line is
- * expanded with it), and takes the mark off. A level button k hides the lines of level k and deeper, shows the shallower
- * ones and marks the summary lines of the collapsed groups that stay in view; lines outside groups stay as they are.
+ * Runs an outline command on the lines of its axis as xlcalc's `outlineEdit` does, changing them in place; Excel's refusal
+ * in English, or null. A command xlcalc cannot read (a level button past 8) throws its `InputError`.
  */
-export function outlineEdit(lines: readonly OutlineLine[], groups: readonly BookGroup[], change: OutlineChange): OutlineEdit {
+export function outlineCommand(lines: AxisLines, settings: OutlineSettings | null | undefined, change: OutlineChange): string | null {
   const axis = axisOf(change)
-  const markAt = (i: number) => lineAt(lines, i)?.collapsed ?? false
-  if (change.op === 'showLevel') {
-    if (!Number.isInteger(change.level) || change.level < 1) return { ok: false, message: `No outline level ${change.level}` }
-    const k = change.level
-    const patches: OutlinePatch[] = []
-    for (const l of lines) if (l.level > 0) patches.push({ from: l.from, to: l.to, hidden: l.level >= k })
-    const shownAfter = (i: number) => {
-      const l = lineAt(lines, i)
-      return l && l.level > 0 ? l.level < k : !l?.hidden
+  const input = inputOf(lines, axis)
+  const outline = outlineSettings(settings)
+  const sheet = axis === 'rows' ? { rows: input, outline } : { columns: input, outline }
+  const op = outlineOp(change, () => outlineGroups(sheet)[axis])
+  if ('refused' in op) return op.refused
+  const got = outlineEdit(sheet, op)
+  if (!got.ok) return got.message
+  lines.levels.clear()
+  lines.marks.clear()
+  lines.hidden.clear()
+  for (const [key, line] of Object.entries(got[axis] ?? {})) {
+    const span = lineSpan(key, axis)!
+    for (let i = span.first; i <= span.last; i++) {
+      if (line.outlineLevel) lines.levels.set(i, line.outlineLevel)
+      if (line.collapsed) lines.marks.add(i)
+      if (line.hidden) lines.hidden.add(i)
     }
-    const marks = new Map<number, boolean>()
-    for (const { summary: s, level } of groups) if (s !== null) marks.set(s, (marks.get(s) ?? false) || (level >= k && shownAfter(s)))
-    for (const [s, mark] of marks) if (mark !== markAt(s)) patches.push({ from: s, to: s, collapsed: mark })
-    return { ok: true, patches }
   }
-  const text = 'rows' in change ? change.rows : change.columns
-  const span = lineSpan(text, axis)
-  if (!span) return { ok: false, message: `Not ${axis}: ${text}` }
-  const { first: a, last: b } = span
-  if (change.op === 'group' || change.op === 'ungroup') {
-    const parts = pieces(lines, a, b)
-    if (change.op === 'group') {
-      // Excel refuses only when every line is at the deepest level; those that are stay there
-      const deeper = parts.filter((p) => (p.line?.level ?? 0) < MAX_OUTLINE)
-      if (!deeper.length) return { ok: false, message: `The ${axis} ${text} cannot be grouped deeper than ${MAX_OUTLINE} levels` }
-      return { ok: true, patches: deeper.map((p) => ({ from: p.from, to: p.to, level: (p.line?.level ?? 0) + 1 })) }
-    }
-    const grouped = parts.filter((p) => (p.line?.level ?? 0) > 0)
-    if (!grouped.length) return { ok: false, message: `The ${axis} ${text} are in no group` }
-    return { ok: true, patches: grouped.map((p) => ({ from: p.from, to: p.to, level: p.line!.level - 1 })) }
-  }
-  const level = 'level' in change ? change.level : 0
-  const g = groups.find((x) => x.first === a && x.last === b && x.level === level)
-  if (!g) return { ok: false, message: `No group of level ${level} over the ${axis} ${text}` }
-  // a group at the sheet's edge has no summary line to mark
-  const summary = g.summary
-  if (change.op === 'collapse') return { ok: true, patches: [{ from: a, to: b, hidden: true }, ...(summary !== null ? [{ from: summary, to: summary, collapsed: true }] : [])] }
-  // Groups inside that stay collapsed: their summary line has the mark and is not this group's own.
-  const holes = groups
-    .filter((h) => h.level > g.level && h.first >= a && h.last <= b && h.summary !== null && h.summary !== summary && markAt(h.summary))
-    .map((h) => ({ from: h.first, to: h.last }))
-    .sort((x, y) => x.from - y.from)
-  const patches: OutlinePatch[] = without(a, b, holes).map((r) => ({ ...r, hidden: false }))
-  if (summary !== null && markAt(summary)) patches.push({ from: summary, to: summary, collapsed: false })
-  return { ok: true, patches }
+  return null
 }

@@ -7,7 +7,7 @@ Everything the package exports, with signatures. What the sheet does with each p
 | Import | What it gives | Runtime dependencies |
 | --- | --- | --- |
 | `xlcalc-sheet` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages` and the types below | `vue` |
-| `xlcalc-sheet/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.45.0 or later (optional peer) |
+| `xlcalc-sheet/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.46.0 or later (optional peer) |
 | `xlcalc-sheet/style.css` | The look of the sheet, the toolbar and the dialog | |
 
 The main entry bundles xlcalc's engine-free subpaths `xlcalc/a1` and `xlcalc/text` (addresses, the references of formula text, a paste's rectangle), and a book in ru-RU loads ru-RU's formula text as a chunk of its own. A source without `editText` loads `xlcalc/entry` (typed entry, without the engine) as another chunk, bundled whole apart from the main entry, when the first cell needs its text; `memorySource` loads it for Find and Replace.

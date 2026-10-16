@@ -189,7 +189,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const kept = lists.get(nameKey(sheet))
     if (!fresh && kept?.key === key) return kept
     const v = await columnsOf(s, sheet, filterColumns(filter), signal)
-    const list: RowList = { key, rows: visibleList(v, filter), max: v.maxRow }
+    const list: RowList = { key, rows: visibleList(v, filter, locale), max: v.maxRow }
     lists.set(nameKey(sheet), list)
     return list
   }
@@ -522,7 +522,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     async columnValues(sheet, col, filter, signal) {
       const s = await open()
       throwIfAborted(signal)
-      return columnList(await columnsOf(s, sheet, [col, ...Object.keys(filter.cols ?? {}).map(Number)], signal), col, filter)
+      return columnList(await columnsOf(s, sheet, [col, ...Object.keys(filter.cols ?? {}).map(Number)], signal), col, filter, locale)
     },
     async book() {
       return (await open()).getBook()

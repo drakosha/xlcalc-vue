@@ -123,6 +123,13 @@ describe('localSource: search, display filter, totals', () => {
     expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'desc' } })).rows).toEqual([1, 5, 4, 11, 10, 9, 2, 8, 3, 7, 6])
   })
 
+  it('sorts text in the book’s locale: ru-RU’s order is en-US’s, Latin before Cyrillic, as Excel for Windows sorts', async () => {
+    const cells = { A1: { value: 'h' }, A2: { value: 'б' }, A3: { value: 'b' }, A4: { value: 'А' }, A5: { value: 'a' } }
+    const s = source({ locale: 'ru-RU', sheets: [{ name: 'S', cells }] })
+    expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'asc' } })).rows).toEqual([1, 5, 3, 4, 2])
+    expect((await s.columnValues('S', 1, { head: 1 })).values.map((v) => v.text)).toEqual(['a', 'b', 'А', 'б'])
+  })
+
   it('reads only the columns a filter, a sort or a funnel asks for, once, and keeps them up to date with edits', async () => {
     const { s, calls, count } = watched()
     const reads = () => calls.filter((c) => c.method === 'getCells').map((c) => c.args[1])
