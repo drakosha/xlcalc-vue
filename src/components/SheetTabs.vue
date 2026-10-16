@@ -2,6 +2,7 @@
 // The bottom line, as in Excel: sheet tabs (scrolling sideways on a phone), the filter's state with Reapply and Clear, and the selection's totals.
 import { computed } from 'vue'
 import { useSheetContext } from './context'
+import { refInto } from './dom'
 import { IconFilterOff, IconPlus, IconRetry } from './icons'
 
 const ctx = useSheetContext()
@@ -9,20 +10,18 @@ const m = ctx.messages
 /** "+" after the tabs and the tabs' menu, as Excel's, with the source's structure on an editable sheet. */
 const canAdd = computed(() => ctx.cmd.can('structure'))
 const { menu } = ctx
+const { press } = menu
 
 function onContext(e: MouseEvent, i: number): void {
-  if (!canAdd.value) return
-  e.preventDefault()
-  menu.pressCancel()
-  if (!menu.afterPress()) void menu.openSheet(i, e.clientX, e.clientY)
+  if (canAdd.value && press.context(e)) void menu.openSheet(i, e.clientX, e.clientY)
 }
 function onDown(e: PointerEvent, i: number): void {
-  if (canAdd.value) menu.pressStart(e, (x, y) => void menu.openSheet(i, x, y))
+  if (canAdd.value) press.start(e, (x, y) => void menu.openSheet(i, x, y))
 }
 function onClick(i: number): void {
-  if (!menu.afterPress()) void ctx.pickSheet(i)
+  if (!press.after()) void ctx.pickSheet(i)
 }
-const setRenameInput = (el: unknown) => (menu.renameInput.value = (el as HTMLInputElement | null) ?? null)
+const setRenameInput = refInto(menu.renameInput)
 </script>
 
 <template>
@@ -53,9 +52,9 @@ const setRenameInput = (el: unknown) => (menu.renameInput.value = (el as HTMLInp
           @dblclick="menu.startRename(i)"
           @contextmenu="onContext($event, i)"
           @pointerdown="onDown($event, i)"
-          @pointermove="menu.pressMove"
-          @pointerup="menu.pressCancel"
-          @pointercancel="menu.pressCancel"
+          @pointermove="press.move"
+          @pointerup="press.cancel"
+          @pointercancel="press.cancel"
         >
           {{ sheet.name || m.sheetUnnamed(i + 1) }}
         </button>

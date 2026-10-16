@@ -4,6 +4,7 @@ import { computed, getCurrentScope, onScopeDispose, shallowRef, watch, type Ref 
 import type { ScanOptions } from 'xlcalc/contract'
 import { callAt } from 'xlcalc/text'
 import type { SheetFunctionSignature, SheetSource } from '../source'
+import { askSource } from './ask'
 import type { EditorState } from './editing'
 
 /** A piece of the tip's text; the argument the caret is at is `current`. */
@@ -16,7 +17,7 @@ export interface TipPart {
  * The innermost function call around `caret` in formula text typed in `opts.locale` (`callAt` of `xlcalc/text`): the name
  * the source is asked by, English in upper case (`SUM` for a typed `сумм`), and the argument's index from 0; null outside one.
  */
-export function callUnder(text: string, caret: number, opts: ScanOptions): { name: string; index: number } | null {
+function callUnder(text: string, caret: number, opts: ScanOptions): { name: string; index: number } | null {
   const call = callAt(text, caret, opts)
   return call && { name: call.fn || call.name, index: call.index }
 }
@@ -96,6 +97,14 @@ export function useFunctionTip(deps: FunctionTipDeps) {
   /** What the tip was last made for: a key's follow after the input's update finds the same and does nothing. */
   let asked: { text: string; caret: number | null; src: SheetSource; opts: ScanOptions | null } | null = null
 
+  /** The signatures kept for a source: another source starts them over. */
+  function cacheFor(src: SheetSource): Map<string, SheetFunctionSignature | null> {
+    if (cacheOf !== src) {
+      cache = new Map()
+      cacheOf = src
+    }
+    return cache
+  }
   function drop(): void {
     pending?.ctrl.abort()
     pending = null
@@ -114,10 +123,7 @@ export function useFunctionTip(deps: FunctionTipDeps) {
     const at = caret !== null && opts && src.functionSignature ? callUnder(text, caret, opts) : null
     if (!at) return close()
     asked = { text, caret, src, opts }
-    if (cacheOf !== src) {
-      cache = new Map()
-      cacheOf = src
-    }
+    const cache = cacheFor(src)
     const key = at.name.toUpperCase()
     want = { key, index: at.index }
     if (cache.has(key)) {
@@ -129,25 +135,24 @@ export function useFunctionTip(deps: FunctionTipDeps) {
     if (pending?.key === key) return
     drop()
     tip.value = null
-    const entry = { key, ctrl: new AbortController() }
-    pending = entry
-    Promise.resolve()
-      .then(() => src.functionSignature!(at.name, entry.ctrl.signal))
-      .then(
+    const entry: { key: string; ctrl: AbortController } = {
+      key,
+      ctrl: askSource(
+        (signal) => src.functionSignature!(at.name, signal),
+        () => pending === entry,
         (sig) => {
-          if (pending !== entry) return
           pending = null
           cache.set(key, sig)
           if (want?.key === key && sig) tip.value = { sig, index: want.index }
         },
         () => {
           // A failed request is not kept: the name is asked again when the caret comes to it next.
-          if (pending === entry) {
-            pending = null
-            asked = null
-          }
+          pending = null
+          asked = null
         },
-      )
+      ),
+    }
+    pending = entry
   }
   /** The caret moved in the field (a key, a click): the tip follows it once the move is done. */
   function follow(): void {
@@ -165,16 +170,13 @@ export function useFunctionTip(deps: FunctionTipDeps) {
   async function signature(name: string): Promise<SheetFunctionSignature | null> {
     const src = deps.source()
     if (!src.functionSignature) return null
-    if (cacheOf !== src) {
-      cache = new Map()
-      cacheOf = src
-    }
+    const cache = cacheFor(src)
     const key = name.toUpperCase()
     if (cache.has(key)) return cache.get(key)!
     // A failed request is not kept, as the tip's.
     const sig = await src.functionSignature(name).catch(() => undefined)
     if (sig === undefined) return null
-    if (cacheOf === src) cache.set(key, sig)
+    cache.set(key, sig)
     return sig
   }
 

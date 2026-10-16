@@ -2,21 +2,21 @@
 // Excel's dropdown of a list rule: the arrow right of the active cell and the list of items under it (over it where the
 // view has no room below), eight at a time; the keys are the sheet's (`useValidation.onKey`): a press keeps the grid's focus.
 import { computed, ref } from 'vue'
-import { LIST_ROWS, type ValidationRect } from '../core/validation'
+import { LIST_ROWS } from '../core/validation'
 import { useMessages, type SheetMessages } from '../messages'
-import { keepActiveInView, listHeight, placeBelowOrAbove, TOUCH_PX, useOutsidePress } from './popup'
+import { keepActiveInView, listHeight, placeBelowOrAbove, TOUCH_PX, useOutsidePress, type PopupRect } from './popup'
 import '../popup.css'
 
 const props = withDefaults(
   defineProps<{
     /** The active cell (a merged area whole). */
-    rect: ValidationRect
+    rect: PopupRect
     items: string[]
     open: boolean
     /** The highlighted item; -1 for none. */
     active?: number
     /** What of the grid is in view, in the same coordinates: the list goes over the cell where it has no room below. */
-    view?: ValidationRect
+    view?: PopupRect
     /** A finger: the arrow and the items are 44 px. */
     touch?: boolean
     messages?: Partial<SheetMessages>

@@ -349,6 +349,20 @@ describe('the menu on the tabs', () => {
     ])
   })
 
+  it('names each small dialog by its title for a screen reader', async () => {
+    const { source } = withStructure()
+    const w = await mountSheet(source)
+    const label = () => document.getElementById(dialog()!.getAttribute('aria-labelledby') ?? '')?.textContent
+    await context(num(w, 3))
+    await pick('size')
+    expect(label()).toBe('Row height, in points')
+    document.querySelector<HTMLElement>('[data-xs-dialog-cancel]')!.click()
+    await settle()
+    await context(w.findAll('.xs-tab')[1]!)
+    await pick('deleteSheet')
+    expect(label()).toBe('Delete the sheet')
+  })
+
   it('asks before deleting a sheet with data, as Excel does', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)

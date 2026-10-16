@@ -1,9 +1,10 @@
 // The component's base state: the book's sheets, the active one, its extent, sizes from the windows, and the frame.
-import { computed, ref, shallowRef } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
 import { DEFAULT_ROW_HEIGHT } from 'xlcalc/text'
-import { enMessages, type SheetMessages } from '../messages'
+import { errorText } from '../failure'
+import { useMessages, type SheetMessages } from '../messages'
 import type { SheetFilter, SheetInfo, SheetSource } from '../source'
 import { colPx, rowPx } from './geometry'
 import type { ListSort } from './list'
@@ -47,9 +48,18 @@ const SPARE_COLS = 5
 const MIN_ROWS = 100
 const MIN_COLS = 26
 
+/** The source's methods by name, optional ones too. */
+export type SourceMethod = { [K in keyof SheetSource]-?: NonNullable<SheetSource[K]> extends (...args: never[]) => unknown ? K : never }[keyof SheetSource]
+
 export function createState(props: SheetViewProps) {
   const source = () => props.source
-  const messages = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
+  /** A method of the source bound to it (a class's methods need their `this`), or null when the source has none. */
+  function sourceMethod<K extends SourceMethod>(name: K): NonNullable<SheetSource[K]> | null {
+    const src = props.source
+    const fn = src[name] as ((...args: unknown[]) => unknown) | undefined
+    return typeof fn === 'function' ? (fn.bind(src) as NonNullable<SheetSource[K]>) : null
+  }
+  const messages = useMessages(() => props.messages)
   const locale = computed(() => props.locale ?? 'en-US')
   const memory = createMemory(() => props.storageKey)
   const editable = computed(() => !props.readOnly && typeof props.source.edit === 'function')
@@ -65,6 +75,8 @@ export function createState(props: SheetViewProps) {
   const dataRows = computed(() => Math.max(sheet.value?.maxRow ?? 0, grown.value.rows))
   const dataCols = computed(() => Math.max(sheet.value?.maxCol ?? 0, grown.value.cols))
   const failure = shallowRef<SheetFailure | null>(null)
+  /** Why the book cannot be shown, from a source's error: its message, else the interface's. */
+  const failureOf = (error: unknown): SheetFailure => ({ error, text: errorText(error) || messages.value.loadFailed })
   const loading = ref(false)
   const scroller = ref<HTMLElement | null>(null)
   const scrollTop = ref(0)
@@ -107,6 +119,15 @@ export function createState(props: SheetViewProps) {
   /** Ways back into modules made later: dropping the filter when a jump needs a row it hides; a change of the cells on its way from the sheet (Excel's copy mode ends). */
   const hooks = { unfilter: (_row: number): void => {}, changing: (): void => {} }
 
+  /** The grid takes the focus back without scrolling the page: after a field, a popover, a dialog or a command. */
+  const focusGrid = (): void => scroller.value?.focus({ preventScroll: true })
+  /** Scroll the frame and put the scroll in the state at once: what is drawn follows without waiting for the scroll event. */
+  function scrollGridTo(top: number, left: number): void {
+    scroller.value?.scrollTo({ top, left })
+    scrollTop.value = top
+    scrollLeft.value = left
+  }
+
   /** Grow the data reach to a cell that got a value. */
   function grow(row: number, col: number): void {
     if (row > dataRows.value || col > dataCols.value)
@@ -122,6 +143,7 @@ export function createState(props: SheetViewProps) {
   return {
     props,
     source,
+    sourceMethod,
     messages,
     locale,
     memory,
@@ -143,6 +165,7 @@ export function createState(props: SheetViewProps) {
     lastRow,
     colCount,
     failure,
+    failureOf,
     loading,
     scroller,
     scrollTop,
@@ -157,9 +180,23 @@ export function createState(props: SheetViewProps) {
     extent,
     anchor,
     hooks,
+    focusGrid,
+    scrollGridTo,
     grow,
     stretch,
   }
 }
 
 export type SheetState = ReturnType<typeof createState>
+
+/** Signals for reads of the sheet shown (a run of windows): each new one aborts the last, and so do another sheet and the sheet's end. */
+export function useSheetReads(s: SheetState): () => AbortSignal {
+  let ctrl: AbortController | null = null
+  const stop = () => ctrl?.abort()
+  watch(s.sheetName, stop)
+  onScopeDispose(stop)
+  return () => {
+    stop()
+    return (ctrl = new AbortController()).signal
+  }
+}

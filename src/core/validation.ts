@@ -3,19 +3,12 @@
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { SheetSource, SheetValidation, SheetValidationAlert } from '../source'
+import { listStep, stepIndex } from './list-keys'
 
 /** How long the active cell stays before its rule is asked: arrows held over a column ask once, at the end. */
 export const VALIDATION_DELAY_MS = 60
 /** Items the list shows at once, as Excel's; Page Up and Page Down move by them. */
 export const LIST_ROWS = 8
-
-/** A rectangle in the coordinates of the element the components are placed in (the grid's content), in px. */
-export interface ValidationRect {
-  top: number
-  left: number
-  width: number
-  height: number
-}
 
 export interface ValidationPlace {
   sheet: string
@@ -31,10 +24,6 @@ export interface ValidationDeps {
   text?: () => string
   /** An item chosen from the list (a click, Enter), by its text and its place in the list: the sheet enters it into the cell. */
   pick: (text: string, place: ValidationPlace, item: number) => void
-  /** Stops asking (the sheet's end); the end of the scope the composable runs in stops it too. */
-  signal?: AbortSignal
-  /** Milliseconds the active cell stays before it is asked, `VALIDATION_DELAY_MS` by default. */
-  delay?: number
 }
 
 /** The rule of the active cell as Excel shows it: the source asked once the cell stays, an older answer dropped, the list's state. */
@@ -47,7 +36,6 @@ export function useValidation(deps: ValidationDeps) {
   const index = ref(-1)
   const list = computed(() => current.value?.list ?? null)
   const prompt = computed(() => current.value?.prompt ?? null)
-  const delay = deps.delay ?? VALIDATION_DELAY_MS
 
   let timer: ReturnType<typeof setTimeout> | null = null
   let ctrl: AbortController | null = null
@@ -110,9 +98,7 @@ export function useValidation(deps: ValidationDeps) {
   /** Highlight the item `by` steps away, within the list; from none, down goes to the first. */
   function move(by: number): void {
     const n = list.value?.length ?? 0
-    if (!n) return
-    const from = index.value < 0 ? (by > 0 ? -1 : n) : index.value
-    index.value = Math.min(n - 1, Math.max(0, from + by))
+    if (n) index.value = stepIndex(index.value, by, n)
   }
   /** Enter an item into the cell (the highlighted one by default) and close the list; false for no item. */
   function choose(i = index.value): boolean {
@@ -133,25 +119,17 @@ export function useValidation(deps: ValidationDeps) {
       e.preventDefault()
       return true
     }
-    const n = list.value?.length ?? 0
-    const keys: Record<string, () => void> = {
-      ArrowDown: () => (e.altKey ? undefined : move(1)),
-      ArrowUp: () => (e.altKey ? close() : move(-1)),
-      PageDown: () => move(LIST_ROWS),
-      PageUp: () => move(-LIST_ROWS),
-      Home: () => move(-n),
-      End: () => move(n),
-      Enter: () => void (choose() || close()),
-      Escape: close,
-    }
-    const act = keys[e.key]
-    if (!act) {
+    // Alt+Down does nothing more on an open list, Alt+Up closes it
+    const by = e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp') ? null : listStep(e.key, list.value?.length ?? 0, LIST_ROWS)
+    if (by !== null) move(by)
+    else if (e.key === 'ArrowUp' || e.key === 'Escape') close()
+    else if (e.key === 'Enter') void (choose() || close())
+    else if (e.key !== 'ArrowDown') {
       // anything else closes the list and goes on to the grid (a character starts typing, Tab moves)
       close()
       return false
     }
     e.preventDefault()
-    act()
     return true
   }
 
@@ -167,14 +145,14 @@ export function useValidation(deps: ValidationDeps) {
       close()
       current.value = null
       place.value = null
-      ask(delay)
+      ask(VALIDATION_DELAY_MS)
     },
     { immediate: true },
   )
-  deps.signal?.addEventListener('abort', stop, { once: true })
+  // The end of the scope it runs in (the sheet's) stops asking.
   if (getCurrentScope()) onScopeDispose(stop)
 
-  return { current, place, list, prompt, open, index, refresh, openList, close, toggle, move, choose, onKey, stop }
+  return { current, place, list, prompt, open, index, refresh, openList, close, toggle, choose, onKey }
 }
 
 export type Validation = ReturnType<typeof useValidation>

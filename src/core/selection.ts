@@ -4,7 +4,9 @@
 import { computed, nextTick, watch } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseCell, rangeAddress } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
+import { rectOf } from '../rect'
 import { colPx, type Geometry } from './geometry'
+import { isMod } from './keys'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
 
@@ -27,7 +29,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     if (!sa) return null
     const a = s.anchor.value ?? sa
     const b = s.extent.value ?? sa
-    return { top: Math.min(a.row, b.row), left: Math.min(a.col, b.col), bottom: Math.max(a.row, b.row), right: Math.max(a.col, b.col) }
+    return rectOf(a, b)
   })
   // Any other move of the active cell or the corner starts the rectangle from the active cell again.
   let inside = false
@@ -41,6 +43,9 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   /** Whole columns (`B:D`) or rows (`2:5`) the selection is, as their headers select them; null for a range of cells. */
   const wholeColumns = computed(() => (fullRect.value && fullRect.value.top === 1 && fullRect.value.bottom >= MAX_ROWS ? { first: fullRect.value.left, last: fullRect.value.right } : null))
   const wholeRows = computed(() => (fullRect.value && fullRect.value.left === 1 && fullRect.value.right >= MAX_COLS ? { first: fullRect.value.top, last: fullRect.value.bottom } : null))
+  /** The selected whole lines (`wholeRows`, `wholeColumns`) when `line` is one of them, else that line alone: what a number's or a letter's command acts on. */
+  const linesOf = (whole: { first: number; last: number } | null, line: number): { first: number; last: number } =>
+    whole && line >= whole.first && line <= whole.last ? whole : { first: line, last: line }
   const multi = computed(() => {
     const r = selRect.value
     return !!r && (r.top !== r.bottom || r.left !== r.right)
@@ -73,11 +78,15 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     s.selected.value = { row: 1, col: 1 }
     s.extent.value = { row: MAX_ROWS, col: MAX_COLS }
   }
+  /** An editable grid stretches to show a rectangle's finite corner: one over every row or column to its first line there. */
+  function stretchTo(r: CellRect): void {
+    s.stretch(r.bottom >= MAX_ROWS ? r.top : r.bottom, r.right >= MAX_COLS ? r.left : r.right)
+  }
   /** Select a rectangle; one over every row or column stays whole, the grid stretches to its finite corner. */
   function selectRect(r: CellRect): void {
     const bottom = r.bottom >= MAX_ROWS ? MAX_ROWS : r.bottom
     const right = r.right >= MAX_COLS ? MAX_COLS : r.right
-    s.stretch(bottom >= MAX_ROWS ? r.top : bottom, right >= MAX_COLS ? r.left : right)
+    stretchTo(r)
     s.selected.value = { row: r.top, col: r.left }
     s.extent.value = r.top === bottom && r.left === right ? null : { row: bottom, col: right }
   }
@@ -95,7 +104,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     if (touching) return
     pickCell(row, col, e.shiftKey)
     dragging = true
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
   /** A tap on touch: picks the cell; true when it is the second tap on the same cell. */
   function onCellTap(e: MouseEvent, row: number, col: number): boolean {
@@ -139,9 +148,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
       else if (right > x + s.viewW.value - v.leadW.value) x = right - s.viewW.value + v.leadW.value + REVEAL_PAD
     }
     if (y !== el.scrollTop || x !== el.scrollLeft) {
-      el.scrollTo({ top: Math.max(0, y), left: Math.max(0, x) })
-      s.scrollTop.value = Math.max(0, y)
-      s.scrollLeft.value = Math.max(0, x)
+      s.scrollGridTo(Math.max(0, y), Math.max(0, x))
     }
   }
   /** The frame's size, read again where it matters: a scrollbar may have appeared since the last read. */
@@ -160,11 +167,11 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     if (s.rowCount.value === 0) return null
     const way = END_WAYS[e.key]
     // Control and an arrow go where the source's Range.End says; under the display filter its rows are not the sheet's
-    if (way && (e.ctrlKey || e.metaKey) && !e.altKey && s.source().end && !s.visible.value) return endTarget(a, way)
+    const ctrl = isMod(e)
+    if (way && ctrl && !e.altKey && s.source().end && !s.visible.value) return endTarget(a, way)
     let d = s.indexOf(a.row) ?? 1
     let col = a.col
     const page = Math.max(1, Math.floor((s.viewH.value - v.headH.value - v.frozenH.value) / s.defaultRowPx.value))
-    const ctrl = e.ctrlKey || e.metaKey
     // Ctrl jumps to the data's edge first, then to the grid's (an editable grid goes on past the data).
     const lastRow = (x: number) => (x < s.dataShown.value ? s.dataShown.value : s.rowCount.value)
     const lastCol = (c: number) => (c < s.dataCols.value ? s.dataCols.value : s.colCount.value)
@@ -299,6 +306,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     selRect,
     wholeColumns,
     wholeRows,
+    linesOf,
     multi,
     selectionRef,
     gridRef,
@@ -307,6 +315,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     pickColumn,
     pickRow,
     selectAll,
+    stretchTo,
     selectRect,
     onCellDown,
     onCellTap,

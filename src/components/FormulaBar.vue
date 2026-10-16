@@ -4,11 +4,12 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 import { cellAddress } from 'xlcalc/a1'
 import type { GridReference } from 'xlcalc/contract'
 import { safeHref } from '../core/cell-view'
-import { onMac } from '../core/clip'
+import { isMod, onMac } from '../core/keys'
 import type { FormulaPart } from '../core/formula'
 import { canPaint, paintRefs, pieceAtPoint, type Painted } from '../core/ref-paint'
-import type { ValidationRect } from '../core/validation'
+import type { PopupRect } from './popup'
 import { useSheetContext } from './context'
+import { refInto } from './dom'
 import FunctionList from './FunctionList.vue'
 import FunctionTip from './FunctionTip.vue'
 import InsertFunction from './InsertFunction.vue'
@@ -67,12 +68,12 @@ const goTip = computed(() => (!ctx.editor.value && !v.touch.value && goable.valu
 let going = false
 function onFieldDown(e: MouseEvent): void {
   // the mouse's press a browser may send after a finger's long press that went: the field takes no focus
-  if (ctx.menu.afterPress()) return void e.preventDefault()
-  going = !ctx.editor.value && !v.touch.value && (e.ctrlKey || e.metaKey)
+  if (ctx.menu.press.after()) return void e.preventDefault()
+  going = !ctx.editor.value && !v.touch.value && isMod(e)
 }
 /** The field's focus starts the edit in the bar where the press put the caret or the selection, as F2 does; a field open in the cell moves here with its draft. */
 function onFieldFocus(e: FocusEvent): void {
-  if (going || ctx.menu.afterPress() || !ctx.editable.value) return
+  if (going || ctx.menu.press.after() || !ctx.editable.value) return
   const open = ctx.editor.value
   if (open) return void (open.place = 'bar')
   const el = e.target as HTMLTextAreaElement
@@ -80,7 +81,7 @@ function onFieldFocus(e: FocusEvent): void {
 }
 function onFieldClick(e: MouseEvent): void {
   const el = e.target as HTMLTextAreaElement
-  if (ctx.menu.afterPress()) return
+  if (ctx.menu.press.after()) return
   if (going) {
     going = false
     const ref = goable.value[hovered.value]?.ref ?? refAt(el.selectionStart)
@@ -98,13 +99,13 @@ function onFieldKey(e: KeyboardEvent): void {
   if (!ctx.editor.value && !e.isComposing && !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
     const el = e.target as HTMLTextAreaElement
     if (!barReadonly.value) ed.startEdit({ mode: 'edit', place: 'bar', caret: el.selectionStart, caretEnd: el.selectionEnd })
-    else if (e.key === 'Escape') ctx.scroller.value?.focus({ preventScroll: true })
+    else if (e.key === 'Escape') ctx.focusGrid()
   }
   ed.onEditorKey(e)
 }
 /** Go to a reference's range from the bar: the grid takes the focus, as after the address box. */
 function goRef(ref: GridReference): void {
-  ctx.scroller.value?.focus({ preventScroll: true })
+  ctx.focusGrid()
   nav.goRef(ref)
 }
 /** The layer scrolls with the field; outside an edit in the bar a new text shows from its top. */
@@ -121,7 +122,7 @@ function updateHover(): void {
 }
 const hoveredPart = computed(() => goable.value[hovered.value]?.part ?? -1)
 function onFieldMove(e: MouseEvent): void {
-  modHeld.value = e.ctrlKey || e.metaKey
+  modHeld.value = isMod(e)
   mouseAt = { x: e.clientX, y: e.clientY }
   updateHover()
 }
@@ -131,7 +132,7 @@ function onFieldLeave(): void {
 }
 function onModKey(e: KeyboardEvent): void {
   if (e.key !== 'Control' && e.key !== 'Meta') return
-  modHeld.value = e.ctrlKey || e.metaKey
+  modHeld.value = isMod(e)
   updateHover()
 }
 function onWindowBlur(): void {
@@ -150,7 +151,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('blur', onWindowBlur)
 })
 
-/** A finger held on a reference outside an edit goes to it, with the time and the slop of the sheet's long presses; the browser's menu and selection of that press are held back. */
+// A finger held on a reference outside an edit goes to it, with the time and the slop of the sheet's long presses; the browser's menu and selection of that press are held back.
+/** How far beside a reference's characters a finger still lands on it, px; how far the finger may then move is the long press's own slop. */
 const FINGER_SLOP_PX = 6
 let pressRef: GridReference | null = null
 const pressHeld = ref(false)
@@ -161,30 +163,30 @@ function onFieldPointerDown(e: PointerEvent): void {
   if (i < 0) return
   const ref = (pressRef = goable.value[i]!.ref)
   pressHeld.value = true
-  ctx.menu.pressStart(e, () => {
+  ctx.menu.press.start(e, () => {
     pressHeld.value = false
     goRef(ref)
   })
 }
 function onFieldPointerMove(e: PointerEvent): void {
-  ctx.menu.pressMove(e)
-  if (!ctx.menu.pressing()) pressHeld.value = false
+  ctx.menu.press.move(e)
+  if (!ctx.menu.press.pressing()) pressHeld.value = false
 }
 function onFieldPointerEnd(): void {
-  ctx.menu.pressCancel()
+  ctx.menu.press.cancel()
   pressHeld.value = false
 }
 /** A browser's long press may bring its menu before the press's time: the press goes then; the menu of its tail is held back too. */
 function onFieldContext(e: MouseEvent): void {
   const pending = pressHeld.value && pressRef
-  if (!pending && !ctx.menu.afterPress()) return
+  if (!pending && !ctx.menu.press.after()) return
   e.preventDefault()
   if (!pending) return
   onFieldPointerEnd()
   goRef(pending)
 }
 function onFieldSelectStart(e: Event): void {
-  if (pressHeld.value || ctx.menu.afterPress()) e.preventDefault()
+  if (pressHeld.value || ctx.menu.press.after()) e.preventDefault()
 }
 function syncLayer(): void {
   const el = ctx.barInput.value
@@ -226,7 +228,7 @@ function onInsertPick(name: string): void {
 function onInsertClose(): void {
   inserting.value = false
   if (ctx.editor.value) ed.focusEditor()
-  else ctx.scroller.value?.focus({ preventScroll: true })
+  else ctx.focusGrid()
 }
 /** A finger has no funnels on the letters (too small to hit): one in the bar opens the active cell's column. */
 const barFunnel = computed(() => v.touch.value && ctx.filter.available.value && ctx.dataRows.value > 1)
@@ -235,22 +237,22 @@ function openBarFunnel(e: MouseEvent): void {
   if (ctx.filter.open.value === col) return ctx.filter.close()
   void ctx.filter.openFunnel(col, (e.currentTarget as HTMLElement).getBoundingClientRect())
 }
-const setBarInput = (el: unknown) => (ctx.barInput.value = (el as HTMLTextAreaElement | null) ?? null)
+const setBarInput = refInto(ctx.barInput)
 
 /** The list of functions or the tip of arguments under the bar's field, in the formula's coordinates, kept inside the window: measured as one opens, as the text changes and as the bar expands or collapses. */
-const listPlace = shallowRef<{ rect: ValidationRect; view: ValidationRect } | null>(null)
+const listPlace = shallowRef<{ rect: PopupRect; view: PopupRect } | null>(null)
 watch(
   () => [editingBar.value && (ed.ac.open.value || !!ed.tip.parts.value), ctx.editor.value?.text, ctx.barOpen.value] as const,
   ([shown]) => {
     const input = ctx.barInput.value
     const fx = input?.parentElement
     if (!shown || !input || !fx) return void (listPlace.value = null)
-    const f = fx.getBoundingClientRect()
+    const box = fx.getBoundingClientRect()
     const i = input.getBoundingClientRect()
     const gutter = 8
     listPlace.value = {
-      rect: { top: i.top - f.top, left: i.left - f.left, width: i.width, height: i.height },
-      view: { top: -f.top, left: gutter - f.left, width: document.documentElement.clientWidth - 2 * gutter, height: window.innerHeight },
+      rect: { top: i.top - box.top, left: i.left - box.left, width: i.width, height: i.height },
+      view: { top: -box.top, left: gutter - box.left, width: document.documentElement.clientWidth - 2 * gutter, height: window.innerHeight },
     }
   },
   { flush: 'post' },
@@ -355,7 +357,7 @@ function onAddressEsc(e: KeyboardEvent): void {
       <!-- Excel's arrow at the bar's right end; a press keeps an open field open -->
       <button
         type="button"
-        class="xs-tool xs-fx-toggle"
+        class="xs-tool"
         data-xs-bar-toggle
         :title="ctx.barOpen.value ? m.collapseBar : m.expandBar"
         :aria-label="ctx.barOpen.value ? m.collapseBar : m.expandBar"

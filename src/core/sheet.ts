@@ -1,17 +1,19 @@
 // The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the frame's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, triggerRef, watch } from 'vue'
-import { cellAddress, linesKey, parseCell, rangeAddress } from 'xlcalc/a1'
+import { cellAddress, linesKey, parseCell, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
+import { errorText } from '../failure'
 import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
 import { useClip } from './clip'
-import { useCommands, type SheetTarget } from './commands'
-import { shortcutLetter, useEditing, type EditorState } from './editing'
+import { useCommands, type SheetTarget, type SheetViewApi } from './commands'
+import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
 import { useFill } from './fill'
 import { useFormula } from './formula'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
+import { isShortcut, shortcutLetter } from './keys'
 import { useMenu } from './menu'
 import { useMerge } from './merge'
 import { useNavigation } from './navigation'
@@ -58,15 +60,16 @@ const MESSAGE_MS = 6000
 
 /**
  * The sheet to show once the sheets were read again: the one asked for; else the same one (`keep`); else, as Excel goes
- * on from a sheet deleted or hidden, the next shown sheet from where it stood, or the one before it at the end.
+ * on from a sheet deleted or hidden, the next shown sheet from where it stood, or the one before it at the end. Names
+ * match in any case, as Excel's do.
  */
 function sheetAfter(list: SheetInfo[], name: string, at: number, target: SheetTarget | null): { index: number; keep: boolean } {
   const shown = (i: number) => i >= 0 && !list[i]!.hidden
   if (target) {
-    const i = list.findIndex((x) => x.name === target.name)
+    const i = list.findIndex((x) => sameName(x.name, target.name))
     if (shown(i)) return { index: i, keep: target.keep }
   }
-  const i = list.findIndex((x) => x.name === name)
+  const i = list.findIndex((x) => sameName(x.name, name))
   if (shown(i)) return { index: i, keep: true }
   const from = i >= 0 ? i + 1 : Math.max(0, at)
   for (let j = from; j < list.length; j++) if (shown(j)) return { index: j, keep: false }
@@ -138,28 +141,40 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const cmd = useCommands(s, sel, ed, {
     reload,
     reloads: () => reloads,
+    repaints: () => repaints,
     target: (t) => (target = t),
     activeStyle: () => activeLook.value?.style,
     frozen: () => v.bookFreeze.value,
     middlePanes: () => v.middlePanes(),
     showFreeze: (sheet, on) => v.showFreeze(sheet, on),
-    reapplyFilter: () => filter.reapply(),
-    explain: () => explain.show(),
-    merge: (command) => merge.run(command),
     structured: () => originalWidths.clear(),
   })
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
   const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
-  const menu = useMenu(s, geo, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
+
+  /** What the host's template ref gets: the commands as the sheet's own keys and menus give them. */
+  const api: SheetViewApi = {
+    undo: () => ed.stepHistory('undo'),
+    redo: () => ed.stepHistory('redo'),
+    format: cmd.format,
+    structure: (op) => cmd.structure(op),
+    outline: cmd.outline,
+    formatCells: cmd.openFormat,
+    freezePanes: cmd.freeze,
+    reapplyFilter: filter.reapply,
+    explain: explain.show,
+    merge: merge.run,
+  }
 
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
   const tabs = computed(() => s.sheets.value.map((x, i) => ({ sheet: x, i })).filter(({ sheet }) => !sheet.hidden))
   /** Excel shows the tabs with one sheet too; `hideLoneTab` only from two. */
   const showTabs = computed(() => tabs.value.length > (props.hideLoneTab ? 1 : 0))
-  const hasLayout = () => typeof props.source.layout === 'function'
+  const hasLayout = () => typeof s.source().layout === 'function'
 
   /** Make a sheet active: windows, sizes, selection and scroll start over. */
   function activate(index: number): void {
@@ -175,9 +190,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     originalWidths.clear()
     v.readFreeze()
     filter.restore()
-    s.scroller.value?.scrollTo({ top: 0, left: 0 })
-    s.scrollTop.value = 0
-    s.scrollLeft.value = 0
+    s.scrollGridTo(0, 0)
     w.ensure()
   }
   async function pickSheet(index: number): Promise<void> {
@@ -197,7 +210,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     s.active.value = -1
     s.loading.value = true
     try {
-      const list = await props.source.sheets()
+      const list = await s.source().sheets()
       if (mine !== initSeq) return
       s.sheets.value = list
       const first = list.findIndex((x) => !x.hidden)
@@ -207,10 +220,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     } catch (e) {
       if (mine !== initSeq) return
       s.loading.value = false
-      s.failure.value = { error: e, text: e instanceof Error && e.message ? e.message : s.messages.value.loadFailed }
+      s.failure.value = s.failureOf(e)
     }
   }
   let reloads = 0
+  let repaints = 0
   let target: SheetTarget | null = null
   /** Read the sheets and windows again, keeping the sheet, selection and scroll (a reload event or a conflict); a sheet gone or hidden gives way to its neighbour. */
   async function reload(): Promise<void> {
@@ -220,13 +234,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     const asked = target
     target = null
     try {
-      const list = await props.source.sheets()
+      const list = await s.source().sheets()
       s.sheets.value = list
       const next = sheetAfter(list, name, at, asked)
       if (!next.keep) return activate(next.index)
       s.active.value = next.index
     } catch (e) {
-      s.failure.value = { error: e, text: e instanceof Error && e.message ? e.message : s.messages.value.loadFailed }
+      s.failure.value = s.failureOf(e)
       return
     }
     s.grown.value = { rows: 0, cols: 0 }
@@ -240,6 +254,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     void init()
   }
 
+  /** A grip takes the pointer for its drag: the page neither selects nor scrolls, and the grid picks no cell under it. */
+  function holdPointer(e: PointerEvent): void {
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
   // ── column width with the mouse ──
   /** Book widths before the first resize in this session, for a double click to restore them through the source. */
   const originalWidths = new Map<number, number>()
@@ -247,9 +268,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function startResize(e: PointerEvent, col: number): void {
     drag = { col, startX: e.clientX, startW: geo.widthOf(col) }
     if (!originalWidths.has(col)) originalWidths.set(col, s.bookWidths.value.has(col) ? colPx(s.bookWidths.value.get(col)) : geo.widthOf(col))
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    e.preventDefault()
-    e.stopPropagation()
+    holdPointer(e)
   }
   function onResizeMove(e: PointerEvent): void {
     if (!drag) return
@@ -270,14 +289,18 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const fitsOnEdge = computed(() => !props.edgeRestoresWidth && cmd.can('layout'))
   function onEdgeDouble(col: number): void {
     if (!fitsOnEdge.value) return resetWidth(col)
-    const whole = sel.wholeColumns.value
-    const [first, last] = whole && col >= whole.first && col <= whole.last ? [whole.first, whole.last] : [col, col]
+    const { first, last } = sel.linesOf(sel.wholeColumns.value, col)
     void cmd.layout({ sheet: s.sheetName.value, columns: linesKey(first, last, 'columns'), fit: true })
+  }
+  /** The widths set with the mouse but a column's. */
+  function widthsWithout(col: number): Record<number, number> {
+    const next = { ...s.userWidths.value }
+    delete next[col]
+    return next
   }
   /** The book's width back. */
   function resetWidth(col: number): void {
-    const next = { ...s.userWidths.value }
-    delete next[col]
+    const next = widthsWithout(col)
     if (!hasLayout()) {
       s.userWidths.value = next
       s.memory.remember(`widths:${s.sheetName.value}`, Object.keys(next).length ? next : null)
@@ -290,7 +313,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   /** With `layout` the width goes to the source; without it the browser remembers it. */
   async function saveWidth(col: number, px: number): Promise<void> {
-    const layout = props.source.layout
+    const layout = s.sourceMethod('layout')
     if (!layout) {
       s.memory.remember(`widths:${s.sheetName.value}`, s.userWidths.value)
       return
@@ -299,18 +322,16 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     let ok = false
     let text = ''
     try {
-      const got = await layout.call(props.source, { sheet, columns: linesKey(col, col, 'columns'), width: widthFromPx(px) })
+      const got = await layout({ sheet, columns: linesKey(col, col, 'columns'), width: widthFromPx(px) })
       ok = got.ok
       // cells the width shows otherwise (a date past its #####) come back as changes, as an edit's do
       if (got.ok) w.applyChanges(got.changes)
       else text = got.message
     } catch (e) {
-      text = e instanceof Error ? e.message : ''
+      text = errorText(e)
     }
     if (ok || sheet !== s.sheetName.value) return
-    const next = { ...s.userWidths.value }
-    delete next[col]
-    s.userWidths.value = next
+    s.userWidths.value = widthsWithout(col)
     notify(text || s.messages.value.editFailed)
   }
 
@@ -321,13 +342,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   let rowDrag: { first: number; last: number; row: number; startY: number; startH: number; px: number } | null = null
   function startRowResize(e: PointerEvent, row: number): void {
     if (!rowsResizable.value || e.button !== 0) return
-    const whole = sel.wholeRows.value
-    const [first, last] = whole && row >= whole.first && row <= whole.last ? [whole.first, whole.last] : [row, row]
+    const { first, last } = sel.linesOf(sel.wholeRows.value, row)
     const startH = s.heights.value.get(row) ?? s.defaultRowPx.value
     rowDrag = { first, last, row, startY: e.clientY, startH, px: startH }
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    e.preventDefault()
-    e.stopPropagation()
+    holdPointer(e)
   }
   function onRowResizeMove(e: PointerEvent): void {
     if (!rowDrag) return
@@ -337,8 +355,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   /** A double click on a number's edge fits the row, every selected whole row when it is one of them, as Excel's AutoFit. */
   function onRowEdgeDouble(row: number): void {
     if (!rowsResizable.value) return
-    const whole = sel.wholeRows.value
-    const [first, last] = whole && row >= whole.first && row <= whole.last ? [whole.first, whole.last] : [row, row]
+    const { first, last } = sel.linesOf(sel.wholeRows.value, row)
     void cmd.layout({ sheet: s.sheetName.value, rows: linesKey(first, last, 'rows'), fit: true })
   }
   async function endRowResize(): Promise<void> {
@@ -369,13 +386,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
     if (!e.isComposing && (cmd.fontKey(e) || outline.key(e) || barKey(e))) return
-    if ((e.ctrlKey || e.metaKey) && /^[fFаА]$/.test(e.key) && find.available.value) {
+    if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
       return
     }
     // Control+H on a Mac too, as Excel for Mac: Cmd+H hides the browser.
-    if (e.ctrlKey && !e.altKey && /^[hHрР]$/.test(e.key) && find.available.value) {
+    if (e.ctrlKey && !e.altKey && shortcutLetter(e) === 'h' && find.available.value) {
       e.preventDefault()
       find.openReplace()
       return
@@ -453,9 +470,12 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function subscribe(): void {
     unsubscribe?.()
     unsubscribe =
-      props.source.subscribe?.((event) => {
+      s.source().subscribe?.((event) => {
         if (event.kind === 'changed') w.applyChanges(event.changes)
-        else if (event.kind === 'repaint') w.repaint(event.ranges)
+        else if (event.kind === 'repaint') {
+          repaints++
+          w.repaint(event.ranges)
+        }
         else {
           if (event.message) notify(event.message)
           void reload()
@@ -516,6 +536,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     views,
     list,
     cmd,
+    api,
     clip,
     fill,
     viewState,

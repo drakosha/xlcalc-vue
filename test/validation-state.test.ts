@@ -2,7 +2,7 @@
 // aborted, its answer dropped), the list's keys and choice, and an alert's answer.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
-import { ALERT_BUTTONS, ALERT_DEFAULT, useValidation, useValidationAlert, VALIDATION_DELAY_MS, type ValidationDeps } from '../src/core/validation'
+import { ALERT_BUTTONS, ALERT_DEFAULT, useValidation, useValidationAlert, VALIDATION_DELAY_MS } from '../src/core/validation'
 import type { SheetSource, SheetValidation, SheetValidationAlert } from '../src/source'
 
 beforeEach(() => vi.useFakeTimers())
@@ -20,13 +20,13 @@ function rules(answer: (cell: string) => SheetValidation | null = () => ({ list:
 }
 const key = (k: string, more: KeyboardEventInit = {}) => new KeyboardEvent('keydown', { key: k, cancelable: true, ...more })
 
-function setup(source: SheetSource, more: Partial<ValidationDeps> = {}) {
+function setup(source: SheetSource) {
   const active = ref<{ row: number; col: number } | null>({ row: 1, col: 1 })
   const sheet = ref('S')
   const text = ref('')
   const pick = vi.fn()
   const scope = effectScope()
-  const v = scope.run(() => useValidation({ source: () => source, sheet: () => sheet.value, active: () => active.value, text: () => text.value, pick, ...more }))!
+  const v = scope.run(() => useValidation({ source: () => source, sheet: () => sheet.value, active: () => active.value, text: () => text.value, pick }))!
   return { v, active, sheet, text, pick, scope }
 }
 /** Let the pause pass and the answers come. */
@@ -73,15 +73,14 @@ describe('useValidation: the active cell’s rule', () => {
     expect(v.current.value).toBeNull()
   })
 
-  it('asks again on another sheet and stops with its signal; a source without `validation` is not asked', async () => {
+  it('asks again on another sheet and stops with its scope; a source without `validation` is not asked', async () => {
     const { source, calls } = rules()
-    const ctrl = new AbortController()
-    const { sheet } = setup(source, { signal: ctrl.signal })
+    const { sheet, scope } = setup(source)
     await pass()
     sheet.value = 'T'
     await pass()
     expect(calls.map((c) => `${c.sheet}!${c.cell}`)).toEqual(['S!A1', 'T!A1'])
-    ctrl.abort()
+    scope.stop()
     expect(calls[1]!.signal!.aborted).toBe(true)
     sheet.value = 'U'
     await pass()

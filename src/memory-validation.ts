@@ -2,6 +2,7 @@
 // them and the alert for a typed value one does not take, without an engine.
 import { parseCell, parseRange, rectContains } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
+import { cellRect } from './rect'
 import type { CellEntry, EditOutcome, SheetValidation, SheetValidationAlert } from './source'
 
 /** A rule of data validation of a memory sheet, as Excel's dialog makes one: a list or whole numbers within bounds, an input message, the alert. */
@@ -36,7 +37,7 @@ export class MemoryRules {
   at(cell: string): MemoryValidation | null {
     const at = parseCell(cell)
     if (!at) return null
-    const one = { top: at.row, left: at.col, bottom: at.row, right: at.col }
+    const one = cellRect(at.row, at.col)
     return this.rules.find((x) => x.rects.some((r) => rectContains(r, one)))?.rule ?? null
   }
 

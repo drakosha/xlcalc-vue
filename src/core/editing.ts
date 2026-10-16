@@ -1,11 +1,14 @@
 // Editing cells: in place or in the formula bar, Excel's keys, clearing and pasting text, Control+Return, undo and redo, calls in flight and the source's outcomes.
-import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
+import { computed, nextTick, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
 import { loadEntry, type Entry } from '../entry'
+import { failedOutcome } from '../failure'
+import { cellRect } from '../rect'
 import type { CellEntry, EditOutcome, EditOptions, SheetSource } from '../source'
 import { useAutocomplete } from './autocomplete'
+import { isMod, isShortcut, shortcutLetter } from './keys'
 import { useFunctionTip } from './function-tip'
 import type { AlertAnswer, SheetAlert } from './validation'
 import type { Formula } from './formula'
@@ -34,12 +37,6 @@ export interface EditorState {
 const MAX_EDIT_CELLS = 50_000
 /** Cells a fill or a paste through the source shows as pending; past that the rest wait unmarked. */
 const MAX_PENDING_CELLS = 10_000
-
-/** A shortcut's Latin letter: the key's own, else its place on the keyboard (`KeyB` under Russian `и`); '' for anything else. */
-export function shortcutLetter(e: KeyboardEvent): string {
-  if (/^[a-z]$/i.test(e.key)) return e.key.toLowerCase()
-  return /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : ''
-}
 
 /** The scroll that shows a field's caret line (setSelectionRange does not scroll a field of fixed height, as the collapsed formula bar's): the text up to the caret measured in the field itself; null when it all shows. */
 function caretTop(el: HTMLTextAreaElement, at: number): number | null {
@@ -96,7 +93,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }),
   )
   const lockIn = (rect: CellRect): string | null => locks.value.find((l) => rectsMeet(l.rect, rect))?.reason ?? null
-  const lockAt = (row: number, col: number): string | null => (locks.value.length ? lockIn({ top: row, left: col, bottom: row, right: col }) : null)
+  const lockAt = (row: number, col: number): string | null => (locks.value.length ? lockIn(cellRect(row, col)) : null)
 
   /** xlcalc's typed entry for a source without `editText`, asked for by the first edit text that needs it; null until it comes. */
   const entry = shallowRef<Entry | null>(null)
@@ -168,9 +165,11 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   function insertFunction(name: string): void {
     const ed = editor.value
     if (!ed) return void startEdit({ text: `=${name}(`, mode: 'edit', place: 'bar' })
-    const el = inputOf()
+    spliceDraft(ed, inputOf(), `${ed.text === '' ? '=' : ''}${name}(`)
+  }
+  /** Put `piece` into the open draft in place of the field's selection, the caret after it. */
+  function spliceDraft(ed: EditorState, el: HTMLTextAreaElement | null, piece: string): void {
     const from = el?.selectionStart ?? ed.text.length
-    const piece = `${ed.text === '' ? '=' : ''}${name}(`
     ed.text = `${ed.text.slice(0, from)}${piece}${ed.text.slice(el?.selectionEnd ?? from)}`
     ed.caret = from + piece.length
     focusEditor()
@@ -198,7 +197,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const ed = editor.value
     if (!ed) return
     editor.value = null
-    if (refocus) s.scroller.value?.focus({ preventScroll: true })
+    if (refocus) s.focusGrid()
     if (ed.sheet === s.sheetName.value && sel.isActive(ed.row, ed.col) && (dr || dc)) sel.step(dr, dc)
     if (ed.text === ed.initial) return
     void enterDraft(ed)
@@ -206,16 +205,16 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Send the draft into its cell; Excel's correction of it is sent the same way. */
   function enterDraft(ed: EditorState): Promise<EditOutcome | undefined> {
     const entries = [{ sheet: ed.sheet, cell: cellAddress(ed.row, ed.col), text: ed.text === '' ? null : ed.text }]
-    return send(entries, ed, ed.inPlace ? { inPlace: true } : undefined, (text) => enterDraft({ ...ed, text }))
+    return send(entries, ed, draftOptions(ed), (text) => enterDraft({ ...ed, text }))
   }
   function cancel(): void {
     editor.value = null
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
   /** Control+Return: with `fill` the text goes into every cell of the selection, else into the active cell; nothing moves. */
   function commitFill(): void {
     const ed = editor.value
-    const fill = s.source().fill
+    const fill = s.sourceMethod('fill')
     const r = sel.selRect.value
     if (!ed || !fill || !r || !sel.multi.value || ed.sheet !== s.sheetName.value || !sel.isActive(ed.row, ed.col)) return commit(0, 0)
     // A locked cell anywhere in the range: the field stays open with the draft.
@@ -223,14 +222,14 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (lock !== null) return deps.notify(s.messages.value.locked(lock))
     const extent = s.extent.value
     editor.value = null
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
     void fillDraft(ed, r, extent, fill)
   }
   /** Send the draft into every cell of the range from its cell; Excel's correction of it is sent the same way. */
   function fillDraft(ed: EditorState, r: CellRect, extent: CellPosition | null, fill: NonNullable<SheetSource['fill']>): Promise<EditOutcome> {
     const marks = marksOf(r, () => (ed.text === '' ? null : ed.text))
     const args = [ed.sheet, rangeAddress(r), ed.text, cellAddress(ed.row, ed.col)] as const
-    const call = (o?: EditOptions) => withOptions(ed.inPlace ? { inPlace: true } : undefined, o, (all) => (all ? fill.call(s.source(), ...args, all) : fill.call(s.source(), ...args)))
+    const call = (o?: EditOptions) => fill(...args, ...optionArgs(draftOptions(ed), o))
     return run(call, marks, ed, extent, true, (text) => fillDraft({ ...ed, text }, r, extent, fill))
   }
   /** Open the field again with the draft, after a conflict or a formula that did not parse; `extent` gives a range back its corner. */
@@ -245,13 +244,15 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
 
   /** Send entries; the cells show the typed text in the "pending" style until the outcome. `opts`: `accept` writes past the rules (a list's item), `inPlace` the cell's own text edited; `retype` sends the draft's correction. */
   async function send(entries: CellEntry[], draft: EditorState | null, opts?: EditOptions, retype?: (text: string) => Promise<EditOutcome | undefined>): Promise<EditOutcome | undefined> {
-    const edit = s.source().edit
-    if (edit) return run((o) => withOptions(opts, o, (all) => (all ? edit.call(s.source(), entries, all) : edit.call(s.source(), entries))), entries, draft, null, true, retype)
+    const edit = s.sourceMethod('edit')
+    if (edit) return run((o) => edit(entries, ...optionArgs(opts, o)), entries, draft, null, true, retype)
   }
-  /** A call with the options of the edit and of the alert's answer together; without any, a call as before options were. */
-  function withOptions(base: EditOptions | undefined, more: EditOptions | undefined, call: (all: EditOptions | undefined) => Promise<EditOutcome>): Promise<EditOutcome> {
+  /** The draft's own option: the cell's text edited in place. */
+  const draftOptions = (ed: EditorState): EditOptions | undefined => (ed.inPlace ? { inPlace: true } : undefined)
+  /** The options of the edit and of the alert's answer together as the call's last argument; none without any, a call as before options were. */
+  function optionArgs(base: EditOptions | undefined, more: EditOptions | undefined): [] | [EditOptions] {
     const all = { ...base, ...more }
-    return call(Object.keys(all).length ? all : undefined)
+    return Object.keys(all).length ? [all] : []
   }
   /** A rectangle's shown cells on the sheet (rows a filter hides are not drawn) with their pending text, row by row, up to the limit. */
   function marksOf(r: CellRect, textAt: (row: number, col: number) => string | null): CellEntry[] {
@@ -278,12 +279,11 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       pending.value = next
     }
     const before = { sheet: s.sheetName.value, selected: s.selected.value, extent: s.extent.value }
-    const failure = (e: unknown): EditOutcome => ({ ok: false, reason: 'failed', message: e instanceof Error ? e.message : '' })
     let outcome: EditOutcome
     try {
       outcome = await call()
     } catch (e) {
-      outcome = failure(e)
+      outcome = failedOutcome(e)
     }
     let answer: AlertAnswer | null = null
     if (!outcome.ok && outcome.alert && deps.alert) {
@@ -293,8 +293,8 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
         s.extent.value = extent
       }
       answer = await deps.alert(outcome.alert)
-      if (answer === 'accept') outcome = await call({ accept: true }).catch(failure)
-      if (answer !== 'retry') s.scroller.value?.focus({ preventScroll: true })
+      if (answer === 'accept') outcome = await call({ accept: true }).catch(failedOutcome)
+      if (answer !== 'retry') s.focusGrid()
     }
     if (marks.length) {
       const left = new Map(pending.value)
@@ -331,7 +331,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
         if (said === 'accept') {
           s.selected.value = moved.selected
           s.extent.value = moved.extent
-          s.scroller.value?.focus({ preventScroll: true })
+          s.focusGrid()
           return (await retype(outcome.correction)) ?? outcome
         }
         await deps.alert({ severity: 'parenthesis', message: m.missingParenthesis, ...place })
@@ -341,7 +341,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       // A formula that does not read: Fix opens it again, Restore leaves the cell as it was.
       const said = await deps.alert({ severity: 'formula', message: outcome.message || m.editFailed, ...place })
       if (said === 'retry') reopen(draft, outcome.at ?? null, extent)
-      else s.scroller.value?.focus({ preventScroll: true })
+      else s.focusGrid()
     } else if (outcome.reason === 'invalid') {
       deps.notify(outcome.message || m.editFailed)
       if (draft) reopen(draft, outcome.at ?? null, extent)
@@ -364,18 +364,18 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Undo and redo of the source, one call at a time: a second press while one is out sends nothing (null). */
   let stepping = false
   async function stepHistory(kind: 'undo' | 'redo'): Promise<EditOutcome | null> {
-    const call = s.source()[kind]
+    const call = s.sourceMethod(kind)
     if (!call || stepping || !s.editable.value) return null
     stepping = true
     try {
-      return await run(() => call.call(s.source()), [], null, null)
+      return await run(() => call(), [], null, null)
     } finally {
       stepping = false
     }
   }
   /** Control+Z, Control+Y and Control+Shift+Z (Cmd on a Mac); another layout's letters by the key's place. */
   function historyKey(e: KeyboardEvent): 'undo' | 'redo' | null {
-    if (!(e.ctrlKey || e.metaKey) || e.altKey) return null
+    if (!isMod(e) || e.altKey) return null
     const letter = shortcutLetter(e)
     if (letter === 'z') return e.shiftKey ? 'redo' : 'undo'
     return letter === 'y' && !e.shiftKey ? 'redo' : null
@@ -411,7 +411,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const a = sel.selRect.value
     if (!s.editable.value || !a) return
     const rows = parseClipboard(text)
-    const paste = s.source().paste
+    const paste = s.sourceMethod('paste')
     const one = !paste && rows.length === 1 && rows[0]!.length === 1
     const width = rows[0]!.length
     const target: CellRect = one ? a : { top: a.top, left: a.left, bottom: a.top + rows.length - 1, right: a.left + width - 1 }
@@ -423,7 +423,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }
     if (paste) {
       const sheet = s.sheetName.value
-      void run(() => paste.call(s.source(), sheet, cellAddress(a.top, a.left), text), marksOf(target, textAt), null, null)
+      void run(() => paste(sheet, cellAddress(a.top, a.left), text), marksOf(target, textAt), null, null)
       return
     }
     // A rectangle past the sheet's edge is refused whole, as Excel refuses it; a source's `paste` says so itself.
@@ -442,14 +442,14 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Keys on the grid: Enter and Tab move, F2 edits, Delete clears, Control+Z and Control+Y undo and redo, a character starts a new text, the rest navigates. */
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value || e.isComposing) return
-    const ctrl = e.ctrlKey || e.metaKey
+    const ctrl = isMod(e)
     const history = historyKey(e)
     if (history && s.editable.value && s.source()[history]) {
       e.preventDefault()
       void stepHistory(history)
       return
     }
-    if (ctrl && /^[aAфФ]$/.test(e.key)) {
+    if (isShortcut(e) && shortcutLetter(e) === 'a') {
       e.preventDefault()
       sel.selectAll()
       return
@@ -475,8 +475,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       return
     }
     if (sel.navKey(e)) return
-    // AltGr comes as Ctrl+Alt and types a character (`@` on many layouts): only Ctrl alone or Cmd is a shortcut.
-    if (e.key.length === 1 && !((e.ctrlKey && !e.altKey) || e.metaKey) && s.editable.value) {
+    if (e.key.length === 1 && !isShortcut(e) && s.editable.value) {
       e.preventDefault()
       startEdit({ text: e.key, mode: 'enter' })
     }
@@ -493,12 +492,8 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       cancel()
     } else if (e.key === 'Enter' && e.altKey) {
       e.preventDefault()
-      const el = e.target as HTMLTextAreaElement
-      const at = el.selectionStart ?? ed.text.length
-      ed.text = `${ed.text.slice(0, at)}\n${ed.text.slice(el.selectionEnd ?? at)}`
-      ed.caret = at + 1
-      focusEditor()
-    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      spliceDraft(ed, e.target as HTMLTextAreaElement, '\n')
+    } else if (e.key === 'Enter' && isMod(e)) {
       e.preventDefault()
       commitFill()
     } else if (e.key === 'Enter') {
@@ -527,7 +522,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pendingAt, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

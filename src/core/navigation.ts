@@ -1,8 +1,9 @@
 // Jumps: the address box, references of the formula, links and `focus`; the history to go back, and the flash after a jump.
 import { nextTick, onScopeDispose, ref, watch } from 'vue'
-import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
+import { MAX_COLS, MAX_ROWS, quoteSheetIfNeeded } from 'xlcalc/a1'
 import type { CellRect, FormulaReference, GridReference } from 'xlcalc/contract'
-import { quoteSheetIfNeeded, scanReferences } from 'xlcalc/text'
+import { scanReferences } from 'xlcalc/text'
+import { isGridRef } from '../grid-ref'
 import type { Formula } from './formula'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -26,7 +27,7 @@ function parsePlace(text: string): { sheet?: string; range?: CellRect } | null {
   if (!raw) return null
   const whole = (refs: FormulaReference[], end: number): GridReference | null => {
     const r = refs.length === 1 ? refs[0]! : null
-    return r && r.kind !== 'table' && r.at === 0 && r.end === end && r.sheetLast === undefined && !r.spill ? r : null
+    return r && isGridRef(r) && r.at === 0 && r.end === end && !r.spill ? r : null
   }
   const refs = scanReferences(raw)
   if (refs.length) {
@@ -72,10 +73,8 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     s.selected.value = place.selected
     s.extent.value = place.extent
     await nextTick()
-    s.scroller.value?.scrollTo({ top: place.scrollTop, left: place.scrollLeft })
-    s.scrollTop.value = place.scrollTop
-    s.scrollLeft.value = place.scrollLeft
-    s.scroller.value?.focus({ preventScroll: true })
+    s.scrollGridTo(place.scrollTop, place.scrollLeft)
+    s.focusGrid()
   }
 
   function flashRange(range: CellRect): void {
@@ -91,7 +90,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
   /** Select a rectangle cut to the shown grid (whole columns and rows stay whole), show its top-left corner and flash it. */
   function selectRange(range: CellRect): void {
     // A whole column or row runs to Excel's limit: it stops at the grid, which an editable sheet stretches to the place.
-    s.stretch(range.bottom >= MAX_ROWS ? range.top : range.bottom, range.right >= MAX_COLS ? range.left : range.right)
+    sel.stretchTo(range)
     // Sheet rows: under a display filter the grid's count is of the shown rows, not the last row.
     const rows = Math.max(1, s.lastRow.value)
     const cols = Math.max(1, s.colCount.value)
@@ -101,7 +100,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     flashRange(sel.selRect.value!)
     void nextTick(() => {
       sel.revealCell(top, left)
-      s.scroller.value?.focus({ preventScroll: true })
+      s.focusGrid()
     })
   }
 
@@ -174,7 +173,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     }
   }
 
-  return { history, flash, goBack, goPlace, goRef, selectRange, addressDraft, addressFocused, goAddress, takePendingFocus, copyCellLink }
+  return { history, flash, goBack, goPlace, goRef, addressDraft, addressFocused, goAddress, takePendingFocus, copyCellLink }
 }
 
 export type Navigation = ReturnType<typeof useNavigation>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // A drawn row of the grid: its outline bar's cell, its number and its cells. A component of its own, so a change redraws
 // only the rows it touches: the cells read the selection, the highlights, the hits, the flash and the field by their row.
-import { computed } from 'vue'
+import { computed, type ComputedRef } from 'vue'
 import { sameRowState, type CellView, type RowState } from '../core/cell-view'
 import CellDraft from './CellDraft.vue'
 import { CfIcon } from './cf-icons'
@@ -30,15 +30,34 @@ const state = computed((prev?: RowState) => {
   const next = views.rowState(props.d, props.r)
   return prev && sameRowState(prev, next) ? prev : next
 })
+/**
+ * Each drawn cell's view as a computed of its own (null where a merge covers the cell): a column scrolled in or out
+ * leaves the other cells' views as they were, and their memo leaves their DOM alone.
+ */
+const viewOfCol = new Map<number, ComputedRef<CellView | null>>()
+function viewOf(c: number): CellView | null {
+  let view = viewOfCol.get(c)
+  if (!view) viewOfCol.set(c, (view = computed(() => (views.coveredByMerge(props.r, c) ? null : views.cellView(props.d, props.r, c, props.frozen, state.value)))))
+  return view.value
+}
 /** The row's cells by column: a spacer's empty cell (no view), else the cell's view; cells a merge covers are left out. */
 const cells = computed(() => {
   const out: { key: string; c: number; cv: CellView | null }[] = []
+  const drawn = new Set<number>()
   for (const k of props.cols) {
     if (k.c === 0) out.push({ key: k.key, c: 0, cv: null })
-    else if (!views.coveredByMerge(props.r, k.c)) out.push({ key: k.key, c: k.c, cv: views.cellView(props.d, props.r, k.c, props.frozen, state.value) })
+    else {
+      drawn.add(k.c)
+      const cv = viewOf(k.c)
+      if (cv) out.push({ key: k.key, c: k.c, cv })
+    }
   }
+  // the views of columns no longer drawn go
+  for (const c of viewOfCol.keys()) if (!drawn.has(c)) viewOfCol.delete(c)
   return out
 })
+/** A spacer's cell: sticky in a frozen row. */
+const spacer = computed(() => (props.frozen ? { class: 'xs-fz-row', style: { top: v.stickyTop(props.d) } } : {}))
 </script>
 
 <template>
@@ -67,9 +86,9 @@ const cells = computed(() => {
         @dblclick.stop="ctx.onRowEdgeDouble(r)"
       ></span>
     </th>
-    <template v-for="{ key, c, cv } in cells" :key="key">
-      <td v-if="!cv" :class="frozen ? 'xs-fz-row' : ''" :style="frozen ? { top: v.stickyTop(d) } : undefined"></td>
-      <td v-else v-bind="cv.attrs">
+    <!-- a cell whose view is the same object as before is not patched: its view stands for everything it draws -->
+    <td v-for="{ key, c, cv } in cells" :key="key" v-memo="[cv, cv ? m : spacer]" v-bind="cv ? cv.attrs : spacer">
+      <template v-if="cv">
         <div :class="cv.box.class" :style="cv.box.style">
           <CfIcon v-if="cv.icon" :icon="cv.icon" />
           <a
@@ -105,7 +124,7 @@ const cells = computed(() => {
           </div>
           <span v-else-if="cv.kind !== 'icon'" :style="cv.deco"><CellDraft v-if="cv.draft" :fill="cv.draft.fill" /><template v-else>{{ cv.text }}</template></span>
         </div>
-      </td>
-    </template>
+      </template>
+    </td>
   </tr>
 </template>

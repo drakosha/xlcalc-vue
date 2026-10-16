@@ -1,6 +1,8 @@
 // What the grid draws now: frozen panes with the lock, the body's rows and columns under the scroll, spacers for the rest,
 // and the room of Excel's outline bars beside the numbers and above the letters.
-import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { NARROW_PX, useCoarsePointer } from '../frame'
+import { clamp } from '../rect'
 import type { OutlineGroup, SheetInfo } from '../source'
 import type { Geometry } from './geometry'
 import type { Memory } from './storage'
@@ -17,7 +19,7 @@ const RENDER_COLS = 2
 const ROW_STEP = 4
 const COL_STEP = 2
 
-export interface ViewportInput {
+interface ViewportInput {
   sheet: ComputedRef<SheetInfo | null>
   /** The display filter in force: its rows are not the sheet's in order, so the rows' outline bar is not drawn. */
   visible: Readonly<Ref<object | null>>
@@ -30,9 +32,15 @@ export interface ViewportInput {
   memory: Memory
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 /** The previous list when the new one holds the same lines: what reads it is not drawn again for a size changed. */
 const same = (prev: number[] | undefined, next: number[]): number[] => (prev && prev.length === next.length && prev.every((x, i) => x === next[i]) ? prev : next)
+/** The lines `from()..to()` with a size (hidden ones have none, and are not drawn at all), the same list while they are the same. */
+const shownLines = (from: () => number, to: () => number, sizeOf: (line: number) => number) =>
+  computed((prev?: number[]) => {
+    const out: number[] = []
+    for (let x = from(), last = to(); x <= last; x++) if (sizeOf(x) > 0) out.push(x)
+    return same(prev, out)
+  })
 /**
  * The drawn lines around the screen's `first..last`: `spare` beyond each end, and up to `step - 1` more, as the first one
  * on screen stands from the start of its step; both edges move together, once the screen crosses a step.
@@ -45,16 +53,9 @@ function drawnLines(first: number, last: number, spare: number, step: number): [
 export function useViewport(i: ViewportInput, geo: Geometry) {
   const showNums = computed(() => i.sheet.value?.rowNumbers !== false)
   /** A phone-width frame: a narrower row numbers column. */
-  const narrow = computed(() => i.viewW.value < 600)
+  const narrow = computed(() => i.viewW.value < NARROW_PX)
   /** A finger points (a coarse pointer): targets get a finger's size. */
-  const coarse = ref(false)
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    const query = window.matchMedia('(pointer: coarse)')
-    const update = () => (coarse.value = query.matches)
-    update()
-    query.addEventListener?.('change', update)
-    onScopeDispose(() => query.removeEventListener?.('change', update))
-  }
+  const coarse = useCoarsePointer()
   /** A phone's frame or a finger: buttons, fields and tabs at least 44 × 44 px, the grid itself as it is. */
   const touch = computed(() => narrow.value || coarse.value)
   const numW = computed(() => {
@@ -118,16 +119,8 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const frozenCols = computed(() => (freezeOn.value ? clamp(i.sheet.value?.freeze?.cols ?? 0, 0, Math.max(0, i.colCount.value - 1)) : 0))
   const frozenH = computed(() => geo.rowOffsets.value[frozenRows.value] ?? 0)
   const frozenW = computed(() => geo.offsets.value[frozenCols.value] ?? 0)
-  const frozenRowList = computed((prev?: number[]) => {
-    const out: number[] = []
-    for (let r = 1; r <= frozenRows.value; r++) if (geo.heightOf(r) > 0) out.push(r)
-    return same(prev, out)
-  })
-  const frozenColList = computed((prev?: number[]) => {
-    const out: number[] = []
-    for (let c = 1; c <= frozenCols.value; c++) if (geo.widthOf(c) > 0) out.push(c)
-    return same(prev, out)
-  })
+  const frozenRowList = shownLines(() => 1, () => frozenRows.value, geo.heightOf)
+  const frozenColList = shownLines(() => 1, () => frozenCols.value, geo.widthOf)
   /** Sticky place of a frozen row or column: below the letters, right of the numbers. */
   const stickyTop = (d: number) => `${headH.value + (geo.rowOffsets.value[d - 1] ?? 0)}px`
   const stickyLeft = (c: number) => `${leadW.value + (geo.offsets.value[c - 1] ?? 0)}px`
@@ -141,17 +134,9 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const lastRow = computed(() => clamp(drawnRows.value[1], bodyRow0.value, i.rowCount.value))
   const firstCol = computed(() => clamp(drawnCols.value[0], bodyCol0.value, Math.max(bodyCol0.value, i.colCount.value)))
   const lastCol = computed(() => clamp(drawnCols.value[1], bodyCol0.value, i.colCount.value))
-  /** Shown body rows; hidden ones (height 0) are not drawn at all. */
-  const shownRows = computed((prev?: number[]) => {
-    const out: number[] = []
-    for (let d = firstRow.value; d <= lastRow.value; d++) if (geo.heightOf(d) > 0) out.push(d)
-    return same(prev, out)
-  })
-  const shownCols = computed((prev?: number[]) => {
-    const out: number[] = []
-    for (let c = firstCol.value; c <= lastCol.value; c++) if (geo.widthOf(c) > 0) out.push(c)
-    return same(prev, out)
-  })
+  /** Shown body rows and columns. */
+  const shownRows = shownLines(() => firstRow.value, () => lastRow.value, geo.heightOf)
+  const shownCols = shownLines(() => firstCol.value, () => lastCol.value, geo.widthOf)
   const topPad = computed(() => Math.max(0, (geo.rowOffsets.value[firstRow.value - 1] ?? 0) - frozenH.value))
   const bottomPad = computed(() => Math.max(0, (geo.rowOffsets.value[i.rowCount.value] ?? 0) - (geo.rowOffsets.value[lastRow.value] ?? 0)))
   const leftPad = computed(() => Math.max(0, (geo.offsets.value[firstCol.value - 1] ?? 0) - frozenW.value))

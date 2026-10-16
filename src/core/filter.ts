@@ -1,6 +1,9 @@
 // The display filter and sort, the funnel on a column's letter: the data do not change, the source lists the rows to show in order.
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onScopeDispose, ref, watch } from 'vue'
 import { colLetters } from 'xlcalc/a1'
+import { isAbort } from '../abort'
+import { filterKey } from '../filter-key'
+import { clamp } from '../rect'
 import type { SheetFilter } from '../source'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
@@ -8,13 +11,11 @@ import type { Windows } from './windows'
 type ColumnFilter = NonNullable<SheetFilter['cols']>[number]
 type Sort = NonNullable<SheetFilter['sort']>
 
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
-
 export function useFilter(s: SheetState, w: Windows, notify: (text: string) => void) {
   const cols = ref<Record<number, ColumnFilter>>({})
   const sort = ref<Sort | null>(null)
   /** The funnel needs both: the rows to show and a column's values. */
-  const available = computed(() => typeof s.props.source.visibleRows === 'function' && typeof s.props.source.columnValues === 'function')
+  const available = computed(() => typeof s.source().visibleRows === 'function' && typeof s.source().columnValues === 'function')
   /** Header rows the filter leaves alone: the book's frozen rows, else the first row, as Excel does. */
   const head = computed(() => {
     const frozen = s.sheet.value?.freeze?.rows ?? 0
@@ -28,7 +29,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     if (sort.value) out.sort = sort.value
     return out
   })
-  const key = computed(() => (spec.value ? JSON.stringify(spec.value) : ''))
+  const key = computed(() => (spec.value ? filterKey(spec.value) : ''))
 
   // ── the list of shown rows: asked when the conditions change, windows wait for it ──
   let seq = 0
@@ -54,11 +55,11 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     s.filterWait.value = true
     ctrl = new AbortController()
     try {
-      const got = await s.props.source.visibleRows!(s.sheetName.value, want, ctrl.signal)
+      const got = await s.source().visibleRows!(s.sheetName.value, want, ctrl.signal)
       if (mine !== seq) return
       apply(got.rows ? { key: wantKey, spec: want, rows: Int32Array.from(got.rows), index: displayIndex(got.rows) } : null)
     } catch (e) {
-      if (mine !== seq || (e instanceof DOMException && e.name === 'AbortError')) return
+      if (mine !== seq || isAbort(e)) return
       notify(s.messages.value.filterFailed)
       clear()
     }
@@ -158,7 +159,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     busy.value = true
     const mine = ++valuesSeq
     try {
-      const got = await s.props.source.columnValues!(s.sheetName.value, col, spec.value ?? { head: head.value })
+      const got = await s.source().columnValues!(s.sheetName.value, col, spec.value ?? { head: head.value })
       if (mine !== valuesSeq) return
       values.value = got.values
       more.value = got.more
@@ -172,7 +173,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     if (open.value === null) return
     open.value = null
     valuesSeq++
-    void nextTick(() => s.scroller.value?.focus({ preventScroll: true }))
+    void nextTick(s.focusGrid)
   }
   /** The funnel's title: the header cell's text and the letters, or the letters alone. */
   const title = computed(() => {
@@ -240,6 +241,13 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     }
   }
 
+  // The sheet's end: the list out is aborted, a column's values out dropped.
+  onScopeDispose(() => {
+    seq++
+    valuesSeq++
+    ctrl?.abort()
+  })
+
   return {
     cols,
     sort,
@@ -257,7 +265,6 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     values,
     more,
     busy,
-    draftValues,
     draftText,
     draftSearch,
     title,

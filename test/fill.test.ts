@@ -130,6 +130,19 @@ describe('the fill handle', () => {
     expect(address(w)).toBe('B2')
   })
 
+  it('measures the frame once a move: the edge scroll and the cell under the pointer share it', async () => {
+    const { source } = withStructure()
+    const w = await mountSheet(source)
+    await goTo(w, 'B2')
+    const h = handle(w)
+    await h.trigger('pointerdown', { button: 0, pointerId: 1, ...at(2, 2) })
+    const box = vi.spyOn(w.find('.xs-scroller').element, 'getBoundingClientRect')
+    await h.trigger('pointermove', { pointerId: 1, ...at(4, 2) })
+    expect(box).toHaveBeenCalledTimes(1)
+    expect(frame(w).attributes('style')).toContain(`height: 60px`)
+    await h.trigger('pointerup', { pointerId: 1, ...at(2, 2) })
+  })
+
   it('Esc while dragged cancels the drag, as in Excel: no frame, nothing copied on release, the selection and the copy mark stay; the next drag fills', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)

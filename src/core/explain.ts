@@ -4,6 +4,7 @@ import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { cellAddress, quoteSheetIfNeeded } from 'xlcalc/a1'
 import type { GridReference } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
+import { isGridRef } from '../grid-ref'
 import type { Formula } from './formula'
 import type { SheetState } from './state'
 
@@ -42,7 +43,7 @@ export function explainLines(text: string, sheet: string): ExplainLine[] {
       if (cut > a) parts.push({ text: body.slice(a, cut), ...(arrow >= 0 && a >= arrow ? { from: true } : {}) })
       if (cut < b) parts.push({ text: body.slice(cut, b), from: true })
     }
-    const refs = scanReferences(body).filter((r): r is GridReference => r.kind !== 'table' && r.sheetLast === undefined)
+    const refs = scanReferences(body).filter(isGridRef)
     const own = refs[0]?.at === 0 ? refs[0].sheet : undefined
     let at = 0
     for (const r of refs) {
@@ -57,7 +58,7 @@ export function explainLines(text: string, sheet: string): ExplainLine[] {
 }
 
 export function useExplain(s: SheetState, f: Formula) {
-  const available = computed(() => typeof s.props.source.explain === 'function')
+  const available = computed(() => typeof s.source().explain === 'function')
   const open = ref(false)
   /** The cell the lines are of (`'Q 4'!B6`), the lines, an answer awaited, the last one failed. */
   const place = ref('')
@@ -81,7 +82,7 @@ export function useExplain(s: SheetState, f: Formula) {
   async function ask(mine: number): Promise<void> {
     timer = null
     const a = s.selected.value
-    const call = s.props.source.explain
+    const call = s.sourceMethod('explain')
     if (!a || !call || !s.sheet.value) {
       place.value = ''
       lines.value = []
@@ -93,7 +94,7 @@ export function useExplain(s: SheetState, f: Formula) {
     let got: ExplainLine[] = []
     let bad = false
     try {
-      got = explainLines(await call.call(s.props.source, sheet, cell), sheet)
+      got = explainLines(await call(sheet, cell), sheet)
     } catch {
       bad = true
     }
@@ -125,14 +126,16 @@ export function useExplain(s: SheetState, f: Formula) {
     open.value = false
     schedule()
     busy.value = false
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
   /** The book changed elsewhere: the tree is asked again. */
   function refresh(): void {
     if (open.value) schedule()
   }
+  // The sheet's end: no request after the pause, an answer out dropped.
   onScopeDispose(() => {
     if (timer) clearTimeout(timer)
+    seq++
   })
 
   return { available, open, place, lines, busy, failed, show, close, refresh }

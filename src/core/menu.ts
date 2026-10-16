@@ -3,16 +3,18 @@
 // filter's Reapply, Freeze Panes and its kinds, Trace Precedents); a right click
 // opens one, a finger's long press too. Its small dialogs ask a size, confirm a sheet's deletion, list hidden sheets, ask
 // rows or columns.
-import { computed, nextTick, ref, shallowRef } from 'vue'
+import { computed, nextTick, onScopeDispose, ref, shallowRef } from 'vue'
 import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, rectContains, sameName } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
 import { columnWidthFromChars, columnWidthToChars, MAX_ROW_HEIGHT } from 'xlcalc/text'
+import { linesOn } from '../lines'
+import { cellRect } from '../rect'
 import type { SheetInfo, SheetOp } from '../source'
 import type { Clip } from './clip'
 import type { Commands } from './commands'
 import type { Explain } from './explain'
 import type { Filter } from './filter'
-import { ptFromPx, widthFromPx, type Geometry } from './geometry'
+import { ptFromPx, widthFromPx } from './geometry'
 import type { Outline, OutlineAxis, OutlineOp } from './outline'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -63,7 +65,7 @@ export interface MenuDeps {
   frozen: () => boolean
 }
 
-export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Commands, deps: MenuDeps) {
+export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: MenuDeps) {
   const open = shallowRef<OpenMenu | null>(null)
   const dialog = ref<MenuDialog | null>(null)
   /** A tab being renamed in place: its sheet's index and the draft. */
@@ -78,9 +80,8 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     if (!linesAvailable.value) return false
     const whole = kind === 'rows' ? sel.wholeRows.value : sel.wholeColumns.value
     // Under a display filter the rows between two shown ones are not the shown ones: the menu acts on the row pressed.
-    const inside = whole && line >= whole.first && line <= whole.last && !(kind === 'rows' && s.visible.value)
-    if (!inside) (kind === 'rows' ? sel.pickRow : sel.pickColumn)(line)
-    const lines = (kind === 'rows' ? sel.wholeRows.value : sel.wholeColumns.value)!
+    const lines = sel.linesOf(kind === 'rows' && s.visible.value ? null : whole, line)
+    if (lines !== whole) (kind === 'rows' ? sel.pickRow : sel.pickColumn)(line)
     open.value = { kind, x, y, first: lines.first, last: Math.min(lines.last, kind === 'rows' ? MAX_ROWS : MAX_COLS) }
     return true
   }
@@ -95,7 +96,7 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
   /** Open the cells' menu: a cell outside the selection selects it first, as Excel. */
   function openCells(row: number, col: number, x: number, y: number): void {
     const r = sel.fullRect.value
-    if (!r || !rectContains(r, { top: row, left: col, bottom: row, right: col })) sel.pickCell(row, col)
+    if (!r || !rectContains(r, cellRect(row, col))) sel.pickCell(row, col)
     open.value = { kind: 'cells', x, y, first: 0, last: 0 }
   }
 
@@ -141,7 +142,7 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
       out.push({ id: 'insert', label: m().menuInsert, run: () => void cmd.structure(insert) }, { id: 'delete', label: m().menuDelete, run: () => void cmd.structure(remove) })
     }
     if (cmd.can('layout')) {
-      const lines = axis === 'rows' ? { rows: key } : { columns: key }
+      const lines = linesOn(axis, key)
       out.push(
         { id: 'size', label: axis === 'rows' ? m().menuRowHeight : m().menuColumnWidth, run: () => openSize(axis, first, last), group: out.length > 0 },
         { id: 'hide', label: m().menuHide, run: () => void cmd.layout({ sheet, ...lines, hidden: true }) },
@@ -207,7 +208,7 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     dialog.value = null
     const sheet = s.sheetName.value
     const key = linesKey(d.first, d.last, d.axis)
-    const lines = d.axis === 'rows' ? { rows: key } : { columns: key }
+    const lines = linesOn(d.axis, key)
     // A size of 0 hides the lines, as Excel's boxes take it; the size they had comes back when they are shown.
     if (n === 0) void cmd.layout({ sheet, ...lines, hidden: true })
     else if (d.axis === 'columns') void cmd.layout({ sheet, columns: key, width: columnWidthFromChars(n) })
@@ -286,35 +287,8 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
   }
   const cancelRename = () => (renaming.value = null)
 
-  // ── a finger's long press ──
-  let press: { timer: ReturnType<typeof setTimeout>; x: number; y: number } | null = null
-  let pressedAt = -Infinity
-  /** A finger down: the menu opens if it stays put long enough. */
-  function pressStart(e: PointerEvent, openAt: (x: number, y: number) => void): void {
-    if (e.pointerType !== 'touch' || e.isPrimary === false) return
-    pressCancel()
-    const { clientX: x, clientY: y } = e
-    press = {
-      x,
-      y,
-      timer: setTimeout(() => {
-        press = null
-        pressedAt = Date.now()
-        openAt(x, y)
-      }, LONG_PRESS_MS),
-    }
-  }
-  function pressMove(e: PointerEvent): void {
-    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > PRESS_SLOP_PX) pressCancel()
-  }
-  function pressCancel(): void {
-    if (press) clearTimeout(press.timer)
-    press = null
-  }
-  /** Whether a click or a context menu now is the tail of a long press that opened the menu. */
-  const afterPress = () => Date.now() - pressedAt < PRESS_TAIL_MS
-  /** Whether a finger is down and still, its long press yet to come. */
-  const pressing = () => press !== null
+  // A finger's long press, one for the numbers, letters, cells, tabs and the formula bar's references: its tail is each one's.
+  const press = useLongPress()
 
   /** The range the open menu acts on, for its caption (`2:5`, `B:D`, `B2:C4`, the sheet's name). */
   const caption = computed(() => {
@@ -341,19 +315,55 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     applySize,
     askOutline,
     applyOutline,
-    nextSheetName,
     addSheet,
     confirmDelete,
     unhide,
     startRename,
     commitRename,
     cancelRename,
-    pressStart,
-    pressMove,
-    pressCancel,
-    afterPress,
-    pressing,
+    press,
   }
 }
 
 export type Menu = ReturnType<typeof useMenu>
+
+/** A finger's long press: held still for `LONG_PRESS_MS` it opens what `start` was given; moved further than the slop it scrolls instead. */
+export function useLongPress() {
+  let press: { timer: ReturnType<typeof setTimeout>; x: number; y: number } | null = null
+  let pressedAt = -Infinity
+  /** A finger down: `open` runs at its point if it stays put long enough. */
+  function start(e: PointerEvent, open: (x: number, y: number) => void): void {
+    if (e.pointerType !== 'touch' || e.isPrimary === false) return
+    cancel()
+    const { clientX: x, clientY: y } = e
+    press = {
+      x,
+      y,
+      timer: setTimeout(() => {
+        press = null
+        pressedAt = Date.now()
+        open(x, y)
+      }, LONG_PRESS_MS),
+    }
+  }
+  function move(e: PointerEvent): void {
+    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > PRESS_SLOP_PX) cancel()
+  }
+  function cancel(): void {
+    if (press) clearTimeout(press.timer)
+    press = null
+  }
+  /** Whether a click or a context menu now is the tail of a long press that opened something. */
+  const after = () => Date.now() - pressedAt < PRESS_TAIL_MS
+  /** Whether a finger is down and still, its long press yet to come. */
+  const pressing = () => press !== null
+  /** The browser's context menu where ours opens: none of its own, no press going on; false for the tail of a long press that opened ours (a browser sends it after). */
+  function context(e: MouseEvent): boolean {
+    e.preventDefault()
+    cancel()
+    return !after()
+  }
+  // The sheet's end: a press held then opens nothing.
+  onScopeDispose(cancel)
+  return { start, move, cancel, after, pressing, context }
+}

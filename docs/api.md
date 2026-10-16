@@ -109,7 +109,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 
 ### `SheetViewApi`
 
-`SheetView` exposes these methods through a template ref (`ref="sheet"`, `const sheet = ref<SheetViewApi | null>(null)`). Each goes through the source as the sheet's own keys go: the outcome is applied, its selection set without the flash and the step back that `focus` makes, a refusal shown in the sheet's message line, and after `format`, `structure`, `outline` or `freezePanes` the sheet reads itself again unless the source sent `reload`. A method that returns a promise of `EditOutcome | null` gives the source's outcome, or `null` when nothing was sent (no such method on the source, a read-only sheet, an undo still out).
+`SheetView` exposes these methods through a template ref (`ref="sheet"`, `const sheet = ref<SheetViewApi | null>(null)`). Each goes through the source as the sheet's own keys go: the outcome is applied, its selection set without the flash and the step back that `focus` makes, a refusal shown in the sheet's message line, and after `format`, `structure`, `outline` or `freezePanes` the sheet reads itself again unless the source sent `reload` (after `format` also `repaint`, which reads again the windows over its ranges). A method that returns a promise of `EditOutcome | null` gives the source's outcome, or `null` when nothing was sent (no such method on the source, a read-only sheet, an undo still out).
 
 | Method | Returns | Meaning |
 | --- | --- | --- |

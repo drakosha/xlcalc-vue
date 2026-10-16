@@ -6,7 +6,7 @@ export type Horizontal = 'left' | 'center' | 'right' | 'fill' | 'justify' | 'dis
 export type Vertical = 'top' | 'center' | 'bottom'
 
 /** Pixels of one indent level (Excel's step at the default font). */
-export const INDENT_PX = 9
+const INDENT_PX = 9
 
 /** Excel's General alignment by the value: numbers right, text left, booleans and errors centred. */
 export function generalAlign(value: CellValue | undefined): 'left' | 'center' | 'right' {

@@ -4,39 +4,43 @@ import { computed } from 'vue'
 import { cellAddress, mergedArea, rangeAddress, rectContains, rectsMeet } from 'xlcalc/a1'
 import type { CellRect, CellValue } from 'xlcalc/contract'
 import type { EditOutcome, SheetOp } from '../source'
+import { cellRect } from '../rect'
+import { isBlank } from '../stats'
+import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import type { Commands } from './commands'
 import type { Selection } from './selection'
-import type { SheetState } from './state'
+import { useSheetReads, type SheetState } from './state'
 import type { AlertAnswer, SheetAlert } from './validation'
 import type { Windows } from './windows'
 
 /** Excel's merge commands: the button's Merge & Center, and Merge Across, Merge Cells and Unmerge Cells of its list. */
 export type MergeCommand = 'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'
 
-export interface MergeDeps {
+interface MergeDeps {
   /** Show an alert and wait for the answer. */
   ask: (alert: SheetAlert) => Promise<AlertAnswer>
 }
 
-const holds = (text: string | undefined, value: CellValue | undefined, formula: string | undefined): boolean =>
-  formula !== undefined || (text ?? '') !== '' || (value !== null && value !== undefined && value !== '')
+const holds = (text: string | undefined, value: CellValue | undefined, formula: string | undefined): boolean => formula !== undefined || !isBlank(text, value)
 
 export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Commands, deps: MergeDeps) {
+  const read = useSheetReads(s)
   /** The commands act: the source has `structure`, the sheet is editable, and no display filter scatters its rows. */
-  const available = computed(() => !!s.sheet.value && cmd.can('structure') && !s.visible.value)
+  const available = computed(() => !!s.sheet.value && cmd.canRanges.value)
   /** The merged area the active cell is in, from the loaded windows: Excel's button is pressed on it. */
   const area = computed<CellRect | null>(() => {
     const a = s.selected.value
     if (!a) return null
-    return w.merges.value.find((m) => rectContains(m, { top: a.row, left: a.col, bottom: a.row, right: a.col })) ?? null
+    return w.merges.value.find((m) => rectContains(m, cellRect(a.row, a.col))) ?? null
   })
 
   /**
    * Whether a merge loses values, as Excel warns: an area (each row of it with `across`) where more than one cell holds a
    * value or a formula. Cells past the sheet's data are empty; the loaded windows answer when they hold the rectangle,
-   * else the source's windows over it, a tile of `maxCells` at a time. A window not to be had warns, to be safe.
+   * else the source's windows over it, a tile of `maxCells` at a time. A window not to be had warns, to be safe; null once
+   * `signal` stopped the reads (another sheet, the sheet's end).
    */
-  async function loses(sheet: string, r: CellRect, across: boolean): Promise<boolean> {
+  async function loses(sheet: string, r: CellRect, across: boolean, signal: AbortSignal): Promise<boolean | null> {
     const bottom = Math.min(r.bottom, s.dataRows.value)
     const right = Math.min(r.right, s.dataCols.value)
     if (bottom < r.top || right < r.left) return false
@@ -64,18 +68,19 @@ export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Command
       return false
     }
     const source = s.source()
-    const max = Math.max(1, source.maxCells ?? 20_000)
+    const max = Math.max(1, source.maxCells ?? DEFAULT_MAX_CELLS)
     const step = Math.min(right - r.left + 1, max)
     for (let col = r.left; col <= right; col += step) {
       const cols = Math.min(step, right - col + 1)
       for (let row = r.top; row <= bottom; ) {
-        const rows = Math.min(bottom - row + 1, Math.max(1, Math.floor(max / cols)))
+        const rows = rowsFor(max, bottom - row + 1, cols)
         let got
         try {
-          got = await source.window({ sheet, row, rows, col, cols })
+          got = await source.window({ sheet, row, rows, col, cols }, signal)
         } catch {
-          return true
+          return signal.aborted ? null : true
         }
+        if (signal.aborted) return null
         if ('pending' in got || !got.text.length) return true
         for (let i = 0; i < got.text.length; i++)
           for (let j = 0; j < cols; j++) if (holds(got.text[i]?.[j], got.values[i]?.[j], got.formulas[cellAddress(row + i, col + j)]) && add(row + i)) return true
@@ -99,7 +104,9 @@ export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Command
     if (command === 'unmergeCells') return cmd.structure({ op: 'unmergeCells', sheet, range })
     const across = command === 'mergeAcross'
     // The area the merge takes in: the selection grown by the loaded merged areas it meets, as the library grows it.
-    if (await loses(sheet, mergedArea(r, w.merges.value), across)) {
+    const lost = await loses(sheet, mergedArea(r, w.merges.value), across, read())
+    if (lost === null) return null
+    if (lost) {
       const answer = await deps.ask({ severity: 'merge', message: s.messages.value.mergeWarning, sheet, cell: cellAddress(a.row, a.col) })
       if (answer !== 'accept' || sheet !== s.sheetName.value) return null
     }

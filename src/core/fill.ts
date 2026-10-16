@@ -5,12 +5,15 @@
 import { computed, getCurrentScope, onScopeDispose, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellRect, FillType } from 'xlcalc/contract'
-import { onMac } from './clip'
+import { unionRect } from '../rect'
+import { isBlank } from '../stats'
+import { DEFAULT_MAX_CELLS } from '../window-size'
 import type { Commands } from './commands'
 import type { Editing, EditorState } from './editing'
 import type { Geometry } from './geometry'
+import { onMac } from './keys'
 import type { Selection } from './selection'
-import type { SheetState } from './state'
+import { useSheetReads, type SheetState } from './state'
 import type { Viewport } from './viewport'
 
 /** Within this many pixels of the frame's edge a drag scrolls the grid, by at most `EDGE_STEP_PX` a move. */
@@ -30,13 +33,11 @@ export interface FillDrag {
   touch: boolean
 }
 
-const union = (a: CellRect, b: CellRect): CellRect => ({ top: Math.min(a.top, b.top), left: Math.min(a.left, b.left), bottom: Math.max(a.bottom, b.bottom), right: Math.max(a.right, b.right) })
-
 export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selection, ed: Editing, cmd: Commands, deps: FillDeps) {
   /** The range the handle fills from: a finite selection of an editable sheet with `structure`, not under the display filter or while a field is open. */
   const source = computed<CellRect | null>(() => {
     const r = sel.fullRect.value
-    if (!r || !s.sheet.value || !s.editable.value || !cmd.can('structure') || s.visible.value || deps.editor.value) return null
+    if (!r || !s.sheet.value || !cmd.canRanges.value || deps.editor.value) return null
     return r.bottom >= MAX_ROWS || r.right >= MAX_COLS ? null : r
   })
   const drag = shallowRef<FillDrag | null>(null)
@@ -53,15 +54,12 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
   const frame = computed(() => {
     const d = drag.value
     if (!d?.to) return null
-    const u = union(d.from, d.to)
+    const u = unionRect(d.from, d.to)
     return v.boxOf(u.top, u.left, u.bottom, u.right)
   })
 
-  /** The cells a drag adds with the pointer at a point of the page: along the axis it went furthest from the selection, up to the pointer's cell. */
-  function targetAt(from: CellRect, clientX: number, clientY: number): CellRect | null {
-    const el = s.scroller.value
-    if (!el) return null
-    const box = el.getBoundingClientRect()
+  /** The cells a drag adds with the pointer at a point of the page (`box` the frame's): along the axis it went furthest from the selection, up to the pointer's cell. */
+  function targetAt(from: CellRect, box: DOMRect, clientX: number, clientY: number): CellRect | null {
     const p = v.cellAt(clientX - box.left, clientY - box.top)
     const rows = geo.rowOffsets.value
     const cols = geo.offsets.value
@@ -87,11 +85,8 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     const start = Math.max(p.col, 1)
     return start < from.left ? { ...from, left: start, right: from.left - 1 } : null
   }
-  /** Scroll the grid while the pointer is at or past the frame's edge, so a drag reaches cells off screen. */
-  function edgeScroll(clientX: number, clientY: number): void {
-    const el = s.scroller.value
-    if (!el) return
-    const box = el.getBoundingClientRect()
+  /** Scroll the grid while the pointer is at or past the frame's edge (`box`), so a drag reaches cells off screen. */
+  function edgeScroll(el: HTMLElement, box: DOMRect, clientX: number, clientY: number): void {
     if (!box.height) return
     const step = (past: number) => Math.min(EDGE_STEP_PX, Math.max(0, past))
     const dy = step(clientY - (box.bottom - EDGE_PX)) - step(box.top + v.headH.value + EDGE_PX - clientY)
@@ -111,13 +106,16 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     held?.setPointerCapture?.(e.pointerId)
     drag.value = { from, to: null, pointer: e.pointerId, touch: e.pointerType === 'touch' }
     document.addEventListener('keydown', onKey, true)
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
   function onMove(e: PointerEvent): void {
     const d = drag.value
-    if (!d || e.pointerId !== d.pointer) return
-    edgeScroll(e.clientX, e.clientY)
-    const to = targetAt(d.from, e.clientX, e.clientY)
+    const el = s.scroller.value
+    if (!d || e.pointerId !== d.pointer || !el) return
+    // One measure a move: the frame does not move as it scrolls, and a read after the scroll's write would lay the page out again.
+    const box = el.getBoundingClientRect()
+    edgeScroll(el, box, e.clientX, e.clientY)
+    const to = targetAt(d.from, box, e.clientX, e.clientY)
     if (to?.top !== d.to?.top || to?.left !== d.to?.left || to?.bottom !== d.to?.bottom || to?.right !== d.to?.right) drag.value = { ...d, to }
   }
   function onUp(e: PointerEvent): void {
@@ -152,47 +150,48 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     document.removeEventListener('keydown', onKey, true)
   }
   if (getCurrentScope()) onScopeDispose(end)
+  const read = useSheetReads(s)
 
   /** Fill the frame of `from` and the cells added `to` from `from` in one step of undo; the selection becomes the frame, as Excel leaves it. */
   async function fill(from: CellRect, to: CellRect, type?: FillType): Promise<void> {
     const lock = ed.lockIn(to)
     if (lock !== null) return deps.notify(s.messages.value.locked(lock))
     const sheet = s.sheetName.value
-    const frame = union(from, to)
+    const frame = unionRect(from, to)
     const before = { selected: s.selected.value, extent: s.extent.value }
     const out = await cmd.structure({ op: 'fillRange', sheet, range: rangeAddress(from), to: rangeAddress(frame), ...(type ? { type } : {}) })
     if (out?.ok && sheet === s.sheetName.value && s.selected.value === before.selected && s.extent.value === before.extent) sel.selectRect(frame)
   }
 
-  /** Excel's double click on the handle: down to the last row of the data in the column left of the selection, else right of it. */
+  /** Excel's double click on the handle: down to the last row of the data in the column left of the selection, else right of it; another sheet shown meanwhile stops it. */
   async function autofill(): Promise<void> {
     const from = source.value
     if (!from) return
+    const signal = read()
     for (const col of [from.left - 1, from.right + 1]) {
       if (col < 1 || col > MAX_COLS) continue
-      const end = await dataEnd(col, from.bottom + 1)
+      const end = await dataEnd(col, from.bottom + 1, signal)
+      if (signal.aborted) return
       if (end > from.bottom) return fill(from, { ...from, top: from.bottom + 1, bottom: end })
     }
   }
   /** The last row of the run of filled cells in a column from `row` down, as the source has it, read in windows of the cell limit. */
-  async function dataEnd(col: number, row: number): Promise<number> {
+  async function dataEnd(col: number, row: number, signal: AbortSignal): Promise<number> {
     const sheet = s.sheetName.value
     const last = s.dataRows.value
-    const step = s.source().maxCells ?? 20_000
+    const step = s.source().maxCells ?? DEFAULT_MAX_CELLS
     let r = row
     while (r <= last) {
       let got
       try {
-        got = await s.source().window({ sheet, row: r, rows: Math.min(step, last - r + 1), col, cols: 1 })
+        got = await s.source().window({ sheet, row: r, rows: Math.min(step, last - r + 1), col, cols: 1 }, signal)
       } catch {
         return row - 1
       }
       if ('pending' in got) return row - 1
       if (!got.text.length) return r - 1
       for (let i = 0; i < got.text.length; i++) {
-        const value = got.values[i]?.[0]
-        const empty = (got.text[i]![0] ?? '') === '' && (value === null || value === undefined || value === '') && got.formulas[cellAddress(r + i, col)] === undefined
-        if (empty) return r + i - 1
+        if (isBlank(got.text[i]![0], got.values[i]?.[0]) && got.formulas[cellAddress(r + i, col)] === undefined) return r + i - 1
       }
       r += got.text.length
     }

@@ -4,7 +4,9 @@ import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch, type
 import type { ScanOptions } from 'xlcalc/contract'
 import { nameAt } from 'xlcalc/text'
 import type { SheetSource } from '../source'
+import { askSource } from './ask'
 import type { EditorState } from './editing'
+import { listStep, stepIndex } from './list-keys'
 
 /** Items the list shows at once; Page Up and Page Down move by them. */
 export const FUNCTION_ROWS = 8
@@ -54,20 +56,20 @@ export function useAutocomplete(deps: AutocompleteDeps) {
     names?.ctrl.abort()
     names = null
     if (!src.functionNames) return
-    const entry: Names = { src, list: null, ctrl: new AbortController() }
-    names = entry
-    Promise.resolve()
-      .then(() => src.functionNames!(entry.ctrl.signal))
-      .then(
+    const entry: Names = {
+      src,
+      list: null,
+      ctrl: askSource(
+        (signal) => src.functionNames!(signal),
+        () => names === entry,
         (list) => {
-          if (names !== entry) return
           entry.list = list.map((name) => ({ name, key: name.toUpperCase() }))
           if (last && deps.editor.value?.text === last.text) match(last.text, last.caret)
         },
-        () => {
-          if (names === entry) names = null
-        },
-      )
+        () => (names = null),
+      ),
+    }
+    names = entry
   }
   /** The list for the name at `caret` in `text`: the functions it begins, the first highlighted; closed when none. */
   function match(text: string, caret: number): void {
@@ -104,7 +106,7 @@ export function useAutocomplete(deps: AutocompleteDeps) {
   /** Highlight the item `by` steps away, within the list. */
   function move(by: number): void {
     const n = items.value.length
-    if (n) index.value = Math.min(n - 1, Math.max(0, index.value + by))
+    if (n) index.value = stepIndex(index.value, by, n)
   }
   /** Enter a function (the highlighted one by default) in place of the typed name, with its "(" unless one follows, and close the list; false for none. */
   function accept(i = index.value): boolean {
@@ -126,26 +128,18 @@ export function useAutocomplete(deps: AutocompleteDeps) {
    */
   function onKey(e: KeyboardEvent): boolean {
     if (!open.value) return false
-    const n = items.value.length
-    const keys: Record<string, () => unknown> = {
-      ArrowDown: () => move(1),
-      ArrowUp: () => move(-1),
-      PageDown: () => move(FUNCTION_ROWS),
-      PageUp: () => move(-FUNCTION_ROWS),
-      Home: () => move(-n),
-      End: () => move(n),
-      Tab: () => accept(),
-      Escape: close,
+    const plain = !(e.altKey || e.ctrlKey || e.metaKey || e.shiftKey)
+    const by = plain ? listStep(e.key, items.value.length, FUNCTION_ROWS) : null
+    if (by !== null) move(by)
+    else if (plain && e.key === 'Tab') accept()
+    else if (plain && e.key === 'Escape') close()
+    else {
+      if (e.key === 'Enter') close()
+      else follow()
+      return false
     }
-    const act = e.altKey || e.ctrlKey || e.metaKey || e.shiftKey ? undefined : keys[e.key]
-    if (act) {
-      e.preventDefault()
-      act()
-      return true
-    }
-    if (e.key === 'Enter') close()
-    else follow()
-    return false
+    e.preventDefault()
+    return true
   }
 
   // A field opened, moved between the cell and the bar or closed, or a new source: the list goes; the names are asked once a field opens.
@@ -160,7 +154,7 @@ export function useAutocomplete(deps: AutocompleteDeps) {
       if (timer) clearTimeout(timer)
     })
 
-  return { items, index, open, update, follow, move, accept, close, onKey }
+  return { items, index, open, update, follow, accept, close, onKey }
 }
 
 export type Autocomplete = ReturnType<typeof useAutocomplete>

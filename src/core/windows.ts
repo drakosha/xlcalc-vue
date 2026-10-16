@@ -4,7 +4,10 @@ import { computed, nextTick, ref, shallowRef, triggerRef, type ShallowRef } from
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
 import type { CellPosition, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { DEFAULT_ROW_HEIGHT } from 'xlcalc/text'
+import { isAbort } from '../abort'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
+import { isBlank } from '../stats'
+import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import { lookStyle } from './conditional'
 import { rowPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
@@ -13,7 +16,6 @@ import type { Viewport } from './viewport'
 /** Fetch margins: a window is taken with spare rows and columns so an ordinary scroll needs no request. */
 const FETCH_ROWS = 120
 const FETCH_COLS = 12
-const MAX_CELLS = 20_000
 const MAX_COLS = 200
 /** Delay before asking again for a window that is not ready yet, and how many times (over a host's recompute limit). */
 const PENDING_RETRY_MS = 1000
@@ -69,7 +71,6 @@ interface Need {
 export type SheetTable = NonNullable<SheetWindow['tables']>[number] & { rect: CellRect }
 
 const newSlot = (): Slot => ({ view: '', win: null, rows: 0, cols: 0, merges: [], tables: [], pendingKey: '', servedKey: '', ctrl: null, asked: null, stale: false })
-const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError'
 
 /** Everything a cell has in its window, for drawing it. */
 export interface CellData {
@@ -136,10 +137,6 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const slot = slotAt(d, col)
     return slot ? (slot.win!.text[d - slot.win!.row]?.[col - slot.win!.col] ?? '') : ''
   }
-  function valueAt(d: number, col: number): CellValue | undefined {
-    const slot = slotAt(d, col)
-    return slot ? slot.win!.values[d - slot.win!.row]?.[col - slot.win!.col] : undefined
-  }
   /** A cell's style as drawn; records of a window are keyed by the cell's own address (`addr`, by its sheet row). */
   function styleAt(d: number, col: number, addr: string): CellStyle | undefined {
     const w = drawnSlot(d, col)?.win
@@ -168,43 +165,41 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const slot = drawnSlot(d, col)
     if (!slot) return false
     const w = slot.win!
-    const value = w.values[d - w.row]?.[col - w.col]
-    return (w.text[d - w.row]?.[col - w.col] ?? '') === '' && (value === null || value === undefined || value === '')
+    return isBlank(w.text[d - w.row]?.[col - w.col], w.values[d - w.row]?.[col - w.col])
   }
-  /** The same by the sheet's row: a row the filter hides has nothing loaded. */
-  const textOfRow = (r: number, col: number): string => {
+  /** A cell by the sheet's row: its window and the cell's place in it; null when the filter hides the row or no window holds it. */
+  function cellOfRow(r: number, col: number): { win: SheetWindow; i: number; j: number } | null {
     const d = s.indexOf(r)
-    return d === undefined ? '' : textAt(d, col)
+    const win = d === undefined ? undefined : slotAt(d, col)?.win
+    return win ? { win, i: d! - win.row, j: col - win.col } : null
+  }
+  const textOfRow = (r: number, col: number): string => {
+    const c = cellOfRow(r, col)
+    return c ? (c.win.text[c.i]?.[c.j] ?? '') : ''
   }
   const valueOfRow = (r: number, col: number): CellValue | undefined => {
-    const d = s.indexOf(r)
-    return d === undefined ? undefined : valueAt(d, col)
+    const c = cellOfRow(r, col)
+    return c?.win.values[c.i]?.[c.j]
   }
-  const formulaOfRow = (r: number, col: number): string | undefined => {
-    const d = s.indexOf(r)
-    const w = d === undefined ? undefined : slotAt(d, col)?.win
-    return w?.formulas[cellAddress(r, col)]
-  }
+  const formulaOfRow = (r: number, col: number): string | undefined => cellOfRow(r, col)?.win.formulas[cellAddress(r, col)]
+  /** Whether a cell is known to be empty by the sheet's row: loaded, no text, no value. */
   const emptyAtRow = (r: number, col: number): boolean => {
-    const d = s.indexOf(r)
-    return d !== undefined && emptyAt(d, col)
+    const c = cellOfRow(r, col)
+    return !!c && isBlank(c.win.text[c.i]?.[c.j], c.win.values[c.i]?.[c.j])
   }
   /** The text a cell opens with from its window's `editText` (a cell left out opens empty); undefined when the window has none. */
   const editTextOfRow = (r: number, col: number): string | undefined => {
-    const d = s.indexOf(r)
-    const texts = d === undefined ? undefined : slotAt(d, col)?.win?.editText
+    const texts = cellOfRow(r, col)?.win.editText
     return texts ? (texts[cellAddress(r, col)] ?? '') : undefined
   }
-  /** The style a cell shows and its number format code (none: General), from its loaded window; null when none holds it. */
   /** Whether a cell (a sheet row) is a drill-down of list mode: loaded, marked in its window's `drill` and not empty. */
   const drillOfRow = (r: number, col: number): boolean => {
-    const d = s.indexOf(r)
-    const w = d === undefined ? undefined : slotAt(d, col)?.win
-    return !!w?.drill?.[cellAddress(r, col)] && (w.text[d! - w.row]?.[col - w.col] ?? '') !== ''
+    const c = cellOfRow(r, col)
+    return !!c?.win.drill?.[cellAddress(r, col)] && (c.win.text[c.i]?.[c.j] ?? '') !== ''
   }
+  /** The style a cell shows and its number format code (none: General), from its loaded window; null when none holds it. */
   const lookOfRow = (r: number, col: number): { style?: CellStyle; numberFormat?: string } | null => {
-    const d = s.indexOf(r)
-    const w = d === undefined ? undefined : slotAt(d, col)?.win
+    const w = cellOfRow(r, col)?.win
     if (!w) return null
     const addr = cellAddress(r, col)
     const id = w.styleIds[addr]
@@ -269,14 +264,14 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
 
   async function load(kind: SlotKind, need: Need): Promise<void> {
     const slot = slots[kind].value
-    const maxCells = s.source().maxCells ?? MAX_CELLS
+    const maxCells = s.source().maxCells ?? DEFAULT_MAX_CELLS
     // Margins only up to the grid's end; past the source's known edge there is nothing to ask for.
     const lastCol = Math.max(1, Math.min(s.colCount.value, edgeCols()))
     const lastRow = Math.max(1, Math.min(s.rowCount.value, edgeRows()))
     const col = kind === 'left' ? 1 : Math.max(1, Math.min(need.c1, lastCol) - FETCH_COLS)
     const cols = kind === 'left' ? Math.min(need.c2, lastCol) : Math.min(MAX_COLS, Math.min(need.c2 + FETCH_COLS, lastCol) - col + 1)
     const row = kind === 'top' ? 1 : Math.max(1, Math.min(need.r1, lastRow) - FETCH_ROWS)
-    const rows = kind === 'top' ? Math.min(need.r2, lastRow) : Math.min(Math.min(need.r2 + FETCH_ROWS, lastRow) - row + 1, Math.max(1, Math.floor(maxCells / cols)))
+    const rows = kind === 'top' ? Math.min(need.r2, lastRow) : Math.max(1, rowsFor(maxCells, Math.min(need.r2 + FETCH_ROWS, lastRow) - row + 1, cols))
     const filter = s.visible.value
     const req: WindowRequest = { sheet: s.sheetName.value, row, rows, col, cols, ...(filter ? { filter: filter.spec } : {}) }
     const view = viewKey()
@@ -290,9 +285,9 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     slot.asked = { view, row, rows, col, cols, quiet, missed: [] }
     const mine = epoch
     // An edit may have replaced the slot object meanwhile, a repaint may have aborted the request for another: it is the slot's while its controller is.
-    const current = () => slots[kind].value.ctrl === ctrl
+    const owns = () => slots[kind].value.ctrl === ctrl
     const release = () => {
-      if (!current()) return
+      if (!owns()) return
       const held = slots[kind].value
       held.pendingKey = ''
       held.ctrl = null
@@ -301,7 +296,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     if (!quiet) s.loading.value = true
     try {
       const got = await s.source().window(req, ctrl.signal)
-      if (mine !== epoch || !current()) return
+      if (mine !== epoch || !owns()) return
       if ('pending' in got) {
         if (!awaitPending(got.pending.elapsedMs)) return
         setTimeout(() => {
@@ -329,10 +324,10 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       rowRevisions.clear()
       s.failure.value = null
     } catch (e) {
-      if (mine !== epoch || isAbort(e) || !current()) return
+      if (mine !== epoch || isAbort(e) || !owns()) return
       release()
       stopWait()
-      s.failure.value = { error: e, text: e instanceof Error && e.message ? e.message : s.messages.value.loadFailed }
+      s.failure.value = s.failureOf(e)
     } finally {
       if (mine === epoch && !wait.value) {
         s.loading.value = order.some((k) => slots[k].value.pendingKey !== '' && !slots[k].value.asked?.quiet)
@@ -588,7 +583,6 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     revision,
     slotAt,
     textAt,
-    valueAt,
     styleAt,
     cellData,
     emptyAt,

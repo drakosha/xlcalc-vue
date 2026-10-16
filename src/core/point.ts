@@ -6,6 +6,7 @@ import type { Ref } from 'vue'
 import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellPosition, PointAction, ScanOptions } from 'xlcalc/contract'
 import { refAt } from 'xlcalc/text'
+import { rectOf } from '../rect'
 import type { EditorState } from './editing'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -19,7 +20,7 @@ const ARROWS: Record<string, [-1 | 0 | 1, -1 | 0 | 1]> = { ArrowDown: [1, 0], Ar
 /** Keys that point besides the arrows, as they move on the sheet (Excel measured Home and Page Down). */
 const MOVES = new Set(['Home', 'PageDown', 'PageUp'])
 
-export interface PointDeps {
+interface PointDeps {
   /** The open field's element. */
   input: () => HTMLTextAreaElement | null
   /** Show the draft's new text with its caret in the field. */
@@ -141,7 +142,7 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
       return
     }
     const a = run.anchor
-    const ref = rangeAddress({ top: Math.min(a.row, far.row), left: Math.min(a.col, far.col), bottom: Math.max(a.row, far.row), right: Math.max(a.col, far.col) })
+    const ref = rangeAddress(rectOf(a, far))
     ed.text = run.text.slice(0, run.from) + ref + run.text.slice(run.to)
     run = { ...run, to: run.from + ref.length, text: ed.text, far }
     ed.caret = run.to

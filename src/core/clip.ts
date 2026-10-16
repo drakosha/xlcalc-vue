@@ -9,6 +9,7 @@ import { formatClipboard } from 'xlcalc/text'
 import type { SheetOp } from '../source'
 import type { Commands } from './commands'
 import type { Editing, EditorState } from './editing'
+import { onMac } from './keys'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 import { listOf, type Totals } from './totals'
@@ -32,9 +33,6 @@ export interface ClipDeps {
   colShown: (col: number) => boolean
 }
 
-/** A Mac, where Excel ends a copy's text without a line break (Windows with CRLF) and drags a series with Option. */
-export const onMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
-
 /** Clipboard text as compared: line ends of any system, without the last one. */
 const plain = (t: string) => t.replace(/\r\n?/g, '\n').replace(/\n$/, '')
 
@@ -51,7 +49,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   s.hooks.changing = clear
   watch(deps.editor, (e) => e && clear())
 
-  const canCut = computed(() => s.editable.value && cmd.can('structure') && !s.visible.value)
+  const canCut = cmd.canRanges
   /** The menu's Paste: our copy, or a clipboard the browser may let the page read. */
   const canPaste = computed(() => s.editable.value && (!!mark.value || typeof navigator.clipboard?.readText === 'function'))
 
@@ -127,11 +125,11 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   }
   /** The source's copy of the selection cut to the data (values by their formats, as Excel copies them); null without `copyText`, under the display filter or past the data. */
   function sourceText(r: CellRect): Promise<string> | null {
-    const copy = s.source().copyText
+    const copy = s.sourceMethod('copyText')
     const bottom = Math.min(r.bottom, Math.max(r.top, s.dataRows.value))
     const right = Math.min(r.right, Math.max(r.left, s.dataCols.value))
     if (!copy || s.visible.value || r.top > s.dataRows.value || r.left > s.dataCols.value) return null
-    return copy.call(s.source(), s.sheetName.value, rangeAddress({ top: r.top, left: r.left, bottom, right }), { trailingNewline: !onMac() })
+    return copy(s.sheetName.value, rangeAddress({ top: r.top, left: r.left, bottom, right }), { trailingNewline: !onMac() })
   }
   /** The source's text in place of the shown one the copy event took, through the clipboard API (a browser that refuses keeps the shown one); the mark knows both. */
   async function replaceWith(m: ClipMark | null, shown: string, exact: Promise<string>): Promise<void> {
@@ -165,7 +163,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     if (!s.editable.value) return
     const m = mark.value
     if (m && (!text || m.text === null || plain(text) === plain(m.text) || (m.shown !== undefined && plain(text) === plain(m.shown)))) {
-      if (cmd.can('structure') && !s.visible.value) return void pasteMark(m)
+      if (cmd.canRanges.value) return void pasteMark(m)
       // Without `structure` (or under the display filter) the copy goes as its text; its last CRLF ends the rectangle, not an empty row to paste.
       text = m.text?.replace(/\r\n$/, '') ?? null
     } else if (!m && text && spent !== null && plain(text) === plain(spent)) return
@@ -204,12 +202,12 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   /** Copy and Cut: the browser's clipboard API takes the text; refused, the copy still pastes inside the book. */
   function copy(cut: boolean): void {
     if (cut && !canCut.value) return
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
     void put(cut, null)
   }
   /** Paste: the clipboard read through the browser's API; a browser that will not give it pastes only our own copy. */
   async function paste(): Promise<void> {
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
     let text: string | null = null
     try {
       text = await navigator.clipboard.readText()

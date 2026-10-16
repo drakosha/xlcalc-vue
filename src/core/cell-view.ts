@@ -1,7 +1,8 @@
 // One drawn cell: its classes, CSS and tooltip, the content box, borders shared with neighbours, merges and text overflow.
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { cellAddress, rectContains } from 'xlcalc/a1'
-import type { BorderLine, CellRect, CellStyle, Icon } from 'xlcalc/contract'
+import type { BorderLine, CellStyle, Icon } from 'xlcalc/contract'
+import { cellRect } from '../rect'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, horizontalOf, overflows, setSide, verticalOf, wrapsOf, type CssLine, type Horizontal } from './cell-style'
 import { barLayers, type Layer } from './conditional'
 import type { Editing, EditorState } from './editing'
@@ -92,7 +93,7 @@ function sameMerges(a: Map<string, MergeSpan | null>, b: Map<string, MergeSpan |
 /** Links a browser may open by itself; anything else (`javascript:` and the like) goes to the host or is shown only. */
 export const safeHref = (href: string | undefined): boolean => !!href && /^(https?:|mailto:|tel:|ftp:)/i.test(href.trim())
 
-export interface CellViewDeps {
+interface CellViewDeps {
   editor: Ref<EditorState | null>
   /** Search hits by `row:col`, and the current one. */
   find: { hitSet: ComputedRef<Set<string>>; current: ComputedRef<string> }
@@ -257,7 +258,7 @@ export function useCellView(
   /** Everything to draw cell (r, c); `d` is its display row, `frozen` whether its row is a frozen one, `row` its row's state (`rowState`). */
   function cellView(d: number, r: number, c: number, frozen: boolean, row: RowState): CellView {
     const addr = cellAddress(r, c)
-    const at: CellRect = { top: r, left: c, bottom: r, right: c }
+    const at = cellRect(r, c)
     const data = w.cellData(d, c, addr)
     const span = spanOf(r, c)
     // The merge's last row: display (geometry, neighbours) and sheet (selection, tables); under a filter merges are one row.
@@ -411,7 +412,7 @@ export function useCellView(
     return view
   }
 
-  return { merges, spanOf, coveredByMerge, rowState, cellView }
+  return { spanOf, coveredByMerge, rowState, cellView }
 }
 
 export type CellViews = ReturnType<typeof useCellView>

@@ -2,16 +2,15 @@
 // Excel's input message of a rule of data validation while its cell is selected: a pale yellow box below the cell, from
 // its middle to the right, its title in bold; left of that, or over the cell, where the view has no room.
 import { computed, nextTick, ref, watch } from 'vue'
-import type { ValidationRect } from '../core/validation'
-import { placeBelowOrAbove } from './popup'
+import { placeBelowOrAbove, type PopupRect } from './popup'
 
 const props = withDefaults(
   defineProps<{
     /** The active cell (a merged area whole), in the coordinates of the element the component is placed in. */
-    rect: ValidationRect
+    rect: PopupRect
     prompt: { title?: string; text: string }
     /** What of the grid is in view, in the same coordinates. */
-    view?: ValidationRect
+    view?: PopupRect
   }>(),
   { view: undefined },
 )

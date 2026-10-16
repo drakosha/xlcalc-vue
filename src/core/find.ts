@@ -1,9 +1,11 @@
 // Excel's Find and Replace on the sheet: the bar's query and options go to the source's `find`, Find Next goes on from
 // the active cell in the order asked, a selection of several cells is where it looks, and Replace and Replace All go to
 // the source's `replace` as an edit goes.
-import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onScopeDispose, reactive, ref, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
+import { isAbort } from '../abort'
+import { cellOrder } from '../find-match'
 import type { EditOutcome, FindRequest, ReplaceOutcome } from '../source'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -23,8 +25,8 @@ export interface FindOptions {
 export type FindRunner = (call: () => Promise<EditOutcome>) => Promise<EditOutcome>
 
 export function useFind(s: SheetState, sel: Selection, notify: (text: string) => void) {
-  const available = computed(() => typeof s.props.source.find === 'function')
-  const canReplace = computed(() => available.value && s.editable.value && typeof s.props.source.replace === 'function')
+  const available = computed(() => typeof s.source().find === 'function')
+  const canReplace = computed(() => available.value && s.editable.value && typeof s.source().replace === 'function')
   const isOpen = ref(false)
   /** The replace row shows: Ctrl+H, or its toggle on the bar. */
   const replacing = ref(false)
@@ -55,7 +57,7 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   /** Hits by `row:col` (sheet rows): those in the frame are tinted, the active one pulses. */
   const hitSet = computed(() => new Set(hits.value.map((h) => `${h.row}:${h.col}`)))
   /** Excel's order: row by row, or column by column; negative when `a` comes first. */
-  const order = (a: CellPosition, b: CellPosition) => (options.byColumns ? a.col - b.col || a.row - b.row : a.row - b.row || a.col - b.col)
+  const order = (a: CellPosition, b: CellPosition) => cellOrder(options.byColumns)(a, b)
   /** The hit at the active cell, -1 when the active cell is none. */
   const index = computed(() => {
     const a = s.selected.value
@@ -85,7 +87,7 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   function closeFind(): void {
     isOpen.value = false
     reset()
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
   function reset(): void {
     seq++
@@ -97,6 +99,8 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     busy.value = false
     done.value = null
   }
+  // The sheet's end: no search after the pause, none out.
+  onScopeDispose(reset)
 
   /** The request of the bar as it is now, from the cell `after` when given; null for an empty query. */
   function request(after?: string): FindRequest | null {
@@ -130,7 +134,7 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     const c = (ctrl = new AbortController())
     busy.value = true
     try {
-      const got = await s.props.source.find!(req, c.signal)
+      const got = await s.source().find!(req, c.signal)
       if (mine !== seq) return
       hits.value = got.hits.map((h) => ({ row: h.row, col: h.col }))
       total.value = got.total
@@ -141,7 +145,7 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
       else if (leap && a && got.total > got.hits.length) return void runSearch(cellAddress(a.row, a.col))
       else if (leap) step(1)
     } catch (e) {
-      if (mine === seq && !(e instanceof DOMException && e.name === 'AbortError')) notify(s.messages.value.findFailed)
+      if (mine === seq && !isAbort(e)) notify(s.messages.value.findFailed)
     } finally {
       if (mine === seq) busy.value = false
     }
@@ -200,13 +204,13 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   /** Excel's Replace: the active cell when it is a hit, then Find Next; elsewhere only Find Next. */
   async function replaceOne(run: FindRunner): Promise<void> {
     const req = request()
-    const call = s.props.source.replace
+    const call = s.sourceMethod('replace')
     const a = s.selected.value
     if (!req || !call || !canReplace.value || writing.value) return
     if (index.value < 0 || !a) return step(1)
     writing.value = true
     try {
-      const out = await run(() => call.call(s.props.source, { ...req, range: cellAddress(a.row, a.col) }, by.value))
+      const out = await run(() => call({ ...req, range: cellAddress(a.row, a.col) }, by.value))
       if (!out.ok) return
       await runSearch()
       step(1)
@@ -217,11 +221,11 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   /** Excel's Replace All over what the bar finds, one step of undo; the bar says how many cells it changed and counts again. */
   async function replaceAll(run: FindRunner): Promise<void> {
     const req = request()
-    const call = s.props.source.replace
+    const call = s.sourceMethod('replace')
     if (!req || !call || !canReplace.value || writing.value) return
     writing.value = true
     try {
-      const out = await run(() => call.call(s.props.source, req, by.value))
+      const out = await run(() => call(req, by.value))
       if (!out.ok) return
       const { replaced, refused } = out as ReplaceOutcome
       // the cells Excel would not take are left as they were, the others written: the line says why

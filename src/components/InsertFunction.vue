@@ -2,6 +2,7 @@
 // Excel's Insert Function window: a search, the category box (recently used, all, the source's categories), the functions, and the syntax and description of the one selected.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { FUNCTION_CATEGORIES } from 'xlcalc/text'
+import { stepIndex } from '../core/list-keys'
 import type { SheetFunctionSignature } from '../source'
 import { useSheetContext } from './context'
 import DialogShell from './DialogShell.vue'
@@ -71,11 +72,11 @@ function ok(): void {
   ctx.memory.remember(RECENT, [name, ...recent.filter((n) => n !== name)].slice(0, RECENT_MAX))
   emit('pick', name)
 }
+/** Up and Down move along the functions; Home, End and the page keys stay the search field's. */
 function onKey(e: KeyboardEvent): void {
-  const last = shown.value.length - 1
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault()
-    index.value = Math.max(0, Math.min(last, index.value + (e.key === 'ArrowDown' ? 1 : -1)))
+    if (shown.value.length) index.value = stepIndex(index.value, e.key === 'ArrowDown' ? 1 : -1, shown.value.length)
   } else if (e.key === 'Enter') {
     e.preventDefault()
     ok()

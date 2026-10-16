@@ -1,10 +1,11 @@
 // Changes of the book the host or the grid's menus and keys ask for (format, structure, lines, outline, frozen panes, undo and redo): each goes
 // through the source as Control+Z goes, and the sheet is read again after one a window's cells cannot carry.
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { CellStyle } from 'xlcalc/contract'
 import type { EditOutcome, FormatPatch, LayoutChange, OutlineChange, SheetOp } from '../source'
 import { fontToggle, type FontToggle } from '../toolbar'
-import { shortcutLetter, type Editing } from './editing'
+import type { Editing } from './editing'
+import { isMod, shortcutLetter } from './keys'
 import type { MergeCommand } from './merge'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -57,9 +58,10 @@ export interface SheetTarget {
 }
 
 export interface CommandsDeps {
-  /** Read the sheets and windows again; how many times it has started, to tell whether the source sent `reload` during a call. */
+  /** Read the sheets and windows again; how many times it has started, and how many `repaint` events came, to tell whether the source sent either during a call. */
   reload: () => Promise<void>
   reloads: () => number
+  repaints: () => number
   /** The sheet the next read shows. */
   target: (t: SheetTarget | null) => void
   /** The style the active cell shows. */
@@ -68,92 +70,92 @@ export interface CommandsDeps {
   frozen: () => boolean
   middlePanes: () => { rows: number; cols: number }
   showFreeze: (sheet: string, on: boolean) => void
-  /** The display filter's Reapply and the precedents' panel, for the host's methods. */
-  reapplyFilter: () => Promise<boolean>
-  explain: () => boolean
-  /** Excel's merge commands over the selection. */
-  merge: (command: MergeCommand) => Promise<EditOutcome | null>
   /** A structure operation went through: lines may have moved, so what the sheet keeps by line number no longer holds. */
   structured: () => void
 }
 
 const FONT_KEYS: Record<string, FontToggle> = { b: 'bold', i: 'italic', u: 'underline' }
 
-export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: CommandsDeps) {
-  /** A change the source takes: the sheet is editable (not read-only, with `edit`) and the source has the method. */
-  const can = (method: 'format' | 'structure' | 'layout' | 'outline' | 'freeze'): boolean => s.editable.value && typeof s.source()[method] === 'function'
+/** The source's methods that change the book past cells. */
+type ChangeMethod = 'format' | 'structure' | 'layout' | 'outline' | 'freeze'
 
-  /** A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload` meanwhile; formatting and lines leave the copy mode on (`endsCopy`). */
-  async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null, endsCopy = true): Promise<EditOutcome> {
-    const before = deps.reloads()
+export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: CommandsDeps) {
+  /** A method of a change the source takes: the sheet is editable (not read-only, with `edit`) and the source has it; else null. */
+  const method = <K extends ChangeMethod>(name: K) => (s.editable.value ? s.sourceMethod(name) : null)
+  const can = (name: ChangeMethod): boolean => method(name) !== null
+  /** Structure operations over ranges (a copy or a cut pasted, a fill, a merge): with `structure`, and no display filter scattering the rows. */
+  const canRanges = computed(() => can('structure') && !s.visible.value)
+
+  /**
+   * A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload`
+   * meanwhile, or `repaint` for a change of `looks` alone (formatting), whose windows it reads again itself; formatting and
+   * lines leave the copy mode on (`endsCopy`).
+   */
+  async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null, endsCopy = true, looks = false): Promise<EditOutcome> {
+    const before = { reloads: deps.reloads(), repaints: deps.repaints() }
     deps.target(target)
     const out = await ed.run(call, [], null, null, endsCopy)
     if (!out.ok) deps.target(null)
-    else if (deps.reloads() === before) await deps.reload()
+    else if (deps.reloads() === before.reloads && !(looks && deps.repaints() !== before.repaints)) await deps.reload()
     return out
   }
 
   async function format(patches: SheetFormatPatch[]): Promise<EditOutcome | null> {
-    const call = s.source().format
+    const call = method('format')
     const range = sel.selectionRef.value
-    if (!call || !can('format') || !patches.length || !s.sheet.value) return null
+    if (!call || !patches.length || !s.sheet.value) return null
     const sheet = s.sheetName.value
     const list: FormatPatch[] = []
     for (const p of patches) {
       if (p.range === undefined && !range) return null
       list.push({ ...p, range: p.range ?? range })
     }
-    return change(() => call.call(s.source(), sheet, list), null, false)
+    return change(() => call(sheet, list), null, false, true)
   }
 
   /** A structure operation; a paste of the copied range keeps the copy mode on (`endsCopy` false), as Excel's does. */
   async function structure(op: SheetOp, endsCopy = true): Promise<EditOutcome | null> {
-    const call = s.source().structure
-    if (!call || !can('structure')) return null
+    const call = method('structure')
+    if (!call) return null
     // Excel shows a sheet it inserts or unhides, and keeps the selection of the active sheet it renames.
     let target: SheetTarget | null = null
     if (op.op === 'insertSheet') target = { name: op.name, keep: false }
     else if (op.op === 'unhideSheet') target = { name: op.sheet, keep: false }
     else if (op.op === 'renameSheet' && op.sheet === s.sheetName.value) target = { name: op.name, keep: true }
-    const out = await change(() => call.call(s.source(), op), target, endsCopy)
+    const out = await change(() => call(op), target, endsCopy)
     if (out.ok) deps.structured()
     return out
   }
 
-  async function layout(edit: LayoutChange): Promise<EditOutcome | null> {
-    const call = s.source().layout
-    if (!call || !can('layout')) return null
-    return change(() => call.call(s.source(), edit), null, false)
+  /** A change of lines (sizes, hidden, outline): one call, the copy mode left on. */
+  async function lineChange<A>(call: ((arg: A) => Promise<EditOutcome>) | null, arg: A): Promise<EditOutcome | null> {
+    return call ? change(() => call(arg), null, false) : null
   }
-
-  async function outline(command: OutlineChange): Promise<EditOutcome | null> {
-    const call = s.source().outline
-    if (!call || !can('outline')) return null
-    return change(() => call.call(s.source(), command), null, false)
-  }
+  const layout = (edit: LayoutChange) => lineChange(method('layout'), edit)
+  const outline = (command: OutlineChange) => lineChange(method('outline'), command)
 
   /**
    * Excel's Freeze Panes commands on the active sheet; a selection of whole columns or rows freezes left of or above it, as its
    * active cell is in the first row or column. None under the display filter, whose rows on screen are not the sheet's.
    */
   async function freeze(mode: FreezeMode = 'panes'): Promise<EditOutcome | null> {
-    const call = s.source().freeze
+    const call = method('freeze')
     const a = s.selected.value
-    if (!call || !can('freeze') || !s.sheet.value || !a || s.visible.value) return null
+    if (!call || !s.sheet.value || !a || s.visible.value) return null
     let panes: { rows: number; cols: number } | null = null
     if (mode === 'topRow') panes = { rows: 1, cols: 0 }
     else if (mode === 'firstColumn') panes = { rows: 0, cols: 1 }
     else if (mode === 'panes') panes = a.row === 1 && a.col === 1 ? deps.middlePanes() : { rows: a.row - 1, cols: a.col - 1 }
     if (panes ? panes.rows <= 0 && panes.cols <= 0 : !deps.frozen()) return null
     const sheet = s.sheetName.value
-    const out = await change(() => call.call(s.source(), sheet, panes), null, false)
+    const out = await change(() => call(sheet, panes), null, false)
     if (out.ok) deps.showFreeze(sheet, panes !== null)
     return out
   }
 
   /** Control+B, Control+I and Control+U (Cmd on a Mac, any layout): the font toggled over the selection by the active cell; true when taken. */
   function fontKey(e: KeyboardEvent): boolean {
-    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || !can('format')) return false
+    if (!isMod(e) || e.altKey || e.shiftKey || !can('format')) return false
     const what = FONT_KEYS[shortcutLetter(e)]
     if (!what) return false
     e.preventDefault()
@@ -170,23 +172,10 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
   }
   function closeFormat(): void {
     formatOpen.value = false
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
 
-  const api: SheetViewApi = {
-    undo: () => ed.stepHistory('undo'),
-    redo: () => ed.stepHistory('redo'),
-    format,
-    structure: (op) => structure(op),
-    outline,
-    formatCells: openFormat,
-    freezePanes: freeze,
-    reapplyFilter: deps.reapplyFilter,
-    explain: deps.explain,
-    merge: deps.merge,
-  }
-
-  return { can, change, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat, api }
+  return { can, canRanges, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat }
 }
 
 export type Commands = ReturnType<typeof useCommands>
