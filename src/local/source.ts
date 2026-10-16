@@ -2,15 +2,15 @@
 // The session holds the book, computes it, finds as Excel's Find and answers windows, sheets and edits as Excel makes
 // them; this side keeps the columns of shown values the display filter read, patched by the changes and dropped on a reload.
 import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
-import { cellAddress, colLetters, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
+import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
 import { boxesUnder, findHits, replaceAll } from './find'
 import { loadLocale, tipLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { throwIfAborted } from '../abort'
 import { filterKey } from '../filter-key'
-import { axisOf, lineSpan, type LineAxis } from '../lines'
-import { outlineOf } from '../memory-outline'
+import { lineSpan, type LineAxis } from '../lines'
+import { outlineOf, outlineOp as sharedOutlineOp } from '../memory-outline'
 import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import { columnList, filterActive, filterColumns, visibleList } from '../sheet-query'
 import { SheetValues } from './query'
@@ -54,29 +54,17 @@ function linesOf(text: string, axis: LineAxis): string | null {
 }
 
 /**
- * Excel's outline command as xlcalc's structure operation (its docs/outline.md), or why there is none. A group's button is
- * Show or Hide Detail at its summary line, the group found among the sheet's groups by its lines and level; a group at the
- * sheet's edge has no summary line and, as in Excel, no button.
+ * Excel's outline command as xlcalc's structure operation (its docs/outline.md), or why there is none, by the rule both
+ * sources share (`outlineOp`); the sheet's groups are read only for a group's button.
  */
 async function outlineOp(s: AsyncSession, change: OutlineChange): Promise<SheetOp | EditOutcome> {
-  const { sheet } = change
-  const refused = (message: string): EditOutcome => ({ ok: false, reason: 'refused', message })
-  if (change.op === 'showLevel') return change.axis === 'rows' ? { op: 'showLevels', sheet, rows: change.level } : { op: 'showLevels', sheet, columns: change.level }
-  const axis = axisOf(change)
-  const text = 'rows' in change ? change.rows : change.columns
-  const span = lineSpan(text, axis)
-  if (!span) return refused(`Not ${axis}: ${text}`)
-  if (!('level' in change)) {
-    const lines = linesKey(span.first, span.last, axis)
-    return axis === 'rows' ? { op: change.op, sheet, rows: lines } : { op: change.op, sheet, columns: lines }
+  let layout: SheetLayout | undefined
+  if ('level' in change && change.op !== 'showLevel') {
+    layout = (await s.getLayout()).sheets.find((x) => sameName(x.name, change.sheet))
+    if (!layout) return failed(`No sheet ${change.sheet}`)
   }
-  const layout = (await s.getLayout()).sheets.find((x) => sameName(x.name, sheet))
-  if (!layout) return failed(`No sheet ${sheet}`)
-  const g = outlineGroups(layout)[axis].find((x) => x.first === span.first && x.last === span.last && x.level === change.level)
-  if (!g) return refused(`No group of level ${change.level} over the ${axis} ${text}`)
-  if (g.summary === null) return refused(`The group of ${axis} ${text} has no summary ${axis === 'rows' ? 'row' : 'column'}, past the sheet's edge: Excel draws no button for it`)
-  const op = change.op === 'collapse' ? 'hideDetail' : 'showDetail'
-  return axis === 'rows' ? { op, sheet, row: g.summary } : { op, sheet, column: colLetters(g.summary) }
+  const op = sharedOutlineOp(change, (axis) => (layout ? outlineGroups(layout)[axis] : []))
+  return 'refused' in op ? { ok: false, reason: 'refused', message: op.refused } : ({ ...op, sheet: change.sheet } as SheetOp)
 }
 
 /** A source over `input`: the book goes to the session as it is (its cells are not copied), so do not change it afterwards. */
