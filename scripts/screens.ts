@@ -427,6 +427,35 @@ async function mergeScreens(page: Page, size: (typeof SIZES)[number]): Promise<v
 }
 
 /**
+ * Excel's typo window in the app (spa.html, the local source, xlcalc 0.44): `=(1+2` with Enter offers `=(1+2)`, then No
+ * brings the message of the missing bracket; its OK leaves the field open with the text typed.
+ */
+async function typoScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
+  const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await page.waitForFunction(() => document.querySelector('[data-spa-status]')?.textContent?.trim() === 'Готово', null, { timeout: 30_000 })
+  await press('[data-cell="3:2"]')
+  await press('.xs-fx')
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.type('=(1+2')
+  await page.keyboard.press('Enter')
+  await page.waitForSelector('[data-xs-alert="typo"]', { timeout: 30_000 })
+  await page.waitForTimeout(100)
+  await shot(page, size.name, '66-typo')
+  if (size.mobile) await checkTargets(page, true, '.xs-va')
+  await press('[data-xs-alert-button="no"]')
+  await page.waitForSelector('[data-xs-alert="parenthesis"]')
+  await page.waitForTimeout(100)
+  await shot(page, size.name, '67-typo-parenthesis')
+  await press('[data-xs-alert-button="ok"]')
+  await page.waitForSelector('[data-xs-alert]', { state: 'detached' })
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+  if (wide) throw new Error(`typo ${size.name}: the page scrolls sideways`)
+  console.log(`typo ${size.name}: =(1+2 offered =(1+2), No said the bracket is missing, OK left the field open`)
+}
+
+/**
  * Excel's tip with a function's arguments in the app (spa.html, the local source): SUMIFS at its third group of criteria in
  * a cell near the right edge (a phone's view is narrower than the tip: it wraps inside it), then ROUND inside a sum in
  * the formula bar. The tip stays in the window, never with the list of functions, and the page does not scroll sideways.
@@ -597,6 +626,7 @@ for (const size of SIZES) {
   await validationScreens(page, size)
   await commandScreens(page, size)
   await mergeScreens(page, size)
+  await typoScreens(page, size)
   await tipScreens(page, size)
 
   // Editing in place: typing over a cell, then the edit in flight.

@@ -18,6 +18,7 @@
 // Then, on the desktop, a file with a circular reference opened from the picker holds the values it stores, as Excel
 // opens it, through an edit elsewhere; Control+Down goes to the end of a block (Range.End); and a cell copied over a
 // whole column is refused at once by the app's limit of cells one change writes, the book as it was.
+// Then Excel's typo window: `=(1+2` with Enter offers `=(1+2)`, Yes writes 3; No says a bracket is missing and opens the field again.
 // Then, on the desktop, Merge & Center over A1:B1 holding two values: Excel's warning, Enter for OK, one centred cell, Control+Z.
 // On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa; SPA_URL=<url> checks a published app instead.
 // DEMO=1 npm run check:spa runs it on the demo's build (`--mode demo`, served under /demo/), which /demo/ opens and
@@ -1107,6 +1108,63 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
 }
 
 /**
+ * Excel's typo window on a new ru-RU book (xlcalc 0.44): `=(1+2` with Enter offers `=(1+2)`, Enter on the window is Yes,
+ * A1 holds 3 and the selection went down; `=1+СУММ(2` with No (Esc) says a bracket is missing, and after OK the field is open
+ * with the text typed.
+ */
+async function typoScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  const at = (what: string) => `[${size.name} typo] ${what}`
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await press(page, size, '[data-spa="new"]')
+  await press(page, size, '[data-spa-locale="ru-RU"]')
+  await press(page, size, '[data-spa="create"]')
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+
+  await enter(page, size, '1:1', '=(1+2')
+  await page.waitForSelector('[data-xs-alert="typo"]', { timeout: 30_000 })
+  const asked = await page.evaluate(() => ({
+    message: document.querySelector('[data-xs-alert-message]')?.textContent?.trim(),
+    buttons: [...document.querySelectorAll('[data-xs-alert-button]')].map((b) => b.textContent!.trim()),
+    focused: (document.activeElement as HTMLElement | null)?.dataset.xsAlertButton,
+  }))
+  expect(at('the window'), asked, { message: 'Мы обнаружили опечатку в формуле и попытались ее исправить: =(1+2). Принять исправление?', buttons: ['Да', 'Нет'], focused: 'yes' })
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-t01-typo.png`) })
+  if (size.phone) {
+    await checkTargets(page, at('the window'))
+    await checkNoSideScroll(page, at('the window'))
+  }
+  if (size.phone) await press(page, size, '[data-xs-alert-button="yes"]')
+  else await page.keyboard.press('Enter')
+  await shows(page, '1:1', '3')
+  await ready(page)
+  expect(at('A1 in the book'), cellOf(await bookOf(page), 'A1').formula, '(1+2)')
+  expect(at('the active cell after Yes'), await page.locator('.xs-address').inputValue(), 'A2')
+
+  await enter(page, size, '1:2', '=1+СУММ(2')
+  await page.waitForSelector('[data-xs-alert="typo"]', { timeout: 30_000 })
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[data-xs-alert="parenthesis"]')
+  expect(at('the message after No'), await page.locator('[data-xs-alert-message]').textContent(), 'В формуле не хватает открывающей или закрывающей круглой скобки')
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-t02-parenthesis.png`) })
+  await press(page, size, '[data-xs-alert-button="ok"]')
+  await page.waitForSelector('[data-xs-alert]', { state: 'detached' })
+  expect(at('the bar after OK'), await page.locator('.xs-fx-input').inputValue(), '=1+СУММ(2')
+  expect(at('the active cell after OK'), await page.locator('.xs-address').inputValue(), 'B1')
+  if (!(await page.locator(size.phone ? '.xs-bar-editing' : '.xs-editor:not(.xs-editor-idle)').count())) throw new Error(`${at('the field after OK')}: not open`)
+  console.log(`${at('ok')}: =(1+2 offered =(1+2), Yes wrote 3 and went to A2; =1+СУММ(2 with Esc said the bracket is missing, OK left the field open`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
+/**
  * Merge & Center on the desktop: A1 and B1 hold values, so Excel's warning comes first; Enter is its OK, A1:B1 becomes
  * one centred cell with A1's value and B1's gone, the button pressed on it; Control+Z splits it and brings B1 back.
  */
@@ -1230,6 +1288,8 @@ try {
   await cycleScenario(browser, base, desktop)
   await limitScenario(browser, base, desktop)
   await formulaRowScenario(browser, base, desktop)
+  await typoScenario(browser, base, desktop)
+  await typoScenario(browser, base, phone)
   await mergeScenario(browser, base, desktop)
 } finally {
   await browser.close()

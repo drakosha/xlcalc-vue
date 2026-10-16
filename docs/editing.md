@@ -14,7 +14,9 @@ In a field typing opened over a cell (Enter mode; F2 switches it), an arrow with
 
 ## A formula that does not read
 
-A formula the source calls `invalid` (Enter, Tab, Control+Return or a click away) brings a question with the source's reason: Fix, the default, opens the field again at the error; Restore, or Esc, leaves the cell as it was.
+A formula the source calls `invalid` (Enter, Tab, Control+Return, the formula bar's Enter or a click away) brings a question with the source's reason: Fix, the default, opens the field again at the error; Restore, or Esc, leaves the cell as it was.
+
+When the outcome carries `correction`, the formula Excel offers for a formula left open (`=(1+2` corrected to `=(1+2)`), the sheet shows Excel's window instead: "We found a typo in your formula and tried to correct it to: =(1+2). Would you like to accept this correction?" with Yes, the default, and No (`SheetMessages`' `typoFound`, `validationYes`, `validationNo`). Yes sends the same call again with the correction, an edit or a Control+Return's fill, and the selection goes where the key that entered it puts it (down after Enter, right after Tab, the range kept after Control+Return). No, or Esc, brings Excel's message "This formula is missing an opening or closing parenthesis." with OK (`missingParenthesis`), after which the field opens again with the text typed, the caret at the error. The sheet adds nothing to a formula itself: the correction is only the source's.
 
 ## What the source's optional methods turn on
 
