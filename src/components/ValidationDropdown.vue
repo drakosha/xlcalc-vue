@@ -3,7 +3,7 @@
 // view has no room below), eight at a time; the keys are the sheet's (`useValidation.onKey`): a press keeps the grid's focus.
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { LIST_ROWS, type ValidationRect } from '../core/validation'
-import { enMessages, type SheetMessages } from '../messages'
+import { useMessages, type SheetMessages } from '../messages'
 
 const props = withDefaults(
   defineProps<{
@@ -32,7 +32,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
+const m = useMessages(() => props.messages)
 /** Excel's sizes: the arrow 17 × 18 px beside the cell, items of 18 px; 44 under a finger. */
 const ARROW_PX = 17
 const ITEM_PX = 18

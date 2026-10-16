@@ -21,10 +21,11 @@ import {
   type FormatStart,
   type FormatTab,
 } from '../format-cells'
-import { enMessages, type SheetMessages } from '../messages'
+import { useMessages, type SheetMessages } from '../messages'
 import { useNumberFormats } from '../number-formats'
 import FormatBorders from './FormatBorders.vue'
 import FormatColour from './FormatColour.vue'
+import { fieldValue } from './dom'
 import { IconClose } from './icons'
 
 const props = withDefaults(
@@ -47,7 +48,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
+const m = useMessages(() => props.messages)
 const numbers = useNumberFormats(() => props.locale)
 /** Excel's indent goes with the left, right and distributed alignments. */
 const INDENTED = new Set(['left', 'right', 'distributed'])
@@ -92,7 +93,6 @@ function ok(): void {
   emit('close')
 }
 const cancel = () => emit('close')
-const value = (e: Event) => (e.target as HTMLInputElement | HTMLSelectElement).value
 </script>
 
 <template>
@@ -134,7 +134,7 @@ const value = (e: Event) => (e.target as HTMLInputElement | HTMLSelectElement).v
               :value="draft.numberCode"
               :aria-invalid="!!errors.numberCode"
               data-fmt-code
-              @input="typeNumber(draft, value($event))"
+              @input="typeNumber(draft, fieldValue($event))"
             />
           </label>
           <p v-if="errors.numberCode" class="xs-fmt-error" role="alert">{{ m.fmtCodeEmpty }}</p>
@@ -143,7 +143,7 @@ const value = (e: Event) => (e.target as HTMLInputElement | HTMLSelectElement).v
         <div v-show="tab === 'alignment'" class="xs-fmt-grid">
           <label class="xs-fmt-field">
             <span>{{ m.fmtHorizontal }}</span>
-            <select class="xs-fmt-select" :value="draft.horizontal" data-fmt-horizontal @change="setHorizontal(value($event))">
+            <select class="xs-fmt-select" :value="draft.horizontal" data-fmt-horizontal @change="setHorizontal(fieldValue($event))">
               <option v-for="h in HORIZONTALS" :key="h" :value="h">{{ m.fmtHorizontalKind(h) }}</option>
             </select>
           </label>

@@ -1,4 +1,5 @@
 // Interface texts of the component: English by default, a Russian set in the package; a host passes its own or a part.
+import { computed, type ComputedRef } from 'vue'
 
 export interface SheetMessages {
   back: string
@@ -795,4 +796,9 @@ export const ruMessages: SheetMessages = {
   mergeCells: 'Объединить ячейки',
   unmergeCells: 'Отменить объединение ячеек',
   mergeWarning: 'При объединении ячеек сохраняется только значение из верхней левой ячейки, а значения из остальных ячеек удаляются.',
+}
+
+/** A component's texts: the English set under the part a host passed. */
+export function useMessages(part: () => Partial<SheetMessages> | undefined): ComputedRef<SheetMessages> {
+  return computed(() => ({ ...enMessages, ...part() }))
 }

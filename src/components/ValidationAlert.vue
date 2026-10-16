@@ -6,7 +6,7 @@
 // default button (Retry, No, OK, Fix, Yes), Esc is Cancel (Restore, No, OK); 44 px targets on a phone.
 import { computed, nextTick, ref, useId, watch } from 'vue'
 import { ALERT_BUTTONS, ALERT_DEFAULT, type AlertAnswer, type AlertButton, type SheetAlert } from '../core/validation'
-import { enMessages, type SheetMessages } from '../messages'
+import { useMessages, type SheetMessages } from '../messages'
 
 const props = withDefaults(
   defineProps<{
@@ -21,7 +21,7 @@ const emit = defineEmits<{
   answer: [answer: AlertAnswer]
 }>()
 
-const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
+const m = useMessages(() => props.messages)
 const box = ref<HTMLElement | null>(null)
 const id = useId()
 const buttons = computed(() => (props.alert ? ALERT_BUTTONS[props.alert.severity] : []))

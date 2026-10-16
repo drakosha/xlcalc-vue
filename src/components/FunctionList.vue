@@ -4,7 +4,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { FUNCTION_ROWS } from '../core/autocomplete'
 import type { ValidationRect } from '../core/validation'
-import { enMessages, type SheetMessages } from '../messages'
+import { useMessages, type SheetMessages } from '../messages'
 
 const props = withDefaults(
   defineProps<{
@@ -28,7 +28,7 @@ const emit = defineEmits<{
   pick: [index: number]
 }>()
 
-const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
+const m = useMessages(() => props.messages)
 /** Items of 18 px as Excel's, 44 under a finger; the list's width holds the longest names (`ПРОМЕЖУТОЧНЫЕ.ИТОГИ`). */
 const ITEM_PX = 18
 const TOUCH_PX = 44

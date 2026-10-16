@@ -3,15 +3,15 @@
 // looks within, and the replace row; the source finds, hits in the frame are tinted and the active one pulses.
 import type { FindRunner } from '../core/find'
 import { useSheetContext } from './context'
+import { fieldValue, refInto } from './dom'
 import { IconClose, IconDown, IconOptions, IconUp } from './icons'
 
 const ctx = useSheetContext()
 const { find } = ctx
 const m = ctx.messages
-const setInput = (el: unknown) => (find.input.value = (el as HTMLInputElement | null) ?? null)
+const setInput = refInto(find.input)
 /** Replacements go to the source as an edit goes: their cells drawn from the outcome, a refusal in the sheet's message line. */
 const run: FindRunner = (call) => ctx.ed.run(call, [], null, null)
-const pick = (e: Event) => (e.target as HTMLSelectElement).value
 </script>
 
 <template>
@@ -85,14 +85,14 @@ const pick = (e: Event) => (e.target as HTMLSelectElement).value
         </label>
         <label class="xs-find-opt">
           {{ m.findLookIn }}
-          <select class="xs-find-select" :value="find.lookIn.value" :disabled="find.replacing.value" data-xs-find-look @change="find.options.lookIn = pick($event) === 'values' ? 'values' : 'formulas'">
+          <select class="xs-find-select" :value="find.lookIn.value" :disabled="find.replacing.value" data-xs-find-look @change="find.options.lookIn = fieldValue($event) === 'values' ? 'values' : 'formulas'">
             <option value="formulas">{{ m.findInFormulas }}</option>
             <option value="values">{{ m.findInValues }}</option>
           </select>
         </label>
         <label class="xs-find-opt">
           {{ m.findOrder }}
-          <select class="xs-find-select" :value="find.options.byColumns ? 'columns' : 'rows'" data-xs-find-order @change="find.options.byColumns = pick($event) === 'columns'">
+          <select class="xs-find-select" :value="find.options.byColumns ? 'columns' : 'rows'" data-xs-find-order @change="find.options.byColumns = fieldValue($event) === 'columns'">
             <option value="rows">{{ m.findByRows }}</option>
             <option value="columns">{{ m.findByColumns }}</option>
           </select>

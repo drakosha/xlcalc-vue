@@ -6,7 +6,7 @@ import type { BorderLine } from 'xlcalc/contract'
 import { borderCss, setSide } from '../core/cell-style'
 import { edgesIn, LINE_STYLES, pressEdge, pressPreset, shownEdge, type FormatDraft, type FormatStart } from '../format-cells'
 import type { SheetMessages } from '../messages'
-import type { BorderEdge } from '../toolbar'
+import { upperColour, type BorderEdge } from '../toolbar'
 import FormatColour from './FormatColour.vue'
 
 const props = defineProps<{ start: FormatStart; draft: FormatDraft; messages: SheetMessages }>()
@@ -85,7 +85,7 @@ const pressed = (e: BorderEdge) => !!shownEdge(props.start, props.draft, e)
         </button>
       </div>
       <span class="xs-fmt-label">{{ m.fmtColour }}</span>
-      <FormatColour :model-value="draft.line.color?.toUpperCase() ?? null" :none-label="m.colourAuto" :messages="m" name="line" @update:model-value="setColour" @invalid="emit('invalid', $event)" />
+      <FormatColour :model-value="upperColour(draft.line.color)" :none-label="m.colourAuto" :messages="m" name="line" @update:model-value="setColour" @invalid="emit('invalid', $event)" />
     </fieldset>
     <div class="xs-fmt-stack">
       <fieldset class="xs-fmt-box">

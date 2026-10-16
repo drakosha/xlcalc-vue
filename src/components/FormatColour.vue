@@ -20,12 +20,17 @@ const emit = defineEmits<{
 }>()
 
 const HEX = /^#?([0-9a-f]{6})$/i
+/** A code as `#RRGGBB`, null for what is no colour. */
+const hexOf = (text: string): string | null => {
+  const m = HEX.exec(text.trim())
+  return m ? `#${m[1]!.toUpperCase()}` : null
+}
 const code = ref(props.modelValue ?? '')
 const bad = ref(false)
 watch(
   () => props.modelValue,
   (c) => {
-    if (c !== (HEX.test(code.value) ? `#${HEX.exec(code.value)![1]!.toUpperCase()}` : null)) code.value = c ?? ''
+    if (c !== hexOf(code.value)) code.value = c ?? ''
     setBad(false)
   },
 )
@@ -41,12 +46,11 @@ function pick(c: string | null): void {
 }
 /** A code typed: a colour once it is six hex digits, with or without `#`; empty is the choice without a colour. */
 function typed(): void {
-  const t = code.value.trim()
-  const m = HEX.exec(t)
-  if (m) {
+  const hex = hexOf(code.value)
+  if (hex) {
     setBad(false)
-    emit('update:modelValue', `#${m[1]!.toUpperCase()}`)
-  } else if (!t) pick(null)
+    emit('update:modelValue', hex)
+  } else if (!code.value.trim()) pick(null)
   else setBad(true)
 }
 </script>

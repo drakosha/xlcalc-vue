@@ -4,7 +4,7 @@ import type { AlignmentStyle, BorderLine, CellStyle, FontStyle, FormatChoice, Nu
 import { parseRange } from 'xlcalc/a1'
 import type { SheetFormatPatch } from './core/commands'
 import type { SheetViewState } from './core/sheet'
-import { BORDER_EDGES, edgePatches, edgesOf, sameLine, type BorderEdge, type EdgeLines } from './toolbar'
+import { BORDER_EDGES, edgePatches, edgesOf, sameLine, upperColour, type BorderEdge, type EdgeLines } from './toolbar'
 
 export type FormatTab = 'number' | 'alignment' | 'font' | 'border' | 'fill'
 export const FORMAT_TABS: readonly FormatTab[] = ['number', 'alignment', 'font', 'border', 'fill']
@@ -56,7 +56,6 @@ export interface FormatStart {
   edges: EdgeLines
 }
 
-const upper = (c: string | undefined | null) => c?.toUpperCase() ?? null
 const fontStyleOf = (f: FontStyle | undefined): FontStyleKind => (f?.bold ? (f.italic ? 'boldItalic' : 'bold') : f?.italic ? 'italic' : 'regular')
 
 /** The fields as the active cell shows them: its style, its number format's code, Excel's thin black line to draw with. */
@@ -77,8 +76,8 @@ export function startOf(state: SheetViewState): FormatStart {
     fontStyle: fontStyleOf(s.font),
     underline: s.font?.underline ?? 'none',
     strike: !!s.font?.strike,
-    fontColour: upper(s.font?.color),
-    fill: upper(s.fill?.color),
+    fontColour: upperColour(s.font?.color),
+    fill: upperColour(s.fill?.color),
     line: { style: 'thin' },
     edges: {},
   }

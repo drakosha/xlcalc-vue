@@ -28,9 +28,12 @@ export const BORDER_EDGES: readonly BorderEdge[] = ['top', 'bottom', 'left', 'ri
 /** Lines on edges: a line, or null to take the edge's line off. */
 export type EdgeLines = Partial<Record<BorderEdge, BorderLine | null>>
 
+/** A colour as the palette and the pickers compare it: `#RRGGBB` in capitals, null for none. */
+export const upperColour = (c: string | null | undefined): string | null => c?.toUpperCase() ?? null
+
 /** Whether two lines are the same: their kind and colour. */
 export const sameLine = (a: BorderLine | null | undefined, b: BorderLine | null | undefined): boolean =>
-  !a || !b ? a === b : a.style === b.style && (a.color?.toUpperCase() ?? null) === (b.color?.toUpperCase() ?? null)
+  !a || !b ? a === b : a.style === b.style && upperColour(a.color) === upperColour(b.color)
 
 /** The edges a range has: the inside lines only across more than one row or down more than one column. */
 export function edgesOf(r: CellRect): BorderEdge[] {

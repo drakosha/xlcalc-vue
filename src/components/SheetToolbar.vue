@@ -8,7 +8,7 @@ import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } 
 import type { SheetViewApi } from '../core/commands'
 import type { MergeCommand } from '../core/merge'
 import type { SheetViewState } from '../core/sheet'
-import { enMessages, type SheetMessages } from '../messages'
+import { useMessages, type SheetMessages } from '../messages'
 import { useNumberFormats } from '../number-formats'
 import type { EditOutcome, FormatPatch } from '../source'
 import {
@@ -19,6 +19,7 @@ import {
   fontOn,
   fontToggle,
   PALETTE,
+  upperColour,
   wrapToggle,
   type BorderKind,
   type FontToggle,
@@ -78,7 +79,7 @@ const emit = defineEmits<{
 /** Under this width the toolbar keeps its first buttons in a row and the rest in a menu, as the sheet goes narrow. */
 const NARROW_PX = 600
 
-const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
+const m = useMessages(() => props.messages)
 const instance = getCurrentInstance()
 /** Whether the host listens to `formatCells`, so that the button opens its own dialog instead of the sheet's. */
 const hostDialog = typeof instance?.vnode.props?.onFormatCells === 'function' || Array.isArray(instance?.vnode.props?.onFormatCells)
@@ -117,8 +118,8 @@ const text = (key: keyof SheetMessages) => m.value[key] as string
 /** Excel's box: the list's items, and the name of the category the active cell's format is (General without one). */
 const numbers = useNumberFormats(() => props.locale)
 const category = computed(() => (props.state ? numbers.categoryOf(props.state.numberFormat) : null))
-const fontColour = computed(() => style.value?.font?.color?.toUpperCase() ?? null)
-const fillColour = computed(() => style.value?.fill?.color?.toUpperCase() ?? null)
+const fontColour = computed(() => upperColour(style.value?.font?.color))
+const fillColour = computed(() => upperColour(style.value?.fill?.color))
 /** Bumped after the toolbar's calls and the source's events: `history` is a plain getter, read again (and copied) on them. */
 const tick = ref(0)
 const history = computed(() => {
