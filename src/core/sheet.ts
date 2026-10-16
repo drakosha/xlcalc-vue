@@ -1,6 +1,6 @@
 // The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the frame's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, triggerRef, watch } from 'vue'
-import { cellAddress, linesKey, parseCell, rangeAddress } from 'xlcalc/a1'
+import { cellAddress, linesKey, parseCell, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import { errorText } from '../failure'
 import type { SheetInfo, SheetWindow } from '../source'
@@ -60,15 +60,16 @@ const MESSAGE_MS = 6000
 
 /**
  * The sheet to show once the sheets were read again: the one asked for; else the same one (`keep`); else, as Excel goes
- * on from a sheet deleted or hidden, the next shown sheet from where it stood, or the one before it at the end.
+ * on from a sheet deleted or hidden, the next shown sheet from where it stood, or the one before it at the end. Names
+ * match in any case, as Excel's do.
  */
 function sheetAfter(list: SheetInfo[], name: string, at: number, target: SheetTarget | null): { index: number; keep: boolean } {
   const shown = (i: number) => i >= 0 && !list[i]!.hidden
   if (target) {
-    const i = list.findIndex((x) => x.name === target.name)
+    const i = list.findIndex((x) => sameName(x.name, target.name))
     if (shown(i)) return { index: i, keep: target.keep }
   }
-  const i = list.findIndex((x) => x.name === name)
+  const i = list.findIndex((x) => sameName(x.name, name))
   if (shown(i)) return { index: i, keep: true }
   const from = i >= 0 ? i + 1 : Math.max(0, at)
   for (let j = from; j < list.length; j++) if (shown(j)) return { index: j, keep: false }

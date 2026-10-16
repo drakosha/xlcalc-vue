@@ -211,6 +211,17 @@ describe('SheetView exposes structure', () => {
     expect([tab(w), active(w)]).toEqual(['Итоги', '2:2'])
   })
 
+  it('finds the sheet asked for by its name in any case, as Excel names sheets', async () => {
+    const b = book(['A', 'B'])
+    const rename = b.source.structure!
+    b.source.structure = (op) => rename(op.op === 'renameSheet' ? { ...op, name: op.name.toUpperCase() } : op)
+    const w = await mountSheet(b.source)
+    await goTo(w, 'B2')
+    await api(w).structure({ op: 'renameSheet', sheet: 'A', name: 'Data' })
+    await settle()
+    expect([tab(w), active(w)]).toEqual(['DATA', '2:2'])
+  })
+
   it('shows a refusal by its message, and does nothing on a read-only sheet', async () => {
     const b = book(['A', 'B'])
     const w = await mountSheet(b.source)

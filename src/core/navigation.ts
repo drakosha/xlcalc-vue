@@ -1,8 +1,8 @@
 // Jumps: the address box, references of the formula, links and `focus`; the history to go back, and the flash after a jump.
 import { nextTick, onScopeDispose, ref, watch } from 'vue'
-import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
+import { MAX_COLS, MAX_ROWS, quoteSheetIfNeeded } from 'xlcalc/a1'
 import type { CellRect, FormulaReference, GridReference } from 'xlcalc/contract'
-import { quoteSheetIfNeeded, scanReferences } from 'xlcalc/text'
+import { scanReferences } from 'xlcalc/text'
 import { isGridRef } from '../grid-ref'
 import type { Formula } from './formula'
 import type { Selection } from './selection'
