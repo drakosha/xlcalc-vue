@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { ref, shallowRef } from 'vue'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, generalAlign, horizontalOf, verticalOf, wrapsOf } from '../src/core/cell-style'
 import { numberEditText, textEditText } from '../src/core/edit-text'
-import { charsOfWidth, colPx, fontPx, indexAt, prefixSums, rowPx, useGeometry, widthFromChars, widthFromPx } from '../src/core/geometry'
+import { colPx, fontPx, indexAt, prefixSums, rowPx, useGeometry, widthFromPx } from '../src/core/geometry'
 
 describe('Excel units', () => {
   it("column widths in the library's geometry (Excel for Mac) to whole pixels and back", () => {
@@ -18,12 +18,6 @@ describe('Excel units', () => {
     // a width goes back in whole points, as the library stores it; pixels of whole points come back as they were
     for (const px of [20, 40, 72, 120, 332]) expect(colPx(widthFromPx(px))).toBe(px)
     expect(widthFromPx(4000)).toBe(255)
-  })
-  it("the Column Width box counts characters of a stored width, Excel's formula", () => {
-    expect(charsOfWidth(8.83203125)).toBe(8.14)
-    expect(charsOfWidth(9.140625)).toBe(8.43)
-    expect(charsOfWidth(20.7109375)).toBe(20)
-    expect(widthFromChars(8.43)).toBe(9.140625)
   })
   it('row heights and font sizes', () => {
     expect(rowPx(15)).toBe(20)

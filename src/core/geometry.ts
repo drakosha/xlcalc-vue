@@ -2,14 +2,10 @@
 import { computed, triggerRef, type Ref, type ShallowRef } from 'vue'
 import { columnWidthFromPoints, columnWidthToPoints, MAX_ROW_HEIGHT } from 'xlcalc/text'
 
-/** Excel's maximum digit width of the default font, in pixels at 100 %. */
-const DIGIT_PX = 7
 /** Resizing limits of a column, in pixels. */
 export const MIN_COL_PX = 20
 export const MAX_COL_PX = 900
 
-/** The width of a column without its own, as xlcalc counts it: Excel for Mac with Calibri 11. */
-export const DEFAULT_COL_WIDTH = 8.83203125
 /** The widest column xlsx stores. */
 const MAX_COL_WIDTH = 255
 
@@ -24,15 +20,6 @@ const MAX_COL_PT = 1535
 
 /** Pixels back to the stored width, in whole points as the library stores them. */
 export const widthFromPx = (px: number): number => Math.min(MAX_COL_WIDTH, columnWidthFromPoints(Math.min(MAX_COL_PT, Math.max(0, (px * 3) / 4))))
-
-/** A stored width as Excel's Column Width box shows it: characters of the default font, to a hundredth. */
-export function charsOfWidth(width: number): number {
-  const px = Math.trunc(((256 * width + Math.trunc(128 / DIGIT_PX)) / 256) * DIGIT_PX)
-  return Math.max(0, Math.trunc(((px - 5) / DIGIT_PX) * 100 + 0.5) / 100)
-}
-
-/** Characters typed into the Column Width box to the stored width, as Excel records it. */
-export const widthFromChars = (chars: number): number => Math.trunc(((chars * DIGIT_PX + 5) / DIGIT_PX) * 256) / 256
 
 /** Points to pixels at 96 dpi. */
 export const rowPx = (pt: number): number => (pt <= 0 ? 0 : Math.round((pt * 4) / 3))

@@ -4,7 +4,6 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages, type MemoryBook } from '../src'
-import { widthFromChars } from '../src/core/geometry'
 import { localSource } from '../src/local'
 import type { EditOutcome, SheetOp } from '../src/source'
 import { active, cellText, editorOpen, mountSheet, settle } from './helpers'
@@ -113,12 +112,18 @@ describe('the menu on row numbers and column letters', () => {
     const w = await mountSheet(source)
     await context(head(w, 2))
     await pick('size')
-    expect(document.querySelector<HTMLInputElement>('[data-xs-dialog-input]')!.value).toBe('8.14')
+    // Excel for Mac's box, as xlcalc measured it: the default column is 8 characters, and 8 typed is the default width.
+    expect(document.querySelector<HTMLInputElement>('[data-xs-dialog-input]')!.value).toBe('8')
     await answer('300')
     expect(dialog()!.textContent).toContain('Column width must be between 0 and 255')
     await answer('20')
     expect(dialog()).toBeNull()
-    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', width: widthFromChars(20) })
+    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', width: 20.83203125 })
+    await context(head(w, 2))
+    await pick('size')
+    expect(document.querySelector<HTMLInputElement>('[data-xs-dialog-input]')!.value).toBe('20')
+    await answer('8')
+    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', width: 8.83203125 })
     await context(num(w, 2))
     await pick('size')
     expect(document.querySelector<HTMLInputElement>('[data-xs-dialog-input]')!.value).toBe('15')
@@ -142,9 +147,12 @@ describe('the menu on row numbers and column letters', () => {
     await context(head(w, 3))
     expect(document.querySelector('[data-xs-menu="size"]')!.textContent!.trim()).toBe(ruMessages.menuColumnWidth)
     await pick('size')
-    expect(document.querySelector<HTMLInputElement>('[data-xs-dialog-input]')!.value).toBe('8,14')
+    expect(document.querySelector<HTMLInputElement>('[data-xs-dialog-input]')!.value).toBe('8')
     await answer('12,5')
-    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'C', width: widthFromChars(12.5) })
+    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'C', width: 13.33203125 })
+    await context(head(w, 3))
+    await pick('size')
+    expect(document.querySelector<HTMLInputElement>('[data-xs-dialog-input]')!.value).toBe('12,5')
   })
 
   it('shows a refusal by the source’s message', async () => {
