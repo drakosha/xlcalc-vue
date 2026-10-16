@@ -8,7 +8,7 @@ The component talks to its data only through a `SheetSource`. Two sources come w
 
 ```sh
 npm install xlcalc-sheet vue
-npm install xlcalc        # only for xlcalc-sheet/local, 0.45.0 or later
+npm install xlcalc        # only for xlcalc-sheet/local, 0.46.0 or later
 ```
 
 The main entry depends at runtime on `vue` alone and carries no engine.
