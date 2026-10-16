@@ -2,9 +2,8 @@
 // session when a condition, a sort or a funnel first needs it, kept in arrays by row and brought up to date by edits.
 import type { CellValue, CellView } from 'xlcalc'
 import { colLetters, parseCell } from 'xlcalc/a1'
+import { throwIfAborted } from '../abort'
 import type { QuerySheet } from '../sheet-query'
-import type { RangeStats } from '../source'
-import { addCell, noStats } from '../stats'
 
 /** What a cell holds, for its value. */
 const EMPTY = 0
@@ -76,45 +75,68 @@ class Column {
   }
 }
 
-/** A sheet's columns as the display filter has needed them, read through `read` (the session's `getCells` over ranges). */
+/** A column being read: when it is done, the signal that stops the read, and the changes that came meanwhile. */
+interface Reading {
+  done: Promise<void>
+  signal?: AbortSignal
+  missed: [row: number, text: string, value: CellValue | undefined][]
+}
+
+/** A sheet's columns as the display filter has needed them, read through `read` (the session's `getCells` over ranges, stopped by a signal). */
 export class SheetValues implements QuerySheet {
-  /** Columns read, and those being read with the changes that came meanwhile. */
+  /** Columns read, and those being read. */
   private readonly cols = new Map<number, Column>()
-  private readonly reading = new Map<number, { done: Promise<void>; missed: [row: number, text: string, value: CellValue | undefined][] }>()
+  private readonly reading = new Map<number, Reading>()
 
   /** `maxRow`: where the sheet's cells end; an edit past it moves it on, as Excel's used range grows. */
   constructor(
     public maxRow: number,
-    private readonly read: (ranges: string[]) => Promise<Record<string, CellView>>,
+    private readonly read: (ranges: string[], signal?: AbortSignal) => Promise<Record<string, CellView>>,
   ) {}
 
-  /** The columns read, the missing ones in one call. */
-  load(cols: number[]): Promise<void> {
-    const want = cols.filter((c) => !this.cols.has(c) && !this.reading.has(c))
-    if (want.length) {
-      const rows = this.maxRow
-      const views = rows ? this.read(want.map((c) => `${colLetters(c)}1:${colLetters(c)}${rows}`)) : Promise.resolve<Record<string, CellView>>({})
-      const done = views.then(
-        (cells) => {
-          const made = new Map(want.map((c) => [c, new Column(rows + 1)]))
-          for (const [addr, v] of Object.entries(cells)) {
-            const at = parseCell(addr)
-            if (at) made.get(at.col)?.set(at.row, v.text ?? '', v.value)
-          }
-          for (const [c, column] of made) {
-            for (const [row, text, value] of this.reading.get(c)!.missed) column.set(row, text, value)
-            this.cols.set(c, column)
-            this.reading.delete(c)
-          }
-        },
-        (e: unknown) => {
-          for (const c of want) this.reading.delete(c)
-          throw e
-        },
-      )
-      for (const c of want) this.reading.set(c, { done, missed: [] })
+  /**
+   * The columns read, the missing ones in one call that `signal` stops. A read another request started and its signal
+   * stopped is made again for this one.
+   */
+  async load(cols: number[], signal?: AbortSignal): Promise<void> {
+    for (;;) {
+      const want = cols.filter((c) => !this.cols.has(c) && !this.reading.has(c))
+      if (want.length) this.start(want, signal)
+      const pending = cols.flatMap((c) => this.reading.get(c) ?? [])
+      try {
+        await Promise.all(pending.map((r) => r.done))
+        return
+      } catch (e) {
+        // the session refuses a stopped call with an error of its own; the component expects an abort
+        throwIfAborted(signal)
+        if (!pending.some((r) => r.signal?.aborted)) throw e
+      }
     }
-    return Promise.all(cols.map((c) => this.reading.get(c)?.done)).then(() => undefined)
+  }
+
+  /** Reads columns `want` in one call. */
+  private start(want: number[], signal: AbortSignal | undefined): void {
+    const rows = this.maxRow
+    const views = rows ? this.read(want.map((c) => `${colLetters(c)}1:${colLetters(c)}${rows}`), signal) : Promise.resolve<Record<string, CellView>>({})
+    const done = views.then(
+      (cells) => {
+        const made = new Map(want.map((c) => [c, new Column(rows + 1)]))
+        for (const [addr, v] of Object.entries(cells)) {
+          const at = parseCell(addr)
+          if (at) made.get(at.col)?.set(at.row, v.text ?? '', v.value)
+        }
+        for (const [c, column] of made) {
+          for (const [row, text, value] of this.reading.get(c)!.missed) column.set(row, text, value)
+          this.cols.set(c, column)
+          this.reading.delete(c)
+        }
+      },
+      (e: unknown) => {
+        for (const c of want) this.reading.delete(c)
+        throw e
+      },
+    )
+    for (const c of want) this.reading.set(c, { done, signal, missed: [] })
   }
 
   /** A cell's new text and value, kept where its column is read or being read. */
@@ -132,14 +154,4 @@ export class SheetValues implements QuerySheet {
   valueAt(row: number, col: number): CellValue | undefined {
     return this.cols.get(col)?.valueAt(row) ?? null
   }
-}
-
-/** Totals of the cells on the display filter's rows, as Excel's status bar gives them. */
-export function statsOf(views: Record<string, CellView>, visible: Set<number>): RangeStats {
-  const out = noStats()
-  for (const [addr, v] of Object.entries(views)) {
-    const at = parseCell(addr)
-    if (at && visible.has(at.row)) addCell(out, v.text ?? '', v.value)
-  }
-  return out
 }

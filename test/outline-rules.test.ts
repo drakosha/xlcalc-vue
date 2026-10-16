@@ -3,6 +3,7 @@
 // COM on a synthetic book, 12.10.2026: each case is a measured scenario, the hidden rows and the collapsed marks as Excel
 // saved them. xlcalc's later measurements found more, which ./local follows (test/local-outline.test.ts).
 import { describe, expect, it } from 'vitest'
+import { axisOf } from '../src/lines'
 import { groupsOf, outlineEdit, type OutlineLine } from '../src/memory-outline'
 import type { OutlineChange } from '../src/source'
 
@@ -23,7 +24,8 @@ class Rows {
   }
   /** Apply a command as a source does; its refusal's message, or null. */
   run(change: Change, after = true): string | null {
-    const got = outlineEdit(this.lines(), after, { sheet: 'S', ...change } as OutlineChange)
+    const full = { sheet: 'S', ...change } as OutlineChange
+    const got = outlineEdit(this.lines(), groupsOf(this.lines(), axisOf(full), after), full)
     if (!got.ok) return got.message
     for (const p of got.patches) {
       for (let r = p.from; r <= p.to; r++) {
@@ -45,18 +47,29 @@ class Rows {
 const lvl = (r: string, level: number) => ({ rows: r, level })
 
 describe('groups as Excel draws them', () => {
-  it('a level is the longest runs of lines at it or deeper; outer before inner; collapsed when every line is hidden, by hand too', () => {
+  it('a level is the longest runs of lines at it or deeper; outer before inner; collapsed once every line under its summary is hidden, by hand too', () => {
     const lines: OutlineLine[] = [
       { from: 3, to: 4, level: 1, hidden: false, collapsed: false },
       { from: 5, to: 7, level: 2, hidden: true, collapsed: false },
       { from: 8, to: 10, level: 1, hidden: false, collapsed: true },
       { from: 12, to: 12, level: 1, hidden: true, collapsed: false },
     ]
-    expect(groupsOf(lines)).toEqual([
-      { from: 3, to: 10, level: 1, collapsed: false },
-      { from: 5, to: 7, level: 2, collapsed: true },
-      { from: 12, to: 12, level: 1, collapsed: true },
+    expect(groupsOf(lines, 'rows', true)).toEqual([
+      { first: 3, last: 10, level: 1, summary: 11, collapsed: false },
+      { first: 5, last: 7, level: 2, summary: 8, collapsed: true },
+      { first: 12, last: 12, level: 1, summary: 13, collapsed: true },
     ])
+  })
+  it('a group whose summary line is hidden inside a hidden group is collapsed by the mark it kept, as Excel keeps it', () => {
+    const hidden = (marked: boolean): OutlineLine[] => [
+      { from: 3, to: 4, level: 1, hidden: true, collapsed: false },
+      { from: 5, to: 7, level: 2, hidden: true, collapsed: false },
+      { from: 8, to: 8, level: 1, hidden: true, collapsed: marked },
+      { from: 9, to: 10, level: 1, hidden: true, collapsed: false },
+      { from: 11, to: 11, level: 0, hidden: false, collapsed: true },
+    ]
+    expect(groupsOf(hidden(false), 'rows', true).map((g) => [g.first, g.last, g.collapsed])).toEqual([[3, 10, true], [5, 7, false]])
+    expect(groupsOf(hidden(true), 'rows', true).map((g) => [g.first, g.last, g.collapsed])).toEqual([[3, 10, true], [5, 7, true]])
   })
 })
 
@@ -135,7 +148,7 @@ describe('a group’s button', () => {
     rows.run({ op: 'expand', ...lvl('3:6', 1) })
     expect(rows.state(7)).toBe('1:0 2:0 3:1 4:1 5:1 6:1 7:0')
     for (const r of [3, 4, 5, 6]) rows.hidden.add(r)
-    expect(groupsOf(rows.lines())).toEqual([{ from: 3, to: 6, level: 1, collapsed: true }])
+    expect(groupsOf(rows.lines(), 'rows', true)).toEqual([{ first: 3, last: 6, level: 1, summary: 7, collapsed: true }])
     rows.run({ op: 'expand', ...lvl('3:6', 1) })
     expect(rows.state(7)).toBe('1:0 2:0 3:1 4:1 5:1 6:1 7:0')
   })

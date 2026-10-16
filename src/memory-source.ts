@@ -8,7 +8,7 @@ import { textEditText } from './core/edit-text'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type MemorySheetQuery } from './memory-query'
 import { axisOf, lineSpan, type LineAxis } from './lines'
-import { outlineEdit, outlineOf, type OutlineLine } from './memory-outline'
+import { groupsOf, outlineEdit, outlineOf, type OutlineLine } from './memory-outline'
 import { abortError } from './abort'
 import { filterKey } from './filter-key'
 import { isGridRef } from './grid-ref'
@@ -244,7 +244,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
 
   function info(store: Store): SheetInfo {
     const { name, hidden, locked, columns, rowNumbers, totals } = store.sheet
-    const outline = outlineOf(outlineLines(store, 'rows'), outlineLines(store, 'columns'), store.sheet.outline)
+    const outline = outlineOf({ rows: groupsAt(store, 'rows'), columns: groupsAt(store, 'columns') }, store.sheet.outline)
     return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze: store.freeze, hidden, locked, columns, rowNumbers, totals, ...(outline ? { outline } : {}) }
   }
 
@@ -288,6 +288,12 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     const at = new Set<number>([...levels.keys(), ...marks])
     for (const [i, size] of sizes) if (size === 0) at.add(i)
     return [...at].sort((a, b) => a - b).map((i) => ({ from: i, to: i, level: levels.get(i) ?? 0, hidden: sizes.get(i) === 0, collapsed: marks.has(i) }))
+  }
+
+  /** A sheet's groups on one axis, as xlcalc draws them from its lines and where its summaries are. */
+  function groupsAt(store: Store, axis: LineAxis): ReturnType<typeof groupsOf> {
+    const after = (axis === 'rows' ? store.sheet.outline?.summaryBelow : store.sheet.outline?.summaryRight) ?? true
+    return groupsOf(outlineLines(store, axis), axis, after)
   }
 
   /** The rows under a filter: the list `visibleRows` gave for it, else the sheet's as it is; null without conditions. */
@@ -438,8 +444,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         const store = storeOf(change.sheet)
         if (!store) return { ok: false, reason: 'failed', message: `No sheet ${change.sheet}` }
         const axis = axisOf(change)
-        const after = (axis === 'rows' ? store.sheet.outline?.summaryBelow : store.sheet.outline?.summaryRight) ?? true
-        const got = outlineEdit(outlineLines(store, axis), after, change)
+        const got = outlineEdit(outlineLines(store, axis), groupsAt(store, axis), change)
         if (!got.ok) return { ok: false, reason: 'refused', message: got.message }
         const sizes = axis === 'rows' ? store.heights : store.widths
         for (const p of got.patches) {

@@ -2,7 +2,7 @@
 // Excel's Find and Replace over cells' texts, as ./local and memorySource share it: the wildcards, match case, the entire
 // cell, a range, the display filter's rows, the order by rows or columns, and Replace All's new texts.
 import { describe, expect, it } from 'vitest'
-import { findCells, findPattern, replaceCells, type EachCell } from '../src/find-match'
+import { findCells, replaceCells, type EachCell } from '../src/find-match'
 import type { FindRequest } from '../src/source'
 
 /** Cells by address with their texts, as a source visits them (in no particular order). */
@@ -32,6 +32,11 @@ describe('the query as Excel reads it', () => {
     expect(hit('a?b', 'a\nb')).toBe(true)
   })
 
+  it('? is one UTF-16 unit, so a character outside the BMP takes two, as Excel’s Find counts', () => {
+    expect(hit('?', '\u{1F600}', { wholeCell: true })).toBe(false)
+    expect(hit('??', '\u{1F600}', { wholeCell: true })).toBe(true)
+  })
+
   it('~ before *, ? or ~ is that character; a ~ at the end is dropped, as the library reads a lookup', () => {
     expect(hit('5~*2', '=5*2')).toBe(true)
     expect(hit('5~*2', '502')).toBe(false)
@@ -55,6 +60,8 @@ describe('the query as Excel reads it', () => {
     expect(hit('сумм', '=СУММ(A1:A3)')).toBe(true)
     expect(hit('APPLE', 'apple pie', { matchCase: true })).toBe(false)
     expect(hit('apple', 'apple pie', { matchCase: true })).toBe(true)
+    expect(hit('ΟΔΟΣ', 'οδος')).toBe(true)
+    expect(hit('σ', 'ς', { wholeCell: true })).toBe(true)
   })
 
   it('with Match entire cell contents the whole text matches the query', () => {
@@ -65,8 +72,8 @@ describe('the query as Excel reads it', () => {
     expect(hit('?', 'ab', { wholeCell: true })).toBe(false)
   })
 
-  it('an empty query has no pattern and finds nothing; an empty cell is never a hit', () => {
-    expect(findPattern(req(''))).toBeNull()
+  it('an empty query, or ~ alone, finds nothing; an empty cell is never a hit', () => {
+    expect(findCells(cells({ A1: '~' }), req('~'), null, 10)).toEqual({ hits: [], total: 0 })
     expect(findCells(cells({ A1: 'a' }), req(''), null, 10)).toEqual({ hits: [], total: 0 })
     expect(findCells(cells({ A1: '' }), req('*'), null, 10)).toEqual({ hits: [], total: 0 })
   })
@@ -119,9 +126,10 @@ describe('Replace All’s new texts', () => {
     expect(replace({ A1: '=СУММ(A1:A3)' }, 'a3', 'A4')).toEqual([[1, 1, '=СУММ(A1:A4)']])
   })
 
-  it('takes the longest match of a wildcard, and replaces it once', () => {
+  it('a * takes as little as it can but the query’s last one, which takes the rest, as Excel’s Replace', () => {
     expect(replace({ A1: 'banana' }, 'a*', 'X')).toEqual([[1, 1, 'bX']])
     expect(replace({ A1: 'abc' }, '*', 'X')).toEqual([[1, 1, 'X']])
+    expect(replace({ A1: 'a1b2b' }, 'a*b', 'X')).toEqual([[1, 1, 'X2b']])
   })
 
   it('with Match entire cell contents the whole text goes', () => {
