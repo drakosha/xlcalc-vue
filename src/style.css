@@ -270,9 +270,12 @@
   padding: 1px 5px;
   border-right: 1px solid var(--xs-grid);
   border-bottom: 1px solid var(--xs-grid);
-  overflow: hidden;
   white-space: nowrap;
   vertical-align: top;
+}
+/* A cell clips once, at its content box (.xs-in): each clip more is work for the browser on every frame of a thousand cells. */
+.xs-table th {
+  overflow: hidden;
 }
 .xs-table .xs-spacer td {
   padding: 0;
@@ -369,9 +372,7 @@
 .xs-in > * {
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
   white-space: nowrap;
-  text-overflow: clip;
 }
 .xs-in.xs-wrap > * {
   white-space: pre-wrap;
@@ -404,7 +405,6 @@
   font-weight: 700;
 }
 /* Overflowing text runs over empty neighbours: the cell and its box let it out, the run sits above their backgrounds. */
-.xs-table td.xs-spill,
 .xs-spill .xs-in {
   overflow: visible;
 }
@@ -564,6 +564,7 @@
   background: var(--xs-head-bg);
   color: var(--xs-fg);
   font-weight: 600;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 .xs-table .xs-total.xs-fz-col,
