@@ -3,11 +3,11 @@ import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
+import { loadEntry, type Entry } from '../entry'
 import type { CellEntry, EditOutcome, EditOptions, SheetSource } from '../source'
 import { useAutocomplete } from './autocomplete'
 import { useFunctionTip } from './function-tip'
 import type { AlertAnswer, SheetAlert } from './validation'
-import { numberEditText, textEditText } from './edit-text'
 import type { Formula } from './formula'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -98,7 +98,14 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   const lockIn = (rect: CellRect): string | null => locks.value.find((l) => rectsMeet(l.rect, rect))?.reason ?? null
   const lockAt = (row: number, col: number): string | null => (locks.value.length ? lockIn({ top: row, left: col, bottom: row, right: col }) : null)
 
-  /** What the field opens with: the window's `editText`; without it the formula, the text, a number in the book's locale, shown text otherwise. */
+  /** xlcalc's typed entry for a source without `editText`, asked for by the first edit text that needs it; null until it comes. */
+  const entry = shallowRef<Entry | null>(null)
+  let entryAsked = false
+  /**
+   * What the field opens with: the window's `editText`; without it the formula, else the value's `entryText` in the book's
+   * locale by the cell's number format, as Excel's formula bar shows it. Until xlcalc/entry and the locale are in (a moment
+   * after the first cell is selected) the shown text, so the field opens at once, as a phone's keyboard needs.
+   */
   function editText(row: number, col: number): string {
     const own = w.editTextOfRow(row, col)
     if (own !== undefined) return own
@@ -106,9 +113,21 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (formula !== undefined) return `=${formula}`
     const value = w.valueOfRow(row, col)
     const shown = w.textOfRow(row, col)
-    if (typeof value === 'string') return textEditText(value)
-    if (typeof value === 'number') return numberEditText(value, shown, s.locale.value)
-    return shown
+    if (value === null || value === undefined) return shown
+    const lib = entry.value
+    if (!lib && !entryAsked) {
+      entryAsked = true
+      // A failed import leaves the shown text and is asked again by the next cell.
+      loadEntry().then((m) => (entry.value = m), () => (entryAsked = false))
+    }
+    const opts = f.scanOptions()
+    if (!lib || !opts) return shown
+    try {
+      return lib.entryText(value, { locale: opts.locale, numberFormat: w.lookOfRow(row, col)?.numberFormat })
+    } catch {
+      // a format code from the source that the library refuses
+      return shown
+    }
   }
 
   /** Open the field on the active cell; a locked cell is explained instead. False when nothing opened. */

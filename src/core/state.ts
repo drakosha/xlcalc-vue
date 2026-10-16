@@ -23,7 +23,7 @@ export interface SheetViewProps {
   readOnly?: boolean
   /** The formula bar over the grid, on by default. */
   formulaBar?: boolean
-  /** The book's locale for numbers the component writes itself: a number's edit text and selection totals. */
+  /** The book's locale for texts the component writes itself: a cell's edit text without `editText`, and selection totals. */
   locale?: string
   /** No tabs for a book of one sheet, as some hosts want; Excel shows them always, which is the default. */
   hideLoneTab?: boolean

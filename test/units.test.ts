@@ -2,7 +2,6 @@
 import { describe, expect, it } from 'vitest'
 import { ref, shallowRef } from 'vue'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, generalAlign, horizontalOf, verticalOf, wrapsOf } from '../src/core/cell-style'
-import { numberEditText, textEditText } from '../src/core/edit-text'
 import { colPx, fontPx, indexAt, prefixSums, rowPx, useGeometry, widthFromPx } from '../src/core/geometry'
 
 describe('Excel units', () => {
@@ -90,39 +89,6 @@ describe('style to CSS', () => {
     expect(fillText('', 40)).toBe('')
   })
 })
-
-describe("a number's edit text in the book's locale", () => {
-  it('the full value, a percent as a percent, a date as shown', () => {
-    expect(numberEditText(1234.5678, '1 234,57 ₽', 'ru-RU')).toBe('1234,5678')
-    expect(numberEditText(1234.5678, '1,234.57', 'en-US')).toBe('1234.5678')
-    expect(numberEditText(0.355, '35,5%', 'ru-RU')).toBe('35,5%')
-    expect(numberEditText(46096, '15.03.2026', 'ru-RU')).toBe('15.03.2026')
-    expect(numberEditText(0.75, '18:00', 'ru-RU')).toBe('18:00')
-    expect(numberEditText(-42, '(42.00)', 'en-US')).toBe('-42')
-  })
-})
-
-describe("a text's edit text: an apostrophe where the book would read it as something else", () => {
-  // Either locale's forms count in both: an extra apostrophe is harmless, a lost text is not.
-  it('numbers, percents, money, exponents in either locale', () => {
-    for (const t of ['007', '1,5', '1.5', '-3', '+3', '1 234,5', '1\u00a0234,5', '1,234.5', '(42)', '5%', '12,5 %', '1E+05', '1,2e-3', '$12', '12 ₽', '€3.50'])
-      expect([t, textEditText(t)]).toEqual([t, `'${t}`])
-    expect(textEditText('1,234.50')).toBe("'1,234.50")
-  })
-  it('dates and times as either locale writes them', () => {
-    for (const t of ['15.03.2026', '15.03.26', '15.03', '3/15/2026', '3/15', '2026-03-15', '1-2', '15 мар 2026', '15 марта', 'Mar 15', '15-Mar-2026', '12:30', '9:05:07', '7:30 PM', '15.03.2026 12:30'])
-      expect([t, textEditText(t)]).toEqual([t, `'${t}`])
-  })
-  it('booleans and errors of both locales, formulas and a leading apostrophe', () => {
-    for (const t of ['ИСТИНА', 'ложь', 'TRUE', 'false', '#Н/Д', '#ДЕЛ/0!', '#N/A', '#VALUE!', '=SUM(A1)', '+7 999', '-x', '@name', "'quoted"])
-      expect([t, textEditText(t)]).toEqual([t, `'${t}`])
-  })
-  it('ordinary text stays as it is', () => {
-    for (const t of ['007 agent', 'Отдел 5', '5 apples', 'mart', 'Счёт № 12', 'a-1', 'ИСТИНА или ложь', '', '-', 'K-000300', 'v1.2.3'])
-      expect([t, textEditText(t)]).toEqual([t, t])
-  })
-})
-
 
 describe("rows' offsets", () => {
   /** Geometry over a state of its own: `visible` a display order of sheet rows, or null. */

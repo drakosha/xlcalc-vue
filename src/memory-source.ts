@@ -4,7 +4,7 @@
 import { cellAddress, parseCell, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
-import { textEditText } from './core/edit-text'
+import { loadEntry, type Entry } from './entry'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type MemorySheetQuery } from './memory-query'
 import { axisOf, lineSpan, type LineAxis } from './lines'
@@ -217,11 +217,20 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   }
   const storeOf = (name: string) => stores.find((x) => x.sheet.name === name)
   const textOf = (cell: MemoryCell) => cell.text ?? plainText(cell.value)
-  /** What a cell opens with as `apply` reads it back: `=` and its formula, a text with Excel's apostrophe where it would read as a value, else the value as plain text. */
+  /** xlcalc's typed entry once a search has loaded it: Find and Replace read what cells open with. */
+  let entry: Entry | null = null
+  /** `wait` once xlcalc/entry is in. */
+  const withEntry = <T>(make: () => T, signal?: AbortSignal): Promise<T> =>
+    loadEntry().then((m) => {
+      entry = m
+      return wait(make, signal)
+    })
+  /** What a cell opens with as `apply` reads it back: `=` and its formula, else the value's `entryText` in en-US (a text with Excel's apostrophe where it would read as a value). */
   function editTextOf(cell: MemoryCell): string {
     if (cell.formula !== undefined) return `=${cell.formula}`
-    if (typeof cell.value === 'string') return textEditText(cell.value)
-    return cell.value === undefined || cell.value === null ? (cell.text ?? '') : plainText(cell.value)
+    if (cell.value === undefined || cell.value === null) return cell.text ?? ''
+    // withEntry has loaded it for every caller; plain text is only the type's fallback
+    return entry ? entry.entryText(cell.value) : plainText(cell.value)
   }
 
   function wait<T>(make: () => T, signal?: AbortSignal): Promise<T> {
@@ -458,9 +467,9 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         return { ok: true, changes: [] }
       })
     },
-    find: (req, signal) => wait(() => findHits(query(storeOrThrow(req.sheet)), req), signal),
+    find: (req, signal) => withEntry(() => findHits(query(storeOrThrow(req.sheet)), req), signal),
     replace: (req, by) =>
-      wait((): ReplaceOutcome => {
+      withEntry((): ReplaceOutcome => {
         const store = storeOf(req.sheet)
         if (!store) return { ok: false, reason: 'failed', message: `No sheet ${req.sheet}`, replaced: 0 }
         const cells = replaceTexts(query(store), req, by)
