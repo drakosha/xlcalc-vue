@@ -3,16 +3,14 @@
 // what is off screen, the marks over the cells (the copy's border, the fill handle) and the in-place field.
 import { computed } from 'vue'
 import { colLetters } from 'xlcalc/a1'
-import CellDraft from './CellDraft.vue'
 import CellEditor from './CellEditor.vue'
-import { CfIcon } from './cf-icons'
-import type { CellView } from '../core/cell-view'
 import { cellOfData } from '../core/selection'
 import { useSheetContext } from './context'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
 import SheetMarks from './SheetMarks.vue'
+import SheetRow from './SheetRow.vue'
 import ValidationDropdown from './ValidationDropdown.vue'
 import ValidationPrompt from './ValidationPrompt.vue'
 
@@ -29,6 +27,11 @@ const cols = computed(() => {
   if (v.rightPad.value) out.push({ key: 'rp', c: 0, w: v.rightPad.value })
   return out
 })
+/** The same columns for the rows, without widths: the same list while the columns are, so a width dragged does not draw every row again. */
+const rowCols = computed((prev?: { key: string; c: number }[]) => {
+  const next = cols.value.map(({ key, c }) => ({ key, c }))
+  return prev && prev.length === next.length && prev.every((x, i) => x.key === next[i]!.key) ? prev : next
+})
 /** Drawn rows: the frozen ones (sticky), a spacer, the body's, a spacer; `d` is the display row, `r` the sheet's. */
 const rows = computed(() => {
   const out: { key: string; d: number; r: number; frozen: boolean; pad: number }[] = []
@@ -42,11 +45,9 @@ const span = computed(() => (v.barW.value ? 1 : 0) + (v.showNums.value ? 1 : 0) 
 /** The outline bars' sizes for the sticky headers and numbers: left of the numbers, above the letters. */
 const barVars = computed(() => ({ width: v.tableWidth.value + 'px', '--xs-outline-w': v.barW.value + 'px', '--xs-outline-h': v.barH.value + 'px' }))
 const empty = computed(() => ctx.rowCount.value === 0 || ctx.colCount.value === 0)
-const freezeRows = computed(() => ctx.sheet.value?.freeze?.rows ?? 0)
 const freezeCols = computed(() => ctx.sheet.value?.freeze?.cols ?? 0)
 const headLabel = (c: number) => ctx.sheet.value?.columns?.[c - 1]?.title ?? colLetters(c)
 const colOn = (c: number) => !!sel.selRect.value && c >= sel.selRect.value.left && c <= sel.selRect.value.right
-const rowOn = (r: number) => !!sel.selRect.value && r >= sel.selRect.value.top && r <= sel.selRect.value.bottom
 
 /** The active cell (a merged area whole) in the scroller's content coordinates, for the dropdown and the input message of its rule. */
 const activeBox = computed(() => {
@@ -59,22 +60,6 @@ const activeBox = computed(() => {
   return { top, left, width, height }
 })
 const vd = ctx.validation
-
-/** A drawn row's cells by column: a spacer's empty cell (no view), else the cell's view; cells a merge covers are left out; none before the body's window comes. */
-/** Whether the body's window of the sheet shown came: until then rows are drawn without cells, which would be drawn twice. */
-const bodyCame = computed(() => {
-  const slot = ctx.w.slots.body.value
-  return !!slot.win && slot.view === ctx.w.viewKey()
-})
-function cellsOf(row: { d: number; r: number; frozen: boolean }): { key: string; c: number; cv: CellView | null }[] {
-  const out: { key: string; c: number; cv: CellView | null }[] = []
-  if (!bodyCame.value) return out
-  for (const k of cols.value) {
-    if (k.c === 0) out.push({ key: k.key, c: 0, cv: null })
-    else if (!views.coveredByMerge(row.r, k.c)) out.push({ key: k.key, c: k.c, cv: views.cellView(row.d, row.r, k.c, row.frozen) })
-  }
-  return out
-}
 
 // ── presses, clicks and double clicks on cells, taken on the scroller for every cell ──
 /** A click on a cell: list mode opens what a cell leads to, a double tap on a phone opens the field. */
@@ -252,72 +237,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
           <tr v-if="row.pad" class="xs-spacer" :style="{ height: row.pad + 'px' }">
             <td :colspan="span"></td>
           </tr>
-          <tr v-else :style="{ height: geo.heightOf(row.d) + 'px' }">
-            <OutlineCell v-if="v.barW.value" axis="rows" :line="row.r" :class="row.frozen ? 'xs-ol-fz' : ''" :style="row.frozen ? { top: v.stickyTop(row.d) } : undefined" />
-            <th
-              v-if="v.showNums.value"
-              :class="['xs-num', row.frozen ? 'xs-fz-corner' : '', rowOn(row.r) ? 'xs-on' : '', row.d === freezeRows ? 'xs-fz-edge-b' : '']"
-              :style="row.frozen ? { top: v.stickyTop(row.d) } : undefined"
-              :title="m.selectRow"
-              :data-row="row.r"
-              @click="pickLine('rows', row.r, $event.shiftKey)"
-            >
-              <div class="xs-in xs-top" :style="{ height: Math.max(0, geo.heightOf(row.d) - 3) + 'px' }">
-                <span>{{ row.r }}</span>
-              </div>
-              <span
-                v-if="ctx.rowsResizable.value"
-                class="xs-grip xs-grip-row"
-                :title="m.resizeRow"
-                @pointerdown="ctx.startRowResize($event, row.r)"
-                @pointermove="ctx.onRowResizeMove"
-                @pointerup="ctx.endRowResize"
-                @pointercancel="ctx.endRowResize"
-                @click.stop
-                @dblclick.stop="ctx.onRowEdgeDouble(row.r)"
-              ></span>
-            </th>
-            <template v-for="{ key, c, cv } in cellsOf(row)" :key="key">
-              <td v-if="!cv" :class="row.frozen ? 'xs-fz-row' : ''" :style="row.frozen ? { top: v.stickyTop(row.d) } : undefined"></td>
-              <td v-else v-bind="cv.attrs">
-                  <div :class="cv.box.class" :style="cv.box.style">
-                    <CfIcon v-if="cv.icon" :icon="cv.icon" />
-                    <a
-                      v-if="cv.kind === 'href'"
-                      class="xs-link"
-                      :style="cv.deco"
-                      :href="cv.link!.href"
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      :title="cv.link!.tooltip ?? cv.link!.href"
-                      @click="ctx.onLink($event, cv.link!, row.r, c)"
-                      ><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></a
-                    >
-                    <button
-                      v-else-if="cv.kind === 'place' || cv.kind === 'host'"
-                      type="button"
-                      class="xs-link"
-                      :style="cv.deco"
-                      :title="cv.link!.tooltip ?? (cv.link!.location ? m.linkInBook(cv.link!.location) : m.linkOpen)"
-                      @click.stop="ctx.onLink($event, cv.link!, row.r, c)"
-                    >
-                      <CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template>
-                    </button>
-                    <span v-else-if="cv.kind === 'dead'" class="xs-deadlink" :style="cv.deco" :title="cv.link!.tooltip ?? m.linkDead(cv.link!.href ?? cv.link!.target ?? '')"
-                      ><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></span
-                    >
-                    <div
-                      v-else-if="cv.kind === 'overflow'"
-                      class="xs-ov"
-                      :style="{ left: -cv.ov!.left + 'px', width: `calc(100% + ${cv.ov!.left + cv.ov!.right}px)`, justifyContent: cv.ov!.justify }"
-                    >
-                      <span :style="{ ...cv.deco, background: cv.ov!.bg }"><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></span>
-                    </div>
-                    <span v-else-if="cv.kind !== 'icon'" :style="cv.deco"><CellDraft v-if="cv.draft" :fill="cv.draft.fill" /><template v-else>{{ cv.text }}</template></span>
-                  </div>
-              </td>
-            </template>
-          </tr>
+          <SheetRow v-else :d="row.d" :r="row.r" :frozen="row.frozen" :cols="rowCols" @pick="(r, extend) => pickLine('rows', r, extend)" />
         </template>
       </tbody>
       <tfoot v-if="list.totals.value">

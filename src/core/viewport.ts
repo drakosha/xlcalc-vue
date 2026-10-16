@@ -31,6 +31,8 @@ export interface ViewportInput {
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+/** The previous list when the new one holds the same lines: what reads it is not drawn again for a size changed. */
+const same = (prev: number[] | undefined, next: number[]): number[] => (prev && prev.length === next.length && prev.every((x, i) => x === next[i]) ? prev : next)
 /**
  * The drawn lines around the screen's `first..last`: `spare` beyond each end, and up to `step - 1` more, as the first one
  * on screen stands from the start of its step; both edges move together, once the screen crosses a step.
@@ -116,15 +118,15 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const frozenCols = computed(() => (freezeOn.value ? clamp(i.sheet.value?.freeze?.cols ?? 0, 0, Math.max(0, i.colCount.value - 1)) : 0))
   const frozenH = computed(() => geo.rowOffsets.value[frozenRows.value] ?? 0)
   const frozenW = computed(() => geo.offsets.value[frozenCols.value] ?? 0)
-  const frozenRowList = computed(() => {
+  const frozenRowList = computed((prev?: number[]) => {
     const out: number[] = []
     for (let r = 1; r <= frozenRows.value; r++) if (geo.heightOf(r) > 0) out.push(r)
-    return out
+    return same(prev, out)
   })
-  const frozenColList = computed(() => {
+  const frozenColList = computed((prev?: number[]) => {
     const out: number[] = []
     for (let c = 1; c <= frozenCols.value; c++) if (geo.widthOf(c) > 0) out.push(c)
-    return out
+    return same(prev, out)
   })
   /** Sticky place of a frozen row or column: below the letters, right of the numbers. */
   const stickyTop = (d: number) => `${headH.value + (geo.rowOffsets.value[d - 1] ?? 0)}px`
@@ -140,15 +142,15 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const firstCol = computed(() => clamp(drawnCols.value[0], bodyCol0.value, Math.max(bodyCol0.value, i.colCount.value)))
   const lastCol = computed(() => clamp(drawnCols.value[1], bodyCol0.value, i.colCount.value))
   /** Shown body rows; hidden ones (height 0) are not drawn at all. */
-  const shownRows = computed(() => {
+  const shownRows = computed((prev?: number[]) => {
     const out: number[] = []
     for (let d = firstRow.value; d <= lastRow.value; d++) if (geo.heightOf(d) > 0) out.push(d)
-    return out
+    return same(prev, out)
   })
-  const shownCols = computed(() => {
+  const shownCols = computed((prev?: number[]) => {
     const out: number[] = []
     for (let c = firstCol.value; c <= lastCol.value; c++) if (geo.widthOf(c) > 0) out.push(c)
-    return out
+    return same(prev, out)
   })
   const topPad = computed(() => Math.max(0, (geo.rowOffsets.value[firstRow.value - 1] ?? 0) - frozenH.value))
   const bottomPad = computed(() => Math.max(0, (geo.rowOffsets.value[i.rowCount.value] ?? 0) - (geo.rowOffsets.value[lastRow.value] ?? 0)))

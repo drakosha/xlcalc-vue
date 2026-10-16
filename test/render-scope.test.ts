@@ -1,7 +1,7 @@
 // What a change redraws: typing, events and moves touch only the cells they change, not every drawn cell.
 import type { VueWrapper } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { nextTick, triggerRef } from 'vue'
 import { sheetContextKey } from '../src/components/context'
 import type { SheetContext } from '../src/core/sheet'
 import { cellText, fakeSource, mountSheet, settle, type } from './helpers'
@@ -80,7 +80,10 @@ describe('render scope', () => {
     count.take()
     f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: 'C2', text: 'near', value: 'near' }] })
     await nextTick()
+    // Its row and the one above (whose bottom line reads it) are drawn again, not the grid.
+    const perRow = ctx.v.shownCols.value.length
     expect(count.calls).toBeGreaterThan(0)
+    expect(count.calls).toBeLessThanOrEqual(2 * perRow)
     expect(cellText(w, 2, 3)).toBe('near')
     ctx.scrollTop.value = (d - 5) * 20
     await settle()
@@ -174,5 +177,56 @@ describe('render scope', () => {
     const cells = w.findAll('td[data-cell]').length
     expect(cells).toBeGreaterThan(100)
     expect(count.calls).toBe(cells)
+  })
+
+  it('a move of the active cell or of the selection redraws the rows it touches', async () => {
+    const { ctx, count } = await open()
+    const perRow = ctx.v.shownCols.value.length
+    ctx.selected.value = { row: 5, col: 3 }
+    await nextTick()
+    count.take()
+    ctx.selected.value = { row: 6, col: 3 }
+    await nextTick()
+    expect(count.calls).toBe(2 * perRow)
+    count.take()
+    ctx.extent.value = { row: 9, col: 5 }
+    await nextTick()
+    // Rows 6 to 9 come into the selection.
+    expect(count.calls).toBe(4 * perRow)
+    count.take()
+    ctx.extent.value = { row: 10, col: 5 }
+    await nextTick()
+    // The old bottom row loses its edge, the new one comes in.
+    expect(count.calls).toBe(2 * perRow)
+  })
+
+  it('a scroll by a step draws only the rows that come in', async () => {
+    const { ctx, count } = await open()
+    ctx.scrollTop.value = 200
+    await settle()
+    const before = ctx.v.shownRows.value
+    count.take()
+    ctx.scrollTop.value = 200 + 4 * 20
+    await nextTick()
+    const after = ctx.v.shownRows.value
+    const come = after.filter((d) => !before.includes(d)).length
+    expect(come).toBe(4)
+    expect(count.calls).toBe(come * ctx.v.shownCols.value.length)
+  })
+
+  it("a column's width or a row's height dragged redraws no cell, or the row's alone", async () => {
+    const { ctx, count } = await open()
+    const drawn = ctx.v.shownCols.value
+    count.take()
+    ctx.userWidths.value[3] = 72
+    triggerRef(ctx.userWidths)
+    await nextTick()
+    // The same columns drawn, one a pixel wider.
+    expect(ctx.v.shownCols.value).toEqual(drawn)
+    expect(count.calls).toBe(0)
+    count.take()
+    ctx.geo.setHeights([[5, 33]])
+    await nextTick()
+    expect(count.calls).toBe(ctx.v.shownCols.value.length)
   })
 })

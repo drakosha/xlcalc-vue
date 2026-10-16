@@ -56,6 +56,8 @@ export function prefixSums(count: number, sizeOf: (i: number) => number): Float6
   return out
 }
 
+const sameSet = (a: Set<number>, b: Set<number>): boolean => a.size === b.size && [...a].every((x) => b.has(x))
+
 /** The item under an offset, by binary search over prefix sums; clamped to 1..count. */
 export function indexAt(offsets: Float64Array, count: number, x: number): number {
   let lo = 1
@@ -132,15 +134,39 @@ export function useGeometry(i: GeometryInput) {
   })
   const colAt = (x: number): number => indexAt(offsets.value, i.colCount.value, x)
   const rowAt = (y: number): number => indexAt(rowOffsets.value, i.rowCount.value, y)
+  /**
+   * Hidden display rows and columns (no height, no width), the same set while they are the same: a cell finds its
+   * neighbours by these, so a size changed elsewhere does not draw it again. Null for rows hidden by default (a book whose
+   * default height is 0), which are found by their heights.
+   */
+  const hiddenRows = computed((prev?: Set<number> | null) => {
+    if (i.defaultRowPx.value === 0) return null
+    const out = new Set<number>()
+    for (const [r, px] of i.heights.value) {
+      const d = px === 0 ? i.indexOf(r) : undefined
+      if (d !== undefined) out.add(d)
+    }
+    return prev && sameSet(prev, out) ? prev : out
+  })
+  const hiddenCols = computed((prev?: Set<number>) => {
+    const out = new Set<number>()
+    for (const [c, width] of i.bookWidths.value) if (colPx(width) === 0 && i.userWidths.value[c] === undefined) out.add(c)
+    for (const [c, px] of Object.entries(i.userWidths.value)) if (px === 0) out.add(Number(c))
+    return prev && sameSet(prev, out) ? prev : out
+  })
+  const rowHidden = (d: number): boolean => {
+    const set = hiddenRows.value
+    return set ? set.has(d) : heightOf(d) === 0
+  }
   /** The next shown row in a direction, skipping hidden ones; at the edge the same row. */
   function nextRow(d: number, dir: 1 | -1): number {
     let n = d + dir
-    while (n >= 1 && n <= i.rowCount.value && heightOf(n) === 0) n += dir
+    while (n >= 1 && n <= i.rowCount.value && rowHidden(n)) n += dir
     return n >= 1 && n <= i.rowCount.value ? n : d
   }
   function nextCol(c: number, dir: 1 | -1): number {
     let n = c + dir
-    while (n >= 1 && n <= i.colCount.value && widthOf(n) === 0) n += dir
+    while (n >= 1 && n <= i.colCount.value && hiddenCols.value.has(n)) n += dir
     return n >= 1 && n <= i.colCount.value ? n : c
   }
   /** Whether a shown row or column lies beyond in a direction (the edge of a border lookup). */

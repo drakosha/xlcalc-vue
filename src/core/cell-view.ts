@@ -5,7 +5,7 @@ import type { BorderLine, CellRect, CellStyle, Icon } from 'xlcalc/contract'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, horizontalOf, overflows, setSide, verticalOf, wrapsOf, type CssLine, type Horizontal } from './cell-style'
 import { barLayers, type Layer } from './conditional'
 import type { Editing, EditorState } from './editing'
-import type { Formula } from './formula'
+import type { Formula, Highlight } from './formula'
 import type { Geometry } from './geometry'
 import type { Navigation } from './navigation'
 import type { Selection } from './selection'
@@ -44,6 +44,51 @@ export interface CellView {
   draft?: { fill?: number }
 }
 
+/** What of the often changing state a drawn row's cells need, worked out by row: a change redraws only the rows it touches. */
+export interface RowState {
+  /** The row's height in pixels. */
+  height: number
+  /** The selection over the row: its columns, whether the row is its top, how many rows below this one it ends (counted only as far as the row's merges reach), several cells or one; null when it misses the row. */
+  sel: { left: number; right: number; top: boolean; below: number; multi: boolean } | null
+  /** The active cell's column in the row; 0 for none. */
+  active: number
+  /** The formula's ranges over the row. */
+  hl: readonly Highlight[]
+  /** Columns of the search's hits in the row, and of the current one (0: not in the row). */
+  hits: ReadonlySet<number> | undefined
+  hitNow: number
+  /** The columns of the range just jumped to, over the row. */
+  flash: { left: number; right: number } | null
+  /** The field open on a cell of the row: its column, and whether it is the formula bar's. */
+  editor: { col: number; bar: boolean } | null
+}
+
+/** Whether two states of a row draw the same. */
+export function sameRowState(a: RowState, b: RowState): boolean {
+  const same = <T extends object>(x: T | null, y: T | null) => x === y || (!!x && !!y && (Object.keys(x) as (keyof T)[]).every((k) => x[k] === y[k]))
+  return (
+    a.height === b.height &&
+    a.active === b.active &&
+    a.hits === b.hits &&
+    a.hitNow === b.hitNow &&
+    a.hl.length === b.hl.length &&
+    a.hl.every((h, i) => h === b.hl[i]) &&
+    same(a.sel, b.sel) &&
+    same(a.flash, b.flash) &&
+    same(a.editor, b.editor)
+  )
+}
+
+/** Whether two maps of merges drawn hold the same spans. */
+function sameMerges(a: Map<string, MergeSpan | null>, b: Map<string, MergeSpan | null>): boolean {
+  if (a.size !== b.size) return false
+  for (const [key, x] of b) {
+    const y = a.get(key)
+    if (x === null ? y !== null : !y || y.rs !== x.rs || y.cs !== x.cs || y.rsDom !== x.rsDom || y.csDom !== x.csDom) return false
+  }
+  return true
+}
+
 /** Links a browser may open by itself; anything else (`javascript:` and the like) goes to the host or is shown only. */
 export const safeHref = (href: string | undefined): boolean => !!href && /^(https?:|mailto:|tel:|ftp:)/i.test(href.trim())
 
@@ -69,7 +114,7 @@ export function useCellView(
   deps: CellViewDeps,
 ) {
   /** Merges of the drawn piece by sheet rows: the top-left cell's span, null for covered cells. A merge not wholly drawn (or across the freeze edge) is drawn as plain cells; under a filter only one-row merges stay. */
-  const merges = computed(() => {
+  const merges = computed((prev?: Map<string, MergeSpan | null>) => {
     const map = new Map<string, MergeSpan | null>()
     const rowsOk = (d1: number, d2: number) => d2 <= v.frozenRows.value || (d1 >= v.firstRow.value && d2 <= v.lastRow.value)
     const colsOk = (c1: number, c2: number) => c2 <= v.frozenCols.value || (c1 >= v.firstCol.value && c2 <= v.lastCol.value)
@@ -90,11 +135,60 @@ export function useCellView(
       for (let r = m.top; r <= m.bottom; r++) for (let c = m.left; c <= m.right; c++) map.set(`${r}:${c}`, null)
       map.set(`${s.rowOf(d0)}:${c0}`, { rs: d2 - d0 + 1, cs: m.right - c0 + 1, rsDom, csDom })
     }
-    return map
+    // The same map while the merges drawn are the same: every cell reads it, sizes and the scroll recompute it.
+    return prev && sameMerges(prev, map) ? prev : map
   })
   /** A cell's merge as drawn; no key is made on a piece without merges (the grid asks for every drawn cell). */
   const spanOf = (r: number, c: number) => (merges.value.size ? merges.value.get(`${r}:${c}`) : undefined)
   const coveredByMerge = (r: number, c: number) => spanOf(r, c) === null
+
+  /** The most rows a merge drawn from a row spans, by sheet row: a selection's bottom edge matters to a row only that far. */
+  const mergeRows = computed(() => {
+    const map = new Map<number, number>()
+    for (const [key, span] of merges.value) {
+      if (span && span.rs > 1) {
+        const r = Number(key.slice(0, key.indexOf(':')))
+        map.set(r, Math.max(map.get(r) ?? 1, span.rs))
+      }
+    }
+    return map
+  })
+  /** The search's hits by sheet row: their columns. */
+  const hitRows = computed(() => {
+    const map = new Map<number, Set<number>>()
+    for (const key of deps.find.hitSet.value) {
+      const at = key.indexOf(':')
+      const r = Number(key.slice(0, at))
+      let cols = map.get(r)
+      if (!cols) map.set(r, (cols = new Set()))
+      cols.add(Number(key.slice(at + 1)))
+    }
+    return map
+  })
+  /** The often changing state a row's cells read, worked out for display row `d`, sheet row `r`. */
+  function rowState(d: number, r: number): RowState {
+    const rect = sel.selRect.value
+    const inRect = !!rect && r >= rect.top && r <= rect.bottom
+    const a = s.selected.value
+    const fl = nav.flash.value
+    const now = deps.find.current.value
+    const e = deps.editor.value
+    return {
+      height: geo.heightOf(d),
+      sel: inRect ? { left: rect.left, right: rect.right, top: r === rect.top, below: Math.min(rect.bottom - r, mergeRows.value.get(r) ?? 1), multi: sel.multi.value } : null,
+      active: a && a.row === r ? a.col : 0,
+      hl: f.highlights.value.filter((h) => r >= h.ref.top && r <= h.bottom),
+      hits: hitRows.value.get(r),
+      hitNow: now && Number(now.slice(0, now.indexOf(':'))) === r ? Number(now.slice(now.indexOf(':') + 1)) : 0,
+      flash: fl && fl.sheet === s.sheetName.value && r >= fl.rect.top && r <= fl.rect.bottom ? { left: fl.rect.left, right: fl.rect.right } : null,
+      editor: e && e.row === r ? { col: e.col, bar: e.place === 'bar' } : null,
+    }
+  }
+  /** Whether the body's window of the sheet shown came: until then rows are drawn without cells, which would be drawn twice. */
+  const ready = computed(() => {
+    const slot = w.slots.body.value
+    return !!slot.win && slot.view === w.viewKey()
+  })
 
   /** Where a drawn column sits among its neighbours of the same pane, for overflow. */
   const colPlace = computed(() => {
@@ -119,21 +213,20 @@ export function useCellView(
   }
 
   /** May a neighbour take this cell's overflowing text: loaded, empty, not merged, not being edited. */
-  function free(d: number, c: number): boolean {
+  function free(d: number, c: number, row: RowState): boolean {
     const r = s.rowOf(d)
     if (!w.emptyAt(d, c) || spanOf(r, c) !== undefined || ed.pendingAt(r, c) !== undefined) return false
-    const e = deps.editor.value
-    return !(e && e.row === r && e.col === c)
+    return row.editor?.col !== c
   }
   /** Text overflow as Excel draws it: left-aligned text runs right over empty cells, right-aligned left, centred both ways. */
-  function overflowOf(d: number, c: number, h: Horizontal, bg: string): CellView['ov'] {
+  function overflowOf(d: number, c: number, h: Horizontal, bg: string, row: RowState): CellView['ov'] {
     const place = colPlace.value.get(c)
     if (!place) return undefined
     const run = (dir: 1 | -1, need?: (col: number) => boolean) => {
       let px = 0
       for (let i = place.i + dir; i >= 0 && i < place.list.length && px < OVERFLOW_MAX; i += dir) {
         const col = place.list[i]!
-        if (!free(d, col) || (need && !need(col))) break
+        if (!free(d, col, row) || (need && !need(col))) break
         px += geo.widthOf(col)
       }
       return px
@@ -166,8 +259,8 @@ export function useCellView(
     css.backgroundRepeat = 'no-repeat'
   }
 
-  /** Everything to draw cell (r, c); `d` is its display row, `frozen` whether its row is a frozen one. */
-  function cellView(d: number, r: number, c: number, frozen: boolean): CellView {
+  /** Everything to draw cell (r, c); `d` is its display row, `frozen` whether its row is a frozen one, `row` its row's state (`rowState`). */
+  function cellView(d: number, r: number, c: number, frozen: boolean, row: RowState): CellView {
     const addr = cellAddress(r, c)
     const at: CellRect = { top: r, left: c, bottom: r, right: c }
     const data = w.cellData(d, c, addr)
@@ -179,10 +272,9 @@ export function useCellView(
     const st = data.style
     const m = s.messages.value
     const pendingText = ed.pendingAt(r, c)
-    const editing = deps.editor.value
     const look = data.look
     // A rule that hides the value leaves the bar or the icon alone; the tooltip still has the value.
-    const barDraft = pendingText === undefined && !!editing && editing.place === 'bar' && editing.row === r && editing.col === c
+    const barDraft = pendingText === undefined && !!row.editor && row.editor.bar && row.editor.col === c
     const shownText = pendingText !== undefined ? (pendingText ?? '') : barDraft || look?.hideValue ? '' : data.text
     const hasText = barDraft ? !draftBlank.value : shownText !== ''
 
@@ -213,20 +305,19 @@ export function useCellView(
     const bg: Layer[] = []
     const full = '100% 100%'
     if (data.note) bg.push({ img: 'linear-gradient(to bottom left, var(--xs-note) 50%, transparent 50%)', size: '7px 7px', pos: 'right top' })
-    const rect = sel.selRect.value
-    const active = sel.isActive(r, c)
-    if (rect && sel.multi.value && rectContains(rect, at)) {
+    const rs = row.sel
+    const inSel = !!rs && c >= rs.left && c <= rs.right
+    const active = row.active === c
+    if (rs && inSel && rs.multi) {
       if (!active) bg.push({ img: 'linear-gradient(var(--xs-sel-tint), var(--xs-sel-tint))', size: full, pos: '0 0' })
-      if (r === rect.top) shadows.push('inset 0 1px 0 0 var(--xs-accent)')
-      if (r2 >= rect.bottom) shadows.push('inset 0 -1px 0 0 var(--xs-accent)')
-      if (c === rect.left) shadows.push('inset 1px 0 0 0 var(--xs-accent)')
-      if (c2 >= rect.right) shadows.push('inset -1px 0 0 0 var(--xs-accent)')
+      if (rs.top) shadows.push('inset 0 1px 0 0 var(--xs-accent)')
+      if (r2 - r >= rs.below) shadows.push('inset 0 -1px 0 0 var(--xs-accent)')
+      if (c === rs.left) shadows.push('inset 1px 0 0 0 var(--xs-accent)')
+      if (c2 >= rs.right) shadows.push('inset -1px 0 0 0 var(--xs-accent)')
     }
-    const key = `${r}:${c}`
-    const hits = deps.find.hitSet.value
-    const hit = hits.size > 0 && hits.has(key)
+    const hit = !!row.hits?.has(c)
     if (hit) bg.push({ img: 'linear-gradient(var(--xs-hit), var(--xs-hit))', size: full, pos: '0 0' })
-    const hl = f.highlightAt(r, c)
+    const hl = row.hl.length ? f.highlightAt(r, c, row.hl) : null
     if (hl) {
       shadows.push(...hl.edges)
       for (const t of hl.tints) bg.push({ img: t, size: full, pos: '0 0' })
@@ -244,17 +335,16 @@ export function useCellView(
     if (shadows.length) css.boxShadow = shadows.join(', ')
     layers(css, bg)
 
-    const fl = nav.flash.value
     const lock = ed.lockAt(r, c)
     // List mode: a drill-down cell, or the first column's cell below the header opening its row.
     const rowLink = !data.drill && c === 1 && deps.openRows() && r > freezeRows()
     const cls = [
       'xs-cell',
       active ? 'xs-active' : '',
-      rect && rectContains(rect, at) ? 'xs-sel' : '',
-      fl && fl.sheet === s.sheetName.value && rectContains(fl.rect, at) ? 'xs-flash' : '',
+      inSel ? 'xs-sel' : '',
+      row.flash && c >= row.flash.left && c <= row.flash.right ? 'xs-flash' : '',
       hit ? 'xs-hit' : '',
-      hit && deps.find.current.value === key ? 'xs-hit-now' : '',
+      hit && row.hitNow === c ? 'xs-hit-now' : '',
       pendingText !== undefined ? 'xs-pending' : '',
       lock !== null ? 'xs-locked' : '',
       tableHead ? 'xs-thead' : '',
@@ -275,14 +365,14 @@ export function useCellView(
     const h = horizontalOf(st, data.value)
     const wraps = wrapsOf(st)
     const vAlign = verticalOf(st)
-    const boxH = Math.max(0, geo.spanHeight(d, span?.rs ?? 1) - CELL_PAD_V * 2 - bottom.width - topWidth)
+    const boxH = Math.max(0, (span ? geo.spanHeight(d, span.rs) : row.height) - CELL_PAD_V * 2 - bottom.width - topWidth)
     const box: CellView['box'] = {
       class: ['xs-in', wraps ? 'xs-wrap' : '', vAlign === 'top' ? 'xs-top' : vAlign === 'center' ? 'xs-mid' : 'xs-bot'],
       style: { ...alignCss(h, st?.alignment?.indent ?? 0), height: `${boxH}px` },
     }
 
     const view: CellView = {
-      attrs: { class: cls, style: css, title: rowLink ? m.openRow : titleParts.filter(Boolean).join('\n\n'), 'data-cell': key },
+      attrs: { class: cls, style: css, title: rowLink ? m.openRow : titleParts.filter(Boolean).join('\n\n'), 'data-cell': `${r}:${c}` },
       box,
       kind: 'text',
       text: shownText,
@@ -316,7 +406,7 @@ export function useCellView(
       if (view.draft) view.draft.fill = geo.spanWidth(c, span?.cs ?? 1)
       else view.text = fillText(shownText, geo.spanWidth(c, span?.cs ?? 1))
     } else if (!span && !wraps && hasText && (overflows(data.value) || h === 'centerContinuous')) {
-      const ov = overflowOf(d, c, h, st?.fill?.color ?? 'var(--xs-bg)')
+      const ov = overflowOf(d, c, h, st?.fill?.color ?? 'var(--xs-bg)', row)
       if (ov) {
         view.kind = 'overflow'
         view.ov = ov
@@ -326,7 +416,7 @@ export function useCellView(
     return view
   }
 
-  return { merges, spanOf, coveredByMerge, cellView }
+  return { merges, spanOf, coveredByMerge, ready, rowState, cellView }
 }
 
 export type CellViews = ReturnType<typeof useCellView>

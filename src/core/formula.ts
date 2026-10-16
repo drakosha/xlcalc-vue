@@ -170,9 +170,8 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
         tint: `linear-gradient(${color}1f, ${color}1f)`,
       })),
   )
-  /** A cell's highlight: a frame on the range's edges only (Excel draws no inner lines) and a light tint. */
-  function highlightAt(row: number, col: number): { edges: string[]; tints: string[] } | null {
-    const hl = highlights.value
+  /** A cell's highlight: a frame on the range's edges only (Excel draws no inner lines) and a light tint; `hl` the ranges to look in (a row's). */
+  function highlightAt(row: number, col: number, hl: readonly Highlight[] = highlights.value): { edges: string[]; tints: string[] } | null {
     let out: { edges: string[]; tints: string[] } | null = null
     for (const h of hl) {
       if (row < h.ref.top || row > h.bottom || col < h.ref.left || col > h.right) continue
@@ -190,3 +189,5 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
 }
 
 export type Formula = ReturnType<typeof useFormula>
+/** A highlighted range with its frame's sides and tint. */
+export type Highlight = Formula['highlights']['value'][number]

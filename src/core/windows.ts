@@ -111,11 +111,11 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   const view = computed(() => `${s.sheetName.value}\u0000${s.visible.value?.key ?? ''}`)
   const viewKey = () => view.value
   /**
-   * Cells change in place inside their windows: `revision` counts every change, `drawnRevision` only those of drawn
-   * cells and their neighbours. The grid reads cells under the second, so a change off screen does not draw it again.
+   * Cells change in place inside their windows: `revision` counts every change; the grid reads a cell under its display
+   * row's own revision, made as the row is drawn, so a change redraws the rows it is in and nothing off screen.
    */
   const revision = shallowRef(0)
-  const drawnRevision = shallowRef(0)
+  const rowRevisions = new Map<number, ShallowRef<number>>()
   /** The window holding a cell by display row: the body first, then the frozen ones (they meet at the corner). */
   function slotAt(d: number, col: number): Slot | null {
     void revision.value
@@ -123,7 +123,9 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   }
   /** The same for drawing a cell. */
   function drawnSlot(d: number, col: number): Slot | null {
-    void drawnRevision.value
+    let rev = rowRevisions.get(d)
+    if (!rev) rowRevisions.set(d, (rev = shallowRef(0)))
+    void rev.value
     return holder(d, col)
   }
   function holder(d: number, col: number): Slot | null {
@@ -329,6 +331,8 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         if (at) patch(next, ch, at)
       }
       slots[kind].value = next
+      // Every drawn row reads the new window and makes its revision again.
+      rowRevisions.clear()
       s.failure.value = null
     } catch (e) {
       if (mine !== epoch || isAbort(e) || !current()) return
@@ -428,6 +432,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   /** Drop every window: answers in flight are aborted and ignored. */
   function reset(): void {
     epoch++
+    rowRevisions.clear()
     repaints = []
     if (repaintTimer) clearTimeout(repaintTimer)
     repaintTimer = null
@@ -477,16 +482,11 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     if (w.numberFormats && ch.numberFormat !== undefined) set(w.numberFormats, ch.numberFormat ?? undefined)
     return changed ? d : null
   }
-  /** Whether a display row and a column are drawn, or next to what is (a cell's bottom and right lines are its neighbours' too). */
-  function drawnNear(d: number, col: number): boolean {
-    const rowOk = d <= v.frozenRows.value + 1 || (d >= v.firstRow.value - 1 && d <= v.lastRow.value + 1)
-    return rowOk && (col <= v.frozenCols.value + 1 || (col >= v.firstCol.value - 1 && col <= v.lastCol.value + 1))
-  }
 
   /** New cell states into the loaded windows and over the answers of requests out; the rest are dropped, an unloaded window comes fresh anyway. */
   function applyChanges(changes: CellUpdate[]): void {
     let changed = false
-    let drawn = false
+    const rows = new Set<number>()
     const view = viewKey()
     for (const ch of changes) {
       if (ch.sheet !== s.sheetName.value) continue
@@ -499,11 +499,14 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         const d = slot.view === view ? patch(slot, ch, at) : null
         if (d === null) continue
         changed = true
-        drawn ||= drawnNear(d, at.col)
+        rows.add(d)
       }
     }
     if (changed) revision.value++
-    if (drawn) drawnRevision.value++
+    for (const d of rows) {
+      const rev = rowRevisions.get(d)
+      if (rev) rev.value++
+    }
   }
 
   /** Whether an area of display rows holds a cell of these rectangles (by sheet rows): under a filter, by the rows of its places. */
