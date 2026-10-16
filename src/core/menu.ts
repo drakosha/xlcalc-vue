@@ -6,6 +6,7 @@
 import { computed, nextTick, ref, shallowRef } from 'vue'
 import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, rectContains, sameName } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
+import { MAX_ROW_HEIGHT } from 'xlcalc/text'
 import type { SheetInfo, SheetOp } from '../source'
 import type { Clip } from './clip'
 import type { Commands } from './commands'
@@ -21,9 +22,8 @@ const LONG_PRESS_MS = 500
 const PRESS_SLOP_PX = 10
 /** The lift, click and browser's context menu that follow a long press are its own for this long. */
 const PRESS_TAIL_MS = 800
-/** Excel's limits of the Column Width (characters) and Row Height (points) boxes. */
+/** Excel's limit of the Column Width box, in characters; the Row Height box's is the highest row, `MAX_ROW_HEIGHT`. */
 const MAX_WIDTH_CHARS = 255
-const MAX_HEIGHT_PT = 409
 
 export type MenuKind = 'rows' | 'columns' | 'sheet' | 'cells'
 
@@ -199,7 +199,7 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     const d = dialog.value
     if (d?.kind !== 'size') return
     const n = parseSize(d.draft)
-    const max = d.axis === 'columns' ? MAX_WIDTH_CHARS : MAX_HEIGHT_PT
+    const max = d.axis === 'columns' ? MAX_WIDTH_CHARS : MAX_ROW_HEIGHT
     if (!(n >= 0 && n <= max)) {
       d.error = d.axis === 'columns' ? m().widthRange : m().heightRange
       return

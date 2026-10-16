@@ -36,6 +36,14 @@ describe('row height with the mouse', () => {
     expect(rowPx(w, 2)).toBe(20)
   })
 
+  it("a drag stops at Excel's highest row, 409.5 points", async () => {
+    const source = memorySource(book())
+    const layout = vi.spyOn(source, 'layout')
+    const w = await mountSheet(source)
+    await dragGrip(w, 3, 2000)
+    expect(layout.mock.calls.map((c) => c[0])).toEqual([{ sheet: 'S', rows: '3', height: 409.5 }])
+  })
+
   it('with whole rows selected, a drag on one of them sets them all', async () => {
     const source = memorySource(book())
     const layout = vi.spyOn(source, 'layout')

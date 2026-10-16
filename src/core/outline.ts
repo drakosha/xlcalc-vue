@@ -2,8 +2,8 @@
 // buttons, and Group and Ungroup over whole lines from the menu and the keys (Shift+Alt+→ and ←, Cmd+Shift+K and J).
 import { computed } from 'vue'
 import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
+import { MAX_OUTLINE } from 'xlcalc/text'
 import type { OutlineChange, OutlineGroup } from '../source'
-import { MAX_LEVEL } from '../lines'
 import type { Commands } from './commands'
 import { shortcutLetter } from './editing'
 import type { Selection } from './selection'
@@ -122,7 +122,7 @@ export function useOutline(s: SheetState, v: Viewport, sel: Selection, cmd: Comm
     if (!can.value) return
     const groups = outline.value?.[axis] ?? []
     const meets = (g: OutlineGroup) => g.from <= last && g.to >= first
-    if (op === 'group' && groups.some((g) => g.level >= MAX_LEVEL && g.from <= first && g.to >= last)) return deps.notify(m().outlineDeepest)
+    if (op === 'group' && groups.some((g) => g.level >= MAX_OUTLINE && g.from <= first && g.to >= last)) return deps.notify(m().outlineDeepest)
     if (op === 'ungroup' && !groups.some(meets)) return deps.notify(m().outlineNone)
     send(axis, (lines) => ({ op, sheet: s.sheetName.value, ...lines }) as OutlineChange, first, last)
   }

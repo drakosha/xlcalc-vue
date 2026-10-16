@@ -1,9 +1,7 @@
 // Grid geometry: Excel units to pixels, prefix sums of widths and heights, and lookups by offset.
 import { computed, triggerRef, type Ref, type ShallowRef } from 'vue'
-import { columnWidthFromPoints, columnWidthToPoints } from 'xlcalc/text'
+import { columnWidthFromPoints, columnWidthToPoints, MAX_ROW_HEIGHT } from 'xlcalc/text'
 
-/** Excel's default row height in points. */
-export const DEFAULT_ROW_PT = 15
 /** Excel's maximum digit width of the default font, in pixels at 100 %. */
 const DIGIT_PX = 7
 /** Resizing limits of a column, in pixels. */
@@ -36,12 +34,12 @@ export function charsOfWidth(width: number): number {
 /** Characters typed into the Column Width box to the stored width, as Excel records it. */
 export const widthFromChars = (chars: number): number => Math.trunc(((chars * DIGIT_PX + 5) / DIGIT_PX) * 256) / 256
 
-/** A row dragged by its edge: down to 2 px, up to Excel's 409 points. */
-export const MIN_ROW_PX = 2
-export const MAX_ROW_PX = 545
-
 /** Points to pixels at 96 dpi. */
 export const rowPx = (pt: number): number => (pt <= 0 ? 0 : Math.round((pt * 4) / 3))
+
+/** A row dragged by its edge: down to 2 px, up to Excel's highest row. */
+export const MIN_ROW_PX = 2
+export const MAX_ROW_PX = rowPx(MAX_ROW_HEIGHT)
 
 /** Pixels back to points, rounded to Excel's quarter point. */
 export const ptFromPx = (px: number): number => Math.round(((px * 3) / 4) * 4) / 4

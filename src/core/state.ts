@@ -2,9 +2,10 @@
 import { computed, ref, shallowRef } from 'vue'
 import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
+import { DEFAULT_ROW_HEIGHT } from 'xlcalc/text'
 import { enMessages, type SheetMessages } from '../messages'
 import type { SheetFilter, SheetInfo, SheetSource } from '../source'
-import { colPx, DEFAULT_ROW_PT, rowPx } from './geometry'
+import { colPx, rowPx } from './geometry'
 import type { ListSort } from './list'
 import { createMemory } from './storage'
 
@@ -95,7 +96,7 @@ export function createState(props: SheetViewProps) {
   const bookWidths = shallowRef(new Map<number, number | null>())
   const userWidths = shallowRef<Record<number, number>>({})
   const heights = shallowRef(new Map<number, number>())
-  const defaultRowPx = ref(rowPx(DEFAULT_ROW_PT))
+  const defaultRowPx = ref(rowPx(DEFAULT_ROW_HEIGHT))
 
   /** The active cell and the selection's other corner. */
   const selected = ref<CellPosition | null>(null)

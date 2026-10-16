@@ -1,12 +1,9 @@
-// A sheet's lines as the component and a book name them, an outline command's axis and Excel's deepest outline level.
+// A sheet's lines as the component and a book name them, and an outline command's axis.
 import { parseLines, parseRange } from 'xlcalc/a1'
 import type { OutlineChange } from './source'
 
 /** Rows or columns of a sheet. */
 export type LineAxis = 'rows' | 'columns'
-
-/** Excel's deepest outline level: an eighth Group of the same lines fails. */
-export const MAX_LEVEL = 7
 
 /** The lines of `text` on one axis (`C`, `C:C`, `B:D`; `5`, `5:5`, `3:6`; any case); null for anything else. */
 export function lineSpan(text: string, axis: LineAxis): { first: number; last: number } | null {

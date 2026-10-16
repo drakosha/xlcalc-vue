@@ -6,7 +6,8 @@
 // TODO(xlcalc): the commands without the engine in `xlcalc/a1` would replace these.
 import type { ColumnInput, OutlineGroup as BookGroup, OutlineSettings } from 'xlcalc/contract'
 import { linesKey, outlineGroups } from 'xlcalc/a1'
-import { axisOf, lineSpan, type LineAxis, MAX_LEVEL } from './lines'
+import { MAX_OUTLINE } from 'xlcalc/text'
+import { axisOf, lineSpan, type LineAxis } from './lines'
 import type { OutlineChange, SheetOutline } from './source'
 
 /** Lines `from`..`to` of one axis with the same outline level, hidden state and collapsed mark; lines left out have none. */
@@ -127,8 +128,8 @@ export function outlineEdit(lines: readonly OutlineLine[], groups: readonly Book
     const parts = pieces(lines, a, b)
     if (change.op === 'group') {
       // Excel refuses only when every line is at the deepest level; those that are stay there
-      const deeper = parts.filter((p) => (p.line?.level ?? 0) < MAX_LEVEL)
-      if (!deeper.length) return { ok: false, message: `The ${axis} ${text} cannot be grouped deeper than ${MAX_LEVEL} levels` }
+      const deeper = parts.filter((p) => (p.line?.level ?? 0) < MAX_OUTLINE)
+      if (!deeper.length) return { ok: false, message: `The ${axis} ${text} cannot be grouped deeper than ${MAX_OUTLINE} levels` }
       return { ok: true, patches: deeper.map((p) => ({ from: p.from, to: p.to, level: (p.line?.level ?? 0) + 1 })) }
     }
     const grouped = parts.filter((p) => (p.line?.level ?? 0) > 0)
