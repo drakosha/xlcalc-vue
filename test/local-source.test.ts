@@ -204,6 +204,16 @@ describe('localSource: search, display filter, totals', () => {
     expect(await s.stats('Список', 'B:B', filter)).toEqual({ cells: 3, numbers: 1, sum: 5, min: 5, max: 5 })
   })
 
+  it('totals a range under a filter in the session, with its rows, without reading the cells', async () => {
+    const { s, calls, count } = watched()
+    const filter: SheetFilter = { head: 1, cols: { 1: { values: ['б'] } } }
+    await s.visibleRows('Список', filter)
+    const reads = count('getCells')
+    expect(await s.stats('Список', 'B:B', filter)).toEqual({ cells: 3, numbers: 1, sum: 5, min: 5, max: 5 })
+    expect(count('getCells')).toBe(reads)
+    expect(calls.filter((c) => c.method === 'summarizeRanges').map((c) => (c.args[1] as { rows?: number[] }).rows)).toEqual([[1, 2, 4]])
+  })
+
   it('totals as the grid counts its windows: a value its format hides counts, a formula giving "" does not', async () => {
     const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'k' }, A2: { value: 5, numberFormat: ';;;' }, A3: { value: 3 }, A4: { formula: '""' }, A5: { formula: '1/0' } } }] })
     const want = { cells: 3, numbers: 2, sum: 8, min: 3, max: 5 }
@@ -211,6 +221,10 @@ describe('localSource: search, display filter, totals', () => {
     const filter: SheetFilter = { head: 1, sort: { col: 1, dir: 'asc' } }
     await s.visibleRows('S', filter)
     expect(await s.stats('S', 'A2:A5', filter)).toEqual(want)
+    // the rows showing nothing: the hidden number counts, the "" does not
+    const blanks: SheetFilter = { head: 1, cols: { 1: { values: [''] } } }
+    expect((await s.visibleRows('S', blanks)).rows).toEqual([1, 2, 4])
+    expect(await s.stats('S', 'A2:A5', blanks)).toEqual({ cells: 1, numbers: 1, sum: 5, min: 5, max: 5 })
   })
 
   it('totals a range in the session without reading its cells, and stops when aborted', async () => {

@@ -12,18 +12,17 @@ import { filterKey } from '../filter-key'
 import { axisOf, lineSpan, type LineAxis } from '../lines'
 import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import { columnList, filterActive, filterColumns, visibleList } from '../sheet-query'
-import { SheetValues, statsOf } from './query'
+import { SheetValues } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
 import { validationOf } from './validation'
 import { windowOf } from './window'
 
-/** A display filter's rows as `visibleRows` last gave them and where the sheet's rows ended then; ascending (a search's) and as a set (totals') once asked. */
+/** A display filter's rows as `visibleRows` last gave them and where the sheet's rows ended then; ascending (a search's and totals') once asked. */
 interface RowList {
   key: string
   rows: number[]
   max: number
   asc?: number[]
-  shown?: Set<number>
 }
 
 async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
@@ -202,7 +201,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return list
   }
 
-  /** The rows a search under the display filter looks in; null without a filter or when it hides no row (a sort alone). */
+  /** The rows a search or totals under the display filter read; null without a filter or when it hides no row (a sort alone). */
   async function searchedRows(s: AsyncSession, sheet: string, filter: SheetFilter | undefined): Promise<number[] | null> {
     if (!filterActive(filter)) return null
     const list = await rowsUnder(s, sheet, filter, false)
@@ -492,18 +491,13 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       return s.getEnd(sheet, cell, direction)
     },
-    /** Totals of a range: the session's summary without the cells, under a display filter the cells of its rows. */
+    /** Totals of a range: the session's summary without the cells, under a display filter over its rows. */
     async stats(sheet, range, filter, signal) {
       const s = await open()
+      const rows = await searchedRows(s, sheet, filter)
       throwIfAborted(signal)
-      if (filterActive(filter)) {
-        // TODO(xlcalc): `summarizeRanges` with the rows to count would take this too, without the cells.
-        const [views, list] = await Promise.all([s.getCells(sheet, range), rowsUnder(s, sheet, filter, false)])
-        throwIfAborted(signal)
-        return statsOf(views, (list.shown ??= new Set(list.rows)))
-      }
       try {
-        const got = await s.summarizeRanges([{ sheet, range }], signal ? { signal } : {})
+        const got = await s.summarizeRanges([{ sheet, range }], { ...(rows ? { rows } : {}), ...(signal ? { signal } : {}) })
         // an overflowed sum is #NUM!, no number to show
         return { cells: got.cells, numbers: got.numbers, sum: typeof got.sum === 'number' ? got.sum : NaN, min: got.min, max: got.max }
       } catch (e) {

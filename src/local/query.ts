@@ -3,8 +3,6 @@
 import type { CellValue, CellView } from 'xlcalc'
 import { colLetters, parseCell } from 'xlcalc/a1'
 import type { QuerySheet } from '../sheet-query'
-import type { RangeStats } from '../source'
-import { addCell, noStats } from '../stats'
 
 /** What a cell holds, for its value. */
 const EMPTY = 0
@@ -132,14 +130,4 @@ export class SheetValues implements QuerySheet {
   valueAt(row: number, col: number): CellValue | undefined {
     return this.cols.get(col)?.valueAt(row) ?? null
   }
-}
-
-/** Totals of the cells on the display filter's rows, as Excel's status bar gives them. */
-export function statsOf(views: Record<string, CellView>, visible: Set<number>): RangeStats {
-  const out = noStats()
-  for (const [addr, v] of Object.entries(views)) {
-    const at = parseCell(addr)
-    if (at && visible.has(at.row)) addCell(out, v.text ?? '', v.value)
-  }
-  return out
 }

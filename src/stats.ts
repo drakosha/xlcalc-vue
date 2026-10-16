@@ -1,4 +1,4 @@
-// Totals of cells as Excel's status bar gives them, with one rule of what counts, for the sources and the grid.
+// Totals of cells as Excel's status bar gives them for memorySource, by the rule of what counts that ./local's session keeps.
 import type { CellValue } from 'xlcalc/contract'
 import type { RangeStats } from './source'
 
