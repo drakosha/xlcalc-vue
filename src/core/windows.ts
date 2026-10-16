@@ -76,6 +76,8 @@ export interface CellData {
   note: NonNullable<SheetWindow['notes']>[string] | undefined
   /** What conditional formats give the cell; a window's old `bars` come as a bar of it. */
   look: ConditionalAppearance | undefined
+  /** A drill-down of list mode: marked in its window's `drill` and not empty. */
+  drill: boolean
   loaded: boolean
 }
 
@@ -100,8 +102,9 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   /** Generation of the book and sheet: an answer sent before a switch must not overwrite fresh data. */
   let epoch = 0
 
-  /** The sheet and filter the windows must be of now. */
-  const viewKey = () => `${s.sheetName.value}\u0000${s.visible.value?.key ?? ''}`
+  /** The sheet and filter the windows must be of now: made once per change, each drawn cell reads it several times. */
+  const view = computed(() => `${s.sheetName.value}\u0000${s.visible.value?.key ?? ''}`)
+  const viewKey = () => view.value
   /**
    * Cells change in place inside their windows: `revision` counts every change, `drawnRevision` only those of drawn
    * cells and their neighbours. The grid reads cells under the second, so a change off screen does not draw it again.
@@ -143,10 +146,11 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   }
   function cellData(d: number, col: number, addr: string): CellData {
     const w = drawnSlot(d, col)?.win
-    if (!w) return { text: '', value: undefined, style: undefined, formula: undefined, color: undefined, link: undefined, note: undefined, look: undefined, loaded: false }
+    if (!w) return { text: '', value: undefined, style: undefined, formula: undefined, color: undefined, link: undefined, note: undefined, look: undefined, drill: false, loaded: false }
     const look = lookOf(w, addr)
+    const text = w.text[d - w.row]?.[col - w.col] ?? ''
     return {
-      text: w.text[d - w.row]?.[col - w.col] ?? '',
+      text,
       value: w.values[d - w.row]?.[col - w.col],
       style: shownStyle(w, addr, look),
       formula: w.formulas[addr],
@@ -154,6 +158,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       link: w.links?.[addr],
       note: w.notes?.[addr],
       look,
+      drill: !!w.drill?.[addr] && text !== '',
       loaded: true,
     }
   }
@@ -193,8 +198,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   /** Whether a cell (a sheet row) is a drill-down of list mode: loaded, marked in its window's `drill` and not empty. */
   const drillOfRow = (r: number, col: number): boolean => {
     const d = s.indexOf(r)
-    const slot = d === undefined ? null : drawnSlot(d, col)
-    const w = slot?.win
+    const w = d === undefined ? undefined : slotAt(d, col)?.win
     return !!w?.drill?.[cellAddress(r, col)] && (w.text[d! - w.row]?.[col - w.col] ?? '') !== ''
   }
   const lookOfRow = (r: number, col: number): { style?: CellStyle; numberFormat?: string } | null => {

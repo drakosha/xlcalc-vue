@@ -131,7 +131,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
   const explain = useExplain(s, f)
-  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find })
+  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows })
   const list = useList(s, w, emit, props)
   /** The look of the active cell, from its loaded window: the `state` event and the font keys take it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))

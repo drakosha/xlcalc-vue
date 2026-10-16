@@ -6,6 +6,8 @@ import { colLetters } from 'xlcalc/a1'
 import CellDraft from './CellDraft.vue'
 import CellEditor from './CellEditor.vue'
 import { CfIcon } from './cf-icons'
+import type { CellView } from '../core/cell-view'
+import { cellOfData } from '../core/selection'
 import { useSheetContext } from './context'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
@@ -59,21 +61,31 @@ const activeBox = computed(() => {
 })
 const vd = ctx.validation
 
-/** A press on a cell: Excel's Point mode while a formula takes a reference there, else the selection's. */
-function onCellDown(e: PointerEvent, r: number, c: number): void {
-  if (!ctx.point.down(e, { kind: 'cells', row: r, col: c })) sel.onCellDown(e, r, c)
+/** A drawn row's cells by column: a spacer's empty cell (no view), else the cell's view; cells a merge covers are left out. */
+function cellsOf(row: { d: number; r: number; frozen: boolean }): { key: string; c: number; cv: CellView | null }[] {
+  const out: { key: string; c: number; cv: CellView | null }[] = []
+  for (const k of cols.value) {
+    if (k.c === 0) out.push({ key: k.key, c: 0, cv: null })
+    else if (!views.coveredByMerge(row.r, k.c)) out.push({ key: k.key, c: k.c, cv: views.cellView(row.d, row.r, k.c, row.frozen) })
+  }
+  return out
 }
-function onCellClick(e: MouseEvent, r: number, c: number): void {
+
+// ── presses, clicks and double clicks on cells, taken on the scroller for every cell ──
+/** A click on a cell: list mode opens what a cell leads to, a double tap on a phone opens the field. */
+function onClick(e: MouseEvent): void {
+  const at = cellUnder(e)
   // The lift of a long press that opened the cells' menu keeps the selection, and so does a press that pointed.
-  if (ctx.menu.afterPress() || ctx.point.took()) return
+  if (!at || ctx.menu.afterPress() || ctx.point.took()) return
   // List mode: a plain click on a drill-down cell, or on the first column's cell, opens what it leads to.
-  if (!ctx.editor.value && !e.shiftKey && !e.ctrlKey && !e.metaKey && list.click(r, c)) return
+  if (!ctx.editor.value && !e.shiftKey && !e.ctrlKey && !e.metaKey && list.click(at.row, at.col)) return
   // A double tap on a phone opens the field inside the tap, so the keyboard shows.
-  if (sel.onCellTap(e, r, c)) ed.startEdit({ mode: 'edit' })
+  if (sel.onCellTap(e, at.row, at.col)) ed.startEdit({ mode: 'edit' })
 }
-function onCellDbl(e: MouseEvent, r: number, c: number): void {
-  if (ctx.point.took() || (e.target as HTMLElement).closest('a,button')) return
-  sel.pickCell(r, c)
+function onDouble(e: MouseEvent): void {
+  const at = cellUnder(e)
+  if (!at || ctx.point.took() || (e.target as HTMLElement).closest('a,button')) return
+  sel.pickCell(at.row, at.col)
   ed.startEdit({ mode: 'edit' })
 }
 /** Funnels on the letters: when the source can filter and there is more than a header to filter; a finger gets one in the bar instead. */
@@ -91,14 +103,13 @@ function headerOf(e: Event): { kind: 'rows' | 'columns'; line: number } | null {
   if (!th || el.closest('.xs-grip, .xs-funnel')) return null
   return th.dataset.row ? { kind: 'rows', line: Number(th.dataset.row) } : { kind: 'columns', line: Number(th.dataset.col) }
 }
-/** The cell an event is on, not a web link in it (the browser's menu has its own items for a link). */
-function cellOf(e: Event): { row: number; col: number } | null {
-  const el = e.target as HTMLElement
-  const td = el.closest?.<HTMLElement>('td[data-cell]')
-  if (!td || el.closest('a[href]')) return null
-  const [row, col] = (td.dataset.cell ?? '').split(':').map(Number)
-  return row && col ? { row, col } : null
+/** The cell an event is on, a link in it too. */
+function cellUnder(e: Event): { row: number; col: number } | null {
+  const td = (e.target as HTMLElement).closest?.<HTMLElement>('td[data-cell]')
+  return td ? cellOfData(td.dataset.cell) : null
 }
+/** The same, not a web link in it (the browser's menu has its own items for a link). */
+const cellOf = (e: Event) => ((e.target as HTMLElement).closest?.('a[href]') ? null : cellUnder(e))
 function onContext(e: MouseEvent): void {
   const h = headerOf(e)
   const cell = h ? null : cellOf(e)
@@ -112,8 +123,11 @@ function onContext(e: MouseEvent): void {
 }
 function onDown(e: PointerEvent): void {
   const h = headerOf(e)
-  const cell = h ? null : cellOf(e)
-  // A cell's own press went to Point mode or the selection already; a letter or a number may point at its line.
+  const under = h ? null : cellUnder(e)
+  // A press on a cell: Excel's Point mode while a formula takes a reference there, else the selection's.
+  if (under && !ctx.point.down(e, { kind: 'cells', row: under.row, col: under.col })) sel.onCellDown(e, under.row, under.col)
+  const cell = under && cellOf(e)
+  // A letter or a number may point at its line.
   if (!cell && ctx.point.down(e, h && { kind: h.kind, row: h.kind === 'rows' ? h.line : 1, col: h.kind === 'columns' ? h.line : 1 })) return
   if (h && ctx.menu.linesAvailable.value) return ctx.menu.pressStart(e, (x, y) => ctx.menu.openLines(h.kind, h.line, x, y))
   if (cell) ctx.menu.pressStart(e, (x, y) => ctx.menu.openCells(cell.row, cell.col, x, y))
@@ -150,6 +164,8 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
     @paste="ctx.clip.onPaste"
     @contextmenu="onContext"
     @pointerdown="onDown"
+    @click="onClick"
+    @dblclick="onDouble"
     @mousedown="ctx.point.onMouseDown"
     @pointermove="onMove"
     @pointerup="onUp"
@@ -256,19 +272,9 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                 @dblclick.stop="ctx.onRowEdgeDouble(row.r)"
               ></span>
             </th>
-            <template v-for="k in cols" :key="k.key">
-              <td v-if="k.c === 0" :class="row.frozen ? 'xs-fz-row' : ''" :style="row.frozen ? { top: v.stickyTop(row.d) } : undefined"></td>
-              <template v-else-if="!views.coveredByMerge(row.r, k.c)">
-                <td
-                  v-for="cv in [views.cellView(row.d, row.r, k.c, row.frozen)]"
-                  :key="0"
-                  v-bind="cv.attrs"
-                  :class="{ 'xs-drill': list.drill(row.r, k.c), 'xs-rowlink': list.rowLink(row.r, k.c) }"
-                  :title="list.rowLink(row.r, k.c) ? m.openRow : cv.attrs.title"
-                  @pointerdown="onCellDown($event, row.r, k.c)"
-                  @click="onCellClick($event, row.r, k.c)"
-                  @dblclick="onCellDbl($event, row.r, k.c)"
-                >
+            <template v-for="{ key, c, cv } in cellsOf(row)" :key="key">
+              <td v-if="!cv" :class="row.frozen ? 'xs-fz-row' : ''" :style="row.frozen ? { top: v.stickyTop(row.d) } : undefined"></td>
+              <td v-else v-bind="cv.attrs">
                   <div :class="cv.box.class" :style="cv.box.style">
                     <CfIcon v-if="cv.icon" :icon="cv.icon" />
                     <a
@@ -279,7 +285,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                       target="_blank"
                       rel="noopener noreferrer nofollow"
                       :title="cv.link!.tooltip ?? cv.link!.href"
-                      @click="ctx.onLink($event, cv.link!, row.r, k.c)"
+                      @click="ctx.onLink($event, cv.link!, row.r, c)"
                       ><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></a
                     >
                     <button
@@ -288,7 +294,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                       class="xs-link"
                       :style="cv.deco"
                       :title="cv.link!.tooltip ?? (cv.link!.location ? m.linkInBook(cv.link!.location) : m.linkOpen)"
-                      @click.stop="ctx.onLink($event, cv.link!, row.r, k.c)"
+                      @click.stop="ctx.onLink($event, cv.link!, row.r, c)"
                     >
                       <CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template>
                     </button>
@@ -304,8 +310,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                     </div>
                     <span v-else-if="cv.kind !== 'icon'" :style="cv.deco"><CellDraft v-if="cv.draft" :fill="cv.draft.fill" /><template v-else>{{ cv.text }}</template></span>
                   </div>
-                </td>
-              </template>
+              </td>
             </template>
           </tr>
         </template>

@@ -53,6 +53,8 @@ export interface CellViewDeps {
   find: { hitSet: ComputedRef<Set<string>>; current: ComputedRef<string> }
   /** Whether the host listens to `openLink`. */
   hostLinks: () => boolean
+  /** List mode's `openRows`: the first column's cells open their rows. */
+  openRows: () => boolean
 }
 
 export function useCellView(
@@ -90,8 +92,9 @@ export function useCellView(
     }
     return map
   })
-  const spanOf = (r: number, c: number) => merges.value.get(`${r}:${c}`)
-  const coveredByMerge = (r: number, c: number) => merges.value.get(`${r}:${c}`) === null
+  /** A cell's merge as drawn; no key is made on a piece without merges (the grid asks for every drawn cell). */
+  const spanOf = (r: number, c: number) => (merges.value.size ? merges.value.get(`${r}:${c}`) : undefined)
+  const coveredByMerge = (r: number, c: number) => spanOf(r, c) === null
 
   /** Where a drawn column sits among its neighbours of the same pane, for overflow. */
   const colPlace = computed(() => {
@@ -190,20 +193,20 @@ export function useCellView(
     // Borders: right and bottom are the cell's own grid lines; top and left only at the sheet's edge (else the neighbour draws them).
     const rightStyle = span ? styleOf(d, c2) : st
     const bottomStyle = span ? styleOf(d2, c) : st
-    const hasRight = geo.hasCol(c2, 1)
-    const hasBelow = geo.hasRow(d2, 1)
-    const nextC = hasRight ? styleOf(d, geo.nextCol(c2, 1)) : undefined
-    const nextR = hasBelow ? styleOf(geo.nextRow(d2, 1), c) : undefined
+    const colRight = geo.nextCol(c2, 1)
+    const rowBelow = geo.nextRow(d2, 1)
+    const nextC = colRight !== c2 ? styleOf(d, colRight) : undefined
+    const nextR = rowBelow !== d2 ? styleOf(rowBelow, c) : undefined
     const right = edge(rightStyle?.border?.right, nextC?.border?.left, c2 === freezeCols() ? undefined : (rightStyle?.fill?.color ?? nextC?.fill?.color))
     const bottom = edge(bottomStyle?.border?.bottom, nextR?.border?.top, d2 === freezeRows() ? undefined : (bottomStyle?.fill?.color ?? nextR?.fill?.color))
     if (right.css) setSide(css, 'Right', right.css)
     if (bottom.css) setSide(css, 'Bottom', bottom.css)
     let topWidth = 0
-    if (!geo.hasRow(d, -1) && st?.border?.top) {
+    if (st?.border?.top && !geo.hasRow(d, -1)) {
       setSide(css, 'Top', borderCss(st.border.top)!)
       topWidth = borderWidth(st.border.top)
     }
-    if (!geo.hasCol(c, -1) && st?.border?.left) setSide(css, 'Left', borderCss(st.border.left)!)
+    if (st?.border?.left && !geo.hasCol(c, -1)) setSide(css, 'Left', borderCss(st.border.left)!)
 
     // Insets: formula ranges, the selection's frame and tables' frames; tints and bars as background layers.
     const shadows: string[] = []
@@ -219,8 +222,10 @@ export function useCellView(
       if (c === rect.left) shadows.push('inset 1px 0 0 0 var(--xs-accent)')
       if (c2 >= rect.right) shadows.push('inset -1px 0 0 0 var(--xs-accent)')
     }
-    const hitKey = `${r}:${c}`
-    if (deps.find.hitSet.value.has(hitKey)) bg.push({ img: 'linear-gradient(var(--xs-hit), var(--xs-hit))', size: full, pos: '0 0' })
+    const key = `${r}:${c}`
+    const hits = deps.find.hitSet.value
+    const hit = hits.size > 0 && hits.has(key)
+    if (hit) bg.push({ img: 'linear-gradient(var(--xs-hit), var(--xs-hit))', size: full, pos: '0 0' })
     const hl = f.highlightAt(r, c)
     if (hl) {
       shadows.push(...hl.edges)
@@ -241,13 +246,15 @@ export function useCellView(
 
     const fl = nav.flash.value
     const lock = ed.lockAt(r, c)
+    // List mode: a drill-down cell, or the first column's cell below the header opening its row.
+    const rowLink = !data.drill && c === 1 && deps.openRows() && r > freezeRows()
     const cls = [
       'xs-cell',
       active ? 'xs-active' : '',
       rect && rectContains(rect, at) ? 'xs-sel' : '',
       fl && fl.sheet === s.sheetName.value && rectContains(fl.rect, at) ? 'xs-flash' : '',
-      deps.find.hitSet.value.has(hitKey) ? 'xs-hit' : '',
-      deps.find.current.value === hitKey ? 'xs-hit-now' : '',
+      hit ? 'xs-hit' : '',
+      hit && deps.find.current.value === key ? 'xs-hit-now' : '',
       pendingText !== undefined ? 'xs-pending' : '',
       lock !== null ? 'xs-locked' : '',
       tableHead ? 'xs-thead' : '',
@@ -255,6 +262,8 @@ export function useCellView(
       // The book's freeze edge shows always: with the lock it parts the sticky panes, without it it shows what the lock freezes.
       d2 === freezeRows() ? 'xs-fz-edge-b' : '',
       c2 === freezeCols() ? 'xs-fz-edge-r' : '',
+      data.drill ? 'xs-drill' : '',
+      rowLink ? 'xs-rowlink' : '',
     ]
 
     const titleParts = [data.formula !== undefined ? `=${data.formula}\n${data.text}` : data.text]
@@ -273,7 +282,7 @@ export function useCellView(
     }
 
     const view: CellView = {
-      attrs: { class: cls, style: css, title: titleParts.filter(Boolean).join('\n\n'), 'data-cell': `${r}:${c}` },
+      attrs: { class: cls, style: css, title: rowLink ? m.openRow : titleParts.filter(Boolean).join('\n\n'), 'data-cell': key },
       box,
       kind: 'text',
       text: shownText,

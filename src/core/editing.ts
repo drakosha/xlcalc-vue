@@ -82,7 +82,11 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   const pending = shallowRef(new Map<string, { text: string | null; seq: number }>())
   let seq = 0
   const pendingKey = (sheet: string, cell: string) => `${sheet}!${cell}`
-  const pendingAt = (row: number, col: number): string | null | undefined => pending.value.get(pendingKey(s.sheetName.value, cellAddress(row, col)))?.text
+  /** A cell's pending text; without edits in flight no key is made (the grid asks for every drawn cell). */
+  function pendingAt(row: number, col: number): string | null | undefined {
+    const map = pending.value
+    return map.size ? map.get(pendingKey(s.sheetName.value, cellAddress(row, col)))?.text : undefined
+  }
 
   /** The sheet's locked rectangles with their reasons. */
   const locks = computed(() =>
@@ -92,7 +96,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }),
   )
   const lockIn = (rect: CellRect): string | null => locks.value.find((l) => rectsMeet(l.rect, rect))?.reason ?? null
-  const lockAt = (row: number, col: number): string | null => lockIn({ top: row, left: col, bottom: row, right: col })
+  const lockAt = (row: number, col: number): string | null => (locks.value.length ? lockIn({ top: row, left: col, bottom: row, right: col }) : null)
 
   /** What the field opens with: the window's `editText`; without it the formula, the text, a number in the book's locale, shown text otherwise. */
   function editText(row: number, col: number): string {
