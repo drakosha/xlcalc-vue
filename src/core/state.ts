@@ -2,6 +2,7 @@
 import { computed, ref, shallowRef } from 'vue'
 import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
+import { errorText } from '../failure'
 import { enMessages, type SheetMessages } from '../messages'
 import type { SheetFilter, SheetInfo, SheetSource } from '../source'
 import { colPx, DEFAULT_ROW_PT, rowPx } from './geometry'
@@ -73,6 +74,8 @@ export function createState(props: SheetViewProps) {
   const dataRows = computed(() => Math.max(sheet.value?.maxRow ?? 0, grown.value.rows))
   const dataCols = computed(() => Math.max(sheet.value?.maxCol ?? 0, grown.value.cols))
   const failure = shallowRef<SheetFailure | null>(null)
+  /** Why the book cannot be shown, from a source's error: its message, else the interface's. */
+  const failureOf = (error: unknown): SheetFailure => ({ error, text: errorText(error) || messages.value.loadFailed })
   const loading = ref(false)
   const scroller = ref<HTMLElement | null>(null)
   const scrollTop = ref(0)
@@ -161,6 +164,7 @@ export function createState(props: SheetViewProps) {
     lastRow,
     colCount,
     failure,
+    failureOf,
     loading,
     scroller,
     scrollTop,

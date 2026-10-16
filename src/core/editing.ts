@@ -3,6 +3,7 @@ import { computed, nextTick, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
+import { failedOutcome } from '../failure'
 import { cellRect } from '../rect'
 import type { CellEntry, EditOutcome, EditOptions, SheetSource } from '../source'
 import { useAutocomplete } from './autocomplete'
@@ -259,12 +260,11 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       pending.value = next
     }
     const before = { sheet: s.sheetName.value, selected: s.selected.value, extent: s.extent.value }
-    const failure = (e: unknown): EditOutcome => ({ ok: false, reason: 'failed', message: e instanceof Error ? e.message : '' })
     let outcome: EditOutcome
     try {
       outcome = await call()
     } catch (e) {
-      outcome = failure(e)
+      outcome = failedOutcome(e)
     }
     let answer: AlertAnswer | null = null
     if (!outcome.ok && outcome.alert && deps.alert) {
@@ -274,7 +274,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
         s.extent.value = extent
       }
       answer = await deps.alert(outcome.alert)
-      if (answer === 'accept') outcome = await call({ accept: true }).catch(failure)
+      if (answer === 'accept') outcome = await call({ accept: true }).catch(failedOutcome)
       if (answer !== 'retry') s.focusGrid()
     }
     if (marks.length) {

@@ -8,6 +8,7 @@ import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref
 import type { SheetViewApi } from '../core/commands'
 import type { MergeCommand } from '../core/merge'
 import type { SheetViewState } from '../core/sheet'
+import { failedOutcome } from '../failure'
 import { useMessages, type SheetMessages } from '../messages'
 import { useNumberFormats } from '../number-formats'
 import type { EditOutcome, FormatPatch } from '../source'
@@ -192,7 +193,7 @@ async function run(call: () => Promise<EditOutcome | null>): Promise<EditOutcome
   try {
     out = await call()
   } catch (e) {
-    out = { ok: false, reason: 'failed', message: e instanceof Error ? e.message : '' }
+    out = failedOutcome(e)
   }
   tick.value++
   if (out && !out.ok && !props.sheet) emit('error', out.message || m.value.editFailed)

@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, triggerRef, watch } from 'vue'
 import { cellAddress, linesKey, parseCell, rangeAddress } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
+import { errorText } from '../failure'
 import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
 import { useClip } from './clip'
@@ -206,7 +207,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     } catch (e) {
       if (mine !== initSeq) return
       s.loading.value = false
-      s.failure.value = { error: e, text: e instanceof Error && e.message ? e.message : s.messages.value.loadFailed }
+      s.failure.value = s.failureOf(e)
     }
   }
   let reloads = 0
@@ -225,7 +226,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       if (!next.keep) return activate(next.index)
       s.active.value = next.index
     } catch (e) {
-      s.failure.value = { error: e, text: e instanceof Error && e.message ? e.message : s.messages.value.loadFailed }
+      s.failure.value = s.failureOf(e)
       return
     }
     s.grown.value = { rows: 0, cols: 0 }
@@ -304,7 +305,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       if (got.ok) w.applyChanges(got.changes)
       else text = got.message
     } catch (e) {
-      text = e instanceof Error ? e.message : ''
+      text = errorText(e)
     }
     if (ok || sheet !== s.sheetName.value) return
     const next = { ...s.userWidths.value }

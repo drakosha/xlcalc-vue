@@ -326,7 +326,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       if (mine !== epoch || isAbort(e) || !owns()) return
       release()
       stopWait()
-      s.failure.value = { error: e, text: e instanceof Error && e.message ? e.message : s.messages.value.loadFailed }
+      s.failure.value = s.failureOf(e)
     } finally {
       if (mine === epoch && !wait.value) {
         s.loading.value = order.some((k) => slots[k].value.pendingKey !== '' && !slots[k].value.asked?.quiet)
