@@ -2,7 +2,7 @@
 // Rows of windows are display indexes (`d`): with a display filter they are places in its list, not the sheet's rows.
 import { computed, nextTick, ref, shallowRef, triggerRef, type ShallowRef } from 'vue'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
-import type { BarLook, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
+import type { BarLook, CellPosition, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
 import { lookStyle } from './conditional'
 import { DEFAULT_ROW_PT, rowPx, type Geometry } from './geometry'
@@ -46,7 +46,9 @@ export interface Slot {
   win: SheetWindow | null
   rows: number
   cols: number
+  /** The window's merges and the sheet's tables, read once when it comes. */
   merges: CellRect[]
+  tables: SheetTable[]
   pendingKey: string
   servedKey: string
   ctrl: AbortController | null
@@ -62,7 +64,10 @@ interface Need {
   c2: number
 }
 
-const newSlot = (): Slot => ({ view: '', win: null, rows: 0, cols: 0, merges: [], pendingKey: '', servedKey: '', ctrl: null, asked: null, stale: false })
+/** A table of the sheet with its range read. */
+export type SheetTable = NonNullable<SheetWindow['tables']>[number] & { rect: CellRect }
+
+const newSlot = (): Slot => ({ view: '', win: null, rows: 0, cols: 0, merges: [], tables: [], pendingKey: '', servedKey: '', ctrl: null, asked: null, stale: false })
 const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError'
 
 /** Everything a cell has in its window, for drawing it. */
@@ -231,8 +236,8 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   /** The sheet's tables and the notice: the same in every window of the sheet. */
   const tables = computed(() => {
     for (const kind of order) {
-      const t = current(kind)?.win?.tables
-      if (t) return t.flatMap((x) => { const rect = parseRange(x.range); return rect ? [{ ...x, rect }] : [] })
+      const slot = current(kind)
+      if (slot?.win?.tables) return slot.tables
     }
     return []
   })
@@ -317,8 +322,12 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       if (width < cols && req.col + width - 1 >= s.dataCols.value) edge = { ...edge, cols: req.col + width - 1 }
       if (got.text.length < rows && req.row + got.text.length - 1 >= s.dataShown.value) edge = { ...edge, rows: req.row + got.text.length - 1 }
       const merged = got.merges.flatMap((m) => { const r = parseRange(m); return r ? [r] : [] })
-      const next: Slot = { view, win: got, rows: got.text.length, cols: width, merges: merged, pendingKey: '', servedKey: key, ctrl: null, asked: null, stale: false }
-      for (const ch of slots[kind].value.asked?.missed ?? []) patch(next, ch)
+      const tables = (got.tables ?? []).flatMap((x) => { const rect = parseRange(x.range); return rect ? [{ ...x, rect }] : [] })
+      const next: Slot = { view, win: got, rows: got.text.length, cols: width, merges: merged, tables, pendingKey: '', servedKey: key, ctrl: null, asked: null, stale: false }
+      for (const ch of slots[kind].value.asked?.missed ?? []) {
+        const at = parseCell(ch.cell)
+        if (at) patch(next, ch, at)
+      }
       slots[kind].value = next
       s.failure.value = null
     } catch (e) {
@@ -438,11 +447,10 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   }
 
   /** A cell's new state into a slot's window, in place; its display row when that changed anything, else null (the window does not hold the cell, or it was so already). */
-  function patch(slot: Slot, ch: CellUpdate): number | null {
+  function patch(slot: Slot, ch: CellUpdate, at: CellPosition): number | null {
     const w = slot.win
-    const at = parseCell(ch.cell)
-    const d = at ? s.indexOf(at.row) : undefined
-    if (!w || !at || d === undefined) return null
+    const d = s.indexOf(at.row)
+    if (!w || d === undefined) return null
     if (d < w.row || d >= w.row + slot.rows || at.col < w.col || at.col >= w.col + slot.cols) return null
     const addr = cellAddress(at.row, at.col)
     const line = w.text[d - w.row]
@@ -488,7 +496,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       for (const kind of order) {
         const slot = slots[kind].value
         if (slot.asked?.view === view) slot.asked.missed.push(ch)
-        const d = slot.view === view ? patch(slot, ch) : null
+        const d = slot.view === view ? patch(slot, ch, at) : null
         if (d === null) continue
         changed = true
         drawn ||= drawnNear(d, at.col)
