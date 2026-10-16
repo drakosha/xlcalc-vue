@@ -45,4 +45,5 @@ function onKey(e: KeyboardEvent): void {
   </aside>
 </template>
 
+<style src="../controls.css"></style>
 <style src="../explain.css"></style>

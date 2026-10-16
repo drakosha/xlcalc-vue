@@ -91,7 +91,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
     <template v-if="size">
       <label class="xs-dialog-field">
         <span class="xs-modal-title">{{ size.axis === 'columns' ? m.columnWidth : m.rowHeight }}</span>
-        <input v-model="size.draft" class="xs-dialog-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" data-xs-dialog-input @keydown.enter.prevent="menu.applySize()" />
+        <input v-model="size.draft" class="xs-field xs-field-l" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" data-xs-dialog-input @keydown.enter.prevent="menu.applySize()" />
       </label>
       <p v-if="size.error" class="xs-dialog-error" role="alert">{{ size.error }}</p>
     </template>
@@ -121,4 +121,5 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
   </DialogShell>
 </template>
 
+<style src="../controls.css"></style>
 <style src="../menu.css"></style>

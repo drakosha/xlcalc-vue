@@ -84,7 +84,7 @@ watch(
         v-for="b in buttons"
         :key="b.button"
         type="button"
-        :class="['xs-va-btn', { 'xs-va-main': b.button === ALERT_DEFAULT[alert.severity] }]"
+        :class="['xs-button', 'xs-va-btn', { 'xs-button-main': b.button === ALERT_DEFAULT[alert.severity] }]"
         :data-xs-alert-button="b.button"
         @click="emit('answer', b.answer)"
       >
@@ -94,4 +94,5 @@ watch(
   </DialogShell>
 </template>
 
+<style src="../controls.css"></style>
 <style src="../validation.css"></style>

@@ -63,19 +63,6 @@
   flex-direction: column;
   gap: 6px;
 }
-.xs-dialog-input {
-  height: 28px;
-  padding: 0 8px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 4px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: inherit;
-  outline: none;
-}
-.xs-dialog-input:focus {
-  border-color: var(--xs-accent);
-}
 .xs-dialog-error {
   color: var(--xs-error);
 }
@@ -118,8 +105,4 @@
 }
 .xs-touch .xs-dialog-choice {
   min-height: 44px;
-}
-.xs-touch .xs-dialog-input {
-  height: 44px;
-  font-size: 16px;
 }

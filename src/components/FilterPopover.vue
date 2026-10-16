@@ -47,8 +47,8 @@ const focusFirst = (el: unknown) => {
         <IconClose />
       </button>
     </div>
-    <input :ref="ctx.v.narrow.value ? undefined : focusFirst" v-model="filter.draftText.value" class="xs-popover-input" type="text" spellcheck="false" :placeholder="m.filterText" />
-    <input v-model="filter.draftSearch.value" class="xs-popover-input xs-popover-search" type="text" spellcheck="false" :placeholder="m.filterSearch" />
+    <input :ref="ctx.v.narrow.value ? undefined : focusFirst" v-model="filter.draftText.value" class="xs-field xs-popover-input" type="text" spellcheck="false" :placeholder="m.filterText" />
+    <input v-model="filter.draftSearch.value" class="xs-field xs-popover-input xs-popover-search" type="text" spellcheck="false" :placeholder="m.filterSearch" />
     <div class="xs-values" data-xs-values>
       <p v-if="filter.busy.value" class="xs-muted xs-values-note">{{ m.filterReading }}</p>
       <template v-else>
@@ -78,3 +78,5 @@ const focusFirst = (el: unknown) => {
     </div>
   </div>
 </template>
+
+<style src="../controls.css"></style>

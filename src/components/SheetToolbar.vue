@@ -295,7 +295,7 @@ function pickNumber(e: Event): void {
     <div v-show="!narrow || menu" :class="narrow ? 'xs-tb-menu' : 'xs-tb-row'" data-tb-menu>
       <span v-if="numbers.choices.value.length" class="xs-tb-group">
         <select
-          class="xs-tb-select"
+          class="xs-field xs-field-s xs-tb-select"
           data-tb="number"
           :data-tb-category="category?.category"
           :title="m.numberFormat"
@@ -406,4 +406,5 @@ function pickNumber(e: Event): void {
   </div>
 </template>
 
+<style src="../controls.css"></style>
 <style src="../toolbar.css"></style>

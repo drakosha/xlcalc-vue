@@ -61,7 +61,7 @@ function typed(): void {
     <ColourSwatches :model-value="modelValue" :label="messages.fmtColour" @update:model-value="pick" />
     <label class="xs-fmt-field">
       <span>{{ messages.fmtColourCode }}</span>
-      <input v-model="code" class="xs-fmt-input xs-fmt-hex" type="text" maxlength="7" spellcheck="false" autocomplete="off" placeholder="#RRGGBB" :aria-invalid="bad" data-fmt-colour-code @input="typed" />
+      <input v-model="code" class="xs-field xs-fmt-input xs-fmt-hex" type="text" maxlength="7" spellcheck="false" autocomplete="off" placeholder="#RRGGBB" :aria-invalid="bad" data-fmt-colour-code @input="typed" />
     </label>
     <p v-if="bad" class="xs-fmt-error" role="alert">{{ messages.fmtColourBad }}</p>
   </div>

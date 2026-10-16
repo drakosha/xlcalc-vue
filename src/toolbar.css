@@ -61,19 +61,9 @@
   width: 10px;
   height: 10px;
 }
-.xs-tb-select {
-  height: 22px;
+.xs-field.xs-tb-select {
   max-width: 140px;
-  padding: 0 4px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 4px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: 12px var(--xs-font);
-}
-.xs-tb-select:focus {
-  border-color: var(--xs-accent);
-  outline: none;
+  font-size: 12px;
 }
 
 /* ── a menu under a button: palettes and borders ── */
@@ -151,10 +141,8 @@
 }
 
 /* ── a finger: every target at least 44 × 44 px ── */
-.xs-touch .xs-tb-select {
-  height: 44px;
+.xs-touch .xs-field.xs-tb-select {
   max-width: none;
-  font-size: 15px;
 }
 .xs-touch .xs-tb-item {
   min-height: 44px;

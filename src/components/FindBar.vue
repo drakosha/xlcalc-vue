@@ -32,7 +32,7 @@ const run: FindRunner = (call) => ctx.ed.run(call, [], null, null)
       <input
         :ref="setInput"
         v-model="find.text.value"
-        class="xs-find-input"
+        class="xs-field xs-field-m xs-find-input"
         type="search"
         spellcheck="false"
         :placeholder="m.findPlaceholder"
@@ -63,7 +63,7 @@ const run: FindRunner = (call) => ctx.ed.run(call, [], null, null)
       </span>
     </div>
     <div v-if="find.replacing.value && find.canReplace.value" class="xs-find-row">
-      <input v-model="find.by.value" class="xs-find-input" type="text" spellcheck="false" :placeholder="m.replacePlaceholder" :aria-label="m.replacePlaceholder" data-xs-replace-input @keydown="find.onFindKey" />
+      <input v-model="find.by.value" class="xs-field xs-field-m xs-find-input" type="text" spellcheck="false" :placeholder="m.replacePlaceholder" :aria-label="m.replacePlaceholder" data-xs-replace-input @keydown="find.onFindKey" />
       <button type="button" class="xs-button" :disabled="!find.text.value || find.writing.value" data-xs-replace-one @click="find.replaceOne(run)">{{ m.replaceOne }}</button>
       <button type="button" class="xs-button" :disabled="!find.text.value || find.writing.value" data-xs-replace-all @click="find.replaceAll(run)">{{ m.replaceAll }}</button>
     </div>
@@ -85,14 +85,14 @@ const run: FindRunner = (call) => ctx.ed.run(call, [], null, null)
         </label>
         <label class="xs-find-opt">
           {{ m.findLookIn }}
-          <select class="xs-find-select" :value="find.lookIn.value" :disabled="find.replacing.value" data-xs-find-look @change="find.options.lookIn = fieldValue($event) === 'values' ? 'values' : 'formulas'">
+          <select class="xs-field xs-field-s" :value="find.lookIn.value" :disabled="find.replacing.value" data-xs-find-look @change="find.options.lookIn = fieldValue($event) === 'values' ? 'values' : 'formulas'">
             <option value="formulas">{{ m.findInFormulas }}</option>
             <option value="values">{{ m.findInValues }}</option>
           </select>
         </label>
         <label class="xs-find-opt">
           {{ m.findOrder }}
-          <select class="xs-find-select" :value="find.options.byColumns ? 'columns' : 'rows'" data-xs-find-order @change="find.options.byColumns = fieldValue($event) === 'columns'">
+          <select class="xs-field xs-field-s" :value="find.options.byColumns ? 'columns' : 'rows'" data-xs-find-order @change="find.options.byColumns = fieldValue($event) === 'columns'">
             <option value="rows">{{ m.findByRows }}</option>
             <option value="columns">{{ m.findByColumns }}</option>
           </select>
@@ -101,3 +101,5 @@ const run: FindRunner = (call) => ctx.ed.run(call, [], null, null)
     </div>
   </div>
 </template>
+
+<style src="../controls.css"></style>

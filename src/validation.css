@@ -152,40 +152,20 @@
   gap: 8px;
   padding: 10px 16px 14px;
 }
-.xs-va-btn {
+/* Excel's alert buttons: a button (controls.css) of 28 px with a smaller radius. */
+.xs-button.xs-va-btn {
   min-width: 80px;
   height: 28px;
   padding: 0 14px;
-  border: 1px solid var(--xs-grid);
   border-radius: 4px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: inherit;
-  cursor: pointer;
-}
-.xs-va-btn:hover {
-  background: var(--xs-head-bg);
-}
-.xs-va-main {
-  border-color: var(--xs-accent);
-  background: var(--xs-accent);
-  color: #ffffff;
-}
-.xs-va-main:hover {
-  background: color-mix(in srgb, var(--xs-accent) 88%, #000000);
-}
-.xs-va-btn:focus-visible {
-  outline: 2px solid var(--xs-accent);
-  outline-offset: 2px;
 }
 
 /* ── a finger (the sheet's, a phone's too): buttons of 44 px, the text larger ── */
 .xs-touch .xs-modal.xs-va {
   font-size: 15px;
 }
-.xs-touch .xs-va-btn {
+.xs-touch .xs-button.xs-va-btn {
   flex: 1 1 0;
-  min-width: 44px;
   height: auto;
-  min-height: 44px;
+  font-size: inherit;
 }

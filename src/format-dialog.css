@@ -12,22 +12,10 @@
 .xs-fmt-title {
   font-size: 14px;
 }
-.xs-fmt-x {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* The close cross: a tool (controls.css) of the field's height. */
+.xs-tool.xs-fmt-x {
   width: 26px;
   height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--xs-muted);
-  cursor: pointer;
-}
-.xs-fmt-x:hover {
-  background: var(--xs-head-bg);
-  color: var(--xs-fg);
 }
 .xs-fmt-tabs {
   display: flex;
@@ -86,22 +74,11 @@
   color: var(--xs-fg);
   font-weight: 600;
 }
-.xs-fmt-input,
-.xs-fmt-select {
+.xs-field.xs-fmt-input,
+.xs-field.xs-fmt-select {
   width: 100%;
   min-width: 0;
-  height: 26px;
   padding: 0 6px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 4px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: inherit;
-  outline: none;
-}
-.xs-fmt-input:focus,
-.xs-fmt-select:focus {
-  border-color: var(--xs-accent);
 }
 .xs-fmt-input[readonly],
 .xs-fmt-input:disabled {
@@ -158,24 +135,10 @@
   padding: 10px 14px;
   border-top: 1px solid var(--xs-grid);
 }
-.xs-fmt-btn {
+.xs-button.xs-fmt-btn {
   min-width: 84px;
   padding: 5px 14px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 6px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: inherit;
-  cursor: pointer;
-}
-.xs-fmt-main {
-  border-color: var(--xs-accent);
-  background: var(--xs-accent);
-  color: #ffffff;
-}
-.xs-fmt-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
+  font-size: inherit;
 }
 
 /* ── a colour: the choice without one, Excel's palette, a code ── */
@@ -327,17 +290,17 @@
   .xs-modal.xs-fmt {
     font-size: 15px;
   }
-  .xs-fmt-x {
-    width: 44px;
-    height: 44px;
+  .xs-tool.xs-fmt-x {
+    width: var(--xs-touch-target);
+    height: var(--xs-touch-target);
   }
   .xs-fmt-tab {
     flex: 1 1 auto;
     min-height: 44px;
   }
-  .xs-fmt-input,
-  .xs-fmt-select {
-    height: 44px;
+  .xs-field.xs-fmt-input,
+  .xs-field.xs-fmt-select {
+    height: var(--xs-touch-target);
     font-size: 16px;
   }
   .xs-fmt-check,
@@ -345,9 +308,9 @@
   .xs-fmt-none,
   .xs-fmt-line,
   .xs-fmt-preset,
-  .xs-fmt-btn {
-    min-width: 44px;
-    min-height: 44px;
+  .xs-button.xs-fmt-btn {
+    min-width: var(--xs-touch-target);
+    min-height: var(--xs-touch-target);
   }
   .xs-fmt-check input,
   .xs-fmt-choice input {

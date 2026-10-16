@@ -103,7 +103,7 @@ const cancel = () => emit('close')
   >
     <header class="xs-fmt-head">
       <span class="xs-modal-title xs-fmt-title">{{ m.formatCells }}</span>
-      <button type="button" class="xs-fmt-x" :title="m.cancel" :aria-label="m.cancel" @click="cancel">
+      <button type="button" class="xs-tool xs-fmt-x" :title="m.cancel" :aria-label="m.cancel" @click="cancel">
         <IconClose />
       </button>
     </header>
@@ -130,7 +130,7 @@ const cancel = () => emit('close')
         <label class="xs-fmt-field">
           <span>{{ m.fmtCode }}</span>
           <input
-            class="xs-fmt-input"
+            class="xs-field xs-fmt-input"
             type="text"
             spellcheck="false"
             autocomplete="off"
@@ -146,17 +146,17 @@ const cancel = () => emit('close')
       <div v-show="tab === 'alignment'" class="xs-fmt-grid">
         <label class="xs-fmt-field">
           <span>{{ m.fmtHorizontal }}</span>
-          <select class="xs-fmt-select" :value="draft.horizontal" data-fmt-horizontal @change="setHorizontal(draft, fieldValue($event))">
+          <select class="xs-field xs-fmt-select" :value="draft.horizontal" data-fmt-horizontal @change="setHorizontal(draft, fieldValue($event))">
             <option v-for="h in HORIZONTALS" :key="h" :value="h">{{ m.fmtHorizontalKind(h) }}</option>
           </select>
         </label>
         <label class="xs-fmt-field">
           <span>{{ m.fmtIndent }}</span>
-          <input v-model="draft.indent" class="xs-fmt-input" type="text" inputmode="numeric" :disabled="!INDENTED.has(draft.horizontal)" :aria-invalid="!!errors.indent" data-fmt-indent />
+          <input v-model="draft.indent" class="xs-field xs-fmt-input" type="text" inputmode="numeric" :disabled="!INDENTED.has(draft.horizontal)" :aria-invalid="!!errors.indent" data-fmt-indent />
         </label>
         <label class="xs-fmt-field">
           <span>{{ m.fmtVertical }}</span>
-          <select v-model="draft.vertical" class="xs-fmt-select" data-fmt-vertical>
+          <select v-model="draft.vertical" class="xs-field xs-fmt-select" data-fmt-vertical>
             <option v-for="v in VERTICALS" :key="v" :value="v">{{ m.fmtVerticalKind(v) }}</option>
           </select>
         </label>
@@ -170,27 +170,27 @@ const cancel = () => emit('close')
       <div v-show="tab === 'font'" class="xs-fmt-grid">
         <label class="xs-fmt-field">
           <span>{{ m.fmtFontName }}</span>
-          <input v-model="draft.fontName" class="xs-fmt-input" type="text" list="xs-fmt-fonts" spellcheck="false" autocomplete="off" :placeholder="m.fmtFontDefault" data-fmt-font-name />
+          <input v-model="draft.fontName" class="xs-field xs-fmt-input" type="text" list="xs-fmt-fonts" spellcheck="false" autocomplete="off" :placeholder="m.fmtFontDefault" data-fmt-font-name />
           <datalist id="xs-fmt-fonts">
             <option v-for="f in FONT_NAMES" :key="f" :value="f" />
           </datalist>
         </label>
         <label class="xs-fmt-field">
           <span>{{ m.fmtFontStyle }}</span>
-          <select v-model="draft.fontStyle" class="xs-fmt-select" data-fmt-font-style>
+          <select v-model="draft.fontStyle" class="xs-field xs-fmt-select" data-fmt-font-style>
             <option v-for="k in FONT_STYLES" :key="k" :value="k">{{ m.fmtFontStyleKind(k) }}</option>
           </select>
         </label>
         <label class="xs-fmt-field">
           <span>{{ m.fmtSize }}</span>
-          <input v-model="draft.fontSize" class="xs-fmt-input" type="text" inputmode="decimal" list="xs-fmt-sizes" autocomplete="off" placeholder="11" :aria-invalid="!!errors.fontSize" data-fmt-font-size />
+          <input v-model="draft.fontSize" class="xs-field xs-fmt-input" type="text" inputmode="decimal" list="xs-fmt-sizes" autocomplete="off" placeholder="11" :aria-invalid="!!errors.fontSize" data-fmt-font-size />
           <datalist id="xs-fmt-sizes">
             <option v-for="s in FONT_SIZES" :key="s" :value="String(s)" />
           </datalist>
         </label>
         <label class="xs-fmt-field">
           <span>{{ m.fmtUnderline }}</span>
-          <select v-model="draft.underline" class="xs-fmt-select" data-fmt-underline>
+          <select v-model="draft.underline" class="xs-field xs-fmt-select" data-fmt-underline>
             <option v-for="u in UNDERLINES" :key="u" :value="u">{{ m.fmtUnderlineKind(u) }}</option>
           </select>
         </label>
@@ -214,10 +214,11 @@ const cancel = () => emit('close')
     </div>
 
     <footer class="xs-fmt-foot">
-      <button type="button" class="xs-fmt-btn" data-fmt-cancel @click="cancel">{{ m.cancel }}</button>
-      <button type="submit" class="xs-fmt-btn xs-fmt-main" :disabled="blocked" data-fmt-ok>{{ m.ok }}</button>
+      <button type="button" class="xs-button xs-fmt-btn" data-fmt-cancel @click="cancel">{{ m.cancel }}</button>
+      <button type="submit" class="xs-button xs-button-main xs-fmt-btn" :disabled="blocked" data-fmt-ok>{{ m.ok }}</button>
     </footer>
   </DialogShell>
 </template>
 
+<style src="../controls.css"></style>
 <style src="../format-dialog.css"></style>

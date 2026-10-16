@@ -87,7 +87,7 @@ function onKey(e: KeyboardEvent): void {
     <p class="xs-modal-title">{{ m.insertFunctionTitle }}</p>
     <input
       v-model="query"
-      class="xs-ifn-input"
+      class="xs-field xs-field-l"
       type="text"
       enterkeyhint="search"
       autocomplete="off"
@@ -98,7 +98,7 @@ function onKey(e: KeyboardEvent): void {
     />
     <label class="xs-ifn-field">
       <span>{{ m.insertFunctionCategory }}</span>
-      <select v-model="category" class="xs-ifn-input" data-xs-if-category>
+      <select v-model="category" class="xs-field xs-field-l" data-xs-if-category>
         <option value="recent">{{ m.insertFunctionRecent }}</option>
         <option value="all">{{ m.insertFunctionAll }}</option>
         <option v-for="c in categories" :key="c.key" :value="c.key">{{ c.name }}</option>
@@ -129,4 +129,5 @@ function onKey(e: KeyboardEvent): void {
   </DialogShell>
 </template>
 
+<style src="../controls.css"></style>
 <style src="../insert-function.css"></style>

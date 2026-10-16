@@ -495,6 +495,7 @@ await source.close() // when the sheet goes, as in onUnmounted
 | `--xs-head-bg`, `--xs-head-fg` | `#f3f4f6`, `#5f6368` | Row numbers and column letters. |
 | `--xs-head-on-bg`, `--xs-head-on-fg` | `#d3e3fd`, `#0b57d0` | Headers of selected lines. |
 | `--xs-accent`, `--xs-sel-tint` | `#1a73e8`, `rgb(26 115 232 / 0.12)` | The selection's border and tint. |
+| `--xs-on-accent` | `#ffffff` | Text on the accent: a main button, a list's highlighted item. |
 | `--xs-link`, `--xs-note` | `#1558d6`, `#dc2626` | Hyperlinks, a note's mark. |
 | `--xs-flash`, `--xs-hit` | `rgb(250 204 21 / 0.85)`, `rgb(250 204 21 / 0.45)` | A jump's flash, Find's hits. |
 | `--xs-freeze-line`, `--xs-border-auto` | `#9aa0a6`, `#000000` | The frozen panes' line, a border of automatic colour. |

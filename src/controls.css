@@ -1,4 +1,96 @@
-/* Controls the sheet, the toolbar and the Format Cells dialog share, in the sheet's --xs-* variables. */
+/* Controls the sheet, the toolbar and the Format Cells dialog share, in the sheet's --xs-* variables; each of the three loads this file. */
+.xs-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* A tool: an icon's button without a frame, a hint of the header's grey on hover and while it is on. */
+.xs-tool {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--xs-muted);
+  cursor: pointer;
+}
+.xs-tool:hover:not(:disabled),
+.xs-tool-on {
+  background: var(--xs-head-bg);
+  color: var(--xs-fg);
+}
+.xs-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* A button with its text in a frame; the main one (OK, Apply, an alert's default) in the accent. */
+.xs-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 6px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.xs-button:hover:not(:disabled) {
+  background: var(--xs-head-bg);
+}
+.xs-button-main {
+  border-color: var(--xs-accent);
+  background: var(--xs-accent);
+  color: var(--xs-on-accent);
+}
+.xs-button-main:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--xs-accent) 88%, #000000);
+}
+.xs-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.xs-button:focus-visible {
+  outline: 2px solid var(--xs-accent);
+  outline-offset: 2px;
+}
+
+/* A field or a list box: the grid's line round it, the accent's while it has the focus (the address box is the formula bar's). */
+.xs-field,
+.xs-address {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  font: inherit;
+  outline: none;
+}
+.xs-field:focus,
+.xs-address:focus {
+  border-color: var(--xs-accent);
+}
+/* Fields of the bars smaller, of the dialogs larger; a finger's are all 44 px. */
+.xs-field-s {
+  height: 22px;
+  padding: 0 4px;
+}
+.xs-field-m {
+  height: 24px;
+}
+.xs-field-l {
+  height: 28px;
+}
 
 /* Excel's palette (ColourSwatches.vue): ten swatches a row, five of 44 px under a finger. */
 .xs-swatches {
@@ -23,4 +115,24 @@
   --xs-swatch: var(--xs-touch-target);
   grid-template-columns: repeat(5, var(--xs-swatch));
   gap: 6px;
+}
+
+/* ── a finger: 44 px targets, fields of 16 px text, which iOS does not zoom into ── */
+.xs-touch .xs-tool {
+  width: var(--xs-touch-target);
+  height: var(--xs-touch-target);
+}
+.xs-touch .xs-tool .xs-icon {
+  width: 18px;
+  height: 18px;
+}
+.xs-touch .xs-button {
+  min-width: var(--xs-touch-target);
+  min-height: var(--xs-touch-target);
+  font-size: 14px;
+}
+.xs-touch .xs-field,
+.xs-touch .xs-address {
+  height: var(--xs-touch-target);
+  font-size: 16px;
 }

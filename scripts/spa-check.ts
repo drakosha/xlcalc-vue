@@ -105,7 +105,7 @@ async function checkTargets(page: Page, where: string): Promise<void> {
     [
       ...document.querySelectorAll<HTMLElement>(
         '.spa-top button, .spa-top input:not([type=file]), .xs-toolbar button, .xs-toolbar select, .spa-dialog button, .spa-dialog select, .spa-choice, .xs-menu button, .xs-dialog button, .xs-dialog input, .xs-tabs button, .xs-bar button, ' +
-          '.xs-find button, .xs-find-input, .xs-find-select, .xs-find-opt, .xs-fmt button, .xs-fmt-input, .xs-fmt-select, .xs-fmt-choice, .xs-fmt-check, .xs-ifn button, .xs-ifn-input, .xs-ifn-item',
+          '.xs-find button, .xs-find-input, .xs-find select, .xs-find-opt, .xs-fmt button, .xs-fmt-input, .xs-fmt-select, .xs-fmt-choice, .xs-fmt-check, .xs-ifn button, .xs-ifn .xs-field, .xs-ifn-item',
       ),
     ]
       .filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
