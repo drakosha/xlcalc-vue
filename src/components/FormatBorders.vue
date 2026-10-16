@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The Border tab of the Format Cells dialog, as Excel's: a line's kind and colour, the presets None, Outline and Inside,
 // a button for each edge, and a preview of the selection's edges drawn as the grid draws them.
-import { computed } from 'vue'
+import { computed, h, type FunctionalComponent } from 'vue'
 import type { BorderLine } from 'xlcalc/contract'
 import { borderCss, setSide } from '../core/cell-style'
 import { edgesIn, LINE_STYLES, pressEdge, pressPreset, shownEdge, type FormatDraft, type FormatStart } from '../format-cells'
@@ -14,20 +14,27 @@ const emit = defineEmits<{ invalid: [bad: boolean] }>()
 const m = computed(() => props.messages)
 
 const PRESETS = ['none', 'outline', 'inside'] as const
-/** The edge buttons as Excel lays them round the preview: across on the left, down under it. */
-const ACROSS: BorderEdge[] = ['top', 'insideH', 'bottom']
-const DOWN: BorderEdge[] = ['left', 'insideV', 'right']
+/** The edge buttons as Excel lays them round the preview: across on its left, down under it. */
+const EDGE_GROUPS: { cls: string; edges: BorderEdge[] }[] = [
+  { cls: 'xs-fmt-edge-col', edges: ['top', 'insideH', 'bottom'] },
+  { cls: 'xs-fmt-edge-row', edges: ['left', 'insideV', 'right'] },
+]
 const EDGE_PATH: Record<BorderEdge, string> = { top: 'M4 4h16', insideH: 'M4 12h16', bottom: 'M4 20h16', left: 'M4 4v16', insideV: 'M12 4v16', right: 'M20 4v16' }
 const PRESET_PATHS: Record<(typeof PRESETS)[number], string[]> = { none: [], outline: ['M4 4h16v16H4z'], inside: ['M4 12h16', 'M12 4v16'] }
+/** A preset's or an edge's icon: the cell's frame dashed and the lines it draws. */
+const BorderIcon: FunctionalComponent<{ paths: string[] }> = (p) =>
+  h('svg', { class: 'xs-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'aria-hidden': 'true' }, [
+    h('path', { d: 'M4 4h16v16H4z', 'stroke-width': 1, 'stroke-dasharray': '2 2' }),
+    ...p.paths.map((d) => h('path', { d })),
+  ])
+BorderIcon.props = ['paths']
 
 const has = computed(() => new Set(edgesIn(props.start)))
-/** A line's sample as an SVG stroke: its width and dashes, a double one as two strokes. */
-function sample(style: BorderLine['style']): { width: number; dash: string; double: boolean } {
-  const css = borderCss({ style })!
-  const width = Math.min(3, parseInt(css.width, 10))
-  const dashes: Partial<Record<BorderLine['style'], string>> = { hair: '1 1', dotted: '1 2', dashed: '4 2', mediumDashed: '6 3', dashDot: '5 2 1 2', mediumDashDot: '7 3 2 3', dashDotDot: '5 2 1 2 1 2', mediumDashDotDot: '7 3 2 3 2 3', slantDashDot: '7 2 3 2' }
-  return { width: style === 'double' ? 1 : width, dash: dashes[style] ?? '', double: style === 'double' }
-}
+const DASHES: Partial<Record<BorderLine['style'], string>> = { hair: '1 1', dotted: '1 2', dashed: '4 2', mediumDashed: '6 3', dashDot: '5 2 1 2', mediumDashDot: '7 3 2 3', dashDotDot: '5 2 1 2 1 2', mediumDashDotDot: '7 3 2 3 2 3', slantDashDot: '7 2 3 2' }
+/** Each line's sample as an SVG stroke: its width and dashes, a double one as two strokes. */
+const SAMPLES = Object.fromEntries(
+  LINE_STYLES.map((style) => [style, { width: style === 'double' ? 1 : Math.min(3, parseInt(borderCss({ style })!.width, 10)), dash: DASHES[style] ?? '', double: style === 'double' }]),
+) as Record<BorderLine['style'], { width: number; dash: string; double: boolean }>
 function setColour(c: string | null): void {
   props.draft.line = c ? { style: props.draft.line.style, color: c } : { style: props.draft.line.style }
 }
@@ -76,11 +83,11 @@ const pressed = (e: BorderEdge) => !!shownEdge(props.start, props.draft, e)
           @click="draft.line = { ...draft.line, style: st }"
         >
           <svg viewBox="0 0 60 8" preserveAspectRatio="none" aria-hidden="true">
-            <template v-if="sample(st).double">
+            <template v-if="SAMPLES[st].double">
               <line x1="2" y1="2.5" x2="58" y2="2.5" stroke="currentColor" stroke-width="1" />
               <line x1="2" y1="5.5" x2="58" y2="5.5" stroke="currentColor" stroke-width="1" />
             </template>
-            <line v-else x1="2" y1="4" x2="58" y2="4" stroke="currentColor" :stroke-width="sample(st).width" :stroke-dasharray="sample(st).dash" />
+            <line v-else x1="2" y1="4" x2="58" y2="4" stroke="currentColor" :stroke-width="SAMPLES[st].width" :stroke-dasharray="SAMPLES[st].dash" />
           </svg>
         </button>
       </div>
@@ -92,10 +99,7 @@ const pressed = (e: BorderEdge) => !!shownEdge(props.start, props.draft, e)
         <legend>{{ m.fmtPresets }}</legend>
         <div class="xs-fmt-presets">
           <button v-for="p in PRESETS" :key="p" type="button" class="xs-fmt-preset" :disabled="p === 'inside' && !multi" :data-fmt-preset="p" @click="pressPreset(start, draft, p)">
-            <svg class="xs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M4 4h16v16H4z" stroke-width="1" stroke-dasharray="2 2" />
-              <path v-for="d in PRESET_PATHS[p]" :key="d" :d="d" />
-            </svg>
+            <BorderIcon :paths="PRESET_PATHS[p]" />
             {{ m.fmtPreset(p) }}
           </button>
         </div>
@@ -103,24 +107,13 @@ const pressed = (e: BorderEdge) => !!shownEdge(props.start, props.draft, e)
       <fieldset class="xs-fmt-box">
         <legend>{{ m.fmtEdges }}</legend>
         <div class="xs-fmt-edges">
-          <div class="xs-fmt-edge-col">
-            <button v-for="e in ACROSS" :key="e" type="button" class="xs-fmt-edge" :disabled="!has.has(e)" :aria-pressed="pressed(e)" :aria-label="m.fmtEdge(e)" :title="m.fmtEdge(e)" :data-fmt-edge="e" @click="pressEdge(start, draft, e)">
-              <svg class="xs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M4 4h16v16H4z" stroke-width="1" stroke-dasharray="2 2" />
-                <path :d="EDGE_PATH[e]" />
-              </svg>
+          <div v-for="g in EDGE_GROUPS" :key="g.cls" :class="g.cls">
+            <button v-for="e in g.edges" :key="e" type="button" class="xs-fmt-edge" :disabled="!has.has(e)" :aria-pressed="pressed(e)" :aria-label="m.fmtEdge(e)" :title="m.fmtEdge(e)" :data-fmt-edge="e" @click="pressEdge(start, draft, e)">
+              <BorderIcon :paths="[EDGE_PATH[e]]" />
             </button>
           </div>
           <div class="xs-fmt-preview" :style="{ gridTemplateColumns: has.has('insideV') ? '1fr 1fr' : '1fr' }" role="img" :aria-label="m.fmtEdges" data-fmt-preview>
             <span v-for="c in cells" :key="c.key" class="xs-fmt-pcell" :style="c.style">Aa</span>
-          </div>
-          <div class="xs-fmt-edge-row">
-            <button v-for="e in DOWN" :key="e" type="button" class="xs-fmt-edge" :disabled="!has.has(e)" :aria-pressed="pressed(e)" :aria-label="m.fmtEdge(e)" :title="m.fmtEdge(e)" :data-fmt-edge="e" @click="pressEdge(start, draft, e)">
-              <svg class="xs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M4 4h16v16H4z" stroke-width="1" stroke-dasharray="2 2" />
-                <path :d="EDGE_PATH[e]" />
-              </svg>
-            </button>
           </div>
         </div>
       </fieldset>
