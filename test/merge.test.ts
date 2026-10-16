@@ -54,7 +54,7 @@ describe('Merge & Center on the toolbar', () => {
     await goTo(w, 'B2:C3')
     await w.find('[data-tb="merge"]').trigger('click')
     await settle()
-    for (const item of ['merge-center', 'merge-across', 'merge-cells', 'unmerge']) await pick(w, item)
+    for (const item of ['merge-center', 'merge-across', 'merge-cells', 'unmerge-cells']) await pick(w, item)
     expect(ops(structure)).toEqual([
       { op: 'mergeCells', sheet: 'S', range: 'B2:C3', center: true },
       { op: 'mergeCells', sheet: 'S', range: 'B2:C3', center: true },
@@ -81,7 +81,7 @@ describe('Merge & Center on the toolbar', () => {
     const w = await mountBoth(source)
     await goTo(w, 'C5')
     await w.find('[data-tb="merge"]').trigger('click')
-    for (const item of ['merge-across', 'merge-cells', 'unmerge']) await pick(w, item)
+    for (const item of ['merge-across', 'merge-cells', 'unmerge-cells']) await pick(w, item)
     await settle()
     expect(structure).not.toHaveBeenCalled()
   })

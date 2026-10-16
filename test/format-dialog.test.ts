@@ -2,7 +2,7 @@
 // Esc close; Excel's limits hold OK back; the toolbar's Format Cells button asks the host to open it.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { FormatDialog, SheetToolbar, type SheetViewState } from '../src'
+import { FormatDialog, SheetToolbar, type SheetViewApi, type SheetViewState } from '../src'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/source'
 import { settle } from './helpers'
 
@@ -141,5 +141,15 @@ describe('the toolbar’s Format Cells button', () => {
     expect(onFormatCells).toHaveBeenCalledTimes(1)
     const plain = mount(SheetToolbar, { props: { source, state: at('A1') }, attachTo: document.body })
     expect(plain.find('[data-tb="format-cells"]').exists()).toBe(false)
+  })
+
+  it('opens the host’s dialog once the host listens, even when it began listening after the toolbar was made', async () => {
+    const sheet = { formatCells: vi.fn() } as unknown as SheetViewApi
+    const w = mount(SheetToolbar, { props: { source, state: at('A1'), sheet }, attachTo: document.body })
+    await settle()
+    const onFormatCells = vi.fn()
+    await w.setProps({ onFormatCells } as never)
+    await w.find('[data-tb="format-cells"]').trigger('click')
+    expect([onFormatCells.mock.calls.length, vi.mocked(sheet.formatCells).mock.calls.length]).toEqual([1, 0])
   })
 })

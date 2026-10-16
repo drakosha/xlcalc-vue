@@ -81,10 +81,13 @@ const NARROW_PX = 600
 
 const m = useMessages(() => props.messages)
 const instance = getCurrentInstance()
-/** Whether the host listens to `formatCells`, so that the button opens its own dialog instead of the sheet's. */
-const hostDialog = typeof instance?.vnode.props?.onFormatCells === 'function' || Array.isArray(instance?.vnode.props?.onFormatCells)
+/** Whether the host listens to `formatCells` now, so that the button opens its own dialog instead of the sheet's. */
+function hostDialog(): boolean {
+  const listener = instance?.vnode.props?.onFormatCells
+  return typeof listener === 'function' || Array.isArray(listener)
+}
 function formatCells(): void {
-  if (hostDialog || !props.sheet) emit('formatCells')
+  if (hostDialog() || !props.sheet) emit('formatCells')
   else props.sheet.formatCells()
 }
 const style = computed(() => props.state?.style)
@@ -105,13 +108,9 @@ const BORDERS: { kind: BorderKind; icon: typeof IconBold; title: keyof SheetMess
   { kind: 'bottom', icon: IconBorderBottom, title: 'borderBottom' },
   { kind: 'none', icon: IconBorderNone, title: 'borderNone' },
 ]
-/** Excel's list under Merge & Center. */
-const MERGES: { command: MergeCommand; tb: string; title: keyof SheetMessages }[] = [
-  { command: 'mergeCenter', tb: 'merge-center', title: 'mergeCenter' },
-  { command: 'mergeAcross', tb: 'merge-across', title: 'mergeAcross' },
-  { command: 'mergeCells', tb: 'merge-cells', title: 'mergeCells' },
-  { command: 'unmergeCells', tb: 'unmerge', title: 'unmergeCells' },
-]
+/** Excel's list under Merge & Center: each item is named by its command's text, its hook (`data-tb`) is the command in kebab case. */
+const MERGES: readonly MergeCommand[] = ['mergeCenter', 'mergeAcross', 'mergeCells', 'unmergeCells']
+const kebab = (name: string) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
 const text = (key: keyof SheetMessages) => m.value[key] as string
 
 // ── what the active cell shows ──
@@ -423,13 +422,13 @@ function pickNumber(e: Event): void {
             <IconDown />
           </button>
           <div v-if="open === 'merge'" class="xs-tb-pop" role="menu" :aria-label="m.mergeMenu">
-            <button v-for="x in MERGES" :key="x.command" type="button" class="xs-tb-item" role="menuitem" :data-tb="x.tb" @click="merge(x.command)">
-              {{ text(x.title) }}
+            <button v-for="x in MERGES" :key="x" type="button" class="xs-tb-item" role="menuitem" :data-tb="kebab(x)" @click="merge(x)">
+              {{ m[x] }}
             </button>
           </div>
         </span>
       </span>
-      <span v-if="hostDialog || sheet" class="xs-tb-group">
+      <span v-if="hostDialog() || sheet" class="xs-tb-group">
         <button type="button" class="xs-tool" data-tb="format-cells" :title="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="formatCells">
           <IconFormatCells />
         </button>

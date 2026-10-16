@@ -478,7 +478,7 @@ async function mergeScreens(page: Page, size: (typeof SIZES)[number]): Promise<v
   await page.keyboard.press('Enter')
   if (size.mobile) await press('[data-tb="more"]')
   await press('[data-tb="merge-menu"]')
-  await page.waitForSelector('[data-tb="unmerge"]')
+  await page.waitForSelector('[data-tb="unmerge-cells"]')
   await shot(page, size.name, '56-merge-menu')
   await checkTargets(page, size.mobile, '.xs-toolbar')
   await press('[data-tb="merge-center"]')
