@@ -11,6 +11,7 @@ import { axisOf, lineSpan, type LineAxis } from './lines'
 import { outlineCommand, outlineOf, outlineSheet, type AxisLines } from './memory-outline'
 import { abortError } from './abort'
 import { filterKey } from './filter-key'
+import { failedOutcome } from './failure'
 import { isGridRef } from './grid-ref'
 import { DEFAULT_MAX_CELLS, rowsFor } from './window-size'
 import { MemoryRules, memoryRefusal, PLAIN_NUMBER, type MemoryValidation } from './memory-validation'
@@ -453,7 +454,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         try {
           refused = outlineCommand(lines, store.sheet.outline, change)
         } catch (e) {
-          return { ok: false, reason: 'failed', message: e instanceof Error ? e.message : String(e) }
+          return failedOutcome(e)
         }
         if (refused !== null) return { ok: false, reason: 'refused', message: refused }
         const sizes = axis === 'rows' ? store.heights : store.widths
