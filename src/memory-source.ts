@@ -26,6 +26,8 @@ export interface MemoryCell {
   style?: number
   /** The colour of the number format's section. */
   color?: string
+  /** The number format code the cell shows by, as xlsx stores it (`0.0%`, `dd.mm.yyyy`); without it General. The text it opens with follows it. */
+  numberFormat?: string
   link?: { href?: string; location?: string; tooltip?: string; target?: string }
   note?: { author?: string; text: string }
   /** List mode: the cell is a drill-down (`SheetWindow.drill`). */
@@ -230,7 +232,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     if (cell.formula !== undefined) return `=${cell.formula}`
     if (cell.value === undefined || cell.value === null) return cell.text ?? ''
     // withEntry has loaded it for every caller; plain text is only the type's fallback
-    return entry ? entry.entryText(cell.value) : plainText(cell.value)
+    return entry ? entry.entryText(cell.value, cell.numberFormat ? { numberFormat: cell.numberFormat } : undefined) : plainText(cell.value)
   }
 
   function wait<T>(make: () => T, signal?: AbortSignal): Promise<T> {
@@ -328,6 +330,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       colors: {},
       styleIds: {},
       styles,
+      numberFormats: {},
       widths: [],
       rowHeights: {},
       merges: [],
@@ -357,6 +360,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         if (cell.formula !== undefined) win.formulas[addr] = cell.formula
         if (cell.color) win.colors[addr] = cell.color
         if (cell.style !== undefined) win.styleIds[addr] = cell.style
+        if (cell.numberFormat) win.numberFormats![addr] = cell.numberFormat
         if (cell.link) win.links![addr] = cell.link
         if (cell.note) win.notes![addr] = cell.note
         if (cell.drill) win.drill![addr] = true

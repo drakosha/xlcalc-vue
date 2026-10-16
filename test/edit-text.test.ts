@@ -70,6 +70,13 @@ describe('the text a cell opens with, by xlcalc/entry', () => {
     expect(await open(w, 'A2')).toBe('0,355')
   })
 
+  it("memorySource gives a cell's numberFormat in its windows, so a percent and a date open as Excel opens them", async () => {
+    const cells: Record<string, MemoryCell> = Object.fromEntries(Object.entries(FORMATS).map(([addr, code]) => [addr, { ...CELLS[addr], numberFormat: code }]))
+    const w = await mountSheet(memorySource({ sheets: [{ name: 'S', cells }] }), { locale: 'ru-RU' })
+    expect(await open(w, 'A2')).toBe('35,5%')
+    expect(await open(w, 'A3')).toBe('15.03.2026')
+  })
+
   it('opens with the shown text at once while the chunk loads, and the formula bar takes the entry text once it is in', async () => {
     let arrive: () => void = () => {}
     const real = entry.loadEntry

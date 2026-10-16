@@ -79,22 +79,23 @@ function formatting(): MemorySheet {
 function formats(): MemorySheet {
   const head = st({ font: { bold: true }, fill: { color: '#e2efda' } })
   const right = st({})
-  const rows: [string, number, string, string?][] = [
-    ['Число с разрядами', 1234567.891, '1 234 567,89'],
-    ['Деньги', 1234.5, '1 234,50 ₽'],
-    ['Отрицательное красным', -42, '-42,00', '#ff0000'],
-    ['Положительное синим', 42, '42,00', '#0070c0'],
-    ['Процент', 0.355, '35,5%'],
-    ['Дата', 46096, '15.03.2026'],
-    ['Время', 0.75, '18:00'],
-    ['Экспонента', 0.000012, '1,20E-05'],
-    ['Дробь', 1.25, '1 1/4'],
-    ['Не влезает в ширину', 123456789012, '########'],
+  // Name, value, shown text, the format's code (the text a cell opens with follows it), the section's colour
+  const rows: [string, number, string, string, string?][] = [
+    ['Число с разрядами', 1234567.891, '1 234 567,89', '#,##0.00'],
+    ['Деньги', 1234.5, '1 234,50 ₽', '#,##0.00 "₽"'],
+    ['Отрицательное красным', -42, '-42,00', '0.00;[Red]-0.00', '#ff0000'],
+    ['Положительное синим', 42, '42,00', '[Blue]0.00', '#0070c0'],
+    ['Процент', 0.355, '35,5%', '0.0%'],
+    ['Дата', 46096, '15.03.2026', 'dd.mm.yyyy'],
+    ['Время', 0.75, '18:00', 'h:mm'],
+    ['Экспонента', 0.000012, '1,20E-05', '0.00E+00'],
+    ['Дробь', 1.25, '1 1/4', '# ?/?'],
+    ['Не влезает в ширину', 123456789012, '########', '0'],
   ]
   const cells: Record<string, MemoryCell> = { A1: { value: 'Формат', style: head }, B1: { value: 'Показано', style: head }, C1: { value: 'Значение', style: head } }
-  rows.forEach(([name, value, text, color], i) => {
+  rows.forEach(([name, value, text, numberFormat, color], i) => {
     cells[`A${i + 2}`] = { value: name }
-    cells[`B${i + 2}`] = { value, text, color, style: right }
+    cells[`B${i + 2}`] = { value, text, numberFormat, color, style: right }
     cells[`C${i + 2}`] = { value }
   })
   return { name: 'Форматы', cells, widths: { A: 26, B: 16, C: 16 } }
@@ -196,15 +197,15 @@ function chain(): MemorySheet {
     A9: { value: 'Чистая прибыль', style: total },
     B9: { value: 18000, text: '18 000', formula: 'B7-B8', style: total },
     A10: { value: 'Рентабельность' },
-    B10: { value: 1 / 3, text: '33,3%', formula: 'B9/B4' },
+    B10: { value: 1 / 3, text: '33,3%', numberFormat: '0.0%', formula: 'B9/B4' },
     A11: { value: 'План по прибыли' },
     B11: { value: 20000, text: '20 000', formula: 'Формулы!B2*100' },
     A12: { value: 'Выполнение плана', style: total },
-    B12: { value: 0.9, text: '90,0%', formula: 'ЕСЛИ(B11>0;B9/B11;0)', style: total },
+    B12: { value: 0.9, text: '90,0%', numberFormat: '0.0%', formula: 'ЕСЛИ(B11>0;B9/B11;0)', style: total },
     D1: { value: 'Параметр', style: head },
     E1: { value: 'Значение', style: head },
     D2: { value: 'Ставка налога' },
-    E2: { value: 0.2, text: '20%' },
+    E2: { value: 0.2, text: '20%', numberFormat: '0%' },
   }
   return { name: 'Расчёт', cells, widths: { A: 22, B: 14, C: 3, D: 16, E: 10 } }
 }

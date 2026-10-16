@@ -366,7 +366,7 @@ const messages = { ...ruMessages, loading: 'Загружаю…' }
 | --- | --- |
 | `MemoryBook` | `{ sheets: MemorySheet[]; styles?: CellStyle[]; functions?: string[] }`; `functions` turns on `functionNames`. |
 | `MemorySheet` | `SheetInfo` without `maxRow`, `maxCol` and `outline`, plus `cells: Record<string, MemoryCell \| CellValue>`, `widths?` (by `B`, `B:D` or `C:C`, xlsx units, 0 hides), `heights?` (by `5`, `5:9` or `5:5`, points, 0 hides), `defaultRowHeight?`, `merges?`, `tables?`, `notice?`, `outline?` (levels by line or span, `collapsed`, `summaryBelow`, `summaryRight`), `validations?: MemoryValidation[]`. |
-| `MemoryCell` | `{ value?, text?, formula?, style?, color?, link?, note?, appearance?, drill? }` |
+| `MemoryCell` | `{ value?, text?, formula?, style?, color?, numberFormat?, link?, note?, appearance?, drill? }`; `numberFormat` is the code the cell shows by (`0.0%`, `dd.mm.yyyy`), which the windows give as `numberFormats`, so a percent or a date opens as Excel opens it. |
 | `MemoryValidation` | `{ range; list?: string[]; whole?: { min?; max? }; prompt?: { title?; text }; alert?: { severity?; title?; message? } }` |
 | `MemorySourceOptions` | `{ delay?: number; maxCells?: number }`; `delay` makes every answer take that many milliseconds. |
 
