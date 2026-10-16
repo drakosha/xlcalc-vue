@@ -58,9 +58,10 @@ export interface SheetTarget {
 }
 
 export interface CommandsDeps {
-  /** Read the sheets and windows again; how many times it has started, to tell whether the source sent `reload` during a call. */
+  /** Read the sheets and windows again; how many times it has started, and how many `repaint` events came, to tell whether the source sent either during a call. */
   reload: () => Promise<void>
   reloads: () => number
+  repaints: () => number
   /** The sheet the next read shows. */
   target: (t: SheetTarget | null) => void
   /** The style the active cell shows. */
@@ -85,13 +86,17 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
   /** Structure operations over ranges (a copy or a cut pasted, a fill, a merge): with `structure`, and no display filter scattering the rows. */
   const canRanges = computed(() => can('structure') && !s.visible.value)
 
-  /** A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload` meanwhile; formatting and lines leave the copy mode on (`endsCopy`). */
-  async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null, endsCopy = true): Promise<EditOutcome> {
-    const before = deps.reloads()
+  /**
+   * A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload`
+   * meanwhile, or `repaint` for a change of `looks` alone (formatting), whose windows it reads again itself; formatting and
+   * lines leave the copy mode on (`endsCopy`).
+   */
+  async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null, endsCopy = true, looks = false): Promise<EditOutcome> {
+    const before = { reloads: deps.reloads(), repaints: deps.repaints() }
     deps.target(target)
     const out = await ed.run(call, [], null, null, endsCopy)
     if (!out.ok) deps.target(null)
-    else if (deps.reloads() === before) await deps.reload()
+    else if (deps.reloads() === before.reloads && !(looks && deps.repaints() !== before.repaints)) await deps.reload()
     return out
   }
 
@@ -105,7 +110,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
       if (p.range === undefined && !range) return null
       list.push({ ...p, range: p.range ?? range })
     }
-    return change(() => call(sheet, list), null, false)
+    return change(() => call(sheet, list), null, false, true)
   }
 
   /** A structure operation; a paste of the copied range keeps the copy mode on (`endsCopy` false), as Excel's does. */

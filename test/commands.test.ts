@@ -104,6 +104,19 @@ describe('SheetView exposes format', () => {
     expect(told.sheetsCalls).toBe(was + 1)
   })
 
+  it('a format the source repaints is not read again besides: the windows over its ranges alone', async () => {
+    const painted = source({})
+    painted.source.format = vi.fn(async () => (painted.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'B2' }] }), OK))
+    const w = await mountSheet(painted.source)
+    await goTo(w, 'B2')
+    const sheets = painted.sheetsCalls
+    const windows = painted.requests.length
+    await api(w).format([{ style: { font: { italic: true } } }])
+    await settle()
+    expect(painted.sheetsCalls).toBe(sheets)
+    expect(painted.requests.length - windows).toBe(1)
+  })
+
   it('shows the source’s refusal in its message line', async () => {
     const w = await mountSheet(source({ format: vi.fn(async (): Promise<EditOutcome> => ({ ok: false, reason: 'refused', message: 'Лист защищён' })) }).source)
     expect(await api(w).format([{ style: { font: { bold: true } } }])).toMatchObject({ ok: false })

@@ -140,6 +140,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const cmd = useCommands(s, sel, ed, {
     reload,
     reloads: () => reloads,
+    repaints: () => repaints,
     target: (t) => (target = t),
     activeStyle: () => activeLook.value?.style,
     frozen: () => v.bookFreeze.value,
@@ -222,6 +223,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     }
   }
   let reloads = 0
+  let repaints = 0
   let target: SheetTarget | null = null
   /** Read the sheets and windows again, keeping the sheet, selection and scroll (a reload event or a conflict); a sheet gone or hidden gives way to its neighbour. */
   async function reload(): Promise<void> {
@@ -469,7 +471,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     unsubscribe =
       s.source().subscribe?.((event) => {
         if (event.kind === 'changed') w.applyChanges(event.changes)
-        else if (event.kind === 'repaint') w.repaint(event.ranges)
+        else if (event.kind === 'repaint') {
+          repaints++
+          w.repaint(event.ranges)
+        }
         else {
           if (event.message) notify(event.message)
           void reload()
