@@ -1,14 +1,14 @@
 // A source over a book in memory, for tests and examples: values, shown text, formulas as strings and every display field; no engine.
 // It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, a precedents'
 // tree from the formulas as given, and can play a book being recomputed.
-import { cellAddress, parseCell, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
+import { cellAddress, outlineGroups, parseCell, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
 import { textEditText } from './core/edit-text'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type MemorySheetQuery } from './memory-query'
 import { axisOf, lineSpan, type LineAxis } from './lines'
-import { groupsOf, outlineEdit, outlineOf, type OutlineLine } from './memory-outline'
+import { outlineCommand, outlineOf, outlineSheet, type AxisLines } from './memory-outline'
 import { abortError } from './abort'
 import { filterKey } from './filter-key'
 import { isGridRef } from './grid-ref'
@@ -244,7 +244,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
 
   function info(store: Store): SheetInfo {
     const { name, hidden, locked, columns, rowNumbers, totals } = store.sheet
-    const outline = outlineOf({ rows: groupsAt(store, 'rows'), columns: groupsAt(store, 'columns') }, store.sheet.outline)
+    const outline = outlineOf(outlineGroups(outlineSheet({ rows: axisLines(store, 'rows'), columns: axisLines(store, 'columns') }, store.sheet.outline)), store.sheet.outline)
     return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze: store.freeze, hidden, locked, columns, rowNumbers, totals, ...(outline ? { outline } : {}) }
   }
 
@@ -280,20 +280,11 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     return lines.join('\n')
   }
 
-  /** A sheet's lines as the outline reads them: levels, hidden ones (size 0) and collapsed marks, one by one. */
-  function outlineLines(store: Store, axis: LineAxis): OutlineLine[] {
-    const levels = store.levels[axis]
-    const marks = store.marks[axis]
-    const sizes = axis === 'rows' ? store.heights : store.widths
-    const at = new Set<number>([...levels.keys(), ...marks])
-    for (const [i, size] of sizes) if (size === 0) at.add(i)
-    return [...at].sort((a, b) => a - b).map((i) => ({ from: i, to: i, level: levels.get(i) ?? 0, hidden: sizes.get(i) === 0, collapsed: marks.has(i) }))
-  }
-
-  /** A sheet's groups on one axis, as xlcalc draws them from its lines and where its summaries are. */
-  function groupsAt(store: Store, axis: LineAxis): ReturnType<typeof groupsOf> {
-    const after = (axis === 'rows' ? store.sheet.outline?.summaryBelow : store.sheet.outline?.summaryRight) ?? true
-    return groupsOf(outlineLines(store, axis), axis, after)
+  /** A sheet's lines on one axis as the outline reads them: its levels and marks, and the lines hidden by a size of 0. */
+  function axisLines(store: Store, axis: LineAxis): AxisLines {
+    const hidden = new Set<number>()
+    for (const [i, size] of axis === 'rows' ? store.heights : store.widths) if (size === 0) hidden.add(i)
+    return { levels: store.levels[axis], marks: store.marks[axis], hidden }
   }
 
   /** The rows under a filter: the list `visibleRows` gave for it, else the sheet's as it is; null without conditions. */
@@ -438,23 +429,23 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         return { ok: true, changes: [] }
       })
     },
-    /** Excel's outline commands by the rules of `./memory-outline`; a hidden line is a size of 0, shown again it takes the default. */
+    /** Excel's outline commands as xlcalc's `outlineEdit` runs them; a hidden line is a size of 0, shown again it takes the default. */
     outline(change: OutlineChange): Promise<EditOutcome> {
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)
         if (!store) return { ok: false, reason: 'failed', message: `No sheet ${change.sheet}` }
         const axis = axisOf(change)
-        const got = outlineEdit(outlineLines(store, axis), groupsAt(store, axis), change)
-        if (!got.ok) return { ok: false, reason: 'refused', message: got.message }
-        const sizes = axis === 'rows' ? store.heights : store.widths
-        for (const p of got.patches) {
-          for (let i = p.from; i <= p.to; i++) {
-            if (p.level !== undefined) void (p.level > 0 ? store.levels[axis].set(i, p.level) : store.levels[axis].delete(i))
-            if (p.hidden) sizes.set(i, 0)
-            else if (p.hidden === false && sizes.get(i) === 0) sizes.delete(i)
-            if (p.collapsed !== undefined) void (p.collapsed ? store.marks[axis].add(i) : store.marks[axis].delete(i))
-          }
+        const lines = axisLines(store, axis)
+        let refused: string | null
+        try {
+          refused = outlineCommand(lines, store.sheet.outline, change)
+        } catch (e) {
+          return { ok: false, reason: 'failed', message: e instanceof Error ? e.message : String(e) }
         }
+        if (refused !== null) return { ok: false, reason: 'refused', message: refused }
+        const sizes = axis === 'rows' ? store.heights : store.widths
+        for (const i of lines.hidden) sizes.set(i, 0)
+        for (const [i, size] of sizes) if (size === 0 && !lines.hidden.has(i)) sizes.delete(i)
         return { ok: true, changes: [] }
       })
     },
