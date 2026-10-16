@@ -375,24 +375,21 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     if (widthsChanged) triggerRef(s.bookWidths)
     const heights = s.heights.value
     const own = new Set<number>()
-    const next = new Map<number, number>()
+    const rows: [number, number | undefined][] = []
     for (const [key, pt] of Object.entries(w.rowHeights)) {
       const r = Number(key)
       own.add(r)
-      if (heights.get(r) !== rowPx(pt)) next.set(r, rowPx(pt))
+      if (heights.get(r) !== rowPx(pt)) rows.push([r, rowPx(pt)])
     }
-    const gone: number[] = []
     for (let d = w.row; d < w.row + w.text.length; d++) {
       const r = s.rowOf(d)
-      if (!own.has(r) && heights.has(r)) gone.push(r)
+      if (!own.has(r) && heights.has(r)) rows.push([r, undefined])
     }
     const def = rowPx(w.defaultRowHeight ?? DEFAULT_ROW_PT)
-    if (!next.size && !gone.length && def === s.defaultRowPx.value) return
+    if (!rows.length && def === s.defaultRowPx.value) return
     const anchor = geo.rowAt(s.scrollTop.value + v.frozenH.value)
     const before = geo.rowOffsets.value[anchor - 1] ?? 0
-    for (const [r, px] of next) heights.set(r, px)
-    for (const r of gone) heights.delete(r)
-    if (next.size || gone.length) triggerRef(s.heights)
+    geo.setHeights(rows)
     s.defaultRowPx.value = def
     const after = geo.rowOffsets.value[anchor - 1] ?? 0
     const el = s.scroller.value

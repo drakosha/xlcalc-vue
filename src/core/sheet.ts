@@ -332,8 +332,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onRowResizeMove(e: PointerEvent): void {
     if (!rowDrag) return
     rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + e.clientY - rowDrag.startY)))
-    s.heights.value.set(rowDrag.row, rowDrag.px)
-    triggerRef(s.heights)
+    geo.setHeights([[rowDrag.row, rowDrag.px]])
   }
   /** A double click on a number's edge fits the row, every selected whole row when it is one of them, as Excel's AutoFit. */
   function onRowEdgeDouble(row: number): void {

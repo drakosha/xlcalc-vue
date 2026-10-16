@@ -1,5 +1,5 @@
 // Grid geometry: Excel units to pixels, prefix sums of widths and heights, and lookups by offset.
-import { computed, type Ref, type ShallowRef } from 'vue'
+import { computed, triggerRef, type Ref, type ShallowRef } from 'vue'
 import { columnWidthFromPoints, columnWidthToPoints } from 'xlcalc/text'
 
 /** Excel's default row height in points. */
@@ -76,11 +76,14 @@ export interface GeometryInput {
   bookWidths: ShallowRef<Map<number, number | null>>
   /** Widths set with the mouse, pixels by column; they win over the book. */
   userWidths: ShallowRef<Record<number, number>>
-  /** Row heights in pixels that differ from the default (0 hides a row). */
+  /** Row heights in pixels that differ from the default (0 hides a row): changed in place through `setHeights`, or replaced whole. */
   heights: ShallowRef<Map<number, number>>
   defaultRowPx: Ref<number>
-  /** The sheet row shown at a display index (heights are the sheet rows'). */
+  /** The display filter in force: another one is another order of rows. */
+  visible: Readonly<Ref<unknown>>
+  /** The sheet row shown at a display index (heights are the sheet rows') and back. */
   rowOf: (d: number) => number
+  indexOf: (r: number) => number | undefined
 }
 
 /** Offsets of columns and rows, and the item under an offset; rows are display indexes (`d`). */
@@ -88,10 +91,44 @@ export function useGeometry(i: GeometryInput) {
   const widthOf = (c: number): number => i.userWidths.value[c] ?? colPx(i.bookWidths.value.get(c))
   const heightOf = (d: number): number => i.heights.value.get(i.rowOf(d)) ?? i.defaultRowPx.value
   const offsets = computed(() => prefixSums(i.colCount.value, widthOf))
-  const rowOffsets = computed(() => {
+  /** Display rows whose heights `setHeights` changed since the offsets were summed, and what they were summed over. */
+  let changed: { from: number; to: number } | null = null
+  let summed: { heights: Map<number, number>; def: number; count: number; visible: unknown } | null = null
+  /** Sheet rows' heights in pixels, in place (undefined: the default); true when one changed. */
+  function setHeights(rows: Iterable<readonly [number, number | undefined]>): boolean {
+    const heights = i.heights.value
+    let any = false
+    for (const [r, px] of rows) {
+      if (heights.get(r) === px) continue
+      if (px === undefined) heights.delete(r)
+      else heights.set(r, px)
+      any = true
+      const d = i.indexOf(r)
+      if (d !== undefined) changed = changed ? { from: Math.min(changed.from, d), to: Math.max(changed.to, d) } : { from: d, to: d }
+    }
+    if (any) triggerRef(i.heights)
+    return any
+  }
+  /** Offsets of rows: summed again from the first row `setHeights` changed and shifted past the last (a million rows sum slowly, a shift is a copy); summed whole after anything else. */
+  const rowOffsets = computed((prev?: Float64Array) => {
     const heights = i.heights.value
     const def = i.defaultRowPx.value
-    return prefixSums(i.rowCount.value, (d) => heights.get(i.rowOf(d)) ?? def)
+    const count = i.rowCount.value
+    const visible = i.visible.value
+    const size = (d: number) => heights.get(i.rowOf(d)) ?? def
+    const same = !!prev && summed?.heights === heights && summed.def === def && summed.count === count && summed.visible === visible
+    const range = changed
+    changed = null
+    summed = { heights, def, count, visible }
+    if (!same) return prefixSums(count, size)
+    if (!range || range.from > count) return prev
+    const to = Math.min(range.to, count)
+    const out = new Float64Array(count + 1)
+    out.set(prev.subarray(0, range.from))
+    for (let d = range.from; d <= to; d++) out[d] = out[d - 1]! + size(d)
+    const shift = out[to]! - prev[to]!
+    for (let d = to + 1; d <= count; d++) out[d] = prev[d]! + shift
+    return out
   })
   const colAt = (x: number): number => indexAt(offsets.value, i.colCount.value, x)
   const rowAt = (y: number): number => indexAt(rowOffsets.value, i.rowCount.value, y)
@@ -118,7 +155,7 @@ export function useGeometry(i: GeometryInput) {
     const off = offsets.value
     return (off[Math.min(c + cs - 1, i.colCount.value)] ?? 0) - (off[c - 1] ?? 0)
   }
-  return { widthOf, heightOf, offsets, rowOffsets, colAt, rowAt, nextRow, nextCol, hasRow, hasCol, spanHeight, spanWidth }
+  return { widthOf, heightOf, offsets, setHeights, rowOffsets, colAt, rowAt, nextRow, nextCol, hasRow, hasCol, spanHeight, spanWidth }
 }
 
 export type Geometry = ReturnType<typeof useGeometry>
