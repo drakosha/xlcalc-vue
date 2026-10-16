@@ -17,5 +17,8 @@ What is in it:
 - `docs/`: the API reference (`docs/api.md`) and a page for each feature.
 - The interface's texts in English by default and in Russian (`ruMessages`).
 - `example/spa.html`: an app like Excel over `./local`, all in the browser, without a server.
+- Without the window's `editText` a cell opens with xlcalc's `entryText` (`xlcalc/entry`) in the book's locale by its code in `numberFormats`, as Excel's formula bar shows it; the module is a chunk of its own, loaded when the first cell needs it, and the field opens with the shown text until then. `MemoryCell.numberFormat` gives `memorySource`'s cells their codes. Breaking for a host without `editText`: a number opens as General without `numberFormats`, and the apostrophe follows the book's locale alone.
+- The Column Width box counts characters as Excel for Mac's does (`columnWidthToChars`, `columnWidthFromChars` of `xlcalc/text`): the default column is 8, and 8 gives it back. A row goes up to 409.5 points, by its edge and in the Row Height box.
+- Formula AutoComplete finds the typed name with `nameAt` of `xlcalc/text`, after the book's list separator alone (`,` in en-US, `;` in ru-RU).
 - The grid draws by rows: a typed character, a move of the active cell or of the selection, a scroll and a cell's change redraw only the rows they touch (5 to 9 ms in Chromium on a desktop, from 15 to 25); repaints of one task go to the source as one request, and a stream of the source's events asks the active cell's validation once.
 - The main entry depends at runtime on `vue` alone and carries no engine. Its test holds it under 400,000 characters (391,000 now): the engine would add hundreds of thousands.
