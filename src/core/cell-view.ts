@@ -40,6 +40,8 @@ export interface CellView {
   link?: CellData['link']
   /** A conditional format's icon, drawn at the cell's left before its text. */
   icon?: Icon
+  /** The draft typed in the formula bar stands for `text`, drawn apart so typing does not redraw the grid; `fill`: the width Excel's Fill repeats it across. */
+  draft?: { fill?: number }
 }
 
 /** Links a browser may open by itself; anything else (`javascript:` and the like) goes to the host or is shown only. */
@@ -97,6 +99,9 @@ export function useCellView(
     for (const list of [v.frozenColList.value, v.shownCols.value]) list.forEach((c, i) => map.set(c, { list, i }))
     return map
   })
+
+  /** Whether the draft is empty: what a cell edited from the formula bar draws depends on that, not on its text. */
+  const draftBlank = computed(() => !deps.editor.value?.text)
 
   /** A cell's style by its display row. */
   const styleOf = (d: number, c: number): CellStyle | undefined => w.styleAt(d, c, cellAddress(s.rowOf(d), c))
@@ -174,8 +179,9 @@ export function useCellView(
     const editing = deps.editor.value
     const look = data.look
     // A rule that hides the value leaves the bar or the icon alone; the tooltip still has the value.
-    const shownText =
-      pendingText !== undefined ? (pendingText ?? '') : editing && editing.place === 'bar' && editing.row === r && editing.col === c ? editing.text : look?.hideValue ? '' : data.text
+    const barDraft = pendingText === undefined && !!editing && editing.place === 'bar' && editing.row === r && editing.col === c
+    const shownText = pendingText !== undefined ? (pendingText ?? '') : barDraft || look?.hideValue ? '' : data.text
+    const hasText = barDraft ? !draftBlank.value : shownText !== ''
 
     const css: Record<string, string> = fontCss(st, data.color)
     if (frozen) css.top = v.stickyTop(d)
@@ -273,6 +279,7 @@ export function useCellView(
       text: shownText,
       deco: decorationCss(st, false),
     }
+    if (barDraft) view.draft = {}
     if (span) {
       view.attrs.rowspan = span.rsDom
       view.attrs.colspan = span.csDom
@@ -281,7 +288,7 @@ export function useCellView(
       view.icon = look.icon
       box.class.push('xs-iconic')
       // The icon alone stands by the cell's alignment (General at the left), as Excel's Show Icon Only.
-      if (!shownText) {
+      if (!hasText) {
         view.kind = 'icon'
         const own = st?.alignment?.horizontal
         box.style.justifyContent = own === 'center' || own === 'centerContinuous' ? 'center' : own === 'right' ? 'flex-end' : 'flex-start'
@@ -297,8 +304,9 @@ export function useCellView(
     }
     if (h === 'fill') {
       view.kind = 'fill'
-      view.text = fillText(shownText, geo.spanWidth(c, span?.cs ?? 1))
-    } else if (!span && !wraps && shownText && (overflows(data.value) || h === 'centerContinuous')) {
+      if (view.draft) view.draft.fill = geo.spanWidth(c, span?.cs ?? 1)
+      else view.text = fillText(shownText, geo.spanWidth(c, span?.cs ?? 1))
+    } else if (!span && !wraps && hasText && (overflows(data.value) || h === 'centerContinuous')) {
       const ov = overflowOf(d, c, h, st?.fill?.color ?? 'var(--xs-bg)')
       if (ov) {
         view.kind = 'overflow'

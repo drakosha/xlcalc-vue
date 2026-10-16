@@ -1,12 +1,12 @@
 <script setup lang="ts">
 // The grid: a real <table> with sticky letters and numbers, Excel's outline bars beside them, frozen panes, spacers for
-// what is off screen, the marks over the cells (the copy's border, the fill handle) and the in-place field with its list of functions and tip of arguments.
+// what is off screen, the marks over the cells (the copy's border, the fill handle) and the in-place field.
 import { computed } from 'vue'
 import { colLetters } from 'xlcalc/a1'
+import CellDraft from './CellDraft.vue'
+import CellEditor from './CellEditor.vue'
 import { CfIcon } from './cf-icons'
 import { useSheetContext } from './context'
-import FunctionList from './FunctionList.vue'
-import FunctionTip from './FunctionTip.vue'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
@@ -46,28 +46,6 @@ const headLabel = (c: number) => ctx.sheet.value?.columns?.[c - 1]?.title ?? col
 const colOn = (c: number) => !!sel.selRect.value && c >= sel.selRect.value.left && c <= sel.selRect.value.right
 const rowOn = (r: number) => !!sel.selRect.value && r >= sel.selRect.value.top && r <= sel.selRect.value.bottom
 
-/** The in-place field over its cell, in the scroller's content coordinates (a frozen cell's place follows the scroll). */
-const editorRect = computed(() => {
-  const e = ctx.editor.value
-  if (!e || e.place !== 'cell' || e.sheet !== ctx.sheetName.value) return null
-  const d = ctx.indexOf(e.row)
-  if (d === undefined) return null
-  const sp = views.spanOf(e.row, e.col)
-  const frozen = d <= v.frozenRows.value || e.col <= v.frozenCols.value
-  const top = v.headH.value + (geo.rowOffsets.value[d - 1] ?? 0) + (d <= v.frozenRows.value ? ctx.scrollTop.value : 0)
-  const left = v.leadW.value + (geo.offsets.value[e.col - 1] ?? 0) + (e.col <= v.frozenCols.value ? ctx.scrollLeft.value : 0)
-  const lines = e.text.split('\n')
-  const longest = Math.max(...lines.map((l) => l.length))
-  const room = Math.max(60, ctx.viewW.value - (left - ctx.scrollLeft.value) - 4)
-  const width = Math.max(geo.spanWidth(e.col, sp?.cs ?? 1), Math.min(longest * 7.5 + 16, room))
-  const height = Math.max(geo.spanHeight(d, sp?.rs ?? 1), lines.length * 17 + 5)
-  return { top, left, width, height, frozen }
-})
-const editorBox = computed(() => {
-  const r = editorRect.value
-  return r && { top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: r.frozen ? '7' : '1' }
-})
-
 /** The active cell (a merged area whole) in the scroller's content coordinates, for the dropdown and the input message of its rule. */
 const activeBox = computed(() => {
   const a = ctx.selected.value
@@ -79,13 +57,6 @@ const activeBox = computed(() => {
   const left = v.leadW.value + (geo.offsets.value[a.col - 1] ?? 0) + (a.col <= v.frozenCols.value ? ctx.scrollLeft.value : 0)
   return { top, left, width: geo.spanWidth(a.col, sp?.cs ?? 1), height: geo.spanHeight(d, sp?.rs ?? 1) }
 })
-/** What of the grid is in view, in the same coordinates: a list goes over its cell where it has no room below. */
-const viewBox = computed(() => ({
-  top: ctx.scrollTop.value + v.headH.value,
-  left: ctx.scrollLeft.value + v.leadW.value,
-  width: Math.max(0, ctx.viewW.value - v.leadW.value),
-  height: Math.max(0, ctx.viewH.value - v.headH.value),
-}))
 const vd = ctx.validation
 
 /** A press on a cell: Excel's Point mode while a formula takes a reference there, else the selection's. */
@@ -164,7 +135,6 @@ function pickLine(kind: 'rows' | 'columns', line: number, extend: boolean): void
   if (kind === 'rows') sel.pickRow(line, extend)
   else sel.pickColumn(line, extend)
 }
-const setCellInput = (el: unknown) => (ctx.cellInput.value = (el as HTMLTextAreaElement | null) ?? null)
 const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | null) ?? null)
 </script>
 
@@ -310,7 +280,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                       rel="noopener noreferrer nofollow"
                       :title="cv.link!.tooltip ?? cv.link!.href"
                       @click="ctx.onLink($event, cv.link!, row.r, k.c)"
-                      >{{ cv.text }}</a
+                      ><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></a
                     >
                     <button
                       v-else-if="cv.kind === 'place' || cv.kind === 'host'"
@@ -320,19 +290,19 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
                       :title="cv.link!.tooltip ?? (cv.link!.location ? m.linkInBook(cv.link!.location) : m.linkOpen)"
                       @click.stop="ctx.onLink($event, cv.link!, row.r, k.c)"
                     >
-                      {{ cv.text }}
+                      <CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template>
                     </button>
-                    <span v-else-if="cv.kind === 'dead'" class="xs-deadlink" :style="cv.deco" :title="cv.link!.tooltip ?? m.linkDead(cv.link!.href ?? cv.link!.target ?? '')">{{
-                      cv.text
-                    }}</span>
+                    <span v-else-if="cv.kind === 'dead'" class="xs-deadlink" :style="cv.deco" :title="cv.link!.tooltip ?? m.linkDead(cv.link!.href ?? cv.link!.target ?? '')"
+                      ><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></span
+                    >
                     <div
                       v-else-if="cv.kind === 'overflow'"
                       class="xs-ov"
                       :style="{ left: -cv.ov!.left + 'px', width: `calc(100% + ${cv.ov!.left + cv.ov!.right}px)`, justifyContent: cv.ov!.justify }"
                     >
-                      <span :style="{ ...cv.deco, background: cv.ov!.bg }">{{ cv.text }}</span>
+                      <span :style="{ ...cv.deco, background: cv.ov!.bg }"><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></span>
                     </div>
-                    <span v-else-if="cv.kind !== 'icon'" :style="cv.deco">{{ cv.text }}</span>
+                    <span v-else-if="cv.kind !== 'icon'" :style="cv.deco"><CellDraft v-if="cv.draft" :fill="cv.draft.fill" /><template v-else>{{ cv.text }}</template></span>
                   </div>
                 </td>
               </template>
@@ -360,44 +330,16 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
       </tfoot>
     </table>
     <SheetMarks v-if="ctx.sheet.value && !empty" />
-    <textarea
-      v-if="ctx.editable.value"
-      :ref="setCellInput"
-      :class="['xs-editor', editorBox ? '' : 'xs-editor-idle']"
-      :style="editorBox ?? undefined"
-      :value="ctx.editor.value?.place === 'cell' ? ctx.editor.value.text : ''"
-      rows="1"
-      spellcheck="false"
-      autocomplete="off"
-      autocapitalize="off"
-      :tabindex="editorBox ? 0 : -1"
-      :aria-hidden="editorBox ? undefined : 'true'"
-      @input="ed.onEditorInput"
-      @keydown="ed.onEditorKey"
-      @click="ed.onEditorClick()"
-      @blur="ed.onEditorBlur($event, 'cell')"
-    ></textarea>
-    <FunctionList
-      v-if="editorRect && ed.ac.open.value"
-      :rect="editorRect"
-      :items="ed.ac.items.value"
-      :active="ed.ac.index.value"
-      :view="viewBox"
-      :touch="v.touch.value"
-      :messages="m"
-      @highlight="(i) => (ed.ac.index.value = i)"
-      @pick="(i) => ed.ac.accept(i)"
-    />
-    <FunctionTip v-if="editorRect && ed.tip.parts.value" :rect="editorRect" :parts="ed.tip.parts.value" :view="viewBox" />
+    <CellEditor v-if="ctx.editable.value" />
     <template v-if="activeBox && !ctx.editor.value">
-      <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="viewBox" />
+      <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="v.viewBox.value" />
       <ValidationDropdown
         v-if="vd.list.value && ctx.editable.value"
         :rect="activeBox"
         :items="vd.list.value"
         :open="vd.open.value"
         :active="vd.index.value"
-        :view="viewBox"
+        :view="v.viewBox.value"
         :touch="v.touch.value"
         :messages="m"
         @toggle="vd.toggle()"

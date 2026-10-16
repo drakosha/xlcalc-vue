@@ -155,6 +155,13 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     const left = (cols[c1 - 1] ?? 0) + (c2 <= frozenCols.value ? i.scrollLeft.value : 0)
     return { top: headH.value + top, left: leadW.value + left, width: (cols[c2] ?? 0) - (cols[c1 - 1] ?? 0), height: (rows[d2] ?? 0) - (rows[d1 - 1] ?? 0), frozen: d2 <= frozenRows.value || c2 <= frozenCols.value }
   }
+  /** What of the grid is in view, in the same coordinates: a popup goes over its cell where it has no room below. */
+  const viewBox = computed(() => ({
+    top: i.scrollTop.value + headH.value,
+    left: i.scrollLeft.value + leadW.value,
+    width: Math.max(0, i.viewW.value - leadW.value),
+    height: Math.max(0, i.viewH.value - headH.value),
+  }))
   /** The display row and column under a point of the frame (pixels from its top-left corner), with the point in the offsets' space (`x`, `y`). */
   function cellAt(px: number, py: number): { d: number; col: number; x: number; y: number } {
     const cy = Math.max(0, py - headH.value)
@@ -202,6 +209,7 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     rightPad,
     tableWidth,
     boxOf,
+    viewBox,
     cellAt,
   }
 }
