@@ -11,7 +11,7 @@ import type { Commands } from './commands'
 import type { Editing, EditorState } from './editing'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
-import type { Totals } from './totals'
+import { listOf, type Totals } from './totals'
 import type { Viewport } from './viewport'
 import type { Windows } from './windows'
 
@@ -58,7 +58,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   // ── the selection as text ──
   /** What a copy takes: display rows of the selection and its columns, up to the data. */
   function extentOf(r: CellRect): { ds: number[]; c2: number } {
-    return { ds: totals.shownRows(r.top, Math.min(r.bottom, Math.max(r.top, s.dataRows.value))), c2: Math.min(r.right, Math.max(r.left, s.dataCols.value)) }
+    return { ds: listOf(totals.shownRows(r.top, Math.min(r.bottom, Math.max(r.top, s.dataRows.value)))), c2: Math.min(r.right, Math.max(r.left, s.dataCols.value)) }
   }
   /** The shown rows and columns as Excel puts plain text on the clipboard (xlcalc's formatClipboard): tabs, CRLF, quotes around a tab or a line break. */
   const tsv = (cell: (d: number, col: number) => string, rows: number[], left: number, last: number) => {

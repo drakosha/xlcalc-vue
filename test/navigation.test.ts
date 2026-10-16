@@ -122,6 +122,16 @@ describe('selection', () => {
     expect(w.find('.xs-stats').text()).toBe('Count: 6 · Sum: 16 · Average: 3.2 · Min: 1 · Max: 6 · Numbers: 5')
   })
 
+  it('totals over frozen rows and the body: each window counts its rows; a range past them gives the count of cells', async () => {
+    const f = fakeSource([{ name: 'S', maxRow: 5000, maxCol: 8, freeze: { rows: 2, cols: 0 } }], { cell: (_, r, c) => (c <= 2 ? String(r) : '') })
+    delete (f.source as { stats?: unknown }).stats
+    const w = await mountSheet(f.source, { readOnly: true })
+    await goTo(w, 'A1:B40')
+    expect(w.find('.xs-stats').text()).toBe('Count: 80 · Sum: 1,640 · Average: 20.5 · Min: 1 · Max: 40')
+    await goTo(w, 'B1:C4000')
+    expect(w.find('.xs-stats').text()).toBe('Cells: 8,000')
+  })
+
   it('the address box writes a range over every row or column as Excel does: B:B, 2:2', async () => {
     const f = fakeSource([{ name: 'S', maxRow: 1_048_576, maxCol: 16_384 }])
     const w = await mountSheet(f.source, { readOnly: true })
