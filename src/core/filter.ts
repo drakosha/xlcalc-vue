@@ -14,7 +14,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
   const cols = ref<Record<number, ColumnFilter>>({})
   const sort = ref<Sort | null>(null)
   /** The funnel needs both: the rows to show and a column's values. */
-  const available = computed(() => typeof s.props.source.visibleRows === 'function' && typeof s.props.source.columnValues === 'function')
+  const available = computed(() => typeof s.source().visibleRows === 'function' && typeof s.source().columnValues === 'function')
   /** Header rows the filter leaves alone: the book's frozen rows, else the first row, as Excel does. */
   const head = computed(() => {
     const frozen = s.sheet.value?.freeze?.rows ?? 0
@@ -54,7 +54,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     s.filterWait.value = true
     ctrl = new AbortController()
     try {
-      const got = await s.props.source.visibleRows!(s.sheetName.value, want, ctrl.signal)
+      const got = await s.source().visibleRows!(s.sheetName.value, want, ctrl.signal)
       if (mine !== seq) return
       apply(got.rows ? { key: wantKey, spec: want, rows: Int32Array.from(got.rows), index: displayIndex(got.rows) } : null)
     } catch (e) {
@@ -158,7 +158,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     busy.value = true
     const mine = ++valuesSeq
     try {
-      const got = await s.props.source.columnValues!(s.sheetName.value, col, spec.value ?? { head: head.value })
+      const got = await s.source().columnValues!(s.sheetName.value, col, spec.value ?? { head: head.value })
       if (mine !== valuesSeq) return
       values.value = got.values
       more.value = got.more

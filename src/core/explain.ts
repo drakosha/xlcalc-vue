@@ -57,7 +57,7 @@ export function explainLines(text: string, sheet: string): ExplainLine[] {
 }
 
 export function useExplain(s: SheetState, f: Formula) {
-  const available = computed(() => typeof s.props.source.explain === 'function')
+  const available = computed(() => typeof s.source().explain === 'function')
   const open = ref(false)
   /** The cell the lines are of (`'Q 4'!B6`), the lines, an answer awaited, the last one failed. */
   const place = ref('')
@@ -81,7 +81,7 @@ export function useExplain(s: SheetState, f: Formula) {
   async function ask(mine: number): Promise<void> {
     timer = null
     const a = s.selected.value
-    const call = s.props.source.explain
+    const call = s.source().explain
     if (!a || !call || !s.sheet.value) {
       place.value = ''
       lines.value = []
@@ -93,7 +93,7 @@ export function useExplain(s: SheetState, f: Formula) {
     let got: ExplainLine[] = []
     let bad = false
     try {
-      got = explainLines(await call.call(s.props.source, sheet, cell), sheet)
+      got = explainLines(await call.call(s.source(), sheet, cell), sheet)
     } catch {
       bad = true
     }

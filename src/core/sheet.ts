@@ -160,7 +160,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const tabs = computed(() => s.sheets.value.map((x, i) => ({ sheet: x, i })).filter(({ sheet }) => !sheet.hidden))
   /** Excel shows the tabs with one sheet too; `hideLoneTab` only from two. */
   const showTabs = computed(() => tabs.value.length > (props.hideLoneTab ? 1 : 0))
-  const hasLayout = () => typeof props.source.layout === 'function'
+  const hasLayout = () => typeof s.source().layout === 'function'
 
   /** Make a sheet active: windows, sizes, selection and scroll start over. */
   function activate(index: number): void {
@@ -196,7 +196,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     s.active.value = -1
     s.loading.value = true
     try {
-      const list = await props.source.sheets()
+      const list = await s.source().sheets()
       if (mine !== initSeq) return
       s.sheets.value = list
       const first = list.findIndex((x) => !x.hidden)
@@ -219,7 +219,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     const asked = target
     target = null
     try {
-      const list = await props.source.sheets()
+      const list = await s.source().sheets()
       s.sheets.value = list
       const next = sheetAfter(list, name, at, asked)
       if (!next.keep) return activate(next.index)
@@ -289,7 +289,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   /** With `layout` the width goes to the source; without it the browser remembers it. */
   async function saveWidth(col: number, px: number): Promise<void> {
-    const layout = props.source.layout
+    const layout = s.source().layout
     if (!layout) {
       s.memory.remember(`widths:${s.sheetName.value}`, s.userWidths.value)
       return
@@ -298,7 +298,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     let ok = false
     let text = ''
     try {
-      const got = await layout.call(props.source, { sheet, columns: linesKey(col, col, 'columns'), width: widthFromPx(px) })
+      const got = await layout.call(s.source(), { sheet, columns: linesKey(col, col, 'columns'), width: widthFromPx(px) })
       ok = got.ok
       // cells the width shows otherwise (a date past its #####) come back as changes, as an edit's do
       if (got.ok) w.applyChanges(got.changes)
@@ -452,7 +452,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function subscribe(): void {
     unsubscribe?.()
     unsubscribe =
-      props.source.subscribe?.((event) => {
+      s.source().subscribe?.((event) => {
         if (event.kind === 'changed') w.applyChanges(event.changes)
         else if (event.kind === 'repaint') w.repaint(event.ranges)
         else {

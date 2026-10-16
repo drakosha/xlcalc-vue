@@ -23,8 +23,8 @@ export interface FindOptions {
 export type FindRunner = (call: () => Promise<EditOutcome>) => Promise<EditOutcome>
 
 export function useFind(s: SheetState, sel: Selection, notify: (text: string) => void) {
-  const available = computed(() => typeof s.props.source.find === 'function')
-  const canReplace = computed(() => available.value && s.editable.value && typeof s.props.source.replace === 'function')
+  const available = computed(() => typeof s.source().find === 'function')
+  const canReplace = computed(() => available.value && s.editable.value && typeof s.source().replace === 'function')
   const isOpen = ref(false)
   /** The replace row shows: Ctrl+H, or its toggle on the bar. */
   const replacing = ref(false)
@@ -130,7 +130,7 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     const c = (ctrl = new AbortController())
     busy.value = true
     try {
-      const got = await s.props.source.find!(req, c.signal)
+      const got = await s.source().find!(req, c.signal)
       if (mine !== seq) return
       hits.value = got.hits.map((h) => ({ row: h.row, col: h.col }))
       total.value = got.total
@@ -200,13 +200,13 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   /** Excel's Replace: the active cell when it is a hit, then Find Next; elsewhere only Find Next. */
   async function replaceOne(run: FindRunner): Promise<void> {
     const req = request()
-    const call = s.props.source.replace
+    const call = s.source().replace
     const a = s.selected.value
     if (!req || !call || !canReplace.value || writing.value) return
     if (index.value < 0 || !a) return step(1)
     writing.value = true
     try {
-      const out = await run(() => call.call(s.props.source, { ...req, range: cellAddress(a.row, a.col) }, by.value))
+      const out = await run(() => call.call(s.source(), { ...req, range: cellAddress(a.row, a.col) }, by.value))
       if (!out.ok) return
       await runSearch()
       step(1)
@@ -217,11 +217,11 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   /** Excel's Replace All over what the bar finds, one step of undo; the bar says how many cells it changed and counts again. */
   async function replaceAll(run: FindRunner): Promise<void> {
     const req = request()
-    const call = s.props.source.replace
+    const call = s.source().replace
     if (!req || !call || !canReplace.value || writing.value) return
     writing.value = true
     try {
-      const out = await run(() => call.call(s.props.source, req, by.value))
+      const out = await run(() => call.call(s.source(), req, by.value))
       if (!out.ok) return
       const { replaced, refused } = out as ReplaceOutcome
       // the cells Excel would not take are left as they were, the others written: the line says why
