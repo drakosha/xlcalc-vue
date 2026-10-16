@@ -2,6 +2,8 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
+import { sheetContextKey } from '../src/components/context'
+import type { SheetContext } from '../src/core/sheet'
 import { address, barField, goTo, key, mountSheet, pressBar, settle, type } from './helpers'
 
 afterEach(() => {
@@ -44,6 +46,25 @@ describe('a formula in en-US', () => {
     expect(tinted(w, '9:3')).toBe(true)
     expect(tinted(w, '2:1')).toBe(true)
     expect(tinted(w, '1:1')).toBe(false)
+  })
+})
+
+describe('the formulas of a selection', () => {
+  it("highlight their ranges after the active cell's, each cell's in order; formulas outside it are not read", async () => {
+    const book: MemoryBook = { sheets: [{ name: 'S', cells: { B2: { value: 1, formula: 'D5' }, C2: { value: 1, formula: 'G1' }, C3: { value: 1, formula: 'E6+D5' }, B5: { value: 1, formula: 'F1' } } }] }
+    const w = await mountSheet(memorySource(book))
+    const ctx = (w.vm.$ as unknown as { provides: Record<symbol, SheetContext> }).provides[sheetContextKey as symbol]!
+    const ranges = () => [...ctx.f.refColors.value.values()].map((x) => x.ref.text)
+    ctx.selected.value = { row: 3, col: 3 }
+    ctx.extent.value = { row: 2, col: 2 }
+    await settle()
+    expect(ranges()).toEqual(['E6', 'D5', 'G1'])
+    expect(tinted(w, '6:5') && tinted(w, '5:4') && tinted(w, '1:7')).toBe(true)
+    expect(tinted(w, '1:6')).toBe(false)
+    ctx.selected.value = { row: 2, col: 2 }
+    ctx.extent.value = { row: 3, col: 3 }
+    await settle()
+    expect(ranges()).toEqual(['D5', 'G1', 'E6'])
   })
 })
 
