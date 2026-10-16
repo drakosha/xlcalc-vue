@@ -144,9 +144,11 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   function insertFunction(name: string): void {
     const ed = editor.value
     if (!ed) return void startEdit({ text: `=${name}(`, mode: 'edit', place: 'bar' })
-    const el = inputOf()
+    spliceDraft(ed, inputOf(), `${ed.text === '' ? '=' : ''}${name}(`)
+  }
+  /** Put `piece` into the open draft in place of the field's selection, the caret after it. */
+  function spliceDraft(ed: EditorState, el: HTMLTextAreaElement | null, piece: string): void {
     const from = el?.selectionStart ?? ed.text.length
-    const piece = `${ed.text === '' ? '=' : ''}${name}(`
     ed.text = `${ed.text.slice(0, from)}${piece}${ed.text.slice(el?.selectionEnd ?? from)}`
     ed.caret = from + piece.length
     focusEditor()
@@ -182,7 +184,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Send the draft into its cell; Excel's correction of it is sent the same way. */
   function enterDraft(ed: EditorState): Promise<EditOutcome | undefined> {
     const entries = [{ sheet: ed.sheet, cell: cellAddress(ed.row, ed.col), text: ed.text === '' ? null : ed.text }]
-    return send(entries, ed, ed.inPlace ? { inPlace: true } : undefined, (text) => enterDraft({ ...ed, text }))
+    return send(entries, ed, draftOptions(ed), (text) => enterDraft({ ...ed, text }))
   }
   function cancel(): void {
     editor.value = null
@@ -206,7 +208,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   function fillDraft(ed: EditorState, r: CellRect, extent: CellPosition | null, fill: NonNullable<SheetSource['fill']>): Promise<EditOutcome> {
     const marks = marksOf(r, () => (ed.text === '' ? null : ed.text))
     const args = [ed.sheet, rangeAddress(r), ed.text, cellAddress(ed.row, ed.col)] as const
-    const call = (o?: EditOptions) => withOptions(ed.inPlace ? { inPlace: true } : undefined, o, (all) => (all ? fill(...args, all) : fill(...args)))
+    const call = (o?: EditOptions) => fill(...args, ...optionArgs(draftOptions(ed), o))
     return run(call, marks, ed, extent, true, (text) => fillDraft({ ...ed, text }, r, extent, fill))
   }
   /** Open the field again with the draft, after a conflict or a formula that did not parse; `extent` gives a range back its corner. */
@@ -222,12 +224,14 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Send entries; the cells show the typed text in the "pending" style until the outcome. `opts`: `accept` writes past the rules (a list's item), `inPlace` the cell's own text edited; `retype` sends the draft's correction. */
   async function send(entries: CellEntry[], draft: EditorState | null, opts?: EditOptions, retype?: (text: string) => Promise<EditOutcome | undefined>): Promise<EditOutcome | undefined> {
     const edit = s.sourceMethod('edit')
-    if (edit) return run((o) => withOptions(opts, o, (all) => (all ? edit(entries, all) : edit(entries))), entries, draft, null, true, retype)
+    if (edit) return run((o) => edit(entries, ...optionArgs(opts, o)), entries, draft, null, true, retype)
   }
-  /** A call with the options of the edit and of the alert's answer together; without any, a call as before options were. */
-  function withOptions(base: EditOptions | undefined, more: EditOptions | undefined, call: (all: EditOptions | undefined) => Promise<EditOutcome>): Promise<EditOutcome> {
+  /** The draft's own option: the cell's text edited in place. */
+  const draftOptions = (ed: EditorState): EditOptions | undefined => (ed.inPlace ? { inPlace: true } : undefined)
+  /** The options of the edit and of the alert's answer together as the call's last argument; none without any, a call as before options were. */
+  function optionArgs(base: EditOptions | undefined, more: EditOptions | undefined): [] | [EditOptions] {
     const all = { ...base, ...more }
-    return call(Object.keys(all).length ? all : undefined)
+    return Object.keys(all).length ? [all] : []
   }
   /** A rectangle's shown cells on the sheet (rows a filter hides are not drawn) with their pending text, row by row, up to the limit. */
   function marksOf(r: CellRect, textAt: (row: number, col: number) => string | null): CellEntry[] {
@@ -468,11 +472,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       cancel()
     } else if (e.key === 'Enter' && e.altKey) {
       e.preventDefault()
-      const el = e.target as HTMLTextAreaElement
-      const at = el.selectionStart ?? ed.text.length
-      ed.text = `${ed.text.slice(0, at)}\n${ed.text.slice(el.selectionEnd ?? at)}`
-      ed.caret = at + 1
-      focusEditor()
+      spliceDraft(ed, e.target as HTMLTextAreaElement, '\n')
     } else if (e.key === 'Enter' && isMod(e)) {
       e.preventDefault()
       commitFill()
