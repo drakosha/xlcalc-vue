@@ -49,7 +49,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   s.hooks.changing = clear
   watch(deps.editor, (e) => e && clear())
 
-  const canCut = computed(() => s.editable.value && cmd.can('structure') && !s.visible.value)
+  const canCut = cmd.canRanges
   /** The menu's Paste: our copy, or a clipboard the browser may let the page read. */
   const canPaste = computed(() => s.editable.value && (!!mark.value || typeof navigator.clipboard?.readText === 'function'))
 
@@ -163,7 +163,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     if (!s.editable.value) return
     const m = mark.value
     if (m && (!text || m.text === null || plain(text) === plain(m.text) || (m.shown !== undefined && plain(text) === plain(m.shown)))) {
-      if (cmd.can('structure') && !s.visible.value) return void pasteMark(m)
+      if (cmd.canRanges.value) return void pasteMark(m)
       // Without `structure` (or under the display filter) the copy goes as its text; its last CRLF ends the rectangle, not an empty row to paste.
       text = m.text?.replace(/\r\n$/, '') ?? null
     } else if (!m && text && spent !== null && plain(text) === plain(spent)) return

@@ -1,6 +1,6 @@
 // Changes of the book the host or the grid's menus and keys ask for (format, structure, lines, outline, frozen panes, undo and redo): each goes
 // through the source as Control+Z goes, and the sheet is read again after one a window's cells cannot carry.
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { CellStyle } from 'xlcalc/contract'
 import type { EditOutcome, FormatPatch, LayoutChange, OutlineChange, SheetOp } from '../source'
 import { fontToggle, type FontToggle } from '../toolbar'
@@ -87,6 +87,8 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
   /** A method of a change the source takes: the sheet is editable (not read-only, with `edit`) and the source has it; else null. */
   const method = <K extends ChangeMethod>(name: K) => (s.editable.value ? s.sourceMethod(name) : null)
   const can = (name: ChangeMethod): boolean => method(name) !== null
+  /** Structure operations over ranges (a copy or a cut pasted, a fill, a merge): with `structure`, and no display filter scattering the rows. */
+  const canRanges = computed(() => can('structure') && !s.visible.value)
 
   /** A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload` meanwhile; formatting and lines leave the copy mode on (`endsCopy`). */
   async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null, endsCopy = true): Promise<EditOutcome> {
@@ -186,7 +188,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     merge: deps.merge,
   }
 
-  return { can, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat, api }
+  return { can, canRanges, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat, api }
 }
 
 export type Commands = ReturnType<typeof useCommands>

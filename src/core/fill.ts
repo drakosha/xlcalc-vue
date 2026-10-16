@@ -37,7 +37,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
   /** The range the handle fills from: a finite selection of an editable sheet with `structure`, not under the display filter or while a field is open. */
   const source = computed<CellRect | null>(() => {
     const r = sel.fullRect.value
-    if (!r || !s.sheet.value || !s.editable.value || !cmd.can('structure') || s.visible.value || deps.editor.value) return null
+    if (!r || !s.sheet.value || !cmd.canRanges.value || deps.editor.value) return null
     return r.bottom >= MAX_ROWS || r.right >= MAX_COLS ? null : r
   })
   const drag = shallowRef<FillDrag | null>(null)
