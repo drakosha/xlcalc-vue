@@ -125,11 +125,11 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   }
   /** The source's copy of the selection cut to the data (values by their formats, as Excel copies them); null without `copyText`, under the display filter or past the data. */
   function sourceText(r: CellRect): Promise<string> | null {
-    const copy = s.source().copyText
+    const copy = s.sourceMethod('copyText')
     const bottom = Math.min(r.bottom, Math.max(r.top, s.dataRows.value))
     const right = Math.min(r.right, Math.max(r.left, s.dataCols.value))
     if (!copy || s.visible.value || r.top > s.dataRows.value || r.left > s.dataCols.value) return null
-    return copy.call(s.source(), s.sheetName.value, rangeAddress({ top: r.top, left: r.left, bottom, right }), { trailingNewline: !onMac() })
+    return copy(s.sheetName.value, rangeAddress({ top: r.top, left: r.left, bottom, right }), { trailingNewline: !onMac() })
   }
   /** The source's text in place of the shown one the copy event took, through the clipboard API (a browser that refuses keeps the shown one); the mark knows both. */
   async function replaceWith(m: ClipMark | null, shown: string, exact: Promise<string>): Promise<void> {

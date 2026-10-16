@@ -191,7 +191,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Control+Return: with `fill` the text goes into every cell of the selection, else into the active cell; nothing moves. */
   function commitFill(): void {
     const ed = editor.value
-    const fill = s.source().fill
+    const fill = s.sourceMethod('fill')
     const r = sel.selRect.value
     if (!ed || !fill || !r || !sel.multi.value || ed.sheet !== s.sheetName.value || !sel.isActive(ed.row, ed.col)) return commit(0, 0)
     // A locked cell anywhere in the range: the field stays open with the draft.
@@ -206,7 +206,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   function fillDraft(ed: EditorState, r: CellRect, extent: CellPosition | null, fill: NonNullable<SheetSource['fill']>): Promise<EditOutcome> {
     const marks = marksOf(r, () => (ed.text === '' ? null : ed.text))
     const args = [ed.sheet, rangeAddress(r), ed.text, cellAddress(ed.row, ed.col)] as const
-    const call = (o?: EditOptions) => withOptions(ed.inPlace ? { inPlace: true } : undefined, o, (all) => (all ? fill.call(s.source(), ...args, all) : fill.call(s.source(), ...args)))
+    const call = (o?: EditOptions) => withOptions(ed.inPlace ? { inPlace: true } : undefined, o, (all) => (all ? fill(...args, all) : fill(...args)))
     return run(call, marks, ed, extent, true, (text) => fillDraft({ ...ed, text }, r, extent, fill))
   }
   /** Open the field again with the draft, after a conflict or a formula that did not parse; `extent` gives a range back its corner. */
@@ -221,8 +221,8 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
 
   /** Send entries; the cells show the typed text in the "pending" style until the outcome. `opts`: `accept` writes past the rules (a list's item), `inPlace` the cell's own text edited; `retype` sends the draft's correction. */
   async function send(entries: CellEntry[], draft: EditorState | null, opts?: EditOptions, retype?: (text: string) => Promise<EditOutcome | undefined>): Promise<EditOutcome | undefined> {
-    const edit = s.source().edit
-    if (edit) return run((o) => withOptions(opts, o, (all) => (all ? edit.call(s.source(), entries, all) : edit.call(s.source(), entries))), entries, draft, null, true, retype)
+    const edit = s.sourceMethod('edit')
+    if (edit) return run((o) => withOptions(opts, o, (all) => (all ? edit(entries, all) : edit(entries))), entries, draft, null, true, retype)
   }
   /** A call with the options of the edit and of the alert's answer together; without any, a call as before options were. */
   function withOptions(base: EditOptions | undefined, more: EditOptions | undefined, call: (all: EditOptions | undefined) => Promise<EditOutcome>): Promise<EditOutcome> {
@@ -340,11 +340,11 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Undo and redo of the source, one call at a time: a second press while one is out sends nothing (null). */
   let stepping = false
   async function stepHistory(kind: 'undo' | 'redo'): Promise<EditOutcome | null> {
-    const call = s.source()[kind]
+    const call = s.sourceMethod(kind)
     if (!call || stepping || !s.editable.value) return null
     stepping = true
     try {
-      return await run(() => call.call(s.source()), [], null, null)
+      return await run(() => call(), [], null, null)
     } finally {
       stepping = false
     }
@@ -387,7 +387,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const a = sel.selRect.value
     if (!s.editable.value || !a) return
     const rows = parseClipboard(text)
-    const paste = s.source().paste
+    const paste = s.sourceMethod('paste')
     const one = !paste && rows.length === 1 && rows[0]!.length === 1
     const width = rows[0]!.length
     const target: CellRect = one ? a : { top: a.top, left: a.left, bottom: a.top + rows.length - 1, right: a.left + width - 1 }
@@ -399,7 +399,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }
     if (paste) {
       const sheet = s.sheetName.value
-      void run(() => paste.call(s.source(), sheet, cellAddress(a.top, a.left), text), marksOf(target, textAt), null, null)
+      void run(() => paste(sheet, cellAddress(a.top, a.left), text), marksOf(target, textAt), null, null)
       return
     }
     // A rectangle past the sheet's edge is refused whole, as Excel refuses it; a source's `paste` says so itself.

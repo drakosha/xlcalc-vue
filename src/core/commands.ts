@@ -80,9 +80,13 @@ export interface CommandsDeps {
 
 const FONT_KEYS: Record<string, FontToggle> = { b: 'bold', i: 'italic', u: 'underline' }
 
+/** The source's methods that change the book past cells. */
+type ChangeMethod = 'format' | 'structure' | 'layout' | 'outline' | 'freeze'
+
 export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: CommandsDeps) {
-  /** A change the source takes: the sheet is editable (not read-only, with `edit`) and the source has the method. */
-  const can = (method: 'format' | 'structure' | 'layout' | 'outline' | 'freeze'): boolean => s.editable.value && typeof s.source()[method] === 'function'
+  /** A method of a change the source takes: the sheet is editable (not read-only, with `edit`) and the source has it; else null. */
+  const method = <K extends ChangeMethod>(name: K) => (s.editable.value ? s.sourceMethod(name) : null)
+  const can = (name: ChangeMethod): boolean => method(name) !== null
 
   /** A change the windows cannot carry: the source's outcome, then the sheet read again unless the source sent `reload` meanwhile; formatting and lines leave the copy mode on (`endsCopy`). */
   async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null, endsCopy = true): Promise<EditOutcome> {
@@ -95,59 +99,54 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
   }
 
   async function format(patches: SheetFormatPatch[]): Promise<EditOutcome | null> {
-    const call = s.source().format
+    const call = method('format')
     const range = sel.selectionRef.value
-    if (!call || !can('format') || !patches.length || !s.sheet.value) return null
+    if (!call || !patches.length || !s.sheet.value) return null
     const sheet = s.sheetName.value
     const list: FormatPatch[] = []
     for (const p of patches) {
       if (p.range === undefined && !range) return null
       list.push({ ...p, range: p.range ?? range })
     }
-    return change(() => call.call(s.source(), sheet, list), null, false)
+    return change(() => call(sheet, list), null, false)
   }
 
   /** A structure operation; a paste of the copied range keeps the copy mode on (`endsCopy` false), as Excel's does. */
   async function structure(op: SheetOp, endsCopy = true): Promise<EditOutcome | null> {
-    const call = s.source().structure
-    if (!call || !can('structure')) return null
+    const call = method('structure')
+    if (!call) return null
     // Excel shows a sheet it inserts or unhides, and keeps the selection of the active sheet it renames.
     let target: SheetTarget | null = null
     if (op.op === 'insertSheet') target = { name: op.name, keep: false }
     else if (op.op === 'unhideSheet') target = { name: op.sheet, keep: false }
     else if (op.op === 'renameSheet' && op.sheet === s.sheetName.value) target = { name: op.name, keep: true }
-    const out = await change(() => call.call(s.source(), op), target, endsCopy)
+    const out = await change(() => call(op), target, endsCopy)
     if (out.ok) deps.structured()
     return out
   }
 
-  async function layout(edit: LayoutChange): Promise<EditOutcome | null> {
-    const call = s.source().layout
-    if (!call || !can('layout')) return null
-    return change(() => call.call(s.source(), edit), null, false)
+  /** A change of lines (sizes, hidden, outline): one call, the copy mode left on. */
+  async function lineChange<A>(call: ((arg: A) => Promise<EditOutcome>) | null, arg: A): Promise<EditOutcome | null> {
+    return call ? change(() => call(arg), null, false) : null
   }
-
-  async function outline(command: OutlineChange): Promise<EditOutcome | null> {
-    const call = s.source().outline
-    if (!call || !can('outline')) return null
-    return change(() => call.call(s.source(), command), null, false)
-  }
+  const layout = (edit: LayoutChange) => lineChange(method('layout'), edit)
+  const outline = (command: OutlineChange) => lineChange(method('outline'), command)
 
   /**
    * Excel's Freeze Panes commands on the active sheet; a selection of whole columns or rows freezes left of or above it, as its
    * active cell is in the first row or column. None under the display filter, whose rows on screen are not the sheet's.
    */
   async function freeze(mode: FreezeMode = 'panes'): Promise<EditOutcome | null> {
-    const call = s.source().freeze
+    const call = method('freeze')
     const a = s.selected.value
-    if (!call || !can('freeze') || !s.sheet.value || !a || s.visible.value) return null
+    if (!call || !s.sheet.value || !a || s.visible.value) return null
     let panes: { rows: number; cols: number } | null = null
     if (mode === 'topRow') panes = { rows: 1, cols: 0 }
     else if (mode === 'firstColumn') panes = { rows: 0, cols: 1 }
     else if (mode === 'panes') panes = a.row === 1 && a.col === 1 ? deps.middlePanes() : { rows: a.row - 1, cols: a.col - 1 }
     if (panes ? panes.rows <= 0 && panes.cols <= 0 : !deps.frozen()) return null
     const sheet = s.sheetName.value
-    const out = await change(() => call.call(s.source(), sheet, panes), null, false)
+    const out = await change(() => call(sheet, panes), null, false)
     if (out.ok) deps.showFreeze(sheet, panes !== null)
     return out
   }

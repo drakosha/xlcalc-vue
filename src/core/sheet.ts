@@ -289,7 +289,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   /** With `layout` the width goes to the source; without it the browser remembers it. */
   async function saveWidth(col: number, px: number): Promise<void> {
-    const layout = s.source().layout
+    const layout = s.sourceMethod('layout')
     if (!layout) {
       s.memory.remember(`widths:${s.sheetName.value}`, s.userWidths.value)
       return
@@ -298,7 +298,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     let ok = false
     let text = ''
     try {
-      const got = await layout.call(s.source(), { sheet, columns: linesKey(col, col, 'columns'), width: widthFromPx(px) })
+      const got = await layout({ sheet, columns: linesKey(col, col, 'columns'), width: widthFromPx(px) })
       ok = got.ok
       // cells the width shows otherwise (a date past its #####) come back as changes, as an edit's do
       if (got.ok) w.applyChanges(got.changes)

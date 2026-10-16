@@ -200,13 +200,13 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   /** Excel's Replace: the active cell when it is a hit, then Find Next; elsewhere only Find Next. */
   async function replaceOne(run: FindRunner): Promise<void> {
     const req = request()
-    const call = s.source().replace
+    const call = s.sourceMethod('replace')
     const a = s.selected.value
     if (!req || !call || !canReplace.value || writing.value) return
     if (index.value < 0 || !a) return step(1)
     writing.value = true
     try {
-      const out = await run(() => call.call(s.source(), { ...req, range: cellAddress(a.row, a.col) }, by.value))
+      const out = await run(() => call({ ...req, range: cellAddress(a.row, a.col) }, by.value))
       if (!out.ok) return
       await runSearch()
       step(1)
@@ -217,11 +217,11 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   /** Excel's Replace All over what the bar finds, one step of undo; the bar says how many cells it changed and counts again. */
   async function replaceAll(run: FindRunner): Promise<void> {
     const req = request()
-    const call = s.source().replace
+    const call = s.sourceMethod('replace')
     if (!req || !call || !canReplace.value || writing.value) return
     writing.value = true
     try {
-      const out = await run(() => call.call(s.source(), req, by.value))
+      const out = await run(() => call(req, by.value))
       if (!out.ok) return
       const { replaced, refused } = out as ReplaceOutcome
       // the cells Excel would not take are left as they were, the others written: the line says why

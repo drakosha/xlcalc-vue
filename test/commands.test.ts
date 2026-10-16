@@ -3,6 +3,7 @@
 // change the window cannot carry, and the sheet shown after one Excel's way.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { toRaw } from 'vue'
 import type { SheetViewApi } from '../src'
 import type { EditOutcome, SheetInfo, SheetOp, SheetSource } from '../src/source'
 import { active, address, fakeSource, goTo, key, mountSheet, settle } from './helpers'
@@ -205,5 +206,33 @@ describe('SheetView exposes structure', () => {
     expect(w.find('.xs-message').text()).toBe('Нельзя')
     const ro = await mountSheet(book(['A']).source, { readOnly: true })
     expect(await api(ro).structure({ op: 'insertSheet', name: 'X' })).toBeNull()
+  })
+})
+
+describe("a source's methods", () => {
+  it('are called on the source itself, as a class’s methods need their this', async () => {
+    const f = fakeSource([{ name: 'S', maxRow: 20, maxCol: 6 }])
+    const seen: string[] = []
+    const own = { ...f.source }
+    const methods = ['undo', 'redo', 'format', 'structure', 'outline', 'freeze', 'explain', 'stats'] as const
+    for (const name of methods) {
+      ;(own as Record<string, unknown>)[name] = function (this: unknown) {
+        seen.push(toRaw(this) === own ? name : `${name}: wrong this`)
+        return Promise.resolve(name === 'explain' ? 'A1 = 1' : name === 'stats' ? { cells: 1, numbers: 0, sum: 0, min: null, max: null } : OK)
+      }
+    }
+    const w = await mountSheet(own)
+    await api(w).undo()
+    await api(w).redo()
+    await api(w).format([{ style: { font: { bold: true } } }])
+    await api(w).structure({ op: 'insertRows', sheet: 'S', row: 2, count: 1 })
+    await api(w).outline({ op: 'group', sheet: 'S', rows: '2:3' })
+    await goTo(w, 'B2')
+    await api(w).freezePanes()
+    api(w).explain()
+    await goTo(w, 'A1:B2')
+    await new Promise((r) => setTimeout(r, 200))
+    await settle()
+    expect(new Set(seen)).toEqual(new Set(methods))
   })
 })

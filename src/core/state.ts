@@ -46,8 +46,17 @@ const SPARE_COLS = 5
 const MIN_ROWS = 100
 const MIN_COLS = 26
 
+/** The source's methods by name, optional ones too. */
+export type SourceMethod = { [K in keyof SheetSource]-?: NonNullable<SheetSource[K]> extends (...args: never[]) => unknown ? K : never }[keyof SheetSource]
+
 export function createState(props: SheetViewProps) {
   const source = () => props.source
+  /** A method of the source bound to it (a class's methods need their `this`), or null when the source has none. */
+  function sourceMethod<K extends SourceMethod>(name: K): NonNullable<SheetSource[K]> | null {
+    const src = props.source
+    const fn = src[name] as ((...args: unknown[]) => unknown) | undefined
+    return typeof fn === 'function' ? (fn.bind(src) as NonNullable<SheetSource[K]>) : null
+  }
   const messages = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
   const locale = computed(() => props.locale ?? 'en-US')
   const memory = createMemory(() => props.storageKey)
@@ -130,6 +139,7 @@ export function createState(props: SheetViewProps) {
   return {
     props,
     source,
+    sourceMethod,
     messages,
     locale,
     memory,

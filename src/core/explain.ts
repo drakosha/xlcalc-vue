@@ -81,7 +81,7 @@ export function useExplain(s: SheetState, f: Formula) {
   async function ask(mine: number): Promise<void> {
     timer = null
     const a = s.selected.value
-    const call = s.source().explain
+    const call = s.sourceMethod('explain')
     if (!a || !call || !s.sheet.value) {
       place.value = ''
       lines.value = []
@@ -93,7 +93,7 @@ export function useExplain(s: SheetState, f: Formula) {
     let got: ExplainLine[] = []
     let bad = false
     try {
-      got = explainLines(await call.call(s.source(), sheet, cell), sheet)
+      got = explainLines(await call(sheet, cell), sheet)
     } catch {
       bad = true
     }

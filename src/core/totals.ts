@@ -68,15 +68,14 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection) {
     (key) => {
       if (statsTimer) clearTimeout(statsTimer)
       statsCtrl?.abort()
-      const stats = s.source().stats
+      const stats = s.sourceMethod('stats')
       if (!key || !stats) return
       const sheet = s.sheetName.value
       const range = sel.gridRef.value
       const filter = s.visible.value?.spec
       statsTimer = setTimeout(() => {
         const ctrl = (statsCtrl = new AbortController())
-        stats
-          .call(s.source(), sheet, range, filter, ctrl.signal)
+        stats(sheet, range, filter, ctrl.signal)
           .then((got) => {
             if (!ctrl.signal.aborted && statsKey() === key) fromSource.value = { key, stats: got }
           })
