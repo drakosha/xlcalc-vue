@@ -107,6 +107,12 @@ describe('ValidationAlert', () => {
     expect(w.emitted('answer')).toEqual([['retry'], ['cancel']])
   })
 
+  it('names Retry by the sheet’s own `retry` text', async () => {
+    const w = mount(ValidationAlert, { props: { alert: alert('stop'), messages: { retry: 'Again' } }, attachTo: document.body })
+    await settle()
+    expect(buttons(w)).toEqual(['Again', 'Cancel'])
+  })
+
   it('warning in Russian: «Microsoft Excel», the message and «Продолжить?», Да, Нет и Отмена, open on Нет', async () => {
     const w = mount(ValidationAlert, { props: { alert: alert('warning'), messages: ruMessages }, attachTo: document.body })
     await settle()

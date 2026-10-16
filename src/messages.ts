@@ -232,10 +232,9 @@ export interface SheetMessages {
   fmtPreset: (p: 'none' | 'outline' | 'inside') => string
   fmtEdges: string
   fmtEdge: (e: 'top' | 'bottom' | 'left' | 'right' | 'insideH' | 'insideV') => string
-  /** Excel's data validation: the dropdown's button, the alert's title without the rule's, its buttons (OK and Cancel are `ok` and `cancel`), a warning's question and the styles' names. */
+  /** Excel's data validation: the dropdown's button, the alert's title without the rule's, its buttons (Retry, OK and Cancel are `retry`, `ok` and `cancel`), a warning's question and the styles' names. */
   validationList: string
   validationTitle: string
-  validationRetry: string
   validationYes: string
   validationNo: string
   validationContinue: string
@@ -259,6 +258,13 @@ export interface SheetMessages {
   mergeWarning: string
 }
 
+/** `n` and its English noun, singular for one. */
+const countEn = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+/** The tail of a search status when the source cut the list. */
+const shownEn = (total: number, shown: number) => (total > shown ? ` (the first ${shown} shown)` : '')
+/** A sort's direction as an arrow, in both sets. */
+const sortArrow = (dir: 'asc' | 'desc') => (dir === 'asc' ? '↑' : '↓')
+
 export const enMessages: SheetMessages = {
   back: 'Back to where you came from',
   backEmpty: 'No jumps yet',
@@ -270,7 +276,7 @@ export const enMessages: SheetMessages = {
   cellLinkCopied: (ref) => `Link to ${ref} copied`,
   clipboardDenied: 'The browser denied access to the clipboard',
   freeze: (rows, cols, on) => {
-    const what = [rows ? `${rows} ${rows === 1 ? 'row' : 'rows'}` : '', cols ? `${cols} ${cols === 1 ? 'column' : 'columns'}` : '']
+    const what = [rows ? countEn(rows, 'row', 'rows') : '', cols ? countEn(cols, 'column', 'columns') : '']
       .filter(Boolean)
       .join(' and ')
     return on
@@ -294,7 +300,7 @@ export const enMessages: SheetMessages = {
   statsMax: (n) => `Max: ${n}`,
   statsNumbers: (n) => `Numbers: ${n}`,
   statsCells: (n) => `Cells: ${n}`,
-  sheetTitle: (name, rows, cols) => `${name}: ${rows} ${rows === 1 ? 'row' : 'rows'}, ${cols} ${cols === 1 ? 'column' : 'columns'}`,
+  sheetTitle: (name, rows, cols) => `${name}: ${countEn(rows, 'row', 'rows')}, ${countEn(cols, 'column', 'columns')}`,
   sheetUnnamed: (n) => `Sheet ${n}`,
   insertSheet: 'New sheet',
   sheetNamePrefix: 'Sheet',
@@ -380,8 +386,8 @@ export const enMessages: SheetMessages = {
   findPrev: 'Previous (Shift+Enter)',
   findNext: 'Next (Enter)',
   findNone: 'no matches',
-  findStatus: (i, total, shown) => `${i} of ${total}${total > shown ? ` (the first ${shown} shown)` : ''}`,
-  findCount: (total, shown) => `${total} found${total > shown ? ` (the first ${shown} shown)` : ''}`,
+  findStatus: (i, total, shown) => `${i} of ${total}${shownEn(total, shown)}`,
+  findCount: (total, shown) => `${total} found${shownEn(total, shown)}`,
   findFailed: 'The search failed',
   findOptions: 'Options',
   findMatchCase: 'Match case',
@@ -399,7 +405,7 @@ export const enMessages: SheetMessages = {
   replaceOne: 'Replace',
   replaceAll: 'Replace All',
   replaceDone: (n) => (n ? `Replaced: ${n}` : 'Nothing to replace'),
-  replaceRefused: (n, why) => `${n} ${n === 1 ? 'cell was' : 'cells were'} left as ${n === 1 ? 'it was' : 'they were'}: ${why}`,
+  replaceRefused: (n, why) => `${countEn(n, 'cell was', 'cells were')} left as ${n === 1 ? 'it was' : 'they were'}: ${why}`,
   filter: 'Filter and sort',
   filterOn: 'A filter on this column is on',
   filterColumn: (letters) => `Column ${letters}`,
@@ -416,7 +422,7 @@ export const enMessages: SheetMessages = {
   filterReset: 'Reset',
   filterClear: 'Clear the filter and sort',
   filterStatus: (shown, total, cols, sort) =>
-    [`${shown} of ${total} rows shown`, cols.length ? `filter on ${cols.join(', ')}` : '', sort ? `sorted by ${sort.col} ${sort.dir === 'asc' ? '↑' : '↓'}` : '']
+    [`${shown} of ${total} rows shown`, cols.length ? `filter on ${cols.join(', ')}` : '', sort ? `sorted by ${sort.col} ${sortArrow(sort.dir)}` : '']
       .filter(Boolean)
       .join(', '),
   filterFailed: 'Could not apply the filter',
@@ -493,7 +499,6 @@ export const enMessages: SheetMessages = {
   fmtEdge: (e) => ({ top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right', insideH: 'Inside horizontal', insideV: 'Inside vertical' })[e],
   validationList: 'Pick from the list (Alt+Down)',
   validationTitle: 'Microsoft Excel',
-  validationRetry: 'Retry',
   validationYes: 'Yes',
   validationNo: 'No',
   validationContinue: 'Continue?',
@@ -521,6 +526,10 @@ function plural(n: number, one: string, few: string, many: string): string {
   if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few
   return many
 }
+/** `n` and its Russian noun in the right plural. */
+const countRu = (n: number, one: string, few: string, many: string) => `${n} ${plural(n, one, few, many)}`
+/** The tail of a search status when the source cut the list. */
+const shownRu = (total: number, shown: number) => (total > shown ? ` (показаны первые ${shown})` : '')
 
 export const ruMessages: SheetMessages = {
   back: 'Вернуться туда, откуда перешли',
@@ -534,8 +543,8 @@ export const ruMessages: SheetMessages = {
   clipboardDenied: 'Браузер не дал доступ к буферу обмена',
   freeze: (rows, cols, on) => {
     const what = [
-      rows ? `${rows} ${plural(rows, 'строку', 'строки', 'строк')}` : '',
-      cols ? `${cols} ${plural(cols, 'столбец', 'столбца', 'столбцов')}` : '',
+      rows ? countRu(rows, 'строку', 'строки', 'строк') : '',
+      cols ? countRu(cols, 'столбец', 'столбца', 'столбцов') : '',
     ]
       .filter(Boolean)
       .join(' и ')
@@ -560,8 +569,7 @@ export const ruMessages: SheetMessages = {
   statsMax: (n) => `Макс: ${n}`,
   statsNumbers: (n) => `Чисел: ${n}`,
   statsCells: (n) => `Выделено ячеек: ${n}`,
-  sheetTitle: (name, rows, cols) =>
-    `${name}: ${rows} ${plural(rows, 'строка', 'строки', 'строк')}, ${cols} ${plural(cols, 'столбец', 'столбца', 'столбцов')}`,
+  sheetTitle: (name, rows, cols) => `${name}: ${countRu(rows, 'строка', 'строки', 'строк')}, ${countRu(cols, 'столбец', 'столбца', 'столбцов')}`,
   sheetUnnamed: (n) => `Лист ${n}`,
   insertSheet: 'Новый лист',
   sheetNamePrefix: 'Лист',
@@ -590,7 +598,7 @@ export const ruMessages: SheetMessages = {
   menuCopy: 'Копировать',
   menuPaste: 'Вставить',
   pasteDenied: 'Браузер не даёт странице прочитать буфер обмена: вставьте сочетанием Ctrl+V (Cmd+V на Маке)',
-  fillHandle: 'Потяните, чтобы заполнить соседние ячейки; двойной щелчок заполняет вниз до конца данных',
+  fillHandle: 'Потяните, чтобы заполнить соседние ячейки. Двойной щелчок заполняет вниз до конца данных',
   menuReapply: 'Применить повторно',
   filterReapply: 'Применить фильтр и сортировку повторно к нынешним данным (Ctrl+Alt+L)',
   menuFreezePanes: 'Закрепить области',
@@ -647,8 +655,8 @@ export const ruMessages: SheetMessages = {
   findPrev: 'Предыдущее (Shift+Enter)',
   findNext: 'Следующее (Enter)',
   findNone: 'нет совпадений',
-  findStatus: (i, total, shown) => `${i} из ${total}${total > shown ? ` (показаны первые ${shown})` : ''}`,
-  findCount: (total, shown) => `найдено: ${total}${total > shown ? ` (показаны первые ${shown})` : ''}`,
+  findStatus: (i, total, shown) => `${i} из ${total}${shownRu(total, shown)}`,
+  findCount: (total, shown) => `найдено: ${total}${shownRu(total, shown)}`,
   findFailed: 'Поиск не удался',
   findOptions: 'Параметры',
   findMatchCase: 'Учитывать регистр',
@@ -683,7 +691,7 @@ export const ruMessages: SheetMessages = {
   filterReset: 'Сбросить',
   filterClear: 'Снять фильтр и сортировку',
   filterStatus: (shown, total, cols, sort) =>
-    [`показано ${shown} из ${total} строк`, cols.length ? `фильтр по ${cols.join(', ')}` : '', sort ? `сортировка по ${sort.col} ${sort.dir === 'asc' ? '↑' : '↓'}` : '']
+    [`показано ${shown} из ${total} строк`, cols.length ? `фильтр по ${cols.join(', ')}` : '', sort ? `сортировка по ${sort.col} ${sortArrow(sort.dir)}` : '']
       .filter(Boolean)
       .join(', '),
   filterFailed: 'Не удалось применить фильтр',
@@ -770,7 +778,6 @@ export const ruMessages: SheetMessages = {
     ({ top: 'верхняя', bottom: 'нижняя', left: 'левая', right: 'правая', insideH: 'внутренняя горизонтальная', insideV: 'внутренняя вертикальная' })[e],
   validationList: 'Выбрать из списка (Alt+↓)',
   validationTitle: 'Microsoft Excel',
-  validationRetry: 'Повторить',
   validationYes: 'Да',
   validationNo: 'Нет',
   validationContinue: 'Продолжить?',

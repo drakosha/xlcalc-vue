@@ -26,7 +26,7 @@ const box = ref<HTMLElement | null>(null)
 const id = useId()
 const buttons = computed(() => (props.alert ? ALERT_BUTTONS[props.alert.severity] : []))
 const label = (b: AlertButton): string =>
-  ({ retry: m.value.validationRetry, cancel: m.value.cancel, yes: m.value.validationYes, no: m.value.validationNo, ok: m.value.ok, fix: m.value.formulaFix, revert: m.value.formulaRevert })[b]
+  ({ retry: m.value.retry, cancel: m.value.cancel, yes: m.value.validationYes, no: m.value.validationNo, ok: m.value.ok, fix: m.value.formulaFix, revert: m.value.formulaRevert })[b]
 /** The icon's style: the sheet's own questions and messages show a warning's. */
 const style = computed(() => {
   const severity = props.alert?.severity ?? 'stop'
