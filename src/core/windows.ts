@@ -1,6 +1,6 @@
 // Windows of data: three slots (body, frozen rows, frozen columns), loaded under the scroll, patched by edits, read again in place by a repaint.
 // Rows of windows are display indexes (`d`): with a display filter they are places in its list, not the sheet's rows.
-import { computed, ref, shallowRef, type ShallowRef } from 'vue'
+import { computed, nextTick, ref, shallowRef, triggerRef, type ShallowRef } from 'vue'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
 import type { BarLook, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
@@ -362,9 +362,9 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     waitSeconds.value = 0
   }
 
-  /** Widths, heights and the default height from a window; rows above the frame keep it still when their heights change. */
+  /** Widths, heights and the default height from a window, changed in place; rows above the frame keep it still when their heights change. */
   function takeSizes(w: SheetWindow): void {
-    const widths = new Map(s.bookWidths.value)
+    const widths = s.bookWidths.value
     let widthsChanged = false
     w.widths.forEach((width, i) => {
       if (widths.get(w.col + i) !== width) {
@@ -372,33 +372,37 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         widthsChanged = true
       }
     })
-    if (widthsChanged) s.bookWidths.value = widths
-    const heights = new Map(s.heights.value)
-    let heightsChanged = false
+    if (widthsChanged) triggerRef(s.bookWidths)
+    const heights = s.heights.value
     const own = new Set<number>()
+    const next = new Map<number, number>()
     for (const [key, pt] of Object.entries(w.rowHeights)) {
       const r = Number(key)
       own.add(r)
-      if (heights.get(r) !== rowPx(pt)) {
-        heights.set(r, rowPx(pt))
-        heightsChanged = true
-      }
+      if (heights.get(r) !== rowPx(pt)) next.set(r, rowPx(pt))
     }
+    const gone: number[] = []
     for (let d = w.row; d < w.row + w.text.length; d++) {
       const r = s.rowOf(d)
-      if (!own.has(r) && heights.delete(r)) heightsChanged = true
+      if (!own.has(r) && heights.has(r)) gone.push(r)
     }
     const def = rowPx(w.defaultRowHeight ?? DEFAULT_ROW_PT)
-    if (!heightsChanged && def === s.defaultRowPx.value) return
+    if (!next.size && !gone.length && def === s.defaultRowPx.value) return
     const anchor = geo.rowAt(s.scrollTop.value + v.frozenH.value)
     const before = geo.rowOffsets.value[anchor - 1] ?? 0
-    if (heightsChanged) s.heights.value = heights
+    for (const [r, px] of next) heights.set(r, px)
+    for (const r of gone) heights.delete(r)
+    if (next.size || gone.length) triggerRef(s.heights)
     s.defaultRowPx.value = def
     const after = geo.rowOffsets.value[anchor - 1] ?? 0
     const el = s.scroller.value
     if (el && after !== before && s.scrollTop.value > 0) {
-      el.scrollTop += after - before
-      s.scrollTop.value = el.scrollTop
+      // The scroll the grid draws by moves now; the frame follows once the rows are drawn at their new heights, one write and no read.
+      const top = Math.max(0, s.scrollTop.value + after - before)
+      s.scrollTop.value = top
+      void nextTick(() => {
+        if (s.scrollTop.value === top) el.scrollTop = top
+      })
     }
   }
 

@@ -93,7 +93,7 @@ export function createState(props: SheetViewProps) {
 
   /** Columns' widths as the book stores them (null: the default); the grid draws them in the library's geometry. */
   const bookWidths = shallowRef(new Map<number, number | null>())
-  const userWidths = ref<Record<number, number>>({})
+  const userWidths = shallowRef<Record<number, number>>({})
   const heights = shallowRef(new Map<number, number>())
   const defaultRowPx = ref(rowPx(DEFAULT_ROW_PT))
 

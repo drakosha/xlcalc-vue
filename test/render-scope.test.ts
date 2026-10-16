@@ -136,4 +136,30 @@ describe('render scope', () => {
     }
     expect(redraws).toBeLessThanOrEqual(11)
   })
+
+  it('rows above the frame that come taller keep the frame on its rows: the scroll moves by their growth', async () => {
+    const f = fakeSource([{ name: 'S', maxRow: 2000, maxCol: 10 }])
+    let tall = false
+    const window = f.source.window
+    f.source.window = async (req, signal) => {
+      const got = await window(req, signal)
+      if (tall && 'text' in got) for (let r = req.row; r < req.row + got.text.length; r++) got.rowHeights[r] = 30
+      return got
+    }
+    const w = await mountSheet(f.source, { readOnly: true })
+    const ctx = contextOf(w)
+    const el = w.find('.xs-scroller').element as HTMLElement
+    el.scrollTop = 4000
+    await w.find('.xs-scroller').trigger('scroll')
+    await settle()
+    const anchor = ctx.geo.rowAt(4000)
+    const win = ctx.w.slots.body.value.win!
+    tall = true
+    f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A1:J2000' }] })
+    await settle()
+    const grown = (anchor - win.row) * 20
+    expect(ctx.scrollTop.value).toBe(4000 + grown)
+    expect(el.scrollTop).toBe(4000 + grown)
+    expect(ctx.geo.rowAt(ctx.scrollTop.value)).toBe(anchor)
+  })
 })

@@ -1,5 +1,5 @@
 // The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the frame's size.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, triggerRef, watch } from 'vue'
 import { cellAddress, linesKey, parseCell, rangeAddress } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import type { SheetInfo, SheetWindow } from '../source'
@@ -254,7 +254,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onResizeMove(e: PointerEvent): void {
     if (!drag) return
     const px = Math.min(MAX_COL_PX, Math.max(MIN_COL_PX, drag.startW + e.clientX - drag.startX))
-    s.userWidths.value = { ...s.userWidths.value, [drag.col]: px }
+    // In place: a drag sets one width many times a second.
+    s.userWidths.value[drag.col] = px
+    triggerRef(s.userWidths)
   }
   function endResize(): void {
     if (!drag) return
@@ -330,7 +332,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onRowResizeMove(e: PointerEvent): void {
     if (!rowDrag) return
     rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + e.clientY - rowDrag.startY)))
-    s.heights.value = new Map(s.heights.value).set(rowDrag.row, rowDrag.px)
+    s.heights.value.set(rowDrag.row, rowDrag.px)
+    triggerRef(s.heights)
   }
   /** A double click on a number's edge fits the row, every selected whole row when it is one of them, as Excel's AutoFit. */
   function onRowEdgeDouble(row: number): void {

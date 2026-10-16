@@ -75,7 +75,7 @@ export interface GeometryInput {
   /** Columns' widths as the book stores them (null: the default). */
   bookWidths: ShallowRef<Map<number, number | null>>
   /** Widths set with the mouse, pixels by column; they win over the book. */
-  userWidths: Ref<Record<number, number>>
+  userWidths: ShallowRef<Record<number, number>>
   /** Row heights in pixels that differ from the default (0 hides a row). */
   heights: ShallowRef<Map<number, number>>
   defaultRowPx: Ref<number>
