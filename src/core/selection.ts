@@ -75,11 +75,15 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     s.selected.value = { row: 1, col: 1 }
     s.extent.value = { row: MAX_ROWS, col: MAX_COLS }
   }
+  /** An editable grid stretches to show a rectangle's finite corner: one over every row or column to its first line there. */
+  function stretchTo(r: CellRect): void {
+    s.stretch(r.bottom >= MAX_ROWS ? r.top : r.bottom, r.right >= MAX_COLS ? r.left : r.right)
+  }
   /** Select a rectangle; one over every row or column stays whole, the grid stretches to its finite corner. */
   function selectRect(r: CellRect): void {
     const bottom = r.bottom >= MAX_ROWS ? MAX_ROWS : r.bottom
     const right = r.right >= MAX_COLS ? MAX_COLS : r.right
-    s.stretch(bottom >= MAX_ROWS ? r.top : bottom, right >= MAX_COLS ? r.left : right)
+    stretchTo(r)
     s.selected.value = { row: r.top, col: r.left }
     s.extent.value = r.top === bottom && r.left === right ? null : { row: bottom, col: right }
   }
@@ -307,6 +311,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     pickColumn,
     pickRow,
     selectAll,
+    stretchTo,
     selectRect,
     onCellDown,
     onCellTap,
