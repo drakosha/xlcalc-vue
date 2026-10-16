@@ -11,7 +11,7 @@
   border-radius: 6px;
   background: var(--xs-bg);
   color: var(--xs-fg);
-  font: 12.5px var(--xs-font);
+  font: var(--xs-font-size) var(--xs-font);
   box-shadow: var(--xs-shadow-menu);
 }
 .xs-menu-caption {
@@ -97,12 +97,12 @@
   font-size: 15px;
 }
 .xs-touch .xs-menu-item {
-  min-height: 44px;
+  min-height: var(--xs-touch-target);
   padding: 0 16px;
 }
 .xs-touch .xs-dialog {
   font-size: 15px;
 }
 .xs-touch .xs-dialog-choice {
-  min-height: 44px;
+  min-height: var(--xs-touch-target);
 }

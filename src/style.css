@@ -97,7 +97,7 @@
   flex: 1 1 auto;
   min-width: 0;
   min-height: 22px;
-  font-size: 12.5px;
+  font-size: var(--xs-font-size);
   line-height: 1.35;
 }
 .xs-fx-open {
@@ -307,7 +307,7 @@
 }
 .xs-head {
   position: sticky;
-  top: var(--xs-outline-h, 0px);
+  top: var(--xs-outline-h);
   z-index: 4;
 }
 /* The letters cell lets its edge grip reach over its border line (the label clips itself), or the line could not be grabbed. */
@@ -321,13 +321,13 @@
 }
 .xs-num {
   position: sticky;
-  left: var(--xs-outline-w, 0px);
+  left: var(--xs-outline-w);
   z-index: 2;
 }
 .xs-corner {
   position: sticky;
-  top: var(--xs-outline-h, 0px);
-  left: var(--xs-outline-w, 0px);
+  top: var(--xs-outline-h);
+  left: var(--xs-outline-w);
   z-index: 6;
 }
 /* Frozen panes: rows stick vertically, columns sideways, the corner both. Layers: corner > letters, frozen rows > numbers, frozen columns > body. */
@@ -351,7 +351,7 @@
   background-color: var(--xs-head-bg);
 }
 .xs-num.xs-fz-corner {
-  left: var(--xs-outline-w, 0px);
+  left: var(--xs-outline-w);
   z-index: 5;
   background-color: var(--xs-head-bg);
 }
@@ -583,7 +583,7 @@
   left: 0;
 }
 .xs-table .xs-total-num {
-  left: var(--xs-outline-w, 0px);
+  left: var(--xs-outline-w);
 }
 /* A touch screen has no hover: funnels show at all times there. */
 @media (hover: none) {
@@ -682,8 +682,8 @@
   transform: translate(-50%, -50%);
 }
 .xs-fill-handle.xs-fill-touch {
-  width: 44px;
-  height: 44px;
+  width: var(--xs-touch-target);
+  height: var(--xs-touch-target);
 }
 .xs-fill-handle.xs-fill-touch::after {
   width: 10px;
@@ -766,7 +766,7 @@
   border-radius: 6px;
   background: var(--xs-bg);
   color: var(--xs-fg);
-  font-size: 12.5px;
+  font-size: var(--xs-font-size);
   box-shadow: var(--xs-shadow-menu);
 }
 /* On a phone the list takes the whole screen, with room for fingers. */
@@ -938,7 +938,7 @@
   border-radius: 6px;
   background: var(--xs-message-bg);
   color: var(--xs-message-fg);
-  font-size: 12.5px;
+  font-size: var(--xs-font-size);
   transform: translateX(-50%);
   box-shadow: var(--xs-shadow-menu);
 }
@@ -999,28 +999,28 @@
   font-size: 16px;
 }
 .xs-touch .xs-fx {
-  min-height: 44px;
+  min-height: var(--xs-touch-target);
   font-size: 16px;
 }
 .xs-touch .xs-fx-input,
 .xs-touch .xs-fx-layer {
   height: calc(var(--xs-fx-lines) * 1.35em + 24px);
-  min-height: 44px;
+  min-height: var(--xs-touch-target);
   padding: 11px 6px;
 }
 /* Collapsed under a finger one line fills the field's height, so a scroll by lines shows no part of the next one in the padding. */
 .xs-touch .xs-fx:not(.xs-fx-open) .xs-fx-input,
 .xs-touch .xs-fx:not(.xs-fx-open) .xs-fx-layer {
-  height: 44px;
+  height: var(--xs-touch-target);
   padding-block: 0;
   line-height: 42px;
 }
 .xs-touch .xs-bar-link {
-  line-height: 44px;
+  line-height: var(--xs-touch-target);
   padding-top: 0;
 }
 .xs-touch .xs-tab {
-  min-height: 44px;
+  min-height: var(--xs-touch-target);
   padding: 0 14px;
   font-size: 14px;
 }
@@ -1028,14 +1028,14 @@
   font-size: 14px;
 }
 .xs-touch .xs-find-opt {
-  min-height: 44px;
+  min-height: var(--xs-touch-target);
 }
 .xs-touch .xs-find-opt input {
   width: 20px;
   height: 20px;
 }
 .xs-touch .xs-value {
-  min-height: 44px;
+  min-height: var(--xs-touch-target);
 }
 .xs-touch .xs-funnel-tool.xs-tool-on {
   color: var(--xs-accent);

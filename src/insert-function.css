@@ -56,6 +56,6 @@
   font-size: 15px;
 }
 .xs-touch .xs-ifn-item {
-  height: 44px;
+  height: var(--xs-touch-target);
   padding: 0 12px;
 }

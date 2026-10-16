@@ -296,7 +296,7 @@
   }
   .xs-fmt-tab {
     flex: 1 1 auto;
-    min-height: 44px;
+    min-height: var(--xs-touch-target);
   }
   .xs-field.xs-fmt-input,
   .xs-field.xs-fmt-select {
@@ -321,8 +321,8 @@
     height: 10px;
   }
   .xs-fmt-edge {
-    width: 44px;
-    height: 44px;
+    width: var(--xs-touch-target);
+    height: var(--xs-touch-target);
   }
   .xs-fmt .xs-swatches {
     --xs-swatch: var(--xs-touch-target);

@@ -91,7 +91,7 @@
   border-radius: 4px;
   background: none;
   color: var(--xs-fg);
-  font: 12.5px var(--xs-font);
+  font: var(--xs-font-size) var(--xs-font);
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
@@ -145,7 +145,7 @@
   max-width: none;
 }
 .xs-touch .xs-tb-item {
-  min-height: 44px;
+  min-height: var(--xs-touch-target);
   font-size: 15px;
 }
 .xs-touch .xs-tool.xs-tb-wide {
