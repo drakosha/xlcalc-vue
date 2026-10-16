@@ -22,6 +22,9 @@ export interface MemoryValidation {
 const EXCEL_MESSAGE = "This value doesn't match the data validation restrictions defined for this cell."
 const STRICTNESS = { information: 0, warning: 1, stop: 2 } as const
 
+/** A number as the book in memory reads a typed one: digits, a minus and a point, nothing else. */
+export const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/
+
 /** A sheet's rules with their rectangles, read once. */
 export class MemoryRules {
   private readonly rules: { rule: MemoryValidation; rects: CellRect[] }[]
@@ -64,7 +67,7 @@ function takes(rule: MemoryValidation, text: string | null): boolean {
   if (text === null || text === '' || (text.startsWith('=') && text.length > 1)) return true
   if (rule.list && !rule.list.some((item) => item.trim() === text.trim())) return false
   if (rule.whole) {
-    const n = /^\s*-?\d+(\.\d+)?\s*$/.test(text) ? Number(text) : NaN
+    const n = PLAIN_NUMBER.test(text.trim()) ? Number(text) : NaN
     if (!Number.isInteger(n) || n < (rule.whole.min ?? -Infinity) || n > (rule.whole.max ?? Infinity)) return false
   }
   return true

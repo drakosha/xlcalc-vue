@@ -2,7 +2,7 @@
 // It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, a precedents'
 // tree from the formulas as given, and can play a book being recomputed.
 import { cellAddress, parseCell, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
-import type { CellStyle, CellValue, ConditionalAppearance, GridReference } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
 import { textEditText } from './core/edit-text'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
@@ -11,8 +11,9 @@ import { axisOf, lineSpan, type LineAxis } from './lines'
 import { outlineEdit, outlineOf, type OutlineLine } from './memory-outline'
 import { abortError } from './abort'
 import { filterKey } from './filter-key'
+import { isGridRef } from './grid-ref'
 import { DEFAULT_MAX_CELLS, rowsFor } from './window-size'
-import { MemoryRules, memoryRefusal, type MemoryValidation } from './memory-validation'
+import { MemoryRules, memoryRefusal, PLAIN_NUMBER, type MemoryValidation } from './memory-validation'
 
 /** A cell of the memory book; a bare value is a cell with that value. */
 export interface MemoryCell {
@@ -111,6 +112,9 @@ function plainText(value: CellValue | undefined): string {
   return String(value)
 }
 
+/** A cell's value: its own, else the text it was given alone, else empty. */
+const valueOf = (cell: MemoryCell | undefined): CellValue => cell?.value ?? (cell?.text || null)
+
 interface Store {
   sheet: MemorySheet
   cells: Map<string, MemoryCell>
@@ -180,10 +184,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         const cell = store.cells.get(cellAddress(r, c))
         return cell ? textOf(cell) : ''
       },
-      valueAt: (r, c) => {
-        const cell = store.cells.get(cellAddress(r, c))
-        return cell?.value ?? (cell?.text ? cell.text : null)
-      },
+      valueAt: (r, c) => valueOf(store.cells.get(cellAddress(r, c))),
       editAt: (r, c) => {
         const cell = store.cells.get(cellAddress(r, c))
         return cell ? editTextOf(cell) : ''
@@ -255,13 +256,13 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
    */
   function explainOf(sheet: string, cell: string): string {
     const lines: string[] = []
-    const value = (v: CellValue | undefined) => (v === undefined || v === null ? 'empty' : typeof v === 'object' ? (ERROR_TEXT[v.error] ?? '#ERROR!') : JSON.stringify(v))
+    const value = (v: CellValue) => (v === null ? 'empty' : typeof v === 'object' ? plainText(v) : JSON.stringify(v))
     const visit = (store: Store, addr: string, depth: number, indent: string) => {
       const c = store.cells.get(addr)
       const name = quoteSheetIfNeeded(store.sheet.name)
-      lines.push(`${indent}${name}!${addr} = ${value(c?.value ?? (c?.text || null))}${c?.formula !== undefined ? `  ← ${c.formula}` : ''}`)
+      lines.push(`${indent}${name}!${addr} = ${value(valueOf(c))}${c?.formula !== undefined ? `  ← ${c.formula}` : ''}`)
       if (c?.formula === undefined || depth === 0) return
-      for (const r of scanReferences(c.formula).filter((x): x is GridReference => x.kind !== 'table' && x.sheetLast === undefined)) {
+      for (const r of scanReferences(c.formula).filter(isGridRef)) {
         if (lines.length >= EXPLAIN_NODES) return
         const target = r.sheet === undefined ? store : stores.find((x) => sameName(x.sheet.name, r.sheet!))
         if (!target) continue
@@ -339,7 +340,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         const addr = cellAddress(r, c)
         const cell = store.cells.get(addr)
         text.push(cell ? textOf(cell) : '')
-        values.push(cell?.value ?? (cell?.text ? cell.text : null))
+        values.push(valueOf(cell))
         if (!cell) continue
         if (cell.formula !== undefined) win.formulas[addr] = cell.formula
         if (cell.color) win.colors[addr] = cell.color
@@ -383,7 +384,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       else if (t.startsWith('=') && t.length > 1) {
         cell.formula = t.slice(1)
         cell.value = null
-      } else if (/^-?\d+(\.\d+)?$/.test(t)) cell.value = Number(t)
+      } else if (PLAIN_NUMBER.test(t)) cell.value = Number(t)
       else cell.value = t.startsWith("'") ? t.slice(1) : t
       if (Object.keys(cell).length) store.cells.set(addr, cell)
       else store.cells.delete(addr)
