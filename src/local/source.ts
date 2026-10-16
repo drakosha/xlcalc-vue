@@ -9,12 +9,11 @@ import { loadLocale, tipLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { throwIfAborted } from '../abort'
 import { filterKey } from '../filter-key'
+import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import { columnValuesOf, filterActive, SheetValues, statsOf, visibleList } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
 import { alertRefusalOf, validationOf } from './validation'
 import { windowOf } from './window'
-
-const MAX_CELLS = 20_000
 
 async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
   const kind = typeof opts.calc === 'string' ? opts.calc : typeof Worker === 'function' ? 'pool' : 'inline'
@@ -90,7 +89,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   let describe: Promise<((fn: string, words: Locale | string) => string | null) | null> | undefined
   // Text sorts in the book's locale once it is loaded; an unknown locale fails the opening.
   let collator: Intl.Collator
-  const maxCells = opts.maxCells ?? MAX_CELLS
+  const maxCells = opts.maxCells ?? DEFAULT_MAX_CELLS
   const listeners = new Set<(event: SourceEvent) => void>()
   /** Shown values of sheets that the display filter or its funnel needed, by the sheet's name key. */
   const values = new Map<string, Promise<SheetValues>>()
@@ -441,7 +440,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const s = await open()
       throwIfAborted(signal)
       const cols = Math.max(0, req.cols)
-      const count = Math.max(0, Math.min(req.rows, Math.floor(maxCells / Math.max(1, cols))))
+      const count = rowsFor(maxCells, req.rows, cols)
       const filtered = filterActive(req.filter)
       let rows: number[]
       if (filtered) rows = (await rowsUnder(s, req.sheet, req.filter!, false)).slice(req.row - 1, req.row - 1 + count)

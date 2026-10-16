@@ -10,6 +10,7 @@ import { columnList, findHits, rangeStats, replaceTexts, visibleList, type Query
 import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './memory-outline'
 import { abortError } from './abort'
 import { filterKey } from './filter-key'
+import { DEFAULT_MAX_CELLS, rowsFor } from './window-size'
 import { MemoryRules, memoryRefusal, type MemoryValidation } from './memory-validation'
 
 /** A cell of the memory book; a bare value is a cell with that value. */
@@ -139,6 +140,7 @@ function linesOf(key: string, axis: 'columns' | 'rows'): number[] {
 /** A source over `book`; the book's objects are copied, edits change the copy. */
 export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}): MemorySource {
   const delay = options.delay ?? 0
+  const maxCells = options.maxCells ?? DEFAULT_MAX_CELLS
   const styles = book.styles ?? []
   const functions = book.functions?.slice()
   const stores = book.sheets.map((sheet): Store => {
@@ -301,7 +303,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     const list = listUnder(store, req.filter)
     const cols = Math.max(0, req.cols)
     const limit = list ? Math.max(0, list.length - req.row + 1) : Infinity
-    const rows = Math.max(0, Math.min(req.rows, limit, Math.floor((options.maxCells ?? 20_000) / Math.max(1, cols))))
+    const rows = Math.min(rowsFor(maxCells, req.rows, cols), limit)
     const win: SheetWindow = {
       row: req.row,
       col: req.col,
@@ -392,7 +394,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   }
 
   const source: MemorySource = {
-    maxCells: options.maxCells,
+    maxCells,
     sheets: (signal) => wait(() => stores.map(info), signal),
     window: (req, signal) => wait(() => windowOf(req), signal),
     /** Typed entries; a value a rule of data validation does not take refuses them all with its alert, unless `accept` keeps it. */
