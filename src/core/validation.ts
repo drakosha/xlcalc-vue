@@ -89,8 +89,8 @@ export function useValidation(deps: ValidationDeps) {
     if (wait > 0) timer = setTimeout(() => void run(), wait)
     else void run()
   }
-  /** Ask again now, the shown rule kept until the answer (a list of cells after an edit). */
-  const refresh = () => ask(0)
+  /** Ask again after `wait` ms (now by default), the shown rule kept until the answer (a list of cells after an edit). */
+  const refresh = (wait = 0) => ask(wait)
 
   function close(): void {
     open.value = false

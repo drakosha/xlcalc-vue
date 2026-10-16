@@ -1,6 +1,6 @@
 // What a change redraws: typing, events and moves touch only the cells they change, not every drawn cell.
 import type { VueWrapper } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { sheetContextKey } from '../src/components/context'
 import type { SheetContext } from '../src/core/sheet'
@@ -97,5 +97,26 @@ describe('render scope', () => {
     expect((w.find('.xs-fx-input').element as HTMLTextAreaElement).value).toBe('=A1&"far"')
     const states = w.emitted('state')!
     expect(states[states.length - 1]![0]).toMatchObject({ value: 'far', formula: 'A1&"far"' })
+  })
+
+  it("a stream of changes asks the active cell's rule once it stops", async () => {
+    const f = fakeSource([{ name: 'S', maxRow: 200, maxCol: 20 }])
+    const validation = vi.fn(async () => null)
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    try {
+      const w = await mountSheet({ ...f.source, validation })
+      vi.advanceTimersByTime(100)
+      await settle()
+      validation.mockClear()
+      for (let i = 0; i < 20; i++) f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: `C${10 + i}`, text: 'x', value: 'x' }] })
+      await settle()
+      expect(validation).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(100)
+      await settle()
+      expect(validation).toHaveBeenCalledTimes(1)
+      w.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

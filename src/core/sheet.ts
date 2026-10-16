@@ -17,7 +17,7 @@ import { useMerge } from './merge'
 import { useNavigation } from './navigation'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
-import { useValidation, useValidationAlert } from './validation'
+import { useValidation, useValidationAlert, VALIDATION_DELAY_MS } from './validation'
 import { createState, type SheetViewProps } from './state'
 import { useFilter } from './filter'
 import { useFind } from './find'
@@ -458,9 +458,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
           if (event.message) notify(event.message)
           void reload()
         }
-        // A list of cells or the rules themselves may have changed, and the precedents' values.
+        // A list of cells or the rules themselves may have changed, and the precedents' values: asked once a stream of events stops.
         if (event.kind !== 'repaint') {
-          validation.refresh()
+          validation.refresh(VALIDATION_DELAY_MS)
           explain.refresh()
         }
       }) ?? null
