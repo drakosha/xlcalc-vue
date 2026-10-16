@@ -95,10 +95,10 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  min-height: 44px;
+  min-height: var(--xs-touch-target);
 }
 .xs-touch .xs-explain-ref {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: var(--xs-touch-target);
+  min-height: var(--xs-touch-target);
   text-align: center;
 }

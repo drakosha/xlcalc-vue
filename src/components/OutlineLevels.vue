@@ -18,7 +18,7 @@ const count = computed(() => (props.axis === 'rows' ? ctx.v.outlineSlots.value.r
       v-for="k in count"
       :key="k"
       type="button"
-      class="xs-ol-btn xs-ol-level"
+      class="xs-ol-btn"
       :style="{ '--xs-ol-at': ol.at(k) + 'px' }"
       :disabled="!ol.can.value"
       :title="m.outlineLevel(k)"

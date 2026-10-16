@@ -62,18 +62,8 @@
   height: 10px;
 }
 .xs-tb-select {
-  height: 22px;
   max-width: 140px;
-  padding: 0 4px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 4px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: 12px var(--xs-font);
-}
-.xs-tb-select:focus {
-  border-color: var(--xs-accent);
-  outline: none;
+  font-size: 12px;
 }
 
 /* ── a menu under a button: palettes and borders ── */
@@ -89,7 +79,7 @@
   border: 1px solid var(--xs-grid);
   border-radius: 6px;
   background: var(--xs-bg);
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.16);
+  box-shadow: var(--xs-shadow-menu);
 }
 .xs-tb-item {
   display: flex;
@@ -101,7 +91,7 @@
   border-radius: 4px;
   background: none;
   color: var(--xs-fg);
-  font: 12.5px var(--xs-font);
+  font: var(--xs-font-size) var(--xs-font);
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
@@ -110,22 +100,10 @@
 .xs-tb-item[aria-pressed='true'] {
   background: var(--xs-head-bg);
 }
-.xs-tb-swatches {
-  display: grid;
-  grid-template-columns: repeat(10, 18px);
+/* The palette a little smaller than the dialog's, as Excel's menu draws it (a finger's is the same, controls.css). */
+.xs-toolbar:not(.xs-touch) .xs-swatches {
+  --xs-swatch: 18px;
   gap: 3px;
-}
-.xs-tb-swatch {
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 1px solid rgb(0 0 0 / 0.18);
-  border-radius: 3px;
-  cursor: pointer;
-}
-.xs-tb-swatch[aria-pressed='true'] {
-  outline: 2px solid var(--xs-accent);
-  outline-offset: 1px;
 }
 
 /* ── a narrow frame: the first buttons in a row, the rest in a menu under the toolbar ── */
@@ -147,7 +125,7 @@
   padding: 6px 8px;
   border-bottom: 1px solid var(--xs-grid);
   background: var(--xs-bar-bg);
-  box-shadow: 0 8px 16px rgb(0 0 0 / 0.12);
+  box-shadow: var(--xs-shadow-menu);
 }
 .xs-tb-menu > .xs-tb-group {
   padding: 0 12px 0 0;
@@ -164,21 +142,11 @@
 
 /* ── a finger: every target at least 44 × 44 px ── */
 .xs-touch .xs-tb-select {
-  height: 44px;
   max-width: none;
-  font-size: 15px;
 }
 .xs-touch .xs-tb-item {
-  min-height: 44px;
+  min-height: var(--xs-touch-target);
   font-size: 15px;
-}
-.xs-touch .xs-tb-swatches {
-  grid-template-columns: repeat(5, 44px);
-  gap: 6px;
-}
-.xs-touch .xs-tb-swatch {
-  width: 44px;
-  height: 44px;
 }
 .xs-touch .xs-tool.xs-tb-wide {
   min-width: 56px;

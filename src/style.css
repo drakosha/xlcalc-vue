@@ -28,8 +28,19 @@
   --xs-message-fg: #ffffff;
   --xs-copy-line: #1a73e8;
   --xs-fill-frame: #5f6368;
+  --xs-on-accent: #ffffff;
   --xs-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --xs-font-size: 12.5px;
+  /* shadows of a list or a tip under a cell, of a menu, of a dialog; the dimmed page under a dialog; the layers over the page (an alert over a dialog) */
+  --xs-shadow-pop: 0 2px 6px rgb(0 0 0 / 0.2);
+  --xs-shadow-menu: 0 6px 20px rgb(0 0 0 / 0.18);
+  --xs-shadow-modal: 0 10px 30px rgb(0 0 0 / 0.25);
+  --xs-backdrop: rgb(0 0 0 / 0.25);
+  --xs-z-menu: 40;
+  --xs-z-modal: 50;
+  --xs-z-alert: 55;
+  /* internal: a target under a finger (buttons, fields, items); the lists' items are laid out by TOUCH_PX in components/popup.ts, the same 44 */
+  --xs-touch-target: 44px;
 }
 .xs-sheet {
   position: relative;
@@ -47,11 +58,6 @@
 .xs-sheet *::after {
   box-sizing: border-box;
 }
-.xs-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
 .xs-muted {
   color: var(--xs-muted);
 }
@@ -66,44 +72,15 @@
   border-bottom: 1px solid var(--xs-grid);
   background: var(--xs-bar-bg);
 }
-.xs-tool {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--xs-muted);
-  cursor: pointer;
-}
-.xs-tool:hover:not(:disabled),
-.xs-tool-on {
-  background: var(--xs-head-bg);
-  color: var(--xs-fg);
-}
-.xs-tool:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.xs-address {
+/* The address box: a field (controls.css) of its own size. */
+.xs-bar .xs-address {
   width: 96px;
   flex-shrink: 0;
   height: 22px;
   padding: 0 6px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 4px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: 500 11.5px var(--xs-font);
+  font-weight: 500;
+  font-size: 11.5px;
   text-align: center;
-  outline: none;
-}
-.xs-address:focus {
-  border-color: var(--xs-accent);
 }
 /* The formula and Excel's arrow at its right end, which expands the bar to several lines and collapses it. */
 .xs-fx-line {
@@ -120,7 +97,7 @@
   flex: 1 1 auto;
   min-width: 0;
   min-height: 22px;
-  font-size: 12.5px;
+  font-size: var(--xs-font-size);
   line-height: 1.35;
 }
 .xs-fx-open {
@@ -177,12 +154,6 @@
 .xs-ref-go {
   text-decoration: underline;
 }
-/* A finger held on a reference goes to it: no selection or callout of the browser's. */
-.xs-fx-held {
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
 .xs-bar-link {
   max-width: 40%;
   flex-shrink: 0;
@@ -233,10 +204,6 @@
 .xs-find-toggle:not([aria-expanded='true']) .xs-icon {
   transform: rotate(-90deg);
 }
-.xs-find-row .xs-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
 .xs-find-more {
   gap: 4px 14px;
   font-size: 12px;
@@ -247,15 +214,6 @@
   gap: 5px;
   white-space: nowrap;
   cursor: pointer;
-}
-.xs-find-select {
-  height: 22px;
-  padding: 0 4px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 4px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: 12px var(--xs-font);
 }
 .xs-find-scope {
   display: inline-flex;
@@ -268,17 +226,6 @@
 .xs-find-input {
   flex: 1 1 140px;
   min-width: 0;
-  height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 4px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: 12.5px var(--xs-font);
-  outline: none;
-}
-.xs-find-input:focus {
-  border-color: var(--xs-accent);
 }
 .xs-find-status {
   flex-shrink: 0;
@@ -354,7 +301,7 @@
 }
 .xs-head {
   position: sticky;
-  top: var(--xs-outline-h, 0px);
+  top: var(--xs-outline-h);
   z-index: 4;
 }
 /* The letters cell lets its edge grip reach over its border line (the label clips itself), or the line could not be grabbed. */
@@ -368,13 +315,13 @@
 }
 .xs-num {
   position: sticky;
-  left: var(--xs-outline-w, 0px);
+  left: var(--xs-outline-w);
   z-index: 2;
 }
 .xs-corner {
   position: sticky;
-  top: var(--xs-outline-h, 0px);
-  left: var(--xs-outline-w, 0px);
+  top: var(--xs-outline-h);
+  left: var(--xs-outline-w);
   z-index: 6;
 }
 /* Frozen panes: rows stick vertically, columns sideways, the corner both. Layers: corner > letters, frozen rows > numbers, frozen columns > body. */
@@ -398,7 +345,7 @@
   background-color: var(--xs-head-bg);
 }
 .xs-num.xs-fz-corner {
-  left: var(--xs-outline-w, 0px);
+  left: var(--xs-outline-w);
   z-index: 5;
   background-color: var(--xs-head-bg);
 }
@@ -510,20 +457,18 @@
 .xs-cell.xs-hit-now:not(.xs-fz-row, .xs-fz-col, .xs-fz-corner) {
   position: relative;
 }
-.xs-cell.xs-hit-now::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: var(--xs-flash);
-  animation: xs-pulse 0.5s ease-in-out infinite alternate;
-}
+.xs-cell.xs-hit-now::before,
 .xs-cell.xs-flash::before {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
   background: var(--xs-flash);
+}
+.xs-cell.xs-hit-now::before {
+  animation: xs-pulse 0.5s ease-in-out infinite alternate;
+}
+.xs-cell.xs-flash::before {
   opacity: 0;
   animation: xs-pulse 0.5s ease-in-out 4 alternate;
 }
@@ -630,7 +575,7 @@
   left: 0;
 }
 .xs-table .xs-total-num {
-  left: var(--xs-outline-w, 0px);
+  left: var(--xs-outline-w);
 }
 /* A touch screen has no hover: funnels show at all times there. */
 @media (hover: none) {
@@ -674,7 +619,7 @@
   resize: none;
   outline: none;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
+  box-shadow: var(--xs-shadow-pop);
 }
 .xs-editor-idle {
   top: 0;
@@ -729,8 +674,8 @@
   transform: translate(-50%, -50%);
 }
 .xs-fill-handle.xs-fill-touch {
-  width: 44px;
-  height: 44px;
+  width: var(--xs-touch-target);
+  height: var(--xs-touch-target);
 }
 .xs-fill-handle.xs-fill-touch::after {
   width: 10px;
@@ -800,115 +745,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── the funnel's list ── */
-.xs-popover {
-  position: fixed;
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 280px;
-  padding: 8px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 6px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font-size: 12.5px;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
-}
-/* On a phone the list takes the whole screen, with room for fingers. */
-.xs-popover-full {
-  inset: 0;
-  width: auto;
-  padding: 12px;
-  border: 0;
-  border-radius: 0;
-  font-size: 15px;
-}
-.xs-popover-head {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.xs-popover-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.xs-popover-input {
-  width: 100%;
-  height: 26px;
-  padding: 0 8px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 4px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: inherit;
-  outline: none;
-}
-.xs-popover-input:focus {
-  border-color: var(--xs-accent);
-}
-.xs-popover-search {
-  background: var(--xs-head-bg);
-}
-.xs-values {
-  max-height: 320px;
-  overflow-y: auto;
-  border: 1px solid var(--xs-grid);
-  border-radius: 4px;
-}
-.xs-popover-full .xs-values {
-  flex: 1 1 auto;
-  max-height: none;
-}
-.xs-values-note {
-  margin: 0;
-  padding: 6px 8px;
-}
-.xs-value {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  cursor: pointer;
-}
-.xs-popover-full .xs-value {
-  padding: 8px 10px;
-}
-.xs-value:hover {
-  background: var(--xs-head-bg);
-}
-.xs-value-all {
-  border-bottom: 1px solid var(--xs-grid);
-  font-weight: 600;
-}
-.xs-value-text {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.xs-popover-foot {
-  display: flex;
-  gap: 6px;
-}
-.xs-popover-full .xs-popover-foot .xs-button {
-  flex: 1 1 0;
-  justify-content: center;
-  padding: 10px;
-  font-size: 15px;
-}
-.xs-button-main {
-  border-color: var(--xs-accent);
-  background: var(--xs-accent);
-  color: #ffffff;
-}
-
 /* ── the bottom line ── */
 .xs-bottom {
   display: flex;
@@ -953,9 +789,10 @@
   border: 1px solid var(--xs-accent);
   outline: none;
 }
-/* A finger held on a tab or a header opens the menu, not the browser's callout. */
+/* A finger held on a tab or a header opens the menu, one held on a reference in the formula bar goes to it: no selection or callout of the browser's. */
 .xs-tab,
-.xs-table th {
+.xs-table th,
+.xs-fx-held {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
@@ -1002,9 +839,9 @@
   border-radius: 6px;
   background: var(--xs-message-bg);
   color: var(--xs-message-fg);
-  font-size: 12.5px;
+  font-size: var(--xs-font-size);
   transform: translateX(-50%);
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
+  box-shadow: var(--xs-shadow-menu);
 }
 .xs-message .xs-tool {
   color: inherit;
@@ -1027,124 +864,16 @@
 .xs-fallback p {
   margin: 0;
 }
-.xs-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 6px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: 12.5px var(--xs-font);
-  cursor: pointer;
-}
 
-/* ── a phone ── */
-.xs-narrow .xs-address {
-  width: 64px;
-}
+/* ── a phone: the formula on a line of its own under the address and the tools, so it keeps room to be read; the tabs on
+   a line of their own when the filter's state or totals come along ── */
 .xs-narrow .xs-bar {
-  padding: 4px 6px;
+  flex-wrap: wrap;
   gap: 4px;
+  padding: 4px 6px;
 }
-.xs-narrow .xs-bar-link {
-  display: none;
-}
-.xs-narrow .xs-tabs {
-  flex: 1 1 0;
-}
-.xs-narrow .xs-stats {
-  max-width: 55%;
-}
-/* On a phone the tabs keep a line of their own when the filter's state or totals come along. */
-.xs-narrow .xs-bottom {
-  flex-wrap: wrap;
-  row-gap: 2px;
-}
-.xs-narrow .xs-tabs {
-  flex-basis: 100%;
-}
-.xs-narrow .xs-stats {
-  margin-left: auto;
-}
-
-/* ── a finger: buttons, fields and tabs at least 44 × 44 px (the grid's cells and letters keep their size) ── */
-.xs-touch .xs-tool {
-  width: 44px;
-  height: 44px;
-}
-.xs-touch .xs-tool .xs-icon {
-  width: 18px;
-  height: 18px;
-}
-.xs-touch .xs-address {
-  height: 44px;
-  font-size: 14px;
-}
-.xs-touch .xs-fx {
-  min-height: 44px;
-  font-size: 14px;
-}
-.xs-touch .xs-fx-input,
-.xs-touch .xs-fx-layer {
-  height: calc(var(--xs-fx-lines) * 1.35em + 24px);
-  min-height: 44px;
-  padding: 11px 6px;
-}
-/* Collapsed under a finger one line fills the field's height, so a scroll by lines shows no part of the next one in the padding. */
-.xs-touch .xs-fx:not(.xs-fx-open) .xs-fx-input,
-.xs-touch .xs-fx:not(.xs-fx-open) .xs-fx-layer {
-  height: 44px;
-  padding-block: 0;
-  line-height: 42px;
-}
-.xs-touch .xs-bar-link {
-  line-height: 44px;
-  padding-top: 0;
-}
-.xs-touch .xs-tab {
-  min-height: 44px;
-  padding: 0 14px;
-  font-size: 14px;
-}
-.xs-touch .xs-find-input,
-.xs-touch .xs-popover-input {
-  height: 44px;
-  font-size: 15px;
-}
-.xs-touch .xs-find-more {
-  font-size: 14px;
-}
-.xs-touch .xs-find-opt {
-  min-height: 44px;
-}
-.xs-touch .xs-find-opt input {
-  width: 20px;
-  height: 20px;
-}
-.xs-touch .xs-find-select {
-  height: 44px;
-  font-size: 15px;
-}
-.xs-touch .xs-value {
-  min-height: 44px;
-}
-.xs-touch .xs-button {
-  min-height: 44px;
-  font-size: 14px;
-}
-.xs-touch .xs-button {
-  min-width: 44px;
-  justify-content: center;
-}
-.xs-touch .xs-funnel-tool.xs-tool-on {
-  color: var(--xs-accent);
-}
-/* On a phone the formula takes a line of its own under the address and the tools, so it keeps room to be read. */
-.xs-narrow .xs-bar {
-  flex-wrap: wrap;
-  row-gap: 4px;
+.xs-narrow .xs-bar .xs-address {
+  width: 64px;
 }
 .xs-narrow .xs-fx-line {
   flex-basis: 100%;
@@ -1152,5 +881,63 @@
 }
 .xs-narrow .xs-tools {
   margin-left: auto;
+}
+.xs-narrow .xs-bar-link {
+  display: none;
+}
+.xs-narrow .xs-bottom {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.xs-narrow .xs-tabs {
+  flex: 1 1 100%;
+}
+.xs-narrow .xs-stats {
+  max-width: 55%;
+}
+
+/* ── a finger: buttons, fields and tabs at least 44 × 44 px (the grid's cells and letters keep their size; the tools, buttons and fields in controls.css) ── */
+.xs-touch .xs-bar .xs-address {
+  height: var(--xs-touch-target);
+  font-size: 16px;
+}
+.xs-touch .xs-fx {
+  min-height: var(--xs-touch-target);
+  font-size: 16px;
+}
+.xs-touch .xs-fx-input,
+.xs-touch .xs-fx-layer {
+  height: calc(var(--xs-fx-lines) * 1.35em + 24px);
+  min-height: var(--xs-touch-target);
+  padding: 11px 6px;
+}
+/* Collapsed under a finger one line fills the field's height, so a scroll by lines shows no part of the next one in the padding. */
+.xs-touch .xs-fx:not(.xs-fx-open) .xs-fx-input,
+.xs-touch .xs-fx:not(.xs-fx-open) .xs-fx-layer {
+  height: var(--xs-touch-target);
+  padding-block: 0;
+  line-height: 42px;
+}
+.xs-touch .xs-bar-link {
+  line-height: var(--xs-touch-target);
+  padding-top: 0;
+}
+.xs-touch .xs-tab {
+  min-height: var(--xs-touch-target);
+  padding: 0 14px;
+  font-size: 14px;
+}
+.xs-touch .xs-find-more {
+  font-size: 14px;
+}
+.xs-touch .xs-find-opt {
+  min-height: var(--xs-touch-target);
+}
+.xs-touch .xs-find-opt input {
+  width: 20px;
+  height: 20px;
+}
+.xs-touch .xs-funnel-tool.xs-tool-on {
+  color: var(--xs-accent);
 }
 

@@ -27,7 +27,7 @@ describe('ValidationDropdown', () => {
     expect(w.emitted('toggle')).toHaveLength(1)
   })
 
-  it('lists the items under the cell as wide as the cell and its arrow, a blank one kept; a click gives the item’s text', async () => {
+  it('lists the items under the cell as wide as the cell and its arrow, a blank one kept; a click gives the item’s place', async () => {
     const w = mount(ValidationDropdown, { props: { rect: CELL, items: ITEMS, open: true, active: 1, messages: ruMessages }, attachTo: document.body })
     const list = w.find('[data-xs-dropdown-list]')
     expect([style(w, '.xs-vd-list').left, style(w, '.xs-vd-list').top, style(w, '.xs-vd-list').width]).toEqual(['100px', '60px', '81px'])
@@ -35,7 +35,7 @@ describe('ValidationDropdown', () => {
     expect(list.find('[aria-selected="true"]').text()).toBe('Нет')
     expect(w.find('[data-xs-dropdown-arrow]').attributes('title')).toBe('Выбрать из списка (Alt+↓)')
     await w.find('[data-xs-dropdown-item="3"]').trigger('click')
-    expect(w.emitted('pick')).toEqual([[3, 'Может быть']])
+    expect(w.emitted('pick')).toEqual([[3]])
     await w.find('[data-xs-dropdown-item="0"]').trigger('pointermove')
     expect(w.emitted('hover')).toEqual([[0]])
   })
@@ -107,6 +107,12 @@ describe('ValidationAlert', () => {
     expect(w.emitted('answer')).toEqual([['retry'], ['cancel']])
   })
 
+  it('names Retry by the sheet’s own `retry` text', async () => {
+    const w = mount(ValidationAlert, { props: { alert: alert('stop'), messages: { retry: 'Again' } }, attachTo: document.body })
+    await settle()
+    expect(buttons(w)).toEqual(['Again', 'Cancel'])
+  })
+
   it('warning in Russian: «Microsoft Excel», the message and «Продолжить?», Да, Нет и Отмена, open on Нет', async () => {
     const w = mount(ValidationAlert, { props: { alert: alert('warning'), messages: ruMessages }, attachTo: document.body })
     await settle()
@@ -119,12 +125,12 @@ describe('ValidationAlert', () => {
     expect(w.emitted('answer')).toEqual([['accept'], ['retry'], ['cancel']])
   })
 
-  it('information: OK and Cancel, open on OK; Esc is Cancel; Tab goes round the buttons', async () => {
+  it('information: OK and Cancel, open on OK; Esc is Cancel; Tab and Shift+Tab go round the buttons', async () => {
     const w = mount(ValidationAlert, { props: { alert: alert('information') }, attachTo: document.body })
     await settle()
     expect(buttons(w)).toEqual(['OK', 'Cancel'])
     expect(focused()).toBe('ok')
-    await w.find('.xs-va').trigger('keydown', { key: 'Tab' })
+    await w.find('.xs-va').trigger('keydown', { key: 'Tab', shiftKey: true })
     expect(focused()).toBe('cancel')
     await w.find('.xs-va').trigger('keydown', { key: 'Tab' })
     expect(focused()).toBe('ok')
@@ -132,6 +138,6 @@ describe('ValidationAlert', () => {
     await w.find('.xs-va').trigger('keydown', { key: 'Escape' })
     expect(w.emitted('answer')).toEqual([['accept'], ['cancel']])
     await w.setProps({ alert: null })
-    expect(w.find('[data-xs-alert-back]').exists()).toBe(false)
+    expect(w.find('[data-xs-alert]').exists()).toBe(false)
   })
 })

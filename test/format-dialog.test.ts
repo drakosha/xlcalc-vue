@@ -2,7 +2,7 @@
 // Esc close; Excel's limits hold OK back; the toolbar's Format Cells button asks the host to open it.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { FormatDialog, SheetToolbar, type SheetViewState } from '../src'
+import { FormatDialog, SheetToolbar, type SheetViewApi, type SheetViewState } from '../src'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/source'
 import { settle } from './helpers'
 
@@ -29,7 +29,7 @@ describe('FormatDialog', () => {
     expect(w.find('[data-fmt-category]').text()).toBe('Category: Percentage')
     expect([value(w, '[data-fmt-font-style]'), value(w, '[data-fmt-font-size]')]).toEqual(['bold', '14'])
     expect([value(w, '[data-fmt-horizontal]'), value(w, '[data-fmt-indent]'), value(w, '[data-fmt-vertical]')]).toEqual(['right', '2', 'bottom'])
-    expect(w.find('[data-fmt-colour-of="fill"] [aria-pressed="true"]').attributes('data-fmt-colour')).toBe('#FFFF00')
+    expect(w.find('[data-fmt-colour-of="fill"] [aria-pressed="true"]').attributes('data-xs-colour')).toBe('#FFFF00')
     expect(w.find('[data-fmt-colour-of="font"] [data-fmt-colour-none]').attributes('aria-pressed')).toBe('true')
   })
 
@@ -38,7 +38,7 @@ describe('FormatDialog', () => {
     await tab(w, 'font')
     await w.find('[data-fmt-font-style]').setValue('italic')
     await w.find('[data-fmt-font-size]').setValue('12')
-    await w.find('[data-fmt-colour-of="font"] [data-fmt-colour="#C00000"]').trigger('click')
+    await w.find('[data-fmt-colour-of="font"] [data-xs-colour="#C00000"]').trigger('click')
     await tab(w, 'fill')
     await w.find('[data-fmt-colour-of="fill"] [data-fmt-colour-code]').setValue('92d050')
     await okButton(w).trigger('submit')
@@ -141,5 +141,15 @@ describe('the toolbar’s Format Cells button', () => {
     expect(onFormatCells).toHaveBeenCalledTimes(1)
     const plain = mount(SheetToolbar, { props: { source, state: at('A1') }, attachTo: document.body })
     expect(plain.find('[data-tb="format-cells"]').exists()).toBe(false)
+  })
+
+  it('opens the host’s dialog once the host listens, even when it began listening after the toolbar was made', async () => {
+    const sheet = { formatCells: vi.fn() } as unknown as SheetViewApi
+    const w = mount(SheetToolbar, { props: { source, state: at('A1'), sheet }, attachTo: document.body })
+    await settle()
+    const onFormatCells = vi.fn()
+    await w.setProps({ onFormatCells } as never)
+    await w.find('[data-tb="format-cells"]').trigger('click')
+    expect([onFormatCells.mock.calls.length, vi.mocked(sheet.formatCells).mock.calls.length]).toEqual([1, 0])
   })
 })

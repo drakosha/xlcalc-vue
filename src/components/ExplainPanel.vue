@@ -4,6 +4,7 @@
 import type { ExplainPart } from '../core/explain'
 import { useSheetContext } from './context'
 import { IconClose, IconSpinner } from './icons'
+import '../controls.css'
 
 const ctx = useSheetContext()
 const { explain } = ctx

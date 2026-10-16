@@ -40,8 +40,8 @@ function exportsOf(path: string): string[] {
   return names
 }
 
-/** Component-private variables the sheet sets itself, which a host does not override. */
-const INTERNAL_VARS = new Set(['--xs-fx-lines', '--xs-explain-depth', '--xs-outline-h', '--xs-outline-w'])
+/** Component-private variables: what the sheet sets itself or keeps fixed, which a host does not override. */
+const INTERNAL_VARS = new Set(['--xs-fx-lines', '--xs-explain-depth', '--xs-outline-h', '--xs-outline-w', '--xs-swatch', '--xs-touch-target'])
 
 describe('docs/api.md', () => {
   it('names every export of both entries and every type of the source contract', () => {

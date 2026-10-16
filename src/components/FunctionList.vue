@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // Excel's Formula AutoComplete list under the field being edited (over it where the view has no room below), eight
 // functions at a time; the keys are the field's (`useAutocomplete.onKey`) and a press keeps the field's focus.
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { FUNCTION_ROWS } from '../core/autocomplete'
 import type { ValidationRect } from '../core/validation'
-import { enMessages, type SheetMessages } from '../messages'
+import { useMessages, type SheetMessages } from '../messages'
+import { clampLeft, keepActiveInView, listHeight, placeBelowOrAbove } from './popup'
+import '../popup.css'
 
 const props = withDefaults(
   defineProps<{
@@ -28,42 +30,25 @@ const emit = defineEmits<{
   pick: [index: number]
 }>()
 
-const m = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
-/** Items of 18 px as Excel's, 44 under a finger; the list's width holds the longest names (`ПРОМЕЖУТОЧНЫЕ.ИТОГИ`). */
-const ITEM_PX = 18
-const TOUCH_PX = 44
+const m = useMessages(() => props.messages)
+/** The list's width holds the longest names (`ПРОМЕЖУТОЧНЫЕ.ИТОГИ`). */
 const WIDTH_PX = 220
 const listEl = ref<HTMLElement | null>(null)
 
 const box = computed(() => {
   const r = props.rect
   const v = props.view
-  const height = Math.min(props.items.length, FUNCTION_ROWS) * (props.touch ? TOUCH_PX : ITEM_PX) + 2
+  const height = listHeight(props.items.length, FUNCTION_ROWS, props.touch)
   const width = v ? Math.min(WIDTH_PX, v.width) : WIDTH_PX
-  const below = r.top + r.height
-  const up = !!v && below + height > v.top + v.height && r.top - height >= v.top
-  const left = v ? Math.max(v.left, Math.min(r.left, v.left + v.width - width)) : r.left
-  return { top: `${up ? r.top - height : below}px`, left: `${left}px`, width: `${width}px`, maxHeight: `${height}px` }
+  return { top: `${placeBelowOrAbove(r, height, v)}px`, left: `${clampLeft(r.left, width, v)}px`, width: `${width}px`, maxHeight: `${height}px` }
 })
-
-// The highlighted item stays in view as the keys move it, by the list's own scroll alone.
-watch(
-  () => [props.active, props.items] as const,
-  async ([i]) => {
-    await nextTick()
-    const list = listEl.value
-    const item = list?.children[i] as HTMLElement | undefined
-    if (!list || !item) return
-    if (item.offsetTop < list.scrollTop) list.scrollTop = item.offsetTop
-    else if (item.offsetTop + item.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = item.offsetTop + item.offsetHeight - list.clientHeight
-  },
-)
+keepActiveInView(listEl, () => [props.active, props.items], () => props.active)
 </script>
 
 <template>
   <ul
     ref="listEl"
-    :class="['xs-fl', { 'xs-fl-touch': touch }]"
+    :class="['xs-popup-list', 'xs-fl', { 'xs-popup-touch xs-fl-touch': touch }]"
     role="listbox"
     :aria-label="m.functionList"
     :title="touch ? undefined : m.functionHint"
@@ -74,7 +59,7 @@ watch(
     <li
       v-for="(name, i) in items"
       :key="i"
-      :class="['xs-fl-item', { 'xs-fl-on': i === active }]"
+      :class="['xs-popup-item', 'xs-fl-item', { 'xs-popup-on xs-fl-on': i === active }]"
       role="option"
       :aria-selected="i === active"
       :data-xs-function="name"

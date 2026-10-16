@@ -1,21 +1,16 @@
 <script setup lang="ts">
 // The funnel's list: a column's values with checks, a substring, the sort; under its letter, on a phone over the whole sheet.
-import { onBeforeUnmount, onMounted } from 'vue'
 import { useSheetContext } from './context'
 import { IconClose, IconSortAsc, IconSortDesc } from './icons'
+import { useOutsidePress } from './popup'
+import '../controls.css'
 
 const ctx = useSheetContext()
 const { filter } = ctx
 const m = ctx.messages
 
-/** A press outside the list (and outside the funnels) closes it. */
-function onDocDown(e: PointerEvent): void {
-  if (filter.open.value === null) return
-  if ((e.target as HTMLElement).closest?.('[data-xs-funnel],.xs-funnel')) return
-  filter.close()
-}
-onMounted(() => document.addEventListener('pointerdown', onDocDown, true))
-onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocDown, true))
+// A press outside the list (and outside the funnels) closes it.
+useOutsidePress('[data-xs-funnel],.xs-funnel', () => filter.close(), () => filter.open.value !== null)
 const focusFirst = (el: unknown) => {
   if (el) (el as HTMLInputElement).focus({ preventScroll: true })
 }
@@ -53,8 +48,8 @@ const focusFirst = (el: unknown) => {
         <IconClose />
       </button>
     </div>
-    <input :ref="ctx.v.narrow.value ? undefined : focusFirst" v-model="filter.draftText.value" class="xs-popover-input" type="text" spellcheck="false" :placeholder="m.filterText" />
-    <input v-model="filter.draftSearch.value" class="xs-popover-input xs-popover-search" type="text" spellcheck="false" :placeholder="m.filterSearch" />
+    <input :ref="ctx.v.narrow.value ? undefined : focusFirst" v-model="filter.draftText.value" class="xs-field xs-popover-input" type="text" spellcheck="false" :placeholder="m.filterText" />
+    <input v-model="filter.draftSearch.value" class="xs-field xs-popover-input xs-popover-search" type="text" spellcheck="false" :placeholder="m.filterSearch" />
     <div class="xs-values" data-xs-values>
       <p v-if="filter.busy.value" class="xs-muted xs-values-note">{{ m.filterReading }}</p>
       <template v-else>
@@ -84,3 +79,5 @@ const focusFirst = (el: unknown) => {
     </div>
   </div>
 </template>
+
+<style src="../filter.css"></style>
