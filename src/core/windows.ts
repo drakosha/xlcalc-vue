@@ -17,6 +17,8 @@ const MAX_COLS = 200
 /** Delay before asking again for a window that is not ready yet, and how many times (over a host's recompute limit). */
 const PENDING_RETRY_MS = 1000
 const PENDING_POLLS_MAX = 200
+/** A repaint that follows the last one closer than this waits as long for more before asking. */
+const REPAINT_DELAY_MS = 80
 
 export type SlotKind = 'body' | 'top' | 'left'
 
@@ -412,6 +414,9 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   /** Drop every window: answers in flight are aborted and ignored. */
   function reset(): void {
     epoch++
+    repaints = []
+    if (repaintTimer) clearTimeout(repaintTimer)
+    repaintTimer = null
     edge = { rows: Infinity, cols: Infinity }
     stopWait()
     for (const kind of order) {
@@ -505,12 +510,24 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     return false
   }
 
+  /** Ranges of repaints that came in the same task, read together. */
+  let repaints: { sheet: string; range: string }[] = []
+  /** When the last repaint was read, and the timer of a repaint put off. */
+  let repaintAt = -Infinity
+  let repaintTimer: ReturnType<typeof setTimeout> | null = null
   /**
    * Read again, in place, the windows that meet these ranges of the sheet shown (cells that may look otherwise after a change):
    * each stays drawn until its answer comes, under the same display rows; a request out that meets them is aborted and sent
-   * again, as it may have been read before the change. Ranges of other sheets are read when their sheet is shown.
+   * again, as it may have been read before the change. Ranges of other sheets are read when their sheet is shown. Repaints
+   * of one task are read together; one that follows another closely asks once they stop.
    */
   function repaint(ranges: { sheet: string; range: string }[]): void {
+    if (!repaints.length) queueMicrotask(takeRepaints)
+    repaints.push(...ranges)
+  }
+  function takeRepaints(): void {
+    const ranges = repaints
+    repaints = []
     const sheet = s.sheetName.value
     const rects = ranges.flatMap((x) => {
       const r = x.sheet === sheet ? parseRange(x.range) : null
@@ -534,7 +551,17 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       slot.servedKey = ''
       again = true
     }
-    if (again) ensure()
+    if (!again) return
+    const now = Date.now()
+    const soon = now - repaintAt < REPAINT_DELAY_MS
+    repaintAt = now
+    if (repaintTimer) clearTimeout(repaintTimer)
+    repaintTimer = null
+    if (!soon) return ensure()
+    repaintTimer = setTimeout(() => {
+      repaintTimer = null
+      ensure()
+    }, REPAINT_DELAY_MS)
   }
 
   return {
