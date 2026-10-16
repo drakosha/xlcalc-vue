@@ -1,17 +1,11 @@
 // The toolbar's icons as inline SVGs in the look of icons.ts; the colour buttons draw their colour as a bar under the glyph.
 import { h, type FunctionalComponent } from 'vue'
-
-const ATTRS = { class: 'xs-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' }
-
-const icon = (paths: string[], extra: Record<string, unknown> = {}): FunctionalComponent => {
-  const c: FunctionalComponent = () => h('svg', { ...ATTRS, ...extra }, paths.map((d) => h('path', { d })))
-  return c
-}
+import { ICON_ATTRS, icon } from './icons'
 
 /** A glyph over a bar of `colour` (none: an outline), as Excel's Font Color and Fill Color buttons show the colour they apply. */
 const colourIcon = (paths: string[]): FunctionalComponent<{ colour?: string | null }> => {
   const c: FunctionalComponent<{ colour?: string | null }> = (props) =>
-    h('svg', ATTRS, [
+    h('svg', ICON_ATTRS, [
       ...paths.map((d) => h('path', { d })),
       h('rect', { x: 3, y: 19, width: 18, height: 3.5, rx: 0.5, fill: props.colour ?? 'none', stroke: props.colour ? 'none' : 'currentColor', 'stroke-width': 1 }),
     ])

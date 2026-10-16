@@ -1,13 +1,12 @@
 // Icons as small inline SVGs (24 × 24 strokes), so the package needs no icon library.
 import { h, type FunctionalComponent } from 'vue'
 
-const icon = (paths: string[]): FunctionalComponent => {
-  const c: FunctionalComponent = () =>
-    h(
-      'svg',
-      { class: 'xs-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' },
-      paths.map((d) => h('path', { d })),
-    )
+/** The attributes every icon's svg has; the toolbar's colour icons draw on them too. */
+export const ICON_ATTRS = { class: 'xs-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' }
+
+/** An icon of strokes along `paths`; `extra` overrides an attribute (a heavier stroke, dashes). */
+export const icon = (paths: string[], extra: Record<string, unknown> = {}): FunctionalComponent => {
+  const c: FunctionalComponent = () => h('svg', { ...ICON_ATTRS, ...extra }, paths.map((d) => h('path', { d })))
   return c
 }
 
