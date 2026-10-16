@@ -3,6 +3,7 @@
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { SheetSource, SheetValidation, SheetValidationAlert } from '../source'
+import { listStep, stepIndex } from './list-keys'
 
 /** How long the active cell stays before its rule is asked: arrows held over a column ask once, at the end. */
 export const VALIDATION_DELAY_MS = 60
@@ -97,9 +98,7 @@ export function useValidation(deps: ValidationDeps) {
   /** Highlight the item `by` steps away, within the list; from none, down goes to the first. */
   function move(by: number): void {
     const n = list.value?.length ?? 0
-    if (!n) return
-    const from = index.value < 0 ? (by > 0 ? -1 : n) : index.value
-    index.value = Math.min(n - 1, Math.max(0, from + by))
+    if (n) index.value = stepIndex(index.value, by, n)
   }
   /** Enter an item into the cell (the highlighted one by default) and close the list; false for no item. */
   function choose(i = index.value): boolean {
@@ -120,25 +119,17 @@ export function useValidation(deps: ValidationDeps) {
       e.preventDefault()
       return true
     }
-    const n = list.value?.length ?? 0
-    const keys: Record<string, () => void> = {
-      ArrowDown: () => (e.altKey ? undefined : move(1)),
-      ArrowUp: () => (e.altKey ? close() : move(-1)),
-      PageDown: () => move(LIST_ROWS),
-      PageUp: () => move(-LIST_ROWS),
-      Home: () => move(-n),
-      End: () => move(n),
-      Enter: () => void (choose() || close()),
-      Escape: close,
-    }
-    const act = keys[e.key]
-    if (!act) {
+    // Alt+Down does nothing more on an open list, Alt+Up closes it
+    const by = e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp') ? null : listStep(e.key, list.value?.length ?? 0, LIST_ROWS)
+    if (by !== null) move(by)
+    else if (e.key === 'ArrowUp' || e.key === 'Escape') close()
+    else if (e.key === 'Enter') void (choose() || close())
+    else if (e.key !== 'ArrowDown') {
       // anything else closes the list and goes on to the grid (a character starts typing, Tab moves)
       close()
       return false
     }
     e.preventDefault()
-    act()
     return true
   }
 
@@ -161,7 +152,7 @@ export function useValidation(deps: ValidationDeps) {
   // The end of the scope it runs in (the sheet's) stops asking.
   if (getCurrentScope()) onScopeDispose(stop)
 
-  return { current, place, list, prompt, open, index, refresh, openList, close, toggle, move, choose, onKey }
+  return { current, place, list, prompt, open, index, refresh, openList, close, toggle, choose, onKey }
 }
 
 export type Validation = ReturnType<typeof useValidation>
