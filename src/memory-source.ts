@@ -6,7 +6,7 @@ import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contrac
 import { scanReferences } from 'xlcalc/text'
 import { textEditText } from './core/edit-text'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
-import { columnList, findHits, rangeStats, replaceTexts, visibleList, type QuerySheet } from './memory-query'
+import { columnList, findHits, rangeStats, replaceTexts, visibleList, type MemorySheetQuery } from './memory-query'
 import { axisOf, lineSpan, type LineAxis } from './lines'
 import { outlineEdit, outlineOf, type OutlineLine } from './memory-outline'
 import { abortError } from './abort'
@@ -176,7 +176,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   let recomputing: { since: number; until: number } | null = null
 
   /** A sheet as the queries read it: shown text and values by row and column. */
-  function query(store: Store): QuerySheet {
+  function query(store: Store): MemorySheetQuery {
     return {
       maxRow: store.maxRow,
       maxCol: store.maxCol,

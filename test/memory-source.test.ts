@@ -167,6 +167,9 @@ describe('memorySource', () => {
       expect((await src.visibleRows!('T', { head: 1, cols: { 3: { text: 'APP' } } })).rows).toEqual([1, 5, 6])
       expect((await src.visibleRows!('T', { head: 1, sort: { col: 2, dir: 'asc' } })).rows).toEqual([1, 5, 2, 3, 4, 6])
       expect((await src.visibleRows!('T', { head: 1, sort: { col: 2, dir: 'desc' } })).rows).toEqual([1, 4, 3, 2, 5, 6])
+      // as ./local: a text of spaces asks for nothing, a condition's text is taken trimmed, a fractional head counts its whole rows
+      expect((await src.visibleRows!('T', { head: 1, cols: { 3: { text: '   ' } } })).rows).toBeNull()
+      expect((await src.visibleRows!('T', { head: 1.5, cols: { 3: { text: ' app ' } } })).rows).toEqual([1, 5, 6])
     })
 
     it('columnValues: counts over the rows the other columns leave, empty as ""', async () => {
