@@ -2,6 +2,7 @@
 // caret, the source's names asked once per source; Tab or a double click enters one with its "(", Esc closes the list.
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
 import type { SheetSource } from '../source'
+import { askSource } from './ask'
 import type { EditorState } from './editing'
 
 /** Items the list shows at once; Page Up and Page Down move by them. */
@@ -81,20 +82,20 @@ export function useAutocomplete(deps: AutocompleteDeps) {
     names?.ctrl.abort()
     names = null
     if (!src.functionNames) return
-    const entry: Names = { src, list: null, ctrl: new AbortController() }
-    names = entry
-    Promise.resolve()
-      .then(() => src.functionNames!(entry.ctrl.signal))
-      .then(
+    const entry: Names = {
+      src,
+      list: null,
+      ctrl: askSource(
+        (signal) => src.functionNames!(signal),
+        () => names === entry,
         (list) => {
-          if (names !== entry) return
           entry.list = list.map((name) => ({ name, key: name.toUpperCase() }))
           if (last && deps.editor.value?.text === last.text) match(last.text, last.caret)
         },
-        () => {
-          if (names === entry) names = null
-        },
-      )
+        () => (names = null),
+      ),
+    }
+    names = entry
   }
   /** The list for the name at `caret` in `text`: the functions it begins, the first highlighted; closed when none. */
   function match(text: string, caret: number): void {
