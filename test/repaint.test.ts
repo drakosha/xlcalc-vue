@@ -157,6 +157,10 @@ describe('repaint in the grid', () => {
     source.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A2:A3' }] })
     await settle()
     expect(window.mock.calls.length).toBe(before)
+    // A range taller than the window is met by the window's rows: none of 3 to 499 is shown.
+    source.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A3:A499' }] })
+    await settle()
+    expect(window.mock.calls.length).toBe(before)
     source.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A500' }] })
     await settle()
     expect(window.mock.calls.length).toBe(before + 1)

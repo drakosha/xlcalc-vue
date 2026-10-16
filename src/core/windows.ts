@@ -515,9 +515,17 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         if (r.bottom >= area.row && r.top <= last) return true
         continue
       }
-      for (let d = area.row; d <= last; d++) {
-        const row = s.rowOf(d)
-        if (row >= r.top && row <= r.bottom) return true
+      // The shorter way: the rectangle's rows by their display places, or the area's places by their rows.
+      if (r.bottom - r.top < area.rows) {
+        for (let row = r.top; row <= r.bottom; row++) {
+          const d = s.indexOf(row)
+          if (d !== undefined && d >= area.row && d <= last) return true
+        }
+      } else {
+        for (let d = area.row; d <= last; d++) {
+          const row = s.rowOf(d)
+          if (row >= r.top && row <= r.bottom) return true
+        }
       }
     }
     return false
