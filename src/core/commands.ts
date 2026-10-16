@@ -69,11 +69,6 @@ export interface CommandsDeps {
   frozen: () => boolean
   middlePanes: () => { rows: number; cols: number }
   showFreeze: (sheet: string, on: boolean) => void
-  /** The display filter's Reapply and the precedents' panel, for the host's methods. */
-  reapplyFilter: () => Promise<boolean>
-  explain: () => boolean
-  /** Excel's merge commands over the selection. */
-  merge: (command: MergeCommand) => Promise<EditOutcome | null>
   /** A structure operation went through: lines may have moved, so what the sheet keeps by line number no longer holds. */
   structured: () => void
 }
@@ -175,20 +170,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     s.focusGrid()
   }
 
-  const api: SheetViewApi = {
-    undo: () => ed.stepHistory('undo'),
-    redo: () => ed.stepHistory('redo'),
-    format,
-    structure: (op) => structure(op),
-    outline,
-    formatCells: openFormat,
-    freezePanes: freeze,
-    reapplyFilter: deps.reapplyFilter,
-    explain: deps.explain,
-    merge: deps.merge,
-  }
-
-  return { can, canRanges, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat, api }
+  return { can, canRanges, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat }
 }
 
 export type Commands = ReturnType<typeof useCommands>

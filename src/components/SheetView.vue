@@ -50,7 +50,7 @@ const instance = getCurrentInstance()
 const hostLinks = () => typeof instance?.vnode.props?.onOpenLink === 'function' || Array.isArray(instance?.vnode.props?.onOpenLink)
 const ctx = useSheet(props, emit as SheetEmit, hostLinks)
 provide(sheetContextKey, ctx)
-defineExpose<SheetViewApi>(ctx.cmd.api)
+defineExpose<SheetViewApi>(ctx.api)
 const m = ctx.messages
 const failure = ctx.failure
 const message = ctx.message

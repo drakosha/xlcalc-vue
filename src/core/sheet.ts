@@ -6,7 +6,7 @@ import { errorText } from '../failure'
 import type { SheetInfo, SheetWindow } from '../source'
 import { useCellView } from './cell-view'
 import { useClip } from './clip'
-import { useCommands, type SheetTarget } from './commands'
+import { useCommands, type SheetTarget, type SheetViewApi } from './commands'
 import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
 import { useFill } from './fill'
@@ -145,9 +145,6 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     frozen: () => v.bookFreeze.value,
     middlePanes: () => v.middlePanes(),
     showFreeze: (sheet, on) => v.showFreeze(sheet, on),
-    reapplyFilter: () => filter.reapply(),
-    explain: () => explain.show(),
-    merge: (command) => merge.run(command),
     structured: () => originalWidths.clear(),
   })
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
@@ -155,6 +152,20 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
   const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
+
+  /** What the host's template ref gets: the commands as the sheet's own keys and menus give them. */
+  const api: SheetViewApi = {
+    undo: () => ed.stepHistory('undo'),
+    redo: () => ed.stepHistory('redo'),
+    format: cmd.format,
+    structure: (op) => cmd.structure(op),
+    outline: cmd.outline,
+    formatCells: cmd.openFormat,
+    freezePanes: cmd.freeze,
+    reapplyFilter: filter.reapply,
+    explain: explain.show,
+    merge: merge.run,
+  }
 
   // ── sheets ──
   /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
@@ -519,6 +530,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     views,
     list,
     cmd,
+    api,
     clip,
     fill,
     viewState,
