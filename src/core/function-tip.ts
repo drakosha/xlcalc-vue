@@ -93,6 +93,8 @@ export function useFunctionTip(deps: FunctionTipDeps) {
   let want: { key: string; index: number } | null = null
   let pending: { key: string; ctrl: AbortController } | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
+  /** What the tip was last made for: a key's follow after the input's update finds the same and does nothing. */
+  let asked: { text: string; caret: number | null; src: SheetSource; opts: ScanOptions | null } | null = null
 
   function drop(): void {
     pending?.ctrl.abort()
@@ -101,14 +103,17 @@ export function useFunctionTip(deps: FunctionTipDeps) {
   function close(): void {
     drop()
     want = null
+    asked = null
     tip.value = null
   }
   /** The tip for the caret at `caret` in `text` (null when text is selected): from the cache, else asked of the source by name. */
   function update(text: string, caret: number | null): void {
     const src = deps.source()
     const opts = deps.scan()
+    if (asked && asked.text === text && asked.caret === caret && asked.src === src && asked.opts === opts) return
     const at = caret !== null && opts && src.functionSignature ? callUnder(text, caret, opts) : null
     if (!at) return close()
+    asked = { text, caret, src, opts }
     if (cacheOf !== src) {
       cache = new Map()
       cacheOf = src
@@ -137,7 +142,10 @@ export function useFunctionTip(deps: FunctionTipDeps) {
         },
         () => {
           // A failed request is not kept: the name is asked again when the caret comes to it next.
-          if (pending === entry) pending = null
+          if (pending === entry) {
+            pending = null
+            asked = null
+          }
         },
       )
   }
