@@ -20,7 +20,7 @@ const source = memorySource({
 </template>
 ```
 
-The list is `FunctionList` in the grid's content under the cell's field (over it where the view has no room below), or under the formula bar's field, kept inside the window; its state and keys are `useAutocomplete` (`src/core/autocomplete.ts`), which the sheet's editing makes. Its texts are `SheetMessages`' `functionList` and `functionHint`, its colours `--xs-fl-*` variables. `./local` gives every function xlcalc computes, by its name in the book's locale, English where the locale names none (`ABS`, `SIN` in ru-RU, as Excel shows them), sorted by the locale's alphabet. `memorySource` gives a book's `functions` as they are, and has no `functionNames` without them.
+The list is `FunctionList` in the grid's content under the cell's field (over it where the view has no room below), or under the formula bar's field, kept inside the window; its state and keys are `useAutocomplete` (`src/core/autocomplete.ts`), which the sheet's editing makes. Its texts are `SheetMessages`' `functionList` and `functionHint`, its colours `--xs-fl-line` and `--xs-on-accent`. `./local` gives every function xlcalc computes, by its name in the book's locale, English where the locale names none (`ABS`, `SIN` in ru-RU, as Excel shows them), sorted by the locale's alphabet. `memorySource` gives a book's `functions` as they are, and has no `functionNames` without them.
 
 ## The tip with a function's arguments
 

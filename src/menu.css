@@ -1,7 +1,7 @@
 /* The structure menu and its dialogs (SheetMenu.vue), in the sheet's --xs-* variables; a finger gets 44 px targets. */
 .xs-menu {
   position: fixed;
-  z-index: 40;
+  z-index: var(--xs-z-menu);
   display: flex;
   flex-direction: column;
   min-width: 180px;
@@ -12,7 +12,7 @@
   background: var(--xs-bg);
   color: var(--xs-fg);
   font: 12.5px var(--xs-font);
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
+  box-shadow: var(--xs-shadow-menu);
 }
 .xs-menu-caption {
   padding: 2px 12px 4px;

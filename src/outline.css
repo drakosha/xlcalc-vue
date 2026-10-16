@@ -2,11 +2,11 @@
    lines with a tick at the far end, square buttons with − and + or a level's digit. The bars' sizes come from the grid
    (--xs-outline-w, --xs-outline-h on the table); a finger presses the nearest button, so the drawing stays small. */
 .xs-sheet {
-  --xs-outline-bg: #fafafa;
+  --xs-outline-bg: var(--xs-bar-bg);
   --xs-outline-line: #8c8c8c;
   --xs-outline-tick: 5px;
   --xs-outline-button: 13px;
-  --xs-outline-button-bg: #ffffff;
+  --xs-outline-button-bg: var(--xs-bg);
   --xs-outline-button-fg: #3c4043;
   --xs-outline-button-border: #9aa0a6;
 }

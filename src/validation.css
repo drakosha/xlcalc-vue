@@ -22,6 +22,7 @@
   display: flex;
   align-items: flex-end;
 }
+/* Excel's light grey button, in the headers' colours so that a dark sheet has a dark one. */
 .xs-vd-arrow {
   display: inline-flex;
   align-items: center;
@@ -30,10 +31,10 @@
   height: min(18px, 100%);
   min-height: 12px;
   padding: 0;
-  border: 1px solid #a0a0a0;
+  border: 1px solid var(--xs-freeze-line);
   border-radius: 0;
-  background: #f0f0f0;
-  color: #1f2328;
+  background: var(--xs-head-bg);
+  color: var(--xs-fg);
   cursor: default;
 }
 .xs-vd-arrow:hover,
@@ -45,38 +46,19 @@
   width: 10px;
   height: 10px;
 }
+/* The list: a list of popup.css. */
 .xs-vd-list {
-  position: absolute;
   z-index: 8;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  border: 1px solid #7a7a7a;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: var(--xs-font-size) / 18px var(--xs-font);
-  list-style: none;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
 }
 .xs-vd-item {
-  height: 18px;
   padding: 0 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: default;
-}
-.xs-vd-on {
-  background: var(--xs-accent);
-  color: #ffffff;
 }
 .xs-vd-touch .xs-vd-anchor {
   align-items: center;
 }
 .xs-vd-touch .xs-vd-arrow {
-  width: 44px;
-  height: 44px;
+  width: var(--xs-touch-target);
+  height: var(--xs-touch-target);
   flex-shrink: 0;
 }
 .xs-vd-touch .xs-vd-arrow svg {
@@ -85,11 +67,6 @@
 }
 .xs-vd-touch .xs-vd-list {
   font-size: 15px;
-  line-height: 44px;
-}
-.xs-vd-touch .xs-vd-item {
-  height: 44px;
-  padding: 0 12px;
 }
 
 /* ── the input message: a pale yellow box below the cell ── */
@@ -109,7 +86,7 @@
   font: var(--xs-font-size) / 1.35 var(--xs-font);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  box-shadow: 1px 2px 4px rgb(0 0 0 / 0.18);
+  box-shadow: var(--xs-shadow-pop);
   pointer-events: none;
 }
 

@@ -504,12 +504,13 @@ await source.close() // when the sheet goes, as in onUnmounted
 | `--xs-bar-bg` | `#fafafa` | The formula bar, the toolbar and the precedents' panel. |
 | `--xs-message-bg`, `--xs-message-fg` | `#1f2328`, `#ffffff` | The message line. |
 | `--xs-copy-line`, `--xs-fill-frame` | `#1a73e8`, `#5f6368` | A copy's moving border, the fill handle's frame. |
-| `--xs-backdrop`, `--xs-shadow-modal` | `rgb(0 0 0 / 0.25)`, `0 10px 30px rgb(0 0 0 / 0.25)` | The dimmed page under a dialog or an alert, and the box's shadow. |
-| `--xs-z-modal`, `--xs-z-alert` | `50`, `55` | The layers of a dialog and of an alert over the page; an alert lies over a dialog. |
-| `--xs-outline-bg`, `--xs-outline-line` | `#fafafa`, `#8c8c8c` | The outline's bars and brackets. |
+| `--xs-shadow-pop`, `--xs-shadow-menu`, `--xs-shadow-modal` | `0 2px 6px rgb(0 0 0 / 0.2)`, `0 6px 20px rgb(0 0 0 / 0.18)`, `0 10px 30px rgb(0 0 0 / 0.25)` | The shadows of a list, a tip or the field under a cell; of a menu, the funnel's list and the message line; of a dialog or an alert. |
+| `--xs-backdrop` | `rgb(0 0 0 / 0.25)` | The dimmed page under a dialog or an alert. |
+| `--xs-z-menu`, `--xs-z-modal`, `--xs-z-alert` | `40`, `50`, `55` | The layers over the page: a menu or the funnel's list, a dialog, an alert (over a dialog). |
+| `--xs-outline-bg`, `--xs-outline-line` | `var(--xs-bar-bg)`, `#8c8c8c` | The outline's bars and brackets. |
 | `--xs-outline-button`, `--xs-outline-tick` | `13px`, `5px` | The outline's button size and a bracket's tick. |
-| `--xs-outline-button-bg`, `--xs-outline-button-fg`, `--xs-outline-button-border` | `#ffffff`, `#3c4043`, `#9aa0a6` | The outline's buttons. |
+| `--xs-outline-button-bg`, `--xs-outline-button-fg`, `--xs-outline-button-border` | `var(--xs-bg)`, `#3c4043`, `#9aa0a6` | The outline's buttons. |
 | `--xs-explain-w`, `--xs-explain-h` | `340px`, `45%` | The precedents' panel: its width, and its height on a phone. |
 | `--xs-prompt-bg`, `--xs-prompt-fg`, `--xs-prompt-line` | `#ffffe1`, `#1f2328`, `#767676` | Data validation's input message. |
 | `--xs-alert-stop`, `--xs-alert-warning`, `--xs-alert-information` | `#d13438`, `#ffb900`, `#0f6cbd` | The validation alert's icons. |
-| `--xs-fl-line`, `--xs-fl-on-fg` | `#7a7a7a`, `#ffffff` | Formula AutoComplete's list. |
+| `--xs-fl-line` | `#7a7a7a` | The border of the lists under a cell: Formula AutoComplete's and a validation list's. |

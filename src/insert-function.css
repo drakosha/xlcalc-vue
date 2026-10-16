@@ -33,7 +33,7 @@
 }
 .xs-ifn-on {
   background: var(--xs-accent);
-  color: var(--xs-bg);
+  color: var(--xs-on-accent);
 }
 .xs-ifn-syntax {
   min-height: 1.35em;

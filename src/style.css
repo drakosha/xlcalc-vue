@@ -31,9 +31,12 @@
   --xs-on-accent: #ffffff;
   --xs-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --xs-font-size: 12.5px;
-  /* the dialogs over the page: the dimmed backdrop, the box's shadow, their layers (an alert over a dialog) */
-  --xs-backdrop: rgb(0 0 0 / 0.25);
+  /* shadows of a list or a tip under a cell, of a menu, of a dialog; the dimmed page under a dialog; the layers over the page (an alert over a dialog) */
+  --xs-shadow-pop: 0 2px 6px rgb(0 0 0 / 0.2);
+  --xs-shadow-menu: 0 6px 20px rgb(0 0 0 / 0.18);
   --xs-shadow-modal: 0 10px 30px rgb(0 0 0 / 0.25);
+  --xs-backdrop: rgb(0 0 0 / 0.25);
+  --xs-z-menu: 40;
   --xs-z-modal: 50;
   --xs-z-alert: 55;
   /* internal: a target under a finger (buttons, fields, items); the lists' items are laid out by TOUCH_PX in components/popup.ts, the same 44 */
@@ -624,7 +627,7 @@
   resize: none;
   outline: none;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
+  box-shadow: var(--xs-shadow-pop);
 }
 .xs-editor-idle {
   top: 0;
@@ -753,7 +756,7 @@
 /* ── the funnel's list ── */
 .xs-popover {
   position: fixed;
-  z-index: 30;
+  z-index: var(--xs-z-menu);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -764,7 +767,7 @@
   background: var(--xs-bg);
   color: var(--xs-fg);
   font-size: 12.5px;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
+  box-shadow: var(--xs-shadow-menu);
 }
 /* On a phone the list takes the whole screen, with room for fingers. */
 .xs-popover-full {
@@ -937,7 +940,7 @@
   color: var(--xs-message-fg);
   font-size: 12.5px;
   transform: translateX(-50%);
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
+  box-shadow: var(--xs-shadow-menu);
 }
 .xs-message .xs-tool {
   color: inherit;

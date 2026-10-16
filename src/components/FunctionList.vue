@@ -47,7 +47,7 @@ keepActiveInView(listEl, () => [props.active, props.items], () => props.active)
 <template>
   <ul
     ref="listEl"
-    :class="['xs-fl', { 'xs-fl-touch': touch }]"
+    :class="['xs-popup-list', 'xs-fl', { 'xs-popup-touch xs-fl-touch': touch }]"
     role="listbox"
     :aria-label="m.functionList"
     :title="touch ? undefined : m.functionHint"
@@ -58,7 +58,7 @@ keepActiveInView(listEl, () => [props.active, props.items], () => props.active)
     <li
       v-for="(name, i) in items"
       :key="i"
-      :class="['xs-fl-item', { 'xs-fl-on': i === active }]"
+      :class="['xs-popup-item', 'xs-fl-item', { 'xs-popup-on xs-fl-on': i === active }]"
       role="option"
       :aria-selected="i === active"
       :data-xs-function="name"
@@ -70,4 +70,5 @@ keepActiveInView(listEl, () => [props.active, props.items], () => props.active)
   </ul>
 </template>
 
+<style src="../popup.css"></style>
 <style src="../autocomplete.css"></style>

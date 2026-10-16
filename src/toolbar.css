@@ -79,7 +79,7 @@
   border: 1px solid var(--xs-grid);
   border-radius: 6px;
   background: var(--xs-bg);
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.16);
+  box-shadow: var(--xs-shadow-menu);
 }
 .xs-tb-item {
   display: flex;
@@ -125,7 +125,7 @@
   padding: 6px 8px;
   border-bottom: 1px solid var(--xs-grid);
   background: var(--xs-bar-bg);
-  box-shadow: 0 8px 16px rgb(0 0 0 / 0.12);
+  box-shadow: var(--xs-shadow-menu);
 }
 .xs-tb-menu > .xs-tb-group {
   padding: 0 12px 0 0;

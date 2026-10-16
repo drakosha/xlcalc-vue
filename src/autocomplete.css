@@ -1,41 +1,9 @@
-/* Formula AutoComplete (FunctionList): the list of functions under the field being edited, in the sheet's --xs-* variables; a finger gets 44 px items. */
-.xs-sheet {
-  --xs-fl-line: #7a7a7a;
-  --xs-fl-on-fg: #ffffff;
-}
+/* Formula AutoComplete (FunctionList): the list of functions under the field being edited, a list of popup.css. */
 .xs-fl {
-  position: absolute;
   z-index: 15;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  border: 1px solid var(--xs-fl-line);
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: var(--xs-font-size) / 18px var(--xs-font);
-  text-align: left;
-  list-style: none;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
-  cursor: default;
 }
 .xs-fl-item {
-  height: 18px;
   padding: 0 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.xs-fl-on {
-  background: var(--xs-accent);
-  color: var(--xs-fl-on-fg);
-}
-.xs-fl-touch {
-  line-height: 44px;
-}
-.xs-fl-touch .xs-fl-item {
-  height: 44px;
-  padding: 0 12px;
 }
 /* Excel's tip with a function's arguments (FunctionTip) under the field, the current argument bold; wrapped inside a narrow view. */
 .xs-ft {
@@ -51,7 +19,7 @@
   text-align: left;
   white-space: normal;
   overflow-wrap: anywhere;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
+  box-shadow: var(--xs-shadow-pop);
   cursor: default;
 }
 .xs-ft-on {

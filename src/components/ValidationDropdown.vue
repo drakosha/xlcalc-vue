@@ -68,11 +68,11 @@ useOutsidePress(root, () => emit('close'), () => props.open)
         <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5h6L5 7z" fill="currentColor" /></svg>
       </button>
     </div>
-    <ul v-if="open" ref="listEl" class="xs-vd-list" role="listbox" :aria-label="m.validationList" :style="box" data-xs-dropdown-list>
+    <ul v-if="open" ref="listEl" :class="['xs-popup-list', 'xs-vd-list', { 'xs-popup-touch': touch }]" role="listbox" :aria-label="m.validationList" :style="box" data-xs-dropdown-list>
       <li
         v-for="(item, i) in items"
         :key="i"
-        :class="['xs-vd-item', { 'xs-vd-on': i === active }]"
+        :class="['xs-popup-item', 'xs-vd-item', { 'xs-popup-on': i === active }]"
         role="option"
         :aria-selected="i === active"
         :title="item"
@@ -86,4 +86,5 @@ useOutsidePress(root, () => emit('close'), () => props.open)
   </div>
 </template>
 
+<style src="../popup.css"></style>
 <style src="../validation.css"></style>
