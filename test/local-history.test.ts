@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BookInput } from 'xlcalc'
 import type { SourceEvent } from '../src/source'
-import { closeAll, source, win } from './local-fixture'
+import { closeAll, source, watched, win } from './local-fixture'
 
 afterEach(closeAll)
 
@@ -121,6 +121,19 @@ describe('localSource: undo and redo', () => {
     await s.edit([{ sheet: 'S', cell: 'B1', text: '15.03.2026' }])
     const back = await s.undo!()
     expect(back).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: 20, formula: 'A1*10', editText: '=A1*10' }] })
+  })
+
+  it('keeps the values the display filter read through an undo and a redo of an edit, which list their cells', async () => {
+    const { s, count } = watched()
+    const filter = { head: 1, cols: { 1: { values: ['б'] } } }
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4])
+    await s.edit([{ sheet: 'Список', cell: 'A3', text: 'б' }])
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 3, 4])
+    await s.undo()
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4])
+    await s.redo()
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 3, 4])
+    expect(count('getCells')).toBe(1)
   })
 
   it('undoes a structure operation by a reload', async () => {

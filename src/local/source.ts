@@ -326,8 +326,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     try {
       const got = await s[kind]()
       if (!got) return { ok: true, changes: [] }
-      // The display filters' lists stay as the component holds them; a step that needs more reloads, which drops them.
-      values.clear()
+      // The step's changes keep the read values current and the filters' lists stay as the component holds them; a step that needs more reloads, which drops both.
       // TODO(xlcalc): a structure step's undo does not list the cells it empties (a copy onto empty cells), so the sheet is read again, as after the operation.
       if (got.call === 'editStructure') {
         reload()
