@@ -61,9 +61,15 @@ const activeBox = computed(() => {
 })
 const vd = ctx.validation
 
-/** A drawn row's cells by column: a spacer's empty cell (no view), else the cell's view; cells a merge covers are left out. */
+/** A drawn row's cells by column: a spacer's empty cell (no view), else the cell's view; cells a merge covers are left out; none before the body's window comes. */
+/** Whether the body's window of the sheet shown came: until then rows are drawn without cells, which would be drawn twice. */
+const bodyCame = computed(() => {
+  const slot = ctx.w.slots.body.value
+  return !!slot.win && slot.view === ctx.w.viewKey()
+})
 function cellsOf(row: { d: number; r: number; frozen: boolean }): { key: string; c: number; cv: CellView | null }[] {
   const out: { key: string; c: number; cv: CellView | null }[] = []
+  if (!bodyCame.value) return out
   for (const k of cols.value) {
     if (k.c === 0) out.push({ key: k.key, c: 0, cv: null })
     else if (!views.coveredByMerge(row.r, k.c)) out.push({ key: k.key, c: k.c, cv: views.cellView(row.d, row.r, k.c, row.frozen) })
