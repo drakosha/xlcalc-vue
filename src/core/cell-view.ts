@@ -184,11 +184,6 @@ export function useCellView(
       editor: e && e.row === r ? { col: e.col, bar: e.place === 'bar' } : null,
     }
   }
-  /** Whether the body's window of the sheet shown came: until then rows are drawn without cells, which would be drawn twice. */
-  const ready = computed(() => {
-    const slot = w.slots.body.value
-    return !!slot.win && slot.view === w.viewKey()
-  })
 
   /** Where a drawn column sits among its neighbours of the same pane, for overflow. */
   const colPlace = computed(() => {
@@ -416,7 +411,7 @@ export function useCellView(
     return view
   }
 
-  return { merges, spanOf, coveredByMerge, ready, rowState, cellView }
+  return { merges, spanOf, coveredByMerge, rowState, cellView }
 }
 
 export type CellViews = ReturnType<typeof useCellView>

@@ -30,10 +30,9 @@ const state = computed((prev?: RowState) => {
   const next = views.rowState(props.d, props.r)
   return prev && sameRowState(prev, next) ? prev : next
 })
-/** The row's cells by column: a spacer's empty cell (no view), else the cell's view; cells a merge covers are left out; none before the body's window comes. */
+/** The row's cells by column: a spacer's empty cell (no view), else the cell's view; cells a merge covers are left out. */
 const cells = computed(() => {
   const out: { key: string; c: number; cv: CellView | null }[] = []
-  if (!views.ready.value) return out
   for (const k of props.cols) {
     if (k.c === 0) out.push({ key: k.key, c: 0, cv: null })
     else if (!views.coveredByMerge(props.r, k.c)) out.push({ key: k.key, c: k.c, cv: views.cellView(props.d, props.r, k.c, props.frozen, state.value) })

@@ -166,19 +166,6 @@ describe('render scope', () => {
     expect(ctx.geo.rowAt(ctx.scrollTop.value)).toBe(anchor)
   })
 
-  it('a sheet opening draws its cells once, when the window comes', async () => {
-    const f = fakeSource([{ name: 'S', maxRow: 200, maxCol: 20 }], { manual: true })
-    const w = await mountSheet(f.source)
-    const count = countCells(contextOf(w))
-    expect(w.findAll('td[data-cell]')).toHaveLength(0)
-    expect(w.find('.xs-loading').exists()).toBe(true)
-    f.release(f.held[0]!)
-    await settle()
-    const cells = w.findAll('td[data-cell]').length
-    expect(cells).toBeGreaterThan(100)
-    expect(count.calls).toBe(cells)
-  })
-
   it('a move of the active cell or of the selection redraws the rows it touches', async () => {
     const { ctx, count } = await open()
     const perRow = ctx.v.shownCols.value.length
