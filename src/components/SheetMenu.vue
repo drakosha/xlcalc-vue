@@ -7,6 +7,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSheetContext } from './context'
 import DialogShell from './DialogShell.vue'
 import { useOutsidePress } from './popup'
+import '../controls.css'
 
 const ctx = useSheetContext()
 const { menu } = ctx
@@ -121,5 +122,4 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
   </DialogShell>
 </template>
 
-<style src="../controls.css"></style>
 <style src="../menu.css"></style>

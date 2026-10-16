@@ -32,6 +32,7 @@ import FormatColour from './FormatColour.vue'
 import DialogShell from './DialogShell.vue'
 import { fieldValue } from './dom'
 import { IconClose } from './icons'
+import '../controls.css'
 
 const props = withDefaults(
   defineProps<{
@@ -220,5 +221,4 @@ const cancel = () => emit('close')
   </DialogShell>
 </template>
 
-<style src="../controls.css"></style>
 <style src="../format-dialog.css"></style>

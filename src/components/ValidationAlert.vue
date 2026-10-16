@@ -8,6 +8,7 @@ import { computed, ref, useId, watch } from 'vue'
 import { ALERT_BUTTONS, ALERT_DEFAULT, type AlertAnswer, type AlertButton, type SheetAlert } from '../core/validation'
 import { useMessages, type SheetMessages } from '../messages'
 import DialogShell from './DialogShell.vue'
+import '../controls.css'
 
 const props = withDefaults(
   defineProps<{
@@ -94,5 +95,4 @@ watch(
   </DialogShell>
 </template>
 
-<style src="../controls.css"></style>
 <style src="../validation.css"></style>

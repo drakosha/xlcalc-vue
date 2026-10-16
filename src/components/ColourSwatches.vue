@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Excel's palette as a grid of swatches, the colour given pressed: the toolbar's colour menus and the Format Cells dialog's colours.
 import { PALETTE } from '../toolbar'
+import '../controls.css'
 
 defineProps<{
   /** The colour shown pressed, `#RRGGBB`; null for none. */
@@ -27,5 +28,3 @@ const emit = defineEmits<{ 'update:modelValue': [colour: string] }>()
     />
   </div>
 </template>
-
-<style src="../controls.css"></style>

@@ -48,6 +48,7 @@ import {
   IconUndo,
   IconWrap,
 } from './toolbar-icons'
+import '../controls.css'
 
 const props = withDefaults(
   defineProps<{
@@ -406,5 +407,4 @@ function pickNumber(e: Event): void {
   </div>
 </template>
 
-<style src="../controls.css"></style>
 <style src="../toolbar.css"></style>

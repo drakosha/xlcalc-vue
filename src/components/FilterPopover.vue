@@ -3,6 +3,7 @@
 import { useSheetContext } from './context'
 import { IconClose, IconSortAsc, IconSortDesc } from './icons'
 import { useOutsidePress } from './popup'
+import '../controls.css'
 
 const ctx = useSheetContext()
 const { filter } = ctx
@@ -79,5 +80,4 @@ const focusFirst = (el: unknown) => {
   </div>
 </template>
 
-<style src="../controls.css"></style>
 <style src="../filter.css"></style>

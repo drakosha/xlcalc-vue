@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 import { LIST_ROWS, type ValidationRect } from '../core/validation'
 import { useMessages, type SheetMessages } from '../messages'
 import { keepActiveInView, listHeight, placeBelowOrAbove, TOUCH_PX, useOutsidePress } from './popup'
+import '../popup.css'
 
 const props = withDefaults(
   defineProps<{
@@ -86,5 +87,4 @@ useOutsidePress(root, () => emit('close'), () => props.open)
   </div>
 </template>
 
-<style src="../popup.css"></style>
 <style src="../validation.css"></style>

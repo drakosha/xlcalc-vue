@@ -5,6 +5,7 @@ import type { FindRunner } from '../core/find'
 import { useSheetContext } from './context'
 import { fieldValue, refInto } from './dom'
 import { IconClose, IconDown, IconOptions, IconUp } from './icons'
+import '../controls.css'
 
 const ctx = useSheetContext()
 const { find } = ctx
@@ -101,5 +102,3 @@ const run: FindRunner = (call) => ctx.ed.run(call, [], null, null)
     </div>
   </div>
 </template>
-
-<style src="../controls.css"></style>

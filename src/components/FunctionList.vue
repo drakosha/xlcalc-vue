@@ -6,6 +6,7 @@ import { FUNCTION_ROWS } from '../core/autocomplete'
 import type { ValidationRect } from '../core/validation'
 import { useMessages, type SheetMessages } from '../messages'
 import { clampLeft, keepActiveInView, listHeight, placeBelowOrAbove } from './popup'
+import '../popup.css'
 
 const props = withDefaults(
   defineProps<{
@@ -70,5 +71,4 @@ keepActiveInView(listEl, () => [props.active, props.items], () => props.active)
   </ul>
 </template>
 
-<style src="../popup.css"></style>
 <style src="../autocomplete.css"></style>

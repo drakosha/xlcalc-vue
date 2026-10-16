@@ -6,6 +6,7 @@ import type { SheetFunctionSignature } from '../source'
 import { useSheetContext } from './context'
 import DialogShell from './DialogShell.vue'
 import { keepActiveInView } from './popup'
+import '../controls.css'
 
 const emit = defineEmits<{ pick: [name: string]; close: [] }>()
 const ctx = useSheetContext()
@@ -129,5 +130,4 @@ function onKey(e: KeyboardEvent): void {
   </DialogShell>
 </template>
 
-<style src="../controls.css"></style>
 <style src="../insert-function.css"></style>
