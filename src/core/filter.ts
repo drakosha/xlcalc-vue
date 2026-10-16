@@ -3,14 +3,13 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import { isAbort } from '../abort'
 import { filterKey } from '../filter-key'
+import { clamp } from '../rect'
 import type { SheetFilter } from '../source'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
 
 type ColumnFilter = NonNullable<SheetFilter['cols']>[number]
 type Sort = NonNullable<SheetFilter['sort']>
-
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 export function useFilter(s: SheetState, w: Windows, notify: (text: string) => void) {
   const cols = ref<Record<number, ColumnFilter>>({})

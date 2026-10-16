@@ -3,6 +3,7 @@
 // filter's rows alone; `replaceInCells` replaces as Excel's Replace All. The session keeps the texts it searches.
 import type { AsyncSession, FindCellsOptions, ReplaceResult } from 'xlcalc'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
+import { cellRect, unionRect } from '../rect'
 import type { FindRequest, FindResult } from '../source'
 import type { CellsBox } from './outcome'
 
@@ -71,11 +72,11 @@ export function boxesUnder(sheet: string, cells: { row: number; col: number }[],
   for (const c of cells) {
     const addr = cellAddress(c.row, c.col)
     const r = box?.rect
-    const rect = r ? { top: Math.min(r.top, c.row), left: Math.min(r.left, c.col), bottom: Math.max(r.bottom, c.row), right: Math.max(r.right, c.col) } : null
+    const rect = r ? unionRect(r, cellRect(c.row, c.col)) : null
     if (box && rect && (rect.bottom - rect.top + 1) * (rect.right - rect.left + 1) <= max) {
       box.rect = rect
       box.only.add(addr)
-    } else out.push((box = { sheet, rect: { top: c.row, left: c.col, bottom: c.row, right: c.col }, only: new Set([addr]) }))
+    } else out.push((box = { sheet, rect: cellRect(c.row, c.col), only: new Set([addr]) }))
   }
   return out
 }

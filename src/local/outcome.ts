@@ -2,6 +2,7 @@
 // component must read the sheets and windows again, and the rectangles that hold edited cells.
 import type { CellRect, CellRef, CellTextsRefusal, EditResult, PasteTextRefusal, ViewportCell } from 'xlcalc'
 import { cellAddress, nameKey, parseCell } from 'xlcalc/a1'
+import { cellRect, unionRect } from '../rect'
 import type { CellUpdate, EditOutcome } from '../source'
 import { alertRefusalOf } from './validation'
 
@@ -62,9 +63,9 @@ export function boxesOf(refs: CellRef[]): CellsBox[] {
     if (!at) continue
     const key = nameKey(ref.sheet)
     const b = boxes.get(key)
-    if (!b) boxes.set(key, { sheet: ref.sheet, rect: { top: at.row, left: at.col, bottom: at.row, right: at.col }, only: new Set([cellAddress(at.row, at.col)]) })
+    if (!b) boxes.set(key, { sheet: ref.sheet, rect: cellRect(at.row, at.col), only: new Set([cellAddress(at.row, at.col)]) })
     else {
-      b.rect = { top: Math.min(b.rect.top, at.row), left: Math.min(b.rect.left, at.col), bottom: Math.max(b.rect.bottom, at.row), right: Math.max(b.rect.right, at.col) }
+      b.rect = unionRect(b.rect, cellRect(at.row, at.col))
       b.only.add(cellAddress(at.row, at.col))
     }
   }

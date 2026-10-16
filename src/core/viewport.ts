@@ -1,6 +1,7 @@
 // What the grid draws now: frozen panes with the lock, the body's rows and columns under the scroll, spacers for the rest,
 // and the room of Excel's outline bars beside the numbers and above the letters.
 import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
+import { clamp } from '../rect'
 import type { OutlineGroup, SheetInfo } from '../source'
 import type { Geometry } from './geometry'
 import type { Memory } from './storage'
@@ -30,7 +31,6 @@ interface ViewportInput {
   memory: Memory
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 /** The previous list when the new one holds the same lines: what reads it is not drawn again for a size changed. */
 const same = (prev: number[] | undefined, next: number[]): number[] => (prev && prev.length === next.length && prev.every((x, i) => x === next[i]) ? prev : next)
 /**

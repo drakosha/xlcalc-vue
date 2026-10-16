@@ -3,20 +3,19 @@
 // functions at a time; the keys are the field's (`useAutocomplete.onKey`) and a press keeps the field's focus.
 import { computed, ref } from 'vue'
 import { FUNCTION_ROWS } from '../core/autocomplete'
-import type { ValidationRect } from '../core/validation'
 import { useMessages, type SheetMessages } from '../messages'
-import { clampLeft, keepActiveInView, listHeight, placeBelowOrAbove } from './popup'
+import { clampLeft, keepActiveInView, listHeight, placeBelowOrAbove, type PopupRect } from './popup'
 import '../popup.css'
 
 const props = withDefaults(
   defineProps<{
     /** The field, in the coordinates of the element the list is placed in. */
-    rect: ValidationRect
+    rect: PopupRect
     items: readonly string[]
     /** The highlighted item. */
     active?: number
     /** What is in view, in the same coordinates: the list goes over the field where it has no room below and stays inside it sideways. */
-    view?: ValidationRect
+    view?: PopupRect
     /** A finger: items of 44 px, a tap enters one. */
     touch?: boolean
     messages?: Partial<SheetMessages>

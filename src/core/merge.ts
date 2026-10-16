@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { cellAddress, rangeAddress, rectContains, rectsMeet } from 'xlcalc/a1'
 import type { CellRect, CellValue } from 'xlcalc/contract'
 import type { EditOutcome, SheetOp } from '../source'
+import { cellRect } from '../rect'
 import { isBlank } from '../stats'
 import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import type { Commands } from './commands'
@@ -29,7 +30,7 @@ export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Command
   const area = computed<CellRect | null>(() => {
     const a = s.selected.value
     if (!a) return null
-    return w.merges.value.find((m) => rectContains(m, { top: a.row, left: a.col, bottom: a.row, right: a.col })) ?? null
+    return w.merges.value.find((m) => rectContains(m, cellRect(a.row, a.col))) ?? null
   })
 
   /** The rectangle grown by the loaded merged areas it meets, again for each it then meets, as the library grows it. */

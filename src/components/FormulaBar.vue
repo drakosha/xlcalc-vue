@@ -7,7 +7,7 @@ import { safeHref } from '../core/cell-view'
 import { isMod, onMac } from '../core/keys'
 import type { FormulaPart } from '../core/formula'
 import { canPaint, paintRefs, pieceAtPoint, type Painted } from '../core/ref-paint'
-import type { ValidationRect } from '../core/validation'
+import type { PopupRect } from './popup'
 import { useSheetContext } from './context'
 import FunctionList from './FunctionList.vue'
 import FunctionTip from './FunctionTip.vue'
@@ -238,7 +238,7 @@ function openBarFunnel(e: MouseEvent): void {
 const setBarInput = (el: unknown) => (ctx.barInput.value = (el as HTMLTextAreaElement | null) ?? null)
 
 /** The list of functions or the tip of arguments under the bar's field, in the formula's coordinates, kept inside the window: measured as one opens, as the text changes and as the bar expands or collapses. */
-const listPlace = shallowRef<{ rect: ValidationRect; view: ValidationRect } | null>(null)
+const listPlace = shallowRef<{ rect: PopupRect; view: PopupRect } | null>(null)
 watch(
   () => [editingBar.value && (ed.ac.open.value || !!ed.tip.parts.value), ctx.editor.value?.text, ctx.barOpen.value] as const,
   ([shown]) => {

@@ -6,6 +6,7 @@
 import { computed, nextTick, ref, shallowRef } from 'vue'
 import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, rectContains, sameName } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
+import { cellRect } from '../rect'
 import type { SheetInfo, SheetOp } from '../source'
 import type { Clip } from './clip'
 import type { Commands } from './commands'
@@ -95,7 +96,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
   /** Open the cells' menu: a cell outside the selection selects it first, as Excel. */
   function openCells(row: number, col: number, x: number, y: number): void {
     const r = sel.fullRect.value
-    if (!r || !rectContains(r, { top: row, left: col, bottom: row, right: col })) sel.pickCell(row, col)
+    if (!r || !rectContains(r, cellRect(row, col))) sel.pickCell(row, col)
     open.value = { kind: 'cells', x, y, first: 0, last: 0 }
   }
 

@@ -5,6 +5,7 @@
 import { computed, getCurrentScope, onScopeDispose, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellRect, FillType } from 'xlcalc/contract'
+import { unionRect } from '../rect'
 import { isBlank } from '../stats'
 import { DEFAULT_MAX_CELLS } from '../window-size'
 import type { Commands } from './commands'
@@ -32,8 +33,6 @@ export interface FillDrag {
   touch: boolean
 }
 
-const union = (a: CellRect, b: CellRect): CellRect => ({ top: Math.min(a.top, b.top), left: Math.min(a.left, b.left), bottom: Math.max(a.bottom, b.bottom), right: Math.max(a.right, b.right) })
-
 export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selection, ed: Editing, cmd: Commands, deps: FillDeps) {
   /** The range the handle fills from: a finite selection of an editable sheet with `structure`, not under the display filter or while a field is open. */
   const source = computed<CellRect | null>(() => {
@@ -55,7 +54,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
   const frame = computed(() => {
     const d = drag.value
     if (!d?.to) return null
-    const u = union(d.from, d.to)
+    const u = unionRect(d.from, d.to)
     return v.boxOf(u.top, u.left, u.bottom, u.right)
   })
 
@@ -160,7 +159,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     const lock = ed.lockIn(to)
     if (lock !== null) return deps.notify(s.messages.value.locked(lock))
     const sheet = s.sheetName.value
-    const frame = union(from, to)
+    const frame = unionRect(from, to)
     const before = { selected: s.selected.value, extent: s.extent.value }
     const out = await cmd.structure({ op: 'fillRange', sheet, range: rangeAddress(from), to: rangeAddress(frame), ...(type ? { type } : {}) })
     if (out?.ok && sheet === s.sheetName.value && s.selected.value === before.selected && s.extent.value === before.extent) sel.selectRect(frame)

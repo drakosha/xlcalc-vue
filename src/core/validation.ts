@@ -9,14 +9,6 @@ export const VALIDATION_DELAY_MS = 60
 /** Items the list shows at once, as Excel's; Page Up and Page Down move by them. */
 export const LIST_ROWS = 8
 
-/** A rectangle in the coordinates of the element the components are placed in (the grid's content), in px. */
-export interface ValidationRect {
-  top: number
-  left: number
-  width: number
-  height: number
-}
-
 export interface ValidationPlace {
   sheet: string
   cell: string

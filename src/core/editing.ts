@@ -3,6 +3,7 @@ import { computed, nextTick, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
+import { cellRect } from '../rect'
 import type { CellEntry, EditOutcome, EditOptions, SheetSource } from '../source'
 import { useAutocomplete } from './autocomplete'
 import { isMod, isShortcut, shortcutLetter } from './keys'
@@ -91,7 +92,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }),
   )
   const lockIn = (rect: CellRect): string | null => locks.value.find((l) => rectsMeet(l.rect, rect))?.reason ?? null
-  const lockAt = (row: number, col: number): string | null => (locks.value.length ? lockIn({ top: row, left: col, bottom: row, right: col }) : null)
+  const lockAt = (row: number, col: number): string | null => (locks.value.length ? lockIn(cellRect(row, col)) : null)
 
   /** What the field opens with: the window's `editText`; without it the formula, the text, a number in the book's locale, shown text otherwise. */
   function editText(row: number, col: number): string {

@@ -4,6 +4,7 @@
 import { computed, nextTick, watch } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseCell, rangeAddress } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
+import { rectOf } from '../rect'
 import { colPx, type Geometry } from './geometry'
 import { isMod } from './keys'
 import type { SheetState } from './state'
@@ -28,7 +29,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     if (!sa) return null
     const a = s.anchor.value ?? sa
     const b = s.extent.value ?? sa
-    return { top: Math.min(a.row, b.row), left: Math.min(a.col, b.col), bottom: Math.max(a.row, b.row), right: Math.max(a.col, b.col) }
+    return rectOf(a, b)
   })
   // Any other move of the active cell or the corner starts the rectangle from the active cell again.
   let inside = false

@@ -3,16 +3,15 @@
 // current argument in bold, kept inside the view and wrapped on a narrow one; a press keeps the field's focus.
 import { computed, onMounted, ref, watch } from 'vue'
 import type { TipPart } from '../core/function-tip'
-import type { ValidationRect } from '../core/validation'
-import { clampLeft, placeBelowOrAbove } from './popup'
+import { clampLeft, placeBelowOrAbove, type PopupRect } from './popup'
 
 const props = withDefaults(
   defineProps<{
     /** The field, in the coordinates of the element the tip is placed in. */
-    rect: ValidationRect
+    rect: PopupRect
     parts: readonly TipPart[]
     /** What is in view, in the same coordinates: the tip stays inside it. */
-    view?: ValidationRect
+    view?: PopupRect
   }>(),
   { view: undefined },
 )
