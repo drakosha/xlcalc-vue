@@ -1,6 +1,7 @@
 // What the grid draws now: frozen panes with the lock, the body's rows and columns under the scroll, spacers for the rest,
 // and the room of Excel's outline bars beside the numbers and above the letters.
-import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { NARROW_PX, useCoarsePointer } from '../frame'
 import { clamp } from '../rect'
 import type { OutlineGroup, SheetInfo } from '../source'
 import type { Geometry } from './geometry'
@@ -52,16 +53,9 @@ function drawnLines(first: number, last: number, spare: number, step: number): [
 export function useViewport(i: ViewportInput, geo: Geometry) {
   const showNums = computed(() => i.sheet.value?.rowNumbers !== false)
   /** A phone-width frame: a narrower row numbers column. */
-  const narrow = computed(() => i.viewW.value < 600)
+  const narrow = computed(() => i.viewW.value < NARROW_PX)
   /** A finger points (a coarse pointer): targets get a finger's size. */
-  const coarse = ref(false)
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    const query = window.matchMedia('(pointer: coarse)')
-    const update = () => (coarse.value = query.matches)
-    update()
-    query.addEventListener?.('change', update)
-    onScopeDispose(() => query.removeEventListener?.('change', update))
-  }
+  const coarse = useCoarsePointer()
   /** A phone's frame or a finger: buttons, fields and tabs at least 44 × 44 px, the grid itself as it is. */
   const touch = computed(() => narrow.value || coarse.value)
   const numW = computed(() => {

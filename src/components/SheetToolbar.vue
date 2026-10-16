@@ -9,6 +9,7 @@ import type { SheetViewApi } from '../core/commands'
 import type { MergeCommand } from '../core/merge'
 import type { SheetViewState } from '../core/sheet'
 import { failedOutcome } from '../failure'
+import { NARROW_PX, useCoarsePointer } from '../frame'
 import { useMessages, type SheetMessages } from '../messages'
 import { useNumberFormats } from '../number-formats'
 import type { EditOutcome, FormatPatch } from '../source'
@@ -79,9 +80,6 @@ const emit = defineEmits<{
   formatCells: []
 }>()
 
-/** Under this width the toolbar keeps its first buttons in a row and the rest in a menu, as the sheet goes narrow. */
-const NARROW_PX = 600
-
 const m = useMessages(() => props.messages)
 const instance = getCurrentInstance()
 /** Whether the host listens to `formatCells` now, so that the button opens its own dialog instead of the sheet's. */
@@ -142,7 +140,8 @@ const canRedo = computed(() => !history.value || history.value.redo > 0)
 // ── the frame: narrow, a finger ──
 const root = ref<HTMLElement | null>(null)
 const width = ref(0)
-const coarse = ref(false)
+const coarse = useCoarsePointer()
+/** Under `NARROW_PX` the toolbar keeps its first buttons in a row and the rest in a menu, as the sheet goes narrow. */
 const narrow = computed(() => (width.value || (typeof window === 'undefined' ? NARROW_PX : window.innerWidth)) < NARROW_PX)
 const touch = computed(() => narrow.value || coarse.value)
 const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(([entry]) => (width.value = entry?.contentRect.width ?? 0))
@@ -150,8 +149,6 @@ watch(root, (el, old) => {
   if (old) observer?.unobserve(old)
   if (el) observer?.observe(el)
 })
-let coarseQuery: MediaQueryList | null = null
-const onCoarse = () => (coarse.value = !!coarseQuery?.matches)
 
 // ── menus: the colour palettes, the borders, and the narrow frame's menu ──
 const open = ref<'font' | 'fill' | 'borders' | 'merge' | null>(null)
@@ -175,16 +172,10 @@ function subscribe(): void {
 watch(() => props.source, subscribe)
 onMounted(() => {
   subscribe()
-  if (typeof window.matchMedia === 'function') {
-    coarseQuery = window.matchMedia('(pointer: coarse)')
-    onCoarse()
-    coarseQuery.addEventListener?.('change', onCoarse)
-  }
 })
 onBeforeUnmount(() => {
   unsubscribe?.()
   observer?.disconnect()
-  coarseQuery?.removeEventListener?.('change', onCoarse)
 })
 
 // ── calls: through the sheet when there is one, else the source's own ──
