@@ -3,13 +3,14 @@
 // them; this side keeps the columns of shown values the display filter read, patched by the changes and dropped on a reload.
 import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, colLetters, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
-import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetOutline, SourceEvent, WindowRequest } from '../source'
+import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../source'
 import { boxesUnder, findHits, replaceAll } from './find'
 import { loadLocale, tipLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { throwIfAborted } from '../abort'
 import { filterKey } from '../filter-key'
 import { axisOf, lineSpan, type LineAxis } from '../lines'
+import { outlineOf } from '../memory-outline'
 import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import { columnList, filterActive, filterColumns, visibleList } from '../sheet-query'
 import { SheetValues } from './query'
@@ -35,7 +36,7 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
 /** A sheet of the book's layout with where its cells end, as the component lists it. */
 function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
   const f = sheet.frozen
-  const outline = outlineOf(sheet)
+  const outline = outlineOf(outlineGroups(sheet), sheet.outline)
   return {
     name: sheet.name,
     maxRow: used.rows,
@@ -44,14 +45,6 @@ function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
     ...(sheet.hidden ? { hidden: sheet.hidden } : {}),
     ...(outline ? { outline } : {}),
   }
-}
-
-/** A sheet's groups as xlcalc draws them (`outlineGroups`, Excel's marks), in the contract's terms; none without groups. */
-function outlineOf(sheet: SheetLayout): SheetOutline | undefined {
-  const { rows, columns } = outlineGroups(sheet)
-  if (!rows.length && !columns.length) return undefined
-  const groups = (list: typeof rows) => list.map((g) => ({ from: g.first, to: g.last, level: g.level, collapsed: g.collapsed }))
-  return { rows: groups(rows), columns: groups(columns), summaryBelow: sheet.outline?.summaryBelow ?? true, summaryRight: sheet.outline?.summaryRight ?? true }
 }
 
 /** Lines as `setLayout` and the structure operations name them (`C`, `B:D`; `5`, `5:9`) from what the component sends. */
