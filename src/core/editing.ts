@@ -157,7 +157,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     focusEditor()
   }
   /** Excel's Formula AutoComplete over the draft: the list of functions under the field. */
-  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor })
+  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor, scan: f.scanOptions })
   /** Excel's tip with the arguments of the function the caret stands in, under the field; the list goes first. */
   const tip = useFunctionTip({ source: s.source, editor, input: inputOf, scan: f.scanOptions, listOpen: () => ac.open.value })
   function onEditorInput(e: Event): void {

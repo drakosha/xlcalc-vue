@@ -2,9 +2,10 @@
 // (arrows, Page keys, Home, End, Tab, Esc, Enter), a double click and a tap, and the source's names asked once per source.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ruRU } from 'xlcalc/locales/ru-RU'
+import { nameAt } from 'xlcalc/text'
 import { memorySource, type MemoryBook } from '../src'
 import FunctionList from '../src/components/FunctionList.vue'
-import { nameAt } from '../src/core/autocomplete'
 import { active, editorKey, editorOpen, fakeSource, key, mountSheet, pressBar, settle, type } from './helpers'
 
 afterEach(() => {
@@ -25,31 +26,37 @@ async function typeFormula(w: VueWrapper, text: string): Promise<void> {
   await settle()
 }
 
-describe('nameAt: the name typed at the caret', () => {
-  it('after =, an operator, (, a separator or a space', () => {
-    expect(nameAt('=СУ', 3)).toEqual({ from: 1, to: 3, typed: 'СУ' })
-    expect(nameAt('=1+ЕС', 5)).toEqual({ from: 3, to: 5, typed: 'ЕС' })
-    expect(nameAt('=СУММ(A1;СР', 11)).toEqual({ from: 9, to: 11, typed: 'СР' })
+describe("nameAt of xlcalc/text: the name typed at the caret, in the book's locale", () => {
+  const ru = { locale: ruRU }
+  it('after =, an operator, (, the locale’s separator or a space', () => {
+    expect(nameAt('=СУ', 3, ru)).toEqual({ from: 1, to: 3, typed: 'СУ' })
+    expect(nameAt('=1+ЕС', 5, ru)).toEqual({ from: 3, to: 5, typed: 'ЕС' })
+    expect(nameAt('=СУММ(A1;СР', 11, ru)).toEqual({ from: 9, to: 11, typed: 'СР' })
     expect(nameAt('=SUM(A1,AV', 10)).toEqual({ from: 8, to: 10, typed: 'AV' })
     expect(nameAt('=A1 * LOG1', 10)).toEqual({ from: 6, to: 10, typed: 'LOG1' })
-    expect(nameAt('=(СТАНДОТКЛОН.', 14)).toEqual({ from: 2, to: 14, typed: 'СТАНДОТКЛОН.' })
+    expect(nameAt('=(СТАНДОТКЛОН.', 14, ru)).toEqual({ from: 2, to: 14, typed: 'СТАНДОТКЛОН.' })
+  })
+
+  it('the other locale’s separator is none: `;` in en-US, `,` (the decimal comma) in ru-RU', () => {
+    expect(nameAt('=СУММ(A1;СР', 11)).toBeNull()
+    expect(nameAt('=SUM(A1,AV', 10, ru)).toBeNull()
   })
 
   it('takes the rest of the name after the caret into its place', () => {
-    expect(nameAt('=СУММ(A1)', 3)).toEqual({ from: 1, to: 5, typed: 'СУ' })
+    expect(nameAt('=СУММ(A1)', 3, ru)).toEqual({ from: 1, to: 5, typed: 'СУ' })
   })
 
   it('none outside a formula, in a string, a quoted sheet, a table, after ! or $, or with nothing typed', () => {
-    expect(nameAt('СУ', 2)).toBeNull()
-    expect(nameAt('=', 1)).toBeNull()
-    expect(nameAt('=СУММ(', 6)).toBeNull()
-    expect(nameAt('="a СУ', 6)).toBeNull()
-    expect(nameAt('="a""b"&СУ', 10)).toEqual({ from: 8, to: 10, typed: 'СУ' })
-    expect(nameAt("='Q 1'!СУ", 9)).toBeNull()
-    expect(nameAt("='Q (1'+СУ", 10)).toEqual({ from: 8, to: 10, typed: 'СУ' })
-    expect(nameAt('=Продажи[Су', 11)).toBeNull()
-    expect(nameAt('=Лист1!A', 8)).toBeNull()
-    expect(nameAt('=$A', 3)).toBeNull()
+    expect(nameAt('СУ', 2, ru)).toBeNull()
+    expect(nameAt('=', 1, ru)).toBeNull()
+    expect(nameAt('=СУММ(', 6, ru)).toBeNull()
+    expect(nameAt('="a СУ', 6, ru)).toBeNull()
+    expect(nameAt('="a""b"&СУ', 10, ru)).toEqual({ from: 8, to: 10, typed: 'СУ' })
+    expect(nameAt("='Q 1'!СУ", 9, ru)).toBeNull()
+    expect(nameAt("='Q (1'+СУ", 10, ru)).toEqual({ from: 8, to: 10, typed: 'СУ' })
+    expect(nameAt('=Продажи[Су', 11, ru)).toBeNull()
+    expect(nameAt('=Лист1!A', 8, ru)).toBeNull()
+    expect(nameAt('=$A', 3, ru)).toBeNull()
   })
 })
 
@@ -66,9 +73,20 @@ describe('the list under the cell', () => {
     expect(shown()).toEqual([])
     await type(w, '=СУММ(')
     expect(shown()).toEqual([])
-    await type(w, '=СУММ(A1;Е')
+    await type(w, '=СУММ(A1,Е')
     expect(shown()).toEqual(['ЕСЛИ'])
+    // `;` separates nothing in en-US, the book's locale here
+    await type(w, '=СУММ(A1;Е')
+    expect(shown()).toEqual([])
     expect(editorOpen(w)).toBe(true)
+  })
+
+  it("follows the book's locale: a name after ru-RU's `;`, none after its decimal comma", async () => {
+    const w = await mountSheet(memorySource(book()), { locale: 'ru-RU' })
+    await typeFormula(w, '=СУММ(A1;Е')
+    expect(shown()).toEqual(['ЕСЛИ'])
+    await type(w, '=СУММ(1,Е')
+    expect(shown()).toEqual([])
   })
 
   it('the arrows, Page keys, Home and End move the highlight; Tab enters the name with "(" and closes the list', async () => {
