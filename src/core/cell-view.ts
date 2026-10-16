@@ -92,7 +92,7 @@ function sameMerges(a: Map<string, MergeSpan | null>, b: Map<string, MergeSpan |
 /** Links a browser may open by itself; anything else (`javascript:` and the like) goes to the host or is shown only. */
 export const safeHref = (href: string | undefined): boolean => !!href && /^(https?:|mailto:|tel:|ftp:)/i.test(href.trim())
 
-export interface CellViewDeps {
+interface CellViewDeps {
   editor: Ref<EditorState | null>
   /** Search hits by `row:col`, and the current one. */
   find: { hitSet: ComputedRef<Set<string>>; current: ComputedRef<string> }
@@ -411,7 +411,7 @@ export function useCellView(
     return view
   }
 
-  return { merges, spanOf, coveredByMerge, rowState, cellView }
+  return { spanOf, coveredByMerge, rowState, cellView }
 }
 
 export type CellViews = ReturnType<typeof useCellView>

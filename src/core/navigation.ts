@@ -174,7 +174,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     }
   }
 
-  return { history, flash, goBack, goPlace, goRef, selectRange, addressDraft, addressFocused, goAddress, takePendingFocus, copyCellLink }
+  return { history, flash, goBack, goPlace, goRef, addressDraft, addressFocused, goAddress, takePendingFocus, copyCellLink }
 }
 
 export type Navigation = ReturnType<typeof useNavigation>

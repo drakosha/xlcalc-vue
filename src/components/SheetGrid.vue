@@ -241,7 +241,7 @@ const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | 
         </template>
       </tbody>
       <tfoot v-if="list.totals.value">
-        <tr class="xs-totals">
+        <tr>
           <th v-if="v.barW.value" class="xs-total xs-total-bar"></th>
           <th v-if="v.showNums.value" class="xs-total xs-total-num"></th>
           <template v-for="k in cols" :key="k.key">

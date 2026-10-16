@@ -54,7 +54,7 @@ describe('the formulas of a selection', () => {
     const book: MemoryBook = { sheets: [{ name: 'S', cells: { B2: { value: 1, formula: 'D5' }, C2: { value: 1, formula: 'G1' }, C3: { value: 1, formula: 'E6+D5' }, B5: { value: 1, formula: 'F1' } } }] }
     const w = await mountSheet(memorySource(book))
     const ctx = (w.vm.$ as unknown as { provides: Record<symbol, SheetContext> }).provides[sheetContextKey as symbol]!
-    const ranges = () => [...ctx.f.refColors.value.values()].map((x) => x.ref.text)
+    const ranges = () => ctx.f.highlights.value.map((x) => x.ref.text)
     ctx.selected.value = { row: 3, col: 3 }
     ctx.extent.value = { row: 2, col: 2 }
     await settle()

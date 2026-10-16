@@ -70,10 +70,9 @@ export function indexAt(offsets: Float64Array, count: number, x: number): number
   return Math.min(Math.max(1, count), Math.max(1, lo))
 }
 
-export interface GeometryInput {
+interface GeometryInput {
   rowCount: Readonly<Ref<number>>
   colCount: Readonly<Ref<number>>
-  /** Book widths in pixels by column, as the windows brought them. */
   /** Columns' widths as the book stores them (null: the default). */
   bookWidths: ShallowRef<Map<number, number | null>>
   /** Widths set with the mouse, pixels by column; they win over the book. */

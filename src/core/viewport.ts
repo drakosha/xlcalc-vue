@@ -17,7 +17,7 @@ const RENDER_COLS = 2
 const ROW_STEP = 4
 const COL_STEP = 2
 
-export interface ViewportInput {
+interface ViewportInput {
   sheet: ComputedRef<SheetInfo | null>
   /** The display filter in force: its rows are not the sheet's in order, so the rows' outline bar is not drawn. */
   visible: Readonly<Ref<object | null>>

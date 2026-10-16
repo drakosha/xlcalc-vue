@@ -1,5 +1,5 @@
 // Editing cells: in place or in the formula bar, Excel's keys, clearing and pasting text, Control+Return, undo and redo, calls in flight and the source's outcomes.
-import { computed, nextTick, ref, shallowRef, type Ref } from 'vue'
+import { computed, nextTick, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, parseRange, rangeAddress, rectsMeet } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
@@ -508,7 +508,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pending, pendingAt, locks, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, clearSelection, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pendingAt, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

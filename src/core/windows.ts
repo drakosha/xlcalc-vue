@@ -194,13 +194,13 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const texts = d === undefined ? undefined : slotAt(d, col)?.win?.editText
     return texts ? (texts[cellAddress(r, col)] ?? '') : undefined
   }
-  /** The style a cell shows and its number format code (none: General), from its loaded window; null when none holds it. */
   /** Whether a cell (a sheet row) is a drill-down of list mode: loaded, marked in its window's `drill` and not empty. */
   const drillOfRow = (r: number, col: number): boolean => {
     const d = s.indexOf(r)
     const w = d === undefined ? undefined : slotAt(d, col)?.win
     return !!w?.drill?.[cellAddress(r, col)] && (w.text[d! - w.row]?.[col - w.col] ?? '') !== ''
   }
+  /** The style a cell shows and its number format code (none: General), from its loaded window; null when none holds it. */
   const lookOfRow = (r: number, col: number): { style?: CellStyle; numberFormat?: string } | null => {
     const d = s.indexOf(r)
     const w = d === undefined ? undefined : slotAt(d, col)?.win
@@ -289,9 +289,9 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     slot.asked = { view, row, rows, col, cols, quiet, missed: [] }
     const mine = epoch
     // An edit may have replaced the slot object meanwhile, a repaint may have aborted the request for another: it is the slot's while its controller is.
-    const current = () => slots[kind].value.ctrl === ctrl
+    const owns = () => slots[kind].value.ctrl === ctrl
     const release = () => {
-      if (!current()) return
+      if (!owns()) return
       const held = slots[kind].value
       held.pendingKey = ''
       held.ctrl = null
@@ -300,7 +300,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     if (!quiet) s.loading.value = true
     try {
       const got = await s.source().window(req, ctrl.signal)
-      if (mine !== epoch || !current()) return
+      if (mine !== epoch || !owns()) return
       if ('pending' in got) {
         if (!awaitPending(got.pending.elapsedMs)) return
         setTimeout(() => {
@@ -328,7 +328,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       rowRevisions.clear()
       s.failure.value = null
     } catch (e) {
-      if (mine !== epoch || isAbort(e) || !current()) return
+      if (mine !== epoch || isAbort(e) || !owns()) return
       release()
       stopWait()
       s.failure.value = { error: e, text: e instanceof Error && e.message ? e.message : s.messages.value.loadFailed }

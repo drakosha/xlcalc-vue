@@ -13,7 +13,7 @@ import type { Windows } from './windows'
 /** Excel's merge commands: the button's Merge & Center, and Merge Across, Merge Cells and Unmerge Cells of its list. */
 export type MergeCommand = 'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'
 
-export interface MergeDeps {
+interface MergeDeps {
   /** Show an alert and wait for the answer. */
   ask: (alert: SheetAlert) => Promise<AlertAnswer>
 }

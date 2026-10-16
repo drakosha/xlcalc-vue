@@ -245,12 +245,12 @@ watch(
     const input = ctx.barInput.value
     const fx = input?.parentElement
     if (!shown || !input || !fx) return void (listPlace.value = null)
-    const f = fx.getBoundingClientRect()
+    const box = fx.getBoundingClientRect()
     const i = input.getBoundingClientRect()
     const gutter = 8
     listPlace.value = {
-      rect: { top: i.top - f.top, left: i.left - f.left, width: i.width, height: i.height },
-      view: { top: -f.top, left: gutter - f.left, width: document.documentElement.clientWidth - 2 * gutter, height: window.innerHeight },
+      rect: { top: i.top - box.top, left: i.left - box.left, width: i.width, height: i.height },
+      view: { top: -box.top, left: gutter - box.left, width: document.documentElement.clientWidth - 2 * gutter, height: window.innerHeight },
     }
   },
   { flush: 'post' },
@@ -355,7 +355,7 @@ function onAddressEsc(e: KeyboardEvent): void {
       <!-- Excel's arrow at the bar's right end; a press keeps an open field open -->
       <button
         type="button"
-        class="xs-tool xs-fx-toggle"
+        class="xs-tool"
         data-xs-bar-toggle
         :title="ctx.barOpen.value ? m.collapseBar : m.expandBar"
         :aria-label="ctx.barOpen.value ? m.collapseBar : m.expandBar"

@@ -16,7 +16,7 @@ export interface TipPart {
  * The innermost function call around `caret` in formula text typed in `opts.locale` (`callAt` of `xlcalc/text`): the name
  * the source is asked by, English in upper case (`SUM` for a typed `сумм`), and the argument's index from 0; null outside one.
  */
-export function callUnder(text: string, caret: number, opts: ScanOptions): { name: string; index: number } | null {
+function callUnder(text: string, caret: number, opts: ScanOptions): { name: string; index: number } | null {
   const call = callAt(text, caret, opts)
   return call && { name: call.fn || call.name, index: call.index }
 }

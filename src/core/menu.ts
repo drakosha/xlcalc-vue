@@ -11,7 +11,7 @@ import type { Clip } from './clip'
 import type { Commands } from './commands'
 import type { Explain } from './explain'
 import type { Filter } from './filter'
-import { charsOfWidth, DEFAULT_COL_WIDTH, ptFromPx, widthFromChars, widthFromPx, type Geometry } from './geometry'
+import { charsOfWidth, DEFAULT_COL_WIDTH, ptFromPx, widthFromChars, widthFromPx } from './geometry'
 import type { Outline, OutlineAxis, OutlineOp } from './outline'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -63,7 +63,7 @@ export interface MenuDeps {
   frozen: () => boolean
 }
 
-export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Commands, deps: MenuDeps) {
+export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: MenuDeps) {
   const open = shallowRef<OpenMenu | null>(null)
   const dialog = ref<MenuDialog | null>(null)
   /** A tab being renamed in place: its sheet's index and the draft. */
@@ -341,7 +341,6 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     applySize,
     askOutline,
     applyOutline,
-    nextSheetName,
     addSheet,
     confirmDelete,
     unhide,

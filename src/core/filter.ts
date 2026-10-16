@@ -257,7 +257,6 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     values,
     more,
     busy,
-    draftValues,
     draftText,
     draftSearch,
     title,

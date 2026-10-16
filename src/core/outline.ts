@@ -60,7 +60,7 @@ function holding(list: OutlineGroup[], line: number): OutlineGroup | null {
   return null
 }
 
-export interface OutlineDeps {
+interface OutlineDeps {
   notify: (text: string) => void
   /** Ask whether a selection of cells groups its rows or its columns, as Excel's box does. */
   ask: (op: OutlineOp) => void
@@ -165,7 +165,7 @@ export function useOutline(s: SheetState, v: Viewport, sel: Selection, cmd: Comm
     best?.click()
   }
 
-  return { outline, can, marks, at, toggle, showLevel, lines, run, key, tap }
+  return { outline, can, marks, at, toggle, showLevel, lines, key, tap }
 }
 
 export type Outline = ReturnType<typeof useOutline>

@@ -185,7 +185,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     return out
   }
 
-  return { formulaAt, selectedFormula, selectedValue, shownFormula, scanOptions, refColors, formulaParts, refSheet, sheetIndexByName, highlights, highlightAt }
+  return { formulaAt, selectedFormula, selectedValue, shownFormula, scanOptions, formulaParts, refSheet, sheetIndexByName, highlights, highlightAt }
 }
 
 export type Formula = ReturnType<typeof useFormula>

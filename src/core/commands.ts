@@ -186,7 +186,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     merge: deps.merge,
   }
 
-  return { can, change, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat, api }
+  return { can, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat, api }
 }
 
 export type Commands = ReturnType<typeof useCommands>
