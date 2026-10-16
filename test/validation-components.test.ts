@@ -125,12 +125,12 @@ describe('ValidationAlert', () => {
     expect(w.emitted('answer')).toEqual([['accept'], ['retry'], ['cancel']])
   })
 
-  it('information: OK and Cancel, open on OK; Esc is Cancel; Tab goes round the buttons', async () => {
+  it('information: OK and Cancel, open on OK; Esc is Cancel; Tab and Shift+Tab go round the buttons', async () => {
     const w = mount(ValidationAlert, { props: { alert: alert('information') }, attachTo: document.body })
     await settle()
     expect(buttons(w)).toEqual(['OK', 'Cancel'])
     expect(focused()).toBe('ok')
-    await w.find('.xs-va').trigger('keydown', { key: 'Tab' })
+    await w.find('.xs-va').trigger('keydown', { key: 'Tab', shiftKey: true })
     expect(focused()).toBe('cancel')
     await w.find('.xs-va').trigger('keydown', { key: 'Tab' })
     expect(focused()).toBe('ok')
@@ -138,6 +138,6 @@ describe('ValidationAlert', () => {
     await w.find('.xs-va').trigger('keydown', { key: 'Escape' })
     expect(w.emitted('answer')).toEqual([['accept'], ['cancel']])
     await w.setProps({ alert: null })
-    expect(w.find('[data-xs-alert-back]').exists()).toBe(false)
+    expect(w.find('[data-xs-alert]').exists()).toBe(false)
   })
 })

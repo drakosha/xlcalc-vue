@@ -503,6 +503,8 @@ await source.close() // when the sheet goes, as in onUnmounted
 | `--xs-bar-bg` | `#fafafa` | The formula bar, the toolbar and the precedents' panel. |
 | `--xs-message-bg`, `--xs-message-fg` | `#1f2328`, `#ffffff` | The message line. |
 | `--xs-copy-line`, `--xs-fill-frame` | `#1a73e8`, `#5f6368` | A copy's moving border, the fill handle's frame. |
+| `--xs-backdrop`, `--xs-shadow-modal` | `rgb(0 0 0 / 0.25)`, `0 10px 30px rgb(0 0 0 / 0.25)` | The dimmed page under a dialog or an alert, and the box's shadow. |
+| `--xs-z-modal`, `--xs-z-alert` | `50`, `55` | The layers of a dialog and of an alert over the page; an alert lies over a dialog. |
 | `--xs-outline-bg`, `--xs-outline-line` | `#fafafa`, `#8c8c8c` | The outline's bars and brackets. |
 | `--xs-outline-button`, `--xs-outline-tick` | `13px`, `5px` | The outline's button size and a bracket's tick. |
 | `--xs-outline-button-bg`, `--xs-outline-button-fg`, `--xs-outline-button-border` | `#ffffff`, `#3c4043`, `#9aa0a6` | The outline's buttons. |

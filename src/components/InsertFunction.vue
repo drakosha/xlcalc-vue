@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 import { CATEGORY_ORDER } from '../function-categories'
 import type { SheetFunctionSignature } from '../source'
 import { useSheetContext } from './context'
+import DialogShell from './DialogShell.vue'
 import { keepActiveInView } from './popup'
 
 const emit = defineEmits<{ pick: [name: string]; close: [] }>()
@@ -20,7 +21,6 @@ const recent = (ctx.memory.recall<string[]>(RECENT) ?? []).filter((n) => typeof 
 const category = ref<string>(recent.length ? 'recent' : 'all')
 const query = ref('')
 const index = ref(0)
-const search = ref<HTMLInputElement | null>(null)
 const list = ref<HTMLElement | null>(null)
 const ctrl = new AbortController()
 
@@ -53,7 +53,6 @@ watch(query, (q) => {
 keepActiveInView(list, index, () => index.value)
 
 onMounted(async () => {
-  search.value?.focus()
   const src = ctx.source()
   if (!src.functionNames) return
   const got = await src.functionNames(ctrl.signal).catch(() => null)
@@ -79,62 +78,55 @@ function onKey(e: KeyboardEvent): void {
   } else if (e.key === 'Enter') {
     e.preventDefault()
     ok()
-  } else if (e.key === 'Escape') {
-    e.preventDefault()
-    e.stopPropagation()
-    emit('close')
   }
 }
 </script>
 
 <template>
-  <div class="xs-ifn-back" data-xs-keep-edit @pointerdown.self="emit('close')">
-    <div class="xs-ifn" role="dialog" aria-modal="true" :aria-label="m.insertFunctionTitle" tabindex="-1" data-xs-insert-function @keydown="onKey">
-      <p class="xs-ifn-title">{{ m.insertFunctionTitle }}</p>
-      <input
-        ref="search"
-        v-model="query"
-        class="xs-ifn-input"
-        type="text"
-        enterkeyhint="search"
-        autocomplete="off"
-        spellcheck="false"
-        :placeholder="m.insertFunctionSearch"
-        :aria-label="m.insertFunctionSearch"
-        data-xs-if-search
-      />
-      <label class="xs-ifn-field">
-        <span>{{ m.insertFunctionCategory }}</span>
-        <select v-model="category" class="xs-ifn-input" data-xs-if-category>
-          <option value="recent">{{ m.insertFunctionRecent }}</option>
-          <option value="all">{{ m.insertFunctionAll }}</option>
-          <option v-for="c in categories" :key="c.key" :value="c.key">{{ c.name }}</option>
-        </select>
-      </label>
-      <p class="xs-ifn-label">{{ m.insertFunctionPick }}</p>
-      <div ref="list" class="xs-ifn-list" role="listbox" :aria-label="m.insertFunctionPick">
-        <div
-          v-for="(name, i) in shown"
-          :key="name"
-          role="option"
-          :aria-selected="i === index ? 'true' : 'false'"
-          :class="['xs-ifn-item', i === index ? 'xs-ifn-on' : '']"
-          data-xs-if-item
-          @mousedown.prevent
-          @click="index = i"
-          @dblclick="(index = i), ok()"
-        >
-          {{ name }}
-        </div>
-      </div>
-      <p class="xs-ifn-syntax" data-xs-if-syntax>{{ selectedSig?.text ?? selected ?? '' }}</p>
-      <p class="xs-ifn-about" data-xs-if-about>{{ selectedSig?.description ?? '' }}</p>
-      <div class="xs-dialog-foot">
-        <button type="button" class="xs-button" data-xs-dialog-cancel @click="emit('close')">{{ m.cancel }}</button>
-        <button type="button" class="xs-button xs-button-main" :disabled="!selected" data-xs-dialog-ok @click="ok()">{{ m.ok }}</button>
+  <DialogShell class="xs-ifn" full focus="[data-xs-if-search]" :aria-label="m.insertFunctionTitle" data-xs-keep-edit data-xs-insert-function @keydown="onKey" @close="emit('close')">
+    <p class="xs-modal-title">{{ m.insertFunctionTitle }}</p>
+    <input
+      v-model="query"
+      class="xs-ifn-input"
+      type="text"
+      enterkeyhint="search"
+      autocomplete="off"
+      spellcheck="false"
+      :placeholder="m.insertFunctionSearch"
+      :aria-label="m.insertFunctionSearch"
+      data-xs-if-search
+    />
+    <label class="xs-ifn-field">
+      <span>{{ m.insertFunctionCategory }}</span>
+      <select v-model="category" class="xs-ifn-input" data-xs-if-category>
+        <option value="recent">{{ m.insertFunctionRecent }}</option>
+        <option value="all">{{ m.insertFunctionAll }}</option>
+        <option v-for="c in categories" :key="c.key" :value="c.key">{{ c.name }}</option>
+      </select>
+    </label>
+    <p>{{ m.insertFunctionPick }}</p>
+    <div ref="list" class="xs-ifn-list" role="listbox" :aria-label="m.insertFunctionPick">
+      <div
+        v-for="(name, i) in shown"
+        :key="name"
+        role="option"
+        :aria-selected="i === index ? 'true' : 'false'"
+        :class="['xs-ifn-item', i === index ? 'xs-ifn-on' : '']"
+        data-xs-if-item
+        @mousedown.prevent
+        @click="index = i"
+        @dblclick="(index = i), ok()"
+      >
+        {{ name }}
       </div>
     </div>
-  </div>
+    <p class="xs-ifn-syntax" data-xs-if-syntax>{{ selectedSig?.text ?? selected ?? '' }}</p>
+    <p class="xs-ifn-about" data-xs-if-about>{{ selectedSig?.description ?? '' }}</p>
+    <div class="xs-dialog-foot">
+      <button type="button" class="xs-button" data-xs-dialog-cancel @click="emit('close')">{{ m.cancel }}</button>
+      <button type="button" class="xs-button xs-button-main" :disabled="!selected" data-xs-dialog-ok @click="ok()">{{ m.ok }}</button>
+    </div>
+  </DialogShell>
 </template>
 
 <style src="../insert-function.css"></style>

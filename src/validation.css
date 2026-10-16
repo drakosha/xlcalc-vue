@@ -1,6 +1,5 @@
 /* Data validation (ValidationDropdown, ValidationPrompt, ValidationAlert) in the sheet's --xs-* variables: the dropdown and the input message lie in the grid's content, the alert over the page; a finger gets 44 px targets. */
-.xs-sheet,
-.xs-va-back {
+.xs-sheet {
   --xs-prompt-bg: #ffffe1;
   --xs-prompt-fg: #1f2328;
   --xs-prompt-line: #767676;
@@ -114,36 +113,15 @@
   pointer-events: none;
 }
 
-/* ── the alert: a box over the page, as Excel's ── */
-.xs-va-back {
-  position: fixed;
-  inset: 0;
-  z-index: 55;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgb(0 0 0 / 0.2);
-  -webkit-tap-highlight-color: transparent;
-}
-.xs-va-back * {
-  box-sizing: border-box;
-}
+/* ── the alert: a DialogShell box over the page (modal.css), as Excel's ── */
 .xs-va {
-  display: flex;
-  flex-direction: column;
   width: min(420px, 100%);
-  max-height: calc(100vh - 32px);
-  border-radius: 8px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
+}
+.xs-modal.xs-va {
   font: 13px / 1.4 var(--xs-font);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.28);
 }
 .xs-va-title {
   padding: 10px 16px 0;
-  font-size: 13px;
-  font-weight: 600;
 }
 .xs-va-body {
   display: flex;
@@ -163,7 +141,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.xs-va-text p {
+.xs-modal .xs-va-text p {
   margin: 0 0 10px;
 }
 .xs-va-foot {
@@ -200,15 +178,13 @@
   outline-offset: 2px;
 }
 
-/* ── a phone or a finger: buttons of 44 px, the text larger ── */
-@media (max-width: 599px), (pointer: coarse) {
-  .xs-va {
-    font-size: 15px;
-  }
-  .xs-va-btn {
-    flex: 1 1 0;
-    min-width: 44px;
-    height: auto;
-    min-height: 44px;
-  }
+/* ── a finger (the sheet's, a phone's too): buttons of 44 px, the text larger ── */
+.xs-touch .xs-modal.xs-va {
+  font-size: 15px;
+}
+.xs-touch .xs-va-btn {
+  flex: 1 1 0;
+  min-width: 44px;
+  height: auto;
+  min-height: 44px;
 }

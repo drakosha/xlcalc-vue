@@ -571,7 +571,7 @@ async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   await page.waitForSelector('[data-xs-insert-function] [data-xs-if-item]')
   await page.waitForFunction(() => document.querySelector('[data-xs-if-about]')?.textContent?.trim())
   await shot(page, size.name, '61-insert-function')
-  if (size.mobile) await checkTargets(page, true, '.xs-ifn-back')
+  if (size.mobile) await checkTargets(page, true, '.xs-ifn')
   await page.locator('[data-xs-if-category]').selectOption('date')
   await page.locator('[data-xs-if-item]').nth(2).click()
   await page.waitForTimeout(100)

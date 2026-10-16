@@ -1,30 +1,7 @@
-/* The Format Cells dialog (FormatDialog.vue) in the sheet's --xs-* variables: a box over the page, full screen on a phone, 44 px targets under a finger. */
-.xs-fmt-back {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgb(0 0 0 / 0.25);
-  -webkit-tap-highlight-color: transparent;
-}
-.xs-fmt-back *,
-.xs-fmt-back *::before,
-.xs-fmt-back *::after {
-  box-sizing: border-box;
-}
+/* The Format Cells dialog (FormatDialog.vue) in the sheet's --xs-* variables: a DialogShell box (modal.css), full screen on a
+   phone, 44 px targets under a finger. It may stand outside a sheet, so a phone and a finger are the window's media, not the sheet's classes. */
 .xs-fmt {
-  display: flex;
-  flex-direction: column;
   width: min(600px, 100%);
-  max-height: calc(100vh - 32px);
-  border-radius: 8px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font: var(--xs-font-size) var(--xs-font);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
 }
 .xs-fmt-head {
   display: flex;
@@ -34,7 +11,6 @@
 }
 .xs-fmt-title {
   font-size: 14px;
-  font-weight: 600;
 }
 .xs-fmt-x {
   display: inline-flex;
@@ -341,10 +317,10 @@
 
 /* ── a phone: the whole screen ── */
 @media (max-width: 599px) {
-  .xs-fmt-back {
+  .xs-modal-back.xs-fmt-back {
     padding: 0;
   }
-  .xs-fmt {
+  .xs-modal.xs-fmt {
     width: 100%;
     height: 100%;
     max-height: none;
@@ -357,7 +333,7 @@
 
 /* ── a phone or a finger: every target at least 44 × 44 px ── */
 @media (max-width: 599px), (pointer: coarse) {
-  .xs-fmt {
+  .xs-modal.xs-fmt {
     font-size: 15px;
   }
   .xs-fmt-x {

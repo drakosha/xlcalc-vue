@@ -5,6 +5,7 @@
 // a press in the menu leaves the focus where the keys put it.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSheetContext } from './context'
+import DialogShell from './DialogShell.vue'
 import { useOutsidePress } from './popup'
 
 const ctx = useSheetContext()
@@ -63,19 +64,8 @@ const size = computed(() => (menu.dialog.value?.kind === 'size' ? menu.dialog.va
 const doomed = computed(() => (menu.dialog.value?.kind === 'deleteSheet' ? menu.dialog.value.sheet : null))
 const hidden = computed(() => (menu.dialog.value?.kind === 'unhide' ? menu.dialog.value.sheets : null))
 const grouping = computed(() => (menu.dialog.value?.kind === 'outline' ? menu.dialog.value : null))
-const input = ref<HTMLInputElement | null>(null)
-watch(size, async (d, was) => {
-  if (!d || was) return
-  await nextTick()
-  input.value?.focus()
-  input.value?.select()
-})
-const firstChoice = ref<HTMLInputElement | null>(null)
-watch(grouping, async (d, was) => {
-  if (!d || was) return
-  await nextTick()
-  firstChoice.value?.focus()
-})
+/** A size opens on its field's text selected, a grouping on its first choice. */
+const dialogFocus = computed(() => (size.value ? '[data-xs-dialog-input]' : grouping.value ? '[data-xs-outline-axis]' : undefined))
 const closeDialog = () => (menu.dialog.value = null)
 
 useOutsidePress(box, () => menu.close(), () => !!menu.open.value)
@@ -97,40 +87,38 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
       <button type="button" role="menuitem" tabindex="-1" class="xs-menu-item" :data-xs-menu="item.id" :disabled="item.disabled" @click="menu.choose(item)">{{ item.label }}</button>
     </template>
   </div>
-  <div v-if="menu.dialog.value" class="xs-dialog-back" @pointerdown.self="closeDialog">
-    <div class="xs-dialog" role="dialog" aria-modal="true" data-xs-dialog>
-      <template v-if="size">
-        <label class="xs-dialog-field">
-          <span class="xs-dialog-title">{{ size.axis === 'columns' ? m.columnWidth : m.rowHeight }}</span>
-          <input ref="input" v-model="size.draft" class="xs-dialog-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" data-xs-dialog-input @keydown.enter.prevent="menu.applySize()" />
-        </label>
-        <p v-if="size.error" class="xs-dialog-error" role="alert">{{ size.error }}</p>
-      </template>
-      <template v-else-if="doomed !== null">
-        <p class="xs-dialog-title">{{ m.deleteSheet }}</p>
-        <p class="xs-dialog-text">{{ m.deleteSheetText(doomed) }}</p>
-      </template>
-      <template v-else-if="grouping">
-        <p class="xs-dialog-title">{{ grouping.op === 'group' ? m.menuGroup : m.menuUngroup }}</p>
-        <div class="xs-dialog-choices" role="radiogroup" @keydown.enter.prevent="menu.applyOutline()">
-          <label class="xs-dialog-choice"><input ref="firstChoice" v-model="grouping.axis" type="radio" value="rows" data-xs-outline-axis="rows" />{{ m.outlineRows }}</label>
-          <label class="xs-dialog-choice"><input v-model="grouping.axis" type="radio" value="columns" data-xs-outline-axis="columns" />{{ m.outlineColumns }}</label>
-        </div>
-      </template>
-      <template v-else-if="hidden">
-        <p class="xs-dialog-title">{{ m.unhideSheet }}</p>
-        <div class="xs-dialog-list">
-          <button v-for="name in hidden" :key="name" type="button" class="xs-menu-item" :data-xs-unhide="name" @click="menu.unhide(name)">{{ name }}</button>
-        </div>
-      </template>
-      <div class="xs-dialog-foot">
-        <button type="button" class="xs-button" data-xs-dialog-cancel @click="closeDialog">{{ m.cancel }}</button>
-        <button v-if="size" type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="menu.applySize()">{{ m.ok }}</button>
-        <button v-else-if="grouping" type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="menu.applyOutline()">{{ m.ok }}</button>
-        <button v-else-if="doomed !== null" type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="menu.confirmDelete()">{{ m.menuDelete }}</button>
+  <DialogShell v-if="menu.dialog.value" class="xs-dialog" :focus="dialogFocus" data-xs-dialog @close="closeDialog">
+    <template v-if="size">
+      <label class="xs-dialog-field">
+        <span class="xs-modal-title">{{ size.axis === 'columns' ? m.columnWidth : m.rowHeight }}</span>
+        <input v-model="size.draft" class="xs-dialog-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" data-xs-dialog-input @keydown.enter.prevent="menu.applySize()" />
+      </label>
+      <p v-if="size.error" class="xs-dialog-error" role="alert">{{ size.error }}</p>
+    </template>
+    <template v-else-if="doomed !== null">
+      <p class="xs-modal-title">{{ m.deleteSheet }}</p>
+      <p>{{ m.deleteSheetText(doomed) }}</p>
+    </template>
+    <template v-else-if="grouping">
+      <p class="xs-modal-title">{{ grouping.op === 'group' ? m.menuGroup : m.menuUngroup }}</p>
+      <div class="xs-dialog-choices" role="radiogroup" @keydown.enter.prevent="menu.applyOutline()">
+        <label class="xs-dialog-choice"><input v-model="grouping.axis" type="radio" value="rows" data-xs-outline-axis="rows" />{{ m.outlineRows }}</label>
+        <label class="xs-dialog-choice"><input v-model="grouping.axis" type="radio" value="columns" data-xs-outline-axis="columns" />{{ m.outlineColumns }}</label>
       </div>
+    </template>
+    <template v-else-if="hidden">
+      <p class="xs-modal-title">{{ m.unhideSheet }}</p>
+      <div class="xs-dialog-list">
+        <button v-for="name in hidden" :key="name" type="button" class="xs-menu-item" :data-xs-unhide="name" @click="menu.unhide(name)">{{ name }}</button>
+      </div>
+    </template>
+    <div class="xs-dialog-foot">
+      <button type="button" class="xs-button" data-xs-dialog-cancel @click="closeDialog">{{ m.cancel }}</button>
+      <button v-if="size" type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="menu.applySize()">{{ m.ok }}</button>
+      <button v-else-if="grouping" type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="menu.applyOutline()">{{ m.ok }}</button>
+      <button v-else-if="doomed !== null" type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="menu.confirmDelete()">{{ m.menuDelete }}</button>
     </div>
-  </div>
+  </DialogShell>
 </template>
 
 <style src="../menu.css"></style>

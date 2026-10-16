@@ -30,6 +30,11 @@
   --xs-fill-frame: #5f6368;
   --xs-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --xs-font-size: 12.5px;
+  /* the dialogs over the page: the dimmed backdrop, the box's shadow, their layers (an alert over a dialog) */
+  --xs-backdrop: rgb(0 0 0 / 0.25);
+  --xs-shadow-modal: 0 10px 30px rgb(0 0 0 / 0.25);
+  --xs-z-modal: 50;
+  --xs-z-alert: 55;
 }
 .xs-sheet {
   position: relative;
