@@ -119,4 +119,21 @@ describe('render scope', () => {
       vi.useRealTimers()
     }
   })
+
+  it('a scroll row by row redraws once a step of rows, the screen always drawn with spare rows around it', async () => {
+    const { ctx, count } = await open()
+    const v = ctx.v
+    let redraws = 0
+    for (let i = 1; i <= 40; i++) {
+      count.take()
+      ctx.scrollTop.value = i * 20
+      await nextTick()
+      if (count.calls) redraws++
+      const top = ctx.geo.rowAt(ctx.scrollTop.value)
+      const bottom = ctx.geo.rowAt(ctx.scrollTop.value + ctx.viewH.value)
+      expect(v.firstRow.value).toBeLessThanOrEqual(Math.max(1, top - 8))
+      expect(v.lastRow.value).toBeGreaterThanOrEqual(Math.min(ctx.rowCount.value, bottom + 8))
+    }
+    expect(redraws).toBeLessThanOrEqual(11)
+  })
 })
