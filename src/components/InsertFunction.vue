@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Excel's Insert Function window: a search, the category box (recently used, all, the source's categories), the functions, and the syntax and description of the one selected.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { CATEGORY_ORDER } from '../function-categories'
+import { FUNCTION_CATEGORIES } from 'xlcalc/text'
 import type { SheetFunctionSignature } from '../source'
 import { useSheetContext } from './context'
 import DialogShell from './DialogShell.vue'
@@ -29,7 +29,7 @@ const ctrl = new AbortController()
 const categories = computed(() => {
   const named = new Map<string, string>()
   for (const sig of sigs.value.values()) if (sig && !named.has(sig.category)) named.set(sig.category, sig.categoryName)
-  return CATEGORY_ORDER.filter((c) => named.has(c)).map((c) => ({ key: c, name: named.get(c)! }))
+  return FUNCTION_CATEGORIES.filter((c) => named.has(c)).map((c) => ({ key: c, name: named.get(c)! }))
 })
 /** The category's functions whose names hold the search, in any case: the name itself first, then those it begins, then the rest. */
 const shown = computed(() => {
