@@ -7,7 +7,7 @@ import FunctionList from './FunctionList.vue'
 import FunctionTip from './FunctionTip.vue'
 
 const ctx = useSheetContext()
-const { v, geo, views, ed } = ctx
+const { v, views, ed } = ctx
 const m = ctx.messages
 
 /** The in-place field over its cell, in the scroller's content coordinates (a frozen cell's place follows the scroll). */
@@ -16,16 +16,15 @@ const editorRect = computed(() => {
   if (!e || e.place !== 'cell' || e.sheet !== ctx.sheetName.value) return null
   const d = ctx.indexOf(e.row)
   if (d === undefined) return null
+  // A merge is drawn as one cell only on one side of the freeze edge, so its box follows the scroll as its first cell does.
   const sp = views.spanOf(e.row, e.col)
-  const frozen = d <= v.frozenRows.value || e.col <= v.frozenCols.value
-  const top = v.headH.value + (geo.rowOffsets.value[d - 1] ?? 0) + (d <= v.frozenRows.value ? ctx.scrollTop.value : 0)
-  const left = v.leadW.value + (geo.offsets.value[e.col - 1] ?? 0) + (e.col <= v.frozenCols.value ? ctx.scrollLeft.value : 0)
+  const cell = v.boxOf(d, e.col, d + (sp?.rs ?? 1) - 1, e.col + (sp?.cs ?? 1) - 1)
   const lines = e.text.split('\n')
   const longest = Math.max(...lines.map((l) => l.length))
-  const room = Math.max(60, ctx.viewW.value - (left - ctx.scrollLeft.value) - 4)
-  const width = Math.max(geo.spanWidth(e.col, sp?.cs ?? 1), Math.min(longest * 7.5 + 16, room))
-  const height = Math.max(geo.spanHeight(d, sp?.rs ?? 1), lines.length * 17 + 5)
-  return { top, left, width, height, frozen }
+  const room = Math.max(60, ctx.viewW.value - (cell.left - ctx.scrollLeft.value) - 4)
+  const width = Math.max(cell.width, Math.min(longest * 7.5 + 16, room))
+  const height = Math.max(cell.height, lines.length * 17 + 5)
+  return { top: cell.top, left: cell.left, width, height, frozen: cell.frozen }
 })
 const editorBox = computed(() => {
   const r = editorRect.value

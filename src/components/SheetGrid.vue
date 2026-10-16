@@ -55,9 +55,8 @@ const activeBox = computed(() => {
   const d = ctx.indexOf(a.row)
   if (d === undefined) return null
   const sp = views.spanOf(a.row, a.col)
-  const top = v.headH.value + (geo.rowOffsets.value[d - 1] ?? 0) + (d <= v.frozenRows.value ? ctx.scrollTop.value : 0)
-  const left = v.leadW.value + (geo.offsets.value[a.col - 1] ?? 0) + (a.col <= v.frozenCols.value ? ctx.scrollLeft.value : 0)
-  return { top, left, width: geo.spanWidth(a.col, sp?.cs ?? 1), height: geo.spanHeight(d, sp?.rs ?? 1) }
+  const { top, left, width, height } = v.boxOf(d, a.col, d + (sp?.rs ?? 1) - 1, a.col + (sp?.cs ?? 1) - 1)
+  return { top, left, width, height }
 })
 const vd = ctx.validation
 
