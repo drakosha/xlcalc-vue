@@ -7,6 +7,7 @@ import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, Form
 import { boxesUnder, findHits, replaceAll } from './find'
 import { loadLocale, tipLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
+import { throwIfAborted } from '../abort'
 import { filterKey } from '../filter-key'
 import { columnValuesOf, filterActive, SheetValues, statsOf, visibleList } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
@@ -14,11 +15,6 @@ import { alertRefusalOf, validationOf } from './validation'
 import { windowOf } from './window'
 
 const MAX_CELLS = 20_000
-
-const abortError = () => new DOMException('The request was aborted', 'AbortError')
-function check(signal?: AbortSignal): void {
-  if (signal?.aborted) throw abortError()
-}
 
 async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
   const kind = typeof opts.calc === 'string' ? opts.calc : typeof Worker === 'function' ? 'pool' : 'inline'
@@ -438,12 +434,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const s = await open()
       const { sheets } = await s.getLayout()
       const used = await Promise.all(sheets.map((x) => s.getUsedRange(x.name)))
-      check(signal)
+      throwIfAborted(signal)
       return sheets.map((x, i) => info(x, used[i]!))
     },
     async window(req: WindowRequest, signal) {
       const s = await open()
-      check(signal)
+      throwIfAborted(signal)
       const cols = Math.max(0, req.cols)
       const count = Math.max(0, Math.min(req.rows, Math.floor(maxCells / Math.max(1, cols))))
       const filtered = filterActive(req.filter)
@@ -455,7 +451,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const top = asked[0] ?? 1
       const range = `${cellAddress(top, req.col)}:${cellAddress(asked[asked.length - 1] ?? top, req.col + Math.max(1, cols) - 1)}`
       const v = await s.getViewport(req.sheet, range, { formulaLocal: true, editText: true, maxCells, ...(filtered || !rows.length ? { rows: asked } : {}) })
-      check(signal)
+      throwIfAborted(signal)
       return windowOf(v, { row: req.row, rows, col: req.col, cols, filtered, notice: opts.notice })
     },
     edit: serial(edit),
@@ -480,29 +476,29 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     /** The session's copy of a range as Excel puts it on the clipboard (xlcalc 0.34): values by their formats, hidden lines left out; a range too large is refused. */
     async copyText(sheet, range, opts) {
       const s = await open()
-      check(opts?.signal)
+      throwIfAborted(opts?.signal)
       return s.copyText(sheet, range, { ...(opts?.trailingNewline === false ? { trailingNewline: false } : {}), ...(opts?.signal ? { signal: opts.signal } : {}) })
     },
     async validation(sheet, cell, signal) {
       const s = await open()
-      check(signal)
+      throwIfAborted(signal)
       const got = validationOf(await s.getValidation(sheet, cell))
-      check(signal)
+      throwIfAborted(signal)
       return got
     },
     /** Every function a formula can call, by its name in the book's locale (English where the locale names none, as Excel ru-RU shows `ABS`), in the locale's alphabetical order. */
     async functionNames(signal) {
       await ready
-      check(signal)
+      throwIfAborted(signal)
       const local = LOCALES.get(locale)?.functions ?? {}
       return FUNCTION_NAMES.map((name) => local[name] ?? name).sort(new Intl.Collator(locale).compare)
     },
     /** A function's tip and description in the book's locale (its words loaded on the first ask), by its name in English or the locale; a table lookup, the component keeps what it got. */
     async functionSignature(name, signal) {
       await ready
-      check(signal)
+      throwIfAborted(signal)
       const words = await tipLocale(locale)
-      check(signal)
+      throwIfAborted(signal)
       const sig = functionSignature(name, words)
       describe ??= import('xlcalc/function-text').then((m) => m.functionDescription, () => null)
       const description = sig && (await describe)?.(sig.fn, words)
@@ -514,24 +510,24 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     /** Excel's Control and an arrow: the session's `getEnd`, measured as Excel's Range.End. */
     async end(sheet, cell, direction, signal) {
       const s = await open()
-      check(signal)
+      throwIfAborted(signal)
       return s.getEnd(sheet, cell, direction)
     },
     async stats(sheet, range, filter, signal) {
       const s = await open()
       const [views, rows] = await Promise.all([s.getCells(sheet, range), filterActive(filter) ? rowsUnder(s, sheet, filter, false) : null])
-      check(signal)
+      throwIfAborted(signal)
       return statsOf(views, rows ? new Set(rows) : null)
     },
     async find(req, signal) {
       const s = await open()
       const rows = await searchedRows(s, req.sheet, req.filter)
-      check(signal)
+      throwIfAborted(signal)
       try {
         return await findHits(s, req, rows, signal)
       } catch (e) {
         // the library's refusal of an aborted call is the abort the component expects
-        check(signal)
+        throwIfAborted(signal)
         throw e
       }
     },
@@ -542,13 +538,13 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
         return { rows: null, total: (await s.getUsedRange(sheet)).rows }
       }
       const [rows, used] = await Promise.all([rowsUnder(s, sheet, filter, true), s.getUsedRange(sheet)])
-      check(signal)
+      throwIfAborted(signal)
       return { rows, total: used.rows }
     },
     async columnValues(sheet, col, filter, signal) {
       const s = await open()
       const [v, used] = await Promise.all([sheetValues(s, sheet), s.getUsedRange(sheet)])
-      check(signal)
+      throwIfAborted(signal)
       return columnValuesOf(v, col, filter, used.rows, collator)
     },
     async book() {

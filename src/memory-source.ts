@@ -8,6 +8,7 @@ import { textEditText } from './core/edit-text'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type QuerySheet } from './memory-query'
 import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './memory-outline'
+import { abortError } from './abort'
 import { filterKey } from './filter-key'
 import { MemoryRules, memoryRefusal, type MemoryValidation } from './memory-validation'
 
@@ -134,8 +135,6 @@ function linesOf(key: string, axis: 'columns' | 'rows'): number[] {
   if (span) for (let i = span.first; i <= span.last; i++) out.push(i)
   return out
 }
-
-const abortError = () => new DOMException('The request was aborted', 'AbortError')
 
 /** A source over `book`; the book's objects are copied, edits change the copy. */
 export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}): MemorySource {
