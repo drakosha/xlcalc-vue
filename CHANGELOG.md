@@ -17,4 +17,5 @@ What is in it:
 - `docs/`: the API reference (`docs/api.md`) and a page for each feature.
 - The interface's texts in English by default and in Russian (`ruMessages`).
 - `example/spa.html`: an app like Excel over `./local`, all in the browser, without a server.
-- The main entry depends at runtime on `vue` alone and carries no engine. Its test holds it under 400,000 characters (383,000 now): the engine would add hundreds of thousands.
+- The grid draws by rows: a typed character, a move of the active cell or of the selection, a scroll and a cell's change redraw only the rows they touch (5 to 9 ms in Chromium on a desktop, from 15 to 25); repaints of one task go to the source as one request, and a stream of the source's events asks the active cell's validation once.
+- The main entry depends at runtime on `vue` alone and carries no engine. Its test holds it under 400,000 characters (391,000 now): the engine would add hundreds of thousands.
