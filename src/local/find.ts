@@ -7,7 +7,7 @@ import type { FindRequest, FindResult } from '../source'
 import type { CellsBox } from './outcome'
 
 /** Hits of a search in one answer; the total counts them all. */
-export const FIND_MAX_HITS = 500
+const FIND_MAX_HITS = 500
 const WHOLE_SHEET = 'A1:XFD1048576'
 
 const rangesOf = (req: FindRequest) => [{ sheet: req.sheet, range: req.range ?? WHOLE_SHEET }]
@@ -42,7 +42,7 @@ export async function findHits(s: AsyncSession, req: FindRequest, rows: number[]
     in: values ? 'text' : 'edit',
     ...(req.byColumns ? { byColumns: true } : {}),
     ...(after ? { after } : {}),
-    fields: [values ? 'text' : 'editText'],
+    fields: [],
     maxCells: FIND_MAX_HITS,
     count: true,
     ...(signal ? { signal } : {}),
@@ -50,7 +50,7 @@ export async function findHits(s: AsyncSession, req: FindRequest, rows: number[]
   return {
     hits: page.cells.map((c) => {
       const at = parseCell(c.cell)!
-      return { row: at.row, col: at.col, text: (values ? c.text : c.editText) ?? '' }
+      return { row: at.row, col: at.col }
     }),
     total: page.total ?? page.cells.length,
   }

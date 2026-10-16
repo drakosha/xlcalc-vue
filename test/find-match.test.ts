@@ -73,34 +73,37 @@ describe('the query as Excel reads it', () => {
 })
 
 describe('where and in which order', () => {
+  const texts: Record<string, string> = { '1:1': 'x1', '1:3': 'x2', '2:2': 'x3', '3:1': 'x4', '3:4': 'nothing', '4:2': 'x5' }
   const sheet = cells({ A1: 'x1', C1: 'x2', B2: 'x3', A3: 'x4', D3: 'nothing', B4: 'x5' })
+  /** The hits' texts, in their order. */
+  const textsOf = (got: { hits: { row: number; col: number }[] }) => got.hits.map((h) => texts[`${h.row}:${h.col}`])
 
-  it('by rows by default, by columns when asked, with the text each hit matched', () => {
+  it('by rows by default, by columns when asked', () => {
     expect(findCells(sheet, req('x'), null, 10)).toEqual({
       hits: [
-        { row: 1, col: 1, text: 'x1' },
-        { row: 1, col: 3, text: 'x2' },
-        { row: 2, col: 2, text: 'x3' },
-        { row: 3, col: 1, text: 'x4' },
-        { row: 4, col: 2, text: 'x5' },
+        { row: 1, col: 1 },
+        { row: 1, col: 3 },
+        { row: 2, col: 2 },
+        { row: 3, col: 1 },
+        { row: 4, col: 2 },
       ],
       total: 5,
     })
-    expect(findCells(sheet, req('x', { byColumns: true }), null, 10).hits.map((h) => h.text)).toEqual(['x1', 'x4', 'x3', 'x5', 'x2'])
+    expect(textsOf(findCells(sheet, req('x', { byColumns: true }), null, 10))).toEqual(['x1', 'x4', 'x3', 'x5', 'x2'])
   })
 
   it('only within a range, whole columns and rows too', () => {
-    expect(findCells(sheet, req('x', { range: 'B1:C3' }), null, 10).hits.map((h) => h.text)).toEqual(['x2', 'x3'])
-    expect(findCells(sheet, req('x', { range: 'B:B' }), null, 10).hits.map((h) => h.text)).toEqual(['x3', 'x5'])
-    expect(findCells(sheet, req('x', { range: '3:4' }), null, 10).hits.map((h) => h.text)).toEqual(['x4', 'x5'])
+    expect(textsOf(findCells(sheet, req('x', { range: 'B1:C3' }), null, 10))).toEqual(['x2', 'x3'])
+    expect(textsOf(findCells(sheet, req('x', { range: 'B:B' }), null, 10))).toEqual(['x3', 'x5'])
+    expect(textsOf(findCells(sheet, req('x', { range: '3:4' }), null, 10))).toEqual(['x4', 'x5'])
   })
 
   it('only the rows a display filter shows', () => {
-    expect(findCells(sheet, req('x'), new Set([1, 4]), 10).hits.map((h) => h.text)).toEqual(['x1', 'x2', 'x5'])
+    expect(textsOf(findCells(sheet, req('x'), new Set([1, 4]), 10))).toEqual(['x1', 'x2', 'x5'])
   })
 
   it('gives at most `max` hits and counts them all', () => {
-    expect(findCells(sheet, req('x'), null, 2)).toEqual({ hits: [{ row: 1, col: 1, text: 'x1' }, { row: 1, col: 3, text: 'x2' }], total: 5 })
+    expect(findCells(sheet, req('x'), null, 2)).toEqual({ hits: [{ row: 1, col: 1 }, { row: 1, col: 3 }], total: 5 })
   })
 })
 

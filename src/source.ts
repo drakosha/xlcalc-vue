@@ -76,7 +76,7 @@ export interface SheetSource {
   /** Excel's outline commands: Group, Ungroup, a group's button and a level button. Without it the outline is drawn but does not change. */
   outline?(change: OutlineChange): Promise<EditOutcome>
   /** The sheet's rows in display order under the filter and sort; `rows: null` when there are no conditions. */
-  visibleRows?(sheet: string, filter: SheetFilter, signal?: AbortSignal): Promise<{ rows: number[] | null; total: number }>
+  visibleRows?(sheet: string, filter: SheetFilter, signal?: AbortSignal): Promise<{ rows: number[] | null }>
   /** A column's values for the filter funnel, over the rows visible under the other columns' conditions. */
   columnValues?(sheet: string, col: number, filter: SheetFilter, signal?: AbortSignal): Promise<{ values: { text: string; count: number }[]; more: number }>
   /** The cell limit of one window, 20,000 by default. */
@@ -191,9 +191,9 @@ export interface FindRequest {
   filter?: SheetFilter
 }
 
-/** Hits of a search, at most as many as the source gives in one answer; `total` counts them all. `text` is what matched: the formula or the shown text. */
+/** Hits of a search, at most as many as the source gives in one answer; `total` counts them all. */
 export interface FindResult {
-  hits: { row: number; col: number; text: string }[]
+  hits: { row: number; col: number }[]
   total: number
 }
 
@@ -238,9 +238,7 @@ export interface SheetWindow {
   defaultRowHeight?: number
   /** The sheet's tables: their header and border are drawn from these. */
   tables?: { name: string; range: string; headerRow: number }[]
-  /** Conditional formatting data bars: the share of the cell's width (0..1) and the bar's colour. */
-  bars?: Record<string, { ratio: number; color: string }>
-  /** What the sheet's conditional formats give cells, as xlcalc computes it: a style over the cell's, a data bar, an icon, the value hidden. Drawn in place of `bars` where given. */
+  /** What the sheet's conditional formats give cells, as xlcalc computes it: a style over the cell's, a data bar, an icon, the value hidden. */
   appearance?: Record<string, ConditionalAppearance>
   /** Hyperlinks: an external address, a place in the book (`Sheet!B12`), a tooltip, a host's target (a file of the host). */
   links?: Record<string, { href?: string; location?: string; tooltip?: string; target?: string }>
@@ -308,11 +306,10 @@ export type EditOutcome =
       ok: false
       /**
        * conflict: the book changed elsewhere; refused: the cell is locked or the operation is not allowed;
-       * invalid: the formula does not parse (`at` is the position in the typed text); busy: try again later.
+       * invalid: the formula does not parse (`at` is the position in the typed text); failed: anything else.
        */
-      reason: 'conflict' | 'refused' | 'invalid' | 'busy' | 'failed'
+      reason: 'conflict' | 'refused' | 'invalid' | 'failed'
       message: string
-      cells?: { sheet: string; cell: string }[]
       at?: number
       /**
        * For `invalid`: the formula Excel offers instead in its "We found a typo in your formula" window, in the source's locale

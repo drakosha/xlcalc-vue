@@ -1,15 +1,19 @@
 // A source over a book in memory, for tests and examples: values, shown text, formulas as strings and every display field; no engine.
 // It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, a precedents'
 // tree from the formulas as given, and can play a book being recomputed.
-import { cellAddress, parseCell, parseLines, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
-import type { CellStyle, CellValue, ConditionalAppearance, GridReference } from 'xlcalc/contract'
+import { cellAddress, parseCell, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
+import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
 import { textEditText } from './core/edit-text'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
-import { columnList, findHits, rangeStats, replaceTexts, visibleList, type QuerySheet } from './memory-query'
-import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './memory-outline'
+import { columnList, findHits, rangeStats, replaceTexts, visibleList, type MemorySheetQuery } from './memory-query'
+import { axisOf, lineSpan, type LineAxis } from './lines'
+import { outlineEdit, outlineOf, type OutlineLine } from './memory-outline'
+import { abortError } from './abort'
 import { filterKey } from './filter-key'
-import { MemoryRules, memoryRefusal, type MemoryValidation } from './memory-validation'
+import { isGridRef } from './grid-ref'
+import { DEFAULT_MAX_CELLS, rowsFor } from './window-size'
+import { MemoryRules, memoryRefusal, PLAIN_NUMBER, type MemoryValidation } from './memory-validation'
 
 /** A cell of the memory book; a bare value is a cell with that value. */
 export interface MemoryCell {
@@ -26,8 +30,6 @@ export interface MemoryCell {
   note?: { author?: string; text: string }
   /** List mode: the cell is a drill-down (`SheetWindow.drill`). */
   drill?: true
-  /** An old-style data bar (`SheetWindow.bars`); `appearance` takes its place where both are given. */
-  bar?: { ratio: number; color: string }
   /** What conditional formats give the cell, as xlcalc computes it (`ConditionalAppearance`); the book in memory keeps it as given. */
   appearance?: ConditionalAppearance
 }
@@ -108,6 +110,9 @@ function plainText(value: CellValue | undefined): string {
   return String(value)
 }
 
+/** A cell's value: its own, else the text it was given alone, else empty. */
+const valueOf = (cell: MemoryCell | undefined): CellValue => cell?.value ?? (cell?.text || null)
+
 interface Store {
   sheet: MemorySheet
   cells: Map<string, MemoryCell>
@@ -115,8 +120,8 @@ interface Store {
   heights: Map<number, number>
   rules: MemoryRules
   /** Outline levels and collapsed marks by line. */
-  levels: Record<OutlineAxis, Map<number, number>>
-  marks: Record<OutlineAxis, Set<number>>
+  levels: Record<LineAxis, Map<number, number>>
+  marks: Record<LineAxis, Set<number>>
   /** The sheet's frozen panes, as `freeze` leaves them. */
   freeze?: { rows: number; cols: number }
   maxRow: number
@@ -127,19 +132,18 @@ interface Store {
 const EXPLAIN_DEPTH = 3
 const EXPLAIN_NODES = 200
 
-/** Each column or row of a key as a book takes it (`B`, `B:D`; `5`, `5:9`); none for a key it does not take. */
-function linesOf(key: string, axis: 'columns' | 'rows'): number[] {
-  const span = parseLines(key, axis)
+/** Each column or row of a key as a book takes it (`B`, `B:D`, `C:C`; `5`, `5:9`); none for a key it does not take. */
+function linesOf(key: string, axis: LineAxis): number[] {
+  const span = lineSpan(key, axis)
   const out: number[] = []
   if (span) for (let i = span.first; i <= span.last; i++) out.push(i)
   return out
 }
 
-const abortError = () => new DOMException('The request was aborted', 'AbortError')
-
 /** A source over `book`; the book's objects are copied, edits change the copy. */
 export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}): MemorySource {
   const delay = options.delay ?? 0
+  const maxCells = options.maxCells ?? DEFAULT_MAX_CELLS
   const styles = book.styles ?? []
   const functions = book.functions?.slice()
   const stores = book.sheets.map((sheet): Store => {
@@ -170,7 +174,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   let recomputing: { since: number; until: number } | null = null
 
   /** A sheet as the queries read it: shown text and values by row and column. */
-  function query(store: Store): QuerySheet {
+  function query(store: Store): MemorySheetQuery {
     return {
       maxRow: store.maxRow,
       maxCol: store.maxCol,
@@ -178,10 +182,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         const cell = store.cells.get(cellAddress(r, c))
         return cell ? textOf(cell) : ''
       },
-      valueAt: (r, c) => {
-        const cell = store.cells.get(cellAddress(r, c))
-        return cell?.value ?? (cell?.text ? cell.text : null)
-      },
+      valueAt: (r, c) => valueOf(store.cells.get(cellAddress(r, c))),
       editAt: (r, c) => {
         const cell = store.cells.get(cellAddress(r, c))
         return cell ? editTextOf(cell) : ''
@@ -253,13 +254,13 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
    */
   function explainOf(sheet: string, cell: string): string {
     const lines: string[] = []
-    const value = (v: CellValue | undefined) => (v === undefined || v === null ? 'empty' : typeof v === 'object' ? (ERROR_TEXT[v.error] ?? '#ERROR!') : JSON.stringify(v))
+    const value = (v: CellValue) => (v === null ? 'empty' : typeof v === 'object' ? plainText(v) : JSON.stringify(v))
     const visit = (store: Store, addr: string, depth: number, indent: string) => {
       const c = store.cells.get(addr)
       const name = quoteSheetIfNeeded(store.sheet.name)
-      lines.push(`${indent}${name}!${addr} = ${value(c?.value ?? (c?.text || null))}${c?.formula !== undefined ? `  ← ${c.formula}` : ''}`)
+      lines.push(`${indent}${name}!${addr} = ${value(valueOf(c))}${c?.formula !== undefined ? `  ← ${c.formula}` : ''}`)
       if (c?.formula === undefined || depth === 0) return
-      for (const r of scanReferences(c.formula).filter((x): x is GridReference => x.kind !== 'table' && x.sheetLast === undefined)) {
+      for (const r of scanReferences(c.formula).filter(isGridRef)) {
         if (lines.length >= EXPLAIN_NODES) return
         const target = r.sheet === undefined ? store : stores.find((x) => sameName(x.sheet.name, r.sheet!))
         if (!target) continue
@@ -280,7 +281,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   }
 
   /** A sheet's lines as the outline reads them: levels, hidden ones (size 0) and collapsed marks, one by one. */
-  function outlineLines(store: Store, axis: OutlineAxis): OutlineLine[] {
+  function outlineLines(store: Store, axis: LineAxis): OutlineLine[] {
     const levels = store.levels[axis]
     const marks = store.marks[axis]
     const sizes = axis === 'rows' ? store.heights : store.widths
@@ -302,7 +303,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     const list = listUnder(store, req.filter)
     const cols = Math.max(0, req.cols)
     const limit = list ? Math.max(0, list.length - req.row + 1) : Infinity
-    const rows = Math.max(0, Math.min(req.rows, limit, Math.floor((options.maxCells ?? 20_000) / Math.max(1, cols))))
+    const rows = Math.min(rowsFor(maxCells, req.rows, cols), limit)
     const win: SheetWindow = {
       row: req.row,
       col: req.col,
@@ -317,7 +318,6 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       merges: [],
       defaultRowHeight: store.sheet.defaultRowHeight,
       tables: store.sheet.tables ?? [],
-      bars: {},
       appearance: {},
       links: {},
       notes: {},
@@ -337,7 +337,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         const addr = cellAddress(r, c)
         const cell = store.cells.get(addr)
         text.push(cell ? textOf(cell) : '')
-        values.push(cell?.value ?? (cell?.text ? cell.text : null))
+        values.push(valueOf(cell))
         if (!cell) continue
         if (cell.formula !== undefined) win.formulas[addr] = cell.formula
         if (cell.color) win.colors[addr] = cell.color
@@ -345,7 +345,6 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         if (cell.link) win.links![addr] = cell.link
         if (cell.note) win.notes![addr] = cell.note
         if (cell.drill) win.drill![addr] = true
-        if (cell.bar) win.bars![addr] = cell.bar
         if (cell.appearance) win.appearance![addr] = cell.appearance
       }
       win.text.push(text)
@@ -381,7 +380,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       else if (t.startsWith('=') && t.length > 1) {
         cell.formula = t.slice(1)
         cell.value = null
-      } else if (/^-?\d+(\.\d+)?$/.test(t)) cell.value = Number(t)
+      } else if (PLAIN_NUMBER.test(t)) cell.value = Number(t)
       else cell.value = t.startsWith("'") ? t.slice(1) : t
       if (Object.keys(cell).length) store.cells.set(addr, cell)
       else store.cells.delete(addr)
@@ -393,7 +392,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   }
 
   const source: MemorySource = {
-    maxCells: options.maxCells,
+    maxCells,
     sheets: (signal) => wait(() => stores.map(info), signal),
     window: (req, signal) => wait(() => windowOf(req), signal),
     /** Typed entries; a value a rule of data validation does not take refuses them all with its alert, unless `accept` keeps it. */
@@ -438,7 +437,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)
         if (!store) return { ok: false, reason: 'failed', message: `No sheet ${change.sheet}` }
-        const axis: OutlineAxis = change.op === 'showLevel' ? change.axis : 'rows' in change ? 'rows' : 'columns'
+        const axis = axisOf(change)
         const after = (axis === 'rows' ? store.sheet.outline?.summaryBelow : store.sheet.outline?.summaryRight) ?? true
         const got = outlineEdit(outlineLines(store, axis), after, change)
         if (!got.ok) return { ok: false, reason: 'refused', message: got.message }
@@ -468,7 +467,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         const rows = visibleList(query(store), filter)
         if (rows) lists.set(store, { key: filterKey(filter), rows })
         else lists.delete(store)
-        return { rows, total: store.maxRow }
+        return { rows }
       }, signal),
     columnValues: (sheet, col, filter, signal) => wait(() => columnList(query(storeOrThrow(sheet)), col, filter), signal),
     stats: (sheet, range, filter, signal) =>

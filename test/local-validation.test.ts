@@ -66,7 +66,6 @@ describe('localSource: a value a rule does not take', () => {
       ok: false,
       reason: 'refused',
       message: 'От 1 до 10',
-      cells: [{ sheet: 'S', cell: 'B2' }],
       alert: { severity: 'stop', title: 'Число', message: 'От 1 до 10', sheet: 'S', cell: 'B2' },
     })
     expect(await s.edit([{ sheet: 'S', cell: 'C2', text: '-1' }])).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'warning', message: 'Лучше больше нуля', sheet: 'S', cell: 'C2' } })
@@ -103,7 +102,7 @@ describe('localSource: a value a rule does not take', () => {
 
   it('Control+Return checks the active cell’s rule, and fills with `accept`', async () => {
     const s = source(book())
-    expect(await s.fill!('S', 'C1:C3', '-7', 'C2')).toMatchObject({ ok: false, reason: 'refused', cells: [{ sheet: 'S', cell: 'C2' }], alert: { severity: 'warning', sheet: 'S', cell: 'C2' } })
+    expect(await s.fill!('S', 'C1:C3', '-7', 'C2')).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'warning', sheet: 'S', cell: 'C2' } })
     expect(s.history).toEqual({ undo: 0, redo: 0 })
     expect(await s.fill!('S', 'C1:C3', '-7', 'C2', { accept: true })).toMatchObject({ ok: true, select: { sheet: 'S', range: 'C1:C3' } })
     expect((await win(s, 'S', 1, 3, 3, 1)).values).toEqual([[-7], [-7], [-7]])

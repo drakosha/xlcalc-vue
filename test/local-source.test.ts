@@ -2,7 +2,9 @@
 // localSource over a ru-RU book in the same thread: sheets, windows, search, the display filter, totals, events.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SheetFilter, SourceEvent } from '../src/source'
-import { BOLD, book, closeAll, COL_FILL, ROW_FILL, source, styleOf, win } from './local-fixture'
+import type { CellView } from 'xlcalc'
+import { SheetValues } from '../src/local/query'
+import { BOLD, book, closeAll, COL_FILL, ROW_FILL, source, styleOf, watched, win } from './local-fixture'
 
 /** Excel's width of a column without one, as xlcalc gives it. */
 const DEFAULT_WIDTH = 8.83203125
@@ -93,11 +95,11 @@ describe('localSource: search, display filter, totals', () => {
     const s = source()
     expect(await s.find({ sheet: 'Лист1', query: 'С', lookIn: 'values' })).toEqual({
       hits: [
-        { row: 1, col: 2, text: 'с примечанием' },
-        { row: 2, col: 2, text: 'ссылка' },
-        { row: 3, col: 2, text: 'на лист' },
-        { row: 4, col: 2, text: 'место' },
-        { row: 5, col: 4, text: 'строка' },
+        { row: 1, col: 2 },
+        { row: 2, col: 2 },
+        { row: 3, col: 2 },
+        { row: 4, col: 2 },
+        { row: 5, col: 4 },
       ],
       total: 5,
     })
@@ -106,12 +108,52 @@ describe('localSource: search, display filter, totals', () => {
 
   it('filters and sorts the display, the head stays on top', async () => {
     const s = source()
-    expect(await s.visibleRows('Список', { head: 1 })).toEqual({ rows: null, total: 6 })
-    expect(await s.visibleRows('Список', { head: 1, cols: { 1: { values: ['б'] } } })).toEqual({ rows: [1, 2, 4], total: 6 })
-    expect(await s.visibleRows('Список', { head: 1, cols: { 1: { text: 'А' } } })).toEqual({ rows: [1, 3], total: 6 })
+    expect(await s.visibleRows('Список', { head: 1 })).toEqual({ rows: null })
+    expect(await s.visibleRows('Список', { head: 1, cols: { 1: { values: ['б'] } } })).toEqual({ rows: [1, 2, 4] })
+    expect(await s.visibleRows('Список', { head: 1, cols: { 1: { text: 'А' } } })).toEqual({ rows: [1, 3] })
     // numbers by value before text, empty cells last
-    expect(await s.visibleRows('Список', { head: 1, sort: { col: 2, dir: 'asc' } })).toEqual({ rows: [1, 6, 2, 5, 3, 4], total: 6 })
-    expect(await s.visibleRows('Список', { head: 1, sort: { col: 1, dir: 'desc' } })).toEqual({ rows: [1, 6, 2, 4, 3, 5], total: 6 })
+    expect(await s.visibleRows('Список', { head: 1, sort: { col: 2, dir: 'asc' } })).toEqual({ rows: [1, 6, 2, 5, 3, 4] })
+    expect(await s.visibleRows('Список', { head: 1, sort: { col: 1, dir: 'desc' } })).toEqual({ rows: [1, 6, 2, 4, 3, 5] })
+  })
+
+  it('sorts mixed values in memorySource’s order for now: numbers, text, booleans, errors, empty cells last', async () => {
+    // TODO(xlcalc): the order of mixed values measured in Excel, from the library
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'k' }, A2: { value: 'b' }, A3: { value: 2 }, A4: { value: true }, A5: { formula: '1/0' }, A7: { value: 1 }, A8: { value: 'a' } } }] })
+    expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'asc' } })).rows).toEqual([1, 7, 3, 8, 2, 4, 5, 6])
+    expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'desc' } })).rows).toEqual([1, 5, 4, 2, 8, 3, 7, 6])
+  })
+
+  it('reads only the columns a filter, a sort or a funnel asks for, once, and keeps them up to date with edits', async () => {
+    const { s, calls, count } = watched()
+    const reads = () => calls.filter((c) => c.method === 'getCells').map((c) => c.args[1])
+    const filter: SheetFilter = { head: 1, cols: { 1: { values: ['б'] } } }
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4])
+    expect(reads()).toEqual([['A1:A6']])
+    expect((await s.visibleRows('Список', { head: 1, sort: { col: 2, dir: 'asc' } })).rows).toEqual([1, 6, 2, 5, 3, 4])
+    expect((await s.columnValues('Список', 1, filter)).values).toHaveLength(4)
+    expect(reads()).toEqual([['A1:A6'], ['B1:B6']])
+    await s.edit([{ sheet: 'Список', cell: 'A6', text: 'б' }])
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4, 6])
+    // an edit past the sheet's end moves it on, as Excel's used range grows
+    await s.edit([{ sheet: 'Список', cell: 'A9', text: 'б' }])
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4, 6, 9])
+    expect(await s.find({ sheet: 'Список', query: 'б', filter })).toMatchObject({ total: 4 })
+    expect(reads()).toHaveLength(2)
+    expect(count('getUsedRange')).toBe(1)
+  })
+
+  it('keeps a change that comes while its column is being read, and each kind of value', async () => {
+    let release: (cells: Record<string, CellView>) => void = () => {}
+    const v = new SheetValues(4, () => new Promise((resolve) => (release = resolve)))
+    const loading = v.load([1])
+    v.set(2, 1, 'new', 'new')
+    const cell = (text: string, value: CellView['value']) => ({ text, value }) as CellView
+    release({ A1: cell('h', 'h'), A2: cell('old', 'old'), A3: cell('ИСТИНА', true), A4: cell('#Н/Д', { error: 'NA' }) })
+    await loading
+    expect([1, 2, 3, 4].map((r) => v.textAt(r, 1))).toEqual(['h', 'new', 'ИСТИНА', '#Н/Д'])
+    expect([1, 2, 3, 4, 5].map((r) => v.valueAt(r, 1))).toEqual(['h', 'new', true, { error: 'NA' }, null])
+    v.set(7, 1, '1,5', 1.5)
+    expect([v.maxRow, v.textAt(7, 1), v.valueAt(7, 1)]).toEqual([7, '1,5', 1.5])
   })
 
   it('gives a filtered window by display index', async () => {
@@ -162,10 +204,27 @@ describe('localSource: search, display filter, totals', () => {
     expect(await s.stats('Список', 'B:B', filter)).toEqual({ cells: 3, numbers: 1, sum: 5, min: 5, max: 5 })
   })
 
+  it('totals as the grid counts its windows: a value its format hides counts, a formula giving "" does not', async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'k' }, A2: { value: 5, numberFormat: ';;;' }, A3: { value: 3 }, A4: { formula: '""' }, A5: { formula: '1/0' } } }] })
+    const want = { cells: 3, numbers: 2, sum: 8, min: 3, max: 5 }
+    expect(await s.stats('S', 'A2:A5')).toEqual(want)
+    const filter: SheetFilter = { head: 1, sort: { col: 1, dir: 'asc' } }
+    await s.visibleRows('S', filter)
+    expect(await s.stats('S', 'A2:A5', filter)).toEqual(want)
+  })
+
+  it('totals a range in the session without reading its cells, and stops when aborted', async () => {
+    const s = source()
+    await s.ready
+    const ctrl = new AbortController()
+    ctrl.abort()
+    await expect(s.stats('Список', 'A2:B6', undefined, ctrl.signal)).rejects.toMatchObject({ name: 'AbortError' })
+  })
+
   it('searches after an edit with the new text', async () => {
     const s = source()
     await s.edit([{ sheet: 'Список', cell: 'A5', text: 'бета' }])
-    expect((await s.find({ sheet: 'Список', query: 'бет' })).hits).toEqual([{ row: 5, col: 1, text: 'бета' }])
+    expect((await s.find({ sheet: 'Список', query: 'бет' })).hits).toEqual([{ row: 5, col: 1 }])
   })
 })
 

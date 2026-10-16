@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BookInput } from 'xlcalc'
 import type { SourceEvent } from '../src/source'
-import { closeAll, source, win } from './local-fixture'
+import { closeAll, source, watched, win } from './local-fixture'
 
 afterEach(closeAll)
 
@@ -42,7 +42,7 @@ describe('localSource: paste', () => {
   })
 
   it('refuses a rectangle past the sheet', async () => {
-    expect(await source(sheet()).paste!('S', 'XFD1', 'a\tb')).toMatchObject({ ok: false, reason: 'refused', cells: [{ sheet: 'S' }] })
+    expect(await source(sheet()).paste!('S', 'XFD1', 'a\tb')).toMatchObject({ ok: false, reason: 'refused' })
   })
 })
 
@@ -59,11 +59,11 @@ describe('localSource: Control+Return', () => {
 
   it('gives invalid at the place of a formula that does not read, with the active cell', async () => {
     const got = await source(sheet()).fill!('S', 'B1:B3', '=СУММ(A1;))', 'B2')
-    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 10, cells: [{ sheet: 'S', cell: 'B2' }] })
+    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 10 })
   })
 
   it('gives the formula Excel offers for a typo as `correction`, as typing does', async () => {
-    expect(await source(sheet()).fill!('S', 'B1:B3', '=(1+2', 'B2')).toMatchObject({ ok: false, reason: 'invalid', correction: '=(1+2)', cells: [{ sheet: 'S', cell: 'B2' }] })
+    expect(await source(sheet()).fill!('S', 'B1:B3', '=(1+2', 'B2')).toMatchObject({ ok: false, reason: 'invalid', correction: '=(1+2)' })
   })
 
   it('refuses every cell when the active cell\'s stop rule does not take the value', async () => {
@@ -72,7 +72,6 @@ describe('localSource: Control+Return', () => {
       ok: false,
       reason: 'refused',
       message: 'Только больше нуля',
-      cells: [{ sheet: 'S', cell: 'D1' }],
       alert: { severity: 'stop', message: 'Только больше нуля', sheet: 'S', cell: 'D1' },
     })
     expect((await win(s, 'S', 1, 2, 4, 1)).values).toEqual([[1], [null]])
@@ -122,6 +121,19 @@ describe('localSource: undo and redo', () => {
     await s.edit([{ sheet: 'S', cell: 'B1', text: '15.03.2026' }])
     const back = await s.undo!()
     expect(back).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: 20, formula: 'A1*10', editText: '=A1*10' }] })
+  })
+
+  it('keeps the values the display filter read through an undo and a redo of an edit, which list their cells', async () => {
+    const { s, count } = watched()
+    const filter = { head: 1, cols: { 1: { values: ['б'] } } }
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4])
+    await s.edit([{ sheet: 'Список', cell: 'A3', text: 'б' }])
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 3, 4])
+    await s.undo()
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4])
+    await s.redo()
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 3, 4])
+    expect(count('getCells')).toBe(1)
   })
 
   it('undoes a structure operation by a reload', async () => {

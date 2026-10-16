@@ -179,7 +179,7 @@ describe('conditional formats: the local source', () => {
         return new Proxy(session, {
           get(target, key) {
             const value = Reflect.get(target, key, target)
-            if (key === 'getCells') return (sheet: string, range: string) => (reads.push(range), (value as AsyncSession['getCells']).call(target, sheet, range))
+            if (key === 'getCells') return (sheet: string, range: string | string[]) => (reads.push([range].flat().join(' ')), (value as AsyncSession['getCells']).call(target, sheet, range))
             return typeof value === 'function' ? value.bind(target) : value
           },
         })

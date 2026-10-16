@@ -174,7 +174,7 @@ describe('repaint from the local source', () => {
   const numbers = (w: VueWrapper) => w.findAll('.xs-num').map((n) => n.text())
   const fill = (w: VueWrapper, r: number, c: number) => getComputedStyle(w.find(`[data-cell="${r}:${c}"]`).element).backgroundColor
 
-  it('sends changed and repaint after an edit in a book with rules, reload after formatting', async () => {
+  it('sends changed and repaint after an edit in a book with rules, repaint after a look and reload after a number format', async () => {
     const s = localSource(book(), { calc: 'inline' })
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -184,6 +184,9 @@ describe('repaint from the local source', () => {
     expect(events[1]).toEqual({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'B2:B6' }] })
     events.length = 0
     expect(await s.format('S', [{ range: 'B1', style: { font: { bold: true } } }])).toMatchObject({ ok: true })
+    expect(events).toEqual([{ kind: 'repaint', ranges: [{ sheet: 'S', range: 'B1' }] }])
+    events.length = 0
+    expect(await s.format('S', [{ range: 'B1', numberFormat: '0.00' }])).toMatchObject({ ok: true })
     expect(events).toEqual([{ kind: 'reload' }])
     await s.close()
   })
@@ -230,7 +233,7 @@ describe('repaint from the local source', () => {
     expect(fill(w, 6, 2)).not.toBe(MAX)
     expect(fill(w, 2, 2)).toBe(MIN)
     // A reload applies the filter again: the row goes.
-    expect(await s.format('S', [{ range: 'A1', style: { font: { bold: true } } }])).toMatchObject({ ok: true })
+    expect(await s.format('S', [{ range: 'A1', numberFormat: '@' }])).toMatchObject({ ok: true })
     await settle(12)
     expect(numbers(w)).toEqual(['1', '2', '6'])
     await s.close()

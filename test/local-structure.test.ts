@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { LocalSource } from '../src/local'
 import type { SheetOp, SourceEvent } from '../src/source'
-import { BOLD, closeAll, ROW_FILL, source, styleOf, win } from './local-fixture'
+import { BOLD, closeAll, ROW_FILL, source, styleOf, watched, win } from './local-fixture'
 
 afterEach(closeAll)
 
@@ -82,7 +82,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect(got.ok).toBe(true)
     expect(events).toEqual([{ kind: 'reload' }])
     expect((await win(s, 'Список', 3, 1, 1, 5)).text).toEqual([['', '', '', 'а', '30']])
-    expect((await s.find({ sheet: 'Список', query: 'а' })).hits).toEqual([{ row: 3, col: 4, text: 'а' }])
+    expect((await s.find({ sheet: 'Список', query: 'а' })).hits).toEqual([{ row: 3, col: 4 }])
   })
 
   it('copyRange: a formula is copied with its references moved', async () => {
@@ -269,8 +269,8 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(styleOf(w, 'A3')).toEqual({ font: { bold: true } })
   })
 
-  it('reloads after any formatting: the cells\' looks, number formats and edit texts are the window\'s to carry', async () => {
-    const s = source()
+  it('reloads after a number format, which changes what cells show and open with; a look alone repaints its ranges', async () => {
+    const { s, count } = watched()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
     await s.format('Лист1', [{ range: 'A1:A2', numberFormat: '0%' }])
@@ -278,16 +278,25 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     const w = await win(s, 'Лист1', 1, 2, 1, 1)
     expect(w.numberFormats).toMatchObject({ A1: '0%', A2: '0%' })
     expect(w.editText).toMatchObject({ A1: '100%', A2: '200%' })
-    // bold is in the book's styles already: the answer has no new table, the cells' looks changed all the same
-    await s.format('Лист1', [{ range: 'A1', style: BOLD }])
-    expect(events.at(-1)).toEqual({ kind: 'reload' })
+    // a look over cells and over whole rows: the windows over them are read again in place, the values the filter read stay
+    const filter = { head: 1, cols: { 1: { values: ['б'] } } }
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4])
+    await s.format('Список', [{ range: 'A1', style: BOLD }, { range: '3:4', style: ROW_FILL }])
+    expect(events.at(-1)).toEqual({ kind: 'repaint', ranges: [{ sheet: 'Список', range: 'A1' }, { sheet: 'Список', range: '3:4' }] })
+    expect(styleOf(await win(s, 'Список', 1, 1, 1, 1), 'A1')).toEqual(BOLD)
+    expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4])
+    expect(count('getCells')).toBe(1)
   })
 
-  it('freezes panes in the book', async () => {
-    const s = source()
+  it('freezes panes in the book, the values the filter read kept', async () => {
+    const { s, count } = watched()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
+    const filter = { head: 1, sort: { col: 1, dir: 'asc' as const } }
+    const rows = (await s.visibleRows('Список', filter)).rows
     await s.freeze('Список', { rows: 1, cols: 0 })
+    expect((await s.visibleRows('Список', filter)).rows).toEqual(rows)
+    expect(count('getCells')).toBe(1)
     await s.freeze('Лист1', null)
     const list = await s.sheets()
     expect(list[2]!.freeze).toEqual({ rows: 1, cols: 0 })

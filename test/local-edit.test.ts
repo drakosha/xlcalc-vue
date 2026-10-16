@@ -74,7 +74,7 @@ describe('localSource: typed edits', () => {
       }],
     })
     const alert = { severity: 'stop', message: 'Только больше нуля', sheet: 'S', cell: 'A1' }
-    expect(await s.edit([{ sheet: 'S', cell: 'A1', text: '-2' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', cells: [{ sheet: 'S', cell: 'A1' }], alert })
+    expect(await s.edit([{ sheet: 'S', cell: 'A1', text: '-2' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', alert })
     expect(await s.edit([{ sheet: 'S', cell: 'B1', text: '-3' }])).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'warning', cell: 'B1' } })
     expect(await s.edit([{ sheet: 'S', cell: 'C1', text: '-4' }])).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'information', cell: 'C1' } })
     expect(s.history).toEqual({ undo: 0, redo: 0 })
@@ -83,7 +83,7 @@ describe('localSource: typed edits', () => {
     expect((await win(s, 'S', 1, 1, 1, 3)).values).toEqual([[5, -3, -4]])
     expect(s.history).toEqual({ undo: 2, redo: 0 })
     // several cells at once: a stop rule of any of them refuses all, a warning's cell coming first too
-    expect(await s.edit([{ sheet: 'S', cell: 'B2', text: '-5' }, { sheet: 'S', cell: 'A2', text: '-6' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', cells: [{ sheet: 'S', cell: 'A2' }], alert: { ...alert, cell: 'A2' } })
+    expect(await s.edit([{ sheet: 'S', cell: 'B2', text: '-5' }, { sheet: 'S', cell: 'A2', text: '-6' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', alert: { ...alert, cell: 'A2' } })
     expect((await win(s, 'S', 2, 1, 1, 2)).values).toEqual([[null, null]])
     expect(s.history).toEqual({ undo: 2, redo: 0 })
   })
@@ -133,13 +133,13 @@ describe('localSource: typed edits', () => {
   it('gives invalid with the position for a formula that does not parse, and changes nothing', async () => {
     const s = source()
     const got = await s.edit([{ sheet: 'Лист1', cell: 'A3', text: '=СУММ(A1:A2))' }])
-    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 12, cells: [{ sheet: 'Лист1', cell: 'A3' }] })
+    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 12 })
     expect((await win(s, 'Лист1', 3, 1, 1, 1)).formulas.A3).toBe('СУММ(A1:A2)')
   })
 
   it('gives the formula Excel offers for a typo as `correction`, in the book\'s locale, and none where Excel offers none', async () => {
     const s = source()
-    expect(await s.edit([{ sheet: 'Лист1', cell: 'C2', text: '=(1+2' }])).toMatchObject({ ok: false, reason: 'invalid', correction: '=(1+2)', cells: [{ sheet: 'Лист1', cell: 'C2' }] })
+    expect(await s.edit([{ sheet: 'Лист1', cell: 'C2', text: '=(1+2' }])).toMatchObject({ ok: false, reason: 'invalid', correction: '=(1+2)' })
     expect(await s.edit([{ sheet: 'Лист1', cell: 'C2', text: '=1+СУММ(2' }])).toMatchObject({ ok: false, reason: 'invalid', correction: '=1+СУММ(2)' })
     const extra = await s.edit([{ sheet: 'Лист1', cell: 'A3', text: '=СУММ(A1:A2))' }])
     expect(extra).toMatchObject({ ok: false, reason: 'invalid' })

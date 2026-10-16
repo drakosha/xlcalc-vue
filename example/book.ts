@@ -105,8 +105,8 @@ function bars(): MemorySheet {
   const data = [120, 340, 80, 560, 410, 230, 15, 600]
   data.forEach((v, i) => {
     cells[`A${i + 2}`] = { value: `Отдел ${i + 1}` }
-    cells[`B${i + 2}`] = { value: v, bar: { ratio: v / 600, color: '#638ec6' } }
-    cells[`C${i + 2}`] = { value: v * 0.8, bar: { ratio: (v * 0.8) / 600, color: '#63be7b' } }
+    cells[`B${i + 2}`] = { value: v, appearance: { bar: { start: 0, end: v / 600, color: '#638ec6', gradient: true } } }
+    cells[`C${i + 2}`] = { value: v * 0.8, appearance: { bar: { start: 0, end: (v * 0.8) / 600, color: '#63be7b', gradient: true } } }
   })
   return { name: 'Гистограммы', cells, widths: { A: 14, B: 20, C: 20 } }
 }

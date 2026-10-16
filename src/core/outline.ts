@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { OutlineChange, OutlineGroup } from '../source'
-import { MAX_LEVEL } from '../memory-outline'
+import { MAX_LEVEL } from '../lines'
 import type { Commands } from './commands'
 import { shortcutLetter } from './editing'
 import type { Selection } from './selection'
