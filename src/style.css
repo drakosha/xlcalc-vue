@@ -745,98 +745,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── the funnel's list ── */
-.xs-popover {
-  position: fixed;
-  z-index: var(--xs-z-menu);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 280px;
-  padding: 8px;
-  border: 1px solid var(--xs-grid);
-  border-radius: 6px;
-  background: var(--xs-bg);
-  color: var(--xs-fg);
-  font-size: var(--xs-font-size);
-  box-shadow: var(--xs-shadow-menu);
-}
-/* On a phone the list takes the whole screen, with room for fingers. */
-.xs-popover-full {
-  inset: 0;
-  width: auto;
-  padding: 12px;
-  border: 0;
-  border-radius: 0;
-  font-size: 15px;
-}
-.xs-popover-head {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.xs-popover-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.xs-popover-input {
-  width: 100%;
-}
-.xs-popover-search {
-  background: var(--xs-head-bg);
-}
-.xs-values {
-  max-height: 320px;
-  overflow-y: auto;
-  border: 1px solid var(--xs-grid);
-  border-radius: 4px;
-}
-.xs-popover-full .xs-values {
-  flex: 1 1 auto;
-  max-height: none;
-}
-.xs-values-note {
-  margin: 0;
-  padding: 6px 8px;
-}
-.xs-value {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  cursor: pointer;
-}
-.xs-popover-full .xs-value {
-  padding: 8px 10px;
-}
-.xs-value:hover {
-  background: var(--xs-head-bg);
-}
-.xs-value-all {
-  border-bottom: 1px solid var(--xs-grid);
-  font-weight: 600;
-}
-.xs-value-text {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.xs-popover-foot {
-  display: flex;
-  gap: 6px;
-}
-.xs-popover-full .xs-popover-foot .xs-button {
-  flex: 1 1 0;
-  padding: 10px;
-  font-size: 15px;
-}
-
 /* ── the bottom line ── */
 .xs-bottom {
   display: flex;
@@ -1028,9 +936,6 @@
 .xs-touch .xs-find-opt input {
   width: 20px;
   height: 20px;
-}
-.xs-touch .xs-value {
-  min-height: var(--xs-touch-target);
 }
 .xs-touch .xs-funnel-tool.xs-tool-on {
   color: var(--xs-accent);

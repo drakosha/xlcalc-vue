@@ -80,3 +80,4 @@ const focusFirst = (el: unknown) => {
 </template>
 
 <style src="../controls.css"></style>
+<style src="../filter.css"></style>
