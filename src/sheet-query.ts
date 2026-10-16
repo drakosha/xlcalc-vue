@@ -1,8 +1,8 @@
 // The display filter, its sort and the funnel's list over a sheet's shown texts and values, for memorySource and ./local:
-// conditions compare the shown text, the head rows stay on top, a sort orders by value in Excel's order (`compareValues`
-// of `xlcalc/text`, SORT's) with empty cells last either way.
+// conditions compare the shown text, the head rows stay on top, a sort orders by value in Excel's order (`valueComparator`
+// of `xlcalc/text`, SORT's, text in the book's locale's order) with empty cells last either way.
 import type { CellValue } from 'xlcalc/contract'
-import { compareValues } from 'xlcalc/text'
+import { valueComparator } from 'xlcalc/text'
 import type { SheetFilter } from './source'
 
 /** What the display filter reads of a sheet: where its rows end, a cell's shown text ('' when empty) and its value. */
@@ -44,8 +44,11 @@ function conditions(sheet: QuerySheet, filter: SheetFilter, except?: number): (r
 /** A cell's value as the sort takes it: an empty cell, and a text of nothing (a formula's ""), is a blank. */
 const sortKey = (v: CellValue | undefined): CellValue => (v === undefined || v === '' ? null : v)
 
-/** The sheet's rows in display order: the head as it is, then the rows that meet every condition, sorted when asked (stable, empty cells last). */
-export function visibleList(sheet: QuerySheet, filter: SheetFilter): number[] {
+/** Excel's order of values, text in the order of `locale`'s (a loaded locale's tag; en-US's without one). */
+const orderOf = (locale: string | undefined, descending = false) => valueComparator({ descending, ...(locale ? { locale } : {}) })
+
+/** The sheet's rows in display order: the head as it is, then the rows that meet every condition, sorted when asked (stable, empty cells last), text in `locale`'s order. */
+export function visibleList(sheet: QuerySheet, filter: SheetFilter, locale?: string): number[] {
   const head = headOf(filter, sheet.maxRow)
   const meets = conditions(sheet, filter)
   const body: number[] = []
@@ -53,10 +56,10 @@ export function visibleList(sheet: QuerySheet, filter: SheetFilter): number[] {
   const sort = filter.sort
   let rows = body
   if (sort) {
-    const opts = { descending: sort.dir === 'desc' }
+    const compare = orderOf(locale, sort.dir === 'desc')
     const keys = body.map((r) => sortKey(sheet.valueAt(r, sort.col)))
     const order = body.map((_, i) => i)
-    order.sort((i, j) => compareValues(keys[i]!, keys[j]!, opts))
+    order.sort((i, j) => compare(keys[i]!, keys[j]!))
     rows = order.map((i) => body[i]!)
   }
   const out: number[] = []
@@ -65,7 +68,7 @@ export function visibleList(sheet: QuerySheet, filter: SheetFilter): number[] {
 }
 
 /** The funnel's list of a column: its shown texts with their counts over the rows the other columns' conditions keep, '' for empty cells, in the sort's order. */
-export function columnList(sheet: QuerySheet, col: number, filter: SheetFilter): { values: { text: string; count: number }[]; more: number } {
+export function columnList(sheet: QuerySheet, col: number, filter: SheetFilter, locale?: string): { values: { text: string; count: number }[]; more: number } {
   const meets = conditions(sheet, filter, col)
   const counts = new Map<string, { count: number; value: CellValue }>()
   for (let r = headOf(filter, sheet.maxRow) + 1; r <= sheet.maxRow; r++) {
@@ -76,6 +79,7 @@ export function columnList(sheet: QuerySheet, col: number, filter: SheetFilter):
     else counts.set(text, { count: 1, value: sortKey(sheet.valueAt(r, col)) })
   }
   // values the order takes as equal (errors, a number shown two ways) go by their shown text
-  const all = [...counts.entries()].sort(([ta, a], [tb, b]) => compareValues(a.value, b.value) || compareValues(ta, tb))
+  const compare = orderOf(locale)
+  const all = [...counts.entries()].sort(([ta, a], [tb, b]) => compare(a.value, b.value) || compare(ta, tb))
   return { values: all.slice(0, VALUES_MAX).map(([text, { count }]) => ({ text, count })), more: Math.max(0, all.length - VALUES_MAX) }
 }
