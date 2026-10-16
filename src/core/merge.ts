@@ -1,7 +1,7 @@
 // Excel's Merge & Center and its list (Merge Across, Merge Cells, Unmerge Cells) over the selection through the source's
 // `structure`, with Excel's warning before cells holding more than one value are merged: the library keeps the top-left one.
 import { computed } from 'vue'
-import { cellAddress, rangeAddress, rectContains, rectsMeet } from 'xlcalc/a1'
+import { cellAddress, mergedArea, rangeAddress, rectContains, rectsMeet } from 'xlcalc/a1'
 import type { CellRect, CellValue } from 'xlcalc/contract'
 import type { EditOutcome, SheetOp } from '../source'
 import type { Commands } from './commands'
@@ -30,20 +30,6 @@ export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Command
     if (!a) return null
     return w.merges.value.find((m) => rectContains(m, { top: a.row, left: a.col, bottom: a.row, right: a.col })) ?? null
   })
-
-  /** The rectangle grown by the loaded merged areas it meets, again for each it then meets, as the library grows it. */
-  function grown(r: CellRect): CellRect {
-    let out = r
-    for (let again = true; again; ) {
-      again = false
-      for (const m of w.merges.value) {
-        if (!rectsMeet(out, m) || rectContains(out, m)) continue
-        out = { top: Math.min(out.top, m.top), left: Math.min(out.left, m.left), bottom: Math.max(out.bottom, m.bottom), right: Math.max(out.right, m.right) }
-        again = true
-      }
-    }
-    return out
-  }
 
   /**
    * Whether a merge loses values, as Excel warns: an area (each row of it with `across`) where more than one cell holds a
@@ -112,7 +98,8 @@ export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Command
     if (r.top === r.bottom && r.left === r.right && !w.merges.value.some((m) => rectsMeet(m, r))) return null
     if (command === 'unmergeCells') return cmd.structure({ op: 'unmergeCells', sheet, range })
     const across = command === 'mergeAcross'
-    if (await loses(sheet, grown(r), across)) {
+    // The area the merge takes in: the selection grown by the loaded merged areas it meets, as the library grows it.
+    if (await loses(sheet, mergedArea(r, w.merges.value), across)) {
       const answer = await deps.ask({ severity: 'merge', message: s.messages.value.mergeWarning, sheet, cell: cellAddress(a.row, a.col) })
       if (answer !== 'accept' || sheet !== s.sheetName.value) return null
     }

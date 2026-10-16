@@ -10,7 +10,7 @@ Everything the package exports, with signatures. What the sheet does with each p
 | `xlcalc-sheet/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.45.0 or later (optional peer) |
 | `xlcalc-sheet/style.css` | The look of the sheet, the toolbar and the dialog | |
 
-The main entry bundles xlcalc's engine-free subpaths `xlcalc/a1` and `xlcalc/text` (addresses, the references of formula text, a paste's rectangle), and a book in ru-RU loads ru-RU's formula text as a chunk of its own.
+The main entry bundles xlcalc's engine-free subpaths `xlcalc/a1` and `xlcalc/text` (addresses, the references of formula text, a paste's rectangle), and a book in ru-RU loads ru-RU's formula text as a chunk of its own. A source without `editText` loads `xlcalc/entry` (typed entry, without the engine) as another chunk, bundled whole apart from the main entry, when the first cell needs its text; `memorySource` loads it for Find and Replace.
 
 Types of cells and styles come from `xlcalc/contract` (`CellValue`, `CellStyle`, `StylePatch`, `NumberFormat`, `ConditionalAppearance`, `StructureOp`). A host whose source is on a server needs `xlcalc` only in `devDependencies`, for these types; the main entry imports nothing of it at runtime.
 
@@ -70,7 +70,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `cellUrl` | `(ref: string) => string` | none | The host's page address for a place; without it there is no "Link to the cell" button. |
 | `readOnly` | `boolean` | `false` | No editing whatever the source offers. A source without `edit` is read-only anyway. |
 | `formulaBar` | `boolean` | `true` | The formula bar over the grid. |
-| `locale` | `string` | none | The book's locale for numbers the component writes itself (a number's edit text, selection totals); `localSource(...).locale` for a local book. |
+| `locale` | `string` | none | The book's locale for texts the component writes itself (a cell's edit text without `editText`, selection totals); `localSource(...).locale` for a local book. |
 | `hideLoneTab` | `boolean` | `false` | No tabs for a book of one sheet. |
 | `edgeRestoresWidth` | `boolean` | `false` | A double click on a column's edge brings the book's width back instead of fitting the column. |
 | `sort` | `ListSort \| null` | `null` | List mode: the order the host sorted the list in, an arrow on that column's title. |
@@ -286,7 +286,7 @@ export function serverSource(base: string): SheetSource {
 | `text` | `string[][]` | Shown text, rows × columns; an empty cell is `''`. |
 | `values` | `CellValue[][]` | Values of the same cells, for totals and alignment. |
 | `formulas` | `Record<string, string>` | Formulas by address as shown, without `=`. |
-| `editText` | `Record<string, string>?` | The text each cell opens with; a cell left out opens empty. Without it the component writes it from the value and formula. |
+| `editText` | `Record<string, string>?` | The text each cell opens with; a cell left out opens empty. Without it the component writes it from the formula, else the value's `entryText` (`xlcalc/entry`) by `numberFormats`. |
 | `colors` | `Record<string, string>` | The colour of the number format's section, `#RRGGBB`. |
 | `styleIds`, `styles` | `Record<string, number>`, `CellStyle[]` | Each cell's style by index into `styles`. |
 | `numberFormats` | `Record<string, string>?` | The format code each cell shows by; a cell left out is General. |
@@ -360,7 +360,7 @@ const messages = { ...ruMessages, loading: 'Загружаю…' }
 
 ## `memorySource`
 
-`memorySource(book: MemoryBook, options?: MemorySourceOptions): MemorySource` is a source over a book held in memory, for an example or a test. It has no engine: a formula's value is whatever the cell's `value` says.
+`memorySource(book: MemoryBook, options?: MemorySourceOptions): MemorySource` is a source over a book held in memory, for an example or a test. It has no engine: a formula's value is whatever the cell's `value` says. Find and Replace read a cell's formula, else its value's `entryText` in en-US (`xlcalc/entry`, loaded by the first of them).
 
 | Type | Shape |
 | --- | --- |

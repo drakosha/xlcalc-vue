@@ -6,12 +6,13 @@
 import { computed, nextTick, ref, shallowRef } from 'vue'
 import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, rectContains, sameName } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
+import { columnWidthFromChars, columnWidthToChars, MAX_ROW_HEIGHT } from 'xlcalc/text'
 import type { SheetInfo, SheetOp } from '../source'
 import type { Clip } from './clip'
 import type { Commands } from './commands'
 import type { Explain } from './explain'
 import type { Filter } from './filter'
-import { charsOfWidth, DEFAULT_COL_WIDTH, ptFromPx, widthFromChars, widthFromPx, type Geometry } from './geometry'
+import { ptFromPx, widthFromPx, type Geometry } from './geometry'
 import type { Outline, OutlineAxis, OutlineOp } from './outline'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -21,9 +22,8 @@ const LONG_PRESS_MS = 500
 const PRESS_SLOP_PX = 10
 /** The lift, click and browser's context menu that follow a long press are its own for this long. */
 const PRESS_TAIL_MS = 800
-/** Excel's limits of the Column Width (characters) and Row Height (points) boxes. */
+/** Excel's limit of the Column Width box, in characters; the Row Height box's is the highest row, `MAX_ROW_HEIGHT`. */
 const MAX_WIDTH_CHARS = 255
-const MAX_HEIGHT_PT = 409
 
 export type MenuKind = 'rows' | 'columns' | 'sheet' | 'cells'
 
@@ -184,13 +184,13 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
 
   // ── sizes in Excel's units: characters for a width, points for a height ──
   const decimals = (x: number) => new Intl.NumberFormat(s.locale.value, { maximumFractionDigits: 2, useGrouping: false }).format(x)
-  /** A column's width as the book stores it: one dragged meanwhile from its pixels, else the book's, else the default. */
-  const storedWidth = (col: number): number => {
+  /** A column's width as the book stores it: one dragged meanwhile from its pixels, else the book's; null for the default. */
+  const storedWidth = (col: number): number | null => {
     const px = s.userWidths.value[col]
-    return px !== undefined ? widthFromPx(px) : (s.bookWidths.value.get(col) ?? DEFAULT_COL_WIDTH)
+    return px !== undefined ? widthFromPx(px) : (s.bookWidths.value.get(col) ?? null)
   }
   function openSize(axis: 'rows' | 'columns', first: number, last: number): void {
-    const size = axis === 'columns' ? charsOfWidth(storedWidth(first)) : ptFromPx(s.heights.value.get(first) ?? s.defaultRowPx.value)
+    const size = axis === 'columns' ? columnWidthToChars(storedWidth(first)) : ptFromPx(s.heights.value.get(first) ?? s.defaultRowPx.value)
     dialog.value = { kind: 'size', axis, first, last, draft: decimals(size), error: '' }
   }
   /** The box's number as typed, a decimal comma or point; NaN for anything else. */
@@ -199,7 +199,7 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     const d = dialog.value
     if (d?.kind !== 'size') return
     const n = parseSize(d.draft)
-    const max = d.axis === 'columns' ? MAX_WIDTH_CHARS : MAX_HEIGHT_PT
+    const max = d.axis === 'columns' ? MAX_WIDTH_CHARS : MAX_ROW_HEIGHT
     if (!(n >= 0 && n <= max)) {
       d.error = d.axis === 'columns' ? m().widthRange : m().heightRange
       return
@@ -210,7 +210,7 @@ export function useMenu(s: SheetState, geo: Geometry, sel: Selection, cmd: Comma
     const lines = d.axis === 'rows' ? { rows: key } : { columns: key }
     // A size of 0 hides the lines, as Excel's boxes take it; the size they had comes back when they are shown.
     if (n === 0) void cmd.layout({ sheet, ...lines, hidden: true })
-    else if (d.axis === 'columns') void cmd.layout({ sheet, columns: key, width: widthFromChars(n) })
+    else if (d.axis === 'columns') void cmd.layout({ sheet, columns: key, width: columnWidthFromChars(n) })
     else void cmd.layout({ sheet, rows: key, height: n })
   }
 

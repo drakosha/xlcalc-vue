@@ -4,10 +4,8 @@
 // xlcalc does not give.
 import type { CellStyle, Viewport } from 'xlcalc'
 import { cellAddress, parseRange } from 'xlcalc/a1'
+import { DEFAULT_ROW_HEIGHT } from 'xlcalc/text'
 import type { SheetWindow } from '../source'
-
-/** The height xlcalc gives a row without one (Excel's default): such rows are left out of `rowHeights`. */
-const DEFAULT_ROW_PT = 15
 
 interface WindowShape {
   /** The window's first row as asked: a sheet row, or a display index under a filter. */
@@ -45,7 +43,8 @@ export function windowOf(v: Viewport, a: WindowShape): SheetWindow {
     notes: {},
     ...(a.notice ? { notice: a.notice } : {}),
   }
-  for (const r of v.rows) if (r.hidden || r.height !== DEFAULT_ROW_PT) win.rowHeights[r.row] = r.hidden ? 0 : r.height
+  // A row at the default height (xlcalc's for a row without one) is left out of `rowHeights`.
+  for (const r of v.rows) if (r.hidden || r.height !== DEFAULT_ROW_HEIGHT) win.rowHeights[r.row] = r.hidden ? 0 : r.height
   const lastCol = a.col + a.cols - 1
   for (const r of a.rows) {
     const text: string[] = []

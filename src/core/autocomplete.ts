@@ -1,42 +1,13 @@
 // Excel's Formula AutoComplete in the field being edited: the functions whose names begin with the name typed at the
 // caret, the source's names asked once per source; Tab or a double click enters one with its "(", Esc closes the list.
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
+import type { ScanOptions } from 'xlcalc/contract'
+import { nameAt } from 'xlcalc/text'
 import type { SheetSource } from '../source'
 import type { EditorState } from './editing'
 
 /** Items the list shows at once; Page Up and Page Down move by them. */
 export const FUNCTION_ROWS = 8
-
-/** A character of a function's name: a letter of any script, a digit, `.` or `_` (`СТАНДОТКЛОН.В`, `LOG10`). */
-const NAME_CHAR = /[\p{L}\p{N}._]/u
-/** What may stand right before a function's name: the formula's `=`, an operator, `(`, an argument separator, a space or a line break. */
-const BEFORE_NAME = /[=+\-*/^&<>@(,;\s]/
-
-/** Whether a formula's text before `upTo` leaves a string, a quoted sheet's name or a table's brackets open. */
-function inLiteral(text: string, upTo: number): boolean {
-  let quote: string | null = null
-  let depth = 0
-  for (let i = 1; i < upTo; i++) {
-    const c = text[i]!
-    if (quote) {
-      if (c === quote) quote = null
-    } else if (c === '"' || c === "'") quote = c
-    else if (c === '[') depth++
-    else if (c === ']') depth = Math.max(0, depth - 1)
-  }
-  return quote !== null || depth > 0
-}
-
-/** The name being typed at `caret` in a formula: where it begins and ends and the part before the caret; null where no function can stand (in a string, a quoted sheet's name, a table's brackets, after `!` or `$`). */
-export function nameAt(text: string, caret: number): { from: number; to: number; typed: string } | null {
-  if (!text.startsWith('=') || caret < 2 || caret > text.length) return null
-  let from = caret
-  while (from > 1 && NAME_CHAR.test(text[from - 1]!)) from--
-  if (from === caret || !BEFORE_NAME.test(text[from - 1]!) || inLiteral(text, from)) return null
-  let to = caret
-  while (to < text.length && NAME_CHAR.test(text[to]!)) to++
-  return { from, to, typed: text.slice(from, caret) }
-}
 
 /** A source's names (with their upper case, for matching) asked once; `list` is null while they come. */
 interface Names {
@@ -52,6 +23,8 @@ export interface AutocompleteDeps {
   input: () => HTMLTextAreaElement | null
   /** Show the draft's new text with its caret in the field. */
   show: () => void
+  /** How the book's formula text reads (its list separator); null while its locale loads. */
+  scan: () => ScanOptions | null
 }
 
 /** The list's state over the editor's draft: what it shows, the highlighted item, the keys it takes, the name it enters. */
@@ -99,7 +72,9 @@ export function useAutocomplete(deps: AutocompleteDeps) {
   /** The list for the name at `caret` in `text`: the functions it begins, the first highlighted; closed when none. */
   function match(text: string, caret: number): void {
     const list = names?.src === deps.source() ? names.list : null
-    const at = list ? nameAt(text, caret) : null
+    const opts = deps.scan()
+    // the library refuses a caret past the text, which a field's stale caret may be
+    const at = list && opts && caret <= text.length ? nameAt(text, caret, opts) : null
     const typed = at?.typed.toUpperCase()
     const got = typed ? list!.filter((n) => n.key.startsWith(typed)).map((n) => n.name) : []
     if (!at || !got.length) return close()

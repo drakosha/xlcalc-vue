@@ -3,9 +3,10 @@
 import { computed, nextTick, ref, shallowRef, triggerRef, type ShallowRef } from 'vue'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
 import type { CellPosition, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
+import { DEFAULT_ROW_HEIGHT } from 'xlcalc/text'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
 import { lookStyle } from './conditional'
-import { DEFAULT_ROW_PT, rowPx, type Geometry } from './geometry'
+import { rowPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
 
@@ -395,7 +396,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       const r = s.rowOf(d)
       if (!own.has(r) && heights.has(r)) rows.push([r, undefined])
     }
-    const def = rowPx(w.defaultRowHeight ?? DEFAULT_ROW_PT)
+    const def = rowPx(w.defaultRowHeight ?? DEFAULT_ROW_HEIGHT)
     if (!rows.length && def === s.defaultRowPx.value) return
     const anchor = geo.rowAt(s.scrollTop.value + v.frozenH.value)
     const before = geo.rowOffsets.value[anchor - 1] ?? 0
@@ -441,7 +442,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   function resetSizes(): void {
     s.bookWidths.value = new Map()
     s.heights.value = new Map()
-    s.defaultRowPx.value = rowPx(DEFAULT_ROW_PT)
+    s.defaultRowPx.value = rowPx(DEFAULT_ROW_HEIGHT)
   }
 
   /** A cell's new state into a slot's window, in place; its display row when that changed anything, else null (the window does not hold the cell, or it was so already). */
