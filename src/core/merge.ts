@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { cellAddress, rangeAddress, rectContains, rectsMeet } from 'xlcalc/a1'
 import type { CellRect, CellValue } from 'xlcalc/contract'
 import type { EditOutcome, SheetOp } from '../source'
+import { isBlank } from '../stats'
 import type { Commands } from './commands'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -18,8 +19,7 @@ interface MergeDeps {
   ask: (alert: SheetAlert) => Promise<AlertAnswer>
 }
 
-const holds = (text: string | undefined, value: CellValue | undefined, formula: string | undefined): boolean =>
-  formula !== undefined || (text ?? '') !== '' || (value !== null && value !== undefined && value !== '')
+const holds = (text: string | undefined, value: CellValue | undefined, formula: string | undefined): boolean => formula !== undefined || !isBlank(text, value)
 
 export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Commands, deps: MergeDeps) {
   /** The commands act: the source has `structure`, the sheet is editable, and no display filter scatters its rows. */

@@ -1,13 +1,16 @@
-// Totals of cells as Excel's status bar gives them for memorySource, by the rule of what counts that ./local's session keeps.
+// Totals of cells as Excel's status bar gives them, by the rule of what counts that ./local's session keeps, and what a blank cell is.
 import type { CellValue } from 'xlcalc/contract'
 import type { RangeStats } from './source'
 
 /** Totals of no cells. */
 export const noStats = (): RangeStats => ({ cells: 0, numbers: 0, sum: 0, min: null, max: null })
 
-/** A cell into the totals: one that shows nothing and holds no value does not count; a number goes into the sum and the ends. */
+/** A cell that shows nothing and holds no value (a formula aside, which the caller weighs where it counts). */
+export const isBlank = (text: string | undefined, value: CellValue | undefined): boolean => (text ?? '') === '' && (value === null || value === undefined || value === '')
+
+/** A cell into the totals: a blank one does not count; a number goes into the sum and the ends. */
 export function addCell(st: RangeStats, text: string, value: CellValue | undefined): void {
-  if (text === '' && (value === null || value === undefined || value === '')) return
+  if (isBlank(text, value)) return
   st.cells++
   if (typeof value !== 'number') return
   st.numbers++

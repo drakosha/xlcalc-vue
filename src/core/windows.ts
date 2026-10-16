@@ -4,6 +4,7 @@ import { computed, nextTick, ref, shallowRef, triggerRef, type ShallowRef } from
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
 import type { CellPosition, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
+import { isBlank } from '../stats'
 import { lookStyle } from './conditional'
 import { DEFAULT_ROW_PT, rowPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
@@ -167,8 +168,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const slot = drawnSlot(d, col)
     if (!slot) return false
     const w = slot.win!
-    const value = w.values[d - w.row]?.[col - w.col]
-    return (w.text[d - w.row]?.[col - w.col] ?? '') === '' && (value === null || value === undefined || value === '')
+    return isBlank(w.text[d - w.row]?.[col - w.col], w.values[d - w.row]?.[col - w.col])
   }
   /** The same by the sheet's row: a row the filter hides has nothing loaded. */
   const textOfRow = (r: number, col: number): string => {

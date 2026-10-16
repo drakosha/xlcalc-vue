@@ -1,7 +1,7 @@
 // The selection's totals for the status line: the source's `stats` when it has them, else the loaded windows.
 import { computed, onScopeDispose, shallowRef, watch } from 'vue'
-import type { CellValue } from 'xlcalc/contract'
 import type { RangeStats } from '../source'
+import { addCell, noStats } from '../stats'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
@@ -104,22 +104,13 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection) {
       const rows = s.visible.value ? countOf(ds) : r.bottom - r.top + 1
       return s.messages.value.statsCells(numberFormat(s.locale.value).format(rows * (r.right - r.left + 1)))
     }
-    const st: RangeStats = { cells: 0, numbers: 0, sum: 0, min: null, max: null }
+    const st = noStats()
     // Each row's cells straight from the window holding its first one, which holds them all (inWindows).
     const add = (d: number) => {
       const win = w.slotAt(d, r.left)!.win!
       const text = win.text[d - win.row]
       const values = win.values[d - win.row]
-      for (let col = r.left; col <= c2; col++) {
-        const value: CellValue | undefined = values?.[col - win.col]
-        if ((text?.[col - win.col] ?? '') === '' && (value === null || value === undefined || value === '')) continue
-        st.cells++
-        if (typeof value !== 'number') continue
-        st.numbers++
-        st.sum += value
-        st.min = st.min === null ? value : Math.min(st.min, value)
-        st.max = st.max === null ? value : Math.max(st.max, value)
-      }
+      for (let col = r.left; col <= c2; col++) addCell(st, text?.[col - win.col] ?? '', values?.[col - win.col])
     }
     if (c2 >= r.left) {
       if (Array.isArray(ds)) ds.forEach(add)

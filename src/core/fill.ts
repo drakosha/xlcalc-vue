@@ -5,6 +5,7 @@
 import { computed, getCurrentScope, onScopeDispose, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellRect, FillType } from 'xlcalc/contract'
+import { isBlank } from '../stats'
 import type { Commands } from './commands'
 import type { Editing, EditorState } from './editing'
 import type { Geometry } from './geometry'
@@ -190,9 +191,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
       if ('pending' in got) return row - 1
       if (!got.text.length) return r - 1
       for (let i = 0; i < got.text.length; i++) {
-        const value = got.values[i]?.[0]
-        const empty = (got.text[i]![0] ?? '') === '' && (value === null || value === undefined || value === '') && got.formulas[cellAddress(r + i, col)] === undefined
-        if (empty) return r + i - 1
+        if (isBlank(got.text[i]![0], got.values[i]?.[0]) && got.formulas[cellAddress(r + i, col)] === undefined) return r + i - 1
       }
       r += got.text.length
     }
