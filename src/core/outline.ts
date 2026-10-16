@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { OutlineChange, OutlineGroup } from '../source'
-import { MAX_LEVEL } from '../lines'
+import { linesOn, MAX_LEVEL } from '../lines'
 import type { Commands } from './commands'
 import { shortcutLetter } from './keys'
 import type { Selection } from './selection'
@@ -98,7 +98,7 @@ export function useOutline(s: SheetState, v: Viewport, sel: Selection, cmd: Comm
   const span = (axis: OutlineAxis, first: number, last: number) =>
     rangeAddress(axis === 'rows' ? { top: first, left: 1, bottom: last, right: MAX_COLS } : { top: 1, left: first, bottom: MAX_ROWS, right: last })
   function send(axis: OutlineAxis, change: (lines: { rows: string } | { columns: string }) => OutlineChange, first: number, last: number): void {
-    const lines = axis === 'rows' ? { rows: span(axis, first, last) } : { columns: span(axis, first, last) }
+    const lines = linesOn(axis, span(axis, first, last))
     void cmd.outline(change(lines))
   }
 

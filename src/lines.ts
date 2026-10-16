@@ -19,3 +19,6 @@ export function lineSpan(text: string, axis: LineAxis): { first: number; last: n
 
 /** The axis an outline command acts on. */
 export const axisOf = (change: OutlineChange): LineAxis => (change.op === 'showLevel' ? change.axis : 'rows' in change ? 'rows' : 'columns')
+
+/** Lines on an axis as a change of them names them: `{ rows: '3:6' }`, `{ columns: 'B:D' }`. */
+export const linesOn = (axis: LineAxis, key: string): { rows: string } | { columns: string } => (axis === 'rows' ? { rows: key } : { columns: key })

@@ -43,6 +43,9 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   /** Whole columns (`B:D`) or rows (`2:5`) the selection is, as their headers select them; null for a range of cells. */
   const wholeColumns = computed(() => (fullRect.value && fullRect.value.top === 1 && fullRect.value.bottom >= MAX_ROWS ? { first: fullRect.value.left, last: fullRect.value.right } : null))
   const wholeRows = computed(() => (fullRect.value && fullRect.value.left === 1 && fullRect.value.right >= MAX_COLS ? { first: fullRect.value.top, last: fullRect.value.bottom } : null))
+  /** The selected whole lines (`wholeRows`, `wholeColumns`) when `line` is one of them, else that line alone: what a number's or a letter's command acts on. */
+  const linesOf = (whole: { first: number; last: number } | null, line: number): { first: number; last: number } =>
+    whole && line >= whole.first && line <= whole.last ? whole : { first: line, last: line }
   const multi = computed(() => {
     const r = selRect.value
     return !!r && (r.top !== r.bottom || r.left !== r.right)
@@ -303,6 +306,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     selRect,
     wholeColumns,
     wholeRows,
+    linesOf,
     multi,
     selectionRef,
     gridRef,

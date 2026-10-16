@@ -6,6 +6,7 @@
 import { computed, nextTick, ref, shallowRef } from 'vue'
 import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, rectContains, sameName } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
+import { linesOn } from '../lines'
 import { cellRect } from '../rect'
 import type { SheetInfo, SheetOp } from '../source'
 import type { Clip } from './clip'
@@ -79,9 +80,8 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     if (!linesAvailable.value) return false
     const whole = kind === 'rows' ? sel.wholeRows.value : sel.wholeColumns.value
     // Under a display filter the rows between two shown ones are not the shown ones: the menu acts on the row pressed.
-    const inside = whole && line >= whole.first && line <= whole.last && !(kind === 'rows' && s.visible.value)
-    if (!inside) (kind === 'rows' ? sel.pickRow : sel.pickColumn)(line)
-    const lines = (kind === 'rows' ? sel.wholeRows.value : sel.wholeColumns.value)!
+    const lines = sel.linesOf(kind === 'rows' && s.visible.value ? null : whole, line)
+    if (lines !== whole) (kind === 'rows' ? sel.pickRow : sel.pickColumn)(line)
     open.value = { kind, x, y, first: lines.first, last: Math.min(lines.last, kind === 'rows' ? MAX_ROWS : MAX_COLS) }
     return true
   }
@@ -142,7 +142,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
       out.push({ id: 'insert', label: m().menuInsert, run: () => void cmd.structure(insert) }, { id: 'delete', label: m().menuDelete, run: () => void cmd.structure(remove) })
     }
     if (cmd.can('layout')) {
-      const lines = axis === 'rows' ? { rows: key } : { columns: key }
+      const lines = linesOn(axis, key)
       out.push(
         { id: 'size', label: axis === 'rows' ? m().menuRowHeight : m().menuColumnWidth, run: () => openSize(axis, first, last), group: out.length > 0 },
         { id: 'hide', label: m().menuHide, run: () => void cmd.layout({ sheet, ...lines, hidden: true }) },
@@ -208,7 +208,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     dialog.value = null
     const sheet = s.sheetName.value
     const key = linesKey(d.first, d.last, d.axis)
-    const lines = d.axis === 'rows' ? { rows: key } : { columns: key }
+    const lines = linesOn(d.axis, key)
     // A size of 0 hides the lines, as Excel's boxes take it; the size they had comes back when they are shown.
     if (n === 0) void cmd.layout({ sheet, ...lines, hidden: true })
     else if (d.axis === 'columns') void cmd.layout({ sheet, columns: key, width: widthFromChars(n) })

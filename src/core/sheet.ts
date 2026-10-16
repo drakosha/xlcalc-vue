@@ -270,8 +270,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const fitsOnEdge = computed(() => !props.edgeRestoresWidth && cmd.can('layout'))
   function onEdgeDouble(col: number): void {
     if (!fitsOnEdge.value) return resetWidth(col)
-    const whole = sel.wholeColumns.value
-    const [first, last] = whole && col >= whole.first && col <= whole.last ? [whole.first, whole.last] : [col, col]
+    const { first, last } = sel.linesOf(sel.wholeColumns.value, col)
     void cmd.layout({ sheet: s.sheetName.value, columns: linesKey(first, last, 'columns'), fit: true })
   }
   /** The book's width back. */
@@ -321,8 +320,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   let rowDrag: { first: number; last: number; row: number; startY: number; startH: number; px: number } | null = null
   function startRowResize(e: PointerEvent, row: number): void {
     if (!rowsResizable.value || e.button !== 0) return
-    const whole = sel.wholeRows.value
-    const [first, last] = whole && row >= whole.first && row <= whole.last ? [whole.first, whole.last] : [row, row]
+    const { first, last } = sel.linesOf(sel.wholeRows.value, row)
     const startH = s.heights.value.get(row) ?? s.defaultRowPx.value
     rowDrag = { first, last, row, startY: e.clientY, startH, px: startH }
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
@@ -337,8 +335,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   /** A double click on a number's edge fits the row, every selected whole row when it is one of them, as Excel's AutoFit. */
   function onRowEdgeDouble(row: number): void {
     if (!rowsResizable.value) return
-    const whole = sel.wholeRows.value
-    const [first, last] = whole && row >= whole.first && row <= whole.last ? [whole.first, whole.last] : [row, row]
+    const { first, last } = sel.linesOf(sel.wholeRows.value, row)
     void cmd.layout({ sheet: s.sheetName.value, rows: linesKey(first, last, 'rows'), fit: true })
   }
   async function endRowResize(): Promise<void> {
