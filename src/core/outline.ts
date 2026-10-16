@@ -2,7 +2,7 @@
 // buttons, and Group and Ungroup over whole lines from the menu and the keys (Shift+Alt+→ and ←, Cmd+Shift+K and J).
 import { computed } from 'vue'
 import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
-import type { OutlineChange, OutlineGroup } from '../source'
+import type { OutlineGroup } from '../source'
 import { linesOn, MAX_LEVEL } from '../lines'
 import type { Commands } from './commands'
 import { shortcutLetter } from './keys'
@@ -94,19 +94,14 @@ export function useOutline(s: SheetState, v: Viewport, sel: Selection, cmd: Comm
   /** A slot's middle from the bar's outer edge, px. */
   const at = (level: number) => (level - 0.5) * v.slotPx.value
 
-  /** Lines as the contract names them: `3:6`, `B:D`. */
+  /** Lines as the contract names them: `{ rows: '3:6' }`, `{ columns: 'B:D' }`. */
   const span = (axis: OutlineAxis, first: number, last: number) =>
-    rangeAddress(axis === 'rows' ? { top: first, left: 1, bottom: last, right: MAX_COLS } : { top: 1, left: first, bottom: MAX_ROWS, right: last })
-  function send(axis: OutlineAxis, change: (lines: { rows: string } | { columns: string }) => OutlineChange, first: number, last: number): void {
-    const lines = linesOn(axis, span(axis, first, last))
-    void cmd.outline(change(lines))
-  }
+    linesOn(axis, rangeAddress(axis === 'rows' ? { top: first, left: 1, bottom: last, right: MAX_COLS } : { top: 1, left: first, bottom: MAX_ROWS, right: last }))
 
   /** A group's button: Hide Detail when it is expanded, Show Detail when collapsed. */
   function toggle(axis: OutlineAxis, g: OutlineGroup): void {
     if (!can.value) return
-    const op = g.collapsed ? 'expand' : 'collapse'
-    send(axis, (lines) => ({ op, sheet: s.sheetName.value, level: g.level, ...lines }) as OutlineChange, g.from, g.to)
+    void cmd.outline({ op: g.collapsed ? 'expand' : 'collapse', sheet: s.sheetName.value, level: g.level, ...span(axis, g.from, g.to) })
   }
   /** A level button: groups of that level and deeper collapsed, the shallower ones expanded. */
   function showLevel(axis: OutlineAxis, level: number): void {
@@ -124,7 +119,7 @@ export function useOutline(s: SheetState, v: Viewport, sel: Selection, cmd: Comm
     const meets = (g: OutlineGroup) => g.from <= last && g.to >= first
     if (op === 'group' && groups.some((g) => g.level >= MAX_LEVEL && g.from <= first && g.to >= last)) return deps.notify(m().outlineDeepest)
     if (op === 'ungroup' && !groups.some(meets)) return deps.notify(m().outlineNone)
-    send(axis, (lines) => ({ op, sheet: s.sheetName.value, ...lines }) as OutlineChange, first, last)
+    void cmd.outline({ op, sheet: s.sheetName.value, ...span(axis, first, last) })
   }
   /** Group or Ungroup the selection: its whole rows or columns, else the box asks which, as Excel's does. */
   function run(op: OutlineOp): void {

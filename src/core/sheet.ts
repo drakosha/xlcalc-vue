@@ -240,6 +240,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     void init()
   }
 
+  /** A grip takes the pointer for its drag: the page neither selects nor scrolls, and the grid picks no cell under it. */
+  function holdPointer(e: PointerEvent): void {
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
   // ── column width with the mouse ──
   /** Book widths before the first resize in this session, for a double click to restore them through the source. */
   const originalWidths = new Map<number, number>()
@@ -247,9 +254,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function startResize(e: PointerEvent, col: number): void {
     drag = { col, startX: e.clientX, startW: geo.widthOf(col) }
     if (!originalWidths.has(col)) originalWidths.set(col, s.bookWidths.value.has(col) ? colPx(s.bookWidths.value.get(col)) : geo.widthOf(col))
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    e.preventDefault()
-    e.stopPropagation()
+    holdPointer(e)
   }
   function onResizeMove(e: PointerEvent): void {
     if (!drag) return
@@ -273,10 +278,15 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     const { first, last } = sel.linesOf(sel.wholeColumns.value, col)
     void cmd.layout({ sheet: s.sheetName.value, columns: linesKey(first, last, 'columns'), fit: true })
   }
-  /** The book's width back. */
-  function resetWidth(col: number): void {
+  /** The widths set with the mouse but a column's. */
+  function widthsWithout(col: number): Record<number, number> {
     const next = { ...s.userWidths.value }
     delete next[col]
+    return next
+  }
+  /** The book's width back. */
+  function resetWidth(col: number): void {
+    const next = widthsWithout(col)
     if (!hasLayout()) {
       s.userWidths.value = next
       s.memory.remember(`widths:${s.sheetName.value}`, Object.keys(next).length ? next : null)
@@ -307,9 +317,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       text = errorText(e)
     }
     if (ok || sheet !== s.sheetName.value) return
-    const next = { ...s.userWidths.value }
-    delete next[col]
-    s.userWidths.value = next
+    s.userWidths.value = widthsWithout(col)
     notify(text || s.messages.value.editFailed)
   }
 
@@ -323,9 +331,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     const { first, last } = sel.linesOf(sel.wholeRows.value, row)
     const startH = s.heights.value.get(row) ?? s.defaultRowPx.value
     rowDrag = { first, last, row, startY: e.clientY, startH, px: startH }
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    e.preventDefault()
-    e.stopPropagation()
+    holdPointer(e)
   }
   function onRowResizeMove(e: PointerEvent): void {
     if (!rowDrag) return
