@@ -2,6 +2,7 @@
 // The bottom line, as in Excel: sheet tabs (scrolling sideways on a phone), the filter's state with Reapply and Clear, and the selection's totals.
 import { computed } from 'vue'
 import { useSheetContext } from './context'
+import { refInto } from './dom'
 import { IconFilterOff, IconPlus, IconRetry } from './icons'
 
 const ctx = useSheetContext()
@@ -20,7 +21,7 @@ function onDown(e: PointerEvent, i: number): void {
 function onClick(i: number): void {
   if (!press.after()) void ctx.pickSheet(i)
 }
-const setRenameInput = (el: unknown) => (menu.renameInput.value = (el as HTMLInputElement | null) ?? null)
+const setRenameInput = refInto(menu.renameInput)
 </script>
 
 <template>

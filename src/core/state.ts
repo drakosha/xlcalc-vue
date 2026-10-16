@@ -3,7 +3,7 @@ import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
 import { errorText } from '../failure'
-import { enMessages, type SheetMessages } from '../messages'
+import { useMessages, type SheetMessages } from '../messages'
 import type { SheetFilter, SheetInfo, SheetSource } from '../source'
 import { colPx, DEFAULT_ROW_PT, rowPx } from './geometry'
 import type { ListSort } from './list'
@@ -58,7 +58,7 @@ export function createState(props: SheetViewProps) {
     const fn = src[name] as ((...args: unknown[]) => unknown) | undefined
     return typeof fn === 'function' ? (fn.bind(src) as NonNullable<SheetSource[K]>) : null
   }
-  const messages = computed<SheetMessages>(() => ({ ...enMessages, ...props.messages }))
+  const messages = useMessages(() => props.messages)
   const locale = computed(() => props.locale ?? 'en-US')
   const memory = createMemory(() => props.storageKey)
   const editable = computed(() => !props.readOnly && typeof props.source.edit === 'function')

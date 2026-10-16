@@ -9,6 +9,7 @@ import type { FormulaPart } from '../core/formula'
 import { canPaint, paintRefs, pieceAtPoint, type Painted } from '../core/ref-paint'
 import type { PopupRect } from './popup'
 import { useSheetContext } from './context'
+import { refInto } from './dom'
 import FunctionList from './FunctionList.vue'
 import FunctionTip from './FunctionTip.vue'
 import InsertFunction from './InsertFunction.vue'
@@ -236,7 +237,7 @@ function openBarFunnel(e: MouseEvent): void {
   if (ctx.filter.open.value === col) return ctx.filter.close()
   void ctx.filter.openFunnel(col, (e.currentTarget as HTMLElement).getBoundingClientRect())
 }
-const setBarInput = (el: unknown) => (ctx.barInput.value = (el as HTMLTextAreaElement | null) ?? null)
+const setBarInput = refInto(ctx.barInput)
 
 /** The list of functions or the tip of arguments under the bar's field, in the formula's coordinates, kept inside the window: measured as one opens, as the text changes and as the bar expands or collapses. */
 const listPlace = shallowRef<{ rect: PopupRect; view: PopupRect } | null>(null)

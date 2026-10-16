@@ -28,6 +28,7 @@ import {
   type ToolbarSource,
 } from '../toolbar'
 import ColourSwatches from './ColourSwatches.vue'
+import { hasListener } from './dom'
 import { IconDown } from './icons'
 import { useOutsidePress } from './popup'
 import {
@@ -83,10 +84,7 @@ const emit = defineEmits<{
 const m = useMessages(() => props.messages)
 const instance = getCurrentInstance()
 /** Whether the host listens to `formatCells` now, so that the button opens its own dialog instead of the sheet's. */
-function hostDialog(): boolean {
-  const listener = instance?.vnode.props?.onFormatCells
-  return typeof listener === 'function' || Array.isArray(listener)
-}
+const hostDialog = () => hasListener(instance, 'onFormatCells')
 function formatCells(): void {
   if (hostDialog() || !props.sheet) emit('formatCells')
   else props.sheet.formatCells()

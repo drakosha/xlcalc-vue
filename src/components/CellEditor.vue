@@ -3,6 +3,7 @@
 // character redraws the field and not the grid.
 import { computed } from 'vue'
 import { useSheetContext } from './context'
+import { refInto } from './dom'
 import FunctionList from './FunctionList.vue'
 import FunctionTip from './FunctionTip.vue'
 
@@ -30,7 +31,7 @@ const editorBox = computed(() => {
   const r = editorRect.value
   return r && { top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: r.frozen ? '7' : '1' }
 })
-const setCellInput = (el: unknown) => (ctx.cellInput.value = (el as HTMLTextAreaElement | null) ?? null)
+const setCellInput = refInto(ctx.cellInput)
 </script>
 
 <template>

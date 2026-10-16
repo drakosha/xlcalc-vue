@@ -6,6 +6,7 @@ import type { ListSort } from '../core/list'
 import { useSheet, type SheetEmit, type SheetLinkEvent, type SheetViewState } from '../core/sheet'
 import type { SheetFailure, SheetViewProps } from '../core/state'
 import { sheetContextKey } from './context'
+import { hasListener } from './dom'
 import ExplainPanel from './ExplainPanel.vue'
 import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
@@ -47,7 +48,7 @@ defineSlots<{
 
 const instance = getCurrentInstance()
 /** Whether the host listens to `openLink`: without it a web link opens as an ordinary link. */
-const hostLinks = () => typeof instance?.vnode.props?.onOpenLink === 'function' || Array.isArray(instance?.vnode.props?.onOpenLink)
+const hostLinks = () => hasListener(instance, 'onOpenLink')
 const ctx = useSheet(props, emit as SheetEmit, hostLinks)
 provide(sheetContextKey, ctx)
 defineExpose<SheetViewApi>(ctx.api)

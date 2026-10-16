@@ -6,6 +6,7 @@ import { colLetters } from 'xlcalc/a1'
 import CellEditor from './CellEditor.vue'
 import { cellOfData } from '../core/selection'
 import { useSheetContext } from './context'
+import { refInto } from './dom'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
@@ -136,7 +137,7 @@ function pickLine(kind: 'rows' | 'columns', line: number, extend: boolean): void
   if (kind === 'rows') sel.pickRow(line, extend)
   else sel.pickColumn(line, extend)
 }
-const setScroller = (el: unknown) => (ctx.scroller.value = (el as HTMLElement | null) ?? null)
+const setScroller = refInto(ctx.scroller)
 </script>
 
 <template>
