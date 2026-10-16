@@ -1,6 +1,6 @@
 // localSource: a sheet source over an xlcalc book whose session runs in a Web Worker pool or in the page's thread.
 // The session holds the book, computes it, finds as Excel's Find and answers windows, sheets and edits as Excel makes
-// them; this side keeps the sheets' shown values for the display filter, patched by the changes and dropped on a reload.
+// them; this side keeps the columns of shown values the display filter read, patched by the changes and dropped on a reload.
 import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, colLetters, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetOutline, SourceEvent, WindowRequest } from '../source'
@@ -11,10 +11,20 @@ import { throwIfAborted } from '../abort'
 import { filterKey } from '../filter-key'
 import { axisOf, lineSpan, type LineAxis } from '../lines'
 import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
-import { columnValuesOf, filterActive, SheetValues, statsOf, visibleList } from './query'
+import { columnList, filterActive, filterColumns, visibleList } from '../sheet-query'
+import { SheetValues, statsOf } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
 import { alertRefusalOf, validationOf } from './validation'
 import { windowOf } from './window'
+
+/** A display filter's rows as `visibleRows` last gave them and where the sheet's rows ended then; ascending (a search's) and as a set (totals') once asked. */
+interface RowList {
+  key: string
+  rows: number[]
+  max: number
+  asc?: number[]
+  shown?: Set<number>
+}
 
 async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
   const kind = typeof opts.calc === 'string' ? opts.calc : typeof Worker === 'function' ? 'pool' : 'inline'
@@ -88,8 +98,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   const listeners = new Set<(event: SourceEvent) => void>()
   /** Shown values of sheets that the display filter or its funnel needed, by the sheet's name key. */
   const values = new Map<string, Promise<SheetValues>>()
-  /** The list of rows of a sheet's display filter, as last given by `visibleRows`: windows under the filter read it. */
-  const lists = new Map<string, { key: string; rows: number[] }>()
+  /** The rows of a sheet's display filter, as last given by `visibleRows`: windows under the filter read them. */
+  const lists = new Map<string, RowList>()
   let calc: Calc | null = null
   let session: AsyncSession | null = null
 
@@ -138,7 +148,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     emit({ kind: 'repaint', ranges: ranges.map((x) => ({ sheet: x.sheet, range: x.range })) })
   }
 
-  /** The session's changes as cell updates, the edited cells' in their place, and the kept values brought up to date. */
+  /** The session's changes as cell updates, the edited cells' in their place, and the kept values brought up to date, a sheet's at once. */
   function take(changes: CellChange[], edited: Map<string, CellUpdate> = new Map()): CellUpdate[] {
     const out = new Map(edited)
     for (const ch of changes) {
@@ -146,43 +156,61 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       if (!out.has(key)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
     }
     const list = [...out.values()]
+    const bySheet = new Map<Promise<SheetValues>, CellUpdate[]>()
     for (const u of list) {
-      const at = parseCell(u.cell)
-      if (!at) continue
-      void values.get(nameKey(u.sheet))?.then((v) => v.set(at.row, at.col, u.text, u.value))
+      const kept = values.get(nameKey(u.sheet))
+      if (!kept) continue
+      const mine = bySheet.get(kept)
+      if (mine) mine.push(u)
+      else bySheet.set(kept, [u])
+    }
+    for (const [kept, updates] of bySheet) {
+      void kept.then((v) => {
+        for (const u of updates) {
+          const at = parseCell(u.cell)
+          if (at) v.set(at.row, at.col, u.text, u.value)
+        }
+      })
     }
     return list
   }
 
-  /** A sheet's shown values, read once over where its cells end. */
+  /** A sheet's shown values: where its cells end read once, its columns as the filter needs them. */
   function sheetValues(s: AsyncSession, sheet: string): Promise<SheetValues> {
     const key = nameKey(sheet)
     let got = values.get(key)
     if (!got) {
-      got = s.getUsedRange(sheet).then(async (used) => new SheetValues(used.rows && used.columns ? await s.getCells(sheet, `A1:${cellAddress(used.rows, used.columns)}`) : {}))
+      got = s.getUsedRange(sheet).then((used) => new SheetValues(used.rows, (ranges) => s.getCells(sheet, ranges)))
       values.set(key, got)
       got.catch(() => values.delete(key))
     }
     return got
   }
 
+  /** A sheet's values with the columns `cols` read. */
+  async function columnsOf(s: AsyncSession, sheet: string, cols: number[]): Promise<SheetValues> {
+    const v = await sheetValues(s, sheet)
+    await v.load(cols)
+    return v
+  }
+
   /** The rows of a sheet under a filter: the list `visibleRows` gave for it, so windows match what the component holds. */
-  async function rowsUnder(s: AsyncSession, sheet: string, filter: SheetFilter, fresh: boolean): Promise<number[]> {
+  async function rowsUnder(s: AsyncSession, sheet: string, filter: SheetFilter, fresh: boolean): Promise<RowList> {
     const key = filterKey(filter)
     const kept = lists.get(nameKey(sheet))
-    if (!fresh && kept?.key === key) return kept.rows
-    const [v, used] = await Promise.all([sheetValues(s, sheet), s.getUsedRange(sheet)])
-    const rows = visibleList(v, filter, used.rows, collator)
-    lists.set(nameKey(sheet), { key, rows })
-    return rows
+    if (!fresh && kept?.key === key) return kept
+    const v = await columnsOf(s, sheet, filterColumns(filter))
+    const list: RowList = { key, rows: visibleList(v, filter, collator), max: v.maxRow }
+    lists.set(nameKey(sheet), list)
+    return list
   }
 
   /** The rows a search under the display filter looks in; null without a filter or when it hides no row (a sort alone). */
   async function searchedRows(s: AsyncSession, sheet: string, filter: SheetFilter | undefined): Promise<number[] | null> {
     if (!filterActive(filter)) return null
-    const [rows, used] = await Promise.all([rowsUnder(s, sheet, filter, false), s.getUsedRange(sheet)])
+    const list = await rowsUnder(s, sheet, filter, false)
     // the library takes the rows on the sheet in ascending order; a filter that hides none searches as without it
-    return rows.length < used.rows ? [...rows].sort((a, b) => a - b) : null
+    return list.rows.length < list.max ? (list.asc ??= [...list.rows].sort((a, b) => a - b)) : null
   }
 
   /** The edited cells as they are now, with their formulas as shown and edit texts; `truncated` when a sheet's rectangle held more than a window. */
@@ -438,7 +466,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const count = rowsFor(maxCells, req.rows, cols)
       const filtered = filterActive(req.filter)
       let rows: number[]
-      if (filtered) rows = (await rowsUnder(s, req.sheet, req.filter!, false)).slice(req.row - 1, req.row - 1 + count)
+      if (filtered) rows = (await rowsUnder(s, req.sheet, req.filter!, false)).rows.slice(req.row - 1, req.row - 1 + count)
       else rows = Array.from({ length: count }, (_, i) => req.row + i)
       // the viewport takes rows in ascending order; the window keeps the display order
       const asked = [...rows].sort((a, b) => a - b)
@@ -513,9 +541,9 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       if (filterActive(filter)) {
         // TODO(xlcalc): `summarizeRanges` with the rows to count would take this too, without the cells.
-        const [views, rows] = await Promise.all([s.getCells(sheet, range), rowsUnder(s, sheet, filter, false)])
+        const [views, list] = await Promise.all([s.getCells(sheet, range), rowsUnder(s, sheet, filter, false)])
         throwIfAborted(signal)
-        return statsOf(views, new Set(rows))
+        return statsOf(views, (list.shown ??= new Set(list.rows)))
       }
       try {
         const got = await s.summarizeRanges([{ sheet, range }], signal ? { signal } : {})
@@ -544,15 +572,15 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
         lists.delete(nameKey(sheet))
         return { rows: null }
       }
-      const rows = await rowsUnder(s, sheet, filter, true)
+      const { rows } = await rowsUnder(s, sheet, filter, true)
       throwIfAborted(signal)
       return { rows }
     },
     async columnValues(sheet, col, filter, signal) {
       const s = await open()
-      const [v, used] = await Promise.all([sheetValues(s, sheet), s.getUsedRange(sheet)])
+      const v = await columnsOf(s, sheet, [col, ...Object.keys(filter.cols ?? {}).map(Number)])
       throwIfAborted(signal)
-      return columnValuesOf(v, col, filter, used.rows, collator)
+      return columnList(v, col, filter, collator)
     },
     async book() {
       return (await open()).getBook()

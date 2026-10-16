@@ -1,110 +1,137 @@
-// The display filter and sort, the funnel's values and totals by the display filter's rules: conditions
-// compare the shown text, the head rows stay on top, a sort puts numbers before text and empty cells last.
+// A sheet's shown texts and values as the display filter reads them (`../sheet-query`): each column read from the
+// session when a condition, a sort or a funnel first needs it, kept in arrays by row and brought up to date by edits.
 import type { CellValue, CellView } from 'xlcalc'
-import { parseCell } from 'xlcalc/a1'
-import type { RangeStats, SheetFilter } from '../source'
+import { colLetters, parseCell } from 'xlcalc/a1'
+import type { QuerySheet } from '../sheet-query'
+import type { RangeStats } from '../source'
 import { addCell, noStats } from '../stats'
 
-/** Distinct values in the funnel's list; the rest are counted in `more`. */
-export const COLUMN_VALUES_MAX = 1000
+/** What a cell holds, for its value. */
+const EMPTY = 0
+const NUMBER = 1
+const TEXT = 2
+const BOOLEAN = 3
+const ERROR = 4
 
-interface Entry {
-  text: string
-  /** The value when it is a number, else NaN. */
-  num: number
-}
+const isEmpty = (value: CellValue | undefined): boolean => value === null || value === undefined || value === ''
 
-const numOf = (value: CellValue | undefined): number => (typeof value === 'number' ? value : NaN)
+/** A column's cells by row: the shown texts, their values' kinds, numbers (a boolean as 0 or 1), and a text value its shown text does not say or an error's code. */
+class Column {
+  texts: string[]
+  kinds: Uint8Array
+  nums: Float64Array
+  readonly other = new Map<number, string>()
 
-/** A sheet's shown texts by column and row with the numbers among the values, kept current by the changes of edits. */
-export class SheetValues {
-  readonly cols = new Map<number, Map<number, Entry>>()
+  constructor(size: number) {
+    this.texts = new Array<string>(size).fill('')
+    this.kinds = new Uint8Array(size)
+    this.nums = new Float64Array(size)
+  }
 
-  constructor(views: Record<string, CellView> = {}) {
-    for (const [addr, v] of Object.entries(views)) {
-      const at = parseCell(addr)
-      if (at) this.set(at.row, at.col, v.text ?? '', v.value)
+  set(row: number, text: string, value: CellValue | undefined): void {
+    if (row >= this.kinds.length) this.grow(row + 1)
+    this.texts[row] = text
+    this.other.delete(row)
+    if (isEmpty(value)) this.kinds[row] = EMPTY
+    else if (typeof value === 'number') {
+      this.kinds[row] = NUMBER
+      this.nums[row] = value
+    } else if (typeof value === 'boolean') {
+      this.kinds[row] = BOOLEAN
+      this.nums[row] = value ? 1 : 0
+    } else if (typeof value === 'string') {
+      this.kinds[row] = TEXT
+      if (value !== text) this.other.set(row, value)
+    } else {
+      this.kinds[row] = ERROR
+      this.other.set(row, value!.error)
     }
   }
 
+  valueAt(row: number): CellValue {
+    switch (this.kinds[row]) {
+      case NUMBER:
+        return this.nums[row]!
+      case BOOLEAN:
+        return this.nums[row] === 1
+      case TEXT:
+        return this.other.get(row) ?? this.texts[row]!
+      case ERROR:
+        return { error: this.other.get(row) } as CellValue
+      default:
+        return null
+    }
+  }
+
+  /** Room for `size` rows at least, doubling, so that edits past the end do not copy at each row. */
+  private grow(size: number): void {
+    const n = Math.max(size, this.kinds.length * 2)
+    const kinds = new Uint8Array(n)
+    kinds.set(this.kinds)
+    const nums = new Float64Array(n)
+    nums.set(this.nums)
+    for (let i = this.texts.length; i < n; i++) this.texts.push('')
+    this.kinds = kinds
+    this.nums = nums
+  }
+}
+
+/** A sheet's columns as the display filter has needed them, read through `read` (the session's `getCells` over ranges). */
+export class SheetValues implements QuerySheet {
+  /** Columns read, and those being read with the changes that came meanwhile. */
+  private readonly cols = new Map<number, Column>()
+  private readonly reading = new Map<number, { done: Promise<void>; missed: [row: number, text: string, value: CellValue | undefined][] }>()
+
+  /** `maxRow`: where the sheet's cells end; an edit past it moves it on, as Excel's used range grows. */
+  constructor(
+    public maxRow: number,
+    private readonly read: (ranges: string[]) => Promise<Record<string, CellView>>,
+  ) {}
+
+  /** The columns read, the missing ones in one call. */
+  load(cols: number[]): Promise<void> {
+    const want = cols.filter((c) => !this.cols.has(c) && !this.reading.has(c))
+    if (want.length) {
+      const rows = this.maxRow
+      const views = rows ? this.read(want.map((c) => `${colLetters(c)}1:${colLetters(c)}${rows}`)) : Promise.resolve<Record<string, CellView>>({})
+      const done = views.then(
+        (cells) => {
+          const made = new Map(want.map((c) => [c, new Column(rows + 1)]))
+          for (const [addr, v] of Object.entries(cells)) {
+            const at = parseCell(addr)
+            if (at) made.get(at.col)?.set(at.row, v.text ?? '', v.value)
+          }
+          for (const [c, column] of made) {
+            for (const [row, text, value] of this.reading.get(c)!.missed) column.set(row, text, value)
+            this.cols.set(c, column)
+            this.reading.delete(c)
+          }
+        },
+        (e: unknown) => {
+          for (const c of want) this.reading.delete(c)
+          throw e
+        },
+      )
+      for (const c of want) this.reading.set(c, { done, missed: [] })
+    }
+    return Promise.all(cols.map((c) => this.reading.get(c)?.done)).then(() => undefined)
+  }
+
+  /** A cell's new text and value, kept where its column is read or being read. */
   set(row: number, col: number, text: string, value: CellValue | undefined): void {
-    let column = this.cols.get(col)
-    if (text === '') {
-      column?.delete(row)
-      return
-    }
-    if (!column) this.cols.set(col, (column = new Map()))
-    column.set(row, { text, num: numOf(value) })
+    if (row > this.maxRow && (text !== '' || !isEmpty(value))) this.maxRow = row
+    const column = this.cols.get(col)
+    if (column) column.set(row, text, value)
+    else this.reading.get(col)?.missed.push([row, text, value])
   }
-}
 
-/** Whether a filter asks for anything: conditions on columns or a sort. */
-export function filterActive(filter: SheetFilter | undefined): filter is SheetFilter {
-  return !!filter && (!!filter.sort || Object.values(filter.cols ?? {}).some((c) => !!c.values || !!c.text?.trim()))
-}
-
-/** Text first by numbers' value, then text by the collator, the empty text last. */
-function compareEntries(a: Entry | undefined, b: Entry | undefined, collator: Intl.Collator): number {
-  if (!a && !b) return 0
-  if (!a) return 1
-  if (!b) return -1
-  const an = !Number.isNaN(a.num)
-  const bn = !Number.isNaN(b.num)
-  if (an && bn) return a.num - b.num
-  if (an !== bn) return an ? -1 : 1
-  return collator.compare(a.text, b.text)
-}
-
-/** The sheet's rows in display order: the head as it is, then the rows that pass every condition, sorted when asked. */
-export function visibleList(values: SheetValues, filter: SheetFilter, maxRow: number, collator: Intl.Collator): number[] {
-  const head = Math.min(Math.max(0, Math.trunc(filter.head)), maxRow)
-  const conds = Object.entries(filter.cols ?? {}).map(([col, c]) => ({
-    column: values.cols.get(Number(col)),
-    values: c.values ? new Set(c.values) : null,
-    text: c.text?.trim() ? c.text.trim().toLocaleLowerCase() : null,
-  }))
-  const body: number[] = []
-  for (let r = head + 1; r <= maxRow; r++) {
-    const pass = conds.every((c) => {
-      const text = c.column?.get(r)?.text ?? ''
-      return (!c.values || c.values.has(text)) && (!c.text || text.toLocaleLowerCase().includes(c.text))
-    })
-    if (pass) body.push(r)
+  textAt(row: number, col: number): string {
+    return this.cols.get(col)?.texts[row] ?? ''
   }
-  const sort = filter.sort
-  if (sort) {
-    const column = values.cols.get(sort.col)
-    const sign = sort.dir === 'desc' ? -1 : 1
-    // Empty cells stay last either way; equal keys keep the sheet's order (the sort is stable).
-    body.sort((a, b) => {
-      const ea = column?.get(a)
-      const eb = column?.get(b)
-      if (!ea || !eb) return compareEntries(ea, eb, collator)
-      return sign * compareEntries(ea, eb, collator)
-    })
-  }
-  const out: number[] = []
-  for (let r = 1; r <= head; r++) out.push(r)
-  return out.concat(body)
-}
 
-/** The funnel's list of a column: its shown texts with their counts over the rows the other columns' conditions keep. */
-export function columnValuesOf(values: SheetValues, col: number, filter: SheetFilter, maxRow: number, collator: Intl.Collator): { values: { text: string; count: number }[]; more: number } {
-  const head = Math.min(Math.max(0, Math.trunc(filter.head)), maxRow)
-  const others = Object.fromEntries(Object.entries(filter.cols ?? {}).filter(([k]) => Number(k) !== col))
-  const rows = visibleList(values, { head, cols: others }, maxRow, collator).slice(head)
-  const column = values.cols.get(col)
-  const counts = new Map<string, { count: number; entry: Entry | undefined }>()
-  for (const r of rows) {
-    const entry = column?.get(r)
-    const text = entry?.text ?? ''
-    const hit = counts.get(text)
-    if (hit) hit.count++
-    else counts.set(text, { count: 1, entry })
+  valueAt(row: number, col: number): CellValue | undefined {
+    return this.cols.get(col)?.valueAt(row) ?? null
   }
-  const all = [...counts.entries()].sort(([, a], [, b]) => compareEntries(a.entry, b.entry, collator))
-  const shown = all.slice(0, COLUMN_VALUES_MAX)
-  return { values: shown.map(([text, v]) => ({ text, count: v.count })), more: all.length - shown.length }
 }
 
 /** Totals of the cells on the display filter's rows, as Excel's status bar gives them. */

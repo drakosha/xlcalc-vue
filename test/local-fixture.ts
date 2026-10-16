@@ -1,5 +1,5 @@
 // The local source's tests share these: a small ru-RU book, sources closed after each test, a window and a cell's style.
-import type { BookInput } from 'xlcalc'
+import { createInlineCalc, type AsyncSession, type BookInput, type Calc } from 'xlcalc'
 import { localSource, type LocalSource, type LocalSourceOptions } from '../src/local'
 import type { SheetFilter, SheetWindow } from '../src/source'
 
@@ -65,7 +65,7 @@ export const book = (): BookInput => ({
   ],
 })
 
-let open: LocalSource[] = []
+let open: { close(): Promise<void> }[] = []
 /** A source over `b` computed in the same thread; `closeAll` closes it after the test. */
 export function source(b: BookInput = book(), opts: LocalSourceOptions = {}): LocalSource {
   const s = localSource(b, { calc: 'inline', ...opts })
@@ -75,6 +75,32 @@ export function source(b: BookInput = book(), opts: LocalSourceOptions = {}): Lo
 export async function closeAll(): Promise<void> {
   await Promise.all(open.map((s) => s.close()))
   open = []
+}
+
+/** A source whose session tells each call it gets (the method and its arguments), to see what a query reads from the book. */
+export function watched(b: BookInput = book()): { s: LocalSource; calls: { method: string; args: unknown[] }[]; count: (method: string) => number } {
+  const calls: { method: string; args: unknown[] }[] = []
+  const inline = createInlineCalc()
+  const calc: Calc = {
+    compute: (...a) => inline.compute(...a),
+    close: () => inline.close(),
+    createSession: async (...a) => {
+      const real = await inline.createSession(...a)
+      return new Proxy(real, {
+        get(target, key) {
+          const v: unknown = Reflect.get(target, key, target)
+          if (typeof v !== 'function') return v
+          return (...args: unknown[]) => {
+            calls.push({ method: String(key), args })
+            return (v as (...x: unknown[]) => unknown).apply(target, args)
+          }
+        },
+      }) as AsyncSession
+    },
+  }
+  const s = source(b, { calc })
+  open.push(calc)
+  return { s, calls, count: (method) => calls.filter((c) => c.method === method).length }
 }
 
 export async function win(s: LocalSource, sheet: string, row: number, rows: number, col: number, cols: number, filter?: SheetFilter): Promise<SheetWindow> {
