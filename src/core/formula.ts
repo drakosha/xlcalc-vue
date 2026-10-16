@@ -90,6 +90,8 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
 
   /** The formulas of the selection's cells but the active one, by window (body, frozen rows, frozen columns) and row by row; each cell once, up to the limit. */
   function selectionFormulas(r: CellRect, take: (formula: string) => void): void {
+    // Cells change in place: a computed reading them follows the windows' revision.
+    void w.revision.value
     let cells = 0
     for (const kind of ['body', 'top', 'left'] as const) {
       const slot = w.slots[kind].value

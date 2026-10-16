@@ -64,4 +64,38 @@ describe('render scope', () => {
       expect(cellText(w, 1, 1)).toBe(text)
     }
   })
+
+  it('a change of a cell off screen redraws no cell, nor one that changes nothing; it shows once scrolled to', async () => {
+    const { w, ctx, f, count } = await open()
+    const d = ctx.v.lastRow.value + 20
+    expect(ctx.w.slotAt(d, 3)).not.toBeNull()
+    count.take()
+    f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: `C${d}`, text: 'far', value: 'far' }] })
+    await nextTick()
+    expect(count.calls).toBe(0)
+    count.take()
+    f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: 'C2', text: 'S:C2', value: 'S:C2' }] })
+    await nextTick()
+    expect(count.calls).toBe(0)
+    count.take()
+    f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: 'C2', text: 'near', value: 'near' }] })
+    await nextTick()
+    expect(count.calls).toBeGreaterThan(0)
+    expect(cellText(w, 2, 3)).toBe('near')
+    ctx.scrollTop.value = (d - 5) * 20
+    await settle()
+    expect(cellText(w, d, 3)).toBe('far')
+  })
+
+  it('a change of the active cell off screen reaches the formula bar and the state', async () => {
+    const { w, ctx, f } = await open()
+    const d = ctx.v.lastRow.value + 20
+    ctx.selected.value = { row: d, col: 3 }
+    await settle()
+    f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: `C${d}`, text: 'far', value: 'far', formula: 'A1&"far"' }] })
+    await settle()
+    expect((w.find('.xs-fx-input').element as HTMLTextAreaElement).value).toBe('=A1&"far"')
+    const states = w.emitted('state')!
+    expect(states[states.length - 1]![0]).toMatchObject({ value: 'far', formula: 'A1&"far"' })
+  })
 })

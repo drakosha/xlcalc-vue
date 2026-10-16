@@ -100,8 +100,23 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
 
   /** The sheet and filter the windows must be of now. */
   const viewKey = () => `${s.sheetName.value}\u0000${s.visible.value?.key ?? ''}`
+  /**
+   * Cells change in place inside their windows: `revision` counts every change, `drawnRevision` only those of drawn
+   * cells and their neighbours. The grid reads cells under the second, so a change off screen does not draw it again.
+   */
+  const revision = shallowRef(0)
+  const drawnRevision = shallowRef(0)
   /** The window holding a cell by display row: the body first, then the frozen ones (they meet at the corner). */
   function slotAt(d: number, col: number): Slot | null {
+    void revision.value
+    return holder(d, col)
+  }
+  /** The same for drawing a cell. */
+  function drawnSlot(d: number, col: number): Slot | null {
+    void drawnRevision.value
+    return holder(d, col)
+  }
+  function holder(d: number, col: number): Slot | null {
     const view = viewKey()
     for (const kind of order) {
       const slot = slots[kind].value
@@ -121,11 +136,11 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   }
   /** A cell's style as drawn; records of a window are keyed by the cell's own address (`addr`, by its sheet row). */
   function styleAt(d: number, col: number, addr: string): CellStyle | undefined {
-    const w = slotAt(d, col)?.win
+    const w = drawnSlot(d, col)?.win
     return w ? shownStyle(w, addr, w.appearance?.[addr]) : undefined
   }
   function cellData(d: number, col: number, addr: string): CellData {
-    const w = slotAt(d, col)?.win
+    const w = drawnSlot(d, col)?.win
     if (!w) return { text: '', value: undefined, style: undefined, formula: undefined, color: undefined, link: undefined, note: undefined, look: undefined, loaded: false }
     const look = lookOf(w, addr)
     return {
@@ -142,7 +157,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   }
   /** Whether a cell is known to be empty: loaded, no text, no value. */
   function emptyAt(d: number, col: number): boolean {
-    const slot = slotAt(d, col)
+    const slot = drawnSlot(d, col)
     if (!slot) return false
     const w = slot.win!
     const value = w.values[d - w.row]?.[col - w.col]
@@ -176,8 +191,9 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   /** Whether a cell (a sheet row) is a drill-down of list mode: loaded, marked in its window's `drill` and not empty. */
   const drillOfRow = (r: number, col: number): boolean => {
     const d = s.indexOf(r)
-    const w = d === undefined ? undefined : slotAt(d, col)?.win
-    return !!w?.drill?.[cellAddress(r, col)] && textAt(d!, col) !== ''
+    const slot = d === undefined ? null : drawnSlot(d, col)
+    const w = slot?.win
+    return !!w?.drill?.[cellAddress(r, col)] && (w.text[d! - w.row]?.[col - w.col] ?? '') !== ''
   }
   const lookOfRow = (r: number, col: number): { style?: CellStyle; numberFormat?: string } | null => {
     const d = s.indexOf(r)
@@ -411,33 +427,48 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     s.defaultRowPx.value = rowPx(DEFAULT_ROW_PT)
   }
 
-  /** A cell's new state into a slot's window, in place; false when the window does not hold the cell. */
-  function patch(slot: Slot, ch: CellUpdate): boolean {
+  /** A cell's new state into a slot's window, in place; its display row when that changed anything, else null (the window does not hold the cell, or it was so already). */
+  function patch(slot: Slot, ch: CellUpdate): number | null {
     const w = slot.win
     const at = parseCell(ch.cell)
     const d = at ? s.indexOf(at.row) : undefined
-    if (!w || !at || d === undefined) return false
-    if (d < w.row || d >= w.row + slot.rows || at.col < w.col || at.col >= w.col + slot.cols) return false
+    if (!w || !at || d === undefined) return null
+    if (d < w.row || d >= w.row + slot.rows || at.col < w.col || at.col >= w.col + slot.cols) return null
     const addr = cellAddress(at.row, at.col)
     const line = w.text[d - w.row]
     const values = w.values[d - w.row]
-    if (line) line[at.col - w.col] = ch.text
-    if (values) values[at.col - w.col] = ch.value
-    if (ch.color) w.colors[addr] = ch.color
-    else delete w.colors[addr]
-    if (ch.formula === null) delete w.formulas[addr]
-    else if (ch.formula !== undefined) w.formulas[addr] = ch.formula
-    if (ch.editText !== undefined && w.editText) w.editText[addr] = ch.editText
-    if (w.numberFormats && ch.numberFormat !== undefined) {
-      if (ch.numberFormat === null) delete w.numberFormats[addr]
-      else w.numberFormats[addr] = ch.numberFormat
+    const i = at.col - w.col
+    let changed = false
+    const set = <T>(rec: Record<string, T>, value: T | undefined) => {
+      if (value === undefined ? !(addr in rec) : rec[addr] === value) return
+      if (value === undefined) delete rec[addr]
+      else rec[addr] = value
+      changed = true
     }
-    return true
+    if (line && line[i] !== ch.text) {
+      line[i] = ch.text
+      changed = true
+    }
+    if (values && values[i] !== ch.value) {
+      values[i] = ch.value
+      changed = true
+    }
+    set(w.colors, ch.color || undefined)
+    if (ch.formula !== undefined) set(w.formulas, ch.formula ?? undefined)
+    if (ch.editText !== undefined && w.editText) set(w.editText, ch.editText)
+    if (w.numberFormats && ch.numberFormat !== undefined) set(w.numberFormats, ch.numberFormat ?? undefined)
+    return changed ? d : null
+  }
+  /** Whether a display row and a column are drawn, or next to what is (a cell's bottom and right lines are its neighbours' too). */
+  function drawnNear(d: number, col: number): boolean {
+    const rowOk = d <= v.frozenRows.value + 1 || (d >= v.firstRow.value - 1 && d <= v.lastRow.value + 1)
+    return rowOk && (col <= v.frozenCols.value + 1 || (col >= v.firstCol.value - 1 && col <= v.lastCol.value + 1))
   }
 
   /** New cell states into the loaded windows and over the answers of requests out; the rest are dropped, an unloaded window comes fresh anyway. */
   function applyChanges(changes: CellUpdate[]): void {
-    const touched = new Set<SlotKind>()
+    let changed = false
+    let drawn = false
     const view = viewKey()
     for (const ch of changes) {
       if (ch.sheet !== s.sheetName.value) continue
@@ -447,10 +478,14 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       for (const kind of order) {
         const slot = slots[kind].value
         if (slot.asked?.view === view) slot.asked.missed.push(ch)
-        if (slot.view === view && patch(slot, ch)) touched.add(kind)
+        const d = slot.view === view ? patch(slot, ch) : null
+        if (d === null) continue
+        changed = true
+        drawn ||= drawnNear(d, at.col)
       }
     }
-    for (const kind of touched) slots[kind].value = { ...slots[kind].value }
+    if (changed) revision.value++
+    if (drawn) drawnRevision.value++
   }
 
   /** Whether an area of display rows holds a cell of these rectangles (by sheet rows): under a filter, by the rows of its places. */
@@ -505,6 +540,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   return {
     slots,
     viewKey,
+    revision,
     slotAt,
     textAt,
     valueAt,
