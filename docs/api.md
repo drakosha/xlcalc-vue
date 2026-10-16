@@ -467,11 +467,13 @@ await source.close() // when the sheet goes, as in onUnmounted
 
 ## CSS variables
 
-`xlcalc-sheet/style.css` styles `.xs-sheet`, `.xs-toolbar` and the dialog by `--xs-*` variables; a host restyles or darkens the sheet by overriding them on `.xs-sheet` (and `.xs-toolbar`) or an ancestor.
+`xlcalc-sheet/style.css` styles `.xs-sheet`, `.xs-toolbar` and the dialog by `--xs-*` variables, declared on `.xs-sheet`, `.xs-toolbar` and `.xs-fmt-back` (a `FormatDialog` placed by the host) themselves. A host restyles or darkens them by overriding the variables on those elements with a selector that wins over the package's, such as one under a class of its own; a value set on an ancestor alone does not reach them.
 
 ```css
-/* A dark sheet and toolbar under the host's .dark */
-.dark {
+/* A dark sheet, toolbar and Format Cells under the host's .dark */
+.dark .xs-sheet,
+.dark .xs-toolbar,
+.dark .xs-fmt-back {
   --xs-bg: #1e1f22;
   --xs-fg: #e3e3e3;
   --xs-muted: #9aa0a6;
