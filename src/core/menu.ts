@@ -3,7 +3,7 @@
 // filter's Reapply, Freeze Panes and its kinds, Trace Precedents); a right click
 // opens one, a finger's long press too. Its small dialogs ask a size, confirm a sheet's deletion, list hidden sheets, ask
 // rows or columns.
-import { computed, nextTick, ref, shallowRef } from 'vue'
+import { computed, nextTick, onScopeDispose, ref, shallowRef } from 'vue'
 import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, rectContains, sameName } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
 import { linesOn } from '../lines'
@@ -287,35 +287,8 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
   }
   const cancelRename = () => (renaming.value = null)
 
-  // ── a finger's long press ──
-  let press: { timer: ReturnType<typeof setTimeout>; x: number; y: number } | null = null
-  let pressedAt = -Infinity
-  /** A finger down: the menu opens if it stays put long enough. */
-  function pressStart(e: PointerEvent, openAt: (x: number, y: number) => void): void {
-    if (e.pointerType !== 'touch' || e.isPrimary === false) return
-    pressCancel()
-    const { clientX: x, clientY: y } = e
-    press = {
-      x,
-      y,
-      timer: setTimeout(() => {
-        press = null
-        pressedAt = Date.now()
-        openAt(x, y)
-      }, LONG_PRESS_MS),
-    }
-  }
-  function pressMove(e: PointerEvent): void {
-    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > PRESS_SLOP_PX) pressCancel()
-  }
-  function pressCancel(): void {
-    if (press) clearTimeout(press.timer)
-    press = null
-  }
-  /** Whether a click or a context menu now is the tail of a long press that opened the menu. */
-  const afterPress = () => Date.now() - pressedAt < PRESS_TAIL_MS
-  /** Whether a finger is down and still, its long press yet to come. */
-  const pressing = () => press !== null
+  // A finger's long press, one for the numbers, letters, cells, tabs and the formula bar's references: its tail is each one's.
+  const press = useLongPress()
 
   /** The range the open menu acts on, for its caption (`2:5`, `B:D`, `B2:C4`, the sheet's name). */
   const caption = computed(() => {
@@ -348,12 +321,49 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     startRename,
     commitRename,
     cancelRename,
-    pressStart,
-    pressMove,
-    pressCancel,
-    afterPress,
-    pressing,
+    press,
   }
 }
 
 export type Menu = ReturnType<typeof useMenu>
+
+/** A finger's long press: held still for `LONG_PRESS_MS` it opens what `start` was given; moved further than the slop it scrolls instead. */
+export function useLongPress() {
+  let press: { timer: ReturnType<typeof setTimeout>; x: number; y: number } | null = null
+  let pressedAt = -Infinity
+  /** A finger down: `open` runs at its point if it stays put long enough. */
+  function start(e: PointerEvent, open: (x: number, y: number) => void): void {
+    if (e.pointerType !== 'touch' || e.isPrimary === false) return
+    cancel()
+    const { clientX: x, clientY: y } = e
+    press = {
+      x,
+      y,
+      timer: setTimeout(() => {
+        press = null
+        pressedAt = Date.now()
+        open(x, y)
+      }, LONG_PRESS_MS),
+    }
+  }
+  function move(e: PointerEvent): void {
+    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > PRESS_SLOP_PX) cancel()
+  }
+  function cancel(): void {
+    if (press) clearTimeout(press.timer)
+    press = null
+  }
+  /** Whether a click or a context menu now is the tail of a long press that opened something. */
+  const after = () => Date.now() - pressedAt < PRESS_TAIL_MS
+  /** Whether a finger is down and still, its long press yet to come. */
+  const pressing = () => press !== null
+  /** The browser's context menu where ours opens: none of its own, no press going on; false for the tail of a long press that opened ours (a browser sends it after). */
+  function context(e: MouseEvent): boolean {
+    e.preventDefault()
+    cancel()
+    return !after()
+  }
+  // The sheet's end: a press held then opens nothing.
+  onScopeDispose(cancel)
+  return { start, move, cancel, after, pressing, context }
+}

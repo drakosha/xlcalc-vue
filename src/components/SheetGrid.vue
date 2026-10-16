@@ -66,7 +66,7 @@ const vd = ctx.validation
 function onClick(e: MouseEvent): void {
   const at = cellUnder(e)
   // The lift of a long press that opened the cells' menu keeps the selection, and so does a press that pointed.
-  if (!at || ctx.menu.afterPress() || ctx.point.took()) return
+  if (!at || ctx.menu.press.after() || ctx.point.took()) return
   // List mode: a plain click on a drill-down cell, or on the first column's cell, opens what it leads to.
   if (!ctx.editor.value && !e.shiftKey && !e.ctrlKey && !e.metaKey && list.click(at.row, at.col)) return
   // A double tap on a phone opens the field inside the tap, so the keyboard shows.
@@ -104,10 +104,7 @@ function onContext(e: MouseEvent): void {
   const h = headerOf(e)
   const cell = h ? null : cellOf(e)
   if (!(h && ctx.menu.linesAvailable.value) && !cell) return
-  e.preventDefault()
-  ctx.menu.pressCancel()
-  // A browser that opens its own menu on a long press sends this after ours opened.
-  if (ctx.menu.afterPress()) return
+  if (!ctx.menu.press.context(e)) return
   if (h) ctx.menu.openLines(h.kind, h.line, e.clientX, e.clientY)
   else ctx.menu.openCells(cell!.row, cell!.col, e.clientX, e.clientY)
 }
@@ -119,22 +116,22 @@ function onDown(e: PointerEvent): void {
   const cell = under && cellOf(e)
   // A letter or a number may point at its line.
   if (!cell && ctx.point.down(e, h && { kind: h.kind, row: h.kind === 'rows' ? h.line : 1, col: h.kind === 'columns' ? h.line : 1 })) return
-  if (h && ctx.menu.linesAvailable.value) return ctx.menu.pressStart(e, (x, y) => ctx.menu.openLines(h.kind, h.line, x, y))
-  if (cell) ctx.menu.pressStart(e, (x, y) => ctx.menu.openCells(cell.row, cell.col, x, y))
+  if (h && ctx.menu.linesAvailable.value) return ctx.menu.press.start(e, (x, y) => ctx.menu.openLines(h.kind, h.line, x, y))
+  if (cell) ctx.menu.press.start(e, (x, y) => ctx.menu.openCells(cell.row, cell.col, x, y))
 }
 function onMove(e: PointerEvent): void {
   sel.onGridMove(e)
   ctx.point.move(e)
-  ctx.menu.pressMove(e)
+  ctx.menu.press.move(e)
 }
 function onUp(): void {
   sel.onGridUp()
   ctx.point.up()
-  ctx.menu.pressCancel()
+  ctx.menu.press.cancel()
 }
 /** A click on a letter or a number selects its line, a sortable title of list mode sorts; the lift of a long press that opened the menu does not, nor a press that pointed. */
 function pickLine(kind: 'rows' | 'columns', line: number, extend: boolean): void {
-  if (ctx.menu.afterPress() || ctx.point.took()) return
+  if (ctx.menu.press.after() || ctx.point.took()) return
   if (kind === 'columns' && !extend && list.sortable(line)) return list.toggleSort(line)
   if (kind === 'rows') sel.pickRow(line, extend)
   else sel.pickColumn(line, extend)

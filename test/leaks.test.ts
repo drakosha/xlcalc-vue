@@ -6,7 +6,7 @@ import { memorySource, type MemoryBook } from '../src'
 import { sheetContextKey } from '../src/components/context'
 import type { SheetContext } from '../src/core/sheet'
 import type { EditOutcome, SheetOp, SheetSource, WindowRequest } from '../src/source'
-import { goTo, key, mountSheet, settle } from './helpers'
+import { fakeSource, goTo, key, mountSheet, settle } from './helpers'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -134,5 +134,19 @@ describe('reads of the fill handle and the merge warning', () => {
     expect(windows.held).toHaveLength(1)
     w.unmount()
     expect(windows.held[0]!.signal?.aborted).toBe(true)
+  })
+})
+
+describe('a long press', () => {
+  it('held on a tab while the sheet goes opens nothing after it', async () => {
+    fakeTimers()
+    const f = fakeSource([{ name: 'S', maxRow: 5, maxCol: 5 }, { name: 'T', maxRow: 5, maxCol: 5 }])
+    f.source.structure = vi.fn(async () => OK)
+    const w = await mountSheet(f.source)
+    await w.findAll('.xs-tab')[1]!.trigger('pointerdown', { pointerType: 'touch', isPrimary: true, button: 0, clientX: 20, clientY: 30 })
+    const asked = f.requests.length
+    w.unmount()
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(f.requests.slice(asked).map((r) => r.sheet)).toEqual([])
   })
 })

@@ -67,12 +67,12 @@ const goTip = computed(() => (!ctx.editor.value && !v.touch.value && goable.valu
 let going = false
 function onFieldDown(e: MouseEvent): void {
   // the mouse's press a browser may send after a finger's long press that went: the field takes no focus
-  if (ctx.menu.afterPress()) return void e.preventDefault()
+  if (ctx.menu.press.after()) return void e.preventDefault()
   going = !ctx.editor.value && !v.touch.value && isMod(e)
 }
 /** The field's focus starts the edit in the bar where the press put the caret or the selection, as F2 does; a field open in the cell moves here with its draft. */
 function onFieldFocus(e: FocusEvent): void {
-  if (going || ctx.menu.afterPress() || !ctx.editable.value) return
+  if (going || ctx.menu.press.after() || !ctx.editable.value) return
   const open = ctx.editor.value
   if (open) return void (open.place = 'bar')
   const el = e.target as HTMLTextAreaElement
@@ -80,7 +80,7 @@ function onFieldFocus(e: FocusEvent): void {
 }
 function onFieldClick(e: MouseEvent): void {
   const el = e.target as HTMLTextAreaElement
-  if (ctx.menu.afterPress()) return
+  if (ctx.menu.press.after()) return
   if (going) {
     going = false
     const ref = goable.value[hovered.value]?.ref ?? refAt(el.selectionStart)
@@ -150,7 +150,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('blur', onWindowBlur)
 })
 
-/** A finger held on a reference outside an edit goes to it, with the time and the slop of the sheet's long presses; the browser's menu and selection of that press are held back. */
+// A finger held on a reference outside an edit goes to it, with the time and the slop of the sheet's long presses; the browser's menu and selection of that press are held back.
+/** How far beside a reference's characters a finger still lands on it, px; how far the finger may then move is the long press's own slop. */
 const FINGER_SLOP_PX = 6
 let pressRef: GridReference | null = null
 const pressHeld = ref(false)
@@ -161,30 +162,30 @@ function onFieldPointerDown(e: PointerEvent): void {
   if (i < 0) return
   const ref = (pressRef = goable.value[i]!.ref)
   pressHeld.value = true
-  ctx.menu.pressStart(e, () => {
+  ctx.menu.press.start(e, () => {
     pressHeld.value = false
     goRef(ref)
   })
 }
 function onFieldPointerMove(e: PointerEvent): void {
-  ctx.menu.pressMove(e)
-  if (!ctx.menu.pressing()) pressHeld.value = false
+  ctx.menu.press.move(e)
+  if (!ctx.menu.press.pressing()) pressHeld.value = false
 }
 function onFieldPointerEnd(): void {
-  ctx.menu.pressCancel()
+  ctx.menu.press.cancel()
   pressHeld.value = false
 }
 /** A browser's long press may bring its menu before the press's time: the press goes then; the menu of its tail is held back too. */
 function onFieldContext(e: MouseEvent): void {
   const pending = pressHeld.value && pressRef
-  if (!pending && !ctx.menu.afterPress()) return
+  if (!pending && !ctx.menu.press.after()) return
   e.preventDefault()
   if (!pending) return
   onFieldPointerEnd()
   goRef(pending)
 }
 function onFieldSelectStart(e: Event): void {
-  if (pressHeld.value || ctx.menu.afterPress()) e.preventDefault()
+  if (pressHeld.value || ctx.menu.press.after()) e.preventDefault()
 }
 function syncLayer(): void {
   const el = ctx.barInput.value
