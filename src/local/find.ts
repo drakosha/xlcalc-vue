@@ -7,7 +7,7 @@ import type { FindRequest, FindResult } from '../source'
 import type { CellsBox } from './outcome'
 
 /** Hits of a search in one answer; the total counts them all. */
-export const FIND_MAX_HITS = 500
+const FIND_MAX_HITS = 500
 const WHOLE_SHEET = 'A1:XFD1048576'
 
 const rangesOf = (req: FindRequest) => [{ sheet: req.sheet, range: req.range ?? WHOLE_SHEET }]

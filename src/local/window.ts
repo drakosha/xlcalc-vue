@@ -9,7 +9,7 @@ import type { SheetWindow } from '../source'
 /** The height xlcalc gives a row without one (Excel's default): such rows are left out of `rowHeights`. */
 const DEFAULT_ROW_PT = 15
 
-export interface WindowShape {
+interface WindowShape {
   /** The window's first row as asked: a sheet row, or a display index under a filter. */
   row: number
   /** The sheet rows of the window in display order. */
