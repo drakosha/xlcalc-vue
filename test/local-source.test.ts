@@ -156,6 +156,34 @@ describe('localSource: search, display filter, totals', () => {
     expect([v.maxRow, v.textAt(7, 1), v.valueAt(7, 1)]).toEqual([7, '1,5', 1.5])
   })
 
+  it('stops a column read with the signal of the request it is for; one stopped for one request is read again for another', async () => {
+    const reads: { signal?: AbortSignal; release: (cells: Record<string, CellView>) => void }[] = []
+    const v = new SheetValues(2, (_ranges, signal) => new Promise((resolve, reject) => {
+      reads.push({ signal, release: resolve })
+      signal?.addEventListener('abort', () => reject(new Error('aborted by the session')))
+    }))
+    const ctrl = new AbortController()
+    const funnel = v.load([1], ctrl.signal)
+    const list = v.load([1])
+    expect(reads.map((r) => r.signal)).toEqual([ctrl.signal])
+    ctrl.abort()
+    await expect(funnel).rejects.toMatchObject({ name: 'AbortError' })
+    await new Promise((r) => setTimeout(r))
+    expect(reads.map((r) => r.signal)).toEqual([ctrl.signal, undefined])
+    reads[1]!.release({ A1: { text: 'h', value: 'h' } as CellView })
+    await list
+    expect(v.textAt(1, 1)).toBe('h')
+  })
+
+  it('passes a request’s signal to the session’s getCells, and an aborted one rejects as an abort', async () => {
+    const { s, calls } = watched()
+    const ctrl = new AbortController()
+    await s.columnValues('Список', 1, { head: 1 }, ctrl.signal)
+    expect(calls.filter((c) => c.method === 'getCells').map((c) => (c.args[2] as { signal?: AbortSignal } | undefined)?.signal)).toEqual([ctrl.signal])
+    ctrl.abort()
+    await expect(s.columnValues('Список', 2, { head: 1 }, ctrl.signal)).rejects.toMatchObject({ name: 'AbortError' })
+  })
+
   it('gives a filtered window by display index', async () => {
     const s = source()
     const filter: SheetFilter = { head: 1, cols: { 1: { values: ['б'] } } }

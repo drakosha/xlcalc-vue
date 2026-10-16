@@ -176,35 +176,35 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const key = nameKey(sheet)
     let got = values.get(key)
     if (!got) {
-      got = s.getUsedRange(sheet).then((used) => new SheetValues(used.rows, (ranges) => s.getCells(sheet, ranges)))
+      got = s.getUsedRange(sheet).then((used) => new SheetValues(used.rows, (ranges, signal) => s.getCells(sheet, ranges, signal ? { signal } : {})))
       values.set(key, got)
       got.catch(() => values.delete(key))
     }
     return got
   }
 
-  /** A sheet's values with the columns `cols` read. */
-  async function columnsOf(s: AsyncSession, sheet: string, cols: number[]): Promise<SheetValues> {
+  /** A sheet's values with the columns `cols` read, the read stopped by `signal`. */
+  async function columnsOf(s: AsyncSession, sheet: string, cols: number[], signal?: AbortSignal): Promise<SheetValues> {
     const v = await sheetValues(s, sheet)
-    await v.load(cols)
+    await v.load(cols, signal)
     return v
   }
 
   /** The rows of a sheet under a filter: the list `visibleRows` gave for it, so windows match what the component holds. */
-  async function rowsUnder(s: AsyncSession, sheet: string, filter: SheetFilter, fresh: boolean): Promise<RowList> {
+  async function rowsUnder(s: AsyncSession, sheet: string, filter: SheetFilter, fresh: boolean, signal?: AbortSignal): Promise<RowList> {
     const key = filterKey(filter)
     const kept = lists.get(nameKey(sheet))
     if (!fresh && kept?.key === key) return kept
-    const v = await columnsOf(s, sheet, filterColumns(filter))
+    const v = await columnsOf(s, sheet, filterColumns(filter), signal)
     const list: RowList = { key, rows: visibleList(v, filter), max: v.maxRow }
     lists.set(nameKey(sheet), list)
     return list
   }
 
   /** The rows a search or totals under the display filter read; null without a filter or when it hides no row (a sort alone). */
-  async function searchedRows(s: AsyncSession, sheet: string, filter: SheetFilter | undefined): Promise<number[] | null> {
+  async function searchedRows(s: AsyncSession, sheet: string, filter: SheetFilter | undefined, signal?: AbortSignal): Promise<number[] | null> {
     if (!filterActive(filter)) return null
-    const list = await rowsUnder(s, sheet, filter, false)
+    const list = await rowsUnder(s, sheet, filter, false, signal)
     // the library takes the rows on the sheet in ascending order; a filter that hides none searches as without it
     return list.rows.length < list.max ? (list.asc ??= [...list.rows].sort((a, b) => a - b)) : null
   }
@@ -422,7 +422,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const count = rowsFor(maxCells, req.rows, cols)
       const filtered = filterActive(req.filter)
       let rows: number[]
-      if (filtered) rows = (await rowsUnder(s, req.sheet, req.filter!, false)).rows.slice(req.row - 1, req.row - 1 + count)
+      if (filtered) rows = (await rowsUnder(s, req.sheet, req.filter!, false, signal)).rows.slice(req.row - 1, req.row - 1 + count)
       else rows = Array.from({ length: count }, (_, i) => req.row + i)
       // the viewport takes rows in ascending order; the window keeps the display order
       const asked = [...rows].sort((a, b) => a - b)
@@ -494,8 +494,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     /** Totals of a range: the session's summary without the cells, under a display filter over its rows. */
     async stats(sheet, range, filter, signal) {
       const s = await open()
-      const rows = await searchedRows(s, sheet, filter)
       throwIfAborted(signal)
+      const rows = await searchedRows(s, sheet, filter, signal)
       try {
         const got = await s.summarizeRanges([{ sheet, range }], { ...(rows ? { rows } : {}), ...(signal ? { signal } : {}) })
         // an overflowed sum is #NUM!, no number to show
@@ -507,8 +507,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     },
     async find(req, signal) {
       const s = await open()
-      const rows = await searchedRows(s, req.sheet, req.filter)
       throwIfAborted(signal)
+      const rows = await searchedRows(s, req.sheet, req.filter, signal)
       try {
         return await findHits(s, req, rows, signal)
       } catch (e) {
@@ -523,15 +523,13 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
         lists.delete(nameKey(sheet))
         return { rows: null }
       }
-      const { rows } = await rowsUnder(s, sheet, filter, true)
       throwIfAborted(signal)
-      return { rows }
+      return { rows: (await rowsUnder(s, sheet, filter, true, signal)).rows }
     },
     async columnValues(sheet, col, filter, signal) {
       const s = await open()
-      const v = await columnsOf(s, sheet, [col, ...Object.keys(filter.cols ?? {}).map(Number)])
       throwIfAborted(signal)
-      return columnList(v, col, filter)
+      return columnList(await columnsOf(s, sheet, [col, ...Object.keys(filter.cols ?? {}).map(Number)], signal), col, filter)
     },
     async book() {
       return (await open()).getBook()
