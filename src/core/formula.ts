@@ -1,10 +1,10 @@
 // The formula the bar shows (the draft's while one is typed) in pieces with coloured references, and the formula's ranges highlighted on the grid as in Excel.
-import { computed, shallowRef, watch, type Ref } from 'vue'
+import { computed, type Ref } from 'vue'
 import { cellAddress, nameKey, sameName } from 'xlcalc/a1'
 import type { CellRect, GridReference, ScanOptions } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
 import { isGridRef } from '../grid-ref'
-import { LOCALE_MODULES } from '../locales'
+import { useLocaleModule } from '../locale-ref'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
@@ -49,25 +49,9 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     return selectedFormula.value
   })
 
-  /** How formula text is read: in the book's locale once its module is in, as stored text where xlcalc has none; null while it loads. */
-  const scan = shallowRef<ScanOptions | null>(null)
-  watch(
-    s.locale,
-    (tag) => {
-      const load = LOCALE_MODULES[tag]
-      scan.value = load ? null : {}
-      if (!load) return
-      // A module that fails to load leaves the text read as stored: addresses read alike in every locale.
-      const take = (opts: ScanOptions) => {
-        if (s.locale.value === tag) scan.value = opts
-      }
-      void load().then(
-        (locale) => take({ locale }),
-        () => take({}),
-      )
-    },
-    { immediate: true },
-  )
+  /** How formula text is read: in the book's locale once its module is in, as stored text where xlcalc has none or it failed to load (addresses read alike in every locale); null while it loads. */
+  const bookLocale = useLocaleModule(() => s.locale.value)
+  const scan = computed<ScanOptions | null>(() => (bookLocale.value === null ? null : bookLocale.value ? { locale: bookLocale.value } : {}))
   /** How the book's formula text reads, for `xlcalc/text`; null while its locale loads. */
   const scanOptions = (): ScanOptions | null => scan.value
   /** References of formulas read under the current scan options, by text: a drag reads the same cells over and over. */
