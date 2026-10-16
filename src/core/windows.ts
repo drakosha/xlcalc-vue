@@ -136,10 +136,6 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const slot = slotAt(d, col)
     return slot ? (slot.win!.text[d - slot.win!.row]?.[col - slot.win!.col] ?? '') : ''
   }
-  function valueAt(d: number, col: number): CellValue | undefined {
-    const slot = slotAt(d, col)
-    return slot ? slot.win!.values[d - slot.win!.row]?.[col - slot.win!.col] : undefined
-  }
   /** A cell's style as drawn; records of a window are keyed by the cell's own address (`addr`, by its sheet row). */
   function styleAt(d: number, col: number, addr: string): CellStyle | undefined {
     const w = drawnSlot(d, col)?.win
@@ -170,40 +166,39 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const w = slot.win!
     return isBlank(w.text[d - w.row]?.[col - w.col], w.values[d - w.row]?.[col - w.col])
   }
-  /** The same by the sheet's row: a row the filter hides has nothing loaded. */
-  const textOfRow = (r: number, col: number): string => {
+  /** A cell by the sheet's row: its window and the cell's place in it; null when the filter hides the row or no window holds it. */
+  function cellOfRow(r: number, col: number): { win: SheetWindow; i: number; j: number } | null {
     const d = s.indexOf(r)
-    return d === undefined ? '' : textAt(d, col)
+    const win = d === undefined ? undefined : slotAt(d, col)?.win
+    return win ? { win, i: d! - win.row, j: col - win.col } : null
+  }
+  const textOfRow = (r: number, col: number): string => {
+    const c = cellOfRow(r, col)
+    return c ? (c.win.text[c.i]?.[c.j] ?? '') : ''
   }
   const valueOfRow = (r: number, col: number): CellValue | undefined => {
-    const d = s.indexOf(r)
-    return d === undefined ? undefined : valueAt(d, col)
+    const c = cellOfRow(r, col)
+    return c?.win.values[c.i]?.[c.j]
   }
-  const formulaOfRow = (r: number, col: number): string | undefined => {
-    const d = s.indexOf(r)
-    const w = d === undefined ? undefined : slotAt(d, col)?.win
-    return w?.formulas[cellAddress(r, col)]
-  }
+  const formulaOfRow = (r: number, col: number): string | undefined => cellOfRow(r, col)?.win.formulas[cellAddress(r, col)]
+  /** Whether a cell is known to be empty by the sheet's row: loaded, no text, no value. */
   const emptyAtRow = (r: number, col: number): boolean => {
-    const d = s.indexOf(r)
-    return d !== undefined && emptyAt(d, col)
+    const c = cellOfRow(r, col)
+    return !!c && isBlank(c.win.text[c.i]?.[c.j], c.win.values[c.i]?.[c.j])
   }
   /** The text a cell opens with from its window's `editText` (a cell left out opens empty); undefined when the window has none. */
   const editTextOfRow = (r: number, col: number): string | undefined => {
-    const d = s.indexOf(r)
-    const texts = d === undefined ? undefined : slotAt(d, col)?.win?.editText
+    const texts = cellOfRow(r, col)?.win.editText
     return texts ? (texts[cellAddress(r, col)] ?? '') : undefined
   }
   /** Whether a cell (a sheet row) is a drill-down of list mode: loaded, marked in its window's `drill` and not empty. */
   const drillOfRow = (r: number, col: number): boolean => {
-    const d = s.indexOf(r)
-    const w = d === undefined ? undefined : slotAt(d, col)?.win
-    return !!w?.drill?.[cellAddress(r, col)] && (w.text[d! - w.row]?.[col - w.col] ?? '') !== ''
+    const c = cellOfRow(r, col)
+    return !!c?.win.drill?.[cellAddress(r, col)] && (c.win.text[c.i]?.[c.j] ?? '') !== ''
   }
   /** The style a cell shows and its number format code (none: General), from its loaded window; null when none holds it. */
   const lookOfRow = (r: number, col: number): { style?: CellStyle; numberFormat?: string } | null => {
-    const d = s.indexOf(r)
-    const w = d === undefined ? undefined : slotAt(d, col)?.win
+    const w = cellOfRow(r, col)?.win
     if (!w) return null
     const addr = cellAddress(r, col)
     const id = w.styleIds[addr]
@@ -587,7 +582,6 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     revision,
     slotAt,
     textAt,
-    valueAt,
     styleAt,
     cellData,
     emptyAt,
