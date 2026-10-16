@@ -3,6 +3,7 @@
 import type { CellValue, CellView } from 'xlcalc'
 import { parseCell } from 'xlcalc/a1'
 import type { RangeStats, SheetFilter } from '../source'
+import { addCell, noStats } from '../stats'
 
 /** Distinct values in the funnel's list; the rest are counted in `more`. */
 export const COLUMN_VALUES_MAX = 1000
@@ -106,25 +107,12 @@ export function columnValuesOf(values: SheetValues, col: number, filter: SheetFi
   return { values: shown.map(([text, v]) => ({ text, count: v.count })), more: all.length - shown.length }
 }
 
-/** Totals of cells as Excel's status bar gives them: cells that show something, the numbers among them, their sum and ends. */
-export function statsOf(views: Record<string, CellView>, visible: Set<number> | null): RangeStats {
-  let cells = 0
-  let numbers = 0
-  let sum = 0
-  let min = Infinity
-  let max = -Infinity
+/** Totals of the cells on the display filter's rows, as Excel's status bar gives them. */
+export function statsOf(views: Record<string, CellView>, visible: Set<number>): RangeStats {
+  const out = noStats()
   for (const [addr, v] of Object.entries(views)) {
-    if ((v.text ?? '') === '') continue
-    if (visible) {
-      const at = parseCell(addr)
-      if (!at || !visible.has(at.row)) continue
-    }
-    cells++
-    if (typeof v.value !== 'number') continue
-    numbers++
-    sum += v.value
-    if (v.value < min) min = v.value
-    if (v.value > max) max = v.value
+    const at = parseCell(addr)
+    if (at && visible.has(at.row)) addCell(out, v.text ?? '', v.value)
   }
-  return { cells, numbers, sum, min: numbers ? min : null, max: numbers ? max : null }
+  return out
 }

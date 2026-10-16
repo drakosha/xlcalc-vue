@@ -162,6 +162,23 @@ describe('localSource: search, display filter, totals', () => {
     expect(await s.stats('Список', 'B:B', filter)).toEqual({ cells: 3, numbers: 1, sum: 5, min: 5, max: 5 })
   })
 
+  it('totals as the grid counts its windows: a value its format hides counts, a formula giving "" does not', async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'k' }, A2: { value: 5, numberFormat: ';;;' }, A3: { value: 3 }, A4: { formula: '""' }, A5: { formula: '1/0' } } }] })
+    const want = { cells: 3, numbers: 2, sum: 8, min: 3, max: 5 }
+    expect(await s.stats('S', 'A2:A5')).toEqual(want)
+    const filter: SheetFilter = { head: 1, sort: { col: 1, dir: 'asc' } }
+    await s.visibleRows('S', filter)
+    expect(await s.stats('S', 'A2:A5', filter)).toEqual(want)
+  })
+
+  it('totals a range in the session without reading its cells, and stops when aborted', async () => {
+    const s = source()
+    await s.ready
+    const ctrl = new AbortController()
+    ctrl.abort()
+    await expect(s.stats('Список', 'A2:B6', undefined, ctrl.signal)).rejects.toMatchObject({ name: 'AbortError' })
+  })
+
   it('searches after an edit with the new text', async () => {
     const s = source()
     await s.edit([{ sheet: 'Список', cell: 'A5', text: 'бета' }])

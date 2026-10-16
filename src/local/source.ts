@@ -507,11 +507,24 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       return s.getEnd(sheet, cell, direction)
     },
+    /** Totals of a range: the session's summary without the cells, under a display filter the cells of its rows. */
     async stats(sheet, range, filter, signal) {
       const s = await open()
-      const [views, rows] = await Promise.all([s.getCells(sheet, range), filterActive(filter) ? rowsUnder(s, sheet, filter, false) : null])
       throwIfAborted(signal)
-      return statsOf(views, rows ? new Set(rows) : null)
+      if (filterActive(filter)) {
+        // TODO(xlcalc): `summarizeRanges` with the rows to count would take this too, without the cells.
+        const [views, rows] = await Promise.all([s.getCells(sheet, range), rowsUnder(s, sheet, filter, false)])
+        throwIfAborted(signal)
+        return statsOf(views, new Set(rows))
+      }
+      try {
+        const got = await s.summarizeRanges([{ sheet, range }], signal ? { signal } : {})
+        // an overflowed sum is #NUM!, no number to show
+        return { cells: got.cells, numbers: got.numbers, sum: typeof got.sum === 'number' ? got.sum : NaN, min: got.min, max: got.max }
+      } catch (e) {
+        throwIfAborted(signal)
+        throw e
+      }
     },
     async find(req, signal) {
       const s = await open()
