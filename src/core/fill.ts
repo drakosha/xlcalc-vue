@@ -13,7 +13,7 @@ import type { Editing, EditorState } from './editing'
 import type { Geometry } from './geometry'
 import { onMac } from './keys'
 import type { Selection } from './selection'
-import type { SheetState } from './state'
+import { useSheetReads, type SheetState } from './state'
 import type { Viewport } from './viewport'
 
 /** Within this many pixels of the frame's edge a drag scrolls the grid, by at most `EDGE_STEP_PX` a move. */
@@ -153,6 +153,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     document.removeEventListener('keydown', onKey, true)
   }
   if (getCurrentScope()) onScopeDispose(end)
+  const read = useSheetReads(s)
 
   /** Fill the frame of `from` and the cells added `to` from `from` in one step of undo; the selection becomes the frame, as Excel leaves it. */
   async function fill(from: CellRect, to: CellRect, type?: FillType): Promise<void> {
@@ -165,18 +166,20 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     if (out?.ok && sheet === s.sheetName.value && s.selected.value === before.selected && s.extent.value === before.extent) sel.selectRect(frame)
   }
 
-  /** Excel's double click on the handle: down to the last row of the data in the column left of the selection, else right of it. */
+  /** Excel's double click on the handle: down to the last row of the data in the column left of the selection, else right of it; another sheet shown meanwhile stops it. */
   async function autofill(): Promise<void> {
     const from = source.value
     if (!from) return
+    const signal = read()
     for (const col of [from.left - 1, from.right + 1]) {
       if (col < 1 || col > MAX_COLS) continue
-      const end = await dataEnd(col, from.bottom + 1)
+      const end = await dataEnd(col, from.bottom + 1, signal)
+      if (signal.aborted) return
       if (end > from.bottom) return fill(from, { ...from, top: from.bottom + 1, bottom: end })
     }
   }
   /** The last row of the run of filled cells in a column from `row` down, as the source has it, read in windows of the cell limit. */
-  async function dataEnd(col: number, row: number): Promise<number> {
+  async function dataEnd(col: number, row: number, signal: AbortSignal): Promise<number> {
     const sheet = s.sheetName.value
     const last = s.dataRows.value
     const step = s.source().maxCells ?? DEFAULT_MAX_CELLS
@@ -184,7 +187,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     while (r <= last) {
       let got
       try {
-        got = await s.source().window({ sheet, row: r, rows: Math.min(step, last - r + 1), col, cols: 1 })
+        got = await s.source().window({ sheet, row: r, rows: Math.min(step, last - r + 1), col, cols: 1 }, signal)
       } catch {
         return row - 1
       }

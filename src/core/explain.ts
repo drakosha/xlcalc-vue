@@ -132,8 +132,10 @@ export function useExplain(s: SheetState, f: Formula) {
   function refresh(): void {
     if (open.value) schedule()
   }
+  // The sheet's end: no request after the pause, an answer out dropped.
   onScopeDispose(() => {
     if (timer) clearTimeout(timer)
+    seq++
   })
 
   return { available, open, place, lines, busy, failed, show, close, refresh }

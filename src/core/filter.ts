@@ -1,5 +1,5 @@
 // The display filter and sort, the funnel on a column's letter: the data do not change, the source lists the rows to show in order.
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onScopeDispose, ref, watch } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import { isAbort } from '../abort'
 import { filterKey } from '../filter-key'
@@ -240,6 +240,13 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
       close()
     }
   }
+
+  // The sheet's end: the list out is aborted, a column's values out dropped.
+  onScopeDispose(() => {
+    seq++
+    valuesSeq++
+    ctrl?.abort()
+  })
 
   return {
     cols,

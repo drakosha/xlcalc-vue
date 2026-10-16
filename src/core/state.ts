@@ -1,5 +1,5 @@
 // The component's base state: the book's sheets, the active one, its extent, sizes from the windows, and the frame.
-import { computed, ref, shallowRef } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
 import { errorText } from '../failure'
@@ -187,3 +187,15 @@ export function createState(props: SheetViewProps) {
 }
 
 export type SheetState = ReturnType<typeof createState>
+
+/** Signals for reads of the sheet shown (a run of windows): each new one aborts the last, and so do another sheet and the sheet's end. */
+export function useSheetReads(s: SheetState): () => AbortSignal {
+  let ctrl: AbortController | null = null
+  const stop = () => ctrl?.abort()
+  watch(s.sheetName, stop)
+  onScopeDispose(stop)
+  return () => {
+    stop()
+    return (ctrl = new AbortController()).signal
+  }
+}

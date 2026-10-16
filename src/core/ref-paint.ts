@@ -14,7 +14,8 @@ export type Painted = [name: string, range: Range][]
 const names = new Map<string, string>()
 /** The rules of the colours, adopted by each document or shadow root a bar is in. */
 const sheets = new WeakMap<Document | ShadowRoot, CSSStyleSheet>()
-const allSheets: CSSStyleSheet[] = []
+/** The same sheets for a new colour's rule, held weakly: a shadow root gone takes its sheet with it. */
+const allSheets = new Set<WeakRef<CSSStyleSheet>>()
 const rule = (key: string, name: string) => {
   const [color, underline] = key.split(' ')
   return `.xs-fx-layer::highlight(${name}) { color: ${color};${underline ? ' text-decoration: underline;' : ''} }`
@@ -30,13 +31,17 @@ function nameOf(key: string, root: Document | ShadowRoot): string {
     for (const [c, n] of names) sheet.insertRule(rule(c, n))
     root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet]
     sheets.set(root, sheet)
-    allSheets.push(sheet)
+    allSheets.add(new WeakRef(sheet))
   }
   let name = names.get(key)
   if (!name) {
     name = `xs-ref-${names.size}`
     names.set(key, name)
-    for (const each of allSheets) each.insertRule(rule(key, name))
+    for (const held of allSheets) {
+      const each = held.deref()
+      if (each) each.insertRule(rule(key, name))
+      else allSheets.delete(held)
+    }
   }
   return name
 }

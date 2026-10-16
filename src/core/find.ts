@@ -1,7 +1,7 @@
 // Excel's Find and Replace on the sheet: the bar's query and options go to the source's `find`, Find Next goes on from
 // the active cell in the order asked, a selection of several cells is where it looks, and Replace and Replace All go to
 // the source's `replace` as an edit goes.
-import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onScopeDispose, reactive, ref, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
 import { isAbort } from '../abort'
@@ -99,6 +99,8 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
     busy.value = false
     done.value = null
   }
+  // The sheet's end: no search after the pause, none out.
+  onScopeDispose(reset)
 
   /** The request of the bar as it is now, from the cell `after` when given; null for an empty query. */
   function request(after?: string): FindRequest | null {
