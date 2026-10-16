@@ -48,10 +48,11 @@ function placeOf(req: FindRequest, visible: Set<number> | null): (row: number, c
   return (row, col) => (!r || (row >= r.top && row <= r.bottom && col >= r.left && col <= r.right)) && (!visible || visible.has(row))
 }
 
-/** Cells in Excel's order: row by row, or column by column. */
-function sortCells(list: CellText[], byColumns: boolean | undefined): CellText[] {
-  return list.sort(byColumns ? (a, b) => a.col - b.col || a.row - b.row : (a, b) => a.row - b.row || a.col - b.col)
-}
+/** Excel's order of cells for Find: row by row, or column by column. */
+export const cellOrder =
+  (byColumns: boolean | undefined) =>
+  (a: { row: number; col: number }, b: { row: number; col: number }): number =>
+    byColumns ? a.col - b.col || a.row - b.row : a.row - b.row || a.col - b.col
 
 /** The cells whose text matches, in Excel's order from the first after `req.after` round past the end, at most `max` of them; `total` counts them all. */
 export function findCells(each: EachCell, req: FindRequest, visible: Set<number> | null, max: number): FindResult {
@@ -62,9 +63,10 @@ export function findCells(each: EachCell, req: FindRequest, visible: Set<number>
   each((row, col, text) => {
     if (text !== '' && inside(row, col) && re.test(text)) found.push({ row, col, text })
   })
-  const sorted = sortCells(found, req.byColumns)
+  const order = cellOrder(req.byColumns)
+  const sorted = found.sort(order)
   const after = req.after ? parseCell(req.after) : null
-  const from = after ? sorted.findIndex((c) => (req.byColumns ? c.col - after.col || c.row - after.row : c.row - after.row || c.col - after.col) > 0) : 0
+  const from = after ? sorted.findIndex((c) => order(c, after) > 0) : 0
   const round = from > 0 ? sorted.slice(from).concat(sorted.slice(0, from)) : sorted
   return { hits: round.slice(0, max), total: found.length }
 }
@@ -95,5 +97,5 @@ export function replaceCells(each: EachCell, req: FindRequest, by: string, visib
     const next = text === '' || !inside(row, col) ? null : replace(text)
     if (next !== null) out.push({ row, col, text: next })
   })
-  return sortCells(out, req.byColumns)
+  return out.sort(cellOrder(req.byColumns))
 }
