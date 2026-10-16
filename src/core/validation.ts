@@ -23,10 +23,6 @@ export interface ValidationDeps {
   text?: () => string
   /** An item chosen from the list (a click, Enter), by its text and its place in the list: the sheet enters it into the cell. */
   pick: (text: string, place: ValidationPlace, item: number) => void
-  /** Stops asking (the sheet's end); the end of the scope the composable runs in stops it too. */
-  signal?: AbortSignal
-  /** Milliseconds the active cell stays before it is asked, `VALIDATION_DELAY_MS` by default. */
-  delay?: number
 }
 
 /** The rule of the active cell as Excel shows it: the source asked once the cell stays, an older answer dropped, the list's state. */
@@ -39,7 +35,6 @@ export function useValidation(deps: ValidationDeps) {
   const index = ref(-1)
   const list = computed(() => current.value?.list ?? null)
   const prompt = computed(() => current.value?.prompt ?? null)
-  const delay = deps.delay ?? VALIDATION_DELAY_MS
 
   let timer: ReturnType<typeof setTimeout> | null = null
   let ctrl: AbortController | null = null
@@ -159,14 +154,14 @@ export function useValidation(deps: ValidationDeps) {
       close()
       current.value = null
       place.value = null
-      ask(delay)
+      ask(VALIDATION_DELAY_MS)
     },
     { immediate: true },
   )
-  deps.signal?.addEventListener('abort', stop, { once: true })
+  // The end of the scope it runs in (the sheet's) stops asking.
   if (getCurrentScope()) onScopeDispose(stop)
 
-  return { current, place, list, prompt, open, index, refresh, openList, close, toggle, move, choose, onKey, stop }
+  return { current, place, list, prompt, open, index, refresh, openList, close, toggle, move, choose, onKey }
 }
 
 export type Validation = ReturnType<typeof useValidation>
