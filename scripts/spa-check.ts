@@ -1152,7 +1152,7 @@ async function typoScenario(browser: Browser, base: string, size: Size): Promise
   await page.waitForSelector('[data-xs-alert="typo"]', { timeout: 30_000 })
   await page.keyboard.press('Escape')
   await page.waitForSelector('[data-xs-alert="parenthesis"]')
-  expect(at('the message after No'), await page.locator('[data-xs-alert-message]').textContent(), 'В формуле не хватает открывающей или закрывающей круглой скобки')
+  expect(at('the message after No'), await page.locator('[data-xs-alert-message]').textContent(), 'В формуле не хватает открывающей или закрывающей круглой скобки.')
   await page.screenshot({ path: resolve(out, `spa-${size.name}-t02-parenthesis.png`) })
   await press(page, size, '[data-xs-alert-button="ok"]')
   await page.waitForSelector('[data-xs-alert]', { state: 'detached' })

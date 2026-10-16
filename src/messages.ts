@@ -779,7 +779,7 @@ export const ruMessages: SheetMessages = {
   formulaFix: 'Исправить',
   formulaRevert: 'Вернуть',
   typoFound: (correction) => `Мы обнаружили опечатку в формуле и попытались ее исправить: ${correction}. Принять исправление?`,
-  missingParenthesis: 'В формуле не хватает открывающей или закрывающей круглой скобки',
+  missingParenthesis: 'В формуле не хватает открывающей или закрывающей круглой скобки.',
   functionList: 'Функции',
   functionHint: 'Tab или двойной щелчок вставляет функцию',
   mergeCenter: 'Объединить и поместить в центре',

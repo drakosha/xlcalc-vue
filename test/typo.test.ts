@@ -65,7 +65,7 @@ describe('a formula left open with a correction', () => {
       else escape('typo')
       await settle()
       expect(alertOf('typo')).toBeNull()
-      expect(alertOf('parenthesis')?.querySelector('[data-xs-alert-message]')?.textContent).toBe('В формуле не хватает открывающей или закрывающей круглой скобки')
+      expect(alertOf('parenthesis')?.querySelector('[data-xs-alert-message]')?.textContent).toBe('В формуле не хватает открывающей или закрывающей круглой скобки.')
       expect([...alertOf('parenthesis')!.querySelectorAll('[data-xs-alert-button]')].map((b) => b.textContent?.trim())).toEqual(['ОК'])
       expect(document.activeElement).toBe(button('ok'))
       expect(editorOpen(w)).toBe(false)
