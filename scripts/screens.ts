@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 import { chromium, type Page } from 'playwright'
 import { createServer } from 'vite'
 import { quoteSheetIfNeeded } from 'xlcalc/a1'
-import { longPress } from './touch.ts'
+import { longPress, longPressAt } from './touch.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'test-results/screens')
@@ -329,6 +329,73 @@ async function barMouse(page: Page): Promise<void> {
   console.log(`bar mouse: Ctrl+click went to A2:A5, a drag selected [1, 5] in an edit, the cell's field moved to the bar at 3`)
 }
 
+/**
+ * Going to a reference from the bar outside an edit: with Ctrl or Cmd held (either first) the reference under the mouse is underlined
+ * (a highlight of its own) and the cursor a hand, gone with the key; under a finger a long press on one goes to its range, a tap edits.
+ */
+async function barGo(page: Page, size: (typeof SIZES)[number]): Promise<void> {
+  const text = '=СУММ(A:A)-СУММ(A2:A5)+Форматы!C2*0'
+  const centre = (i: number) =>
+    page.evaluate((i) => {
+      const r = new Range()
+      const t = document.querySelector('.xs-fx-layer')!.firstChild!
+      r.setStart(t, i)
+      r.setEnd(t, i + 1)
+      const b = r.getBoundingClientRect()
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 }
+    }, i)
+  const state = () =>
+    page.evaluate(() => {
+      const field = document.querySelector<HTMLTextAreaElement>('.xs-fx-input')!
+      // the highlights whose rule underlines, and the text of their ranges
+      const rules = [...document.adoptedStyleSheets].flatMap((s) => [...s.cssRules].map((r) => r.cssText))
+      const names = rules.filter((r) => r.includes('underline')).map((r) => /::highlight\(([\w-]+)\)/.exec(r)?.[1])
+      return {
+        go: field.classList.contains('xs-fx-go'),
+        cursor: getComputedStyle(field).cursor,
+        underlined: names.flatMap((n) => [...(CSS.highlights.get(n!) ?? [])].map((r) => r.toString())),
+        address: document.querySelector<HTMLInputElement>('.xs-address')!.value,
+        editing: !!document.querySelector('.xs-bar-editing'),
+        focused: document.activeElement === field,
+      }
+    })
+  await open(page, 'Формулы!B6')
+  if (!size.mobile) {
+    const ref = await centre(text.indexOf('A2:A5') + 2)
+    await page.keyboard.down('ControlOrMeta')
+    await page.mouse.move(ref.x, ref.y)
+    const held = await state()
+    if (!held.go || held.cursor !== 'pointer' || held.underlined.join() !== 'A2:A5') throw new Error(`Cmd held over A2:A5 did not underline it with a hand: ${JSON.stringify(held)}`)
+    await page.locator('.xs-bar').screenshot({ path: resolve(out, `${size.name}-63-bar-go-hover.png`) })
+    await page.keyboard.up('ControlOrMeta')
+    const up = await state()
+    if (up.go || up.cursor === 'pointer' || up.underlined.length) throw new Error(`the key let go left the underline or the hand: ${JSON.stringify(up)}`)
+    const off = await centre(text.indexOf('СУММ') + 1)
+    await page.mouse.move(off.x, off.y)
+    await page.keyboard.down('ControlOrMeta')
+    const name = await state()
+    await page.mouse.move(ref.x, ref.y)
+    const later = await state()
+    await page.keyboard.up('ControlOrMeta')
+    if (name.go || name.underlined.length || !later.go || later.underlined.join() !== 'A2:A5') throw new Error(`the key first, then the mouse onto A2:A5: ${JSON.stringify({ name, later })}`)
+    return void console.log(`bar go ${size.name}: Cmd held over A2:A5 underlined it with a hand, the key let go took both away, over СУММ nothing`)
+  }
+  // collapsed on a phone the bar shows its first line: A:A
+  const ref = await centre(text.indexOf('A:A') + 1)
+  await longPressAt(page, ref.x, ref.y)
+  await page.waitForTimeout(200)
+  const went = await state()
+  await shot(page, size.name, '64-bar-go-touch')
+  if (went.address !== 'A:A' || went.editing || went.focused) throw new Error(`a long press on A:A did not go to it alone: ${JSON.stringify(went)}`)
+  await open(page, 'Формулы!B6')
+  await page.touchscreen.tap(ref.x, ref.y)
+  await page.waitForTimeout(200)
+  const tapped = await state()
+  if (tapped.address !== 'B6' || !tapped.editing) throw new Error(`a tap on A:A did not start the edit: ${JSON.stringify(tapped)}`)
+  await page.keyboard.press('Escape')
+  console.log(`bar go ${size.name}: a long press on A:A went to it without an edit, a tap on it started the edit`)
+}
+
 /** Excel's formula bar over a cell of six lines: one line high and the grid in place, expanded by its arrow, a click's caret where it was put, and the caret moved to the last line seen in the collapsed field. */
 async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
@@ -510,6 +577,7 @@ for (const size of SIZES) {
   await shot(page, size.name, '20-formula-refs')
   await checkOverlay(page, 'a formula with references', true)
   if (!size.mobile) await barMouse(page)
+  await barGo(page, size)
   // A selection with its totals.
   await open(page, 'Форматы!B2:C11')
   await shot(page, size.name, '21-selection-totals')

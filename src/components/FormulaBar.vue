@@ -1,12 +1,12 @@
 <script setup lang="ts">
 // The bar over the grid, as in Excel: back, the address box, the formula's field (its references coloured, its list of functions and tip of arguments) one line high or expanded, link and lock.
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { GridReference } from 'xlcalc/contract'
 import { safeHref } from '../core/cell-view'
 import { onMac } from '../core/clip'
 import type { FormulaPart } from '../core/formula'
-import { canPaint, paintRefs, type Painted } from '../core/ref-paint'
+import { canPaint, paintRefs, pieceAtPoint, type Painted } from '../core/ref-paint'
 import type { ValidationRect } from '../core/validation'
 import { useSheetContext } from './context'
 import FunctionList from './FunctionList.vue'
@@ -48,26 +48,31 @@ const layerText = computed(() => (barText.value.endsWith('\n') ? `${barText.valu
 const painting = canPaint()
 let painted: Painted = []
 
-/** The reference whose characters the caret stands at (either edge counts), when its sheet is in the book. */
-function refAt(at: number): GridReference | null {
+/** The references one can go to (their sheet is in the book): their part and offsets in the text. */
+const goable = computed(() => {
+  const out: { part: number; from: number; to: number; ref: GridReference }[] = []
   let from = 0
-  for (const part of parts.value) {
+  parts.value.forEach((part, i) => {
     const to = from + part.text.length
-    if (part.ref && at >= from && at <= to && f.refSheet(part.ref) >= 0) return part.ref
+    if (part.ref && f.refSheet(part.ref) >= 0) out.push({ part: i, from, to, ref: part.ref })
     from = to
-  }
-  return null
-}
+  })
+  return out
+})
+/** The reference whose characters the caret stands at (either edge counts). */
+const refAt = (at: number): GridReference | null => goable.value.find((g) => at >= g.from && at <= g.to)?.ref ?? null
 /** Outside an edit with the mouse, Ctrl+click (Cmd+click) goes to a reference, as in a code editor: said in the field's tip. */
-const goTip = computed(() => (!ctx.editor.value && !v.touch.value && parts.value.some((p) => p.ref && f.refSheet(p.ref) >= 0) ? m.value.goRefHint(onMac() ? 'Cmd' : 'Ctrl') : undefined))
+const goTip = computed(() => (!ctx.editor.value && !v.touch.value && goable.value.length ? m.value.goRefHint(onMac() ? 'Cmd' : 'Ctrl') : undefined))
 /** A press with Ctrl or Cmd outside an edit: its click goes to the reference under the caret instead of editing. */
 let going = false
 function onFieldDown(e: MouseEvent): void {
+  // the mouse's press a browser may send after a finger's long press that went: the field takes no focus
+  if (ctx.menu.afterPress()) return void e.preventDefault()
   going = !ctx.editor.value && !v.touch.value && (e.ctrlKey || e.metaKey)
 }
 /** The field's focus starts the edit in the bar where the press put the caret or the selection, as F2 does; a field open in the cell moves here with its draft. */
 function onFieldFocus(e: FocusEvent): void {
-  if (going || !ctx.editable.value) return
+  if (going || ctx.menu.afterPress() || !ctx.editable.value) return
   const open = ctx.editor.value
   if (open) return void (open.place = 'bar')
   const el = e.target as HTMLTextAreaElement
@@ -75,13 +80,11 @@ function onFieldFocus(e: FocusEvent): void {
 }
 function onFieldClick(e: MouseEvent): void {
   const el = e.target as HTMLTextAreaElement
+  if (ctx.menu.afterPress()) return
   if (going) {
     going = false
-    const ref = refAt(el.selectionStart)
-    if (ref) {
-      ctx.scroller.value?.focus({ preventScroll: true })
-      return void nav.goRef(ref)
-    }
+    const ref = goable.value[hovered.value]?.ref ?? refAt(el.selectionStart)
+    if (ref) return goRef(ref)
   }
   if (ctx.editor.value) return ed.onEditorClick()
   if (!barReadonly.value) ed.startEdit({ mode: 'edit', place: 'bar', caret: el.selectionStart, caretEnd: el.selectionEnd })
@@ -99,8 +102,90 @@ function onFieldKey(e: KeyboardEvent): void {
   }
   ed.onEditorKey(e)
 }
+/** Go to a reference's range from the bar: the grid takes the focus, as after the address box. */
+function goRef(ref: GridReference): void {
+  ctx.scroller.value?.focus({ preventScroll: true })
+  nav.goRef(ref)
+}
 /** The layer scrolls with the field; outside an edit in the bar a new text shows from its top. */
 const layer = shallowRef<HTMLElement | null>(null)
+
+/** While Ctrl or Cmd is held outside an edit, the reference under the mouse is underlined and the cursor a hand, as a code editor's link; either comes first. */
+const modHeld = ref(false)
+let mouseAt: { x: number; y: number } | null = null
+/** The index in `goable` of the reference under the mouse while it would go, else -1. */
+const hovered = ref(-1)
+function updateHover(): void {
+  const on = modHeld.value && mouseAt && layer.value && !ctx.editor.value && !v.touch.value
+  hovered.value = on ? pieceAtPoint(layer.value!, goable.value, mouseAt!.x, mouseAt!.y) : -1
+}
+const hoveredPart = computed(() => goable.value[hovered.value]?.part ?? -1)
+function onFieldMove(e: MouseEvent): void {
+  modHeld.value = e.ctrlKey || e.metaKey
+  mouseAt = { x: e.clientX, y: e.clientY }
+  updateHover()
+}
+function onFieldLeave(): void {
+  mouseAt = null
+  updateHover()
+}
+function onModKey(e: KeyboardEvent): void {
+  if (e.key !== 'Control' && e.key !== 'Meta') return
+  modHeld.value = e.ctrlKey || e.metaKey
+  updateHover()
+}
+function onWindowBlur(): void {
+  modHeld.value = false
+  updateHover()
+}
+watch([goable, () => ctx.editor.value, v.touch], updateHover, { flush: 'post' })
+onMounted(() => {
+  window.addEventListener('keydown', onModKey, true)
+  window.addEventListener('keyup', onModKey, true)
+  window.addEventListener('blur', onWindowBlur)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onModKey, true)
+  window.removeEventListener('keyup', onModKey, true)
+  window.removeEventListener('blur', onWindowBlur)
+})
+
+/** A finger held on a reference outside an edit goes to it, with the time and the slop of the sheet's long presses; the browser's menu and selection of that press are held back. */
+const FINGER_SLOP_PX = 6
+let pressRef: GridReference | null = null
+const pressHeld = ref(false)
+function onFieldPointerDown(e: PointerEvent): void {
+  pressRef = null
+  if (e.pointerType !== 'touch' || ctx.editor.value || !layer.value) return
+  const i = pieceAtPoint(layer.value, goable.value, e.clientX, e.clientY, FINGER_SLOP_PX)
+  if (i < 0) return
+  const ref = (pressRef = goable.value[i]!.ref)
+  pressHeld.value = true
+  ctx.menu.pressStart(e, () => {
+    pressHeld.value = false
+    goRef(ref)
+  })
+}
+function onFieldPointerMove(e: PointerEvent): void {
+  ctx.menu.pressMove(e)
+  if (!ctx.menu.pressing()) pressHeld.value = false
+}
+function onFieldPointerEnd(): void {
+  ctx.menu.pressCancel()
+  pressHeld.value = false
+}
+/** A browser's long press may bring its menu before the press's time: the press goes then; the menu of its tail is held back too. */
+function onFieldContext(e: MouseEvent): void {
+  const pending = pressHeld.value && pressRef
+  if (!pending && !ctx.menu.afterPress()) return
+  e.preventDefault()
+  if (!pending) return
+  onFieldPointerEnd()
+  goRef(pending)
+}
+function onFieldSelectStart(e: Event): void {
+  if (pressHeld.value || ctx.menu.afterPress()) e.preventDefault()
+}
 function syncLayer(): void {
   const el = ctx.barInput.value
   if (el && layer.value) layer.value.scrollTop = el.scrollTop
@@ -116,12 +201,12 @@ watch(
 )
 if (painting) {
   watch(
-    [parts, layerText],
+    [parts, layerText, hoveredPart],
     () => {
       const pieces = []
       let from = 0
-      for (const part of parts.value) {
-        if (part.color) pieces.push({ from, to: from + part.text.length, color: part.color })
+      for (const [i, part] of parts.value.entries()) {
+        if (part.color) pieces.push({ from, to: from + part.text.length, color: part.color, underline: i === hoveredPart.value })
         from += part.text.length
       }
       const node = layer.value?.firstChild
@@ -227,7 +312,7 @@ function onAddressEsc(e: KeyboardEvent): void {
       <div class="xs-fx" :class="{ 'xs-fx-open': ctx.barOpen.value }">
         <textarea
           :ref="setBarInput"
-          class="xs-fx-input"
+          :class="['xs-fx-input', { 'xs-fx-go': hovered >= 0, 'xs-fx-held': pressHeld }]"
           :value="barText"
           :readonly="barReadonly"
           :title="goTip"
@@ -236,6 +321,14 @@ function onAddressEsc(e: KeyboardEvent): void {
           autocomplete="off"
           autocapitalize="off"
           @mousedown="onFieldDown"
+          @mousemove="onFieldMove"
+          @mouseleave="onFieldLeave"
+          @pointerdown="onFieldPointerDown"
+          @pointermove="onFieldPointerMove"
+          @pointerup="onFieldPointerEnd"
+          @pointercancel="onFieldPointerEnd"
+          @contextmenu="onFieldContext"
+          @selectstart="onFieldSelectStart"
           @focus="onFieldFocus"
           @click="onFieldClick"
           @input="ed.onEditorInput"
@@ -245,7 +338,7 @@ function onAddressEsc(e: KeyboardEvent): void {
         ></textarea>
         <!-- the same text over the transparent field's, its references coloured; the caret and the selection are the field's -->
         <div v-if="painting" ref="layer" class="xs-fx-layer" aria-hidden="true">{{ layerText }}</div>
-        <div v-else ref="layer" class="xs-fx-layer" aria-hidden="true"><template v-for="(part, i) in parts" :key="i"><span v-if="part.color" class="xs-ref" :style="{ color: part.color }">{{ part.text }}</span><template v-else>{{ part.text }}</template></template>{{ layerText.slice(barText.length) }}</div>
+        <div v-else ref="layer" class="xs-fx-layer" aria-hidden="true"><template v-for="(part, i) in parts" :key="i"><span v-if="part.color" :class="['xs-ref', { 'xs-ref-go': i === hoveredPart }]" :style="{ color: part.color }">{{ part.text }}</span><template v-else>{{ part.text }}</template></template>{{ layerText.slice(barText.length) }}</div>
         <FunctionList
           v-if="listPlace && editingBar && ed.ac.open.value"
           :rect="listPlace.rect"

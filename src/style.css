@@ -170,6 +170,19 @@
   pointer-events: none;
   scrollbar-color: transparent transparent;
 }
+/* Ctrl or Cmd held over a reference outside an edit: a hand and the reference underlined, as a code editor's link (highlights underline their own). */
+.xs-fx-go {
+  cursor: pointer;
+}
+.xs-ref-go {
+  text-decoration: underline;
+}
+/* A finger held on a reference goes to it: no selection or callout of the browser's. */
+.xs-fx-held {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 .xs-bar-link {
   max-width: 40%;
   flex-shrink: 0;

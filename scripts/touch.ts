@@ -11,3 +11,12 @@ export async function longPress(page: Page, selector: string): Promise<void> {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
   await cdp.detach()
 }
+
+/** A finger held still at a point of the page for 0.7 s, as `longPress` (a point inside an element, such as a character of a text). */
+export async function longPressAt(page: Page, x: number, y: number): Promise<void> {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+  await page.waitForTimeout(700)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+}
