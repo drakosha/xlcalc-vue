@@ -85,7 +85,7 @@ export function useFind(s: SheetState, sel: Selection, notify: (text: string) =>
   function closeFind(): void {
     isOpen.value = false
     reset()
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
   function reset(): void {
     seq++

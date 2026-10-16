@@ -96,7 +96,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     if (touching) return
     pickCell(row, col, e.shiftKey)
     dragging = true
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
   /** A tap on touch: picks the cell; true when it is the second tap on the same cell. */
   function onCellTap(e: MouseEvent, row: number, col: number): boolean {
@@ -140,9 +140,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
       else if (right > x + s.viewW.value - v.leadW.value) x = right - s.viewW.value + v.leadW.value + REVEAL_PAD
     }
     if (y !== el.scrollTop || x !== el.scrollLeft) {
-      el.scrollTo({ top: Math.max(0, y), left: Math.max(0, x) })
-      s.scrollTop.value = Math.max(0, y)
-      s.scrollLeft.value = Math.max(0, x)
+      s.scrollGridTo(Math.max(0, y), Math.max(0, x))
     }
   }
   /** The frame's size, read again where it matters: a scrollbar may have appeared since the last read. */

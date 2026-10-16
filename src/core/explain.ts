@@ -125,7 +125,7 @@ export function useExplain(s: SheetState, f: Formula) {
     open.value = false
     schedule()
     busy.value = false
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
   /** The book changed elsewhere: the tree is asked again. */
   function refresh(): void {

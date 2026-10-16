@@ -176,9 +176,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     originalWidths.clear()
     v.readFreeze()
     filter.restore()
-    s.scroller.value?.scrollTo({ top: 0, left: 0 })
-    s.scrollTop.value = 0
-    s.scrollLeft.value = 0
+    s.scrollGridTo(0, 0)
     w.ensure()
   }
   async function pickSheet(index: number): Promise<void> {

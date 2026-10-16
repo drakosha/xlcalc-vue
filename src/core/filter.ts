@@ -172,7 +172,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     if (open.value === null) return
     open.value = null
     valuesSeq++
-    void nextTick(() => s.scroller.value?.focus({ preventScroll: true }))
+    void nextTick(s.focusGrid)
   }
   /** The funnel's title: the header cell's text and the letters, or the letters alone. */
   const title = computed(() => {

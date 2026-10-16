@@ -72,10 +72,8 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     s.selected.value = place.selected
     s.extent.value = place.extent
     await nextTick()
-    s.scroller.value?.scrollTo({ top: place.scrollTop, left: place.scrollLeft })
-    s.scrollTop.value = place.scrollTop
-    s.scrollLeft.value = place.scrollLeft
-    s.scroller.value?.focus({ preventScroll: true })
+    s.scrollGridTo(place.scrollTop, place.scrollLeft)
+    s.focusGrid()
   }
 
   function flashRange(range: CellRect): void {
@@ -101,7 +99,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     flashRange(sel.selRect.value!)
     void nextTick(() => {
       sel.revealCell(top, left)
-      s.scroller.value?.focus({ preventScroll: true })
+      s.focusGrid()
     })
   }
 

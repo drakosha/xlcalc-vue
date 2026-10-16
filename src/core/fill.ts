@@ -111,7 +111,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     held?.setPointerCapture?.(e.pointerId)
     drag.value = { from, to: null, pointer: e.pointerId, touch: e.pointerType === 'touch' }
     document.addEventListener('keydown', onKey, true)
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
   function onMove(e: PointerEvent): void {
     const d = drag.value

@@ -174,7 +174,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const ed = editor.value
     if (!ed) return
     editor.value = null
-    if (refocus) s.scroller.value?.focus({ preventScroll: true })
+    if (refocus) s.focusGrid()
     if (ed.sheet === s.sheetName.value && sel.isActive(ed.row, ed.col) && (dr || dc)) sel.step(dr, dc)
     if (ed.text === ed.initial) return
     void enterDraft(ed)
@@ -186,7 +186,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   }
   function cancel(): void {
     editor.value = null
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
   /** Control+Return: with `fill` the text goes into every cell of the selection, else into the active cell; nothing moves. */
   function commitFill(): void {
@@ -199,7 +199,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (lock !== null) return deps.notify(s.messages.value.locked(lock))
     const extent = s.extent.value
     editor.value = null
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
     void fillDraft(ed, r, extent, fill)
   }
   /** Send the draft into every cell of the range from its cell; Excel's correction of it is sent the same way. */
@@ -270,7 +270,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       }
       answer = await deps.alert(outcome.alert)
       if (answer === 'accept') outcome = await call({ accept: true }).catch(failure)
-      if (answer !== 'retry') s.scroller.value?.focus({ preventScroll: true })
+      if (answer !== 'retry') s.focusGrid()
     }
     if (marks.length) {
       const left = new Map(pending.value)
@@ -307,7 +307,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
         if (said === 'accept') {
           s.selected.value = moved.selected
           s.extent.value = moved.extent
-          s.scroller.value?.focus({ preventScroll: true })
+          s.focusGrid()
           return (await retype(outcome.correction)) ?? outcome
         }
         await deps.alert({ severity: 'parenthesis', message: m.missingParenthesis, ...place })
@@ -317,7 +317,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       // A formula that does not read: Fix opens it again, Restore leaves the cell as it was.
       const said = await deps.alert({ severity: 'formula', message: outcome.message || m.editFailed, ...place })
       if (said === 'retry') reopen(draft, outcome.at ?? null, extent)
-      else s.scroller.value?.focus({ preventScroll: true })
+      else s.focusGrid()
     } else if (outcome.reason === 'invalid') {
       deps.notify(outcome.message || m.editFailed)
       if (draft) reopen(draft, outcome.at ?? null, extent)

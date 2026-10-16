@@ -98,13 +98,13 @@ function onFieldKey(e: KeyboardEvent): void {
   if (!ctx.editor.value && !e.isComposing && !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
     const el = e.target as HTMLTextAreaElement
     if (!barReadonly.value) ed.startEdit({ mode: 'edit', place: 'bar', caret: el.selectionStart, caretEnd: el.selectionEnd })
-    else if (e.key === 'Escape') ctx.scroller.value?.focus({ preventScroll: true })
+    else if (e.key === 'Escape') ctx.focusGrid()
   }
   ed.onEditorKey(e)
 }
 /** Go to a reference's range from the bar: the grid takes the focus, as after the address box. */
 function goRef(ref: GridReference): void {
-  ctx.scroller.value?.focus({ preventScroll: true })
+  ctx.focusGrid()
   nav.goRef(ref)
 }
 /** The layer scrolls with the field; outside an edit in the bar a new text shows from its top. */
@@ -226,7 +226,7 @@ function onInsertPick(name: string): void {
 function onInsertClose(): void {
   inserting.value = false
   if (ctx.editor.value) ed.focusEditor()
-  else ctx.scroller.value?.focus({ preventScroll: true })
+  else ctx.focusGrid()
 }
 /** A finger has no funnels on the letters (too small to hit): one in the bar opens the active cell's column. */
 const barFunnel = computed(() => v.touch.value && ctx.filter.available.value && ctx.dataRows.value > 1)

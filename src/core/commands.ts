@@ -171,7 +171,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
   }
   function closeFormat(): void {
     formatOpen.value = false
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
   }
 
   const api: SheetViewApi = {

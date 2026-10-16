@@ -38,7 +38,8 @@ function giveBack(): void {
   const el = before
   before = null
   if (!box.value?.contains(document.activeElement)) return
-  ;(el?.isConnected ? el : ctx.scroller.value)?.focus({ preventScroll: true })
+  if (el?.isConnected) el.focus({ preventScroll: true })
+  else ctx.focusGrid()
 }
 
 const enabled = () => [...(box.value?.querySelectorAll<HTMLButtonElement>('[role=menuitem]:not(:disabled)') ?? [])]

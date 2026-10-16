@@ -202,12 +202,12 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   /** Copy and Cut: the browser's clipboard API takes the text; refused, the copy still pastes inside the book. */
   function copy(cut: boolean): void {
     if (cut && !canCut.value) return
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
     void put(cut, null)
   }
   /** Paste: the clipboard read through the browser's API; a browser that will not give it pastes only our own copy. */
   async function paste(): Promise<void> {
-    s.scroller.value?.focus({ preventScroll: true })
+    s.focusGrid()
     let text: string | null = null
     try {
       text = await navigator.clipboard.readText()

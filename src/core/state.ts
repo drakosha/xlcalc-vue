@@ -106,6 +106,15 @@ export function createState(props: SheetViewProps) {
   /** Ways back into modules made later: dropping the filter when a jump needs a row it hides; a change of the cells on its way from the sheet (Excel's copy mode ends). */
   const hooks = { unfilter: (_row: number): void => {}, changing: (): void => {} }
 
+  /** The grid takes the focus back without scrolling the page: after a field, a popover, a dialog or a command. */
+  const focusGrid = (): void => scroller.value?.focus({ preventScroll: true })
+  /** Scroll the frame and put the scroll in the state at once: what is drawn follows without waiting for the scroll event. */
+  function scrollGridTo(top: number, left: number): void {
+    scroller.value?.scrollTo({ top, left })
+    scrollTop.value = top
+    scrollLeft.value = left
+  }
+
   /** Grow the data reach to a cell that got a value. */
   function grow(row: number, col: number): void {
     if (row > dataRows.value || col > dataCols.value)
@@ -156,6 +165,8 @@ export function createState(props: SheetViewProps) {
     extent,
     anchor,
     hooks,
+    focusGrid,
+    scrollGridTo,
     grow,
     stretch,
   }
