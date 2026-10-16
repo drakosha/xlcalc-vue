@@ -394,8 +394,10 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     try {
       const got = await s.patchCells(cells)
       const changes = take(got.changes)
-      // A look, a number format and an edit text are the window's to carry, not a cell update's.
-      reload()
+      // A number format changes what cells show and open with, which windows carry: the sheet is read again. A look alone changes no
+      // text or size, so the windows over the ranges are read again in place and the values the filter read stay.
+      if (cells.some((c) => c.set.numberFormat !== undefined)) reload()
+      else emit({ kind: 'repaint', ranges: [...patches.filter((p) => p.style !== undefined).map((p) => ({ sheet, range: p.range })), ...(got.repaint ?? []).map((x) => ({ sheet: x.sheet, range: x.range }))] })
       return { ok: true, changes }
     } catch (e) {
       return outcomeOf(e, 'refused')
@@ -433,14 +435,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
-  /** Excel's Freeze Panes: the sheet's frozen rows and columns in one `setLayout` call, one step of the undo (null or nothing frozen unfreezes); subscribers get `reload`. */
+  /** Excel's Freeze Panes: the sheet's frozen rows and columns in one `setLayout` call, one step of the undo (null or nothing frozen unfreezes); subscribers read the sheets again (`reload`), the values the filter read stay. */
   async function freeze(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome> {
     const s = await open()
     const frozen = panes && (panes.rows > 0 || panes.cols > 0) ? { ...(panes.rows > 0 ? { rows: panes.rows } : {}), ...(panes.cols > 0 ? { columns: panes.cols } : {}) } : null
     try {
       const got = await s.setLayout([{ sheet, frozen }])
       const changes = take(got.changes)
-      reload()
+      emit({ kind: 'reload' })
       return { ok: true, changes }
     } catch (e) {
       return outcomeOf(e, 'failed')
