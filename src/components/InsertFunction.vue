@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Excel's Insert Function window: a search, the category box (recently used, all, the source's categories), the functions, and the syntax and description of the one selected.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import type { FunctionCategory } from 'xlcalc/contract'
+import { CATEGORY_ORDER } from '../function-categories'
 import type { SheetFunctionSignature } from '../source'
 import { useSheetContext } from './context'
 
@@ -9,8 +9,6 @@ const emit = defineEmits<{ pick: [name: string]; close: [] }>()
 const ctx = useSheetContext()
 const m = ctx.messages
 
-/** The categories in the order of Excel's window, as xlcalc's FUNCTION_CATEGORIES gives them (its root carries the engine, so the main entry keeps its own copy). */
-const CATEGORY_ORDER: readonly FunctionCategory[] = ['financial', 'date', 'math', 'statistical', 'lookup', 'database', 'text', 'logical', 'information', 'engineering', 'compatibility']
 /** The functions used last, newest first, as Excel's Most Recently Used; in the sheet's memory. */
 const RECENT = 'recentFunctions'
 const RECENT_MAX = 10
@@ -37,8 +35,12 @@ const shown = computed(() => {
   const base = category.value === 'recent' ? recent.filter((n) => known.has(n)) : category.value === 'all' ? names.value : names.value.filter((n) => sigs.value.get(n)?.category === category.value)
   const q = query.value.trim().toUpperCase()
   if (!q) return base
-  const rank = (n: string) => (n.toUpperCase() === q ? 0 : n.toUpperCase().startsWith(q) ? 1 : 2)
-  return base.filter((n) => n.toUpperCase().includes(q)).sort((a, b) => rank(a) - rank(b))
+  const hits: { name: string; rank: number }[] = []
+  for (const name of base) {
+    const upper = name.toUpperCase()
+    if (upper.includes(q)) hits.push({ name, rank: upper === q ? 0 : upper.startsWith(q) ? 1 : 2 })
+  }
+  return hits.sort((a, b) => a.rank - b.rank).map((x) => x.name)
 })
 const selected = computed(() => shown.value[index.value] ?? null)
 const selectedSig = computed(() => (selected.value ? (sigs.value.get(selected.value) ?? null) : null))

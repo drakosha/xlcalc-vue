@@ -1,8 +1,10 @@
 // Excel's buttons left of the formula bar's field: Cancel and Enter while an edit is open, and Insert Function with its dialog over the source's names.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
+import { FUNCTION_CATEGORIES } from 'xlcalc'
 import type { FunctionCategory } from 'xlcalc/contract'
 import { memorySource, ruMessages, type MemoryBook } from '../src'
+import { CATEGORY_ORDER } from '../src/function-categories'
 import { active, barField, cellText, editorKey, editorOpen, goTo, key, mountSheet, settle, type } from './helpers'
 
 afterEach(() => {
@@ -80,6 +82,10 @@ describe('Cancel and Enter by the formula bar', () => {
 })
 
 describe('Insert Function', () => {
+  it("keeps xlcalc's categories in their order: the main entry's copy is the root's", () => {
+    expect(CATEGORY_ORDER).toEqual(FUNCTION_CATEGORIES)
+  })
+
   it('is off without functionNames and on a read-only sheet', async () => {
     const plain = await mountSheet(memorySource({ sheets: [{ name: 'S', cells: { A1: 1 } }] }))
     expect(button(plain, 'fx').attributes('disabled')).toBeDefined()
