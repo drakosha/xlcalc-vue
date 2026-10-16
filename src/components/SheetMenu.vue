@@ -3,7 +3,7 @@
 // sheet with data is deleted, the hidden sheets to show, rows or columns to group. A press outside or Esc closes them.
 // Keys in a menu as in Excel's: Down and Up round its enabled items, Home and End, Enter or Space chooses, Esc and Tab close;
 // a press in the menu leaves the focus where the keys put it.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useSheetContext } from './context'
 import DialogShell from './DialogShell.vue'
 import { useOutsidePress } from './popup'
@@ -69,6 +69,8 @@ const grouping = computed(() => (menu.dialog.value?.kind === 'outline' ? menu.di
 /** A size opens on its field's text selected, a grouping on its first choice. */
 const dialogFocus = computed(() => (size.value ? '[data-xs-dialog-input]' : grouping.value ? '[data-xs-outline-axis]' : undefined))
 const closeDialog = () => (menu.dialog.value = null)
+/** The dialog's title names it for a screen reader. */
+const titleId = `${useId()}-title`
 
 useOutsidePress(box, () => menu.close(), () => !!menu.open.value)
 function onDocKey(e: KeyboardEvent): void {
@@ -89,27 +91,27 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
       <button type="button" role="menuitem" tabindex="-1" class="xs-menu-item" :data-xs-menu="item.id" :disabled="item.disabled" @click="menu.choose(item)">{{ item.label }}</button>
     </template>
   </div>
-  <DialogShell v-if="menu.dialog.value" class="xs-dialog" :focus="dialogFocus" data-xs-dialog @close="closeDialog">
+  <DialogShell v-if="menu.dialog.value" class="xs-dialog" :focus="dialogFocus" :aria-labelledby="titleId" data-xs-dialog @close="closeDialog">
     <template v-if="size">
       <label class="xs-dialog-field">
-        <span class="xs-modal-title">{{ size.axis === 'columns' ? m.columnWidth : m.rowHeight }}</span>
+        <span :id="titleId" class="xs-modal-title">{{ size.axis === 'columns' ? m.columnWidth : m.rowHeight }}</span>
         <input v-model="size.draft" class="xs-field xs-field-l" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" data-xs-dialog-input @keydown.enter.prevent="menu.applySize()" />
       </label>
       <p v-if="size.error" class="xs-dialog-error" role="alert">{{ size.error }}</p>
     </template>
     <template v-else-if="doomed !== null">
-      <p class="xs-modal-title">{{ m.deleteSheet }}</p>
+      <p :id="titleId" class="xs-modal-title">{{ m.deleteSheet }}</p>
       <p>{{ m.deleteSheetText(doomed) }}</p>
     </template>
     <template v-else-if="grouping">
-      <p class="xs-modal-title">{{ grouping.op === 'group' ? m.menuGroup : m.menuUngroup }}</p>
+      <p :id="titleId" class="xs-modal-title">{{ grouping.op === 'group' ? m.menuGroup : m.menuUngroup }}</p>
       <div class="xs-dialog-choices" role="radiogroup" @keydown.enter.prevent="menu.applyOutline()">
         <label class="xs-dialog-choice"><input v-model="grouping.axis" type="radio" value="rows" data-xs-outline-axis="rows" />{{ m.outlineRows }}</label>
         <label class="xs-dialog-choice"><input v-model="grouping.axis" type="radio" value="columns" data-xs-outline-axis="columns" />{{ m.outlineColumns }}</label>
       </div>
     </template>
     <template v-else-if="hidden">
-      <p class="xs-modal-title">{{ m.unhideSheet }}</p>
+      <p :id="titleId" class="xs-modal-title">{{ m.unhideSheet }}</p>
       <div class="xs-dialog-list">
         <button v-for="name in hidden" :key="name" type="button" class="xs-menu-item" :data-xs-unhide="name" @click="menu.unhide(name)">{{ name }}</button>
       </div>
