@@ -20,7 +20,6 @@ export function alertRefusalOf(r: CellValidationRefusal): Extract<EditOutcome, {
     ok: false,
     reason: 'refused',
     message: r.message,
-    cells: [{ sheet: r.sheet, cell: r.cell }],
     alert: { severity: r.severity, ...(title ? { title } : {}), message: r.message, sheet: r.sheet, cell: r.cell },
   }
 }

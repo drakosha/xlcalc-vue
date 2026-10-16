@@ -42,7 +42,7 @@ describe('localSource: paste', () => {
   })
 
   it('refuses a rectangle past the sheet', async () => {
-    expect(await source(sheet()).paste!('S', 'XFD1', 'a\tb')).toMatchObject({ ok: false, reason: 'refused', cells: [{ sheet: 'S' }] })
+    expect(await source(sheet()).paste!('S', 'XFD1', 'a\tb')).toMatchObject({ ok: false, reason: 'refused' })
   })
 })
 
@@ -59,11 +59,11 @@ describe('localSource: Control+Return', () => {
 
   it('gives invalid at the place of a formula that does not read, with the active cell', async () => {
     const got = await source(sheet()).fill!('S', 'B1:B3', '=СУММ(A1;))', 'B2')
-    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 10, cells: [{ sheet: 'S', cell: 'B2' }] })
+    expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 10 })
   })
 
   it('gives the formula Excel offers for a typo as `correction`, as typing does', async () => {
-    expect(await source(sheet()).fill!('S', 'B1:B3', '=(1+2', 'B2')).toMatchObject({ ok: false, reason: 'invalid', correction: '=(1+2)', cells: [{ sheet: 'S', cell: 'B2' }] })
+    expect(await source(sheet()).fill!('S', 'B1:B3', '=(1+2', 'B2')).toMatchObject({ ok: false, reason: 'invalid', correction: '=(1+2)' })
   })
 
   it('refuses every cell when the active cell\'s stop rule does not take the value', async () => {
@@ -72,7 +72,6 @@ describe('localSource: Control+Return', () => {
       ok: false,
       reason: 'refused',
       message: 'Только больше нуля',
-      cells: [{ sheet: 'S', cell: 'D1' }],
       alert: { severity: 'stop', message: 'Только больше нуля', sheet: 'S', cell: 'D1' },
     })
     expect((await win(s, 'S', 1, 2, 4, 1)).values).toEqual([[1], [null]])

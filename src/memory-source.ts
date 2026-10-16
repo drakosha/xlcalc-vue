@@ -30,8 +30,6 @@ export interface MemoryCell {
   note?: { author?: string; text: string }
   /** List mode: the cell is a drill-down (`SheetWindow.drill`). */
   drill?: true
-  /** An old-style data bar (`SheetWindow.bars`); `appearance` takes its place where both are given. */
-  bar?: { ratio: number; color: string }
   /** What conditional formats give the cell, as xlcalc computes it (`ConditionalAppearance`); the book in memory keeps it as given. */
   appearance?: ConditionalAppearance
 }
@@ -320,7 +318,6 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       merges: [],
       defaultRowHeight: store.sheet.defaultRowHeight,
       tables: store.sheet.tables ?? [],
-      bars: {},
       appearance: {},
       links: {},
       notes: {},
@@ -348,7 +345,6 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         if (cell.link) win.links![addr] = cell.link
         if (cell.note) win.notes![addr] = cell.note
         if (cell.drill) win.drill![addr] = true
-        if (cell.bar) win.bars![addr] = cell.bar
         if (cell.appearance) win.appearance![addr] = cell.appearance
       }
       win.text.push(text)
@@ -471,7 +467,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         const rows = visibleList(query(store), filter)
         if (rows) lists.set(store, { key: filterKey(filter), rows })
         else lists.delete(store)
-        return { rows, total: store.maxRow }
+        return { rows }
       }, signal),
     columnValues: (sheet, col, filter, signal) => wait(() => columnList(query(storeOrThrow(sheet)), col, filter), signal),
     stats: (sheet, range, filter, signal) =>

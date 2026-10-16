@@ -6,23 +6,20 @@ import type { CellUpdate, EditOutcome } from '../source'
 
 export const failed = (message: string): EditOutcome => ({ ok: false, reason: 'failed', message })
 
-/** An exception of the session as an outcome: input the book refuses, a busy calculator, anything else failed. */
+/** An exception of the session as an outcome: input the book refuses as `input`, anything else (a busy calculator too) failed. */
 export function outcomeOf(e: unknown, input: 'refused' | 'failed'): EditOutcome {
-  const err = e as { name?: string; code?: string; message?: string }
+  const err = e as { name?: string; message?: string }
   const message = err?.message ?? String(e)
-  if (err?.name === 'InputError') return { ok: false, reason: input, message }
-  if (err?.name === 'CalcError' && (err.code === 'soft_timeout' || err.code === 'queue_full' || err.code === 'aborted')) return { ok: false, reason: 'busy', message }
-  return failed(message)
+  return err?.name === 'InputError' ? { ok: false, reason: input, message } : failed(message)
 }
 
 /** Codes of a formula Excel does not take as typed: its window says where (`invalid` with `at`). */
 const INVALID = new Set(['syntax', 'empty', 'too_long', 'too_deep'])
 
-/** A text the session did not take, with its cell: a formula that does not read is invalid at its place, with the correction Excel offers, the rest refused. */
-export function refusalOf(r: { code: string; message: string; at?: number; correction?: string; sheet: string; cell: string }): EditOutcome {
-  const cells = [{ sheet: r.sheet, cell: r.cell }]
-  if (INVALID.has(r.code)) return { ok: false, reason: 'invalid', message: r.message, ...(r.at !== undefined ? { at: r.at } : {}), ...(r.correction !== undefined ? { correction: r.correction } : {}), cells }
-  return { ok: false, reason: 'refused', message: r.message, cells }
+/** A text the session did not take: a formula that does not read is invalid at its place, with the correction Excel offers, the rest refused. */
+export function refusalOf(r: { code: string; message: string; at?: number; correction?: string }): EditOutcome {
+  if (INVALID.has(r.code)) return { ok: false, reason: 'invalid', message: r.message, ...(r.at !== undefined ? { at: r.at } : {}), ...(r.correction !== undefined ? { correction: r.correction } : {}) }
+  return { ok: false, reason: 'refused', message: r.message }
 }
 
 /** A cell of a window as the update of an edited cell: its formula as shown and the text it opens with. */

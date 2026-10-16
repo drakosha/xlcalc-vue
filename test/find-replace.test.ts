@@ -73,7 +73,7 @@ describe('Find', () => {
     fakeTimers()
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 'x', C1: 'x', A3: 'x', C3: 'x' } }] })
     // Excel's Find on a filtered sheet with row 2 and column B hidden gives the blocks' cells first: A1, C1, A3, C3 by columns too
-    vi.spyOn(source, 'find').mockResolvedValue({ hits: [{ row: 1, col: 1, text: 'x' }, { row: 1, col: 3, text: 'x' }, { row: 3, col: 1, text: 'x' }, { row: 3, col: 3, text: 'x' }], total: 4 })
+    vi.spyOn(source, 'find').mockResolvedValue({ hits: [{ row: 1, col: 1 }, { row: 1, col: 3 }, { row: 3, col: 1 }, { row: 3, col: 3 }], total: 4 })
     const w = await mountSheet(source)
     await search(w, 'x')
     expect(active(w)).toBe('1:3')

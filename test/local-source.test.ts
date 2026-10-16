@@ -93,11 +93,11 @@ describe('localSource: search, display filter, totals', () => {
     const s = source()
     expect(await s.find({ sheet: 'Лист1', query: 'С', lookIn: 'values' })).toEqual({
       hits: [
-        { row: 1, col: 2, text: 'с примечанием' },
-        { row: 2, col: 2, text: 'ссылка' },
-        { row: 3, col: 2, text: 'на лист' },
-        { row: 4, col: 2, text: 'место' },
-        { row: 5, col: 4, text: 'строка' },
+        { row: 1, col: 2 },
+        { row: 2, col: 2 },
+        { row: 3, col: 2 },
+        { row: 4, col: 2 },
+        { row: 5, col: 4 },
       ],
       total: 5,
     })
@@ -106,12 +106,12 @@ describe('localSource: search, display filter, totals', () => {
 
   it('filters and sorts the display, the head stays on top', async () => {
     const s = source()
-    expect(await s.visibleRows('Список', { head: 1 })).toEqual({ rows: null, total: 6 })
-    expect(await s.visibleRows('Список', { head: 1, cols: { 1: { values: ['б'] } } })).toEqual({ rows: [1, 2, 4], total: 6 })
-    expect(await s.visibleRows('Список', { head: 1, cols: { 1: { text: 'А' } } })).toEqual({ rows: [1, 3], total: 6 })
+    expect(await s.visibleRows('Список', { head: 1 })).toEqual({ rows: null })
+    expect(await s.visibleRows('Список', { head: 1, cols: { 1: { values: ['б'] } } })).toEqual({ rows: [1, 2, 4] })
+    expect(await s.visibleRows('Список', { head: 1, cols: { 1: { text: 'А' } } })).toEqual({ rows: [1, 3] })
     // numbers by value before text, empty cells last
-    expect(await s.visibleRows('Список', { head: 1, sort: { col: 2, dir: 'asc' } })).toEqual({ rows: [1, 6, 2, 5, 3, 4], total: 6 })
-    expect(await s.visibleRows('Список', { head: 1, sort: { col: 1, dir: 'desc' } })).toEqual({ rows: [1, 6, 2, 4, 3, 5], total: 6 })
+    expect(await s.visibleRows('Список', { head: 1, sort: { col: 2, dir: 'asc' } })).toEqual({ rows: [1, 6, 2, 5, 3, 4] })
+    expect(await s.visibleRows('Список', { head: 1, sort: { col: 1, dir: 'desc' } })).toEqual({ rows: [1, 6, 2, 4, 3, 5] })
   })
 
   it('gives a filtered window by display index', async () => {
@@ -182,7 +182,7 @@ describe('localSource: search, display filter, totals', () => {
   it('searches after an edit with the new text', async () => {
     const s = source()
     await s.edit([{ sheet: 'Список', cell: 'A5', text: 'бета' }])
-    expect((await s.find({ sheet: 'Список', query: 'бет' })).hits).toEqual([{ row: 5, col: 1, text: 'бета' }])
+    expect((await s.find({ sheet: 'Список', query: 'бет' })).hits).toEqual([{ row: 5, col: 1 }])
   })
 })
 

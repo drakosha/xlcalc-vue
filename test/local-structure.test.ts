@@ -82,7 +82,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect(got.ok).toBe(true)
     expect(events).toEqual([{ kind: 'reload' }])
     expect((await win(s, 'Список', 3, 1, 1, 5)).text).toEqual([['', '', '', 'а', '30']])
-    expect((await s.find({ sheet: 'Список', query: 'а' })).hits).toEqual([{ row: 3, col: 4, text: 'а' }])
+    expect((await s.find({ sheet: 'Список', query: 'а' })).hits).toEqual([{ row: 3, col: 4 }])
   })
 
   it('copyRange: a formula is copied with its references moved', async () => {

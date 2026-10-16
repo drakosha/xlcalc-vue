@@ -2,7 +2,7 @@
 // Rows of windows are display indexes (`d`): with a display filter they are places in its list, not the sheet's rows.
 import { computed, ref, shallowRef, type ShallowRef } from 'vue'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
-import type { BarLook, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
+import type { CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import type { CellUpdate, SheetWindow, WindowRequest } from '../source'
 import { lookStyle } from './conditional'
 import { DEFAULT_ROW_PT, rowPx, type Geometry } from './geometry'
@@ -72,20 +72,13 @@ export interface CellData {
   color: string | undefined
   link: NonNullable<SheetWindow['links']>[string] | undefined
   note: NonNullable<SheetWindow['notes']>[string] | undefined
-  /** What conditional formats give the cell; a window's old `bars` come as a bar of it. */
+  /** What conditional formats give the cell. */
   look: ConditionalAppearance | undefined
   loaded: boolean
 }
 
-/** A cell's look: its appearance, else its share of the old `bars` as a gradient bar from the left edge. */
-function lookOf(w: SheetWindow, addr: string): ConditionalAppearance | undefined {
-  const look = w.appearance?.[addr]
-  if (look) return look
-  const old = w.bars?.[addr]
-  if (!old) return undefined
-  const bar: BarLook = { start: 0, end: old.ratio, color: old.color, gradient: true }
-  return { bar }
-}
+/** A cell's look: what the conditional formats give it. */
+const lookOf = (w: SheetWindow, addr: string): ConditionalAppearance | undefined => w.appearance?.[addr]
 /** The style a window's cell shows: its own (or its row's, column's), with a conditional format's over it. */
 function shownStyle(w: SheetWindow, addr: string, look: ConditionalAppearance | undefined): CellStyle | undefined {
   const id = w.styleIds[addr]

@@ -74,7 +74,7 @@ describe('cell style', () => {
           name: 'S',
           cells: {
             A1: { value: -1, text: '(1)', color: '#ff0000', note: { author: 'Ann', text: 'Check it' } },
-            B1: { value: 3, bar: { ratio: 0.25, color: '#638ec6' } },
+            B1: { value: 3, appearance: { bar: { start: 0, end: 0.25, color: '#638ec6', gradient: true } } },
             B3: 'Name',
             B4: 'x',
           },

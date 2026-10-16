@@ -12,7 +12,7 @@ const book = (): MemoryBook => ({
       locked: [{ range: 'A1:A2', reason: 'script' }],
       cells: {
         A1: 'head',
-        B2: { value: 1.5, text: '1,50', style: 1, color: '#ff0000', formula: 'A2*3', link: { href: 'https://example.org' }, note: { text: 'n' }, bar: { ratio: 0.5, color: '#00f' } },
+        B2: { value: 1.5, text: '1,50', style: 1, color: '#ff0000', formula: 'A2*3', link: { href: 'https://example.org' }, note: { text: 'n' } },
         C3: true,
         D4: { error: 'DIV0' },
       },
@@ -57,7 +57,6 @@ describe('memorySource', () => {
     expect(w.tables).toEqual([{ name: 'T', range: 'A1:B2', headerRow: 1 }])
     expect(w.links).toEqual({ B2: { href: 'https://example.org' } })
     expect(w.notes).toEqual({ B2: { text: 'n' } })
-    expect(w.bars).toEqual({ B2: { ratio: 0.5, color: '#00f' } })
     expect(w.notice).toBe('computed')
     const right = (await memorySource(book()).window({ sheet: 'S', row: 1, rows: 3, col: 5, cols: 2 })) as SheetWindow
     expect(right.merges).toEqual(['E1:F2'])
@@ -162,7 +161,7 @@ describe('memorySource', () => {
 
     it('visibleRows: the header first, conditions on values and substrings, Excel’s sort with empty cells last', async () => {
       const src = memorySource(table())
-      expect(await src.visibleRows!('T', { head: 1 })).toEqual({ rows: null, total: 6 })
+      expect(await src.visibleRows!('T', { head: 1 })).toEqual({ rows: null })
       expect((await src.visibleRows!('T', { head: 1, cols: { 1: { values: ['a', 'b'] } } })).rows).toEqual([1, 2, 3, 5, 6])
       expect((await src.visibleRows!('T', { head: 1, cols: { 3: { text: 'APP' } } })).rows).toEqual([1, 5, 6])
       expect((await src.visibleRows!('T', { head: 1, sort: { col: 2, dir: 'asc' } })).rows).toEqual([1, 5, 2, 3, 4, 6])
@@ -194,8 +193,8 @@ describe('memorySource', () => {
       const src = memorySource(table())
       expect(await src.find!({ sheet: 'T', query: 'APP' })).toEqual({
         hits: [
-          { row: 5, col: 3, text: 'Apple' },
-          { row: 6, col: 3, text: 'apple pie' },
+          { row: 5, col: 3 },
+          { row: 6, col: 3 },
         ],
         total: 2,
       })
@@ -214,16 +213,16 @@ describe('memorySource', () => {
 
     it('find: Excel’s options, in formulas (the default) or in shown values, a range, by columns', async () => {
       const src = memorySource(sums())
-      const at = async (req: Partial<FindRequest>) => (await src.find!({ sheet: 'F', query: '', ...req })).hits.map((h) => `${h.row}:${h.col} ${h.text}`)
-      expect(await at({ query: 'sum' })).toEqual(['1:2 sum of', '3:1 =SUM(A1:A2)', '3:2 Sum'])
-      expect(await at({ query: 'sum', lookIn: 'values' })).toEqual(['1:2 sum of', '3:2 Sum'])
-      expect(await at({ query: '1.5' })).toEqual(['2:1 1.5'])
-      expect(await at({ query: '1,5', lookIn: 'values' })).toEqual(['2:1 1,50', '3:1 11,50'])
-      expect(await at({ query: "'0" })).toEqual(["2:2 '007"])
-      expect(await at({ query: 'sum', matchCase: true })).toEqual(['1:2 sum of'])
-      expect(await at({ query: 'sum', wholeCell: true })).toEqual(['3:2 Sum'])
-      expect(await at({ query: 's*', range: 'B2:B3', lookIn: 'values' })).toEqual(['3:2 Sum'])
-      expect(await at({ query: '1', byColumns: true })).toEqual(['1:1 10', '2:1 1.5', '3:1 =SUM(A1:A2)'])
+      const at = async (req: Partial<FindRequest>) => (await src.find!({ sheet: 'F', query: '', ...req })).hits.map((h) => `${h.row}:${h.col}`)
+      expect(await at({ query: 'sum' })).toEqual(['1:2', '3:1', '3:2'])
+      expect(await at({ query: 'sum', lookIn: 'values' })).toEqual(['1:2', '3:2'])
+      expect(await at({ query: '1.5' })).toEqual(['2:1'])
+      expect(await at({ query: '1,5', lookIn: 'values' })).toEqual(['2:1', '3:1'])
+      expect(await at({ query: "'0" })).toEqual(['2:2'])
+      expect(await at({ query: 'sum', matchCase: true })).toEqual(['1:2'])
+      expect(await at({ query: 'sum', wholeCell: true })).toEqual(['3:2'])
+      expect(await at({ query: 's*', range: 'B2:B3', lookIn: 'values' })).toEqual(['3:2'])
+      expect(await at({ query: '1', byColumns: true })).toEqual(['1:1', '2:1', '3:1'])
       expect(await at({ query: '' })).toEqual([])
     })
 

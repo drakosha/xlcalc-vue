@@ -35,7 +35,6 @@ describe('memorySource: data validation', () => {
       ok: false,
       reason: 'refused',
       message: 'От 1 до 10',
-      cells: [{ sheet: 'S', cell: 'B2' }],
       alert: { severity: 'stop', title: 'Число', message: 'От 1 до 10', sheet: 'S', cell: 'B2' },
     })
     expect(await src.edit!([{ sheet: 'S', cell: 'B2', text: '2.5' }])).toMatchObject({ ok: false, alert: { severity: 'stop' } })
@@ -44,7 +43,6 @@ describe('memorySource: data validation', () => {
       ok: false,
       reason: 'refused',
       message: "This value doesn't match the data validation restrictions defined for this cell.",
-      cells: [{ sheet: 'S', cell: 'A2' }],
       alert: { severity: 'stop', message: "This value doesn't match the data validation restrictions defined for this cell.", sheet: 'S', cell: 'A2' },
     })
     expect(await src.edit!([{ sheet: 'S', cell: 'D2', text: '-1' }])).toMatchObject({ ok: false, alert: { severity: 'warning', cell: 'D2' } })

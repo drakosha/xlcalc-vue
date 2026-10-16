@@ -59,7 +59,7 @@ export function memoryRefusal(entries: CellEntry[], rulesOf: (sheet: string) => 
     const title = rule.alert?.title
     worst = { severity, ...(title ? { title } : {}), message: rule.alert?.message ?? EXCEL_MESSAGE, sheet: e.sheet, cell: e.cell.toUpperCase() }
   }
-  return worst && { ok: false, reason: 'refused', message: worst.message, cells: [{ sheet: worst.sheet, cell: worst.cell }], alert: worst }
+  return worst && { ok: false, reason: 'refused', message: worst.message, alert: worst }
 }
 
 /** Whether a rule takes a typed text: a blank and a formula (no engine computes it) pass, as Excel's Ignore blank. */

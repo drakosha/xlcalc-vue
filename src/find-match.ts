@@ -68,7 +68,7 @@ export function findCells(each: EachCell, req: FindRequest, visible: Set<number>
   const after = req.after ? parseCell(req.after) : null
   const from = after ? sorted.findIndex((c) => order(c, after) > 0) : 0
   const round = from > 0 ? sorted.slice(from).concat(sorted.slice(0, from)) : sorted
-  return { hits: round.slice(0, max), total: found.length }
+  return { hits: round.slice(0, max).map(({ row, col }) => ({ row, col })), total: found.length }
 }
 
 /**

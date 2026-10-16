@@ -542,11 +542,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const s = await open()
       if (!filterActive(filter)) {
         lists.delete(nameKey(sheet))
-        return { rows: null, total: (await s.getUsedRange(sheet)).rows }
+        return { rows: null }
       }
-      const [rows, used] = await Promise.all([rowsUnder(s, sheet, filter, true), s.getUsedRange(sheet)])
+      const rows = await rowsUnder(s, sheet, filter, true)
       throwIfAborted(signal)
-      return { rows, total: used.rows }
+      return { rows }
     },
     async columnValues(sheet, col, filter, signal) {
       const s = await open()

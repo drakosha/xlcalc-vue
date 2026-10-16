@@ -266,7 +266,7 @@ export function serverSource(base: string): SheetSource {
 | `find(req: FindRequest, signal?) => Promise<FindResult>` | Find. | No search. | [find-replace.md](find-replace.md) |
 | `replace(req: FindRequest, by) => Promise<ReplaceOutcome>` | Replace. | No replace row. | [find-replace.md](find-replace.md) |
 | `outline(change: OutlineChange)` | The outline's buttons, Group and Ungroup. | The bars are drawn and do not press. | [sheets.md](sheets.md) |
-| `visibleRows(sheet, filter, signal?) => Promise<{ rows: number[] \| null; total }>` | The display filter and sort. | No filter. | [view.md](view.md) |
+| `visibleRows(sheet, filter, signal?) => Promise<{ rows: number[] \| null }>` | The display filter and sort. | No filter. | [view.md](view.md) |
 | `columnValues(sheet, col, filter, signal?) => Promise<{ values: { text; count }[]; more }>` | The filter funnel's list of values. | No list in the funnel. | |
 
 | Property | Type | Meaning |
@@ -296,7 +296,6 @@ export function serverSource(base: string): SheetSource {
 | `merges` | `string[]` | Merged areas. |
 | `tables` | `{ name; range; headerRow }[]?` | Tables, whose header and border are drawn. |
 | `appearance` | `Record<string, ConditionalAppearance>?` | What conditional formats give cells, as xlcalc computes it. |
-| `bars` | `Record<string, { ratio; color }>?` | Old-style data bars; `appearance` takes their place. |
 | `links` | `Record<string, { href?; location?; tooltip?; target? }>?` | Hyperlinks. |
 | `notes` | `Record<string, { author?; text }>?` | Notes. |
 | `notice` | `string?` | A notice above the grid. |
@@ -325,7 +324,7 @@ export function serverSource(base: string): SheetSource {
 `EditOutcome` is one of:
 
 - `{ ok: true; changes: CellUpdate[]; select?: { sheet; range } }`: `select` is where the selection goes after `paste`, `fill`, `undo` or `redo`.
-- `{ ok: false; reason; message; cells?; at?; correction?; alert? }`, where `reason` is `'conflict'` (the book changed elsewhere), `'refused'` (locked or not allowed), `'invalid'` (the formula does not parse; `at` is the position in the typed text; `correction` the formula Excel offers instead in its "We found a typo" window, which the sheet asks to accept), `'busy'` (try again later) or `'failed'`. `alert` (`SheetValidationAlert`) makes the sheet show Excel's validation alert.
+- `{ ok: false; reason; message; at?; correction?; alert? }`, where `reason` is `'conflict'` (the book changed elsewhere), `'refused'` (locked or not allowed), `'invalid'` (the formula does not parse; `at` is the position in the typed text; `correction` the formula Excel offers instead in its "We found a typo" window, which the sheet asks to accept) or `'failed'` (anything else). `alert` (`SheetValidationAlert`) makes the sheet show Excel's validation alert.
 
 `CellUpdate` is `{ sheet, cell, text, value, color?, formula?, editText?, numberFormat? }`; `formula`, `editText` and `numberFormat` come only for edited cells.
 
@@ -342,7 +341,7 @@ export function serverSource(base: string): SheetSource {
 | Type | Shape |
 | --- | --- |
 | `FindRequest` | `{ sheet, query, range?, matchCase?, wholeCell?, lookIn?: 'formulas' \| 'values', byColumns?, after?, filter? }`. `query` takes Excel's wildcards `*`, `?` and `~`. |
-| `FindResult` | `{ hits: { row, col, text }[]; total }` |
+| `FindResult` | `{ hits: { row, col }[]; total }` |
 | `ReplaceOutcome` | `EditOutcome & { replaced: number; refused?: { sheet, cell, message }[] }` |
 | `SheetFilter` | `{ head: number; cols?: Record<number, { values?: string[]; text?: string }>; sort?: { col; dir: 'asc' \| 'desc' } }` |
 | `RangeStats` | `{ cells, numbers, sum, min, max }` |
@@ -366,8 +365,8 @@ const messages = { ...ruMessages, loading: 'Загружаю…' }
 | Type | Shape |
 | --- | --- |
 | `MemoryBook` | `{ sheets: MemorySheet[]; styles?: CellStyle[]; functions?: string[] }`; `functions` turns on `functionNames`. |
-| `MemorySheet` | `SheetInfo` without `maxRow`, `maxCol` and `outline`, plus `cells: Record<string, MemoryCell \| CellValue>`, `widths?` (by `B` or `B:D`, xlsx units, 0 hides), `heights?` (by `5` or `5:9`, points, 0 hides), `defaultRowHeight?`, `merges?`, `tables?`, `notice?`, `outline?` (levels by line or span, `collapsed`, `summaryBelow`, `summaryRight`), `validations?: MemoryValidation[]`. |
-| `MemoryCell` | `{ value?, text?, formula?, style?, color?, link?, note?, bar?, appearance?, drill? }` |
+| `MemorySheet` | `SheetInfo` without `maxRow`, `maxCol` and `outline`, plus `cells: Record<string, MemoryCell \| CellValue>`, `widths?` (by `B`, `B:D` or `C:C`, xlsx units, 0 hides), `heights?` (by `5`, `5:9` or `5:5`, points, 0 hides), `defaultRowHeight?`, `merges?`, `tables?`, `notice?`, `outline?` (levels by line or span, `collapsed`, `summaryBelow`, `summaryRight`), `validations?: MemoryValidation[]`. |
+| `MemoryCell` | `{ value?, text?, formula?, style?, color?, link?, note?, appearance?, drill? }` |
 | `MemoryValidation` | `{ range; list?: string[]; whole?: { min?; max? }; prompt?: { title?; text }; alert?: { severity?; title?; message? } }` |
 | `MemorySourceOptions` | `{ delay?: number; maxCells?: number }`; `delay` makes every answer take that many milliseconds. |
 

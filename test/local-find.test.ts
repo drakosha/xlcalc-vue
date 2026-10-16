@@ -4,6 +4,7 @@
 // Find's order; under the display filter only its rows. Replace All in one step of undo.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BookInput, CellInput } from 'xlcalc'
+import { cellAddress } from 'xlcalc/a1'
 import type { FindRequest, SourceEvent } from '../src/source'
 import { closeAll, source, win } from './local-fixture'
 
@@ -11,9 +12,16 @@ afterEach(closeAll)
 
 type Query = Partial<FindRequest> & { query: string }
 
-/** Hits as `row:col text`. */
+/** Hits as `row:col text`, with the text Find read: what the cell shows, or in formulas the text it opens with. */
 async function found(s: ReturnType<typeof source>, req: Query & { sheet: string }): Promise<string[]> {
-  return (await s.find(req)).hits.map((h) => `${h.row}:${h.col} ${h.text}`)
+  const hits = (await s.find(req)).hits
+  return Promise.all(
+    hits.map(async (h) => {
+      const w = await win(s, req.sheet, h.row, 1, h.col, 1)
+      const shown = w.text[0]![0]!
+      return `${h.row}:${h.col} ${req.lookIn === 'values' ? shown : (w.editText?.[cellAddress(h.row, h.col)] ?? shown)}`
+    }),
+  )
 }
 /** Hits on sheet S as `row:col`. */
 async function at(s: ReturnType<typeof source>, req: Query): Promise<string[]> {
@@ -65,7 +73,7 @@ describe('localSource: find', () => {
     expect(await found(s, { sheet: 'Таблица', query: '[@' })).toEqual(['2:3 =[@Сумма]*2', '3:3 =[@Сумма]*2'])
   })
 
-  it('gives as the hit’s text what Find read: the shown text, or in formulas the text the cell opens with', async () => {
+  it('reads the shown text, or in formulas the text the cell opens with', async () => {
     const s = source(formats())
     expect(await found(s, { sheet: 'S', query: '1250,5' })).toEqual(['1:2 1250,5'])
     expect(await found(s, { sheet: 'S', query: '1250,5', lookIn: 'values' })).toEqual(['1:5 1250,55'])

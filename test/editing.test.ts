@@ -301,8 +301,8 @@ describe('outcomes', () => {
     }
   })
 
-  it('refused, busy and failed: the cell comes back as it was, with a message', async () => {
-    for (const reason of ['refused', 'busy', 'failed'] as const) {
+  it('refused and failed: the cell comes back as it was, with a message', async () => {
+    for (const reason of ['refused', 'failed'] as const) {
       const h = held({ ok: false, reason, message: `no: ${reason}` })
       const w = await mountSheet(h.source)
       await key(w, 'z')
