@@ -194,20 +194,6 @@
   font: inherit;
   cursor: pointer;
 }
-.xs-fmt-swatches {
-  display: grid;
-  grid-template-columns: repeat(10, 20px);
-  gap: 4px;
-}
-.xs-fmt-swatch {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 1px solid rgb(0 0 0 / 0.18);
-  border-radius: 3px;
-  cursor: pointer;
-}
-.xs-fmt-swatch[aria-pressed='true'],
 .xs-fmt-none[aria-pressed='true'] {
   outline: 2px solid var(--xs-accent);
   outline-offset: 1px;
@@ -370,13 +356,10 @@
     width: 44px;
     height: 44px;
   }
-  .xs-fmt-swatches {
-    grid-template-columns: repeat(5, 44px);
+  .xs-fmt .xs-swatches {
+    --xs-swatch: var(--xs-touch-target);
+    grid-template-columns: repeat(5, var(--xs-swatch));
     gap: 6px;
-  }
-  .xs-fmt-swatch {
-    width: 44px;
-    height: 44px;
   }
   .xs-fmt-edges .xs-fmt-preview {
     min-height: 150px;

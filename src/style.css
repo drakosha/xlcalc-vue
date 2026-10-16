@@ -35,6 +35,8 @@
   --xs-shadow-modal: 0 10px 30px rgb(0 0 0 / 0.25);
   --xs-z-modal: 50;
   --xs-z-alert: 55;
+  /* internal: a target under a finger (buttons, fields, items); the lists' items are laid out by TOUCH_PX in components/popup.ts, the same 44 */
+  --xs-touch-target: 44px;
 }
 .xs-sheet {
   position: relative;

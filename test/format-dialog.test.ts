@@ -29,7 +29,7 @@ describe('FormatDialog', () => {
     expect(w.find('[data-fmt-category]').text()).toBe('Category: Percentage')
     expect([value(w, '[data-fmt-font-style]'), value(w, '[data-fmt-font-size]')]).toEqual(['bold', '14'])
     expect([value(w, '[data-fmt-horizontal]'), value(w, '[data-fmt-indent]'), value(w, '[data-fmt-vertical]')]).toEqual(['right', '2', 'bottom'])
-    expect(w.find('[data-fmt-colour-of="fill"] [aria-pressed="true"]').attributes('data-fmt-colour')).toBe('#FFFF00')
+    expect(w.find('[data-fmt-colour-of="fill"] [aria-pressed="true"]').attributes('data-xs-colour')).toBe('#FFFF00')
     expect(w.find('[data-fmt-colour-of="font"] [data-fmt-colour-none]').attributes('aria-pressed')).toBe('true')
   })
 
@@ -38,7 +38,7 @@ describe('FormatDialog', () => {
     await tab(w, 'font')
     await w.find('[data-fmt-font-style]').setValue('italic')
     await w.find('[data-fmt-font-size]').setValue('12')
-    await w.find('[data-fmt-colour-of="font"] [data-fmt-colour="#C00000"]').trigger('click')
+    await w.find('[data-fmt-colour-of="font"] [data-xs-colour="#C00000"]').trigger('click')
     await tab(w, 'fill')
     await w.find('[data-fmt-colour-of="fill"] [data-fmt-colour-code]').setValue('92d050')
     await okButton(w).trigger('submit')

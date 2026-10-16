@@ -2,7 +2,7 @@
 // A colour of the Format Cells dialog: Automatic or No Color, Excel's palette as on the toolbar, and a #RRGGBB field.
 import { ref, watch } from 'vue'
 import type { SheetMessages } from '../messages'
-import { PALETTE } from '../toolbar'
+import ColourSwatches from './ColourSwatches.vue'
 
 const props = defineProps<{
   /** `#RRGGBB`, or null for the choice without a colour. */
@@ -58,20 +58,7 @@ function typed(): void {
 <template>
   <div class="xs-fmt-colour" :data-fmt-colour-of="name">
     <button type="button" class="xs-fmt-none" :aria-pressed="!modelValue" data-fmt-colour-none @click="pick(null)">{{ noneLabel }}</button>
-    <div class="xs-fmt-swatches" role="group" :aria-label="messages.fmtColour">
-      <button
-        v-for="(c, i) in PALETTE"
-        :key="i"
-        type="button"
-        class="xs-fmt-swatch"
-        :style="{ backgroundColor: c }"
-        :title="c"
-        :aria-label="c"
-        :aria-pressed="modelValue === c"
-        :data-fmt-colour="c"
-        @click="pick(c)"
-      />
-    </div>
+    <ColourSwatches :model-value="modelValue" :label="messages.fmtColour" @update:model-value="pick" />
     <label class="xs-fmt-field">
       <span>{{ messages.fmtColourCode }}</span>
       <input v-model="code" class="xs-fmt-input xs-fmt-hex" type="text" maxlength="7" spellcheck="false" autocomplete="off" placeholder="#RRGGBB" :aria-invalid="bad" data-fmt-colour-code @input="typed" />

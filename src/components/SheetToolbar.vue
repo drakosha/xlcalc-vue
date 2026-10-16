@@ -4,7 +4,7 @@
 // Excel's Number Format box (xlcalc's, in the book's locale) over the selection the sheet's `state` event gives, and
 // Format Cells for a host that shows the dialog. On a narrow frame what does not fit
 // goes into a menu; on a finger every target is 44 × 44 px.
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { SheetViewApi } from '../core/commands'
 import type { MergeCommand } from '../core/merge'
 import type { SheetViewState } from '../core/sheet'
@@ -18,7 +18,6 @@ import {
   FIRST_FONT_COLOUR,
   fontOn,
   fontToggle,
-  PALETTE,
   upperColour,
   wrapToggle,
   type BorderKind,
@@ -26,6 +25,7 @@ import {
   type HorizontalAlign,
   type ToolbarSource,
 } from '../toolbar'
+import ColourSwatches from './ColourSwatches.vue'
 import { IconDown } from './icons'
 import { useOutsidePress } from './popup'
 import {
@@ -112,6 +112,12 @@ const BORDERS: { kind: BorderKind; icon: typeof IconBold; title: keyof SheetMess
 /** Excel's list under Merge & Center: each item is named by its command's text, its hook (`data-tb`) is the command in kebab case. */
 const MERGES: readonly MergeCommand[] = ['mergeCenter', 'mergeAcross', 'mergeCells', 'unmergeCells']
 const kebab = (name: string) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
+/** Excel's split buttons of the font's and the fill's colours: the button applies the last colour, the menu the choice without one and the palette. */
+type Colouring = 'font' | 'fill'
+const COLOURS: { what: Colouring; icon: typeof IconFontColour; title: keyof SheetMessages; none: keyof SheetMessages; noneHook: string }[] = [
+  { what: 'font', icon: IconFontColour, title: 'fontColour', none: 'colourAuto', noneHook: 'colour-auto' },
+  { what: 'fill', icon: IconFillColour, title: 'fillColour', none: 'fillNone', noneHook: 'fill-none' },
+]
 const text = (key: keyof SheetMessages) => m.value[key] as string
 
 // ── what the active cell shows ──
@@ -218,17 +224,13 @@ async function step(kind: 'undo' | 'redo'): Promise<void> {
 }
 
 // The split buttons apply the colour picked last, as Excel's do.
-const lastFont = ref(FIRST_FONT_COLOUR)
-const lastFill = ref(FIRST_FILL_COLOUR)
-function paintFont(colour: string | null): void {
-  if (colour) lastFont.value = colour
+const last = reactive<Record<Colouring, string>>({ font: FIRST_FONT_COLOUR, fill: FIRST_FILL_COLOUR })
+const shown = computed<Record<Colouring, string | null>>(() => ({ font: fontColour.value, fill: fillColour.value }))
+/** A colour, or none (Automatic, No fill), on the text or the fill of the selection. */
+function paint(what: Colouring, colour: string | null): void {
+  if (colour) last[what] = colour
   open.value = null
-  apply(over({ style: { font: { color: colour } } }))
-}
-function paintFill(colour: string | null): void {
-  if (colour) lastFill.value = colour
-  open.value = null
-  apply(over({ style: { fill: colour ? { color: colour } : null } }))
+  apply(over({ style: what === 'font' ? { font: { color: colour } } : { fill: colour ? { color: colour } : null } }))
 }
 function border(kind: BorderKind): void {
   open.value = null
@@ -307,54 +309,25 @@ function pickNumber(e: Event): void {
         </select>
       </span>
       <span class="xs-tb-group">
-        <span class="xs-tb-split">
-          <button type="button" class="xs-tool" data-tb="font-colour" :title="m.fontColour" :aria-label="m.fontColour" :disabled="!state" @click="paintFont(lastFont)">
-            <IconFontColour :colour="lastFont" />
+        <span v-for="c in COLOURS" :key="c.what" class="xs-tb-split">
+          <button type="button" class="xs-tool" :data-tb="`${c.what}-colour`" :title="text(c.title)" :aria-label="text(c.title)" :disabled="!state" @click="paint(c.what, last[c.what])">
+            <component :is="c.icon" :colour="last[c.what]" />
           </button>
-          <button type="button" class="xs-tool xs-tb-caret" data-tb="font-palette" :title="m.pickColour" :aria-label="m.pickColour" :aria-expanded="open === 'font'" :disabled="!state" @click="toggle('font')">
+          <button
+            type="button"
+            class="xs-tool xs-tb-caret"
+            :data-tb="`${c.what}-palette`"
+            :title="m.pickColour"
+            :aria-label="m.pickColour"
+            :aria-expanded="open === c.what"
+            :disabled="!state"
+            @click="toggle(c.what)"
+          >
             <IconDown />
           </button>
-          <div v-if="open === 'font'" class="xs-tb-pop" role="group" :aria-label="m.fontColour">
-            <button type="button" class="xs-tb-item" data-tb="colour-auto" :aria-pressed="!fontColour" @click="paintFont(null)">{{ m.colourAuto }}</button>
-            <div class="xs-tb-swatches">
-              <button
-                v-for="(c, i) in PALETTE"
-                :key="i"
-                type="button"
-                class="xs-tb-swatch"
-                :style="{ backgroundColor: c }"
-                :title="c"
-                :aria-label="c"
-                :data-tb-colour="c"
-                :aria-pressed="fontColour === c"
-                @click="paintFont(c)"
-              />
-            </div>
-          </div>
-        </span>
-        <span class="xs-tb-split">
-          <button type="button" class="xs-tool" data-tb="fill-colour" :title="m.fillColour" :aria-label="m.fillColour" :disabled="!state" @click="paintFill(lastFill)">
-            <IconFillColour :colour="lastFill" />
-          </button>
-          <button type="button" class="xs-tool xs-tb-caret" data-tb="fill-palette" :title="m.pickColour" :aria-label="m.pickColour" :aria-expanded="open === 'fill'" :disabled="!state" @click="toggle('fill')">
-            <IconDown />
-          </button>
-          <div v-if="open === 'fill'" class="xs-tb-pop" role="group" :aria-label="m.fillColour">
-            <button type="button" class="xs-tb-item" data-tb="fill-none" :aria-pressed="!fillColour" @click="paintFill(null)">{{ m.fillNone }}</button>
-            <div class="xs-tb-swatches">
-              <button
-                v-for="(c, i) in PALETTE"
-                :key="i"
-                type="button"
-                class="xs-tb-swatch"
-                :style="{ backgroundColor: c }"
-                :title="c"
-                :aria-label="c"
-                :data-tb-colour="c"
-                :aria-pressed="fillColour === c"
-                @click="paintFill(c)"
-              />
-            </div>
+          <div v-if="open === c.what" class="xs-tb-pop" role="group" :aria-label="text(c.title)">
+            <button type="button" class="xs-tb-item" :data-tb="c.noneHook" :aria-pressed="!shown[c.what]" @click="paint(c.what, null)">{{ text(c.none) }}</button>
+            <ColourSwatches :model-value="shown[c.what]" @update:model-value="paint(c.what, $event)" />
           </div>
         </span>
       </span>

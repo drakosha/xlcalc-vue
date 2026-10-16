@@ -110,22 +110,10 @@
 .xs-tb-item[aria-pressed='true'] {
   background: var(--xs-head-bg);
 }
-.xs-tb-swatches {
-  display: grid;
-  grid-template-columns: repeat(10, 18px);
+/* The palette a little smaller than the dialog's, as Excel's menu draws it (a finger's is the same, controls.css). */
+.xs-toolbar:not(.xs-touch) .xs-swatches {
+  --xs-swatch: 18px;
   gap: 3px;
-}
-.xs-tb-swatch {
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 1px solid rgb(0 0 0 / 0.18);
-  border-radius: 3px;
-  cursor: pointer;
-}
-.xs-tb-swatch[aria-pressed='true'] {
-  outline: 2px solid var(--xs-accent);
-  outline-offset: 1px;
 }
 
 /* ── a narrow frame: the first buttons in a row, the rest in a menu under the toolbar ── */
@@ -171,14 +159,6 @@
 .xs-touch .xs-tb-item {
   min-height: 44px;
   font-size: 15px;
-}
-.xs-touch .xs-tb-swatches {
-  grid-template-columns: repeat(5, 44px);
-  gap: 6px;
-}
-.xs-touch .xs-tb-swatch {
-  width: 44px;
-  height: 44px;
 }
 .xs-touch .xs-tool.xs-tb-wide {
   min-width: 56px;

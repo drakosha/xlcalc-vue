@@ -1,0 +1,26 @@
+/* Controls the sheet, the toolbar and the Format Cells dialog share, in the sheet's --xs-* variables. */
+
+/* Excel's palette (ColourSwatches.vue): ten swatches a row, five of 44 px under a finger. */
+.xs-swatches {
+  --xs-swatch: 20px;
+  display: grid;
+  grid-template-columns: repeat(10, var(--xs-swatch));
+  gap: 4px;
+}
+.xs-swatch {
+  width: var(--xs-swatch);
+  height: var(--xs-swatch);
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 0.18);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.xs-swatch[aria-pressed='true'] {
+  outline: 2px solid var(--xs-accent);
+  outline-offset: 1px;
+}
+.xs-touch .xs-swatches {
+  --xs-swatch: var(--xs-touch-target);
+  grid-template-columns: repeat(5, var(--xs-swatch));
+  gap: 6px;
+}
