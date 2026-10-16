@@ -1,8 +1,9 @@
 // What the session answers, as the sheet source answers it: refusals as outcomes, cells as updates, whether the
 // component must read the sheets and windows again, and the rectangles that hold edited cells.
-import type { CellRect, CellRef, EditResult, ViewportCell } from 'xlcalc'
+import type { CellRect, CellRef, CellTextsRefusal, EditResult, PasteTextRefusal, ViewportCell } from 'xlcalc'
 import { cellAddress, nameKey, parseCell } from 'xlcalc/a1'
 import type { CellUpdate, EditOutcome } from '../source'
+import { alertRefusalOf } from './validation'
 
 export const failed = (message: string): EditOutcome => ({ ok: false, reason: 'failed', message })
 
@@ -16,10 +17,13 @@ export function outcomeOf(e: unknown, input: 'refused' | 'failed'): EditOutcome 
 /** Codes of a formula Excel does not take as typed: its window says where (`invalid` with `at`). */
 const INVALID = new Set(['syntax', 'empty', 'too_long', 'too_deep'])
 
-/** A text the session did not take: a formula that does not read is invalid at its place, with the correction Excel offers, the rest refused. */
-export function refusalOf(r: { code: string; message: string; at?: number; correction?: string }): EditOutcome {
-  if (INVALID.has(r.code)) return { ok: false, reason: 'invalid', message: r.message, ...(r.at !== undefined ? { at: r.at } : {}), ...(r.correction !== undefined ? { correction: r.correction } : {}) }
-  return { ok: false, reason: 'refused', message: r.message }
+/** A text the session did not take: a value a rule refuses with the rule's alert, a formula that does not read invalid at its place with the correction Excel offers, the rest refused. */
+export function refusalOf(r: CellTextsRefusal | PasteTextRefusal): EditOutcome {
+  if (r.code === 'validation') return alertRefusalOf(r)
+  if (!INVALID.has(r.code)) return { ok: false, reason: 'refused', message: r.message }
+  // a paste's refusals are none of these codes
+  const { at, correction } = r as { at?: number; correction?: string }
+  return { ok: false, reason: 'invalid', message: r.message, ...(at !== undefined ? { at } : {}), ...(correction !== undefined ? { correction } : {}) }
 }
 
 /** A cell of a window as the update of an edited cell: its formula as shown and the text it opens with. */
