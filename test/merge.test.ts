@@ -129,6 +129,15 @@ describe('Merge & Center on the toolbar', () => {
     expect(alertOf(w).exists()).toBe(true)
   })
 
+  it('counts the values of the merged areas the selection meets, and of those they meet in turn, as the library merges them', async () => {
+    // C1:C2 meets B1:C1, grown to B1:C2 it meets A2:B2: the merge takes A1:C2, where A2 and C2 hold values.
+    const { source } = withStructure({ A2: 'a', C2: 'c' }, { merges: ['B1:C1', 'A2:B2'] })
+    const w = await mountBoth(source)
+    await goTo(w, 'C1:C2')
+    await pick(w, 'merge-cells')
+    expect(alertOf(w).exists()).toBe(true)
+  })
+
   it('counts the cells past the loaded windows through the source’s windows', async () => {
     const { source, structure } = withStructure({ A1: 1, A4000: 2 })
     const w = await mountBoth(source)
