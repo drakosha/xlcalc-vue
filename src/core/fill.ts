@@ -58,11 +58,8 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     return v.boxOf(u.top, u.left, u.bottom, u.right)
   })
 
-  /** The cells a drag adds with the pointer at a point of the page: along the axis it went furthest from the selection, up to the pointer's cell. */
-  function targetAt(from: CellRect, clientX: number, clientY: number): CellRect | null {
-    const el = s.scroller.value
-    if (!el) return null
-    const box = el.getBoundingClientRect()
+  /** The cells a drag adds with the pointer at a point of the page (`box` the frame's): along the axis it went furthest from the selection, up to the pointer's cell. */
+  function targetAt(from: CellRect, box: DOMRect, clientX: number, clientY: number): CellRect | null {
     const p = v.cellAt(clientX - box.left, clientY - box.top)
     const rows = geo.rowOffsets.value
     const cols = geo.offsets.value
@@ -88,11 +85,8 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     const start = Math.max(p.col, 1)
     return start < from.left ? { ...from, left: start, right: from.left - 1 } : null
   }
-  /** Scroll the grid while the pointer is at or past the frame's edge, so a drag reaches cells off screen. */
-  function edgeScroll(clientX: number, clientY: number): void {
-    const el = s.scroller.value
-    if (!el) return
-    const box = el.getBoundingClientRect()
+  /** Scroll the grid while the pointer is at or past the frame's edge (`box`), so a drag reaches cells off screen. */
+  function edgeScroll(el: HTMLElement, box: DOMRect, clientX: number, clientY: number): void {
     if (!box.height) return
     const step = (past: number) => Math.min(EDGE_STEP_PX, Math.max(0, past))
     const dy = step(clientY - (box.bottom - EDGE_PX)) - step(box.top + v.headH.value + EDGE_PX - clientY)
@@ -116,9 +110,12 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
   }
   function onMove(e: PointerEvent): void {
     const d = drag.value
-    if (!d || e.pointerId !== d.pointer) return
-    edgeScroll(e.clientX, e.clientY)
-    const to = targetAt(d.from, e.clientX, e.clientY)
+    const el = s.scroller.value
+    if (!d || e.pointerId !== d.pointer || !el) return
+    // One measure a move: the frame does not move as it scrolls, and a read after the scroll's write would lay the page out again.
+    const box = el.getBoundingClientRect()
+    edgeScroll(el, box, e.clientX, e.clientY)
+    const to = targetAt(d.from, box, e.clientX, e.clientY)
     if (to?.top !== d.to?.top || to?.left !== d.to?.left || to?.bottom !== d.to?.bottom || to?.right !== d.to?.right) drag.value = { ...d, to }
   }
   function onUp(e: PointerEvent): void {
