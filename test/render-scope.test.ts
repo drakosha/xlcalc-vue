@@ -216,4 +216,18 @@ describe('render scope', () => {
     await nextTick()
     expect(count.calls).toBe(ctx.v.shownCols.value.length)
   })
+
+  it('a scroll sideways makes the views of the columns it brings in, not of those that stay (numbers: no text runs over)', async () => {
+    const f = fakeSource([{ name: 'S', maxRow: 200, maxCol: 20 }], { cell: (_s, r, c) => String(r * 100 + c) })
+    const ctx = contextOf(await mountSheet(f.source))
+    const count = countCells(ctx)
+    const before = new Set(ctx.v.shownCols.value)
+    const rows = ctx.v.frozenRowList.value.length + ctx.v.shownRows.value.length
+    count.take()
+    ctx.scrollLeft.value = ctx.geo.offsets.value[4]!
+    await nextTick()
+    const added = ctx.v.shownCols.value.filter((c) => !before.has(c)).length
+    expect(added).toBeGreaterThan(0)
+    expect(count.calls).toBe(added * rows)
+  })
 })
