@@ -44,7 +44,7 @@ const place = computed(() => {
 
 <template>
   <div ref="el" class="xs-vp" role="tooltip" :style="place" data-xs-prompt>
-    <b v-if="prompt.title" class="xs-vp-title">{{ prompt.title }}</b>
+    <b v-if="prompt.title">{{ prompt.title }}</b>
     <span v-if="prompt.text" class="xs-vp-text">{{ prompt.text }}</span>
   </div>
 </template>
