@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // Excel's dropdown of a list rule: the arrow right of the active cell and the list of items under it (over it where the
 // view has no room below), eight at a time; the keys are the sheet's (`useValidation.onKey`): a press keeps the grid's focus.
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { LIST_ROWS, type ValidationRect } from '../core/validation'
 import { useMessages, type SheetMessages } from '../messages'
+import { keepActiveInView, listHeight, placeBelowOrAbove, TOUCH_PX, useOutsidePress } from './popup'
 
 const props = withDefaults(
   defineProps<{
@@ -24,8 +25,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   /** The arrow: open or close the list. */
   toggle: []
-  /** An item clicked: enter its text into the cell. */
-  pick: [index: number, text: string]
+  /** An item clicked: enter it into the cell. */
+  pick: [index: number]
   /** The pointer over an item: highlight it. */
   hover: [index: number]
   /** A press outside the dropdown while the list is open. */
@@ -33,10 +34,8 @@ const emit = defineEmits<{
 }>()
 
 const m = useMessages(() => props.messages)
-/** Excel's sizes: the arrow 17 × 18 px beside the cell, items of 18 px; 44 under a finger. */
+/** Excel's arrow is 17 × 18 px beside the cell; 44 under a finger. */
 const ARROW_PX = 17
-const ITEM_PX = 18
-const TOUCH_PX = 44
 const root = ref<HTMLElement | null>(null)
 const listEl = ref<HTMLElement | null>(null)
 
@@ -45,31 +44,11 @@ const anchor = computed(() => ({ top: `${props.rect.top}px`, left: `${props.rect
 /** The list as wide as the cell and its arrow, under the cell, or over it when the view has room above alone. */
 const box = computed(() => {
   const r = props.rect
-  const height = Math.min(props.items.length, LIST_ROWS) * (props.touch ? TOUCH_PX : ITEM_PX) + 2
-  const below = r.top + r.height
-  const v = props.view
-  const up = !!v && below + height > v.top + v.height && r.top - height >= v.top
-  return { left: `${r.left}px`, top: `${up ? r.top - height : below}px`, width: `${r.width + arrowW.value}px`, maxHeight: `${height}px` }
+  const height = listHeight(props.items.length, LIST_ROWS, props.touch)
+  return { left: `${r.left}px`, top: `${placeBelowOrAbove(r, height, props.view)}px`, width: `${r.width + arrowW.value}px`, maxHeight: `${height}px` }
 })
-
-// The highlighted item stays in view as the keys move it.
-watch(
-  () => [props.open, props.active] as const,
-  async ([open, i]) => {
-    if (!open || i < 0) return
-    await nextTick()
-    listEl.value?.children[i]?.scrollIntoView?.({ block: 'nearest' })
-  },
-)
-function onOutside(e: PointerEvent): void {
-  if (props.open && !root.value?.contains(e.target as Node)) emit('close')
-}
-watch(
-  () => props.open,
-  (open) => (open ? document.addEventListener('pointerdown', onOutside, true) : document.removeEventListener('pointerdown', onOutside, true)),
-  { immediate: true },
-)
-onBeforeUnmount(() => document.removeEventListener('pointerdown', onOutside, true))
+keepActiveInView(listEl, () => [props.open, props.active], () => props.active)
+useOutsidePress(root, () => emit('close'), () => props.open)
 </script>
 
 <template>
@@ -99,7 +78,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onOutside, tru
         :title="item"
         :data-xs-dropdown-item="i"
         @pointermove="i !== active && emit('hover', i)"
-        @click="emit('pick', i, item)"
+        @click="emit('pick', i)"
       >
         {{ item || ' ' }}
       </li>

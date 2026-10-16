@@ -27,7 +27,7 @@ describe('ValidationDropdown', () => {
     expect(w.emitted('toggle')).toHaveLength(1)
   })
 
-  it('lists the items under the cell as wide as the cell and its arrow, a blank one kept; a click gives the item’s text', async () => {
+  it('lists the items under the cell as wide as the cell and its arrow, a blank one kept; a click gives the item’s place', async () => {
     const w = mount(ValidationDropdown, { props: { rect: CELL, items: ITEMS, open: true, active: 1, messages: ruMessages }, attachTo: document.body })
     const list = w.find('[data-xs-dropdown-list]')
     expect([style(w, '.xs-vd-list').left, style(w, '.xs-vd-list').top, style(w, '.xs-vd-list').width]).toEqual(['100px', '60px', '81px'])
@@ -35,7 +35,7 @@ describe('ValidationDropdown', () => {
     expect(list.find('[aria-selected="true"]').text()).toBe('Нет')
     expect(w.find('[data-xs-dropdown-arrow]').attributes('title')).toBe('Выбрать из списка (Alt+↓)')
     await w.find('[data-xs-dropdown-item="3"]').trigger('click')
-    expect(w.emitted('pick')).toEqual([[3, 'Может быть']])
+    expect(w.emitted('pick')).toEqual([[3]])
     await w.find('[data-xs-dropdown-item="0"]').trigger('pointermove')
     expect(w.emitted('hover')).toEqual([[0]])
   })

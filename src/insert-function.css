@@ -55,6 +55,7 @@
 }
 /* The list: eight names high, a scroll past them. */
 .xs-ifn .xs-ifn-list {
+  position: relative;
   flex: 0 1 auto;
   height: calc(8 * 24px + 2px);
   min-height: 0;

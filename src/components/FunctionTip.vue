@@ -4,6 +4,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import type { TipPart } from '../core/function-tip'
 import type { ValidationRect } from '../core/validation'
+import { clampLeft, placeBelowOrAbove } from './popup'
 
 const props = withDefaults(
   defineProps<{
@@ -33,10 +34,7 @@ const box = computed(() => {
   const r = props.rect
   const v = props.view
   const { width, height } = size.value
-  const below = r.top + r.height
-  const up = !!v && below + height > v.top + v.height && r.top - height >= v.top
-  const left = v ? Math.max(v.left, Math.min(r.left, v.left + v.width - width)) : r.left
-  return { top: `${up ? r.top - height : below}px`, left: `${left}px`, ...(v ? { maxWidth: `${v.width}px` } : {}) }
+  return { top: `${placeBelowOrAbove(r, height, v)}px`, left: `${clampLeft(r.left, width, v)}px`, ...(v ? { maxWidth: `${v.width}px` } : {}) }
 })
 </script>
 

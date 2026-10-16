@@ -27,6 +27,7 @@ import {
   type ToolbarSource,
 } from '../toolbar'
 import { IconDown } from './icons'
+import { useOutsidePress } from './popup'
 import {
   IconAlignCenter,
   IconAlignLeft,
@@ -152,10 +153,7 @@ function closeAll(): void {
   open.value = null
   menu.value = false
 }
-/** A press outside the toolbar closes its menus. */
-function onDocDown(e: PointerEvent): void {
-  if (root.value && !root.value.contains(e.target as Node)) closeAll()
-}
+useOutsidePress(root, closeAll, () => open.value !== null || menu.value)
 /** Buttons do not take the focus from the grid, so its keys go on working; the number format list does take it. */
 function keepFocus(e: MouseEvent): void {
   if (!(e.target as HTMLElement).closest('select')) e.preventDefault()
@@ -169,7 +167,6 @@ function subscribe(): void {
 watch(() => props.source, subscribe)
 onMounted(() => {
   subscribe()
-  document.addEventListener('pointerdown', onDocDown, true)
   if (typeof window.matchMedia === 'function') {
     coarseQuery = window.matchMedia('(pointer: coarse)')
     onCoarse()
@@ -179,7 +176,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   unsubscribe?.()
   observer?.disconnect()
-  document.removeEventListener('pointerdown', onDocDown, true)
   coarseQuery?.removeEventListener?.('change', onCoarse)
 })
 

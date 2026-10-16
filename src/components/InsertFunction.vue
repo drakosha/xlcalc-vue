@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // Excel's Insert Function window: a search, the category box (recently used, all, the source's categories), the functions, and the syntax and description of the one selected.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { CATEGORY_ORDER } from '../function-categories'
 import type { SheetFunctionSignature } from '../source'
 import { useSheetContext } from './context'
+import { keepActiveInView } from './popup'
 
 const emit = defineEmits<{ pick: [name: string]; close: [] }>()
 const ctx = useSheetContext()
@@ -49,10 +50,7 @@ watch([category, query], () => (index.value = 0))
 watch(query, (q) => {
   if (q.trim() && category.value === 'recent') category.value = 'all'
 })
-watch(index, async () => {
-  await nextTick()
-  list.value?.querySelector('.xs-ifn-on')?.scrollIntoView({ block: 'nearest' })
-})
+keepActiveInView(list, index, () => index.value)
 
 onMounted(async () => {
   search.value?.focus()

@@ -5,6 +5,7 @@
 // a press in the menu leaves the focus where the keys put it.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSheetContext } from './context'
+import { useOutsidePress } from './popup'
 
 const ctx = useSheetContext()
 const { menu } = ctx
@@ -77,23 +78,15 @@ watch(grouping, async (d, was) => {
 })
 const closeDialog = () => (menu.dialog.value = null)
 
-function onDocDown(e: PointerEvent): void {
-  if (menu.open.value && !box.value?.contains(e.target as Node)) menu.close()
-}
+useOutsidePress(box, () => menu.close(), () => !!menu.open.value)
 function onDocKey(e: KeyboardEvent): void {
   if (e.key !== 'Escape' || (!menu.open.value && !menu.dialog.value)) return
   e.preventDefault()
   menu.close()
   closeDialog()
 }
-onMounted(() => {
-  document.addEventListener('pointerdown', onDocDown, true)
-  document.addEventListener('keydown', onDocKey)
-})
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onDocDown, true)
-  document.removeEventListener('keydown', onDocKey)
-})
+onMounted(() => document.addEventListener('keydown', onDocKey))
+onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
 </script>
 
 <template>
