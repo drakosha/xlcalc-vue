@@ -92,8 +92,6 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   const locale = input.locale ?? 'en-US'
   // What each function does, for Insert Function: loaded with the first tip, as a host that only computes needs none of it.
   let describe: Promise<((fn: string, words: Locale | string) => string | null) | null> | undefined
-  // Text sorts in the book's locale once it is loaded; an unknown locale fails the opening.
-  let collator: Intl.Collator
   const maxCells = opts.maxCells ?? DEFAULT_MAX_CELLS
   const listeners = new Set<(event: SourceEvent) => void>()
   /** Shown values of sheets that the display filter or its funnel needed, by the sheet's name key. */
@@ -117,7 +115,6 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     await loadLocale(locale)
     calc = typeof opts.calc === 'object' ? opts.calc : await startCalc(opts)
     session = await calc.createSession(input, opts.session)
-    collator = new Intl.Collator(locale, { numeric: true, sensitivity: 'base' })
   })()
   ready.catch(() => {})
   const open = async (): Promise<AsyncSession> => {
@@ -200,7 +197,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const kept = lists.get(nameKey(sheet))
     if (!fresh && kept?.key === key) return kept
     const v = await columnsOf(s, sheet, filterColumns(filter))
-    const list: RowList = { key, rows: visibleList(v, filter, collator), max: v.maxRow }
+    const list: RowList = { key, rows: visibleList(v, filter), max: v.maxRow }
     lists.set(nameKey(sheet), list)
     return list
   }
@@ -540,7 +537,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const s = await open()
       const v = await columnsOf(s, sheet, [col, ...Object.keys(filter.cols ?? {}).map(Number)])
       throwIfAborted(signal)
-      return columnList(v, col, filter, collator)
+      return columnList(v, col, filter)
     },
     async book() {
       return (await open()).getBook()

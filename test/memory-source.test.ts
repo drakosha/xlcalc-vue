@@ -171,6 +171,14 @@ describe('memorySource', () => {
       expect((await src.visibleRows!('T', { head: 1.5, cols: { 3: { text: ' app ' } } })).rows).toEqual([1, 5, 6])
     })
 
+    it('sorts mixed values in Excel’s order: numbers, text in any case by en-US, FALSE, TRUE, errors, empty cells last either way', async () => {
+      const cells = { A1: 'h', A2: 'Item2', A3: 'Item10', A4: true, A5: false, A6: { error: 'DIV0' }, A7: 3, A9: -1, A10: 'Б', A11: 'b' }
+      const src = memorySource({ sheets: [{ name: 'S', cells: cells as MemoryBook['sheets'][number]['cells'] }] })
+      expect((await src.visibleRows!('S', { head: 1, sort: { col: 1, dir: 'asc' } })).rows).toEqual([1, 9, 7, 11, 3, 2, 10, 5, 4, 6, 8])
+      expect((await src.visibleRows!('S', { head: 1, sort: { col: 1, dir: 'desc' } })).rows).toEqual([1, 6, 4, 5, 10, 2, 3, 11, 7, 9, 8])
+      expect((await src.columnValues!('S', 1, { head: 1 })).values.map((v) => v.text)).toEqual(['-1', '3', 'b', 'Item10', 'Item2', 'Б', 'FALSE', 'TRUE', '#DIV/0!', ''])
+    })
+
     it('columnValues: counts over the rows the other columns leave, empty as ""', async () => {
       const src = memorySource(table())
       expect(await src.columnValues!('T', 1, { head: 1 })).toEqual({

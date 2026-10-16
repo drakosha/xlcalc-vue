@@ -116,11 +116,11 @@ describe('localSource: search, display filter, totals', () => {
     expect(await s.visibleRows('Список', { head: 1, sort: { col: 1, dir: 'desc' } })).toEqual({ rows: [1, 6, 2, 4, 3, 5] })
   })
 
-  it('sorts mixed values in memorySource’s order for now: numbers, text, booleans, errors, empty cells last', async () => {
-    // TODO(xlcalc): the order of mixed values measured in Excel, from the library
-    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'k' }, A2: { value: 'b' }, A3: { value: 2 }, A4: { value: true }, A5: { formula: '1/0' }, A7: { value: 1 }, A8: { value: 'a' } } }] })
-    expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'asc' } })).rows).toEqual([1, 7, 3, 8, 2, 4, 5, 6])
-    expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'desc' } })).rows).toEqual([1, 5, 4, 2, 8, 3, 7, 6])
+  it('sorts mixed values in Excel’s order, as memorySource: numbers, text in any case by en-US, FALSE, TRUE, errors, empty cells last either way', async () => {
+    const cells = { A1: { value: 'k' }, A2: { value: 'b' }, A3: { value: 2 }, A4: { value: true }, A5: { formula: '1/0' }, A7: { value: 1 }, A8: { value: 'a' }, A9: { value: 'Item10' }, A10: { value: 'Item2' }, A11: { value: false } }
+    const s = source({ sheets: [{ name: 'S', cells }] })
+    expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'asc' } })).rows).toEqual([1, 7, 3, 8, 2, 9, 10, 11, 4, 5, 6])
+    expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'desc' } })).rows).toEqual([1, 5, 4, 11, 10, 9, 2, 8, 3, 7, 6])
   })
 
   it('reads only the columns a filter, a sort or a funnel asks for, once, and keeps them up to date with edits', async () => {

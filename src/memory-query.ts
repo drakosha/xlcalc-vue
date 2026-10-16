@@ -15,17 +15,14 @@ export interface MemorySheetQuery extends QuerySheet {
 /** Hits a search gives at most; `total` counts all. */
 const HITS_MAX = 1000
 
-/** Text sorts as the runtime's locale orders it, digits by their numbers, in any case. */
-const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
-
 /** The sheet's rows in display order: the header first, then the rows that meet the conditions, sorted; null without conditions. */
 export function visibleList(sheet: MemorySheetQuery, filter: SheetFilter | undefined): number[] | null {
-  return filterActive(filter) ? listUnder(sheet, filter, collator) : null
+  return filterActive(filter) ? listUnder(sheet, filter) : null
 }
 
 /** A column's shown values with their counts, over the rows the other columns' conditions leave; '' is an empty cell. */
 export function columnList(sheet: MemorySheetQuery, col: number, filter: SheetFilter): { values: { text: string; count: number }[]; more: number } {
-  return listOf(sheet, col, filter, collator)
+  return listOf(sheet, col, filter)
 }
 
 /** Every cell's text a search reads: what it opens with (Look in: Formulas, Excel's default), or what it shows. */
