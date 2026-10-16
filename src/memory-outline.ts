@@ -1,15 +1,13 @@
 // Excel's outline rules for `memorySource`, which has no engine: the groups Excel draws from one axis's outline levels and
 // hidden lines, and the lines its commands change (Group, Ungroup, a group's button, a level button), as measured in Excel
-// for Windows 16 (build 20430, 12.10.2026); `MAX_LEVEL` serves the grid too. `./local` takes xlcalc's groups and commands,
+// for Windows 16 (build 20430, 12.10.2026). `./local` takes xlcalc's groups and commands,
 // whose measurements found more (its docs/outline.md): a summary line two groups share acts on its whole detail, Excel marks
 // a summary line once its detail is all hidden and keeps the mark inside a hidden group, and a group at the sheet's edge
 // has no button.
 // TODO(xlcalc): the commands without the engine in `xlcalc/a1` would replace these, if the main entry has room (`outlineGroups` alone is 4.3 KB).
-import { MAX_COLS, MAX_ROWS, parseLines, parseRange } from 'xlcalc/a1'
+import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
+import { axisOf, lineSpan, MAX_LEVEL } from './lines'
 import type { OutlineChange, OutlineGroup, SheetOutline } from './source'
-
-/** Excel's deepest outline level: an eighth Group of the same lines fails. */
-export const MAX_LEVEL = 7
 
 /** Lines `from`..`to` of one axis with the same outline level, hidden state and collapsed mark; lines left out have none. */
 export interface OutlineLine {
@@ -29,10 +27,8 @@ interface OutlinePatch {
   collapsed?: boolean
 }
 
-export type OutlineAxis = 'rows' | 'columns'
-
 /** A command's lines to change, or why it is refused. */
-type OutlineEdit = { ok: true; axis: OutlineAxis; patches: OutlinePatch[] } | { ok: false; message: string }
+type OutlineEdit = { ok: true; patches: OutlinePatch[] } | { ok: false; message: string }
 
 /**
  * The groups of one axis: for each level, the longest runs of lines next to each other at that level or deeper. A group
@@ -64,15 +60,6 @@ export function outlineOf(rows: readonly OutlineLine[], columns: readonly Outlin
   const c = groupsOf(columns)
   if (!r.length && !c.length) return undefined
   return { rows: r, columns: c, summaryBelow: settings?.summaryBelow ?? true, summaryRight: settings?.summaryRight ?? true }
-}
-
-/** Lines as the component and a book name them: `3:6`, `5` or `B:D`, `C`; null for anything else. */
-function spanOf(text: string, axis: OutlineAxis): { first: number; last: number } | null {
-  const lines = parseLines(text, axis)
-  if (lines) return lines
-  const r = parseRange(text)
-  if (r?.kind !== axis) return null
-  return axis === 'rows' ? { first: r.top, last: r.bottom } : { first: r.left, last: r.right }
 }
 
 /** Lines `a`..`b` in pieces: each with the line entry over it, or null where no entry is. */
@@ -129,8 +116,7 @@ function without(a: number, b: number, holes: { from: number; to: number }[]): {
  * shallower ones and marks the summary lines of the collapsed groups that stay in view; lines outside groups stay as they are.
  */
 export function outlineEdit(lines: readonly OutlineLine[], after: boolean, change: OutlineChange): OutlineEdit {
-  const axis: OutlineAxis = change.op === 'showLevel' ? change.axis : 'rows' in change ? 'rows' : 'columns'
-  const words = axis === 'rows' ? 'rows' : 'columns'
+  const axis = axisOf(change)
   const last = axis === 'rows' ? MAX_ROWS : MAX_COLS
   const markAt = (i: number) => lineAt(lines, i)?.collapsed ?? false
   if (change.op === 'showLevel') {
@@ -148,31 +134,31 @@ export function outlineEdit(lines: readonly OutlineLine[], after: boolean, chang
       if (s >= 1 && s <= last) marks.set(s, (marks.get(s) ?? false) || (g.level >= k && shownAfter(s)))
     }
     for (const [s, mark] of marks) if (mark !== markAt(s)) patches.push({ from: s, to: s, collapsed: mark })
-    return { ok: true, axis, patches }
+    return { ok: true, patches }
   }
   const text = 'rows' in change ? change.rows : change.columns
-  const span = spanOf(text, axis)
-  if (!span) return { ok: false, message: `Not ${words}: ${text}` }
+  const span = lineSpan(text, axis)
+  if (!span) return { ok: false, message: `Not ${axis}: ${text}` }
   const { first: a, last: b } = span
   if (change.op === 'group' || change.op === 'ungroup') {
     const parts = pieces(lines, a, b)
     if (change.op === 'group') {
       // Excel refuses only when every line is at the deepest level; those that are stay there
       const deeper = parts.filter((p) => (p.line?.level ?? 0) < MAX_LEVEL)
-      if (!deeper.length) return { ok: false, message: `The ${words} ${text} cannot be grouped deeper than ${MAX_LEVEL} levels` }
-      return { ok: true, axis, patches: deeper.map((p) => ({ from: p.from, to: p.to, level: (p.line?.level ?? 0) + 1 })) }
+      if (!deeper.length) return { ok: false, message: `The ${axis} ${text} cannot be grouped deeper than ${MAX_LEVEL} levels` }
+      return { ok: true, patches: deeper.map((p) => ({ from: p.from, to: p.to, level: (p.line?.level ?? 0) + 1 })) }
     }
     const grouped = parts.filter((p) => (p.line?.level ?? 0) > 0)
-    if (!grouped.length) return { ok: false, message: `The ${words} ${text} are in no group` }
-    return { ok: true, axis, patches: grouped.map((p) => ({ from: p.from, to: p.to, level: p.line!.level - 1 })) }
+    if (!grouped.length) return { ok: false, message: `The ${axis} ${text} are in no group` }
+    return { ok: true, patches: grouped.map((p) => ({ from: p.from, to: p.to, level: p.line!.level - 1 })) }
   }
   const level = 'level' in change ? change.level : 0
   const groups = groupsOf(lines)
   const g = groups.find((x) => x.from === a && x.to === b && x.level === level)
-  if (!g) return { ok: false, message: `No group of level ${level} over the ${words} ${text}` }
+  if (!g) return { ok: false, message: `No group of level ${level} over the ${axis} ${text}` }
   const summary = after ? b + 1 : a - 1
   const mark = summary >= 1 && summary <= last
-  if (change.op === 'collapse') return { ok: true, axis, patches: [{ from: a, to: b, hidden: true }, ...(mark ? [{ from: summary, to: summary, collapsed: true }] : [])] }
+  if (change.op === 'collapse') return { ok: true, patches: [{ from: a, to: b, hidden: true }, ...(mark ? [{ from: summary, to: summary, collapsed: true }] : [])] }
   // Groups inside that stay collapsed: their summary line has the mark and is not this group's own.
   const holes = groups
     .filter((h) => h.level > g.level && h.from >= a && h.to <= b)
@@ -184,5 +170,5 @@ export function outlineEdit(lines: readonly OutlineLine[], after: boolean, chang
     .sort((x, y) => x.from - y.from)
   const patches: OutlinePatch[] = without(a, b, holes).map((r) => ({ ...r, hidden: false }))
   if (mark && markAt(summary)) patches.push({ from: summary, to: summary, collapsed: false })
-  return { ok: true, axis, patches }
+  return { ok: true, patches }
 }

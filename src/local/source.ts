@@ -1,7 +1,7 @@
 // localSource: a sheet source over an xlcalc book whose session runs in a Web Worker pool or in the page's thread.
 // The session holds the book, computes it, finds as Excel's Find and answers windows, sheets and edits as Excel makes
 // them; this side keeps the sheets' shown values for the display filter, patched by the changes and dropped on a reload.
-import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type LineSpan, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, colLetters, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetOutline, SourceEvent, WindowRequest } from '../source'
 import { boxesUnder, findHits, replaceAll } from './find'
@@ -9,6 +9,7 @@ import { loadLocale, tipLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { throwIfAborted } from '../abort'
 import { filterKey } from '../filter-key'
+import { axisOf, lineSpan, type LineAxis } from '../lines'
 import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import { columnValuesOf, filterActive, SheetValues, statsOf, visibleList } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
@@ -44,16 +45,9 @@ function outlineOf(sheet: SheetLayout): SheetOutline | undefined {
   return { rows: groups(rows), columns: groups(columns), summaryBelow: sheet.outline?.summaryBelow ?? true, summaryRight: sheet.outline?.summaryRight ?? true }
 }
 
-/** The lines of one axis the component sends (`C`, `C:C`, `B:D`; `3:4`), or null. */
-function spanOf(text: string, axis: 'columns' | 'rows'): LineSpan | null {
-  const got = parseRange(text.includes(':') ? text : `${text}:${text}`)
-  if (got?.kind !== axis) return null
-  return axis === 'columns' ? { first: got.left, last: got.right } : { first: got.top, last: got.bottom }
-}
-
 /** Lines as `setLayout` and the structure operations name them (`C`, `B:D`; `5`, `5:9`) from what the component sends. */
-function linesOf(text: string, axis: 'columns' | 'rows'): string | null {
-  const span = spanOf(text, axis)
+function linesOf(text: string, axis: LineAxis): string | null {
+  const span = lineSpan(text, axis)
   return span && linesKey(span.first, span.last, axis)
 }
 
@@ -66,8 +60,9 @@ async function outlineOp(s: AsyncSession, change: OutlineChange): Promise<SheetO
   const { sheet } = change
   const refused = (message: string): EditOutcome => ({ ok: false, reason: 'refused', message })
   if (change.op === 'showLevel') return change.axis === 'rows' ? { op: 'showLevels', sheet, rows: change.level } : { op: 'showLevels', sheet, columns: change.level }
-  const [axis, text] = 'rows' in change ? (['rows', change.rows] as const) : (['columns', change.columns] as const)
-  const span = spanOf(text, axis)
+  const axis = axisOf(change)
+  const text = 'rows' in change ? change.rows : change.columns
+  const span = lineSpan(text, axis)
   if (!span) return refused(`Not ${axis}: ${text}`)
   if (!('level' in change)) {
     const lines = linesKey(span.first, span.last, axis)

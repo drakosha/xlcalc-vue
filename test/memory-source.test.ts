@@ -113,6 +113,15 @@ describe('memorySource', () => {
     expect(w.rowHeights).toEqual({ 7: 40 })
   })
 
+  it('takes a line as a span of one (`C:C`, `5:5`) in the book and in layout, as `C` and `5`', async () => {
+    const src = memorySource({ sheets: [{ name: 'S', cells: { A1: 1 }, widths: { 'C:C': 30 }, heights: { '5:5': 25 }, outline: { rows: { '3:3': 1 } } }] })
+    await src.layout!({ sheet: 'S', columns: 'd:d', width: 9 })
+    const w = (await src.window({ sheet: 'S', row: 1, rows: 5, col: 1, cols: 4 })) as SheetWindow
+    expect(w.widths).toEqual([null, null, 30, 9])
+    expect(w.rowHeights).toEqual({ 5: 25 })
+    expect((await src.sheets())[0]!.outline?.rows).toEqual([{ from: 3, to: 3, level: 1, collapsed: false }])
+  })
+
   it('sends events to subscribers; setCells changes and sends `changed`', async () => {
     const src = memorySource(book())
     const got: SourceEvent[] = []

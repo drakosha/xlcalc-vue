@@ -1,13 +1,14 @@
 // A source over a book in memory, for tests and examples: values, shown text, formulas as strings and every display field; no engine.
 // It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, a precedents'
 // tree from the formulas as given, and can play a book being recomputed.
-import { cellAddress, parseCell, parseLines, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
+import { cellAddress, parseCell, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
 import type { CellStyle, CellValue, ConditionalAppearance, GridReference } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
 import { textEditText } from './core/edit-text'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type QuerySheet } from './memory-query'
-import { outlineEdit, outlineOf, type OutlineAxis, type OutlineLine } from './memory-outline'
+import { axisOf, lineSpan, type LineAxis } from './lines'
+import { outlineEdit, outlineOf, type OutlineLine } from './memory-outline'
 import { abortError } from './abort'
 import { filterKey } from './filter-key'
 import { DEFAULT_MAX_CELLS, rowsFor } from './window-size'
@@ -117,8 +118,8 @@ interface Store {
   heights: Map<number, number>
   rules: MemoryRules
   /** Outline levels and collapsed marks by line. */
-  levels: Record<OutlineAxis, Map<number, number>>
-  marks: Record<OutlineAxis, Set<number>>
+  levels: Record<LineAxis, Map<number, number>>
+  marks: Record<LineAxis, Set<number>>
   /** The sheet's frozen panes, as `freeze` leaves them. */
   freeze?: { rows: number; cols: number }
   maxRow: number
@@ -129,9 +130,9 @@ interface Store {
 const EXPLAIN_DEPTH = 3
 const EXPLAIN_NODES = 200
 
-/** Each column or row of a key as a book takes it (`B`, `B:D`; `5`, `5:9`); none for a key it does not take. */
-function linesOf(key: string, axis: 'columns' | 'rows'): number[] {
-  const span = parseLines(key, axis)
+/** Each column or row of a key as a book takes it (`B`, `B:D`, `C:C`; `5`, `5:9`); none for a key it does not take. */
+function linesOf(key: string, axis: LineAxis): number[] {
+  const span = lineSpan(key, axis)
   const out: number[] = []
   if (span) for (let i = span.first; i <= span.last; i++) out.push(i)
   return out
@@ -281,7 +282,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   }
 
   /** A sheet's lines as the outline reads them: levels, hidden ones (size 0) and collapsed marks, one by one. */
-  function outlineLines(store: Store, axis: OutlineAxis): OutlineLine[] {
+  function outlineLines(store: Store, axis: LineAxis): OutlineLine[] {
     const levels = store.levels[axis]
     const marks = store.marks[axis]
     const sizes = axis === 'rows' ? store.heights : store.widths
@@ -439,7 +440,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)
         if (!store) return { ok: false, reason: 'failed', message: `No sheet ${change.sheet}` }
-        const axis: OutlineAxis = change.op === 'showLevel' ? change.axis : 'rows' in change ? 'rows' : 'columns'
+        const axis = axisOf(change)
         const after = (axis === 'rows' ? store.sheet.outline?.summaryBelow : store.sheet.outline?.summaryRight) ?? true
         const got = outlineEdit(outlineLines(store, axis), after, change)
         if (!got.ok) return { ok: false, reason: 'refused', message: got.message }
