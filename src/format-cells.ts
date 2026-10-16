@@ -9,14 +9,19 @@ import { BORDER_EDGES, edgePatches, edgesOf, sameLine, upperColour, type BorderE
 export type FormatTab = 'number' | 'alignment' | 'font' | 'border' | 'fill'
 export const FORMAT_TABS: readonly FormatTab[] = ['number', 'alignment', 'font', 'border', 'fill']
 
-export type Horizontal = NonNullable<AlignmentStyle['horizontal']>
-export type Vertical = NonNullable<AlignmentStyle['vertical']>
+type Horizontal = NonNullable<AlignmentStyle['horizontal']>
+type Vertical = NonNullable<AlignmentStyle['vertical']>
 export const HORIZONTALS: readonly Horizontal[] = ['general', 'left', 'center', 'right', 'fill', 'justify', 'centerContinuous', 'distributed']
 export const VERTICALS: readonly Vertical[] = ['top', 'center', 'bottom', 'justify', 'distributed']
+/** Excel's indent goes with the left, right and distributed alignments. */
+export const INDENTED: ReadonlySet<string> = new Set<Horizontal>(['left', 'right', 'distributed'])
 /** The kinds of line Excel's Border tab offers, in the order of its list. */
 export const LINE_STYLES: readonly BorderLine['style'][] = ['hair', 'dotted', 'dashDotDot', 'dashDot', 'dashed', 'thin', 'mediumDashDotDot', 'slantDashDot', 'mediumDashDot', 'mediumDashed', 'medium', 'thick', 'double']
-export type FontStyleKind = 'regular' | 'italic' | 'bold' | 'boldItalic'
-export type Underline = 'none' | NonNullable<FontStyle['underline']>
+type FontStyleKind = 'regular' | 'italic' | 'bold' | 'boldItalic'
+type Underline = 'none' | NonNullable<FontStyle['underline']>
+/** The font styles and underlines in the order of Excel's lists. */
+export const FONT_STYLES: readonly FontStyleKind[] = ['regular', 'italic', 'bold', 'boldItalic']
+export const UNDERLINES: readonly Underline[] = ['none', 'single', 'double']
 /** Excel's font sizes in its list; any size from 1 to 409 may be typed. */
 export const FONT_SIZES: readonly number[] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72]
 /** Fonts offered in the font field's list; any name may be typed. */
@@ -57,6 +62,15 @@ export interface FormatStart {
 }
 
 const fontStyleOf = (f: FontStyle | undefined): FontStyleKind => (f?.bold ? (f.italic ? 'boldItalic' : 'bold') : f?.italic ? 'italic' : 'regular')
+const isBold = (k: FontStyleKind) => k === 'bold' || k === 'boldItalic'
+const isItalic = (k: FontStyleKind) => k === 'italic' || k === 'boldItalic'
+/** The indent typed: a whole number of characters, NaN for what is none. */
+const parseIndent = (text: string): number => (/^\d+$/.test(text.trim()) ? Number(text.trim()) : NaN)
+/** The font size typed, with a point or a comma: undefined for an empty field (the book's size), NaN for what is no number. */
+function parseSize(text: string): number | undefined {
+  const t = text.trim().replace(',', '.')
+  return t ? Number(t) : undefined
+}
 
 /** The fields as the active cell shows them: its style, its number format's code, Excel's thin black line to draw with. */
 export function startOf(state: SheetViewState): FormatStart {
@@ -111,7 +125,7 @@ export function pressPreset(start: FormatStart, draft: FormatDraft, preset: 'non
 }
 
 /** A field OK cannot read, by its name: the code, the indent, the size. */
-export interface DraftErrors {
+interface DraftErrors {
   numberCode?: true
   indent?: true
   fontSize?: true
@@ -120,10 +134,9 @@ export interface DraftErrors {
 export function draftErrors(draft: FormatDraft): DraftErrors {
   const out: DraftErrors = {}
   if (!draft.numberCode.trim()) out.numberCode = true
-  const indent = Number(draft.indent.trim())
-  if (!/^\d+$/.test(draft.indent.trim()) || indent > 250) out.indent = true
-  const size = Number(draft.fontSize.trim().replace(',', '.'))
-  if (draft.fontSize.trim() && !(Number.isFinite(size) && size >= 1 && size <= 409)) out.fontSize = true
+  if (!(parseIndent(draft.indent) <= 250)) out.indent = true
+  const size = parseSize(draft.fontSize)
+  if (size !== undefined && !(size >= 1 && size <= 409)) out.fontSize = true
   return out
 }
 
@@ -140,8 +153,16 @@ export function typeNumber(draft: FormatDraft, code: string): void {
 
 /** The font size typed, to Excel's half points; undefined for an empty field (the book's size). */
 function sizeOf(text: string): number | undefined {
-  const t = text.trim().replace(',', '.')
-  return t ? Math.round(Number(t) * 2) / 2 : undefined
+  const size = parseSize(text)
+  return size === undefined ? undefined : Math.round(size * 2) / 2
+}
+
+/** An alignment chosen in the list; one without an indent takes it back to 0, as Excel's field greys out. */
+export function setHorizontal(draft: FormatDraft, h: string): void {
+  const next = HORIZONTALS.find((x) => x === h)
+  if (!next) return
+  draft.horizontal = next
+  if (!INDENTED.has(next)) draft.indent = '0'
 }
 
 /**
@@ -156,10 +177,8 @@ export function patchesOf(start: FormatStart, draft: FormatDraft): SheetFormatPa
   if (name !== was.fontName) font.name = name || null
   const size = sizeOf(draft.fontSize)
   if (size !== sizeOf(was.fontSize)) font.size = size ?? null
-  const bold = draft.fontStyle === 'bold' || draft.fontStyle === 'boldItalic'
-  const italic = draft.fontStyle === 'italic' || draft.fontStyle === 'boldItalic'
-  if (bold !== (was.fontStyle === 'bold' || was.fontStyle === 'boldItalic')) font.bold = bold || null
-  if (italic !== (was.fontStyle === 'italic' || was.fontStyle === 'boldItalic')) font.italic = italic || null
+  if (isBold(draft.fontStyle) !== isBold(was.fontStyle)) font.bold = isBold(draft.fontStyle) || null
+  if (isItalic(draft.fontStyle) !== isItalic(was.fontStyle)) font.italic = isItalic(draft.fontStyle) || null
   if (draft.underline !== was.underline) font.underline = draft.underline === 'none' ? null : draft.underline
   if (draft.strike !== was.strike) font.strike = draft.strike || null
   if (draft.fontColour !== was.fontColour) font.color = draft.fontColour
@@ -167,8 +186,8 @@ export function patchesOf(start: FormatStart, draft: FormatDraft): SheetFormatPa
   if (draft.horizontal !== was.horizontal) alignment.horizontal = draft.horizontal === 'general' ? null : draft.horizontal
   if (draft.vertical !== was.vertical) alignment.vertical = draft.vertical === 'bottom' ? null : draft.vertical
   if (draft.wrap !== was.wrap) alignment.wrap = draft.wrap || null
-  const indent = Number(draft.indent.trim())
-  if (indent !== Number(was.indent)) alignment.indent = indent || null
+  const indent = parseIndent(draft.indent)
+  if (indent !== parseIndent(was.indent)) alignment.indent = indent || null
   const style: Record<string, unknown> = {}
   if (Object.keys(font).length) style.font = font
   if (Object.keys(alignment).length) style.alignment = alignment

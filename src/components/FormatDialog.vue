@@ -10,12 +10,16 @@ import {
   draftErrors,
   FONT_NAMES,
   FONT_SIZES,
+  FONT_STYLES,
   FORMAT_TABS,
   HORIZONTALS,
+  INDENTED,
   patchesOf,
   pickNumber,
+  setHorizontal,
   startOf,
   typeNumber,
+  UNDERLINES,
   VERTICALS,
   type FormatDraft,
   type FormatStart,
@@ -51,8 +55,6 @@ const emit = defineEmits<{
 
 const m = useMessages(() => props.messages)
 const numbers = useNumberFormats(() => props.locale)
-/** Excel's indent goes with the left, right and distributed alignments. */
-const INDENTED = new Set(['left', 'right', 'distributed'])
 
 const tab = ref<FormatTab>('number')
 const start = shallowRef<FormatStart | null>(null)
@@ -70,14 +72,6 @@ watch(
   },
   { immediate: true },
 )
-/** An alignment without an indent takes it back to 0, as Excel's field greys out. */
-function setHorizontal(h: string): void {
-  const d = draft.value
-  const next = HORIZONTALS.find((x) => x === h)
-  if (!d || !next) return
-  d.horizontal = next
-  if (!INDENTED.has(next)) d.indent = '0'
-}
 
 const errors = computed(() => (draft.value ? draftErrors(draft.value) : {}))
 const blocked = computed(() => Object.keys(errors.value).length > 0 || Object.values(badColour).some(Boolean))
@@ -152,7 +146,7 @@ const cancel = () => emit('close')
       <div v-show="tab === 'alignment'" class="xs-fmt-grid">
         <label class="xs-fmt-field">
           <span>{{ m.fmtHorizontal }}</span>
-          <select class="xs-fmt-select" :value="draft.horizontal" data-fmt-horizontal @change="setHorizontal(fieldValue($event))">
+          <select class="xs-fmt-select" :value="draft.horizontal" data-fmt-horizontal @change="setHorizontal(draft, fieldValue($event))">
             <option v-for="h in HORIZONTALS" :key="h" :value="h">{{ m.fmtHorizontalKind(h) }}</option>
           </select>
         </label>
@@ -184,7 +178,7 @@ const cancel = () => emit('close')
         <label class="xs-fmt-field">
           <span>{{ m.fmtFontStyle }}</span>
           <select v-model="draft.fontStyle" class="xs-fmt-select" data-fmt-font-style>
-            <option v-for="k in ['regular', 'italic', 'bold', 'boldItalic'] as const" :key="k" :value="k">{{ m.fmtFontStyleKind(k) }}</option>
+            <option v-for="k in FONT_STYLES" :key="k" :value="k">{{ m.fmtFontStyleKind(k) }}</option>
           </select>
         </label>
         <label class="xs-fmt-field">
@@ -197,7 +191,7 @@ const cancel = () => emit('close')
         <label class="xs-fmt-field">
           <span>{{ m.fmtUnderline }}</span>
           <select v-model="draft.underline" class="xs-fmt-select" data-fmt-underline>
-            <option v-for="u in ['none', 'single', 'double'] as const" :key="u" :value="u">{{ m.fmtUnderlineKind(u) }}</option>
+            <option v-for="u in UNDERLINES" :key="u" :value="u">{{ m.fmtUnderlineKind(u) }}</option>
           </select>
         </label>
         <label class="xs-fmt-check">

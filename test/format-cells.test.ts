@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { numberFormatChoices } from 'xlcalc/text'
 import type { SheetViewState } from '../src'
-import { draftErrors, patchesOf, pickNumber, pressEdge, pressPreset, shownEdge, startOf, typeNumber, type FormatDraft } from '../src/format-cells'
+import { draftErrors, patchesOf, pickNumber, pressEdge, pressPreset, setHorizontal, shownEdge, startOf, typeNumber, type FormatDraft } from '../src/format-cells'
 
 /** Excel's list as xlcalc gives it in en-US. */
 const item = (key: string) => numberFormatChoices().find((c) => c.key === key)!
@@ -156,5 +156,16 @@ describe('the limits OK checks', () => {
     expect(errors({ fontSize: '409.5', indent: '-1' })).toEqual({ fontSize: true, indent: true })
     expect(errors({ fontSize: 'big', indent: '1.5' })).toEqual({ fontSize: true, indent: true })
     expect(errors({ numberCode: '  ' })).toEqual({ numberCode: true })
+    expect(errors({ fontSize: '', indent: ' 3 ' })).toEqual({})
+  })
+
+  it('an alignment without Excel’s indent takes the indent back to 0; one with it keeps it; what is no alignment changes nothing', () => {
+    const d = { ...startOf(at('A1')).draft, horizontal: 'left' as const, indent: '3' }
+    setHorizontal(d, 'right')
+    expect([d.horizontal, d.indent]).toEqual(['right', '3'])
+    setHorizontal(d, 'nowhere')
+    expect([d.horizontal, d.indent]).toEqual(['right', '3'])
+    setHorizontal(d, 'center')
+    expect([d.horizontal, d.indent]).toEqual(['center', '0'])
   })
 })
