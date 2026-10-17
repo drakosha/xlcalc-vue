@@ -14,6 +14,18 @@ export async function settle(rounds = 6): Promise<void> {
   }
 }
 
+/**
+ * Settles until `ready` holds: for work that takes as many rounds as the machine's load makes (a book computed in portions,
+ * a module loaded), where a fixed count of rounds fails on a busy machine. Real time, so it works under faked timers too.
+ */
+export async function until(ready: () => boolean, ms = 15_000): Promise<void> {
+  const end = performance.now() + ms
+  while (!ready()) {
+    if (performance.now() > end) throw new Error(`until: not ready after ${ms} ms`)
+    await settle(1)
+  }
+}
+
 export async function mountSheet(source: SheetSource, props: Record<string, unknown> = {}): Promise<VueWrapper> {
   const wrapper = mount(SheetView, { props: { source, ...props }, attachTo: document.body })
   await settle()

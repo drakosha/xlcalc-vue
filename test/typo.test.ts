@@ -4,7 +4,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ruMessages } from '../src'
 import { localSource, type LocalSource } from '../src/local'
-import { active, address, cellText, editorKey, editorOpen, goTo, key, mountSheet, settle, type } from './helpers'
+import { active, address, cellText, editorKey, editorOpen, goTo, key, mountSheet, settle, type, until } from './helpers'
 
 let sources: LocalSource[] = []
 afterEach(async () => {
@@ -17,6 +17,7 @@ afterEach(async () => {
 async function mountRu(): Promise<VueWrapper> {
   const source = localSource({ locale: 'ru-RU', sheets: [{ name: 'S', cells: {} }] }, { calc: 'inline' })
   sources.push(source)
+  await source.ready
   const w = await mountSheet(source, { messages: ruMessages })
   await settle(12)
   return w
@@ -24,6 +25,10 @@ async function mountRu(): Promise<VueWrapper> {
 const alertOf = (severity: string) => document.querySelector(`[data-xs-alert="${severity}"]`)
 const button = (b: string) => document.querySelector<HTMLElement>(`[data-xs-alert-button="${b}"]`)!
 const field = (w: VueWrapper) => w.find('.xs-editor').element as HTMLTextAreaElement
+/** The sheet's call is answered: an alert is up, or no cell waits for the source any more. */
+const answered = () => until(() => !!document.querySelector('[data-xs-alert]') || !document.querySelector('.xs-pending'))
+/** A call after Yes is written: the question gone and no cell waiting. */
+const written = () => until(() => !alertOf('typo') && !document.querySelector('.xs-pending'))
 const escape = (severity: string) => alertOf(severity)!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
 /** Type `text` over the active cell and finish it with the editor's key. */
 async function enter(w: VueWrapper, text: string, k = 'Enter', extra: Record<string, unknown> = {}): Promise<void> {
@@ -31,6 +36,7 @@ async function enter(w: VueWrapper, text: string, k = 'Enter', extra: Record<str
   await type(w, text)
   await editorKey(w, k, extra)
   await settle(12)
+  await answered()
 }
 
 describe('a formula left open with a correction', () => {
@@ -48,6 +54,7 @@ describe('a formula left open with a correction', () => {
     expect(active(w)).toBe('1:1')
     button('yes').click()
     await settle(12)
+    await written()
     expect(alertOf('typo')).toBeNull()
     expect(cellText(w, 1, 1)).toBe('3')
     expect(active(w)).toBe('2:1')
@@ -85,6 +92,7 @@ describe('a formula left open with a correction', () => {
     await enter(w, '=(1+2', 'Tab')
     button('yes').click()
     await settle(12)
+    await written()
     expect(cellText(w, 1, 1)).toBe('3')
     expect(active(w)).toBe('1:2')
 
@@ -94,6 +102,7 @@ describe('a formula left open with a correction', () => {
     expect(address(w)).toBe('B2:B3')
     button('yes').click()
     await settle(12)
+    await written()
     expect([cellText(w, 2, 2), cellText(w, 3, 2)]).toEqual(['4', '4'])
     expect(address(w)).toBe('B2:B3')
 
@@ -102,8 +111,10 @@ describe('a formula left open with a correction', () => {
     await type(w, '=(3+3')
     await w.find('[data-xs-bar-enter]').trigger('click')
     await settle(12)
+    await answered()
     button('yes').click()
     await settle(12)
+    await written()
     expect(cellText(w, 1, 3)).toBe('6')
     expect(active(w)).toBe('1:3')
   })

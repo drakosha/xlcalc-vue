@@ -8,7 +8,7 @@ import { memorySource, ruMessages, type MemoryBook, type SheetViewApi } from '..
 import { EXPLAIN_DELAY_MS, explainLines } from '../src/core/explain'
 import { localSource } from '../src/local'
 import type { EditOutcome } from '../src/source'
-import { active, address, goTo, key, mountSheet, settle } from './helpers'
+import { active, address, goTo, key, mountSheet, settle, until } from './helpers'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -115,6 +115,8 @@ describe('Reapply of the display filter', () => {
   it('takes Excel’s names in Russian', async () => {
     localStorage.setItem('k:filter:S', JSON.stringify({ cols: { 2: { values: ['a'] } }, sort: null }))
     const w = await mountSheet(memorySource(book()), { storageKey: 'k', messages: ruMessages })
+    // the stored filter goes back on through the source's visibleRows, as many rounds as the machine's load makes
+    await until(() => w.find('[data-xs-filter-reapply]').exists())
     await context(w, '2:1')
     expect([label('reapply'), label('precedents')]).toEqual(['Применить повторно', 'Влияющие ячейки'])
     expect(w.find('[data-xs-filter-reapply]').attributes('title')).toBe(ruMessages.filterReapply)

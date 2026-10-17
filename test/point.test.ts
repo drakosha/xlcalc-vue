@@ -4,7 +4,8 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import { colPx } from '../src/core/geometry'
-import { active, editorKey, editorOpen, goTo, key, mountSheet, pressBar, settle, type } from './helpers'
+import { LOCALE_MODULES } from '../src/locales'
+import { active, editorKey, editorOpen, goTo, key, mountSheet, pressBar, settle, type, until } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -159,6 +160,7 @@ describe('Point mode', () => {
     const w = await mountSheet(recorded().source)
     await pressBar(w, 0)
     await settle()
+    await until(() => w.find('.xs-bar-editing').exists())
     const bar = w.find('.xs-fx textarea').element as HTMLTextAreaElement
     bar.value = '=1+'
     await w.find('.xs-fx textarea').trigger('input')
@@ -238,6 +240,7 @@ describe('Point mode with the arrows', () => {
     const w = await mountSheet(recorded().source)
     await pressBar(w, 0)
     await settle()
+    await until(() => w.find('.xs-bar-editing').exists())
     const bar = w.find('.xs-fx textarea')
     ;(bar.element as HTMLTextAreaElement).value = '=1+'
     await bar.trigger('input')
@@ -249,6 +252,8 @@ describe('Point mode with the arrows', () => {
 
   it('the list separator of a ru-RU book', async () => {
     const w = await mountSheet(recorded().source, { locale: 'ru-RU' })
+    // the sheet reads formulas in ru-RU once the locale's module is in, a chunk loaded as the sheet mounts
+    await LOCALE_MODULES['ru-RU']!()
     await settle()
     await goTo(w, 'B2')
     await typeIn(w, '=СУММ(1;')

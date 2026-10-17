@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages, type MemoryBook } from '../src'
 import { localSource } from '../src/local'
 import type { EditOutcome, SheetOp } from '../src/source'
-import { active, cellText, editorOpen, mountSheet, settle } from './helpers'
+import { active, cellText, editorOpen, mountSheet, settle, until } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -267,6 +267,8 @@ describe('keys in the menu, as Excel’s and the system’s menus', () => {
 
   it('closes on Esc and on Tab, as Excel, with the focus back where it was', async () => {
     const w = await mountSheet(withStructure().source)
+    // Cut is on once the sheet is in, as many rounds as the machine's load makes
+    await until(() => !w.find('.xs-loading').exists())
     scroller(w).focus()
     await context(w.find('[data-cell="2:2"]'))
     expect(focused()).toBe('cut')

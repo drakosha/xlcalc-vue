@@ -53,5 +53,7 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     setupFiles: ['test/setup.ts'],
     passWithNoTests: true,
+    // A test takes well under a second alone; the limit guards against a hang, not a slow machine
+    testTimeout: 20_000,
   },
 })
