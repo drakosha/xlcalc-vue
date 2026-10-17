@@ -6,9 +6,9 @@ Everything the package exports, with signatures. What the sheet does with each p
 
 | Import | What it gives | Runtime dependencies |
 | --- | --- | --- |
-| `xlcalc-sheet` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages` and the types below | `vue` |
-| `xlcalc-sheet/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.46.0 or later (optional peer) |
-| `xlcalc-sheet/style.css` | The look of the sheet, the toolbar and the dialog | |
+| `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages` and the types below | `vue` |
+| `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.46.0 or later (optional peer) |
+| `@xlcalc/vue/style.css` | The look of the sheet, the toolbar and the dialog | |
 
 The main entry bundles xlcalc's engine-free subpaths `xlcalc/a1` and `xlcalc/text` (addresses, the references of formula text, a paste's rectangle), and a book in ru-RU loads ru-RU's formula text as a chunk of its own. A source without `editText` loads `xlcalc/entry` (typed entry, without the engine) as another chunk, bundled whole apart from the main entry, when the first cell needs its text; `memorySource` loads it for Find and Replace.
 
@@ -21,8 +21,8 @@ The sheet: a windowed grid with the formula bar, tabs, menus, Find, the preceden
 ```vue
 <script setup lang="ts">
 import { shallowRef } from 'vue'
-import { SheetView, memorySource, type SheetLinkEvent, type SheetViewState } from 'xlcalc-sheet'
-import 'xlcalc-sheet/style.css'
+import { SheetView, memorySource, type SheetLinkEvent, type SheetViewState } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
 
 const source = memorySource({
   sheets: [
@@ -131,9 +131,9 @@ The host's own buttons over the sheet's methods; the source here is `localSource
 ```vue
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
-import { SheetView, type SheetViewApi } from 'xlcalc-sheet'
-import { localSource } from 'xlcalc-sheet/local'
-import 'xlcalc-sheet/style.css'
+import { SheetView, type SheetViewApi } from '@xlcalc/vue'
+import { localSource } from '@xlcalc/vue/local'
+import '@xlcalc/vue/style.css'
 
 const source = localSource({
   sheets: [
@@ -207,7 +207,7 @@ The component knows its data only through this interface. Rows and columns are 1
 A source over a book on the host's server: windows and sheets by GET, edits by POST, changes made elsewhere by server-sent events. The server answers with the contract's types as JSON; everything else (undo, Find, formatting) is another optional method the same way.
 
 ```ts
-import type { EditOutcome, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent } from 'xlcalc-sheet'
+import type { EditOutcome, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent } from '@xlcalc/vue'
 
 export function serverSource(base: string): SheetSource {
   const get = async <T>(path: string, signal?: AbortSignal): Promise<T> => {
@@ -354,7 +354,7 @@ export function serverSource(base: string): SheetSource {
 `enMessages` (the default) and `ruMessages` are full sets. A host passes a set or a part of one as `messages`; the keys and their arguments are in `src/messages.ts`.
 
 ```ts
-import { ruMessages } from 'xlcalc-sheet'
+import { ruMessages } from '@xlcalc/vue'
 const messages = { ...ruMessages, loading: 'Загружаю…' }
 ```
 
@@ -375,7 +375,7 @@ const messages = { ...ruMessages, loading: 'Загружаю…' }
 A book with styles, a formula, a note, a frozen header, a list rule and the functions of Formula AutoComplete:
 
 ```ts
-import { memorySource } from 'xlcalc-sheet'
+import { memorySource } from '@xlcalc/vue'
 
 const source = memorySource(
   {
@@ -407,7 +407,7 @@ const source = memorySource(
 In a test the extra methods play what a server would do:
 
 ```ts
-import { memorySource } from 'xlcalc-sheet'
+import { memorySource } from '@xlcalc/vue'
 
 const source = memorySource({ sheets: [{ name: 'Sheet1', cells: { A1: 1 } }] })
 source.failNext({ ok: false, reason: 'conflict', message: 'The book changed elsewhere' })
@@ -416,7 +416,7 @@ console.log(await source.edit?.([{ sheet: 'Sheet1', cell: 'A1', text: '2' }])) /
 source.setCells('Sheet1', { B1: '5' }) // the subscribers get it as `changed`
 ```
 
-## `xlcalc-sheet/local`
+## `@xlcalc/vue/local`
 
 A source over an xlcalc book computed in the browser, and xlsx in and out. See [local.md](local.md).
 
@@ -433,7 +433,7 @@ The options, `LocalSourceOptions`:
 | `notice` | `string` | A notice every window carries. |
 
 ```ts
-import { localSource } from 'xlcalc-sheet/local'
+import { localSource } from '@xlcalc/vue/local'
 
 const source = localSource(
   { sheets: [{ name: 'Sheet1', cells: { A1: { value: 2 }, A2: { formula: 'A1*21' } } }] },
@@ -467,7 +467,7 @@ await source.close() // when the sheet goes, as in onUnmounted
 
 ## CSS variables
 
-`xlcalc-sheet/style.css` styles `.xs-sheet`, `.xs-toolbar` and the dialog by `--xs-*` variables, declared on `.xs-sheet`, `.xs-toolbar` and `.xs-fmt-back` (a `FormatDialog` placed by the host) themselves. A host restyles or darkens them by overriding the variables on those elements with a selector that wins over the package's, such as one under a class of its own; a value set on an ancestor alone does not reach them.
+`@xlcalc/vue/style.css` styles `.xs-sheet`, `.xs-toolbar` and the dialog by `--xs-*` variables, declared on `.xs-sheet`, `.xs-toolbar` and `.xs-fmt-back` (a `FormatDialog` placed by the host) themselves. A host restyles or darkens them by overriding the variables on those elements with a selector that wins over the package's, such as one under a class of its own; a value set on an ancestor alone does not reach them.
 
 ```css
 /* A dark sheet, toolbar and Format Cells under the host's .dark */

@@ -1,4 +1,4 @@
-# Reapply, Freeze Panes and the precedents
+# Freeze Panes, Reapply and Trace Precedents
 
 Under a display filter the cells' menu has Excel's Reapply, as do Control+Alt+L (on a Mac too, where Cmd+Option+L is the browser's) and a button on the filter's line at the bottom: the conditions and the sort are applied again to the data as they are now, through `visibleRows`, so a row an edit took out of them goes and one it brought in comes. Until then such a row stays, as in Excel. The scroll stays, and so does the active cell unless its row went, when the row now at its place takes it.
 
@@ -9,8 +9,8 @@ The same commands from the host's buttons, through the sheet's methods ([api.md]
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue'
-import { SheetView, memorySource, type SheetViewApi } from 'xlcalc-sheet'
-import 'xlcalc-sheet/style.css'
+import { SheetView, memorySource, type SheetViewApi } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
 
 const source = memorySource({
   sheets: [

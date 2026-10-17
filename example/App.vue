@@ -48,7 +48,7 @@ const cellUrl = (place: string) => `${location.origin}${location.pathname}?sheet
 <template>
   <div class="page">
     <header class="top">
-      <strong>xlcalc-sheet</strong>
+      <strong>@xlcalc/vue</strong>
       <select v-model="lang" aria-label="language">
         <option value="ru">Русский</option>
         <option value="en">English</option>

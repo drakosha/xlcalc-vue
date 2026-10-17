@@ -88,7 +88,7 @@ const ms = (n: number) => `${Math.round(n)} мс`
 <template>
   <div class="page">
     <header class="top">
-      <strong>xlcalc-sheet/local</strong>
+      <strong>@xlcalc/vue/local</strong>
       <span class="state" data-calc>{{ calc === 'pool' ? 'Web Worker' : 'тот же поток' }}</span>
       <span class="state" data-timings>
         книга {{ ms(timings.built) }} · расчёт {{ timings.ready ? ms(timings.ready) : '…' }}<template v-if="timings.edit"> · правка {{ ms(timings.edit) }}, ячеек {{ timings.changes }}</template>

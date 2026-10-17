@@ -9,9 +9,9 @@ With `sheet` and the source's `structure` the toolbar has Excel's Merge & Center
 ```vue
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
-import { SheetToolbar, SheetView, type SheetViewApi, type SheetViewState } from 'xlcalc-sheet'
-import { localSource } from 'xlcalc-sheet/local'
-import 'xlcalc-sheet/style.css'
+import { SheetToolbar, SheetView, type SheetViewApi, type SheetViewState } from '@xlcalc/vue'
+import { localSource } from '@xlcalc/vue/local'
+import '@xlcalc/vue/style.css'
 
 // A source with format, undo and structure: the toolbar shows only over a source with format
 const source = localSource({
@@ -40,9 +40,9 @@ A host with a dialog of its own listens to the toolbar's `formatCells`, which th
 ```vue
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
-import { FormatDialog, SheetToolbar, SheetView, ruMessages, type SheetViewApi, type SheetViewState } from 'xlcalc-sheet'
-import { localSource } from 'xlcalc-sheet/local'
-import 'xlcalc-sheet/style.css'
+import { FormatDialog, SheetToolbar, SheetView, ruMessages, type SheetViewApi, type SheetViewState } from '@xlcalc/vue'
+import { localSource } from '@xlcalc/vue/local'
+import '@xlcalc/vue/style.css'
 
 // A book in ru-RU: its locale module loads as the source opens
 const source = localSource({ locale: 'ru-RU', sheets: [{ name: 'Лист1', cells: { A1: { value: 1234.5 }, A2: { value: 0.25 } } }] })

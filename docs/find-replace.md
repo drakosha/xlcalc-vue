@@ -6,8 +6,8 @@ Control+F, or the magnifier on the formula bar, opens Excel's Find under the for
 
 ```vue
 <script setup lang="ts">
-import { SheetView, memorySource } from 'xlcalc-sheet'
-import 'xlcalc-sheet/style.css'
+import { SheetView, memorySource } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
 
 const cities = ['Paris', 'Berlin', 'Madrid', 'Rome', 'Paris', 'Vienna', 'Warsaw', 'Paris']
 const cells = Object.fromEntries(cities.flatMap((city, i) => [[`A${i + 1}`, city], [`B${i + 1}`, (i + 1) * 100]]))

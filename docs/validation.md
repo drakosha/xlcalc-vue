@@ -6,8 +6,8 @@ A list rule with an input message and a rule of whole numbers with a warning, ov
 
 ```vue
 <script setup lang="ts">
-import { SheetView, memorySource } from 'xlcalc-sheet'
-import 'xlcalc-sheet/style.css'
+import { SheetView, memorySource } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
 
 const source = memorySource({
   sheets: [

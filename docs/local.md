@@ -1,4 +1,4 @@
-# A book computed in the browser: `xlcalc-sheet/local`
+# In-browser calculation: `@xlcalc/vue/local`
 
 `localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It needs `xlcalc` 0.46.0 or later, an optional peer of the package that the host installs. The book computes in a Web Worker (`xlcalc/worker`), or in the page's thread with `calc: 'inline'`. The book's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); a locale xlcalc has no module for fails the opening with the library's message.
 
@@ -39,9 +39,9 @@ A page that opens an xlsx file, tells what the file lost and saves the book back
 ```vue
 <script setup lang="ts">
 import { onUnmounted, shallowRef } from 'vue'
-import { SheetView } from 'xlcalc-sheet'
-import { groupIssues, localSource, openXlsx, saveXlsx, type LocalSource } from 'xlcalc-sheet/local'
-import 'xlcalc-sheet/style.css'
+import { SheetView } from '@xlcalc/vue'
+import { groupIssues, localSource, openXlsx, saveXlsx, type LocalSource } from '@xlcalc/vue/local'
+import '@xlcalc/vue/style.css'
 
 const source = shallowRef<LocalSource | null>(null)
 const lost = shallowRef<string[]>([])
