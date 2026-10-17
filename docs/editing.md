@@ -1,4 +1,4 @@
-# Editing, keys and the source
+# Cell editing and keyboard shortcuts
 
 Editing takes Excel's keys: typing over a cell, F2 or a double click opens the field, Enter, Tab and their Shift commit and move (inside a selection of several cells, which stays, as Excel's: down a column and on to the next one's top, Tab along a row and on to the next row's start, round past the end), Esc cancels, Alt+Enter breaks the line, Control+Shift+U (or the arrow at the formula bar's right end) expands the formula bar to five lines and collapses it to one, as Excel's (collapsed, a cell of several lines shows its first line and the grid stays put), Delete and Backspace clear the selection, Control+Page Down and Page Up show the next and the previous shown sheet, Control and an arrow go where the source's `end(sheet, cell, direction)` says, as Excel's Range.End (with Shift the selection grows there; without `end`, or under the display filter, to the edge of the data the sheet knows). Without `edit` the sheet is read-only.
 

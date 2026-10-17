@@ -45,17 +45,17 @@ Every feature beyond reading windows is an optional method of the source: withou
 ## Documentation
 
 - [API reference](docs/api.md): components, the sheet's methods, the `SheetSource` contract, `memorySource`, `xlcalc-sheet/local`, CSS variables.
-- [Editing, keys and the source](docs/editing.md): Excel's keys, Point mode, what each optional method of the source turns on.
+- [Cell editing and keyboard shortcuts](docs/editing.md): Excel's keys, Point mode, what each optional method of the source turns on.
 - [Rows, columns and sheets](docs/sheets.md): the menus of lines and tabs, sizes, the outline.
-- [Copy, cut and paste; the fill handle](docs/clipboard.md)
-- [Reapply, Freeze Panes and the precedents](docs/view.md)
+- [Clipboard and fill handle](docs/clipboard.md)
+- [Freeze Panes, Reapply and Trace Precedents](docs/view.md)
 - [Find and Replace](docs/find-replace.md)
 - [Data validation](docs/validation.md)
 - [Formula AutoComplete](docs/autocomplete.md)
 - [The formatting toolbar and Format Cells](docs/toolbar.md)
-- [A book computed in the browser](docs/local.md): what `xlcalc-sheet/local` does and how, xlsx files.
+- [In-browser calculation](docs/local.md): what `xlcalc-sheet/local` does and how, xlsx files.
 - [List mode](docs/list-mode.md): a host's list (a view, a report) on the sheet, sorted by the host, with drill-down and totals.
-- [The example app](docs/example-app.md) and [checks in a browser](docs/checks.md)
+- [Example app](docs/example-app.md) and [browser tests](docs/checks.md)
 
 ## Development
 
