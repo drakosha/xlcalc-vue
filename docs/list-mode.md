@@ -20,8 +20,8 @@ A whole list over `memorySource`, which plays the host's query here: the page so
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue'
-import { SheetView, memorySource, type ListSort, type MemoryCell } from 'xlcalc-sheet'
-import 'xlcalc-sheet/style.css'
+import { SheetView, memorySource, type ListSort, type MemoryCell } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
 
 interface Client { name: string; region: string; sum: number }
 const clients: Client[] = Array.from({ length: 50 }, (_, i) => ({

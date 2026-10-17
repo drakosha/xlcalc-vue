@@ -1,14 +1,14 @@
-# xlcalc-sheet
+# @xlcalc/vue
 
 A Vue 3 sheet component for [xlcalc](https://github.com/drakosha/xlcalc) workbooks: Excel in the browser, with the book's styles, formulas, editing, menus, Find and Replace, data validation and the outline. Where the sheet and Excel could differ, it does what xlcalc measured Excel doing.
 
-The component talks to its data only through a `SheetSource`. Two sources come with it: `memorySource`, a book held in memory for examples and tests, and `localSource` from `xlcalc-sheet/local`, an xlcalc book computed in a Web Worker, with xlsx in and out. A source on a server implements the same interface. MIT.
+The component talks to its data only through a `SheetSource`. Two sources come with it: `memorySource`, a book held in memory for examples and tests, and `localSource` from `@xlcalc/vue/local`, an xlcalc book computed in a Web Worker, with xlsx in and out. A source on a server implements the same interface. MIT.
 
 ## Install
 
 ```sh
-npm install xlcalc-sheet vue
-npm install xlcalc        # only for xlcalc-sheet/local, 0.46.0 or later
+npm install @xlcalc/vue vue
+npm install xlcalc        # only for @xlcalc/vue/local, 0.46.0 or later
 ```
 
 The main entry depends at runtime on `vue` alone and carries no engine.
@@ -17,8 +17,8 @@ The main entry depends at runtime on `vue` alone and carries no engine.
 
 ```vue
 <script setup lang="ts">
-import { SheetView, memorySource } from 'xlcalc-sheet'
-import 'xlcalc-sheet/style.css'
+import { SheetView, memorySource } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
 
 const source = memorySource({ sheets: [{ name: 'Sheet1', cells: { A1: 'Hello', B1: 42 } }] })
 </script>
@@ -31,7 +31,7 @@ const source = memorySource({ sheets: [{ name: 'Sheet1', cells: { A1: 'Hello', B
 A book from an xlsx file, computed in the browser:
 
 ```ts
-import { localSource, openXlsx, saveXlsx } from 'xlcalc-sheet/local'
+import { localSource, openXlsx, saveXlsx } from '@xlcalc/vue/local'
 
 const { book, cached } = await openXlsx(file, { locale: 'ru-RU' }) // a File from an input or a drop
 const source = localSource(book, { session: { cached } })           // <SheetView :source="source" :locale="source.locale" />
@@ -44,7 +44,7 @@ Every feature beyond reading windows is an optional method of the source: withou
 
 ## Documentation
 
-- [API reference](docs/api.md): components, the sheet's methods, the `SheetSource` contract, `memorySource`, `xlcalc-sheet/local`, CSS variables.
+- [API reference](docs/api.md): components, the sheet's methods, the `SheetSource` contract, `memorySource`, `@xlcalc/vue/local`, CSS variables.
 - [Cell editing and keyboard shortcuts](docs/editing.md): Excel's keys, Point mode, what each optional method of the source turns on.
 - [Rows, columns and sheets](docs/sheets.md): the menus of lines and tabs, sizes, the outline.
 - [Clipboard and fill handle](docs/clipboard.md)
@@ -53,7 +53,7 @@ Every feature beyond reading windows is an optional method of the source: withou
 - [Data validation](docs/validation.md)
 - [Formula AutoComplete](docs/autocomplete.md)
 - [The formatting toolbar and Format Cells](docs/toolbar.md)
-- [In-browser calculation](docs/local.md): what `xlcalc-sheet/local` does and how, xlsx files.
+- [In-browser calculation](docs/local.md): what `@xlcalc/vue/local` does and how, xlsx files.
 - [List mode](docs/list-mode.md): a host's list (a view, a report) on the sheet, sorted by the host, with drill-down and totals.
 - [Example app](docs/example-app.md) and [browser tests](docs/checks.md)
 

@@ -9,8 +9,8 @@ The same commands from the host's buttons, through the sheet's methods ([api.md]
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue'
-import { SheetView, memorySource, type SheetViewApi } from 'xlcalc-sheet'
-import 'xlcalc-sheet/style.css'
+import { SheetView, memorySource, type SheetViewApi } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
 
 const source = memorySource({
   sheets: [

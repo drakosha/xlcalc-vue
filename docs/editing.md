@@ -7,9 +7,9 @@ A book computed in the browser, to try the keys on: type into B2 or C3 and D4 fo
 ```vue
 <script setup lang="ts">
 import { onUnmounted } from 'vue'
-import { SheetView } from 'xlcalc-sheet'
-import { localSource } from 'xlcalc-sheet/local'
-import 'xlcalc-sheet/style.css'
+import { SheetView } from '@xlcalc/vue'
+import { localSource } from '@xlcalc/vue/local'
+import '@xlcalc/vue/style.css'
 
 const source = localSource({
   sheets: [
@@ -65,8 +65,8 @@ The source's optional methods turn on the rest:
 
 ```vue
 <script setup lang="ts">
-import { SheetView, memorySource } from 'xlcalc-sheet'
-import 'xlcalc-sheet/style.css'
+import { SheetView, memorySource } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
 
 const source = memorySource({ sheets: [{ name: 'Sheet1', cells: { A1: 'Visitors', B1: 120 } }] })
 // Another tab writes B1: the sheet gets a `changed` event and redraws the cell

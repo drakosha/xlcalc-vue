@@ -6,8 +6,8 @@ A source with `functionNames(signal)` gives the functions a formula can call, by
 
 ```vue
 <script setup lang="ts">
-import { SheetView, memorySource } from 'xlcalc-sheet'
-import 'xlcalc-sheet/style.css'
+import { SheetView, memorySource } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
 
 const source = memorySource({
   functions: ['AVERAGE', 'COUNT', 'COUNTIF', 'IF', 'INDEX', 'MATCH', 'SUM', 'SUMIF', 'SUMIFS', 'SUMPRODUCT'],
@@ -33,9 +33,9 @@ With `localSource` the list holds every function xlcalc computes, the tip shows 
 ```vue
 <script setup lang="ts">
 import { onUnmounted } from 'vue'
-import { SheetView } from 'xlcalc-sheet'
-import { localSource } from 'xlcalc-sheet/local'
-import 'xlcalc-sheet/style.css'
+import { SheetView } from '@xlcalc/vue'
+import { localSource } from '@xlcalc/vue/local'
+import '@xlcalc/vue/style.css'
 
 const source = localSource({ sheets: [{ name: 'Sheet1', cells: { A1: { value: 'North' }, B1: { value: 10 }, A2: { value: 'South' }, B2: { value: 20 } } }] })
 onUnmounted(() => void source.close())

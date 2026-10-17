@@ -7,9 +7,9 @@ A sheet to try them on, with `localSource`, which has `structure` and `copyText`
 ```vue
 <script setup lang="ts">
 import { onUnmounted } from 'vue'
-import { SheetView } from 'xlcalc-sheet'
-import { localSource } from 'xlcalc-sheet/local'
-import 'xlcalc-sheet/style.css'
+import { SheetView } from '@xlcalc/vue'
+import { localSource } from '@xlcalc/vue/local'
+import '@xlcalc/vue/style.css'
 
 const source = localSource({
   sheets: [
