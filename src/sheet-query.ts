@@ -1,6 +1,6 @@
 // The display filter, its sort and the funnel's list over a sheet's shown texts and values, for memorySource and ./local:
 // conditions compare the shown text, the head rows stay on top, a sort orders by value in Excel's order (`valueComparator`
-// of `xlcalc/text`, SORT's, text in the book's locale's order) with empty cells last either way.
+// of `xlcalc/text`, the Sort command's: errors equal, text in the book's locale's order) with empty cells last either way.
 import type { CellValue } from 'xlcalc/contract'
 import { valueComparator } from 'xlcalc/text'
 import type { SheetFilter } from './source'

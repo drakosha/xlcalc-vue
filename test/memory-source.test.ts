@@ -179,6 +179,13 @@ describe('memorySource', () => {
       expect((await src.columnValues!('S', 1, { head: 1 })).values.map((v) => v.text)).toEqual(['-1', '3', 'b', 'Item10', 'Item2', 'Б', 'FALSE', 'TRUE', '#DIV/0!', ''])
     })
 
+    it('keeps errors in their order either way, as Excel’s Sort command does (SORT orders them by ERROR.TYPE)', async () => {
+      const cells = { A1: 'h', A2: { error: 'NA' }, A3: { error: 'DIV0' }, A4: { error: 'REF' } }
+      const src = memorySource({ sheets: [{ name: 'S', cells: cells as MemoryBook['sheets'][number]['cells'] }] })
+      expect((await src.visibleRows!('S', { head: 1, sort: { col: 1, dir: 'asc' } })).rows).toEqual([1, 2, 3, 4])
+      expect((await src.visibleRows!('S', { head: 1, sort: { col: 1, dir: 'desc' } })).rows).toEqual([1, 2, 3, 4])
+    })
+
     it('columnValues: counts over the rows the other columns leave, empty as ""', async () => {
       const src = memorySource(table())
       expect(await src.columnValues!('T', 1, { head: 1 })).toEqual({
