@@ -50,7 +50,7 @@ interface Plan {
   sheets: string[]
   /** The locale the file names (xlsx keeps none unless xlcalc wrote it). */
   locale: string | undefined
-  /** The first visible sheet with a value or a formula: the one the app opens. */
+  /** The sheet the app opens, as Excel opens the file: the saved active one, otherwise the first visible one. */
   first: string | undefined
   largest: { name: string; content: number }
   edits: Edit[]
@@ -125,7 +125,7 @@ function planOf(label: string, path: string, book: BookInput, values: (sheet: nu
     return all.filter(hasContent).length
   })
   const visible = book.sheets.map((s, i) => ({ s, i })).filter(({ s }) => !s.hidden)
-  const first = visible.find(({ i }) => content[i]! > 0)?.s.name
+  const first = book.activeSheet ?? visible[0]?.s.name
   const big = visible.reduce((a, b) => (content[b.i]! > content[a.i]! ? b : a), visible[0]!)
   // the largest sheet first, then the others by size, until three cells are found
   const order = [...visible].sort((a, b) => (a.i === big.i ? -1 : b.i === big.i ? 1 : content[b.i]! - content[a.i]!))
@@ -400,7 +400,7 @@ async function check(browser: Browser, base: string, plan: Plan, n: number): Pro
   })
   const o = await page.evaluate(() => (window as unknown as { __open: { change: number; any: number; drawn: number; ready: number } }).__open)
   const opened = await page.evaluate(() => __big.tab())
-  if (plan.first && opened !== plan.first) failures.push(`opened ${opened}, the first visible sheet with data is ${plan.first}`)
+  if (plan.first && opened !== plan.first) failures.push(`opened ${opened}, Excel opens ${plan.first}`)
   const locale = ((await page.locator('.spa-meta').textContent()) ?? '').split('·')[0]!.trim()
   if (!plan.locale && locale !== 'ru-RU') failures.push(`a file without a language opened in ${locale}, the interface is Russian`)
   const timings = await page.evaluate(() => (window as unknown as { __spa: { timings: () => Record<string, number> } }).__spa.timings())

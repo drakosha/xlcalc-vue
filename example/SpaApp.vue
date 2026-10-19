@@ -157,7 +157,10 @@ async function saveAs(): Promise<void> {
   saving.value = true
   const since = performance.now()
   try {
-    const data = await writeInThread(await b.source.snapshot())
+    const snapshot = await b.source.snapshot()
+    // Excel saves the sheet on screen as the active one, and opens the file on it
+    const sheet = state.value?.sheet
+    const data = await writeInThread(sheet ? { ...snapshot, book: { ...snapshot.book, activeSheet: sheet } } : snapshot)
     download(data, `${name.value.trim().replace(/\.xlsx$/i, '') || t.value.defaultName(created)}.xlsx`)
     lastSave.value = performance.now() - since
   } catch (e) {

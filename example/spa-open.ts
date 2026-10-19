@@ -1,5 +1,5 @@
 // What the app takes from a file it opens: the book's language, the sheet to show first and what the file lost, by kind.
-import type { BookInput, CellInput } from 'xlcalc'
+import type { BookInput } from 'xlcalc'
 import { quoteSheetIfNeeded } from 'xlcalc/text'
 import type { XlsxIssue, XlsxIssueCode } from 'xlcalc/xlsx'
 import { BOOK_LOCALES, type BookLocale, type SpaLang } from './spa-texts'
@@ -15,14 +15,12 @@ export function bookLocaleOf(file: string | undefined, lang: SpaLang): BookLocal
   return BOOK_LOCALES.includes(file as BookLocale) ? (file as BookLocale) : localeOfLang(lang)
 }
 
-const hasData = (c: CellInput) => c.formula !== undefined || (c.value !== undefined && c.value !== null && c.value !== '')
-
 /**
- * The sheet to show first: the first visible one with a value or a formula. Excel opens the sheet active when the file
- * was saved, which the library does not read; without it a divider sheet at the front would open empty.
+ * The sheet to show first, as Excel opens a file: the sheet that was active when it was saved (`activeSheet`, which the
+ * reader gives only for a visible sheet), otherwise the first visible one, as Excel saves no active tab for the first.
  */
 export function firstShownSheet(book: BookInput): string | undefined {
-  return book.sheets.find((s) => !s.hidden && Object.values(s.cells).some(hasData))?.name
+  return book.activeSheet ?? book.sheets.find((s) => !s.hidden)?.name
 }
 
 /** Kinds by what they mean to a reader: what changes values first, then content, then the look, settings and names last. */

@@ -21,23 +21,22 @@ describe('bookLocaleOf: the language a book opens in', () => {
 
 describe('firstShownSheet: the sheet the app opens', () => {
   const sheet = (name: string, cells: BookInput['sheets'][number]['cells'], more: object = {}) => ({ name, cells, ...more })
-  it('skips hidden sheets, empty dividers and sheets of formatting alone', () => {
-    const book: BookInput = {
-      sheets: [
-        sheet('Pres->', { A1: { value: 'x' } }, { hidden: true }),
-        sheet('Outputs->', {}),
-        sheet('Styled', { B2: { style: 1 }, C3: { value: '' } }),
-        sheet('Production', { A1: { value: 'Plan' } }),
-        sheet('Later', { A1: { value: 1 } }),
-      ],
-    }
-    expect(firstShownSheet(book)).toBe('Production')
+  const book: BookInput = {
+    sheets: [
+      sheet('Pres->', { A1: { value: 'x' } }, { hidden: true }),
+      sheet('Outputs->', {}),
+      sheet('Production', { A1: { value: 'Plan' } }),
+      sheet('Later', { A1: { value: 1 } }),
+    ],
+  }
+  it('opens the sheet the file saved as active, as Excel does', () => {
+    expect(firstShownSheet({ ...book, activeSheet: 'Later' })).toBe('Later')
   })
-  it('counts a formula as data', () => {
-    expect(firstShownSheet({ sheets: [sheet('Empty', {}), sheet('Sum', { A1: { formula: 'SUM(1,2)' } })] })).toBe('Sum')
+  it('without a saved active sheet opens the first visible one, an empty divider too, as Excel does', () => {
+    expect(firstShownSheet(book)).toBe('Outputs->')
   })
-  it('gives nothing when no visible sheet has data, so the sheet opens its first visible one', () => {
-    expect(firstShownSheet({ sheets: [sheet('A', {}), sheet('B', { A1: { value: 1 } }, { hidden: true })] })).toBeUndefined()
+  it('gives nothing for a book without sheets, so the sheet opens as it would', () => {
+    expect(firstShownSheet({ sheets: [] })).toBeUndefined()
   })
 })
 
