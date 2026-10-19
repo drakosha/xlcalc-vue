@@ -1,8 +1,8 @@
 # @xlcalc/vue
 
-A Vue 3 sheet component for [xlcalc](https://github.com/drakosha/xlcalc) workbooks: Excel in the browser, with the book's styles, formulas, editing, menus, Find and Replace, data validation and the outline. Where the sheet and Excel could differ, it does what xlcalc measured Excel doing.
+A Vue 3 spreadsheet component for [xlcalc](https://github.com/drakosha/xlcalc) workbooks: Excel in the browser, with the workbook's styles, formulas, editing, context menus, Find and Replace, data validation and outline. Wherever the component could behave differently from Excel, it follows Excel's behavior as measured by xlcalc.
 
-The component talks to its data only through a `SheetSource`. Two sources come with it: `memorySource`, a book held in memory for examples and tests, and `localSource` from `@xlcalc/vue/local`, an xlcalc book computed in a Web Worker, with xlsx in and out. A source on a server implements the same interface. MIT.
+The component accesses its data only through a `SheetSource`. Two sources are included: `memorySource`, an in-memory workbook for examples and tests, and `localSource` from `@xlcalc/vue/local`, which calculates an xlcalc workbook in a Web Worker and reads and writes xlsx files. A server-side source implements the same interface. MIT license.
 
 ## Install
 
@@ -11,7 +11,7 @@ npm install @xlcalc/vue vue
 npm install xlcalc        # only for @xlcalc/vue/local, 0.46.0 or later
 ```
 
-The main entry depends at runtime on `vue` alone and carries no engine.
+At runtime the main entry point depends only on `vue` and does not include the calculation engine.
 
 ## Quick start
 
@@ -28,33 +28,33 @@ const source = memorySource({ sheets: [{ name: 'Sheet1', cells: { A1: 'Hello', B
 </template>
 ```
 
-A book from an xlsx file, computed in the browser:
+A workbook from an xlsx file, calculated in the browser:
 
 ```ts
 import { localSource, openXlsx, saveXlsx } from '@xlcalc/vue/local'
 
-const { book, cached } = await openXlsx(file, { locale: 'ru-RU' }) // a File from an input or a drop
+const { book, cached } = await openXlsx(file, { locale: 'ru-RU' }) // a File from a file input or a drop
 const source = localSource(book, { session: { cached } })           // <SheetView :source="source" :locale="source.locale" />
-const { data } = await saveXlsx(source)                             // the xlsx bytes, formulas with their values
+const { data } = await saveXlsx(source)                             // the xlsx bytes: formulas along with their values
 ```
 
-Excel's formatting toolbar (`SheetToolbar`) and Format Cells dialog (`FormatDialog`) go over the same source: see [toolbar.md](docs/toolbar.md).
+Excel's formatting toolbar (`SheetToolbar`) and Format Cells dialog (`FormatDialog`) work with the same source; see [toolbar.md](docs/toolbar.md).
 
-Every feature beyond reading windows is an optional method of the source: without `edit` the sheet is read-only, without `find` there is no search, and so on. The interface speaks English by default and Russian with `ruMessages`. Colours and sizes are `--xs-*` CSS variables.
+Apart from the two required methods that read sheets and cells, every feature is an optional method of the source: without `edit` the sheet is read-only, without `find` there is no search, and so on. The interface is in English by default and in Russian with `ruMessages`. Colors and sizes are set by `--xs-*` CSS variables.
 
 ## Documentation
 
 - [API reference](docs/api.md): components, the sheet's methods, the `SheetSource` contract, `memorySource`, `@xlcalc/vue/local`, CSS variables.
-- [Cell editing and keyboard shortcuts](docs/editing.md): Excel's keys, Point mode, what each optional method of the source turns on.
-- [Rows, columns and sheets](docs/sheets.md): the menus of lines and tabs, sizes, the outline.
+- [Cell editing and keyboard shortcuts](docs/editing.md): Excel's keyboard shortcuts, Point mode, and the features each optional source method enables.
+- [Rows, columns and sheets](docs/sheets.md): row, column and sheet tab context menus, sizes, outline.
 - [Clipboard and fill handle](docs/clipboard.md)
 - [Freeze Panes, Reapply and Trace Precedents](docs/view.md)
 - [Find and Replace](docs/find-replace.md)
 - [Data validation](docs/validation.md)
 - [Formula AutoComplete](docs/autocomplete.md)
 - [The formatting toolbar and Format Cells](docs/toolbar.md)
-- [In-browser calculation](docs/local.md): what `@xlcalc/vue/local` does and how, xlsx files.
-- [List mode](docs/list-mode.md): a host's list (a view, a report) on the sheet, sorted by the host, with drill-down and totals.
+- [In-browser calculation](docs/local.md): how `@xlcalc/vue/local` works, xlsx files.
+- [List mode](docs/list-mode.md): the host's list (a view or a report) displayed on the sheet, sorted by the host, with drill-down and a totals row.
 - [Example app](docs/example-app.md) and [browser tests](docs/checks.md)
 
 ## Development

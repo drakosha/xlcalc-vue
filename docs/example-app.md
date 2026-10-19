@@ -1,10 +1,19 @@
 # Example app
 
-`example/spa.html` is an app like Excel over the local source, all in the browser: New (an empty book in English or Russian), Open (the picker, or an xlsx file dropped on the page), Save as (the book with its values as `<name>.xlsx`, under the name in the bar), a notice of what the file lost, the toolbar (through the sheet's methods) with Excel's Format Cells dialog, the sheet with its formula bar, tabs, the structure menu on row numbers, column letters and tabs, the cells' menu, the fill handle and selection totals, a status bar (reading the file, computing the book, ready, or calculating while a change is out) and the book's settings (its language, in which formulas, numbers and dates are typed and shown; the book opens again in it, on the sheet it stood on). It speaks Russian or English by the browser's language (`?lang=ru` or `?lang=en` chooses). One change may write at most 100,000 cells with a value or a formula (xlcalc's `limits.writes`): a cell copied over a whole column, 1,048,576 cells and seconds and hundreds of megabytes in the thread, is refused at once with the library's message. Excel has no such limit.
+`example/spa.html` is an Excel-like app over the local source, running entirely in the browser. It has:
 
-A file opens as Excel opens it for its user. xlsx keeps no language, so a file that names none (only xlcalc writes one) opens in the locale of the interface's language, ru-RU under the Russian interface, as Excel shows formulas in its user's language; the settings change it. The app opens the first visible sheet with a value or a formula: Excel opens the sheet active when the file was saved, which xlcalc does not read yet, and a divider sheet at the front would open empty. What the file lost is one line, as Excel's message bar: each kind with its count, what changes values (links to other workbooks, formulas the engine does not parse) first and names last; Details opens each message with its count, the sheets, example cells and names. Reading and writing a file run in a thread of the app (`example/spa-files-worker.ts`), and the book and the values the file stores cross between the threads in slices of 20,000 cells, so a large file does not stop the page while it opens or saves; the book opens with those values, so a circular reference holds what Excel showed.
+- New (an empty workbook in English or Russian), Open (the file picker, or an xlsx file dropped on the page) and Save as (the workbook with its values as `<name>.xlsx`, under the name in the top bar);
+- a notice of what the file lost;
+- the toolbar (through the sheet's methods) with Excel's Format Cells dialog;
+- the sheet with its formula bar, tabs, the structure menu on row numbers, column letters and tabs, the cell context menu, the fill handle and selection totals;
+- a status bar (reading the file, calculating the workbook, ready, or calculating while a change is in progress);
+- the workbook's settings: its language, in which formulas, numbers and dates are typed and displayed; the workbook reopens in it, on the sheet that was active.
 
-It has no server of its own: the dev server serves it, and the build goes to `example/dist`, which any static server serves.
+The interface is in Russian or English according to the browser's language (`?lang=ru` or `?lang=en` chooses one). A single change can write at most 100,000 cells with a value or a formula (xlcalc's `limits.writes`): a cell copied over an entire column, which is 1,048,576 cells and would take seconds and hundreds of megabytes in the worker thread, is rejected immediately with the library's message. Excel has no such limit.
+
+A file opens as Excel opens it for its user. xlsx stores no language, so a file that specifies none (only xlcalc writes one) opens in the locale of the interface language, ru-RU with the Russian interface, as Excel displays formulas in its user's language; the settings change it. The app opens the first visible sheet with a value or a formula: Excel opens the sheet that was active when the file was saved, which xlcalc does not read yet, and a divider sheet at the front would open empty. What the file lost is shown in one line, like Excel's message bar: each kind of issue with its count, those that change values (links to other workbooks, formulas the engine cannot parse) first and names last; Details expands each message with its count, the sheets, example cells and names. Reading and writing a file run in a worker thread of the app (`example/spa-files-worker.ts`), and the workbook and the values stored in the file are transferred between the threads in slices of 20,000 cells, so a large file does not block the page while it opens or saves; the workbook opens with those values, so a circular reference keeps the values Excel displayed.
+
+It needs no server of its own: the dev server serves it, and the build goes to `example/dist`, which any static server can serve.
 
 ```sh
 npm run dev:example                                  # http://localhost:5181/spa.html
@@ -12,6 +21,6 @@ npm run build:example                                # example/dist
 npx vite preview --config vite.example.config.ts     # or: python3 -m http.server -d example/dist
 ```
 
-`npm run build:demo` builds the app alone for `xlcalc.pridelab.dev/demo/` into `example/dist-demo`: its paths under `/demo/` (the threads too, which load by `import.meta.url`), its `index.html` the app itself, so `/demo/` opens it, and no source maps. Any static server that serves the directory at `/demo/` serves it.
+`npm run build:demo` builds the app alone, for `xlcalc.pridelab.dev/demo/`, into `example/dist-demo`: with its paths under `/demo/` (the worker threads too, which load via `import.meta.url`), with the app itself as `index.html`, so `/demo/` opens it, and without source maps. Any static server that serves the directory at `/demo/` can host it.
 
 The checks that drive the app in a browser are in [checks.md](checks.md).
