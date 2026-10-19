@@ -169,7 +169,7 @@ describe('keys', () => {
     paste(w, '1\t2')
     await settle()
     expect(edits).toEqual([])
-    expect(w.find('.xs-message').text()).toBe('Cannot paste here: the data would go past the edge of the sheet')
+    expect(w.find('.xs-message').text()).toBe('Cannot paste here: the data would extend past the edge of the sheet')
     await w.setProps({ messages: ruMessages })
     paste(w, '1\n2')
     await settle()

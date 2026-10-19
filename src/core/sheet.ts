@@ -28,23 +28,23 @@ import { useTotals } from './totals'
 import { useViewport } from './viewport'
 import { useWindows } from './windows'
 
-/** What `state` reports: the sheet, the selection, and the active cell's formula and shown value. */
+/** What `state` reports: the sheet, the selection, and the active cell's formula and displayed value. */
 export interface SheetViewState {
   sheet: string
   ref: string
   formula?: string
   value?: string
-  /** The style the active cell shows, for a toolbar; absent while its window is not loaded or it has none. */
+  /** The active cell's style, for a toolbar; absent while its window is not loaded or when it has none. */
   style?: CellStyle
-  /** The active cell's number format code, from a source whose windows give them; absent for General. */
+  /** The active cell's number format code, from a source whose windows include them; absent for General. */
   numberFormat?: string
-  /** The merged area the active cell is in (`A1:B2`), from the loaded windows: Excel's Merge & Center is pressed on it. */
+  /** The merged range containing the active cell (`A1:B2`), from the loaded windows: Excel's Merge & Center shows as pressed on it. */
   merged?: string
-  /** The merge commands act (`SheetViewApi.merge`): the source has `structure`, the sheet is editable, no display filter. */
+  /** The merge commands are available (`SheetViewApi.merge`): the source has `structure`, the sheet is editable, and no display filter is on. */
   canMerge?: true
 }
 
-/** A link the component does not open itself, with the cell it is in. */
+/** A hyperlink the component does not open itself, with the cell it belongs to. */
 export type SheetLinkEvent = NonNullable<SheetWindow['links']>[string] & { sheet: string; cell: string }
 
 export interface SheetEmit {

@@ -67,7 +67,7 @@ async function outlineOp(s: AsyncSession, change: OutlineChange): Promise<SheetO
   return 'refused' in op ? { ok: false, reason: 'refused', message: op.refused } : ({ ...op, sheet: change.sheet } as SheetOp)
 }
 
-/** A source over `input`: the book goes to the session as it is (its cells are not copied), so do not change it afterwards. */
+/** A source over `input`: the workbook is passed to the session as is (its cells are not copied), so do not change it afterwards. */
 export function localSource(input: BookInput, opts: LocalSourceOptions = {}): LocalSource {
   const locale = input.locale ?? 'en-US'
   // What each function does, for Insert Function: loaded with the first tip, as a host that only computes needs none of it.

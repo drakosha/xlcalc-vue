@@ -164,7 +164,7 @@ describe('localSource: outline commands', () => {
 
   it('a group at the sheet’s edge has no summary row, so no button: its command is refused, a level button hides it', async () => {
     const { s, run } = await opened(book({ rows: { '1:3': { outlineLevel: 1 } }, columns: {}, outline: { summaryBelow: false } }))
-    expect(await run({ op: 'collapse', rows: '1:3', level: 1 })).toEqual({ ok: false, reason: 'refused', message: "The group of rows 1:3 has no summary row, past the sheet's edge: Excel draws no button for it" })
+    expect(await run({ op: 'collapse', rows: '1:3', level: 1 })).toEqual({ ok: false, reason: 'refused', message: "The group of rows 1:3 has no summary row within the sheet: Excel draws no button for it" })
     expect(await hiddenRows(s)).toEqual([])
     await run({ op: 'showLevel', axis: 'rows', level: 1 })
     expect(await hiddenRows(s)).toEqual([1, 2, 3])

@@ -13,22 +13,22 @@ import { createMemory } from './storage'
 /** Properties of `SheetView`. */
 export interface SheetViewProps {
   source: SheetSource
-  /** Interface texts; a part overrides the English defaults. */
+  /** Interface texts; a partial set overrides the English defaults. */
   messages?: Partial<SheetMessages>
-  /** Key of the browser's memory for the freeze choice and widths; without it the memory lives with the component. */
+  /** Key in the browser's storage for the frozen panes display choice and column widths; without it they last as long as the component. */
   storageKey?: string
-  /** A place to show: `Sheet!B12:D15`, `B7`, `Sheet`; a new object is a new jump. */
+  /** A location to show: `Sheet!B12:D15`, `B7`, `Sheet`; each new object is a new jump. */
   focus?: { ref: string } | null
-  /** The host's page address for a place; without it there is no "Link to the cell" button. */
+  /** The host page's address for a location; without it there is no "Link to the cell" button. */
   cellUrl?: (ref: string) => string
   readOnly?: boolean
-  /** The formula bar over the grid, on by default. */
+  /** Shows the formula bar above the grid; on by default. */
   formulaBar?: boolean
-  /** The book's locale for texts the component writes itself: a cell's edit text without `editText`, and selection totals. */
+  /** The workbook's locale for texts the component produces itself: a cell's edit text without `editText`, and selection totals. */
   locale?: string
-  /** No tabs for a book of one sheet, as some hosts want; Excel shows them always, which is the default. */
+  /** Hides the tabs of a workbook with a single sheet, for hosts that want it; Excel always shows them, which is the default. */
   hideLoneTab?: boolean
-  /** A double click on a column's edge brings the book's width back, as some hosts want; by default it fits the columns to what they show, as Excel. */
+  /** Double-clicking a column edge restores the workbook's width, for hosts that want it; by default it fits the columns to their contents, as Excel does. */
   edgeRestoresWidth?: boolean
   /** List mode: the order the host sorted the list in, shown as an arrow on the column's title; null for none. */
   sort?: ListSort | null
@@ -36,7 +36,7 @@ export interface SheetViewProps {
   openRows?: boolean
 }
 
-/** Why the book cannot be shown: the source's error and its text. */
+/** Why the workbook cannot be displayed: the source's error and its text. */
 export interface SheetFailure {
   error: unknown
   text: string

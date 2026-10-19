@@ -4,7 +4,7 @@ import type { XlsxIssue, XlsxRead, XlsxWritten } from 'xlcalc/xlsx'
 import { loadLocale } from './locale'
 import type { LocalSource } from './types'
 
-/** The language of the issues' messages: a tag (`ru-RU`, its module loaded on demand) or a locale object; en-US by default. */
+/** The language of the issue messages: a tag (`ru-RU`, whose module is loaded on demand) or a locale object; en-US by default. */
 export interface XlsxIssuesOptions {
   locale?: string | Locale
 }
@@ -16,14 +16,14 @@ async function issuesIn(opts: XlsxIssuesOptions): Promise<{ locale?: string | Lo
   return { locale: opts.locale }
 }
 
-/** Read a file (the bytes, or a `File` from an input or a drop) into a book; `issues` lists what the book cannot hold, in `locale`'s language. */
+/** Reads a file (the bytes, or a `File` from a file input or a drop) into a workbook; `issues` lists what the workbook cannot keep, in `locale`'s language. */
 export async function openXlsx(data: Blob | ArrayBuffer | Uint8Array, opts: XlsxIssuesOptions = {}): Promise<XlsxRead> {
   const bytes = data instanceof Blob ? new Uint8Array(await data.arrayBuffer()) : data
   const [{ readXlsx }, read] = await Promise.all([import('xlcalc/xlsx'), issuesIn(opts)])
   return readXlsx(bytes, read)
 }
 
-/** Write the source's book with its computed values (`formulas`, the default, or `values` only); `issues` lists what the file cannot hold, in `locale`'s language. */
+/** Writes the source's workbook with its calculated values (`formulas`, the default, or `values` only); `issues` lists what the file cannot keep, in `locale`'s language. */
 export async function saveXlsx(source: LocalSource, opts: XlsxIssuesOptions & { mode?: 'formulas' | 'values' } = {}): Promise<XlsxWritten> {
   const [{ writeXlsx }, snapshot, write] = await Promise.all([import('xlcalc/xlsx'), source.snapshot(), issuesIn(opts)])
   return writeXlsx(snapshot, { ...(opts.mode ? { mode: opts.mode } : {}), ...write })
@@ -32,13 +32,13 @@ export async function saveXlsx(source: LocalSource, opts: XlsxIssuesOptions & { 
 export interface IssueGroup {
   code: XlsxIssue['code']
   count: number
-  /** The sheets the issues are about, in the order met. */
+  /** The sheets the issues concern, in order of appearance. */
   sheets: string[]
   /** The first issue's message. */
   message: string
 }
 
-/** Issues by kind, in the order their kinds first appear: for a notice of what a file lost. */
+/** Issues grouped by kind, in order of first appearance: for a notice of what a file lost. */
 export function groupIssues(issues: XlsxIssue[]): IssueGroup[] {
   const groups = new Map<string, IssueGroup>()
   for (const i of issues) {

@@ -1,4 +1,4 @@
-// The package's main entry: the sheet component, the source contract, interface texts and a source over a book in memory.
+// The package's main entry point: the sheet component, the source contract, interface texts and an in-memory workbook source.
 export { default as SheetView } from './components/SheetView.vue'
 export { default as SheetToolbar } from './components/SheetToolbar.vue'
 export { default as FormatDialog } from './components/FormatDialog.vue'

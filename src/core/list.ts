@@ -6,7 +6,7 @@ import type { SheetEmit } from './sheet'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
 
-/** The order a list is sorted in, by a column of the sheet (1-based): the host sorts, the sheet shows the arrow. */
+/** The order a list is sorted in, by a column of the sheet (1-based): the host sorts, and the sheet shows the arrow. */
 export interface ListSort {
   col: number
   dir: 'asc' | 'desc'
