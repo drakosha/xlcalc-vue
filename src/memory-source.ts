@@ -16,32 +16,32 @@ import { isGridRef } from './grid-ref'
 import { DEFAULT_MAX_CELLS, rowsFor } from './window-size'
 import { MemoryRules, memoryRefusal, PLAIN_NUMBER, type MemoryValidation } from './memory-validation'
 
-/** A cell of the memory book; a bare value is a cell with that value. */
+/** A cell of the in-memory workbook; a bare value is a cell with that value. */
 export interface MemoryCell {
   value?: CellValue
-  /** Shown text; by default the value as plain text. */
+  /** Displayed text; by default the value as plain text. */
   text?: string
-  /** The formula as shown, without `=`; with no engine its value is whatever `value` says. */
+  /** The formula as displayed, without `=`; with no engine its value is whatever `value` specifies. */
   formula?: string
-  /** A style of the book's `styles`, by index. */
+  /** A style from the workbook's `styles`, by index. */
   style?: number
-  /** The colour of the number format's section. */
+  /** The color from the number format's section. */
   color?: string
-  /** The number format code the cell shows by, as xlsx stores it (`0.0%`, `dd.mm.yyyy`); without it General. The text it opens with follows it. */
+  /** The number format code the cell is displayed with, as xlsx stores it (`0.0%`, `dd.mm.yyyy`); General without it. The text the cell opens with for editing follows it. */
   numberFormat?: string
   link?: { href?: string; location?: string; tooltip?: string; target?: string }
   note?: { author?: string; text: string }
   /** List mode: the cell is a drill-down (`SheetWindow.drill`). */
   drill?: true
-  /** What conditional formats give the cell, as xlcalc computes it (`ConditionalAppearance`); the book in memory keeps it as given. */
+  /** The cell's conditional formatting, as xlcalc calculates it (`ConditionalAppearance`); the in-memory workbook keeps it as given. */
   appearance?: ConditionalAppearance
 }
 
 /**
- * Excel's outline of a memory sheet: outline levels (1 to 7) of rows and columns by line or span, as `widths` and
- * `heights` take them (`'3:9': 1`, `'C:E': 2`), the summary lines marked collapsed (`'10'`, `'F'`; a group inside a
- * collapsed one stays collapsed when that one is expanded), and where the summaries are (below and right by default).
- * A group's lines are hidden by a size of 0.
+ * Excel's outline of an in-memory sheet: outline levels (1 to 7) of rows and columns by row, column or span, keyed as in
+ * `widths` and `heights` (`'3:9': 1`, `'C:E': 2`), the summary rows and columns marked collapsed (`'10'`, `'F'`; a group
+ * inside a collapsed one stays collapsed when the outer one is expanded), and where the summaries are (below and to the
+ * right by default). A group's rows or columns are hidden by a size of 0.
  */
 export interface MemoryOutline {
   rows?: Record<string, number>
@@ -63,31 +63,31 @@ export interface MemorySheet extends Omit<SheetInfo, 'maxRow' | 'maxCol' | 'outl
   tables?: { name: string; range: string; headerRow: number }[]
   notice?: string
   outline?: MemoryOutline
-  /** Rules of data validation: a cell's dropdown and input message, and the alert for a typed value a rule does not take. */
+  /** Data validation rules: a cell's dropdown and input message, and the alert for a typed value that violates a rule. */
   validations?: MemoryValidation[]
 }
 
 export interface MemoryBook {
   sheets: MemorySheet[]
   styles?: CellStyle[]
-  /** Formula AutoComplete's functions, by their names as the book's formulas type them, in the order its list shows them; without them the source has no `functionNames`. */
+  /** The functions for Formula AutoComplete, by their names as typed in the workbook's formulas, in the order its list displays them; without them the source has no `functionNames`. */
   functions?: string[]
 }
 
 export interface MemorySourceOptions {
-  /** Milliseconds every answer takes, to see the component wait; 0 by default. */
+  /** Milliseconds every response takes, to see the component waiting; 0 by default. */
   delay?: number
   maxCells?: number
 }
 
 export interface MemorySource extends SheetSource {
-  /** Answer the next edits with these refusals instead of applying them (tests and the example). */
+  /** Responds to the next edits with these failed outcomes instead of applying them (for tests and the example). */
   failNext(...outcomes: Extract<EditOutcome, { ok: false }>[]): void
-  /** Send an event to the subscribers, as another tab would. */
+  /** Sends an event to the subscribers, as another tab would. */
   emit(event: SourceEvent): void
-  /** Change cells as another tab would: applied, and sent to the subscribers as `changed`. */
+  /** Changes cells as another tab would: the changes are applied and sent to the subscribers as `changed`. */
   setCells(sheet: string, entries: Record<string, string | null>): CellUpdate[]
-  /** Play a book being recomputed for `ms`: windows answer `pending` until then. */
+  /** Simulates a workbook recalculating for `ms`: windows return `pending` until then. */
   recompute(ms: number): void
 }
 
@@ -143,7 +143,7 @@ function linesOf(key: string, axis: LineAxis): number[] {
   return out
 }
 
-/** A source over `book`; the book's objects are copied, edits change the copy. */
+/** A source over `book`; the workbook's objects are copied, and edits change the copy. */
 export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}): MemorySource {
   const delay = options.delay ?? 0
   const maxCells = options.maxCells ?? DEFAULT_MAX_CELLS

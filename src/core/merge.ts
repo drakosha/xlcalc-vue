@@ -13,7 +13,7 @@ import { useSheetReads, type SheetState } from './state'
 import type { AlertAnswer, SheetAlert } from './validation'
 import type { Windows } from './windows'
 
-/** Excel's merge commands: the button's Merge & Center, and Merge Across, Merge Cells and Unmerge Cells of its list. */
+/** Excel's merge commands: Merge & Center on the button, and Merge Across, Merge Cells and Unmerge Cells in its dropdown. */
 export type MergeCommand = 'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'
 
 interface MergeDeps {

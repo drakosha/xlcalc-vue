@@ -36,21 +36,21 @@ import '../controls.css'
 
 const props = withDefaults(
   defineProps<{
-    /** Shown while true; each opening starts again from the active cell's look. */
+    /** Shown while true; each time it opens, it starts from the active cell's formatting. */
     open: boolean
-    /** What the sheet's `state` event gave: the selection and the active cell's look; null shows nothing. */
+    /** The payload of the sheet's `state` event: the selection and the active cell's formatting; with null nothing is shown. */
     state: SheetViewState | null
-    /** Interface texts; a part overrides the English defaults. */
+    /** Interface texts; a partial set overrides the English defaults. */
     messages?: Partial<SheetMessages>
-    /** The book's locale (as `SheetView`'s): the Number tab names its categories and items in it; en-US without one. */
+    /** The workbook's locale (as for `SheetView`), in which the Number tab names its categories and items; en-US without one. */
     locale?: string
   }>(),
   { messages: undefined, locale: undefined },
 )
 const emit = defineEmits<{
-  /** OK with changes: patches for `SheetView.format`, a style without a range over the selection, borders on their ranges. */
+  /** OK was clicked with changes: patches for `SheetView.format`, a style without a range applying to the selection, and borders on their own ranges. */
   apply: [patches: SheetFormatPatch[]]
-  /** OK or Cancel: the host hides the dialog. */
+  /** OK or Cancel was clicked: the host hides the dialog. */
   close: []
 }>()
 

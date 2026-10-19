@@ -4,7 +4,7 @@ import type { BorderLine, CellRect, CellStyle, StylePatch } from 'xlcalc/contrac
 import { parseRange, rangeAddress } from 'xlcalc/a1'
 import type { FormatPatch, SheetSource } from './source'
 
-/** A source the toolbar formats through: `SheetSource`, whose `history` says whether undo and redo have a step. */
+/** The source the toolbar formats through: a `SheetSource`, whose `history` tells whether Undo and Redo have a step. */
 export type ToolbarSource = SheetSource
 
 export type FontToggle = 'bold' | 'italic' | 'underline'

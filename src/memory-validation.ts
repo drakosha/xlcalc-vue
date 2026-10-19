@@ -5,17 +5,17 @@ import type { CellRect } from 'xlcalc/contract'
 import { cellRect } from './rect'
 import type { CellEntry, EditOutcome, SheetValidation, SheetValidationAlert } from './source'
 
-/** A rule of data validation of a memory sheet, as Excel's dialog makes one: a list or whole numbers within bounds, an input message, the alert. */
+/** A data validation rule of an in-memory sheet, as Excel's dialog creates one: a list or whole numbers within bounds, an input message, the alert. */
 export interface MemoryValidation {
   /** The cells: A1 ranges separated by spaces (`B2:B20 D2`, `C:C`). */
   range: string
-  /** A list: the value is one of the items, in their case, spaces at either end aside; the cell shows them in a dropdown. */
+  /** A list: the value must be one of the items, case-sensitively, ignoring leading and trailing spaces; the cell shows them in a dropdown. */
   list?: string[]
-  /** Whole numbers from `min` to `max`, either bound left out for none. */
+  /** Whole numbers from `min` to `max`; omit either bound for none. */
   whole?: { min?: number; max?: number }
-  /** The input message shown while a cell is selected. */
+  /** The input message displayed while a cell is selected. */
   prompt?: { title?: string; text: string }
-  /** The alert for a value the rule does not take: stop by default, the title and message (Excel's own text without one). */
+  /** The alert for a value that violates the rule: its style (stop by default), title and message (Excel's own text without one). */
   alert?: { severity?: SheetValidationAlert['severity']; title?: string; message?: string }
 }
 

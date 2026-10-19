@@ -10,43 +10,45 @@ import type { MergeCommand } from './merge'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 
-/** A patch of `SheetView.format`: over its own range, or over the selection without one. */
+/** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */
 export type SheetFormatPatch = Omit<FormatPatch, 'range'> & { range?: string }
 
 /** Excel's Freeze Panes commands: the panes of the active cell, Unfreeze Panes, Freeze Top Row, Freeze First Column. */
 export type FreezeMode = 'panes' | 'unfreeze' | 'topRow' | 'firstColumn'
 
 /**
- * What `SheetView` exposes to its host (a template `ref`): changes made as the sheet's own keys make them, the outcome's
- * selection set without a flash or a step of the way back. Each gives the source's outcome, or null when nothing was sent
- * (the source has no such method, the sheet is read-only, or an undo is still out).
+ * What `SheetView` exposes to its host (through a template `ref`): changes made as the sheet's own keyboard commands make
+ * them, with the outcome's selection set without a flash or a Back history entry. Each method resolves to the source's
+ * outcome, or to null when nothing was sent (the source lacks the method, the sheet is read-only, or an undo is pending).
  */
 export interface SheetViewApi {
   undo(): Promise<EditOutcome | null>
   redo(): Promise<EditOutcome | null>
-  /** Formatting of the active sheet in one call of the source's `format`. */
+  /** Formats the active sheet in one call to the source's `format`. */
   format(patches: SheetFormatPatch[]): Promise<EditOutcome | null>
-  /** A structure operation of the source; the sheet shown after it is the one Excel shows. */
+  /** A structure operation through the source; the sheet displayed afterwards is the one Excel displays. */
   structure(op: SheetOp): Promise<EditOutcome | null>
-  /** An outline command of the source (Group, Ungroup, a group's button, a level button); the sheet is read again after it. */
+  /** An outline command through the source (Group, Ungroup, a group's button, a level button); the sheet reloads afterwards. */
   outline(change: OutlineChange): Promise<EditOutcome | null>
-  /** Excel's Format Cells dialog (Control+1) over the selection, at the active cell's look; false when the sheet cannot format. */
+  /** Opens Excel's Format Cells dialog (Ctrl+1) for the selection, with the active cell's formatting; false when the sheet cannot be formatted. */
   formatCells(): boolean
   /**
-   * Excel's Freeze Panes through the source's `freeze`, one step of undo, the sheet read again after it: `panes` (the
-   * default) keeps the rows above and the columns left of the active cell in view (from A1 the frame's middle, as Excel
-   * splits it), `unfreeze` drops the book's panes, `topRow` and `firstColumn` freeze one line. A freeze shows whatever
-   * the lock said before; null when nothing was sent (no `freeze`, a read-only sheet, nothing to freeze or unfreeze).
+   * Excel's Freeze Panes through the source's `freeze`, as a single undo step, after which the sheet reloads: `panes` (the
+   * default) keeps the rows above and the columns to the left of the active cell in view (with A1 active, the middle of the
+   * viewport, where Excel splits it), `unfreeze` removes the workbook's panes, `topRow` and `firstColumn` freeze one row or
+   * column. Frozen panes are displayed whatever the lock button's earlier state; null when nothing was sent (no `freeze`,
+   * a read-only sheet, nothing to freeze or unfreeze).
    */
   freezePanes(mode?: FreezeMode): Promise<EditOutcome | null>
-  /** Excel's Reapply (Control+Alt+L): the display filter's conditions and sort again over the data as they are now; false with none in force. */
+  /** Excel's Reapply (Ctrl+Alt+L): applies the display filter's conditions and sort again to the current data; false when no filter is on. */
   reapplyFilter(): Promise<boolean>
-  /** Excel's Trace Precedents as a panel beside the grid: the source's tree of the active cell's precedents, following the cell; false without the source's `explain`. */
+  /** Excel's Trace Precedents as a panel next to the grid: the source's tree of the active cell's precedents, following the active cell; false if the source has no `explain`. */
   explain(): boolean
   /**
    * Excel's Merge & Center (`mergeCenter`), Merge Across, Merge Cells and Unmerge Cells over the selection through the
-   * source's `structure`, one step of undo; Excel's warning first when more than one cell would lose its value. null when
-   * nothing was sent: no `structure`, a read-only sheet, a display filter, one cell outside a merged area, the warning's Cancel.
+   * source's `structure`, as a single undo step, with Excel's warning first when more than one cell would lose its value. null
+   * when nothing was sent: no `structure`, a read-only sheet, a display filter, a single cell outside a merged range, or Cancel
+   * in the warning.
    */
   merge(command: MergeCommand): Promise<EditOutcome | null>
 }

@@ -56,28 +56,29 @@ import '../controls.css'
 const props = withDefaults(
   defineProps<{
     source: ToolbarSource
-    /** What the sheet's `state` event gave: the selection and the active cell's look; null leaves nothing to press. */
+    /** The payload of the sheet's `state` event: the selection and the active cell's formatting; with null the buttons are disabled. */
     state: SheetViewState | null
-    /** Interface texts; a part overrides the English defaults. */
+    /** Interface texts; a partial set overrides the English defaults. */
     messages?: Partial<SheetMessages>
-    /** The book's locale (as `SheetView`'s): the Number Format box names its categories and items in it; en-US without one. */
+    /** The workbook's locale (as for `SheetView`), in which the Number Format box names its categories and items; en-US without one. */
     locale?: string
     /**
-     * The sheet (a `SheetView`'s template ref) to format, undo and redo through, as its keys do: it applies the outcome, sets
-     * the selection and shows a refusal itself. Without it the toolbar calls the source and emits `select` and `error`.
+     * The sheet (a `SheetView`'s template ref) to format, undo and redo through, as its keyboard commands do: it applies the
+     * outcome, sets the selection and displays a rejection itself. Without it the toolbar calls the source and emits `select`
+     * and `error`.
      */
     sheet?: SheetViewApi | null
   }>(),
   { messages: undefined, locale: undefined, sheet: null },
 )
 const emit = defineEmits<{
-  /** Where the selection goes after an undo or a redo (`EditOutcome.select`), for the sheet's `focus`; not with `sheet`. */
+  /** Where the selection goes after an undo or a redo (`EditOutcome.select`), for the sheet's `focus`; not emitted with `sheet`. */
   select: [place: { sheet: string; range: string }]
-  /** The source refused or failed a call: its message; not with `sheet`, which shows it. */
+  /** The source rejected a call or the call failed: its message; not emitted with `sheet`, which displays it itself. */
   error: [message: string]
-  /** A call is done: the host may give the grid its focus back. */
+  /** A call has completed: the host may return focus to the grid. */
   done: []
-  /** Format Cells… pressed, for a host with a `FormatDialog` of its own; without a listener the button opens the sheet's (`sheet`), and without both there is none. */
+  /** Format Cells… was clicked, for a host with its own `FormatDialog`; without a listener the button opens the sheet's dialog (through `sheet`), and without either there is no button. */
   formatCells: []
 }>()
 

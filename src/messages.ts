@@ -1,4 +1,4 @@
-// Interface texts of the component: English by default, a Russian set in the package; a host passes its own or a part.
+// The component's interface texts: English by default, with a Russian set in the package; a host passes its own set or part of one.
 import { computed, type ComputedRef } from 'vue'
 
 export interface SheetMessages {
@@ -11,7 +11,7 @@ export interface SheetMessages {
   cellLink: string
   cellLinkCopied: (ref: string) => string
   clipboardDenied: string
-  /** The lock's title: what the book freezes, and whether it is on now. */
+  /** The lock button's tooltip: what the workbook freezes, and whether the frozen panes are displayed now. */
   freeze: (rows: number, cols: number, on: boolean) => string
   note: (author?: string) => string
   linkInBook: (location: string) => string
@@ -23,7 +23,7 @@ export interface SheetMessages {
   loadFailed: string
   copyFailed: string
   copyPartial: string
-  /** Selection totals over loaded cells: count, then sum, average, min, max and numbers when there are any. */
+  /** Selection totals over loaded cells: the count, then the sum, average, min, max and count of numbers when there are numbers. */
   statsCount: (n: string) => string
   statsSum: (n: string) => string
   statsAverage: (n: string) => string
@@ -34,10 +34,10 @@ export interface SheetMessages {
   statsCells: (n: string) => string
   sheetTitle: (name: string, rows: number, cols: number) => string
   sheetUnnamed: (n: number) => string
-  /** "+" after the tabs, and the word a new sheet's name begins with (Excel's `Sheet4`, `Лист4`). */
+  /** The "+" button after the tabs, and the word a new sheet's name starts with (Excel's `Sheet4`, `Лист4`). */
   insertSheet: string
   sheetNamePrefix: string
-  /** The structure menu on row numbers, column letters and tabs, as Excel names its items. */
+  /** The structure menu on row numbers, column letters and sheet tabs, with Excel's item names. */
   menu: string
   menuInsert: string
   menuDelete: string
@@ -49,7 +49,7 @@ export interface SheetMessages {
   menuMoveLeft: string
   menuMoveRight: string
   menuUnhideSheet: string
-  /** Excel's outline: Group and Ungroup in the menu and its box over cells (rows or columns), the buttons' titles, what is not done. */
+  /** Excel's outline: Group and Ungroup in the menu and the dialog for a cell range (rows or columns), the buttons' tooltips, and the messages for commands that are not performed. */
   menuGroup: string
   menuUngroup: string
   outlineRows: string
@@ -59,14 +59,14 @@ export interface SheetMessages {
   outlineLevel: (n: number) => string
   outlineDeepest: string
   outlineNone: string
-  /** Excel's menu on cells (cut, copy and paste inside the book), a paste the browser will not read, the fill handle. */
+  /** Excel's cell context menu (cut, copy and paste within the workbook), a paste whose clipboard the browser does not allow to read, and the fill handle. */
   cellMenu: string
   menuCut: string
   menuCopy: string
   menuPaste: string
   pasteDenied: string
   fillHandle: string
-  /** Excel's commands in the cells' menu: Reapply of the display filter, Freeze Panes and its kinds, Trace Precedents as a panel beside the grid. */
+  /** Excel's commands in the cell context menu: Reapply for the display filter, Freeze Panes and its variants, Trace Precedents as a panel next to the grid. */
   menuReapply: string
   filterReapply: string
   menuFreezePanes: string
@@ -78,42 +78,42 @@ export interface SheetMessages {
   explainReading: string
   explainFailed: string
   explainEmpty: string
-  /** The size boxes: their labels in Excel's units and the limits. */
+  /** The size dialogs: their labels in Excel's units, and the limits. */
   columnWidth: string
   rowHeight: string
   widthRange: string
   heightRange: string
   ok: string
   cancel: string
-  /** The question before a sheet with data is deleted, and the list of hidden sheets. */
+  /** The confirmation before a sheet with data is deleted, and the list of hidden sheets. */
   deleteSheet: string
   deleteSheetText: (name: string) => string
   unhideSheet: string
   rename: string
   selectColumn: string
   selectRow: string
-  /** List mode: a sortable column's title, and the first column's cells that open their row. */
+  /** List mode: a sortable column's title, and the cells of the first column that open their row. */
   sortColumn: string
   openRow: string
   selectAll: string
   resize: string
-  /** A column's edge where a double click fits the column to what it shows. */
+  /** A column edge where a double click fits the column to its contents. */
   resizeFit: string
-  /** The grip on a row number's edge. */
+  /** The resize grip on a row number's edge. */
   resizeRow: string
   conflict: string
   locked: (reason: string) => string
   editFailed: string
-  /** A paste whose rectangle would go past the sheet's last row or column. */
+  /** A paste whose range would extend past the sheet's last row or column. */
   pasteOffSheet: string
   tooManyCells: string
   pending: string
   close: string
-  /** The formula bar's tip over a formula with references: Ctrl+click (Cmd on a Mac, the key given) goes to one. */
+  /** The formula bar's tooltip over a formula with references: Ctrl+click (Cmd on a Mac; the key is passed in) goes to a reference. */
   goRefHint: (key: string) => string
-  /** Excel's Enter button left of the formula bar (its Cancel button is `cancel`): the edit entered, the selection kept. */
+  /** Excel's Enter button to the left of the formula bar (its Cancel button is `cancel`): enters the edit and keeps the selection. */
   barEnter: string
-  /** Excel's Insert Function: the fx button, then its window's title, search, category box with its first two items, and the list's label. */
+  /** Excel's Insert Function: the fx button, then the dialog's title, search box, category box with its first two items, and the list's label. */
   insertFunction: string
   insertFunctionTitle: string
   insertFunctionSearch: string
@@ -121,10 +121,10 @@ export interface SheetMessages {
   insertFunctionRecent: string
   insertFunctionAll: string
   insertFunctionPick: string
-  /** Excel's button at the formula bar's right end and its Control+Shift+U: the bar one line high or several. */
+  /** Excel's button at the right end of the formula bar and its Ctrl+Shift+U: expands or collapses the formula bar. */
   expandBar: string
   collapseBar: string
-  /** A book being recomputed: the wait, its seconds, and the end of patience. */
+  /** A workbook being recalculated: the waiting message, the seconds elapsed, and the timeout. */
   waiting: string
   waitSeconds: (n: number) => string
   waitHint: string
@@ -134,12 +134,12 @@ export interface SheetMessages {
   findPrev: string
   findNext: string
   findNone: string
-  /** Search status: the hit's place, all hits, and how many came when the source cut the list. */
+  /** Search status: the current match's position, the total, and how many were received when the source truncated the list. */
   findStatus: (i: number, total: number, shown: number) => string
-  /** Search status while the active cell is no hit: all hits, and how many came. */
+  /** Search status while the active cell is not a match: the total, and how many were received. */
   findCount: (total: number, shown: number) => string
   findFailed: string
-  /** Excel's Find and Replace: its options, the range it looks within, the replace row and what Replace All did. */
+  /** Excel's Find and Replace: its options, the range it searches within, the Replace row and the result of Replace All. */
   findOptions: string
   findMatchCase: string
   findWholeCell: string
@@ -156,7 +156,7 @@ export interface SheetMessages {
   replaceOne: string
   replaceAll: string
   replaceDone: (n: number) => string
-  /** Replace All left `n` cells as they were: Excel would not take their new text, for the source's reason `why`. */
+  /** Replace All left `n` cells unchanged: Excel would not accept their new text, for the source's reason `why`. */
   replaceRefused: (n: number, why: string) => string
   filter: string
   filterOn: string
@@ -173,12 +173,12 @@ export interface SheetMessages {
   filterApply: string
   filterReset: string
   filterClear: string
-  /** The filter line at the bottom: rows shown of all, the columns with conditions, the sort. */
+  /** The filter status line at the bottom: visible rows out of all, the columns with conditions, the sort. */
   filterStatus: (shown: string, total: string, cols: string[], sort: { col: string; dir: 'asc' | 'desc' } | null) => string
   filterFailed: string
   valuesFailed: string
   unfiltered: (row: number) => string
-  /** The formatting toolbar (`SheetToolbar`): its buttons, menus and number formats as Excel names them. */
+  /** The formatting toolbar (`SheetToolbar`): its buttons, menus and number formats, with Excel's names. */
   toolbar: string
   toolbarMore: string
   undo: string
@@ -201,7 +201,7 @@ export interface SheetMessages {
   alignRight: string
   wrapText: string
   numberFormat: string
-  /** Excel's Format Cells dialog (`FormatDialog`): its tabs, fields and the names of what they offer. */
+  /** Excel's Format Cells dialog (`FormatDialog`): its tabs, inputs and the names of their options. */
   formatCells: string
   formatCellsOpen: string
   fmtTab: (tab: 'number' | 'alignment' | 'font' | 'border' | 'fill') => string
@@ -233,24 +233,24 @@ export interface SheetMessages {
   fmtPreset: (p: 'none' | 'outline' | 'inside') => string
   fmtEdges: string
   fmtEdge: (e: 'top' | 'bottom' | 'left' | 'right' | 'insideH' | 'insideV') => string
-  /** Excel's data validation: the dropdown's button, the alert's title without the rule's, its buttons (Retry, OK and Cancel are `retry`, `ok` and `cancel`), a warning's question and the styles' names. */
+  /** Excel's data validation: the dropdown button, the alert's title when the rule has none, its buttons (Retry, OK and Cancel are `retry`, `ok` and `cancel`), a warning's question and the style names. */
   validationList: string
   validationTitle: string
   validationYes: string
   validationNo: string
   validationContinue: string
   validationStyle: (severity: 'stop' | 'warning' | 'information') => string
-  /** The question on a formula that does not read, under the source's reason, and its buttons. */
+  /** The prompt for a formula that cannot be parsed, below the source's reason, and its buttons. */
   formulaQuestion: string
   formulaFix: string
   formulaRevert: string
-  /** Excel's window on a formula left open that it offers to correct (Yes and No are `validationYes` and `validationNo`), and its message after No. */
+  /** Excel's dialog for an unclosed formula that it offers to correct (Yes and No are `validationYes` and `validationNo`), and its message after No. */
   typoFound: (correction: string) => string
   missingParenthesis: string
-  /** Excel's Formula AutoComplete: the list of functions under the field and its hint. */
+  /** Excel's Formula AutoComplete: the function list below the editor and its hint. */
   functionList: string
   functionHint: string
-  /** Excel's Merge & Center button, its list's button and items, and the warning before values are lost. */
+  /** Excel's Merge & Center button, its dropdown button and items, and the warning before values are lost. */
   mergeCenter: string
   mergeMenu: string
   mergeAcross: string

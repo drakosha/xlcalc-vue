@@ -4,37 +4,37 @@ import type { SheetSource } from '../source'
 
 export interface LocalSourceOptions {
   /**
-   * Where the book computes: `pool`, Web Workers of `xlcalc/worker` (the default where `Worker` exists); `inline`, the
-   * page's own thread in portions (the default elsewhere, e.g. Node); or a calculator of the host's, which the source
-   * does not close.
+   * Where the workbook is calculated: `pool`, in Web Workers of `xlcalc/worker` (the default where `Worker` exists);
+   * `inline`, on the page's own thread in slices (the default elsewhere, e.g. Node); or by the host's calculator, which
+   * the source does not close.
    */
   calc?: 'pool' | 'inline' | Calc
-  /** Options of the pool the source starts (`calc: 'pool'`), e.g. `spawn` for a bundler that moves the thread's script. */
+  /** Options for the pool the source starts (`calc: 'pool'`), e.g. `spawn` for a bundler that relocates the thread script. */
   pool?: CalcPoolOptions
-  /** Options of the book's session (a live clock, limits, deadlines). */
+  /** Options for the workbook's session (a live clock, limits, deadlines). */
   session?: AsyncSessionOptions
-  /** The cell limit of one window, 20,000 by default. */
+  /** The maximum number of cells in one window, 20,000 by default. */
   maxCells?: number
-  /** A notice every window carries (shown above the grid), e.g. what the xlsx reader left out. */
+  /** A notice included in every window (displayed above the grid), e.g. what the xlsx reader left out. */
   notice?: string
 }
 
 /** Methods of `SheetSource` that the local source always has. */
 type Given = 'edit' | 'paste' | 'fill' | 'pick' | 'end' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'freeze' | 'subscribe' | 'validation' | 'functionNames' | 'functionSignature' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues'
 
-/** A sheet source over an xlcalc book: every method of `SheetSource`, and the host's handles on the book. */
+/** A sheet source over an xlcalc workbook: every method of `SheetSource`, plus the host's handles on the workbook. */
 export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Required<Pick<SheetSource, Given>> {
   readonly maxCells: number
-  /** The book's locale tag: formulas are shown and typed values read in it. */
+  /** The workbook's locale tag: formulas are displayed and typed values parsed in it. */
   readonly locale: string
-  /** Settles when the book is computed; rejects when it could not be opened (the methods reject with the same error). */
+  /** Resolves when the workbook is calculated; rejects if it could not be opened (the methods reject with the same error). */
   readonly ready: Promise<void>
-  /** The steps `undo` and `redo` can take now, for a toolbar's buttons. */
+  /** The number of steps `undo` and `redo` can take now, for a toolbar's buttons. */
   readonly history: SessionHistory
-  /** The book with every change so far, to save or keep. */
+  /** The workbook with all changes so far, to save or store. */
   book(): Promise<BookInput>
-  /** The book and its computed values taken at one moment, as `writeXlsx` takes them. */
+  /** The workbook and its calculated values captured at one moment, as `writeXlsx` takes them. */
   snapshot(): Promise<BookSnapshot>
-  /** Close the session, and the pool when the source started it. */
+  /** Closes the session, and the pool when the source started it. */
   close(): Promise<void>
 }
