@@ -580,7 +580,7 @@ function print(rows: Row[]): void {
     ['  longest pause (frame / task)', ...rows.map((r) => `${ms(r.savePause.frame)} / ${ms(r.savePause.task)}`)],
     ['heap page / worker, open', ...rows.map((r) => `${ms(r.heapOpen.page)} / ${ms(r.heapOpen.worker)} MB`)],
     ['heap page / worker, end', ...rows.map((r) => `${ms(r.heapEnd.page)} / ${ms(r.heapEnd.worker)} MB`)],
-    ['book language to en-US', ...rows.map((r) => sec(r.relocale))],
+    ['workbook language to en-US', ...rows.map((r) => sec(r.relocale))],
     ['page errors', ...rows.map((r) => `${r.errors.length}`)],
   ]
   const widths = lines[0]!.map((_, i) => Math.max(...lines.map((l) => l[i]!.length)))
