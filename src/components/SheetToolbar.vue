@@ -66,8 +66,10 @@ const props = withDefaults(
      * and `error`.
      */
     sheet?: SheetViewApi | null
+    /** The host opens its own dialog on `formatCells`: for a host whose listener the toolbar cannot see, such as a custom element's. */
+    hostDialog?: boolean
   }>(),
-  { messages: undefined, locale: undefined, sheet: null },
+  { messages: undefined, locale: undefined, sheet: null, hostDialog: false },
 )
 const emit = defineEmits<{
   /** Where the selection goes after an undo or a redo (`EditOutcome.select`), for the sheet's `focus`; not emitted with `sheet`. */
@@ -82,10 +84,10 @@ const emit = defineEmits<{
 
 const m = useMessages(() => props.messages)
 const instance = getCurrentInstance()
-/** Whether the host listens to `formatCells` now, so the button opens its own dialog instead of the sheet's. */
-const hostDialog = () => hasListener(instance, 'onFormatCells')
+/** Whether the host currently opens its own dialog on `formatCells`, instead of the sheet's. */
+const dialogToHost = () => props.hostDialog || hasListener(instance, 'onFormatCells')
 function formatCells(): void {
-  if (hostDialog() || !props.sheet) emit('formatCells')
+  if (dialogToHost() || !props.sheet) emit('formatCells')
   else props.sheet.formatCells()
 }
 const style = computed(() => props.state?.style)
@@ -387,7 +389,7 @@ function pickNumber(e: Event): void {
           </div>
         </span>
       </span>
-      <span v-if="hostDialog() || sheet" class="xs-tb-group">
+      <span v-if="dialogToHost() || sheet" class="xs-tb-group">
         <button type="button" class="xs-tool" data-tb="format-cells" :title="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="formatCells">
           <IconFormatCells />
         </button>

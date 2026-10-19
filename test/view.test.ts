@@ -209,6 +209,11 @@ describe('hyperlinks', () => {
     expect(w.find('.xs-tab-on').text()).toBe('Other sheet')
     expect(w.find('.xs-cell.xs-active').attributes('data-cell')).toBe('7:2')
   })
+  it("passes a host target to the host through `hostLinks`, for a listener the vnode does not show (a custom element's)", async () => {
+    const w = await mountSheet(memorySource(book), { readOnly: true, hostLinks: true })
+    await td(w, 3, 1).find('button.xs-link').trigger('click')
+    expect(w.emitted('openLink')).toEqual([[{ target: 'file:1', sheet: 'S', cell: 'A3' }]])
+  })
   it('without an `openLink` listener a host target or an unsafe link is only displayed', async () => {
     const w = await mountSheet(memorySource(book), { readOnly: true })
     expect(td(w, 3, 1).find('.xs-deadlink').exists()).toBe(true)
