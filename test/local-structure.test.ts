@@ -303,4 +303,10 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(list[0]!.freeze).toBeUndefined()
     expect(events).toEqual([{ kind: 'reload' }, { kind: 'reload' }])
   })
+
+  it('the fill handle lays its copies into the rows a filter hides too, as Excel’s does (xlcalc 0.51)', async () => {
+    const s = source({ sheets: [{ name: 'S', filtered: true, cells: { A1: { value: 'x' } }, rows: { '3': { hidden: true } } }] })
+    expect(await s.structure({ op: 'fillRange', sheet: 'S', range: 'A1', to: 'A1:A4' })).toMatchObject({ ok: true })
+    expect((await win(s, 'S', 1, 4, 1, 1)).values.map((r) => r[0])).toEqual(['x', 'x', 'x', 'x'])
+  })
 })
