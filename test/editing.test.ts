@@ -18,7 +18,7 @@ const book = (): MemoryBook => ({
   ],
 })
 
-/** A memory source that records the edits it gets. */
+/** An in-memory source that records the edits it receives. */
 function recorded(b = book()) {
   const source = memorySource(b)
   const edits: Parameters<NonNullable<typeof source.edit>>[0][] = []
@@ -137,7 +137,7 @@ describe('keys', () => {
     await goTo(w, 'B5')
     paste(w, '1\t2\n3\t\n')
     await settle()
-    // A line break after the last row is one more row, of empty fields: it clears the cells under the paste.
+    // A line break after the last row adds one more row of empty fields: it clears the cells below the paste.
     expect(edits[0]).toEqual([
       { sheet: 'S', cell: 'B5', text: '1' },
       { sheet: 'S', cell: 'C5', text: '2' },
@@ -205,7 +205,7 @@ describe('locked cells', () => {
 })
 
 describe('outcomes', () => {
-  /** A source whose next edit answers with `outcome` once released. */
+  /** A source whose next edit returns `outcome` once released. */
   function held(outcome: EditOutcome) {
     const { source, edits } = recorded()
     let release = () => {}

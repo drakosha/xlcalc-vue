@@ -1,13 +1,13 @@
-// Large books in the app like Excel: the example's spa.html built for production and served by `vite preview`, driven
-// by Playwright in Chromium at 1920 × 1200 with the interface in Russian. Each book is opened from the file field and
+// Large workbooks in the Excel-like app: the example's spa.html built for production and served by `vite preview`, driven
+// by Playwright in Chromium at 1920 × 1200 with the interface in Russian. Each workbook is opened from the file input and
 // measured: the first drawn cells of the sheet the app opens and Ready, a jump to the largest sheet, scrolling it down
-// and right screen by screen, a number typed into a cell another cell on screen depends on until the dependent shows its
-// new value, Control+Z, Save as (time and size; the saved file read back has the book's sheets and formulas), the heap
-// of the page and of the book's Web Worker, the longest pause of the page's frames, the book's language changed to
-// en-US in its settings (it opens again on the same sheet), page errors.
-// BIG_URL=<url> measures a published app instead of the built one (synthetic books only: what it opens goes to the published app).
-// Books: BIG_XLSX, paths joined by ':', read where they lie (nothing is copied, the saved file is deleted); without it,
-// xlcalc's synthetic book of 34,000 rows, written to test-results. BIG_PROFILE=1 also writes the page's CPU profiles
+// and right screen by screen, a number typed into a cell that another on-screen cell depends on, until the dependent displays
+// its new value, Ctrl+Z, Save as (time and size; the saved file read back has the workbook's sheets and formulas), the heap
+// of the page and of the workbook's Web Worker, the longest pause between the page's frames, the workbook's language changed
+// to en-US in its settings (it reopens on the same sheet), and page errors.
+// BIG_URL=<url> measures a published app instead of the built one (synthetic workbooks only: what it opens goes to the published app).
+// Workbooks: BIG_XLSX, paths separated by ':', read in place (nothing is copied, the saved file is deleted); without it,
+// xlcalc's synthetic workbook of 34,000 rows, written to test-results. BIG_PROFILE=1 also writes the page's CPU profiles
 // of the opening, the jump, the scrolling and the saving to test-results. Run: npm run check:big. Output: a table on stdout, test-results/big-check.json and
 // test-results/screens/big-*.png.
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -32,9 +32,9 @@ const DOWN = 5
 const RIGHT = 3
 const LONG = 600_000
 
-// ── the book, looked at in Node: the sheet the app should open, the largest sheet and cells to edit ──
+// ── the workbook, examined in Node: the sheet the app should open, the largest sheet and cells to edit ──
 
-/** A number to type into `cell` of `sheet`, and a cell near it whose formula reads it. */
+/** A number to type into `cell` of `sheet`, and a nearby cell whose formula refers to it. */
 interface Edit {
   sheet: string
   cell: string
@@ -48,7 +48,7 @@ interface Plan {
   cells: number
   formulas: number
   sheets: string[]
-  /** The locale the file names (xlsx keeps none unless xlcalc wrote it). */
+  /** The locale the file specifies (xlsx stores none unless xlcalc wrote it). */
   locale: string | undefined
   /** The sheet the app opens, as Excel opens the file: the saved active one, otherwise the first visible one. */
   first: string | undefined
@@ -58,7 +58,7 @@ interface Plan {
 
 const hasContent = (c: CellInput) => c.formula !== undefined || (c.value !== undefined && c.value !== null && c.value !== '')
 
-/** Hidden rows or columns of a sheet, by number, from its spans (`5:9`, `B:D`); a size of 0 hides a line too. */
+/** Hidden rows or columns of a sheet, by number, from its spans (`5:9`, `B:D`); a size of 0 also hides a row or column. */
 function hiddenLines(sheet: SheetInput, axis: 'rows' | 'columns'): Set<number> {
   const out = new Set<number>()
   const lines = (axis === 'rows' ? sheet.rows : sheet.columns) ?? {}
@@ -74,9 +74,9 @@ function hiddenLines(sheet: SheetInput, axis: 'rows' | 'columns'): Set<number> {
 }
 
 /**
- * Cells to edit on a sheet: a number typed in by hand (no formula) that a formula within 20 rows and 8 columns reads
- * as a single cell of the same sheet, both on shown lines and outside merged areas; the shortest formulas first, at
- * most `count`, each with its own input cell. `numeric` says whether a formula's cell holds a number now.
+ * Cells to edit on a sheet: a manually entered number (no formula) that a formula within 20 rows and 8 columns refers to
+ * as a single cell on the same sheet, both on visible rows and columns and outside merged ranges; the shortest formulas
+ * first, at most `count`, each with its own input cell. `numeric` says whether a formula's cell contains a number now.
  */
 function editsOn(sheet: SheetInput, numeric: (addr: string) => boolean, count: number): Edit[] {
   const rowsHidden = hiddenLines(sheet, 'rows')
@@ -114,7 +114,7 @@ function editsOn(sheet: SheetInput, numeric: (addr: string) => boolean, count: n
   return out
 }
 
-/** What the check needs of a book; `values` gives a formula's value as the file stored or the engine computed it. */
+/** What the check needs of a workbook; `values` returns a formula's value as the file stored it or the engine calculated it. */
 function planOf(label: string, path: string, book: BookInput, values: (sheet: number, addr: string) => unknown): Plan {
   let cells = 0
   let formulas = 0
@@ -142,7 +142,7 @@ async function planFile(path: string): Promise<Plan> {
   return planOf(basename(path), path, read.book, (i, addr) => read.cached.sheets[i]?.cells[addr]?.value)
 }
 
-/** The synthetic book written with its values; a cell past its data sheet's last column reads that column's first amount, so an edit there shows on screen. */
+/** The synthetic workbook written with its values; a cell beyond its data sheet's last column refers to that column's first amount, so an edit there shows on screen. */
 async function synthPlan(): Promise<Plan> {
   const { book } = synthBook({ seed: 7, rows: SYNTH_ROWS })
   const data = book.sheets.find((s) => s.name === 'Данные')!
@@ -166,7 +166,7 @@ function probe(): void {
       for (const e of list.getEntries()) long.push([e.startTime, e.duration])
     }).observe({ type: 'longtask', buffered: true })
   } catch {
-    // no long tasks in this browser: frame gaps still tell the pauses
+    // no long tasks in this browser: frame gaps still reveal the pauses
   }
   let last = performance.now()
   const frame = (t: number) => {
@@ -178,7 +178,7 @@ function probe(): void {
   const q = (s: string) => document.querySelector(s)
   const tab = () => q('.xs-tab-on')?.textContent?.trim() ?? ''
   const drawn = (sheet?: string) => (!sheet || tab() === sheet) && !!q('.xs-table, .xs-empty') && !q('.xs-loading')
-  /** The time of the first of two frames in a row where `test` holds, after `min` frames at least. */
+  /** The time of the first of two consecutive frames where `test` holds, after at least `min` frames. */
   const until = (test: () => boolean, min = 1, timeout = 600_000) =>
     new Promise<number>((done, fail) => {
       const t0 = performance.now()
@@ -215,7 +215,7 @@ const pauseOf = (page: Page, from: number, to: number) => page.evaluate(([a, b])
 const idle = (page: Page) => page.evaluate(() => __big.until(() => !document.querySelector('.xs-loading'), 2))
 const ready = (page: Page) => page.waitForFunction(() => document.querySelector('[data-spa-status]')?.textContent?.trim() === 'Готово', null, { timeout: LONG })
 
-/** A non-flattened CDP session to a target (a Web Worker), over the browser's session; a call a thread gone does not answer gives undefined in 10 s. */
+/** A non-flattened CDP session to a target (a Web Worker), over the browser's session; a call that an ended thread does not answer returns undefined after 10 s. */
 async function attach(cdp: CDPSession, targetId: string) {
   const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: false })
   let id = 0
@@ -255,7 +255,7 @@ async function profiled<T>(page: Page, n: number, name: string, step: () => Prom
   }
 }
 
-/** Heap in use after a collection, in MB: the page's, and its Web Workers' together. */
+/** Heap in use after a garbage collection, in MB: the page's, and its Web Workers' together. */
 async function heaps(page: Page, browserCdp: CDPSession): Promise<{ page: number; worker: number }> {
   const ps = await page.context().newCDPSession(page)
   await ps.send('HeapProfiler.collectGarbage')
@@ -275,7 +275,7 @@ async function heaps(page: Page, browserCdp: CDPSession): Promise<{ page: number
   return { page: usedSize / 2 ** 20, worker: worker / 2 ** 20 }
 }
 
-/** A place through the address box, as a person types it; the grid has the focus after it. */
+/** A location through the Name Box, as a user types it; the grid has focus afterwards. */
 async function go(page: Page, place: string): Promise<void> {
   await page.locator('.xs-address').fill(place)
   await page.keyboard.press('Enter')
@@ -286,7 +286,7 @@ const cellKey = (addr: string) => {
   const at = parseCell(addr)!
   return `${at.row}:${at.col}`
 }
-/** A cell's drawn text, or null when it is not drawn inside the scroller's frame. */
+/** A cell's drawn text, or null when it is not drawn inside the scroller's viewport. */
 const shownText = (page: Page, key: string) =>
   page.evaluate((k) => {
     const el = document.querySelector<HTMLElement>(`[data-cell="${k}"]`)
@@ -296,7 +296,7 @@ const shownText = (page: Page, key: string) =>
     return r.top >= frame.top && r.bottom <= frame.bottom && r.left >= frame.left && r.right <= frame.right ? (el.textContent ?? '').trim() : null
   }, key)
 
-/** Press a key and measure, from its keydown, until `key`'s cell shows text other than `before` (or `back` again). */
+/** Presses a key and measures, from its keydown, until `key`'s cell displays text other than `before` (or `back` again). */
 async function pressAndWatch(page: Page, press: string, key: string, before: string, back: boolean): Promise<number> {
   await page.evaluate(
     ([k, b, toBack]) => {
@@ -366,7 +366,7 @@ async function check(browser: Browser, base: string, plan: Plan, n: number): Pro
   await page.waitForSelector('[data-cell="1:1"]')
   await ready(page)
 
-  // ── open: from the file's change to the first drawn cells of the sheet the app should open, and to Ready ──
+  // ── open: from the file input's change to the first drawn cells of the sheet the app should open, and to Ready ──
   await page.evaluate(
     ([want, sheet]) => {
       const w = window as unknown as { __open: { change: number; any: number; drawn: number; ready: number } }
@@ -424,7 +424,7 @@ async function check(browser: Browser, base: string, plan: Plan, n: number): Pro
   }
   await shot('largest')
 
-  // ── scrolling, a screen at a time: until the windows are in and drawn ──
+  // ── scrolling, a screen at a time: until the windows have loaded and are drawn ──
   const scrollFrom = await now(page)
   const scroll = (axis: 'down' | 'right', count: number) =>
     page.evaluate(
@@ -448,7 +448,7 @@ async function check(browser: Browser, base: string, plan: Plan, n: number): Pro
   const topRow = await page.evaluate(() => Number(document.querySelector<HTMLElement>('tbody th.xs-num:not(.xs-fz-corner)')?.dataset.row ?? 0))
   const scrollPause = await pauseOf(page, scrollFrom, await now(page))
 
-  // ── an edit with its dependent on screen, then Control+Z ──
+  // ── an edit with its dependent on screen, then Ctrl+Z ──
   let edit: Row['edit']
   let tried = 0
   for (const e of plan.edits) {
@@ -467,7 +467,7 @@ async function check(browser: Browser, base: string, plan: Plan, n: number): Pro
     try {
       shown = await pressAndWatch(page, 'Enter', dep, before, false)
     } catch {
-      // the dependent did not change: take the edit back and try the next cell
+      // the dependent did not change: undo the edit and try the next cell
       await ready(page)
       await page.keyboard.press('Control+Z')
       await ready(page)
@@ -485,9 +485,9 @@ async function check(browser: Browser, base: string, plan: Plan, n: number): Pro
   }
   if (!edit) failures.push(`no edit showed on screen (${plan.edits.length} cells found, ${tried} tried)`)
 
-  // ── Save as: the app's own time from the click to the download, the file's size; the file is deleted ──
+  // ── Save as: the app's own time from the click to the download, and the file's size; the file is deleted ──
   const saveFrom = await now(page)
-  // the download, or the app's note why there is none
+  // the download, or the app's message explaining why there is none
   const failed = page.waitForSelector('[data-spa-note]', { timeout: LONG }).then(async (n) => {
     throw new Error(`Save as: ${await n.textContent()}`)
   })
@@ -507,7 +507,7 @@ async function check(browser: Browser, base: string, plan: Plan, n: number): Pro
   const savePause = await pauseOf(page, saveFrom, saveTo)
   const heapEnd = await heaps(page, browserCdp)
 
-  // ── the book's language from its settings: the book opens again in en-US, on the same sheet ──
+  // ── the workbook's language from its settings: the workbook reopens in en-US, on the same sheet ──
   const sheetBefore = await page.evaluate(() => __big.tab())
   await page.locator('[data-spa="settings"]').click()
   await page.locator('[data-spa-book-locale]').selectOption('en-US')

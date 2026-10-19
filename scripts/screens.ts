@@ -1,5 +1,5 @@
-// Screenshots of the example at a phone's and a desktop's width: every sheet of the "all formatting" book and the editing states.
-// Run: npm run screens (node 22.18+ strips the types). Output: test-results/screens/, not in git.
+// Screenshots of the example at phone and desktop widths: every sheet of the "all formatting" workbook and the editing states.
+// Run: npm run screens (Node 22.18+ strips the types). Output: test-results/screens/, not in git.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { chromium, type Page } from 'playwright'
@@ -35,7 +35,7 @@ async function open(page: Page, place: string, extra = ''): Promise<void> {
   await settle(page)
 }
 
-/** Underline, double underline and strike must be computed on the element carrying the text (they do not pass to an overflow run). */
+/** Underline, double underline and strikethrough must be computed on the element that holds the text (they do not reach an overflow run). */
 async function checkDecorations(page: Page): Promise<void> {
   await open(page, 'Оформление!A1')
   const got = await page.evaluate(() =>
@@ -52,7 +52,7 @@ async function checkDecorations(page: Page): Promise<void> {
   console.log(`decorations: ${got.join('; ')}`)
 }
 
-/** Every button, field and tab outside the grid (within `scope`) at least 44 × 44 px on a phone (the address box by its height); a desktop unchanged. */
+/** Every button, input and tab outside the grid (within `scope`) is at least 44 × 44 px on a phone (the Name Box by its height); the desktop is unchanged. */
 async function checkTargets(page: Page, mobile: boolean, scope = '.xs-sheet'): Promise<void> {
   const boxes = await page.evaluate((scope) =>
     [...document.querySelectorAll<HTMLElement>(['button', 'input', 'textarea', '[role=tab]', 'a'].map((x) => `${scope} ${x}`).join(', '))]
@@ -75,14 +75,14 @@ async function checkTargets(page: Page, mobile: boolean, scope = '.xs-sheet'): P
 }
 
 /**
- * Excel's data validation on the "all formatting" book's sheet of rules: the input message with the arrow, the list (Alt+Down; a tap on a phone), an item entered, a long list, and the alerts of the
+ * Excel's data validation on the "all formatting" workbook's rules sheet: the input message with the arrow, the list (Alt+Down; a tap on a phone), an item entered, a long list, and the alerts of the
  * three styles with what their buttons leave in the cell.
  */
 async function validationScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const go = async (cell: string) => {
     await page.goto(`${base}?sheet=${encodeURIComponent(`'Проверка данных'!${cell}`)}`)
     await settle(page)
-    // the jump's flash (2 s) goes first
+    // the jump's flash (2 s) ends first
     await page.waitForTimeout(2200)
   }
   const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
@@ -143,14 +143,14 @@ async function validationScreens(page: Page, size: (typeof SIZES)[number]): Prom
 }
 
 /**
- * Excel's commands on the cells' menu: Freeze Panes from the menu and the sheet frozen at the cell, the precedents' panel
- * of a chain of formulas and a reference in it followed to another sheet, Reapply of the display filter after an edit
- * took a row out of its conditions (the row before and after).
+ * Excel's commands in the cell menu: Freeze Panes from the menu with the sheet frozen at the cell, the Trace Precedents panel
+ * for a chain of formulas with a reference in it followed to another sheet, and Reapply of the display filter after an edit
+ * made a row fail its conditions (the row before and after).
  */
 async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const go = async (place: string) => {
     await open(page, place)
-    // the jump's flash (2 s) goes first
+    // the jump's flash (2 s) ends first
     await page.waitForTimeout(2200)
   }
   const menuOn = async (cell: string) => {
@@ -164,7 +164,7 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   await menuOn('3:2')
   await shot(page, size.name, '50-freeze-menu')
   if (size.mobile) await checkTargets(page, true)
-  // Keys in the menu: the focus on its first enabled item (Cut is off on a formula), Down to the next one, shown as focused.
+  // Keys in the menu: focus on its first enabled item (Cut is disabled on a formula), Down to the next one, shown as focused.
   await page.keyboard.press('ArrowDown')
   const focused = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.xsMenu)
   if (focused !== 'paste') throw new Error(`Down in the cells' menu went to ${focused}`)
@@ -174,7 +174,7 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   await page.locator('.xs-scroller').evaluate((el) => el.scrollTo({ top: 100, left: 120 }))
   await page.waitForTimeout(400)
   await shot(page, size.name, '51-frozen')
-  // The frozen corner stays in view whatever the scroll.
+  // The frozen corner stays in view whatever the scroll position.
   await menuOn('2:1')
   const unfreeze = await page.locator('[data-xs-menu="unfreeze"]').textContent()
   if (unfreeze?.trim() !== 'Снять закрепление областей') throw new Error(`the frozen sheet's menu offers ${unfreeze}`)
@@ -187,7 +187,7 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   await page.waitForSelector('[data-xs-explain-line]')
   await page.waitForTimeout(200)
   await shot(page, size.name, '52-precedents')
-  // The panel's own targets: the formula bar's references of a formula cell are not 44 px on a phone (FormulaBar's, not the panel's).
+  // The panel's own targets: the formula bar's references for a formula cell are not 44 px on a phone (FormulaBar's, not the panel's).
   await checkTargets(page, size.mobile, '[data-xs-explain]')
   const ref = page.locator('[data-xs-explain-ref="Формулы!B2"]').first()
   if (size.mobile) await ref.tap()
@@ -197,7 +197,7 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   await shot(page, size.name, '53-precedents-followed')
   await page.locator('[data-xs-explain-close]').click()
 
-  // The filter keeps «ожидает» and «оплачен»; row 3 goes out of it when its status is typed over, and stays until Reapply.
+  // The filter keeps «ожидает» and «оплачен»; row 3 no longer matches once its status is typed over, and stays until Reapply.
   await go('Фильтр!B3')
   const funnel = size.mobile ? page.locator('.xs-bar [data-xs-funnel]') : page.locator('.xs-head').nth(1).locator('.xs-funnel')
   await funnel.click({ force: true })
@@ -207,7 +207,7 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   await page.locator('[data-xs-apply]').click()
   await page.waitForSelector('[data-xs-filter-status]')
   await page.waitForFunction(() => !document.querySelector('.xs-loading'))
-  // Through the formula bar: Cyrillic comes as text input without a key press, which types over a cell only in a field.
+  // Through the formula bar: Cyrillic arrives as text input without a key press, which types over a cell only in an editor.
   if (size.mobile) {
     await page.locator('[data-cell="3:2"]').tap()
     await page.locator('.xs-fx').tap()
@@ -235,8 +235,8 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
 }
 
 /**
- * The formula bar's layer lies on its field's transparent text to the pixel: the bar drawn with the layer's text, then with the field's own
- * (both black, the caret hidden), must be the same picture, but for a faint step of antialiasing; with `refs` the layer colours them by highlights.
+ * The formula bar's layer lines up with its input's transparent text to the pixel: the bar drawn with the layer's text, then with the input's own
+ * (both black, the caret hidden), must give the same picture, except for faint antialiasing; with `refs` the layer colors them by highlights.
  */
 async function checkOverlay(page: Page, label: string, refs = false): Promise<void> {
   if (refs) {
@@ -281,10 +281,10 @@ async function checkOverlay(page: Page, label: string, refs = false): Promise<vo
   throw new Error(`the bar's layer does not lie on its field (${label}): ${diff} pixels differ, test-results/screens/overlay-${name}-*.png`)
 }
 
-/** The formula bar by the mouse, as Excel's and a code editor's: Ctrl+click (Cmd on a Mac) on a reference goes to it, a drag starts the edit with the text dragged over, a click moves a field open in the cell to the bar at the caret. */
+/** The formula bar with the mouse, as in Excel and a code editor: Ctrl+click (Cmd on a Mac) on a reference goes to it, a drag starts editing with the dragged-over text selected, a click moves an editor open in the cell to the formula bar at the caret. */
 async function barMouse(page: Page): Promise<void> {
   const text = '=СУММ(A:A)-СУММ(A2:A5)+Форматы!C2*0'
-  // the layer's characters lie on the field's: their boxes say where to press
+  // the layer's characters line up with the input's: their boxes say where to press
   const edge = (i: number, side: 'left' | 'right') =>
     page.evaluate(
       ([i, side]) => {
@@ -330,8 +330,8 @@ async function barMouse(page: Page): Promise<void> {
 }
 
 /**
- * Going to a reference from the bar outside an edit: with Ctrl or Cmd held (either first) the reference under the mouse is underlined
- * (a highlight of its own) and the cursor a hand, gone with the key; under a finger a long press on one goes to its range, a tap edits.
+ * Going to a reference from the formula bar outside editing: with Ctrl or Cmd held (in either order) the reference under the mouse is underlined
+ * (with its own highlight) and the pointer becomes a hand, both gone with the key; on a touch screen a long press on one goes to its range, a tap edits.
  */
 async function barGo(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const text = '=СУММ(A:A)-СУММ(A2:A5)+Форматы!C2*0'
@@ -380,7 +380,7 @@ async function barGo(page: Page, size: (typeof SIZES)[number]): Promise<void> {
     if (name.go || name.underlined.length || !later.go || later.underlined.join() !== 'A2:A5') throw new Error(`the key first, then the mouse onto A2:A5: ${JSON.stringify({ name, later })}`)
     return void console.log(`bar go ${size.name}: Cmd held over A2:A5 underlined it with a hand, the key let go took both away, over СУММ nothing`)
   }
-  // collapsed on a phone the bar shows its first line: A:A
+  // collapsed on a phone, the formula bar shows its first line: A:A
   const ref = await centre(text.indexOf('A:A') + 1)
   await longPressAt(page, ref.x, ref.y)
   await page.waitForTimeout(200)
@@ -396,7 +396,7 @@ async function barGo(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   console.log(`bar go ${size.name}: a long press on A:A went to it without an edit, a tap on it started the edit`)
 }
 
-/** Excel's formula bar over a cell of six lines: one line high and the grid in place, expanded by its arrow, a click's caret where it was put, and the caret moved to the last line seen in the collapsed field. */
+/** Excel's formula bar over a six-line cell: one line high with the grid in place, expanded by its arrow, a click's caret where it was placed, and the caret moved to the last visible line in the collapsed input. */
 async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
   const measure = () =>
@@ -421,7 +421,7 @@ async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   await checkOverlay(page, 'six lines expanded')
   await press('[data-xs-bar-toggle]')
   await page.waitForSelector('.xs-fx:not(.xs-fx-open)')
-  // A click opens the field in the bar with the caret where it was put, as Excel's; the caret taken to the end, on the sixth line, scrolls the collapsed field and its layer there.
+  // A click opens the editor in the formula bar with the caret where it was placed, as in Excel; moving the caret to the end, on the sixth line, scrolls the collapsed input and its layer there.
   await press('.xs-fx')
   await page.waitForSelector('.xs-bar-editing')
   await page.waitForTimeout(100)
@@ -438,14 +438,14 @@ async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   if (caret.at !== caret.length || caret.room <= 0 || caret.top < caret.room - 2 || caret.layer !== caret.top) throw new Error(`the caret's line is not in view: ${JSON.stringify(caret)}`)
   await shot(page, size.name, '38-bar-caret')
   await checkOverlay(page, 'the caret on the sixth line')
-  // The open field is as high as the text it covers, collapsed and expanded (Control+Shift+U on a desktop, the arrow under a finger): the grid stays.
+  // The open editor is as tall as the text it covers, collapsed and expanded (Ctrl+Shift+U on a desktop, the arrow on a touch screen): the grid does not move.
   const editing = await measure()
   if (size.mobile) await press('[data-xs-bar-toggle]')
   else await page.keyboard.press('Control+Shift+KeyU')
   await page.waitForSelector('.xs-bar-editing .xs-fx-open')
   const editingOpen = await measure()
   if (editing.grid !== collapsed.grid || editingOpen.grid !== expanded.grid) throw new Error(`the open field moved the grid: ${JSON.stringify({ collapsed, editing, expanded, editingOpen })}`)
-  // A long formula's draft wraps over lines with its references coloured: the layer lies on the field expanded and collapsed.
+  // A long formula's draft wraps over lines with its references colored: the layer lines up with the input, expanded and collapsed.
   await page.keyboard.press('ControlOrMeta+A')
   await page.keyboard.insertText(`=${Array.from({ length: 12 }, (_, i) => `СУММ(A${i + 1}:C${i + 9})*$B$${i + 2}`).join('+')}`)
   await page.waitForTimeout(100)
@@ -461,13 +461,13 @@ async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   console.log(`bar ${size.name}: ${collapsed.bar} px collapsed over six lines (one line: ${plain.bar} px), ${expanded.bar} px expanded, the same with the field open; the caret's line scrolled into view (${caret.top} of ${caret.room} px)`)
 }
 
-/** Merge & Center on the app's toolbar (spa.html): its list open (on a phone in the toolbar's menu), then A1:B2 merged and centred. */
+/** Merge & Center on the app's toolbar (spa.html): its dropdown open (on a phone in the toolbar's menu), then A1:B2 merged and centered. */
 async function mergeScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
   await page.goto(`${base}spa.html?lang=ru`)
   await page.waitForSelector('[data-cell="1:1"]')
   await page.waitForFunction(() => document.querySelector('[data-spa-status]')?.textContent?.trim() === 'Готово', null, { timeout: 30_000 })
-  // through the formula bar: Cyrillic comes as text input without a key press, which types over a cell only in a field
+  // through the formula bar: Cyrillic arrives as text input without a key press, which types over a cell only in an editor
   await press('[data-cell="1:1"]')
   await press('.xs-fx')
   await page.keyboard.type('Итого за квартал')
@@ -484,7 +484,7 @@ async function mergeScreens(page: Page, size: (typeof SIZES)[number]): Promise<v
   await press('[data-tb="merge-center"]')
   await page.waitForSelector('[data-cell="1:1"][colspan="2"][rowspan="2"]', { timeout: 30_000 })
   await page.waitForSelector('[data-tb="merge"][aria-pressed="true"]')
-  // the phone's toolbar menu closed, the jump's flash (2 s) gone
+  // the phone's toolbar menu closed, the jump's flash (2 s) over
   if (size.mobile) await press('[data-tb="more"]')
   await page.waitForTimeout(2200)
   await shot(page, size.name, '57-merged')
@@ -494,8 +494,8 @@ async function mergeScreens(page: Page, size: (typeof SIZES)[number]): Promise<v
 }
 
 /**
- * Excel's typo window in the app (spa.html, the local source, xlcalc 0.44): `=(1+2` with Enter offers `=(1+2)`, then No
- * brings the message of the missing bracket; its OK leaves the field open with the text typed.
+ * Excel's typo dialog in the app (spa.html, the local source, xlcalc 0.44): `=(1+2` with Enter offers `=(1+2)`, then No
+ * brings up the message about the missing parenthesis; its OK leaves the editor open with the typed text.
  */
 async function typoScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
@@ -523,9 +523,9 @@ async function typoScreens(page: Page, size: (typeof SIZES)[number]): Promise<vo
 }
 
 /**
- * Excel's tip with a function's arguments in the app (spa.html, the local source): SUMIFS at its third group of criteria in
- * a cell near the right edge (a phone's view is narrower than the tip: it wraps inside it), then ROUND inside a sum in
- * the formula bar. The tip stays in the window, never with the list of functions, and the page does not scroll sideways.
+ * Excel's argument tooltip in the app (spa.html, the local source): SUMIFS at its third group of criteria in a cell near
+ * the right edge (a phone's viewport is narrower than the tooltip: it wraps inside it), then ROUND inside a sum in the
+ * formula bar. The tooltip stays inside the window, never together with the function list, and the page does not scroll horizontally.
  */
 async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const press = (selector: string) => (size.mobile ? page.locator(selector).tap() : page.locator(selector).click())
@@ -548,7 +548,7 @@ async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   await page.goto(`${base}spa.html?lang=ru`)
   await page.waitForSelector('[data-cell="1:1"]')
   await page.waitForFunction(() => document.querySelector('[data-spa-status]')?.textContent?.trim() === 'Готово', null, { timeout: 30_000 })
-  // `=` opens the cell's field by its key; Cyrillic then comes as text input into the field
+  // `=` by its key opens the cell editor; Cyrillic then arrives as text input into the editor
   await press(size.mobile ? '[data-cell="1:4"]' : '[data-cell="2:6"]')
   await page.keyboard.press('=')
   await page.keyboard.type('СУММЕСЛИМН(A1:A9;B1:B9;"x";C1:C9;"y";')
@@ -561,12 +561,12 @@ async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   const bar = await check('in the formula bar', 'разряды')
   await shot(page, size.name, '59-tip-bar')
   await checkOverlay(page, 'a draft under the tip')
-  // Excel's Cancel and Enter by the bar, on while the edit is open
+  // Excel's Cancel and Enter next to the formula bar, enabled while the edit is open
   await shot(page, size.name, '60-bar-buttons')
   await page.keyboard.press('Escape')
   console.log(`tip ${size.name}: SUMIFS in a cell (${cell.lines} lines), ROUND in the bar (${bar.lines} lines), inside the window, no list, no side scroll`)
 
-  // Excel's Insert Function: the window over the whole list, then a category with the syntax and description of the one selected.
+  // Excel's Insert Function: the dialog over the full list, then a category with the syntax and description of the selected one.
   await press('[data-xs-bar-fx]')
   await page.waitForSelector('[data-xs-insert-function] [data-xs-if-item]')
   await page.waitForFunction(() => document.querySelector('[data-xs-if-about]')?.textContent?.trim())
@@ -601,7 +601,7 @@ for (const size of SIZES) {
     await shot(page, size.name, `${String(i + 1).padStart(2, '0')}-${name}`)
   }
 
-  // A formula's ranges highlighted, its references in the bar.
+  // A formula's ranges highlighted, its references in the formula bar.
   await open(page, 'Формулы!B6')
   await shot(page, size.name, '20-formula-refs')
   await checkOverlay(page, 'a formula with references', true)
@@ -610,12 +610,12 @@ for (const size of SIZES) {
   // A selection with its totals.
   await open(page, 'Форматы!B2:C11')
   await shot(page, size.name, '21-selection-totals')
-  // A jump far down a long sheet flashes the place.
+  // A jump far down a long sheet flashes the location.
   await open(page, "'Длинный лист'!B30000")
   await page.waitForTimeout(300)
   await shot(page, size.name, '22-jump-flash')
 
-  // Frozen panes stay while the body scrolls; a whole column of a long sheet counts its cells only.
+  // Frozen panes stay while the body scrolls; an entire column of a long sheet counts only its cells.
   await open(page, 'Закрепление!M150')
   await page.waitForTimeout(2200)
   await shot(page, size.name, '28-freeze-scrolled')
@@ -623,7 +623,7 @@ for (const size of SIZES) {
   await page.waitForTimeout(2200)
   await shot(page, size.name, '29-column-count')
 
-  // Targets for a finger on a phone, with the search bar and the funnel's list open; a desktop's stay as they were.
+  // Touch targets on a phone, with the search bar and the funnel's list open; a desktop's stay unchanged.
   await open(page, 'Фильтр!A1')
   await page.waitForTimeout(2200)
   await checkTargets(page, size.mobile)
@@ -637,7 +637,7 @@ for (const size of SIZES) {
     await page.locator('.xs-popover-head button').last().click()
   }
 
-  // 0.2.0: search with its hits, the funnel of a column (a phone: the whole screen), a filtered and sorted sheet, a recompute.
+  // 0.2.0: search with its matches, a column's funnel (on a phone, full screen), a filtered and sorted sheet, a recalculation.
   await open(page, "'Длинный лист'!A1")
   await page.locator('[data-xs-find]').click()
   await page.locator('.xs-find-input').fill('K-0300')
@@ -674,7 +674,7 @@ for (const size of SIZES) {
   await page.waitForTimeout(1600)
   await shot(page, size.name, '33-recompute')
 
-  // Excel's outline: a group's + (on a phone a tap beside it, within a finger's reach), then a columns' level button.
+  // Excel's outline: a group's + (on a phone a tap next to it, within touch reach), then a column level button.
   await open(page, 'Группировка!A1')
   const plus = (await page.locator('.xs-ol-rows [data-xs-outline="6:9:2"]').boundingBox())!
   if (size.mobile) await page.touchscreen.tap(plus.x + plus.width / 2 + 4, plus.y + plus.height / 2 + 15)
@@ -697,7 +697,7 @@ for (const size of SIZES) {
   await typoScreens(page, size)
   await tipScreens(page, size)
 
-  // Editing in place: typing over a cell, then the edit in flight.
+  // Editing in the cell: typing over a cell, then the pending edit.
   await open(page, 'Формулы!C2')
   if (size.mobile) {
     await page.locator('.xs-fx').tap()
@@ -714,7 +714,7 @@ for (const size of SIZES) {
   await page.waitForTimeout(400)
   await shot(page, size.name, '25-edit-done')
 
-  // A conflict keeps the text in the field and explains.
+  // A conflict keeps the text in the editor and explains.
   await open(page, 'Формулы!C3', '&fail=conflict')
   if (size.mobile) await page.locator('.xs-fx').tap()
   else await page.locator('.xs-scroller').focus()

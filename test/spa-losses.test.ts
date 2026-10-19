@@ -1,4 +1,4 @@
-// The example app's notice of what a file lost, as Excel's message bar: one line with each kind and its count, the
+// The example app's notice of what a file lost, like Excel's message bar: one line with each kind and its count, the
 // details (messages, sheets, cells, names) on a click, and a close button.
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'

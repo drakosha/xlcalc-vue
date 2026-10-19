@@ -1,5 +1,5 @@
-// The Format Cells dialog: it opens at the active cell's look, OK emits the patches of what changed and closes, Cancel and
-// Esc close; Excel's limits hold OK back; the toolbar's Format Cells button asks the host to open it.
+// The Format Cells dialog: it opens with the active cell's formatting, OK emits patches for what changed and closes, Cancel
+// and Esc close; inputs beyond Excel's limits block OK; the toolbar's Format Cells button asks the host to open it.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FormatDialog, SheetToolbar, type SheetViewApi, type SheetViewState } from '../src'
@@ -71,7 +71,7 @@ describe('FormatDialog', () => {
     expect(w.find('[data-fmt-edge="insideH"]').attributes('aria-pressed')).toBe('false')
     await w.find('form').trigger('submit')
     const RED = { style: 'medium', color: '#C00000' }
-    // plain data, as a source in a thread clones it
+    // plain data, as a source in a worker thread clones it
     expect(() => structuredClone(w.emitted('apply')![0]![0])).not.toThrow()
     expect(w.emitted('apply')![0]![0]).toEqual([
       { range: 'B2:C2', style: { border: { top: RED } } },

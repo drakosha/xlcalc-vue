@@ -1,5 +1,5 @@
-// The composables of data validation on their own: the active cell's rule asked once the cell stays (an older request
-// aborted, its answer dropped), the list's keys and choice, and an alert's answer.
+// The data validation composables on their own: the active cell's rule requested once the cell stays (an older request
+// aborted and its response discarded), the list's keys and choice, and an alert's answer.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 import { ALERT_BUTTONS, ALERT_DEFAULT, useValidation, useValidationAlert, VALIDATION_DELAY_MS } from '../src/core/validation'
@@ -29,7 +29,7 @@ function setup(source: SheetSource) {
   const v = scope.run(() => useValidation({ source: () => source, sheet: () => sheet.value, active: () => active.value, text: () => text.value, pick }))!
   return { v, active, sheet, text, pick, scope }
 }
-/** Let the pause pass and the answers come. */
+/** Lets the pause pass and the responses arrive. */
 async function pass(ms = VALIDATION_DELAY_MS): Promise<void> {
   await vi.advanceTimersByTimeAsync(ms)
   await nextTick()
@@ -110,7 +110,7 @@ describe('useValidation: the list', () => {
     expect(v.onKey(alt)).toBe(true)
     expect(alt.defaultPrevented).toBe(true)
     expect([v.open.value, v.index.value]).toEqual([true, 1])
-    // its items are asked again, as Excel computes them on opening
+    // its items are requested again, as Excel recalculates them when the list opens
     expect(calls).toHaveLength(2)
     v.onKey(key('ArrowDown'))
     v.onKey(key('ArrowDown'))
@@ -140,7 +140,7 @@ describe('useValidation: the list', () => {
     expect(v.onKey(key('x'))).toBe(false)
     expect(v.open.value).toBe(false)
     v.toggle()
-    // Enter on no item only closes
+    // Enter with no item highlighted only closes the list
     v.onKey(key('Enter'))
     expect(v.open.value).toBe(false)
     v.toggle()

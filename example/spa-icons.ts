@@ -1,4 +1,4 @@
-// The app's icons: a new book, open, save as, settings, close and the warning of the notice, as small inline SVGs.
+// The app's icons: new workbook, open, save as, settings, close and the notice's warning, as small inline SVGs.
 import { h, type FunctionalComponent } from 'vue'
 
 const icon = (paths: string[]): FunctionalComponent => {

@@ -1,6 +1,6 @@
 // What SheetView exposes to its host (undo, redo, format, structure) and its keys for bold, italic and underline: each goes
-// through the source as Control+Z goes, the selection set without a flash or a step back, the sheet read again after a
-// change the window cannot carry, and the sheet shown after one Excel's way.
+// through the source as Ctrl+Z does, the selection set without a flash or a Back history entry, the sheet read again after
+// a change the window cannot carry, and the sheet displayed afterwards chosen as Excel chooses it.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { toRaw } from 'vue'
@@ -18,7 +18,7 @@ const api = (w: VueWrapper) => w.vm as unknown as SheetViewApi
 const tab = (w: VueWrapper) => w.find('.xs-tab-on').text()
 const backOff = (w: VueWrapper) => w.find('.xs-bar .xs-tool').attributes('disabled') !== undefined
 
-/** Two sheets of a fake source with the given methods; `subscribe` dropped when `quiet` (a source that never tells). */
+/** Two sheets of a fake source with the given methods; `subscribe` omitted when `quiet` (a source that never reports changes). */
 function source(methods: Partial<SheetSource>, quiet = false, sheets: SheetInfo[] = [{ name: 'S', maxRow: 20, maxCol: 6 }, { name: 'T', maxRow: 5, maxCol: 3 }]) {
   const f = fakeSource(sheets)
   Object.assign(f.source, methods)
@@ -126,7 +126,7 @@ describe('SheetView exposes format', () => {
 })
 
 describe('Control+B, Control+I and Control+U', () => {
-  /** A1 bold, B1 plain: the toggle goes by the active cell's look. */
+  /** A1 bold, B1 plain: the toggle follows the active cell's formatting. */
   function styled() {
     const f = source({ format: vi.fn(async () => OK) })
     const window = f.source.window
@@ -162,7 +162,7 @@ describe('Control+B, Control+I and Control+U', () => {
 })
 
 describe('SheetView exposes structure', () => {
-  /** A source whose sheets a structure operation changes, as a book would. */
+  /** A source whose sheets a structure operation changes, as a workbook would. */
   function book(names: string[], quiet = true) {
     let sheets: SheetInfo[] = names.map((name) => ({ name, maxRow: 5, maxCol: 3 }))
     const ops: SheetOp[] = []

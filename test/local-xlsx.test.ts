@@ -1,5 +1,5 @@
 // @vitest-environment node
-// xlsx in and out of the local source: a book written and read back, a Blob, the issues in a locale and grouped.
+// xlsx reading and writing in the local source: a workbook written and read back, a Blob, the issues in a locale and grouped.
 import { crc32 } from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
 import { compute, sameValue, type CellValue } from 'xlcalc'
@@ -10,7 +10,7 @@ import { BOLD, closeAll, source, styleOf, win } from './local-fixture'
 
 afterEach(closeAll)
 
-/** A zip of stored entries: enough for a hand-made xlsx with a part the reader reports. */
+/** A zip of stored entries: enough for a handmade xlsx with a part the reader reports. */
 function storedZip(files: Record<string, string>): Uint8Array {
   const parts: Buffer[] = []
   const dir: Buffer[] = []
@@ -46,7 +46,7 @@ function storedZip(files: Record<string, string>): Uint8Array {
 }
 
 const RELS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
-/** A file of one empty sheet `S` with sheet protection, which the book cannot hold. */
+/** A file with one empty sheet `S` with sheet protection, which the workbook cannot keep. */
 const protectedFile = () =>
   storedZip({
     '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
@@ -83,7 +83,7 @@ describe('xlsx in and out', () => {
     expect(await s.paste('Данные', 'D4', '10\r\n20')).toMatchObject({ ok: true })
     const before = await s.snapshot()
     const back = await openXlsx((await saveXlsx(s)).data)
-    // a formula's or a spill's value as the file stores it (cached, nothing computed), exactly; a constant as the book
+    // a formula's or a spill's value exactly as the file stores it (cached, nothing calculated); a constant as the workbook
     // read holds it, which keeps the full double where the result gives 15 significant digits (sameValue)
     const mismatches: [string, string, unknown, CellValue][] = []
     let cached = 0
@@ -107,7 +107,7 @@ describe('xlsx in and out', () => {
     const cells = { A1: { formula: 'B1/2+1' }, B1: { formula: 'A1' }, C1: { formula: 'A1*10' }, D1: { value: 5 }, E1: { formula: 'D1*2' } }
     const stored = { sheets: [{ name: 'S', cells: { A1: { value: 2 }, B1: { value: 2 }, C1: { value: 20 }, E1: { value: 10 } } }] }
     const read = await openXlsx((await writeXlsx({ book: { sheets: [{ name: 'S', cells }] }, result: stored })).data)
-    // without them the cycle and its reader hold 0; a formula outside it is computed either way
+    // without them the cycle and the cell that refers to it contain 0; a formula outside it is calculated either way
     expect((await win(source(read.book), 'S', 1, 1, 1, 5)).values).toEqual([[0, 0, 0, 5, 10]])
     const s = source(read.book, { session: { cached: read.cached } })
     expect((await win(s, 'S', 1, 1, 1, 5)).values).toEqual([[2, 2, 20, 5, 10]])

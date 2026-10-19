@@ -1,5 +1,5 @@
 // The cell's own text edited in place (F2, a double click; the formula bar opens the same way) goes to the source with
-// `inPlace`, a key typed over the cell without it, as Excel's percent editor tells them apart.
+// `inPlace`, and a key typed over the cell without it, as Excel's automatic percentage entry distinguishes them.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource } from '../src'
 import { editorKey, goTo, key, mountSheet, settle, type } from './helpers'

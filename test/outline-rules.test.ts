@@ -1,7 +1,7 @@
 // @vitest-environment node
-// Excel's outline commands of memorySource (src/memory-outline.ts, xlcalc's `outlineEdit`) against what Excel for Windows 16
-// (build 20430) did over COM on a synthetic book, 12.10.2026: each case is a measured scenario, the hidden rows and the
-// collapsed marks as Excel saved them; and the cases xlcalc's later measurements added, as ./local gives them
+// memorySource's Excel outline commands (src/memory-outline.ts, xlcalc's `outlineEdit`) against what Excel for Windows 16
+// (build 20430) did over COM on a synthetic workbook, 12.10.2026: each case is a measured scenario, with the hidden rows and
+// the collapsed flags as Excel saved them; and the cases that xlcalc's later measurements added, as ./local returns them
 // (test/local-outline.test.ts).
 import { outlineGroups } from 'xlcalc/a1'
 import { describe, expect, it } from 'vitest'
@@ -9,10 +9,10 @@ import { memorySource } from '../src'
 import { outlineCommand, outlineSheet, type AxisLines } from '../src/memory-outline'
 import type { OutlineChange, SheetWindow } from '../src/contract/source'
 
-/** A command without its sheet, each kind of `OutlineChange` kept apart. */
+/** A command without its sheet, with each kind of `OutlineChange` kept separate. */
 type Change = OutlineChange extends infer C ? (C extends unknown ? Omit<C, 'sheet'> : never) : never
 
-/** A sheet's rows one by one, as Excel's rows: level, hidden, the collapsed mark. */
+/** A sheet's rows one by one, as Excel's rows: level, hidden, the collapsed flag. */
 class Rows implements AxisLines {
   levels = new Map<number, number>()
   hidden = new Set<number>()
@@ -20,11 +20,11 @@ class Rows implements AxisLines {
   constructor(levels: Record<number, number> = {}) {
     for (const [r, l] of Object.entries(levels)) this.levels.set(Number(r), l)
   }
-  /** Apply a command as memorySource does; its refusal's message, or null. */
+  /** Applies a command as memorySource does; returns its rejection message, or null. */
   run(change: Change, after = true): string | null {
     return outlineCommand(this, { summaryBelow: after, summaryRight: after }, { sheet: 'S', ...change } as OutlineChange)
   }
-  /** The groups xlcalc draws from the rows, summaries below. */
+  /** The groups xlcalc draws from the rows, with summaries below. */
   groups() {
     return outlineGroups(outlineSheet({ rows: this, columns: new Rows() })).rows
   }
@@ -68,7 +68,7 @@ describe('Group and Ungroup', () => {
     for (let i = 1; i <= 7; i++) expect(rows.run({ op: 'group', rows: '3:6' })).toBeNull()
     expect(rows.run({ op: 'group', rows: '3:6' })).toBe('the rows 3:6 are at the deepest outline level, 7, and are not grouped further')
     expect(rows.state(7)).toBe('1:0 2:0 3:7 4:7 5:7 6:7 7:0')
-    // over lines at 7 and others Excel deepens the others and leaves those at 7 (xlcalc's docs/outline.md)
+    // over rows at level 7 and others, Excel deepens the others and leaves those at 7 (xlcalc's docs/outline.md)
     expect(rows.run({ op: 'group', rows: '2:6' })).toBeNull()
     expect(rows.state(7)).toBe('1:0 2:1 3:7 4:7 5:7 6:7 7:0')
   })
@@ -183,7 +183,7 @@ describe('a level button', () => {
 })
 
 describe('memorySource: the commands as Excel and ./local give them', () => {
-  /** A memory sheet with these row levels and options, its commands and what it shows. */
+  /** An in-memory sheet with these row levels and options, its commands and what it shows. */
   function sheet(rows: Record<string, number>, opts: { heights?: Record<string, number>; summaryBelow?: boolean } = {}) {
     const src = memorySource({ sheets: [{ name: 'S', cells: { A1: 1 }, heights: opts.heights, outline: { rows, ...(opts.summaryBelow !== undefined ? { summaryBelow: opts.summaryBelow } : {}) } }] })
     return {

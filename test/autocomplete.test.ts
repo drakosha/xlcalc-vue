@@ -1,5 +1,5 @@
-// Excel's Formula AutoComplete: the name at the caret, the list under the cell's field and the formula bar's, its keys
-// (arrows, Page keys, Home, End, Tab, Esc, Enter), a double click and a tap, and the source's names asked once per source.
+// Excel's Formula AutoComplete: the name at the caret, the list below the cell editor and the formula bar's, its keys
+// (arrows, Page Up and Page Down, Home, End, Tab, Esc, Enter), a double click and a tap, and the source's names requested once per source.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ruRU } from 'xlcalc/locales/ru-RU'
@@ -19,7 +19,7 @@ const book = (functions: string[] | null = FUNCTIONS): MemoryBook => ({ sheets: 
 const field = (w: VueWrapper) => w.find('.xs-editor').element as HTMLTextAreaElement
 const shown = () => [...document.querySelectorAll('[data-xs-function]')].map((li) => li.textContent!.trim())
 const highlighted = () => document.querySelector('.xs-fl-on')?.textContent?.trim()
-/** Open the cell's field with `=` and type the rest, as the browser sends it. */
+/** Opens the cell editor with `=` and types the rest, as the browser sends it. */
 async function typeFormula(w: VueWrapper, text: string): Promise<void> {
   await key(w, '=')
   await type(w, text)
@@ -75,7 +75,7 @@ describe('the list under the cell', () => {
     expect(shown()).toEqual([])
     await type(w, '=СУММ(A1,Е')
     expect(shown()).toEqual(['ЕСЛИ'])
-    // `;` separates nothing in en-US, the book's locale here
+    // `;` separates nothing in en-US, the workbook's locale here
     await type(w, '=СУММ(A1;Е')
     expect(shown()).toEqual([])
     expect(editorOpen(w)).toBe(true)
@@ -179,12 +179,12 @@ describe('the list under the cell', () => {
     const w = await mountSheet(memorySource(book()))
     await typeFormula(w, '=СУММ')
     expect(shown()).toHaveLength(4)
-    // F2 to Edit mode, where the arrows move the caret: in Enter mode Left would enter `=С` (refAt's commit)
+    // F2 switches to Edit mode, where the arrows move the caret: in Enter mode Left would enter `=С` (refAt's commit)
     await editorKey(w, 'F2')
     await new Promise((done) => setTimeout(done))
     await settle()
     expect(shown()).toHaveLength(4)
-    // The browser moves the caret after the key; the list reads it once the key is done.
+    // The browser moves the caret after the key; the list reads it once the key is handled.
     field(w).setSelectionRange(2, 2)
     await editorKey(w, 'ArrowLeft')
     await new Promise((done) => setTimeout(done))
@@ -319,7 +319,7 @@ describe('FunctionList', () => {
   })
 })
 
-/** A memory source of the book that records the edits it gets. */
+/** An in-memory source of the workbook that records the edits it receives. */
 function recordedSource() {
   const source = memorySource(book())
   const edits: unknown[] = []

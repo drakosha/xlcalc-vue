@@ -1,5 +1,5 @@
-// Excel's commands on the cells' menu and as the sheet's methods: Reapply of the display filter (Control+Alt+L), Freeze
-// Panes through the source's `freeze` with the lock as a view over it, and Trace Precedents as a panel beside the grid.
+// Excel's commands in the cell menu and as the sheet's methods: Reapply for the display filter (Ctrl+Alt+L), Freeze Panes
+// through the source's `freeze` with the lock as a view setting over it, and Trace Precedents as a panel next to the grid.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSession, registerLocale, type BookInput } from 'xlcalc'
@@ -30,11 +30,11 @@ async function pick(id: string): Promise<void> {
 }
 const numbers = (w: VueWrapper) => w.findAll('.xs-num').map((n) => n.text())
 const td = (w: VueWrapper, row: number, col: number) => w.find(`[data-cell="${row}:${col}"]`)
-/** Fake timers for the panel's pause; setImmediate stays real, flushPromises needs it. */
+/** Fake timers for the panel's pause; setImmediate stays real, since flushPromises needs it. */
 const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
 
 describe('Reapply of the display filter', () => {
-  /** A list filtered on B = a under the host's storage key: rows 2, 4 and 6 shown. */
+  /** A list filtered on B = a under the host's storage key: rows 2, 4 and 6 visible. */
   const book = (): MemoryBook => ({
     sheets: [{ name: 'S', cells: { A1: 'Name', B1: 'Status', A2: 'n2', B2: 'a', A3: 'n3', B3: 'b', A4: 'n4', B4: 'a', A5: 'n5', B5: 'b', A6: 'n6', B6: 'a' } }],
   })
@@ -63,7 +63,7 @@ describe('Reapply of the display filter', () => {
     expect(numbers(w)).toEqual(['1', '2', '3', '6'])
     expect(active(w)).toBe('6:1')
     expect(scroller.scrollTop).toBe(12)
-    // On a Mac Option makes the key another character: the key's place counts.
+    // On a Mac Option turns the key into another character: the key's position counts.
     source.setCells('S', { B2: 'b' })
     await key(w, '¬', { ctrlKey: true, altKey: true, code: 'KeyL' })
     await settle()
@@ -115,7 +115,7 @@ describe('Reapply of the display filter', () => {
   it('takes Excel’s names in Russian', async () => {
     localStorage.setItem('k:filter:S', JSON.stringify({ cols: { 2: { values: ['a'] } }, sort: null }))
     const w = await mountSheet(memorySource(book()), { storageKey: 'k', messages: ruMessages })
-    // the stored filter goes back on through the source's visibleRows, as many rounds as the machine's load makes
+    // the stored filter is reapplied through the source's visibleRows, in as many rounds as the machine's load takes
     await until(() => w.find('[data-xs-filter-reapply]').exists())
     await context(w, '2:1')
     expect([label('reapply'), label('precedents')]).toEqual(['Применить повторно', 'Влияющие ячейки'])
@@ -157,7 +157,7 @@ describe('Freeze Panes', () => {
     await pick('freezeTopRow')
     expect(freeze).toHaveBeenLastCalledWith('S', { rows: 1, cols: 0 })
     expect(frozen(w)).toEqual({ corner: false, rows: true, cols: false })
-    // Excel's Freeze First Column takes the place of the panes there were.
+    // Excel's Freeze First Column replaces the previous panes.
     await context(w, '10:5')
     await pick('freezeFirstColumn')
     expect(freeze).toHaveBeenLastCalledWith('S', { rows: 0, cols: 1 })
@@ -175,7 +175,7 @@ describe('Freeze Panes', () => {
     await settle()
     expect(frozen(w)).toEqual({ corner: true, rows: true, cols: true })
     expect(localStorage.getItem('k:freeze:S')).toBe('true')
-    // 40 rows eat over half of the 600 px frame: frozen by the command they show all the same.
+    // 40 rows take over half of the 600 px viewport: frozen by the command, they are displayed all the same.
     await goTo(w, 'A41')
     await api(w).freezePanes('panes')
     await settle()
@@ -190,7 +190,7 @@ describe('Freeze Panes', () => {
     const source = memorySource(book())
     const freeze = vi.spyOn(source, 'freeze')
     const w = await mountSheet(source)
-    // The frame is 800 × 600 in happy-dom: the letters take 24 px and the numbers 56 px; rows are 20 px, columns 71 px.
+    // The viewport is 800 × 600 in happy-dom: the letters take 24 px and the numbers 56 px; rows are 20 px, columns 71 px.
     await api(w).freezePanes()
     expect(freeze).toHaveBeenLastCalledWith('S', { rows: 14, cols: 5 })
     await w.findAll('.xs-head')[2]!.trigger('click')
@@ -250,14 +250,14 @@ describe('the precedents’ panel', () => {
       { name: 'Q 4', cells: { A1: { value: 61, formula: 'Data!B2+1' }, A2: { value: 122, formula: 'A1*2' } } },
     ],
   })
-  /** An `explain` whose answers the test gives: each call waits for its `answer`. */
+  /** An `explain` whose responses the test provides: each call waits for its `answer`. */
   function held() {
     const calls: { sheet: string; cell: string; answer: (text: string) => void }[] = []
     const explain = vi.fn((sheet: string, cell: string) => new Promise<string>((answer) => calls.push({ sheet, cell, answer })))
     return { calls, explain }
   }
   const panel = (w: VueWrapper) => w.find('[data-xs-explain]')
-  /** The panel's pause after the active cell moved, and the answer. */
+  /** The panel's pause after the active cell moved, and the response. */
   async function follow(): Promise<void> {
     await new Promise((r) => setTimeout(r, EXPLAIN_DELAY_MS + 30))
     await settle()
@@ -278,7 +278,7 @@ describe('the precedents’ panel', () => {
     expect(panel(w).exists()).toBe(true)
     expect(calls.map((c) => c.cell)).toEqual(['B2'])
     expect(panel(w).text()).toContain('Loading…')
-    // Keys held down ask once, after the pause.
+    // Held-down keys request once, after the pause.
     await key(w, 'ArrowDown')
     await vi.advanceTimersByTimeAsync(EXPLAIN_DELAY_MS - 50)
     await key(w, 'ArrowDown')
@@ -292,7 +292,7 @@ describe('the precedents’ panel', () => {
     await settle()
     expect(w.find('[data-xs-explain-place]').text()).toBe('Data!B4')
     expect(lines(w)).toEqual(['Data!B4 = empty'])
-    // A value an edit changed asks again.
+    // A value changed by an edit requests again.
     source.setCells('Data', { B4: '5' })
     await vi.advanceTimersByTimeAsync(EXPLAIN_DELAY_MS + 10)
     expect(calls.map((c) => c.cell)).toEqual(['B2', 'B4', 'B4'])
@@ -370,7 +370,7 @@ describe('the explain text', () => {
       [2, '[S|S!A3] = 3{  ← SUM(}[S|A1:A2]{)}'],
       [3, '[S|S!A1:A2] (2 cells)'],
     ])
-    // ru-RU's words, numbers and separators read the same; a reference without a sheet is on its line's.
+    // ru-RU's words, numbers and separators parse the same; a reference without a sheet name is on its line's sheet.
     const ru = createSession(input('ru-RU')).explain('T 2', 'A2').text
     expect(ru.split('\n')[0]).toBe("'T 2'!A2 = 11  ← ОКРУГЛ(A1*1,5;0)")
     expect(shape(ru, 'S')[0]).toEqual([0, "[T 2|'T 2'!A2] = 11{  ← ОКРУГЛ(}[T 2|A1]{*1,5;0)}"])

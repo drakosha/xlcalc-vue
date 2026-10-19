@@ -1,6 +1,6 @@
-// Excel's outline on the grid: the bars beside the numbers and above the letters with their brackets and buttons, the
-// buttons and level buttons through the source's `outline`, Group and Ungroup from the menu, the keys and the box that
-// asks rows or columns, and the sheet's room for the bars.
+// Excel's outline on the grid: the bars next to the row numbers and above the column letters with their brackets and
+// buttons, the buttons and level buttons through the source's `outline`, Group and Ungroup from the menu, the keys and the
+// dialog that asks for rows or columns, and the sheet's space for the bars.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages, type MemoryBook, type SheetViewApi } from '../src'
@@ -27,7 +27,7 @@ const book = (): MemoryBook => ({
   ],
 })
 const OK: EditOutcome = { ok: true, changes: [] }
-/** The memory book with its `outline` watched. */
+/** The in-memory workbook with its `outline` watched. */
 function watched() {
   const source = memorySource(book())
   const outline = vi.spyOn(source, 'outline')
@@ -201,7 +201,7 @@ describe('Group and Ungroup', () => {
     await menuOn(num(w, 3), 'group')
     expect(w.find('.xs-message').text()).toBe(ruMessages.outlineDeepest)
     expect(outline).not.toHaveBeenCalled()
-    // with a line above it Excel deepens that line: sent
+    // with a row above it, Excel deepens that row: sent
     await num(w, 2).trigger('click')
     await num(w, 3).trigger('click', { shiftKey: true })
     await menuOn(num(w, 3), 'group')
@@ -229,7 +229,7 @@ describe('Group and Ungroup', () => {
       { op: 'group', sheet: 'S', columns: 'B:C' },
       { op: 'ungroup', sheet: 'S', rows: '2:2' },
     ])
-    // The keys did not move the selection on their way.
+    // The keys did not move the selection along the way.
     expect(address(w)).toBe('2:2')
   })
 

@@ -1,6 +1,6 @@
-// Excel's fill handle: dragged from the selection's corner its frame grows along one axis cell by cell, and the release
-// fills the frame from the selection through `structure` (fillRange, series with Ctrl); a double click fills down as far
-// as the data of the column beside goes. There is no handle where the sheet cannot copy.
+// Excel's fill handle: dragged from the selection's corner, its outline grows along one axis cell by cell, and the release
+// fills the outlined range from the selection through `structure` (fillRange, series with Ctrl); a double click fills down
+// as far as the data of the adjacent column extends. There is no handle where the sheet cannot copy.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
@@ -32,11 +32,11 @@ function withStructure(answer: (op: SheetOp) => EditOutcome = () => OK) {
 }
 /** A column without a width, in pixels. */
 const COL = colPx(null)
-/** The middle of a cell on the page: the scroller is at 0, 0; letters 24 px high, numbers 56 px wide, rows 20 px, columns `COL`. */
+/** The center of a cell on the page: the scroller is at 0, 0; letters 24 px tall, numbers 56 px wide, rows 20 px, columns `COL`. */
 const at = (row: number, col: number) => ({ clientX: 56 + (col - 1) * COL + COL / 2, clientY: 24 + (row - 1) * 20 + 10 })
 const handle = (w: VueWrapper) => w.find('[data-xs-fill-handle]')
 const frame = (w: VueWrapper) => w.find('[data-xs-fill-frame]')
-/** Drag the handle through points and let go at the last one, with the keys held at the release. */
+/** Drags the handle through points and releases at the last one, with the keys held at release. */
 async function drag(w: VueWrapper, points: { clientX: number; clientY: number }[], pointerType = 'mouse', keys: { ctrlKey?: boolean; altKey?: boolean } = {}): Promise<void> {
   const h = handle(w)
   const style = h.attributes('style') ?? ''

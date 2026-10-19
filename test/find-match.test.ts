@@ -1,6 +1,6 @@
 // @vitest-environment node
-// Excel's Find and Replace over cells' texts, as ./local and memorySource share it: the wildcards, match case, the entire
-// cell, a range, the display filter's rows, the order by rows or columns, and Replace All's new texts.
+// Excel's Find and Replace over cell texts, as ./local and memorySource share it: the wildcards, Match case, Match entire
+// cell contents, a range, the display filter's rows, the order by rows or columns, and Replace All's new texts.
 import { describe, expect, it } from 'vitest'
 import { findCells, replaceCells, type EachCell } from '../src/find-match'
 import type { FindRequest } from '../src/contract/source'
@@ -82,7 +82,7 @@ describe('the query as Excel reads it', () => {
 describe('where and in which order', () => {
   const texts: Record<string, string> = { '1:1': 'x1', '1:3': 'x2', '2:2': 'x3', '3:1': 'x4', '3:4': 'nothing', '4:2': 'x5' }
   const sheet = cells({ A1: 'x1', C1: 'x2', B2: 'x3', A3: 'x4', D3: 'nothing', B4: 'x5' })
-  /** The hits' texts, in their order. */
+  /** The matches' texts, in their order. */
   const textsOf = (got: { hits: { row: number; col: number }[] }) => got.hits.map((h) => texts[`${h.row}:${h.col}`])
 
   it('by rows by default, by columns when asked', () => {

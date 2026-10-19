@@ -1,5 +1,5 @@
-// The example app's opening of a file: the book's language when the file names none, the sheet shown first, and what
-// the file lost grouped by kind for the notice.
+// The example app's opening of a file: the workbook's language when the file specifies none, the sheet shown first, and
+// what the file lost, grouped by kind for the notice.
 import { describe, expect, it } from 'vitest'
 import type { BookInput } from 'xlcalc'
 import type { XlsxIssue } from 'xlcalc/xlsx'

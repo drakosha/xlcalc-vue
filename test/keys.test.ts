@@ -1,4 +1,4 @@
-// Shortcuts by the key's place on any layout: Control+A, F and H as Excel takes them, AltGr (Control+Alt) still typing its character.
+// Shortcuts by the key's position on any keyboard layout: Ctrl+A, Ctrl+F and Ctrl+H as Excel handles them, while AltGr (Ctrl+Alt) still types its character.
 import { afterEach, describe, expect, it } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import { address, editorOpen, key, mountSheet, settle } from './helpers'

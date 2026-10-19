@@ -1,4 +1,4 @@
-// Node 26 has a global `localStorage` of its own (empty without a file) that hides happy-dom's: give tests a working one.
+// Node 26 has its own global `localStorage` (empty without a file) that hides happy-dom's: give the tests a working one.
 class MemoryStorage {
   private items = new Map<string, string>()
   get length(): number {

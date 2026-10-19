@@ -1,5 +1,5 @@
-// Excel's Point mode: while a formula is edited with the caret where a reference may stand, a click on the sheet puts the
-// cell's address at the caret, a drag a range's, a letter or a number a whole column's or row's; the next click replaces it.
+// Excel's Point mode: while a formula is being edited with the caret where a reference can go, a click on the sheet inserts
+// the cell's address at the caret, a drag a range's, a column letter or a row number an entire column's or row's; the next click replaces it.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
@@ -13,7 +13,7 @@ afterEach(() => {
 
 const book = (): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 'a1', B2: 5, C3: 7 } }] })
 
-/** A memory source that records the edits it gets. */
+/** A memory source that records the edits it receives. */
 function recorded() {
   const source = memorySource(book())
   const edits: Parameters<NonNullable<typeof source.edit>>[0][] = []
@@ -27,16 +27,16 @@ function recorded() {
 
 /** A column without a width, in pixels. */
 const COL = colPx(null)
-/** The middle of a cell on the page: the scroller is at 0, 0; letters 24 px high, numbers 56 px wide, rows 20 px, columns `COL`. */
+/** The center of a cell on the page: the scroller is at 0, 0; letters 24 px tall, numbers 56 px wide, rows 20 px, columns `COL`. */
 const at = (row: number, col: number) => ({ clientX: 56 + (col - 1) * COL + COL / 2, clientY: 24 + (row - 1) * 20 + 10 })
 const field = (w: VueWrapper) => w.find('.xs-editor').element as HTMLTextAreaElement
-/** Open the field on the active cell with `text` typed, the caret at its end. */
+/** Opens the editor on the active cell with `text` typed, the caret at its end. */
 async function typeIn(w: VueWrapper, text: string): Promise<void> {
   await key(w, text[0]!)
   await type(w, text)
   field(w).setSelectionRange(text.length, text.length)
 }
-/** A mouse press on a cell, its mousedown, a drag through cells and the release, as the browser sends them. */
+/** A mouse press on a cell: its mousedown, a drag through cells and the release, as the browser sends them. */
 async function press(w: VueWrapper, row: number, col: number, opts: { shiftKey?: boolean; through?: [number, number][] } = {}): Promise<MouseEvent> {
   const td = w.find(`[data-cell="${row}:${col}"]`)
   await td.trigger('pointerdown', { button: 0, pointerId: 1, pointerType: 'mouse', shiftKey: !!opts.shiftKey, ...at(row, col) })
@@ -172,7 +172,7 @@ describe('Point mode', () => {
 })
 
 describe('Point mode with the arrows', () => {
-  /** An arrow in the field, the caret where it stood. */
+  /** An arrow in the editor, with the caret where it was. */
   async function arrow(w: VueWrapper, k: string, shiftKey = false): Promise<void> {
     await editorKey(w, k, { shiftKey })
     await settle()
@@ -230,7 +230,7 @@ describe('Point mode with the arrows', () => {
     field(w).setSelectionRange(3, 3)
     await arrow(w, 'ArrowRight')
     expect(field(w).value).toBe('=1+')
-    // F2 turns the field to Enter mode, where the arrows point
+    // F2 switches the editor to Enter mode, where the arrows insert references
     await editorKey(w, 'F2')
     await arrow(w, 'ArrowRight')
     expect(field(w).value).toBe('=1+C2')
@@ -252,7 +252,7 @@ describe('Point mode with the arrows', () => {
 
   it('the list separator of a ru-RU book', async () => {
     const w = await mountSheet(recorded().source, { locale: 'ru-RU' })
-    // the sheet reads formulas in ru-RU once the locale's module is in, a chunk loaded as the sheet mounts
+    // the sheet parses formulas in ru-RU once the locale's module has loaded, a chunk loaded as the sheet mounts
     await LOCALE_MODULES['ru-RU']!()
     await settle()
     await goTo(w, 'B2')
@@ -263,7 +263,7 @@ describe('Point mode with the arrows', () => {
 })
 
 describe('Point mode: what an arrow does with nothing pointed, as Excel measured (refAt)', () => {
-  /** A key in the field as the browser sends it; the event tells whether the field's own move was stopped. */
+  /** A key in the editor as the browser sends it; the event tells whether the editor's own move was prevented. */
   async function press(w: VueWrapper, k: string, init: KeyboardEventInit = {}): Promise<KeyboardEvent> {
     const e = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...init })
     field(w).dispatchEvent(e)
@@ -291,7 +291,7 @@ describe('Point mode: what an arrow does with nothing pointed, as Excel measured
       field(w).setSelectionRange(0, 0)
       await press(w, k)
       expect([text, field(w).value, editorOpen(w), active(w)]).toEqual([text, got, true, '3:3'])
-      // the reference goes on with the arrows, the = staying
+      // the reference continues to move with the arrows, the = staying
       await press(w, 'ArrowRight')
       expect(field(w).value).toBe(got.replace(/^=([A-Z]+)(\d+)/, (_, c: string, r: string) => `=${String.fromCharCode(c.charCodeAt(0) + 1)}${r}`))
       w.unmount()

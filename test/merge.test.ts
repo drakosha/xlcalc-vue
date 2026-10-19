@@ -1,6 +1,6 @@
-// Excel's Merge & Center on the toolbar: the button merges and centres the selection, its list merges across, merges
-// or unmerges; it is pressed on a merged cell and then unmerges. Excel's warning comes before cells holding more than one
-// value are merged. Through the local source a merged area is drawn as one cell, and Control+Z takes it back.
+// Excel's Merge & Center on the toolbar: the button merges the selection and centers it, its dropdown merges across, merges
+// or unmerges; it shows as pressed on a merged cell and then unmerges. Excel's warning comes before cells containing more
+// than one value are merged. Through the local source a merged range is drawn as one cell, and Ctrl+Z undoes it.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
@@ -16,7 +16,7 @@ afterEach(() => {
 
 const OK: EditOutcome = { ok: true, changes: [] }
 
-/** A memory book with the source's `structure` as a mock answering `answer`, and a `format` for the toolbar to show. */
+/** An in-memory workbook with the source's `structure` as a mock returning `answer`, and a `format` so the toolbar shows. */
 function withStructure(cells: MemoryBook['sheets'][number]['cells'] = {}, more: Partial<MemoryBook['sheets'][number]> = {}, answer: (op: SheetOp) => EditOutcome = () => OK) {
   const source = memorySource({ sheets: [{ name: 'S', cells, ...more }] })
   const structure = vi.fn(async (op: SheetOp) => answer(op))
@@ -130,7 +130,7 @@ describe('Merge & Center on the toolbar', () => {
   })
 
   it('counts the values of the merged areas the selection meets, and of those they meet in turn, as the library merges them', async () => {
-    // C1:C2 meets B1:C1, grown to B1:C2 it meets A2:B2: the merge takes A1:C2, where A2 and C2 hold values.
+    // C1:C2 overlaps B1:C1; extended to B1:C2, it overlaps A2:B2: the merge covers A1:C2, where A2 and C2 contain values.
     const { source } = withStructure({ A2: 'a', C2: 'c' }, { merges: ['B1:C1', 'A2:B2'] })
     const w = await mountBoth(source)
     await goTo(w, 'C1:C2')
@@ -209,7 +209,7 @@ describe('the field over a merged cell, by frozen rows', () => {
     scroller.element.scrollTop = 100
     await scroller.trigger('scroll')
     await settle()
-    // Columns are 71 px, rows 20 px; the letters' row is 24 px high.
+    // Columns are 71 px, rows 20 px; the column letters row is 24 px tall.
     await goTo(w, 'A1')
     await key(w, 'F2')
     await settle()

@@ -79,7 +79,7 @@
   opacity: 0;
   pointer-events: none;
 }
-/* The name as wide as it is (the input's size follows it), shrinking when the bar is short. */
+/* The name input as wide as its text (the input's size follows it), shrinking when the bar is short. */
 .spa-name {
   display: flex;
   flex: 0 1 auto;
@@ -113,7 +113,7 @@
   margin-left: auto;
 }
 
-/* ── what the file lost: one line as Excel's message bar, the details under it on demand ── */
+/* ── what the file lost: one line like Excel's message bar, with the details below it on demand ── */
 .spa-lost {
   flex-shrink: 0;
   border-bottom: 1px solid var(--spa-warn-line);
@@ -301,7 +301,7 @@
   color: var(--spa-accent-fg);
 }
 
-/* ── a phone or a finger: targets of 44 px, the bar's buttons by their icons alone ── */
+/* ── a phone or touch: 44 px targets, the bar's buttons with their icons only ── */
 @media (max-width: 600px), (pointer: coarse) {
   .spa {
     --spa-target: 44px;

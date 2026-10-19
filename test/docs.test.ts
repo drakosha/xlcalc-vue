@@ -1,5 +1,5 @@
 // The API reference keeps up with the code: every export, source method, sheet method, prop, event and CSS variable a host
-// can use is named in docs/api.md, and the relative links of the README and docs/ lead to files that exist.
+// can use is named in docs/api.md, and the relative links in the README and docs/ lead to existing files.
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -12,7 +12,7 @@ const api = read('docs/api.md')
 const named = new Set([...api.matchAll(/`([\w-]+)/g)].map((m) => m[1]!))
 const missing = (names: Iterable<string>) => [...new Set(names)].filter((n) => !named.has(n)).sort()
 
-/** The body of `export interface Name { ... }` in a file, up to its closing brace at the line's start. */
+/** The body of `export interface Name { ... }` in a file, up to its closing brace at the start of a line. */
 function body(path: string, start: RegExp): string {
   const text = read(path)
   const at = text.search(start)
@@ -21,7 +21,7 @@ function body(path: string, start: RegExp): string {
   return text.slice(from, text.indexOf('\n}', from))
 }
 
-/** Members of an interface or an inline props/emits type: `name(`, `name?:`, `readonly name:`, `name: [` at the block's own indent. */
+/** Members of an interface or an inline props/emits type: `name(`, `name?:`, `readonly name:`, `name: [` at the block's own indentation. */
 function members(block: string): string[] {
   const indent = Math.min(...[...block.matchAll(/^( +)\w/gm)].map((m) => m[1]!.length))
   const re = new RegExp(`^ {${indent}}(?:readonly )?(\\w+)\\??[(:]`, 'gm')

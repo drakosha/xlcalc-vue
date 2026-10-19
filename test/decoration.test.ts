@@ -1,5 +1,5 @@
-// Underline (single and double) and strike reach the element that carries the text in every kind of cell: decorations
-// do not pass to an absolutely positioned overflow run, so they must sit on the text itself.
+// Underline (single and double) and strikethrough reach the element that holds the text in every kind of cell: decorations
+// do not reach an absolutely positioned overflow run, so they must be set on the text itself.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
@@ -9,7 +9,7 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-/** The innermost element of a cell's content box holding its text. */
+/** The innermost element of a cell's content box that holds its text. */
 function carrier(w: VueWrapper, r: number, c: number, text: string): HTMLElement {
   const found = w
     .find(`[data-cell="${r}:${c}"]`)
@@ -60,7 +60,7 @@ describe('text decoration', () => {
     expect(w.find('[data-cell="4:1"] .xs-ov').exists()).toBe(true)
     expect(lines(4, 1, 'across')).toBe('underline line-through')
     expect(lines(5, 1, '-')).toBe('line-through')
-    // A link keeps its own underline and adds the style's strike.
+    // A link keeps its own underline and adds the style's strikethrough.
     expect(lines(6, 1, 'link')).toBe('underline line-through')
     expect(lines(7, 1, 'merged')).toBe('underline')
   })

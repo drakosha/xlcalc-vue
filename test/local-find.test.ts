@@ -1,7 +1,7 @@
 // @vitest-environment node
-// localSource's Find and Replace as Excel's, by xlcalc's `findCells`: in the text a cell opens with (formulas in the
-// book's locale, values by the format they show) or in the shown text, hidden cells skipped as Find skips them, hits in
-// Find's order; under the display filter only its rows. Replace All in one step of undo.
+// localSource's Find and Replace as in Excel, by xlcalc's `findCells`: in the text a cell opens with (formulas in the
+// workbook's locale, values by the format they are displayed with) or in the displayed text, hidden cells skipped as Find
+// skips them, matches in Find's order; under the display filter only its rows. Replace All as a single undo step.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BookInput, CellInput } from 'xlcalc'
 import { cellAddress } from 'xlcalc/a1'
@@ -12,7 +12,7 @@ afterEach(closeAll)
 
 type Query = Partial<FindRequest> & { query: string }
 
-/** Hits as `row:col text`, with the text Find read: what the cell shows, or in formulas the text it opens with. */
+/** Matches as `row:col text`, with the text Find read: the displayed text, or in formulas the text the cell opens with. */
 async function found(s: ReturnType<typeof source>, req: Query & { sheet: string }): Promise<string[]> {
   const hits = (await s.find(req)).hits
   return Promise.all(
@@ -23,12 +23,12 @@ async function found(s: ReturnType<typeof source>, req: Query & { sheet: string 
     }),
   )
 }
-/** Hits on sheet S as `row:col`. */
+/** Matches on sheet S as `row:col`. */
 async function at(s: ReturnType<typeof source>, req: Query): Promise<string[]> {
   return (await s.find({ sheet: 'S', ...req })).hits.map((h) => `${h.row}:${h.col}`)
 }
 
-/** Numbers by their formats, a date by its column's, a text that reads as a number, a formula. */
+/** Numbers by their formats, a date by its column's format, text that parses as a number, a formula. */
 const formats = (): BookInput => ({
   locale: 'ru-RU',
   sheets: [
@@ -47,12 +47,12 @@ const formats = (): BookInput => ({
   ],
 })
 
-/** Texts where Find's own rules show: a character outside the BMP, a text that reads as a number, Greek sigmas, a dotted capital I. */
+/** Texts where Find's own rules apply: a character outside the BMP, text that parses as a number, Greek sigmas, a dotted capital I. */
 const letters = (): BookInput => ({
   sheets: [{ name: 'S', cells: { A1: { value: 'a😀b' }, B1: { value: '007' }, C1: { value: 'ΣΑΣ' }, D1: { value: 'ς' }, E1: { value: 'İx' } } }],
 })
 
-/** `x` in every cell of A1:C3 with row 2 and column B hidden; `filtered`: the sheet has a filter's criteria. */
+/** `x` in every cell of A1:C3 with row 2 and column B hidden; `filtered`: the sheet has filter criteria. */
 const hidden = (filtered: boolean): BookInput => ({
   sheets: [
     {
@@ -121,7 +121,7 @@ describe('localSource: find', () => {
   })
 
   it('counts under the display filter only its rows, in Find’s order', async () => {
-    // 12,001 hits in column A, more than a page; the filter keeps the head and every third row
+    // 12,001 matches in column A, more than a page; the filter keeps the header and every third row
     const cells: Record<string, CellInput> = {}
     for (let r = 1; r <= 12_001; r++) {
       cells[`A${r}`] = { value: 'x' }
@@ -142,7 +142,7 @@ describe('localSource: find', () => {
     const order = async (req: Partial<FindRequest>) => (await at(s, { ...req, query: 'x' })).join(' ')
     expect(await order({ after: 'B2' })).toBe('2:3 3:1 3:2 3:3 1:1 1:2 1:3 2:1 2:2')
     expect(await order({ after: 'B2', byColumns: true })).toBe('3:2 1:3 2:3 3:3 1:1 2:1 3:1 1:2 2:2')
-    // a cell outside the range searched: from the range's first cell
+    // a cell outside the searched range: from the range's first cell
     expect(await order({ after: 'E9', range: 'A1:B2' })).toBe('1:1 1:2 2:1 2:2')
   })
 
@@ -151,7 +151,7 @@ describe('localSource: find', () => {
     expect(await at(s, { query: 'x' })).toEqual(['1:6'])
     await s.edit([{ sheet: 'S', cell: 'F1', text: 'y' }, { sheet: 'S', cell: 'F2', text: '=F1&"x"' }])
     expect(await at(s, { query: 'x' })).toEqual(['2:6'])
-    // a format changes how a number opens
+    // a format changes how a number opens for editing
     await s.format('S', [{ range: 'B1', numberFormat: '0%' }])
     expect(await at(s, { query: '125050%' })).toEqual(['1:2'])
     await s.undo()
@@ -177,8 +177,8 @@ describe('localSource: replace', () => {
 
   it('writes each new text as typed: the apostrophe keeps a text, numbers in the locale, the columns as they are', async () => {
     const s = source(formats())
-    // 15.03.2026 → 16.03.2026 by the column's date format, 1250,5 → 1260,6; a percent cell is left out, as typing `6%`
-    // into it gives the text `6%%` (the library's percent editor of fresh typing, see the report)
+    // 15.03.2026 → 16.03.2026 by the column's date format, 1250,5 → 1260,6; a percentage cell is omitted, since typing `6%`
+    // into it gives the text `6%%` (the library's automatic percentage entry for fresh typing, see the report)
     expect(await s.replace({ sheet: 'S', query: '5', range: 'A1:B1' }, '6')).toMatchObject({ ok: true, replaced: 2 })
     expect(await s.replace({ sheet: 'S', query: '0', range: 'D1' }, '1')).toMatchObject({ ok: true, replaced: 1 })
     const w = await win(s, 'S', 1, 1, 1, 6)

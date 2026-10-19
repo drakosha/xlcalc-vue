@@ -1,4 +1,4 @@
-// Windows: one request per slot in flight, a late answer for a previous sheet is dropped, frozen panes get their own slots,
+// Windows: one pending request per slot, a late response for a previous sheet is discarded, frozen panes get their own slots,
 // changes go into the loaded windows only, and the source's events patch or reload.
 import { afterEach, describe, expect, it } from 'vitest'
 import { cellText, fakeSource, mountSheet, settle } from './helpers'
@@ -22,7 +22,7 @@ describe('windows', () => {
     expect(f.requests).toHaveLength(1)
     f.release(f.held[0]!)
     await settle()
-    // The answer came: the scroll went far past it, so one new request for where the frame is now.
+    // The response arrived after the scroll moved far beyond it, so there is one new request for the viewport's current position.
     expect(f.requests).toHaveLength(2)
     expect(f.requests[1]!.row).toBeGreaterThan(200)
     expect(f.requests[1]!.row).toBeLessThanOrEqual(400)
@@ -45,7 +45,7 @@ describe('windows', () => {
     f.release(second)
     await settle()
     expect(cellText(w, 1, 1)).toBe('Two:A1')
-    // The first sheet's answer arrives after: it must not overwrite the second sheet.
+    // The first sheet's response arrives afterwards: it must not overwrite the second sheet.
     f.release(first)
     await settle()
     expect(cellText(w, 1, 1)).toBe('Two:A1')
@@ -85,7 +85,7 @@ describe('windows', () => {
     expect(cellText(w, 1, 1)).toBe('mine')
     expect(cellText(w, 2, 2)).toBe('84')
     expect(w.find('[data-cell="2:2"]').attributes('title')).toContain('=A2*2')
-    // The far cell was not loaded: its window comes from the source when it is needed.
+    // The distant cell was not loaded: its window comes from the source when it is needed.
     const scroller = w.find('.xs-scroller')
     scroller.element.scrollTop = 4890 * 20
     await scroller.trigger('scroll')

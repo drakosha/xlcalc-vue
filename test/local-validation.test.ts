@@ -1,13 +1,13 @@
 // @vitest-environment node
-// localSource and data validation: a cell's dropdown and input message, a value refused with Excel's alert for any style,
-// written after the person keeps it (`accept`), a paste not checked, as Excel.
+// localSource and data validation: a cell's dropdown and input message, a value rejected with Excel's alert for any style,
+// written after the user keeps it (`accept`), a paste not checked, as in Excel.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BookInput } from 'xlcalc'
 import { closeAll, source, win } from './local-fixture'
 
 afterEach(closeAll)
 
-/** A ru-RU sheet with rules of each kind: lists literal and of cells, whole numbers of the three styles, a message alone. */
+/** A ru-RU sheet with rules of each kind: literal lists and lists of cells, whole numbers with the three styles, a message alone. */
 const book = (): BookInput => ({
   locale: 'ru-RU',
   sheets: [
@@ -70,7 +70,7 @@ describe('localSource: a value a rule does not take', () => {
     })
     expect(await s.edit([{ sheet: 'S', cell: 'C2', text: '-1' }])).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'warning', message: 'Лучше больше нуля', sheet: 'S', cell: 'C2' } })
     const info = await s.edit([{ sheet: 'S', cell: 'D2', text: '-2' }])
-    // without its own title and message: the component's title, Excel's text in the book's locale (xlcalc 0.28)
+    // without its own title and message: the component's title, Excel's text in the workbook's locale (xlcalc 0.28)
     expect(info).toMatchObject({ ok: false, alert: { severity: 'information', message: 'Это значение не соответствует ограничениям по проверке данных, установленным для этой ячейки.' } })
     expect(!info.ok && info.alert && 'title' in info.alert).toBe(false)
     expect(await s.edit([{ sheet: 'S', cell: 'A2', text: 'да ' }])).toMatchObject({ ok: false, alert: { severity: 'stop', cell: 'A2' } })
@@ -83,7 +83,7 @@ describe('localSource: a value a rule does not take', () => {
     expect(await s.edit([{ sheet: 'S', cell: 'C2', text: '-1' }], { accept: true })).toMatchObject({ ok: true, changes: [{ cell: 'C2', value: -1 }] })
     expect(await s.edit([{ sheet: 'S', cell: 'D2', text: '-2' }], { accept: true })).toMatchObject({ ok: true, changes: [{ cell: 'D2', value: -2 }] })
     expect(s.history).toEqual({ undo: 2, redo: 0 })
-    // a formula that does not read is refused all the same
+    // a formula that cannot be parsed is rejected all the same
     expect(await s.edit([{ sheet: 'S', cell: 'C3', text: '=СУММ(' }], { accept: true })).toMatchObject({ ok: false, reason: 'invalid' })
   })
 
@@ -116,7 +116,7 @@ describe('localSource: a value a rule does not take', () => {
 })
 
 describe('localSource: an item picked from a dropdown', () => {
-  /** ru-RU: a list of cells holding the text 001, the text 1/2 and 0.5 shown as 50 %; a literal list; both over General cells. */
+  /** ru-RU: a list of cells containing the text 001, the text 1/2 and 0.5 displayed as 50 %; a literal list; both over General cells. */
   const lists = (): BookInput => ({
     locale: 'ru-RU',
     sheets: [
@@ -147,7 +147,7 @@ describe('localSource: an item picked from a dropdown', () => {
     const s = source(lists())
     expect(await s.pick('S', 'B1', 0, '001')).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: 1 }] })
     expect(await s.pick('S', 'B2', 1, '1/2')).toMatchObject({ ok: true })
-    // the 2nd of January of this year in Excel's built-in d-mmm (16), as the book stores it
+    // January 2 of this year in Excel's built-in d-mmm (16), as the workbook stores it
     const year = new Date().getFullYear()
     expect((await s.book()).sheets[0]!.cells.B2).toEqual({ value: (Date.UTC(year, 0, 2) - Date.UTC(1899, 11, 30)) / 86_400_000, numberFormat: 16 })
   })

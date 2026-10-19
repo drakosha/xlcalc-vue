@@ -34,7 +34,7 @@ export function listSheet(): MemorySheet {
   }
 }
 
-/** The host's sort: the clients in the order asked, written over the sheet as another tab would write them. */
+/** The host's sort: the clients in the requested order, written over the sheet as another tab would write them. */
 export function sortList(source: MemorySource, sort: ListSort): void {
   const k = KEYS[sort.col - 1]!
   const sorted = CLIENTS.slice().sort((a, b) => (a[k] < b[k] ? -1 : a[k] > b[k] ? 1 : 0) * (sort.dir === 'asc' ? 1 : -1))

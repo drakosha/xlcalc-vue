@@ -1,5 +1,5 @@
-// List mode: a host's list on the sheet. Sortable titles sort through the host, drill-down cells and the first column
-// open what they lead to by a click and Enter, the totals row stays at the bottom, and `reload` reads the host's new order.
+// List mode: the host's list on the sheet. Sortable titles sort through the host, drill-down cells and the first column
+// open what they lead to on a click and on Enter, the totals row stays at the bottom, and `reload` reads the host's new order.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { memorySource, type MemoryBook, type SheetInfo, type SheetSource } from '../src'

@@ -1,5 +1,5 @@
-// A row's or a column's style reaches past the data, as Excel draws it: the grid asks for what it draws, not only the data,
-// and a source that cuts its windows at the data's edge does not make it ask again and again.
+// A row's or a column's style extends beyond the data, as Excel draws it: the grid requests what it draws, not only the data,
+// and a source that truncates its windows at the data's edge does not make it request again and again.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cellAddress } from 'xlcalc/a1'
 import type { SheetSource, WindowRequest } from '../src/contract/source'
@@ -10,13 +10,13 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-/** A wide frame, as a desktop's: the grid draws columns far past three columns of data. */
+/** A wide viewport, as on a desktop: the grid draws columns far beyond three columns of data. */
 const wide = () =>
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
     return this.classList.contains('xs-scroller') ? 1920 : 0
   })
 
-/** Three columns of data and a header row with a fill of its own (a row style): every cell of row 1 has it, empty or not. */
+/** Three columns of data and a header row with its own fill (a row style): every cell of row 1 has it, empty or not. */
 function lined(cut: boolean) {
   const asked: WindowRequest[] = []
   const source: SheetSource = {

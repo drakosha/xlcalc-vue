@@ -1,7 +1,7 @@
-// The library's values of a book against the values Excel saved in it: every formula cell compared with readXlsx's
-// `cached` after a session opened with them computes the book (a circular reference holds them, as Excel opens the file),
-// cells that depend on volatile functions left out (they differ by the clock).
-// Run: XLSX=a.xlsx[:b.xlsx] npm run check:excel-values (node 22.18+ strips the types; a large book wants
+// The library's values for a workbook against the values Excel saved in it: every formula cell compared with readXlsx's
+// `cached` after a session opened with them calculates the workbook (a circular reference keeps them, as Excel opens the
+// file), excluding cells that depend on volatile functions (they differ with the clock).
+// Run: XLSX=a.xlsx[:b.xlsx] npm run check:excel-values (Node 22.18+ strips the types; a large workbook needs
 // NODE_OPTIONS=--max-old-space-size=12288). Exits 1 when a value differs.
 import { readFile } from 'node:fs/promises'
 import { createSession, registerLocale, sameValue, type CellValue } from 'xlcalc'

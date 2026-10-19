@@ -1,4 +1,4 @@
-// A key in the field: the input event updates the list of functions and the tip, the key's follow after it finds the same draft and caret and does nothing.
+// A key in the editor: the input event updates the function list and the tooltip, and the key's follow-up after it finds the same draft and caret and does nothing.
 import type { VueWrapper } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 import { watch } from 'vue'
@@ -29,7 +29,7 @@ it('a typed character reads the call at the caret once and sets the list once', 
   let lists = 0
   watch(ctx.ed.ac.items, () => lists++, { flush: 'sync' })
   scans.n = 0
-  // A key as the browser sends it: keydown, then input with the new text, then the follow's timer.
+  // A key as the browser sends it: keydown, then input with the new text, then the follow-up's timer.
   await editorKey(w, 'U')
   await type(w, '=SUM(1,SU')
   await new Promise((r) => setTimeout(r))

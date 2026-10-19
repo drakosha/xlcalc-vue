@@ -1,4 +1,4 @@
-// The formula bar's height, as Excel's: one line by default, a button and Control+Shift+U expand and collapse it, the choice stays as the cell changes.
+// The formula bar's height, as in Excel: one line by default, a button and Ctrl+Shift+U expand and collapse it, and the choice persists as the cell changes.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { enMessages, memorySource, ruMessages, type MemoryBook } from '../src'

@@ -1,6 +1,6 @@
-// Copy, cut and paste inside the book, as Excel's: Control+C and Control+X mark the range with a moving border, a paste
-// of the same text pastes the range itself through `structure` (copyRange, moveRange), other text is pasted as text; the
-// cells' menu (a right click, a finger's long press) cuts, copies and pastes through the browser's clipboard API.
+// Copy, cut and paste within the workbook, as in Excel: Ctrl+C and Ctrl+X mark the range with a moving border, pasting the
+// same text pastes the range itself through `structure` (copyRange, moveRange), other text is pasted as text; the cell
+// menu (a right click, a long press on a touch screen) cuts, copies and pastes through the browser's Clipboard API.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages, type MemoryBook } from '../src'
@@ -21,7 +21,7 @@ const book = (): MemoryBook => ({
     { name: 'T', cells: {} },
   ],
 })
-/** A memory book with a structure method the test watches, and its edits. */
+/** An in-memory workbook with a structure method the test watches, and its edits. */
 function withStructure(answer: (op: SheetOp) => EditOutcome = () => OK) {
   const source = memorySource(book())
   const structure = vi.fn(async (op: SheetOp) => answer(op))
@@ -29,7 +29,7 @@ function withStructure(answer: (op: SheetOp) => EditOutcome = () => OK) {
   const edit = vi.spyOn(source, 'edit')
   return { source, structure, edit }
 }
-/** Copy or cut on the grid as the browser sends it; the text the sheet put on the clipboard. */
+/** Copy or cut on the grid as the browser sends it; returns the text the sheet put on the clipboard. */
 function clipboard(w: VueWrapper, kind: 'copy' | 'cut'): string | undefined {
   const data: Record<string, string> = {}
   const e = new Event(kind, { bubbles: true, cancelable: true }) as ClipboardEvent
@@ -37,7 +37,7 @@ function clipboard(w: VueWrapper, kind: 'copy' | 'cut'): string | undefined {
   w.find('.xs-scroller').element.dispatchEvent(e)
   return data['text/plain']
 }
-/** A paste whose clipboard the browser does not give. */
+/** A paste whose clipboard contents the browser does not provide. */
 function pasteUnread(w: VueWrapper): void {
   w.find('.xs-scroller').element.dispatchEvent(new Event('paste', { bubbles: true, cancelable: true }))
 }
@@ -242,7 +242,7 @@ describe('Control+C and Control+V inside the book', () => {
     await settle()
     expect(ants(w)).toBe(false)
     expect(clipboard(w, 'cut')).toBeUndefined()
-    // Without the filter the copy is still the text of the rows it showed.
+    // Without the filter the copy is still the text of the rows it displayed.
     await w.find('[data-xs-filter-clear]').trigger('click')
     await settle()
     expect(ants(w)).toBe(false)
@@ -375,7 +375,7 @@ describe('with the local source', () => {
     expect(states.at(-1)!.formula).toBe('D5*10')
     await key(w, 'z', { ctrlKey: true })
     await settle(12)
-    // The undo of a copy onto empty cells lists no change for them: `./local` reads the sheet again, so the grid has them empty too.
+    // Undoing a copy onto empty cells lists no change for them: `./local` reads the sheet again, so the grid has them empty too.
     expect(((await source.window({ sheet: 'S', row: 5, rows: 1, col: 4, cols: 2 })) as SheetWindow).text).toEqual([['', '']])
     expect([cellText(w, 5, 4), cellText(w, 5, 5)]).toEqual(['', ''])
     await goTo(w, 'B1')

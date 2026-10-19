@@ -1,5 +1,5 @@
-// The active cell's look in the `state` event, for a toolbar: the style it shows and its number format code, from the
-// window and kept current by edits.
+// The active cell's formatting in the `state` event, for a toolbar: its displayed style and its number format code, from
+// the window and kept current by edits.
 import { afterEach, describe, expect, it } from 'vitest'
 import { memorySource } from '../src'
 import type { SheetViewState } from '../src'
@@ -10,7 +10,7 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-/** A memory source whose windows give number formats, as a source over xlcalc does. */
+/** An in-memory source whose windows return number formats, as a source over xlcalc does. */
 function formatted() {
   const source = memorySource({
     styles: [{ font: { bold: true } }],

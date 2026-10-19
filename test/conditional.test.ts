@@ -1,5 +1,5 @@
-// Conditional formats as xlcalc computes them (the window's `appearance`): a rule's style over the cell's, data bars,
-// icons of the sets and values hidden; the local source gives them and reads them again after an edit.
+// Conditional formatting as xlcalc calculates it (the window's `appearance`): a rule's style on top of the cell's, data bars,
+// icon set icons and hidden values; the local source provides them and re-reads them after an edit.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createInlineCalc, type AsyncSession, type BookInput, type Calc } from 'xlcalc'
@@ -18,7 +18,7 @@ const side = (w: VueWrapper, r: number, c: number, s: 'Right' | 'Bottom') => {
   const st = css(w, r, c) as unknown as Record<string, string>
   return [st[`border${s}Width`], st[`border${s}Style`], st[`border${s}Color`]].join(' ')
 }
-/** The element that carries a cell's text. */
+/** The element that holds a cell's text. */
 const textEl = (w: VueWrapper, r: number, c: number) => td(w, r, c).find('.xs-in > span')
 
 describe('conditional formats: a rule style', () => {
@@ -45,7 +45,7 @@ describe('conditional formats: a rule style', () => {
     expect(side(w, 1, 1, 'Right')).toBe('1px solid #2F5597')
     expect(side(w, 1, 1, 'Bottom')).toBe('1px solid #BFBFBF')
     expect(getComputedStyle(textEl(w, 1, 1).element).textDecorationLine).toBe('underline line-through')
-    // A neighbour's fill by a rule hides the grid line between, as the cell's own fill does.
+    // A neighbor's fill from a rule hides the gridline between them, as the cell's own fill does.
     expect(side(w, 2, 1, 'Right')).toBe('1px solid #FFC7CE')
   })
 })
@@ -72,7 +72,7 @@ describe('conditional formats: data bars', () => {
   it('draws a gradient bar from its start to its end with a border, dark at its start', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     const a1 = layers(w, 1)
-    // the fill fades to near white at its end, over a rectangle of the border's colour
+    // the fill fades to near white at its end, over a rectangle of the border's color
     expect(a1.image).toContain('linear-gradient(to right, transparent calc(0% + 1px), #638EC6 calc(0% + 1px), color-mix(in srgb, #638EC6 18%, white) calc(50% - 1px), transparent calc(50% - 1px))')
     expect(a1.image).toContain('linear-gradient(to right, transparent 0%, #638EC6 0%, #638EC6 50%, transparent 50%)')
     expect(a1.size).toBe('calc(100% - 2px) calc(100% - 6px), calc(100% - 2px) calc(100% - 4px)')
@@ -86,7 +86,7 @@ describe('conditional formats: data bars', () => {
     expect(a2.image).toContain('repeating-linear-gradient(to bottom, #000000 0px 3px, transparent 3px 4px)')
     expect(a2.image).toContain('linear-gradient(to right, transparent 20%, color-mix(in srgb, #FF0000 18%, white) 20%, #FF0000 32%, transparent 32%)')
     expect(a2.size).toBe('1px 100%, calc(100% - 2px) calc(100% - 4px)')
-    // the axis's left edge at 32% of the bar's room: 1px + 0.32 × (width − 2px)
+    // the axis's left edge at 32% of the bar's space: 1px + 0.32 × (width − 2px)
     expect(a2.pos).toBe('calc(32% + 0.68px) 0px, left 1px top 1px')
   })
 
@@ -114,7 +114,7 @@ describe('conditional formats: icons and hidden values', () => {
     const w = await mountSheet(memorySource(book), { readOnly: true })
     const icon = (r: number) => td(w, r, 1).find('.xs-in > svg.xs-cf-icon')
     expect(icon(1).attributes('data-icon')).toBe('3Arrows:2')
-    // Excel's green arrow up and red arrow down
+    // Excel's green up arrow and red down arrow
     expect(icon(1).html()).toContain('#66C07E')
     expect(icon(2).html()).toContain('#F6888A')
     expect(icon(3).attributes('data-icon')).toBe('5Quarters:4')
@@ -167,7 +167,7 @@ describe('conditional formats: the local source', () => {
     await s.close()
   })
 
-  /** A calculator in the page's thread whose sessions count the rectangles `getCells` reads. */
+  /** A calculator on the page's thread whose sessions count the ranges `getCells` reads. */
   function counting(): { calc: Calc; reads: string[] } {
     const inner = createInlineCalc()
     const reads: string[] = []
@@ -202,7 +202,7 @@ describe('conditional formats: the local source', () => {
       expect(await s.edit([{ sheet: 'S', cell: 'A3', text: '11' }])).toMatchObject({ ok: true })
       expect(events.map((e) => e.kind)).toEqual(['changed', 'repaint'])
       expect((await s.visibleRows('S', filter)).rows).toEqual([1, 3])
-      // the sheet's values read again (A1:A3) only where a rule's format may have changed the shown text
+      // the sheet's values are read again (A1:A3) only where a rule's format may have changed the displayed text
       expect(reads.slice(before).filter((r) => r === 'A1:A3')).toHaveLength(again)
       await s.close()
       await calc.close()
@@ -218,7 +218,7 @@ describe('conditional formats: the local source', () => {
     await type(w, '11')
     await editorKey(w, 'Enter')
     await settle(12)
-    // A2 is now near the scale's low end: its colour changed though the edit did not touch it
+    // A2 is now near the scale's low end: its color changed although the edit did not touch it
     expect(css(w, 2, 1).backgroundColor).toBe('#EA716C')
     await s.close()
   })

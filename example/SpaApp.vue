@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// An app like Excel in the browser over the local source: a new book in a chosen language, an xlsx file opened from the
-// picker or dropped on the page (in the interface's language when the file names none, on its first sheet with data),
-// the formatting toolbar over the sheet with Excel's Format Cells dialog, Save as under the book's name, what the file
-// lost, a status bar (reading, computing, ready) and the book's settings. The book computes in a Web Worker; nothing is sent.
+// An Excel-like app in the browser over the local source: a new workbook in a chosen language, an xlsx file opened from the
+// file picker or dropped on the page (in the interface's language when the file specifies none, on its saved active sheet),
+// the formatting toolbar over the sheet with Excel's Format Cells dialog, Save as under the workbook's name, what the file
+// lost, a status bar (reading, calculating, ready) and the workbook's settings. The workbook is calculated in a Web Worker; nothing is sent anywhere.
 import { computed, onBeforeUnmount, ref, shallowRef, watchEffect } from 'vue'
 import type { BookInput } from 'xlcalc'
 import { quoteSheetIfNeeded } from 'xlcalc/text'
@@ -23,7 +23,7 @@ const t = computed(() => TEXTS[lang.value])
 const messages = computed(() => (lang.value === 'ru' ? ruMessages : enMessages))
 watchEffect(() => (document.documentElement.lang = lang.value))
 
-/** The open book: its source, a key that mounts the sheet anew for each book, what its file lost and the sheet it opens on. */
+/** The open workbook: its source, a key that mounts the sheet anew for each workbook, what its file lost and the sheet it opens on. */
 interface Opened {
   source: LocalSource
   key: number
@@ -39,7 +39,7 @@ const lostShown = ref(true)
 let keys = 0
 let created = 0
 
-// ── the status bar: reading a file, computing its book, ready, or calculating while a change is out ──
+// ── the status bar: reading a file, calculating its workbook, ready, or calculating while a change is pending ──
 const reading = ref(false)
 const opening = ref(false)
 const saving = ref(false)
@@ -63,14 +63,14 @@ const status = computed(() => {
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 /**
- * Cells one change may write with a value or a formula: a copy of a cell over a whole column (1,048,576 of them, seconds
- * and hundreds of megabytes in the thread) is refused at once instead. Excel has no such limit; the library's is off by default.
+ * The cells one change may write with a value or a formula: copying a cell over an entire column (1,048,576 cells, seconds
+ * and hundreds of megabytes in the worker thread) is rejected at once instead. Excel has no such limit; the library's is off by default.
  */
 const WRITES_MAX = 100_000
 
 /**
- * Open a book on a sheet: a new source with its changes timed, the old one closed; `since` is when the opening began.
- * `cached`, the values a file stores, opens a circular reference holding them, as Excel opens the file.
+ * Opens a workbook on a sheet: a new source with its changes timed, the old one closed; `since` is when the opening began.
+ * `cached`, the values a file stores, opens a circular reference with those values kept, as Excel opens the file.
  */
 function start(input: BookInput, bookName: string, lost: LossKind[] = [], since = performance.now(), sheet?: string, cached?: XlsxCached): void {
   const previous = book.value?.source
@@ -110,13 +110,13 @@ function create(): void {
   start(emptyBook(newLocale.value), t.value.defaultName(++created))
 }
 
-// ── Open: the picker or a file dropped on the page ──
+// ── Open: the file picker or a file dropped on the page ──
 const picker = ref<HTMLInputElement | null>(null)
 async function openFile(file: File): Promise<void> {
   const since = performance.now()
   reading.value = true
   try {
-    // read in a thread of its own; what the file lost, in the interface's language
+    // read in a separate thread; what the file lost, in the interface's language
     const read = await readInThread(file, localeOfLang(lang.value))
     lastRead.value = performance.now() - since
     const locale = bookLocaleOf(read.book.locale, lang.value)
@@ -150,7 +150,7 @@ function onDrop(e: DragEvent): void {
   if (file) void openFile(file)
 }
 
-// ── Save as: the book with its values (saveXlsx of ./local, the writing in the file thread), downloaded under its name ──
+// ── Save as: the workbook with its values (saveXlsx of ./local, written in the file thread), downloaded under its name ──
 async function saveAs(): Promise<void> {
   const b = book.value
   if (!b) return
@@ -170,7 +170,7 @@ async function saveAs(): Promise<void> {
   }
 }
 
-// ── the book's settings: its language (the book opens again in it, on the same sheet) and the interface's ──
+// ── the workbook's settings: its language (the workbook reopens in it, on the same sheet) and the interface's ──
 const settingsOpen = ref(false)
 const draftLocale = ref<BookLocale>('en-US')
 const draftLang = ref<SpaLang>(lang.value)
@@ -192,12 +192,12 @@ async function applySettings(): Promise<void> {
   }
 }
 
-// ── the grid's focus back after the toolbar's number format list took it ──
+// ── focus returns to the grid after the toolbar's number format list took it ──
 function refocus(): void {
   if (!window.matchMedia?.('(pointer: coarse)').matches) document.querySelector<HTMLElement>('.xs-scroller')?.focus({ preventScroll: true })
 }
 
-// The browser check reads the timings and the book through this.
+// The browser check reads the timings and the workbook through this.
 ;(window as unknown as { __spa: unknown }).__spa = {
   timings: () => ({ read: lastRead.value, open: lastOpen.value, change: lastChange.value, save: lastSave.value }),
   book: () => book.value?.source.book(),

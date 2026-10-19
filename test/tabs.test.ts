@@ -1,5 +1,5 @@
-// The sheet tabs as Excel's: shown with one sheet too (an older way back by `hideLoneTab`), hidden sheets left out,
-// and "+" that inserts a sheet at the end under Excel's next name and shows it.
+// The sheet tabs as in Excel: shown with a single sheet too (the older behavior via `hideLoneTab`), hidden sheets omitted,
+// and a "+" that inserts a sheet at the end with Excel's next default name and displays it.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages } from '../src'
@@ -13,7 +13,7 @@ afterEach(() => {
 const tabs = (w: VueWrapper) => w.findAll('.xs-tab').map((t) => t.text())
 const one = () => memorySource({ sheets: [{ name: 'Sheet1', cells: { A1: 'a' } }] })
 
-/** A source whose sheets an insert grows; `refuse` answers each insert with a refusal. */
+/** A source whose sheets grow with each insert; `refuse` rejects each insert. */
 function book(names: string[], refuse = false) {
   let sheets: SheetInfo[] = names.map((name) => ({ name, maxRow: 2, maxCol: 2 }))
   const f = fakeSource(sheets)

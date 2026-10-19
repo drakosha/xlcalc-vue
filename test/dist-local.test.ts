@@ -1,4 +1,4 @@
-// The built `./local` entry: its own file beside the main one, which takes nothing of it; xlcalc stays the host's.
+// The built `./local` entry point: its own file next to the main one, which takes nothing from it; xlcalc stays the host's.
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -13,7 +13,7 @@ beforeAll(async () => {
   const env = process.env.NODE_ENV
   process.env.NODE_ENV = 'production'
   try {
-    // as `npm run build` makes them: the main entry first, then the local one beside it
+    // as `npm run build` produces them: the main entry point first, then the local one next to it
     await build({ configFile: resolve(root, 'vite.config.ts'), root, mode: 'production', logLevel: 'silent', build: { outDir: out, emptyOutDir: true } })
     await build({ configFile: resolve(root, 'vite.local.config.ts'), root, mode: 'production', logLevel: 'silent', build: { outDir: out } })
   } finally {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The example page: the sheet over the "all formatting" book, a language switch and the next edit's outcome for trying refusals.
+// The example page: the sheet over the "all formatting" workbook, a language switch and the next edit's outcome for trying rejections.
 import { ref, shallowRef } from 'vue'
 import { SheetView, enMessages, memorySource, ruMessages, type ListSort, type SheetLinkEvent, type SheetViewState } from '../src'
 import { allFormattingBook } from './book'
@@ -13,7 +13,7 @@ const state = ref<SheetViewState | null>(null)
 const lastLink = ref('')
 const next = ref('')
 
-/** The next edit's refusal, to see how the sheet answers one; `?fail=conflict` sets it on load. */
+/** The next edit's rejection, to see how the sheet handles one; `?fail=conflict` sets it on load. */
 function failNext(kind: string): void {
   if (kind === 'conflict') source.failNext({ ok: false, reason: 'conflict', message: '' })
   else if (kind === 'invalid') source.failNext({ ok: false, reason: 'invalid', message: lang.value === 'ru' ? 'Формула не разобрана: лишняя скобка' : 'The formula does not parse: an extra bracket', at: 2 })
@@ -24,13 +24,13 @@ failNext(params.get('fail') ?? '')
 function onLink(link: SheetLinkEvent): void {
   lastLink.value = `${link.sheet}!${link.cell} → ${link.target ?? link.href ?? ''}`
 }
-/** A book being recomputed for a few seconds: the sheet waits with a stopwatch; `?recompute=4000` plays it on load. */
+/** A workbook being recalculated for a few seconds: the sheet waits with a stopwatch; `?recompute=4000` simulates it on load. */
 function recompute(ms = 4000): void {
   source.recompute(ms)
   source.emit({ kind: 'reload' })
 }
 if (params.get('recompute')) source.recompute(Number(params.get('recompute')))
-/** Another tab's edit: the sheet gets it as a `changed` event. */
+/** Another tab's edit: the sheet receives it as a `changed` event. */
 function remoteEdit(): void {
   source.setCells('Формулы', { A2: String(Math.round(Math.random() * 100)) })
 }

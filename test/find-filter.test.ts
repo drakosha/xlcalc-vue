@@ -1,5 +1,5 @@
-// 0.2.0 in the sheet: search with jumps through the hits, the funnel (display rows, the header, memory by sheet), totals from
-// the source's stats, and the wait for a recomputed book with its polls.
+// 0.2.0 in the sheet: search with jumps through the matches, the funnel (display rows, the header, storage per sheet), totals
+// from the source's stats, and the wait for a recalculated workbook with its retries.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
@@ -13,7 +13,7 @@ afterEach(() => {
   localStorage.clear()
 })
 
-/** Fake timers for the pauses of search, totals and polls; setImmediate stays real, flushPromises needs it. */
+/** Fake timers for the pauses of search, totals and retries; setImmediate stays real, since flushPromises needs it. */
 const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
 const active = (w: VueWrapper) => w.find('.xs-cell.xs-active').attributes('data-cell')
 const numbers = (w: VueWrapper) => w.findAll('.xs-num').map((n) => n.text())
@@ -100,7 +100,7 @@ describe('the display filter', () => {
     expect(w.find('[data-cell="3:1"]').exists()).toBe(false)
     expect(w.find('[data-xs-filter-status]').text()).toBe('3 of 5 rows shown, filter on B')
     expect(w.findAll('.xs-head')[1]!.classes()).toContain('xs-filtered')
-    // Keys move along the shown rows.
+    // Keys move along the visible rows.
     await goTo(w, 'A2')
     await key(w, 'ArrowDown')
     expect(active(w)).toBe('4:1')
@@ -199,7 +199,7 @@ describe('totals from the source', () => {
     const stats = vi.spyOn(source, 'stats').mockResolvedValue({ cells: 99, numbers: 1, sum: 5, min: 5, max: 5 })
     const w = await mountSheet(source, { readOnly: true })
     await goTo(w, 'A1:B2')
-    // Before the answer the loaded windows count.
+    // Before the response, the loaded windows are counted.
     expect(w.find('.xs-stats').text()).toBe('Count: 2 · Sum: 3 · Average: 1.5 · Min: 1 · Max: 2')
     await vi.advanceTimersByTimeAsync(200)
     await settle()
@@ -221,7 +221,7 @@ describe('totals from the source', () => {
 })
 
 describe('a book being recomputed', () => {
-  /** Sheets whose windows answer `pending` while `busy(sheet)` says so. */
+  /** Sheets whose windows return `pending` while `busy(sheet)` says so. */
   function waiting(busy: (sheet: string) => boolean) {
     const calls: WindowRequest[] = []
     const source: SheetSource = {

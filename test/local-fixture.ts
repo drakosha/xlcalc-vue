@@ -1,4 +1,4 @@
-// The local source's tests share these: a small ru-RU book, sources closed after each test, a window and a cell's style.
+// Shared by the local source's tests: a small ru-RU workbook, sources closed after each test, a window and a cell's style.
 import { createInlineCalc, type AsyncSession, type BookInput, type Calc } from 'xlcalc'
 import { localSource, type LocalSource, type LocalSourceOptions } from '../src/local'
 import type { SheetFilter, SheetWindow } from '../src/contract/source'
@@ -7,7 +7,7 @@ export const BOLD = { font: { bold: true } }
 export const ROW_FILL = { fill: { color: '#ffeeaa' } }
 export const COL_FILL = { fill: { color: '#ddeeff' } }
 
-/** A small book in ru-RU: values, a sum, styles of cells, rows and columns, a note, a link, a table, a list to filter. */
+/** A small workbook in ru-RU: values, a sum, cell, row and column styles, a note, a hyperlink, a table, a list to filter. */
 export const book = (): BookInput => ({
   locale: 'ru-RU',
   styles: [{}, BOLD, ROW_FILL, COL_FILL],
@@ -66,7 +66,7 @@ export const book = (): BookInput => ({
 })
 
 let open: { close(): Promise<void> }[] = []
-/** A source over `b` computed in the same thread; `closeAll` closes it after the test. */
+/** A source over `b` calculated on the same thread; `closeAll` closes it after the test. */
 export function source(b: BookInput = book(), opts: LocalSourceOptions = {}): LocalSource {
   const s = localSource(b, { calc: 'inline', ...opts })
   open.push(s)
@@ -77,7 +77,7 @@ export async function closeAll(): Promise<void> {
   open = []
 }
 
-/** A source whose session tells each call it gets (the method and its arguments), to see what a query reads from the book. */
+/** A source whose session reports each call it receives (the method and its arguments), to see what a query reads from the workbook. */
 export function watched(b: BookInput = book()): { s: LocalSource; calls: { method: string; args: unknown[] }[]; count: (method: string) => number } {
   const calls: { method: string; args: unknown[] }[] = []
   const inline = createInlineCalc()

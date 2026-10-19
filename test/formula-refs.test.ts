@@ -1,4 +1,4 @@
-// References of a formula as the sheet shows them (xlcalc's scanReferences): colours in the bar, ranges on the grid, places to go to.
+// A formula's references as the sheet displays them (xlcalc's scanReferences): colors in the formula bar, ranges on the grid, locations to go to.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
@@ -27,7 +27,7 @@ describe('a formula in en-US', () => {
   it('colours its references to cells in the bar and leaves the rest plain; equal references share a colour', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'B1')
-    // A table's reference, one across sheets and a string's text stay text.
+    // A table reference, a 3D reference and a string's text stay text.
     expect(refs(w)).toEqual(['A1:A2', "'Two sheet'!B2", '$A$1', 'A1'])
     expect(barField(w).value).toBe(`=${formula}`)
     expect(colorOf(w, '$A$1')).toBe(colorOf(w, 'A1'))
@@ -69,7 +69,7 @@ describe('the formulas of a selection', () => {
 })
 
 describe('a formula in ru-RU', () => {
-  // An array constant's rows (`2:3`) and decimal commas are no references in ru-RU's formula text.
+  // An array constant's rows (`2:3`) and decimal commas are not references in ru-RU's formula text.
   const formula = 'СУММ({1;2:3;4};A1)+ЕСЛИ(B2>0,5;C2;D2)'
   const book = (): MemoryBook => ({ sheets: [{ name: 'Лист', cells: { A1: 1, B2: 2, F1: { value: 3, formula }, E3: 4 } }] })
 

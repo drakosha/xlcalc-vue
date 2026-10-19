@@ -1,4 +1,4 @@
-// memorySource: the window's fields, edits without an engine, layout, refusals for tests, events, and the cell limit.
+// memorySource: the window's fields, edits without an engine, layout, rejections for tests, events, and the cell limit.
 import { describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import type { FindRequest, SheetWindow, SourceEvent } from '../src/contract/source'
@@ -89,7 +89,7 @@ describe('memorySource', () => {
       ],
     })
     const w = (await src.window({ sheet: 'S', row: 2, rows: 1, col: 2, cols: 1 })) as SheetWindow
-    // Clearing keeps the style, links and notes, as Delete in Excel keeps formatting.
+    // Clearing keeps the style, hyperlinks and notes, as Delete in Excel keeps formatting.
     expect(w.styleIds).toEqual({ B2: 1 })
     expect(w.text).toEqual([['']])
   })
@@ -166,7 +166,7 @@ describe('memorySource', () => {
       expect((await src.visibleRows!('T', { head: 1, cols: { 3: { text: 'APP' } } })).rows).toEqual([1, 5, 6])
       expect((await src.visibleRows!('T', { head: 1, sort: { col: 2, dir: 'asc' } })).rows).toEqual([1, 5, 2, 3, 4, 6])
       expect((await src.visibleRows!('T', { head: 1, sort: { col: 2, dir: 'desc' } })).rows).toEqual([1, 4, 3, 2, 5, 6])
-      // as ./local: a text of spaces asks for nothing, a condition's text is taken trimmed, a fractional head counts its whole rows
+      // as in ./local: a text of spaces requests nothing, a condition's text is trimmed, and a fractional header count counts its whole rows
       expect((await src.visibleRows!('T', { head: 1, cols: { 3: { text: '   ' } } })).rows).toBeNull()
       expect((await src.visibleRows!('T', { head: 1.5, cols: { 3: { text: ' app ' } } })).rows).toEqual([1, 5, 6])
     })
@@ -216,7 +216,7 @@ describe('memorySource', () => {
       expect((await src.find!({ sheet: 'T', query: 'app', filter: { head: 1, cols: { 1: { values: ['a'] } } } })).hits.map((h) => h.row)).toEqual([5])
     })
 
-    /** Formulas, a number shown by a format and a text that reads as a number. */
+    /** Formulas, a number displayed by a format and text that parses as a number. */
     const sums = (): MemoryBook => ({
       sheets: [
         {
@@ -245,7 +245,7 @@ describe('memorySource', () => {
       const src = memorySource(sums())
       const out = await src.replace!({ sheet: 'F', query: 'a2', lookIn: 'values' }, 'A1')
       expect(out).toEqual({ ok: true, changes: [{ sheet: 'F', cell: 'A3', text: '', value: null, formula: 'SUM(A1:A1)' }], replaced: 1 })
-      // the apostrophe keeps a text that reads as a number a text
+      // the apostrophe keeps text that parses as a number as text
       expect(await src.replace!({ sheet: 'F', query: '0' }, '1')).toMatchObject({ ok: true, replaced: 2 })
       const w = (await src.window({ sheet: 'F', row: 1, rows: 3, col: 1, cols: 2 })) as SheetWindow
       expect(w.values.map((r) => r[0])).toEqual([11, 1.5, null])
@@ -291,7 +291,7 @@ describe('memorySource under a display filter', () => {
     expect(await column()).toEqual(['Name', 'n2', 'n4', 'n6'])
     expect((await source.visibleRows!('S', filter)).rows).toEqual([1, 2, 6])
     expect(await column()).toEqual(['Name', 'n2', 'n6'])
-    // Another filter, or none asked before, reads the sheet as it is.
+    // Another filter, or none requested before, reads the sheet as it is.
     expect(((await source.window({ sheet: 'S', row: 1, rows: 10, col: 1, cols: 1, filter: { head: 1, cols: { 2: { values: ['b'] } } } })) as { text: string[][] }).text.map((r) => r[0])).toEqual(['Name', 'n3', 'n4', 'n5'])
   })
 })

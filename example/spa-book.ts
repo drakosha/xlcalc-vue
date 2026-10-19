@@ -1,20 +1,20 @@
-// The example app's book helpers: a new empty book, a source whose changes are timed for the status bar, and a file to
-// download.
+// The example app's workbook helpers: a new empty workbook, a source whose changes are timed for the status bar, and a file
+// to download.
 import type { BookInput } from 'xlcalc'
 import type { LocalSource } from '../src/local'
 import type { BookLocale } from './spa-texts'
 
-/** Excel's first sheet of a new book, named in the book's language. */
+/** Excel's first sheet of a new workbook, named in the workbook's language. */
 export function emptyBook(locale: BookLocale): BookInput {
   return { locale, sheets: [{ name: locale === 'ru-RU' ? 'Лист1' : 'Sheet1', cells: {} }] }
 }
 
-/** Methods that change the book: the status bar shows a recomputation while one is out. */
+/** Methods that change the workbook: the status bar shows a recalculation while one is pending. */
 const CHANGES = ['edit', 'paste', 'fill', 'pick', 'undo', 'redo', 'structure', 'layout', 'format', 'replace', 'outline', 'freeze'] as const
 
-/** The source with its changes timed: `begin` as one goes out, `end` with its milliseconds as it comes back. */
+/** The source with its changes timed: `begin` when one is sent, `end` with its milliseconds when it returns. */
 export function timed(source: LocalSource, begin: () => void, end: (ms: number) => void): LocalSource {
-  // the source's other members (ready, locale, history's getter) come through the prototype
+  // the source's other members (ready, locale, history's getter) are available through the prototype
   const out = Object.create(source) as LocalSource
   for (const name of CHANGES) {
     const call = source[name] as (...args: unknown[]) => Promise<unknown>
@@ -32,7 +32,7 @@ export function timed(source: LocalSource, begin: () => void, end: (ms: number) 
   return out
 }
 
-/** Hand bytes to the browser as a download named `name`. */
+/** Hands bytes to the browser as a download named `name`. */
 export function download(data: Uint8Array, name: string): void {
   const a = document.createElement('a')
   a.href = URL.createObjectURL(new Blob([data as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))

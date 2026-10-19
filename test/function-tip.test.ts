@@ -1,6 +1,6 @@
-// Excel's tip with a function's arguments while a formula is typed: the call at the caret (the innermost), the argument
-// it is at in bold (a repeated group counted on), under the cell's field and the formula bar's, not with the list of
-// functions; the source's signatures asked by name, once, a stale request aborted.
+// Excel's argument tooltip while a formula is typed: the call at the caret (the innermost), the argument at the caret in bold
+// (a repeating group counted up), below the cell editor and the formula bar's, never together with the function list; the
+// source's signatures requested by name, once, with a stale request aborted.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { functionSignature } from 'xlcalc'
@@ -17,7 +17,7 @@ afterEach(() => {
 })
 
 const book = (functions?: string[]): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 1 } }], ...(functions ? { functions } : {}) })
-/** A memory source with the library's signatures in a locale. */
+/** An in-memory source with the library's signatures in a locale. */
 function signed(locale?: typeof ruRU, functions?: string[]) {
   const source = memorySource(book(functions))
   const asked = vi.fn(async (name: string, _signal?: AbortSignal) => functionSignature(name, locale && { ...locale, ...ruRUFunctionText }))
@@ -33,7 +33,7 @@ async function typeFormula(w: VueWrapper, text: string): Promise<void> {
   await type(w, text)
   await settle()
 }
-/** The caret put at `at` in the field as a click puts it. */
+/** Puts the caret at `at` in the editor as a click does. */
 async function caretTo(w: VueWrapper, at: number): Promise<void> {
   field(w).setSelectionRange(at, at)
   await w.find('.xs-editor').trigger('click')
@@ -107,7 +107,7 @@ describe('the tip under the cell', () => {
     await typeFormula(w, '=СУММ(1;')
     expect(tip()).toBe('СУММ(число1;[число2];...)')
     expect(current()).toBe('число2')
-    // the source is asked by the English name, one for every spelling of it
+    // the source is queried by the English name, once for every spelling of it
     await type(w, '=СУММ(1;сумм(')
     await settle()
     expect(current()).toBe('число1')

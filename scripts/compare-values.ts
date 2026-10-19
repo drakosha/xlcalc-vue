@@ -1,7 +1,7 @@
-// The values the app saved in a file against the values Excel saved in its copy after a full recalculation: every cell with
-// a value in either file (a value in one only differs), cells of volatile formulas left out (they differ by the clock).
-// Run: SAVED=app.xlsx EXCEL=excel.xlsx npm run check:compare-values (node 22.18+ strips the types; a large book wants
-// NODE_OPTIONS=--max-old-space-size=12288). Exits 1 when a value differs.
+// The values the app saved in a file against the values Excel saved in a copy of it after a full recalculation: every cell
+// with a value in either file (a value present in only one differs), excluding cells with volatile formulas (they differ
+// with the clock). Run: SAVED=app.xlsx EXCEL=excel.xlsx npm run check:compare-values (Node 22.18+ strips the types; a large
+// workbook needs NODE_OPTIONS=--max-old-space-size=12288). Exits 1 when a value differs.
 import { readFile } from 'node:fs/promises'
 import { createSession, registerLocale, type CellValue } from 'xlcalc'
 import { ruRU } from 'xlcalc/locales/ru-RU'
@@ -24,15 +24,15 @@ const empty = (v: CellValue | undefined) => v === undefined || v === null || v =
 
 const ours = await readXlsx(await readFile(saved), { locale: 'ru-RU' })
 const theirs = await readXlsx(await readFile(excel), { locale: 'ru-RU' })
-// Volatile cells by the session over the file the app saved.
+// Volatile cells, found by the session over the file the app saved.
 const volatile = new Set(createSession(ours.book, { limits: { cells: 50_000_000 } }).getResult().volatile.map((c) => `${c.sheet}!${c.cell}`))
 
-/** A sheet's values by address: the cells' own values and what formulas and spills computed, as each file stores them. */
+/** A sheet's values by address: the cells' own values and what formulas and spills calculated, as each file stores them. */
 function valuesOf(file: typeof ours, i: number): Map<string, CellValue> {
   const out = new Map<string, CellValue>()
   for (const [addr, cell] of Object.entries(file.book.sheets[i]?.cells ?? {})) {
     const v = cell.value
-    // A date typed into a book is { date }; a file read back gives serial numbers, so such a value shows as its text.
+    // A date typed into a workbook is { date }; a file read back gives serial numbers, so such a value is compared as its text.
     if (cell.formula === undefined && v !== undefined && !empty(v as CellValue)) out.set(addr, typeof v === 'object' && v !== null && 'date' in v ? v.date : v)
   }
   for (const [addr, cell] of Object.entries(file.cached?.sheets?.[i]?.cells ?? {})) if (!empty(cell.value)) out.set(addr, cell.value)

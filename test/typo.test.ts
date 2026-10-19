@@ -1,5 +1,5 @@
-// Excel's "We found a typo in your formula" window: a formula left open that the source refuses with `correction` is
-// offered corrected; Yes enters the correction as the same key would, No says what is missing and opens the field again.
+// Excel's "We found a typo in your formula" dialog: an unclosed formula that the source rejects with `correction` is
+// offered corrected; Yes enters the correction as the same key would, No says what is missing and reopens the editor.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ruMessages } from '../src'
@@ -13,7 +13,7 @@ afterEach(async () => {
   sources = []
 })
 
-/** The sheet over an empty ru-RU book computed in the page, with the Russian texts. */
+/** The sheet over an empty ru-RU workbook calculated on the page, with the Russian texts. */
 async function mountRu(): Promise<VueWrapper> {
   const source = localSource({ locale: 'ru-RU', sheets: [{ name: 'S', cells: {} }] }, { calc: 'inline' })
   sources.push(source)
@@ -25,12 +25,12 @@ async function mountRu(): Promise<VueWrapper> {
 const alertOf = (severity: string) => document.querySelector(`[data-xs-alert="${severity}"]`)
 const button = (b: string) => document.querySelector<HTMLElement>(`[data-xs-alert-button="${b}"]`)!
 const field = (w: VueWrapper) => w.find('.xs-editor').element as HTMLTextAreaElement
-/** The sheet's call is answered: an alert is up, or no cell waits for the source any more. */
+/** The sheet's call has been answered: an alert is open, or no cell is waiting for the source any more. */
 const answered = () => until(() => !!document.querySelector('[data-xs-alert]') || !document.querySelector('.xs-pending'))
-/** A call after Yes is written: the question gone and no cell waiting. */
+/** A call after Yes is written: the prompt closed and no cell waiting. */
 const written = () => until(() => !alertOf('typo') && !document.querySelector('.xs-pending'))
 const escape = (severity: string) => alertOf(severity)!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-/** Type `text` over the active cell and finish it with the editor's key. */
+/** Types `text` over the active cell and finishes it with the editor's key. */
 async function enter(w: VueWrapper, text: string, k = 'Enter', extra: Record<string, unknown> = {}): Promise<void> {
   await key(w, text[0]!)
   await type(w, text)
