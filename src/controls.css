@@ -1,11 +1,11 @@
-/* Controls the sheet, the toolbar and the Format Cells dialog share, in the sheet's --xs-* variables; each of the three loads this file. */
+/* Controls shared by the sheet, the toolbar and the Format Cells dialog, in the sheet's --xs-* variables; each of the three loads this file. */
 .xs-icon {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
 }
 
-/* A tool: an icon's button without a frame, a hint of the header's grey on hover and while it is on. */
+/* A tool: a borderless icon button, with a tint of the header gray on hover and while it is on. */
 .xs-tool {
   display: inline-flex;
   flex-shrink: 0;
@@ -30,7 +30,7 @@
   cursor: default;
 }
 
-/* A button with its text in a frame; the main one (OK, Apply, an alert's default) in the accent. */
+/* A button with its text in a border; the primary one (OK, Apply, an alert's default) in the accent color. */
 .xs-button {
   display: inline-flex;
   align-items: center;
@@ -64,7 +64,7 @@
   outline-offset: 2px;
 }
 
-/* A field or a list box: the grid's line round it, the accent's while it has the focus (the address box is the formula bar's). */
+/* An input or a list box: a gridline-colored border, the accent's while it has focus (the Name Box is the formula bar's). */
 .xs-field,
 .xs-address {
   height: 26px;
@@ -80,7 +80,7 @@
 .xs-address:focus {
   border-color: var(--xs-accent);
 }
-/* Fields of the bars smaller, of the dialogs larger; a finger's are all 44 px. */
+/* Inputs in the bars smaller, in the dialogs larger; on a touch screen all 44 px. */
 .xs-field-s {
   height: 22px;
   padding: 0 4px;
@@ -92,7 +92,7 @@
   height: 28px;
 }
 
-/* Excel's palette (ColourSwatches.vue): ten swatches a row, five of 44 px under a finger. */
+/* Excel's palette (ColourSwatches.vue): ten swatches per row, five of 44 px on a touch screen. */
 .xs-swatches {
   --xs-swatch: 20px;
   display: grid;
@@ -117,7 +117,7 @@
   gap: 6px;
 }
 
-/* ── a finger: 44 px targets, fields of 16 px text, which iOS does not zoom into ── */
+/* ── touch: 44 px targets, inputs with 16 px text, which iOS does not zoom into ── */
 .xs-touch .xs-tool {
   width: var(--xs-touch-target);
   height: var(--xs-touch-target);

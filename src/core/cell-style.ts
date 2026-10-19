@@ -1,27 +1,27 @@
-// A book's cell style (CellStyle) as CSS: font, fill, borders and alignment, Excel's rules where CSS has no word for them.
+// A workbook's cell style (CellStyle) as CSS: font, fill, borders and alignment, with Excel's rules where CSS has no equivalent.
 import type { BorderLine, CellStyle, CellValue } from 'xlcalc/contract'
 import { fontPx } from './geometry'
 
 export type Horizontal = 'left' | 'center' | 'right' | 'fill' | 'justify' | 'distributed' | 'centerContinuous'
 export type Vertical = 'top' | 'center' | 'bottom'
 
-/** Pixels of one indent level (Excel's step at the default font). */
+/** Pixels per indent level (Excel's step at the default font). */
 const INDENT_PX = 9
 
-/** Excel's General alignment by the value: numbers right, text left, booleans and errors centred. */
+/** Excel's General alignment by value: numbers right, text left, booleans and errors centered. */
 export function generalAlign(value: CellValue | undefined): 'left' | 'center' | 'right' {
   if (typeof value === 'number') return 'right'
   if (typeof value === 'boolean' || (value !== null && typeof value === 'object')) return 'center'
   return 'left'
 }
 
-/** The horizontal alignment a cell shows. */
+/** A cell's displayed horizontal alignment. */
 export function horizontalOf(style: CellStyle | undefined, value: CellValue | undefined): Horizontal {
   const h = style?.alignment?.horizontal
   return !h || h === 'general' ? generalAlign(value) : h
 }
 
-/** The vertical alignment a cell shows; Excel's default is the bottom. */
+/** A cell's displayed vertical alignment; Excel's default is bottom. */
 export function verticalOf(style: CellStyle | undefined): Vertical {
   const v = style?.alignment?.vertical
   if (v === 'top' || v === 'justify') return 'top'
@@ -35,7 +35,7 @@ export function wrapsOf(style: CellStyle | undefined): boolean {
   return !!a && (a.wrap === true || a.horizontal === 'justify' || a.horizontal === 'distributed' || a.vertical === 'justify' || a.vertical === 'distributed')
 }
 
-/** Line width in pixels of an xlsx border kind. */
+/** The line width in pixels of an xlsx border style. */
 export function borderWidth(line: BorderLine | undefined): number {
   if (!line) return 0
   switch (line.style) {
@@ -53,14 +53,14 @@ export function borderWidth(line: BorderLine | undefined): number {
   }
 }
 
-/** A CSS line: width, style and colour, set as longhands (a shorthand with var() is not parsed everywhere). */
+/** A CSS line: width, style and color, set as longhands (a shorthand with var() is not parsed everywhere). */
 export interface CssLine {
   width: string
   style: string
   color: string
 }
 
-/** An xlsx border line as a CSS line; CSS has no dash-dot, so those are dashed. Without a colour: Excel's automatic. */
+/** An xlsx border line as a CSS line; CSS has no dash-dot, so those are dashed. Without a color: Excel's automatic. */
 export function borderCss(line: BorderLine | undefined): CssLine | undefined {
   if (!line) return undefined
   const color = line.color ?? 'var(--xs-border-auto)'
@@ -80,14 +80,14 @@ export function borderCss(line: BorderLine | undefined): CssLine | undefined {
   }
 }
 
-/** Put a line on one side of a cell's CSS. */
+/** Puts a line on one side of a cell's CSS. */
 export function setSide(css: Record<string, string>, side: 'Top' | 'Right' | 'Bottom' | 'Left', line: CssLine): void {
   css[`border${side}Width`] = line.width
   css[`border${side}Style`] = line.style
   css[`border${side}Color`] = line.color
 }
 
-/** Font, colour and fill of a cell; `section` is the colour of the number format's section, which wins over the font's. */
+/** A cell's font, color and fill; `section` is the color from the number format's section, which takes precedence over the font's. */
 export function fontCss(style: CellStyle | undefined, section: string | undefined): Record<string, string> {
   const css: Record<string, string> = {}
   const f = style?.font
@@ -101,7 +101,7 @@ export function fontCss(style: CellStyle | undefined, section: string | undefine
   return css
 }
 
-/** Underline and strike, for the element that carries the text: decorations do not reach an absolutely placed overflow run. A link is underlined anyway. */
+/** Underline and strikethrough, for the element that holds the text: decorations do not reach an absolutely positioned overflow run. A link is underlined anyway. */
 export function decorationCss(style: CellStyle | undefined, link: boolean): Record<string, string> {
   const f = style?.font
   const lines = [f?.underline || link ? 'underline' : '', f?.strike ? 'line-through' : ''].filter(Boolean)
@@ -140,12 +140,12 @@ export function alignCss(h: Horizontal, indent: number): Record<string, string> 
   return css
 }
 
-/** Excel's Fill alignment repeats the text across the cell; enough copies to cover its width, the rest is clipped. */
+/** Excel's Fill alignment repeats the text across the cell: enough copies to cover its width, with the rest clipped. */
 export function fillText(text: string, widthPx: number): string {
   if (!text) return ''
   const copies = Math.min(500, Math.ceil(widthPx / Math.max(4, text.length * 5)) + 1)
   return text.repeat(copies)
 }
 
-/** Whether a value's text may overflow into empty neighbours: only text does, as in Excel. */
+/** Whether a value's text may overflow into empty neighbors: only text does, as in Excel. */
 export const overflows = (value: CellValue | undefined): boolean => typeof value === 'string'

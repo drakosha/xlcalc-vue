@@ -1,24 +1,24 @@
 // Excel's outline for the sources: the groups xlcalc draws (`outlineGroups` of `xlcalc/a1`) in the contract's terms, and
-// for `memorySource`, which has no engine, Excel's commands as xlcalc's `outlineEdit` runs them on a sheet's lines alone,
-// the same commands and refusals as `./local`'s `editStructure` (xlcalc's docs/outline.md).
+// for `memorySource`, which has no engine, Excel's commands as xlcalc's `outlineEdit` runs them on a sheet's rows or
+// columns alone, with the same commands and rejections as `./local`'s `editStructure` (xlcalc's docs/outline.md).
 import type { OutlineEditOp, OutlineGroup as BookGroup, OutlineSettings, RowInput, SheetInput } from 'xlcalc/contract'
 import { colLetters, linesKey, outlineEdit, outlineGroups } from 'xlcalc/a1'
 import { axisOf, lineSpan, type LineAxis } from './lines'
 import type { OutlineChange, SheetOutline } from './contract/source'
 
-/** One axis's lines as `memorySource` keeps them, line by line: outline levels, collapsed marks and hidden lines. */
+/** One axis's rows or columns as `memorySource` stores them, one by one: outline levels, collapsed flags and hidden ones. */
 export interface AxisLines {
   levels: Map<number, number>
   marks: Set<number>
   hidden: Set<number>
 }
 
-/** The summary settings alone, as xlcalc takes them: a field left out is Excel's default. */
+/** The summary settings alone, as xlcalc takes them: an omitted field is Excel's default. */
 export function outlineSettings(o?: OutlineSettings | null): OutlineSettings {
   return { ...(o?.summaryBelow !== undefined ? { summaryBelow: o.summaryBelow } : {}), ...(o?.summaryRight !== undefined ? { summaryRight: o.summaryRight } : {}) }
 }
 
-/** One axis's lines as `SheetInput.rows` or `columns` hold them, a key a line, which xlcalc's outline reads. */
+/** One axis's rows or columns as `SheetInput.rows` or `columns` hold them, one key per row or column, which xlcalc's outline reads. */
 function inputOf(lines: AxisLines, axis: LineAxis): Record<string, RowInput> {
   const out: Record<string, RowInput> = {}
   for (const i of new Set([...lines.levels.keys(), ...lines.marks, ...lines.hidden])) {
@@ -28,12 +28,12 @@ function inputOf(lines: AxisLines, axis: LineAxis): Record<string, RowInput> {
   return out
 }
 
-/** A sheet's lines on both axes as xlcalc's outline reads them, its summaries where the settings put them. */
+/** A sheet's rows and columns on both axes as xlcalc's outline reads them, with its summaries where the settings put them. */
 export function outlineSheet(axes: Record<LineAxis, AxisLines>, settings?: OutlineSettings | null): Pick<SheetInput, 'rows' | 'columns' | 'outline'> {
   return { rows: inputOf(axes.rows, 'rows'), columns: inputOf(axes.columns, 'columns'), outline: outlineSettings(settings) }
 }
 
-/** A sheet's outline in the contract's terms from xlcalc's groups of both axes; none for a sheet without groups. */
+/** A sheet's outline in the contract's terms from xlcalc's groups on both axes; none for a sheet without groups. */
 export function outlineOf(groups: Record<LineAxis, BookGroup[]>, settings?: OutlineSettings | null): SheetOutline | undefined {
   if (!groups.rows.length && !groups.columns.length) return undefined
   const list = (axis: LineAxis) => groups[axis].map((g) => ({ from: g.first, to: g.last, level: g.level, collapsed: g.collapsed }))
@@ -42,8 +42,8 @@ export function outlineOf(groups: Record<LineAxis, BookGroup[]>, settings?: Outl
 
 /**
  * The component's outline command as xlcalc's, or why there is none. A group's button is Show or Hide Detail at its summary
- * line, the group found among the axis's groups by its lines and level; a group at the sheet's edge has no summary line
- * and, as in Excel, no button.
+ * row or column, with the group found among the axis's groups by its rows or columns and level; a group at the edge of the
+ * sheet has no summary row or column and, as in Excel, no button.
  */
 export function outlineOp(change: OutlineChange, groups: (axis: LineAxis) => readonly BookGroup[]): OutlineEditOp | { refused: string } {
   if (change.op === 'showLevel') return change.axis === 'rows' ? { op: 'showLevels', rows: change.level } : { op: 'showLevels', columns: change.level }
@@ -63,8 +63,8 @@ export function outlineOp(change: OutlineChange, groups: (axis: LineAxis) => rea
 }
 
 /**
- * Runs an outline command on the lines of its axis as xlcalc's `outlineEdit` does, changing them in place; Excel's refusal
- * in English, or null. A command xlcalc cannot read (a level button past 8) throws its `InputError`.
+ * Runs an outline command on the rows or columns of its axis as xlcalc's `outlineEdit` does, changing them in place; returns
+ * Excel's rejection in English, or null. A command xlcalc cannot parse (a level button beyond 8) throws its `InputError`.
  */
 export function outlineCommand(lines: AxisLines, settings: OutlineSettings | null | undefined, change: OutlineChange): string | null {
   const axis = axisOf(change)

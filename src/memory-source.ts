@@ -1,6 +1,6 @@
-// A source over a book in memory, for tests and examples: values, shown text, formulas as strings and every display field; no engine.
-// It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, a precedents'
-// tree from the formulas as given, and can play a book being recomputed.
+// A source over an in-memory workbook, for tests and examples: values, displayed text, formulas as strings and every display field; no engine.
+// It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, a precedent
+// tree from the formulas as given, and can simulate a workbook being recalculated.
 import { cellAddress, outlineGroups, parseCell, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
@@ -39,7 +39,7 @@ function plainText(value: CellValue | undefined): string {
   return String(value)
 }
 
-/** A cell's value: its own, else the text it was given alone, else empty. */
+/** A cell's value: its own, otherwise the text it was given alone, otherwise empty. */
 const valueOf = (cell: MemoryCell | undefined): CellValue => cell?.value ?? (cell?.text || null)
 
 interface Store {
@@ -48,7 +48,7 @@ interface Store {
   widths: Map<number, number>
   heights: Map<number, number>
   rules: MemoryRules
-  /** Outline levels and collapsed marks by line. */
+  /** Outline levels and collapsed flags by row or column. */
   levels: Record<LineAxis, Map<number, number>>
   marks: Record<LineAxis, Set<number>>
   /** The sheet's frozen panes, as `freeze` leaves them. */
@@ -57,11 +57,11 @@ interface Store {
   maxCol: number
 }
 
-/** Levels of precedents and nodes `explain` writes, as xlcalc's defaults. */
+/** The levels of precedents and the nodes `explain` writes, as xlcalc's defaults. */
 const EXPLAIN_DEPTH = 3
 const EXPLAIN_NODES = 200
 
-/** Each column or row of a key as a book takes it (`B`, `B:D`, `C:C`; `5`, `5:9`); none for a key it does not take. */
+/** Each column or row of a key as a workbook accepts it (`B`, `B:D`, `C:C`; `5`, `5:9`); none for a key it does not accept. */
 function linesOf(key: string, axis: LineAxis): number[] {
   const span = lineSpan(key, axis)
   const out: number[] = []
@@ -96,13 +96,13 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     return store
   })
   const listeners = new Set<(event: SourceEvent) => void>()
-  /** Each sheet's rows under its display filter as `visibleRows` last gave them: windows under that filter read them, so a row an edit took out stays until the filter is applied again, as the component holds it and `./local` reads it. */
+  /** Each sheet's rows under its display filter as `visibleRows` last returned them: windows under that filter use them, so a row that no longer matches after an edit stays until the filter is reapplied, as the component holds it and `./local` reads it. */
   const lists = new Map<Store, { key: string; rows: number[] }>()
   const failures: Extract<EditOutcome, { ok: false }>[] = []
-  /** A recomputation being played: when it started and when it ends. */
+  /** A simulated recalculation: when it started and when it ends. */
   let recomputing: { since: number; until: number } | null = null
 
-  /** A sheet as the queries read it: shown text and values by row and column. */
+  /** A sheet as the queries read it: displayed text and values by row and column. */
   function query(store: Store): MemorySheetQuery {
     return {
       maxRow: store.maxRow,
@@ -124,7 +124,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     return store
   }
 
-  /** The sheet's extent: cells with anything in them, and merges. */
+  /** The sheet's extent: non-empty cells, and merges. */
   function measure(store: Store): void {
     let maxRow = 0
     let maxCol = 0
@@ -146,15 +146,15 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   }
   const storeOf = (name: string) => stores.find((x) => x.sheet.name === name)
   const textOf = (cell: MemoryCell) => cell.text ?? plainText(cell.value)
-  /** xlcalc's typed entry once a search has loaded it: Find and Replace read what cells open with. */
+  /** xlcalc's typed-entry module once a search has loaded it: Find and Replace search what cells open with. */
   let entry: Entry | null = null
-  /** `wait` once xlcalc/entry is in. */
+  /** `wait` once xlcalc/entry has loaded. */
   const withEntry = <T>(make: () => T, signal?: AbortSignal): Promise<T> =>
     loadEntry().then((m) => {
       entry = m
       return wait(make, signal)
     })
-  /** What a cell opens with as `apply` reads it back: `=` and its formula, else the value's `entryText` in en-US (a text with Excel's apostrophe where it would read as a value). */
+  /** What a cell opens with, as `apply` reads it back: `=` and its formula, otherwise the value's `entryText` in en-US (text with Excel's apostrophe where it would be parsed as a value). */
   function editTextOf(cell: MemoryCell): string {
     if (cell.formula !== undefined) return `=${cell.formula}`
     if (cell.value === undefined || cell.value === null) return cell.text ?? ''
@@ -188,7 +188,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
 
   /**
    * A cell's precedents as xlcalc's `explain` writes them in en-US, from the formulas as given (there is no engine): a node
-   * a line with its value and formula, two spaces of indent a level, three levels, a range one node with its filled cells.
+   * per line with its value and formula, each two-space indent one level, three levels, and a range as one node with its non-empty cells.
    */
   function explainOf(sheet: string, cell: string): string {
     const lines: string[] = []
@@ -218,20 +218,20 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     return lines.join('\n')
   }
 
-  /** A sheet's lines on one axis as the outline reads them: its levels and marks, and the lines hidden by a size of 0. */
+  /** A sheet's rows or columns on one axis as the outline reads them: their levels and flags, and those hidden by a size of 0. */
   function axisLines(store: Store, axis: LineAxis): AxisLines {
     const hidden = new Set<number>()
     for (const [i, size] of axis === 'rows' ? store.heights : store.widths) if (size === 0) hidden.add(i)
     return { levels: store.levels[axis], marks: store.marks[axis], hidden }
   }
 
-  /** The rows under a filter: the list `visibleRows` gave for it, else the sheet's as it is; null without conditions. */
+  /** The rows under a filter: the list `visibleRows` returned for it, otherwise the sheet's rows as they are; null without conditions. */
   function listUnder(store: Store, filter: SheetFilter | undefined): number[] | null {
     const kept = filter ? lists.get(store) : undefined
     return kept && kept.key === filterKey(filter!) ? kept.rows : visibleList(query(store), filter)
   }
 
-  /** A rectangle; under a filter `row` is a display index and the rows come from the filter's list. */
+  /** A range; under a filter `row` is a display index and the rows come from the filter's list. */
   function windowOf(req: WindowRequest): SheetWindow | SheetPending {
     if (recomputing && Date.now() < recomputing.until) return { pending: { elapsedMs: Date.now() - recomputing.since } }
     const store = storeOrThrow(req.sheet)
@@ -287,7 +287,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       win.text.push(text)
       win.values.push(values)
     }
-    // Under a filter the rows are scattered: only one-row merges on shown rows stay, as a display filter gives them.
+    // Under a filter the rows are scattered: only one-row merges on visible rows stay, as a display filter returns them.
     const area = { top: req.row, left: req.col, bottom: req.row + Math.max(rows, 1) - 1, right: req.col + Math.max(cols, 1) - 1 }
     const shown = new Set(sheetRows)
     win.merges = (store.sheet.merges ?? []).filter((m) => {
@@ -299,7 +299,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     return win
   }
 
-  /** Apply typed entries without an engine: `=` keeps the formula as a string, `1.5`-like text is a number, the rest text. */
+  /** Applies typed entries without an engine: `=` keeps the formula as a string, `1.5`-like text is a number, the rest is text. */
   function apply(entries: CellEntry[]): CellUpdate[] {
     const changes: CellUpdate[] = []
     const touched = new Set<Store>()
@@ -332,7 +332,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     maxCells,
     sheets: (signal) => wait(() => stores.map(info), signal),
     window: (req, signal) => wait(() => windowOf(req), signal),
-    /** Typed entries; a value a rule of data validation does not take refuses them all with its alert, unless `accept` keeps it. */
+    /** Typed entries; a value that violates a data validation rule rejects them all with its alert, unless `accept` keeps it. */
     edit(entries: CellEntry[], opts?: EditOptions): Promise<EditOutcome> {
       return wait((): EditOutcome => {
         const failure = failures.shift()
@@ -345,7 +345,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     },
     validation: (sheet, cell, signal) => wait(() => storeOrThrow(sheet).rules.show(cell), signal),
     ...(functions ? { functionNames: (signal?: AbortSignal) => wait(() => [...functions], signal) } : {}),
-    /** Frozen panes as the book in memory keeps them; nothing frozen unfreezes. */
+    /** Frozen panes as the in-memory workbook keeps them; nothing frozen unfreezes. */
     freeze: (sheet, panes) =>
       wait((): EditOutcome => {
         const store = storeOf(sheet)
@@ -358,7 +358,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)
         if (!store) return { ok: false, reason: 'failed', message: `No sheet ${change.sheet}` }
-        // Hidden is size 0; shown again a line takes the default, the book in memory keeps no size behind a hidden one.
+        // Hidden is a size of 0; when unhidden, a row or column gets the default size, as the in-memory workbook keeps no size behind a hidden one.
         const put = (sizes: Map<number, number>, line: number, size: number | undefined) => {
           if (change.hidden) sizes.set(line, 0)
           else if (size !== undefined) sizes.set(line, size)
@@ -369,7 +369,7 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         return { ok: true, changes: [] }
       })
     },
-    /** Excel's outline commands as xlcalc's `outlineEdit` runs them; a hidden line is a size of 0, shown again it takes the default. */
+    /** Excel's outline commands as xlcalc's `outlineEdit` runs them; a hidden row or column has a size of 0, and when unhidden it gets the default. */
     outline(change: OutlineChange): Promise<EditOutcome> {
       return wait((): EditOutcome => {
         const store = storeOf(change.sheet)

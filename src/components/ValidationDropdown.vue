@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Excel's dropdown of a list rule: the arrow right of the active cell and the list of items under it (over it where the
-// view has no room below), eight at a time; the keys are the sheet's (`useValidation.onKey`): a press keeps the grid's focus.
+// Excel's dropdown for a list rule: the arrow to the right of the active cell and the item list below it (above it where the
+// viewport has no room below), eight at a time; the keys are the sheet's (`useValidation.onKey`): a press keeps the grid's focus.
 import { computed, ref } from 'vue'
 import { LIST_ROWS } from '../core/validation'
 import { useMessages } from '../messages'
@@ -10,40 +10,40 @@ import '../popup.css'
 
 const props = withDefaults(
   defineProps<{
-    /** The active cell (a merged area whole). */
+    /** The active cell (an entire merged range). */
     rect: PopupRect
     items: string[]
     open: boolean
     /** The highlighted item; -1 for none. */
     active?: number
-    /** What of the grid is in view, in the same coordinates: the list goes over the cell where it has no room below. */
+    /** The part of the grid in view, in the same coordinates: the list goes above the cell where it has no room below. */
     view?: PopupRect
-    /** A finger: the arrow and the items are 44 px. */
+    /** Touch input: the arrow and the items are 44 px. */
     touch?: boolean
     messages?: Partial<SheetMessages>
   }>(),
   { active: -1, view: undefined, touch: false, messages: undefined },
 )
 const emit = defineEmits<{
-  /** The arrow: open or close the list. */
+  /** The arrow: opens or closes the list. */
   toggle: []
-  /** An item clicked: enter it into the cell. */
+  /** An item was clicked: enters it into the cell. */
   pick: [index: number]
-  /** The pointer over an item: highlight it. */
+  /** The pointer is over an item: highlights it. */
   hover: [index: number]
   /** A press outside the dropdown while the list is open. */
   close: []
 }>()
 
 const m = useMessages(() => props.messages)
-/** Excel's arrow is 17 × 18 px beside the cell; 44 under a finger. */
+/** Excel's arrow is 17 × 18 px next to the cell; 44 on a touch screen. */
 const ARROW_PX = 17
 const root = ref<HTMLElement | null>(null)
 const listEl = ref<HTMLElement | null>(null)
 
 const arrowW = computed(() => (props.touch ? TOUCH_PX : ARROW_PX))
 const anchor = computed(() => ({ top: `${props.rect.top}px`, left: `${props.rect.left + props.rect.width}px`, height: `${props.rect.height}px` }))
-/** The list as wide as the cell and its arrow, under the cell, or over it when the view has room above alone. */
+/** The list, as wide as the cell plus its arrow, below the cell, or above it when the viewport has room only above. */
 const box = computed(() => {
   const r = props.rect
   const height = listHeight(props.items.length, LIST_ROWS, props.touch)

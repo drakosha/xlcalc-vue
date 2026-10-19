@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// The marks over the cells, in the scroller's content: the copied range's moving border, the fill handle at the
-// selection's corner and the frame of a fill being dragged. A mark in frozen panes goes over them, as the field does.
+// The marks over the cells, in the scroller's content: the copied range's moving border, the fill handle at the selection's
+// corner and the outline of a fill being dragged. A mark in frozen panes goes over them, as the editor does.
 import { computed } from 'vue'
 import { useSheetContext } from './context'
 

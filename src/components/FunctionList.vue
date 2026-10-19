@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Excel's Formula AutoComplete list under the field being edited (over it where the view has no room below), eight
-// functions at a time; the keys are the field's (`useAutocomplete.onKey`) and a press keeps the field's focus.
+// Excel's Formula AutoComplete list below the editor (above it where the viewport has no room below), eight functions at
+// a time; the keys are the editor's (`useAutocomplete.onKey`), and a press keeps the editor's focus.
 import { computed, ref } from 'vue'
 import { FUNCTION_ROWS } from '../core/autocomplete'
 import { useMessages } from '../messages'
@@ -10,28 +10,28 @@ import '../popup.css'
 
 const props = withDefaults(
   defineProps<{
-    /** The field, in the coordinates of the element the list is placed in. */
+    /** The editor, in the coordinates of the element the list is placed in. */
     rect: PopupRect
     items: readonly string[]
     /** The highlighted item. */
     active?: number
-    /** What is in view, in the same coordinates: the list goes over the field where it has no room below and stays inside it sideways. */
+    /** The part in view, in the same coordinates: the list goes above the editor where it has no room below and stays inside horizontally. */
     view?: PopupRect
-    /** A finger: items of 44 px, a tap enters one. */
+    /** Touch input: 44 px items, and a tap inserts one. */
     touch?: boolean
     messages?: Partial<SheetMessages>
   }>(),
   { active: 0, view: undefined, touch: false, messages: undefined },
 )
 const emit = defineEmits<{
-  /** A click with the mouse: highlight the item. */
+  /** A mouse click: highlights the item. */
   highlight: [index: number]
-  /** A double click, or a tap under a finger: enter the item. */
+  /** A double click, or a tap on a touch screen: inserts the item. */
   pick: [index: number]
 }>()
 
 const m = useMessages(() => props.messages)
-/** The list's width holds the longest names (`ПРОМЕЖУТОЧНЫЕ.ИТОГИ`). */
+/** The list is wide enough for the longest names (`ПРОМЕЖУТОЧНЫЕ.ИТОГИ`). */
 const WIDTH_PX = 220
 const listEl = ref<HTMLElement | null>(null)
 

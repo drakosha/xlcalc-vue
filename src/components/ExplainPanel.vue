@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Excel's Trace Precedents as a panel right of the grid (below it on a phone): the source's tree of the active cell's
-// precedents, its references going to their ranges, where the panel follows; the cross and Esc close it.
+// Excel's Trace Precedents as a panel to the right of the grid (below it on a phone): the source's tree of the active cell's
+// precedents, its references navigating to their ranges, which the panel follows; the close button and Esc close it.
 import type { ExplainPart } from '../core/explain'
 import { useSheetContext } from './context'
 import { IconClose, IconSpinner } from './icons'
@@ -10,7 +10,7 @@ const ctx = useSheetContext()
 const { explain } = ctx
 const m = ctx.messages
 
-/** A reference to a sheet the book has goes there; any other stays text. */
+/** A reference to a sheet in the workbook navigates there; any other stays text. */
 const goes = (part: ExplainPart) => !!part.ref && ctx.f.refSheet(part.ref) >= 0
 const title = (part: ExplainPart) => (part.ref && part.ref.sheet !== ctx.sheetName.value ? m.value.goSheet(part.ref.sheet) : m.value.showRange)
 function go(part: ExplainPart): void {

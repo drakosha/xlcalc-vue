@@ -1,4 +1,4 @@
-// Jumps: the address box, references of the formula, links and `focus`; the history to go back, and the flash after a jump.
+// Jumps: the Name Box, the formula's references, hyperlinks and `focus`; the Back history, and the flash after a jump.
 import { nextTick, onScopeDispose, ref, watch } from 'vue'
 import { MAX_COLS, MAX_ROWS, quoteSheetIfNeeded } from 'xlcalc/a1'
 import type { CellRect, FormulaReference, GridReference } from 'xlcalc/contract'
@@ -8,7 +8,7 @@ import type { Formula } from './formula'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 
-/** A place to come back to: sheet, selection and scroll. */
+/** A location to return to: sheet, selection and scroll. */
 export interface Place {
   sheet: number
   selected: SheetState['selected']['value']
@@ -21,7 +21,7 @@ const HISTORY_MAX = 50
 /** How long the range just jumped to flashes, so the eye finds it. */
 const FLASH_MS = 2000
 
-/** A place from the address box, a link or `focus`: a range with its sheet (`B12`, `'Sheet 2'!C7:D9`, `B:B`) or a sheet alone; null for anything else (`B12+C1`). */
+/** A location from the Name Box, a hyperlink or `focus`: a range with its sheet (`B12`, `'Sheet 2'!C7:D9`, `B:B`) or a sheet alone; null for anything else (`B12+C1`). */
 function parsePlace(text: string): { sheet?: string; range?: CellRect } | null {
   const raw = text.trim()
   if (!raw) return null
@@ -34,7 +34,7 @@ function parsePlace(text: string): { sheet?: string; range?: CellRect } | null {
     const r = whole(refs, raw.length)
     return r && { sheet: r.sheet, range: r }
   }
-  // A sheet alone reads as the sheet of a reference to its first cell, its quotes as a reference has them.
+  // A sheet alone is parsed as a reference to its first cell, with its quotes as a reference has them.
   const sheet = whole(scanReferences(`${raw}!A1`), raw.length + 3)?.sheet
   return sheet === undefined ? null : { sheet }
 }
@@ -46,12 +46,12 @@ export interface NavigationDeps {
 
 export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: NavigationDeps) {
   const history = ref<Place[]>([])
-  /** The range just jumped to, on its sheet: another sheet shown while it flashes has none. */
+  /** The range just jumped to, on its sheet: none while another sheet is displayed during the flash. */
   const flash = ref<{ sheet: string; rect: CellRect } | null>(null)
   let flashTimer: ReturnType<typeof setTimeout> | null = null
   onScopeDispose(() => flashTimer && clearTimeout(flashTimer))
 
-  /** Remember where we stand before a jump. */
+  /** Records the current location before a jump. */
   function rememberPlace(): void {
     history.value = [
       ...history.value.slice(-(HISTORY_MAX - 1)),
@@ -79,7 +79,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
 
   function flashRange(range: CellRect): void {
     if (flashTimer) clearTimeout(flashTimer)
-    // Reset and set in different ticks, so a second jump to the same place restarts the animation.
+    // Reset and set in different ticks, so a second jump to the same location restarts the animation.
     flash.value = null
     const sheet = s.sheetName.value
     void nextTick(() => {
@@ -87,11 +87,11 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
       flashTimer = setTimeout(() => (flash.value = null), FLASH_MS)
     })
   }
-  /** Select a rectangle cut to the shown grid (whole columns and rows stay whole), show its top-left corner and flash it. */
+  /** Selects a range clipped to the displayed grid (entire columns and rows stay entire), shows its top-left corner and flashes it. */
   function selectRange(range: CellRect): void {
-    // A whole column or row runs to Excel's limit: it stops at the grid, which an editable sheet stretches to the place.
+    // An entire column or row extends to Excel's limit: it stops at the grid, which an editable sheet extends to the location.
     sel.stretchTo(range)
-    // Sheet rows: under a display filter the grid's count is of the shown rows, not the last row.
+    // Sheet rows: under a display filter the grid's count is of the visible rows, not the last row.
     const rows = Math.max(1, s.lastRow.value)
     const cols = Math.max(1, s.colCount.value)
     const top = Math.min(range.top, rows)
@@ -104,7 +104,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     })
   }
 
-  /** Go to a place: the sheet when named, and the range; false when the text is not an address or there is no such sheet. */
+  /** Goes to a location: the sheet when named, and the range; false when the text is not an address or there is no such sheet. */
   async function goPlace(text: string): Promise<boolean> {
     const place = parsePlace(text)
     if (!place) return false
@@ -113,14 +113,14 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
       index = f.sheetIndexByName(place.sheet)
       if (index < 0) return false
     }
-    // The book's first frame (A1 unscrolled, a link from outside) has nothing to go back to.
+    // The workbook's first view (A1 unscrolled, a link from outside) has nothing to go back to.
     const a = s.selected.value
     if (history.value.length || s.scrollTop.value || s.scrollLeft.value || s.extent.value || (a && (a.row !== 1 || a.col !== 1))) rememberPlace()
     if (index !== s.active.value) await deps.pickSheet(index)
     if (place.range) selectRange(place.range)
     return true
   }
-  /** A reference clicked in the formula bar: select its range, switching sheets when it names another. */
+  /** A reference clicked in the formula bar: selects its range, switching sheets when it names another. */
   async function goRef(r: GridReference): Promise<void> {
     const index = f.refSheet(r)
     if (index < 0) return
@@ -129,7 +129,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     selectRange(r)
   }
 
-  // ── the address box ──
+  // ── the Name Box ──
   const addressDraft = ref('')
   const addressFocused = ref(false)
   watch(sel.selectionRef, (v) => {
@@ -142,7 +142,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     return ok
   }
 
-  /** A place asked for from outside before the book loaded; taken once the sheets are in. */
+  /** A location requested from outside before the workbook loaded; applied once the sheets have loaded. */
   let pendingFocus: string | null = null
   watch(
     () => s.props.focus,
@@ -153,14 +153,14 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     },
     { immediate: true },
   )
-  /** The focus waiting for the book, if any; it is taken once. */
+  /** The focus waiting for the workbook, if any; it is applied once. */
   function takePendingFocus(): string | null {
     const f = pendingFocus
     pendingFocus = null
     return f
   }
 
-  /** The host's page address of the selected place, to the clipboard. */
+  /** Copies the host page's address of the selected location to the clipboard. */
   async function copyCellLink(): Promise<void> {
     const url = s.props.cellUrl
     if (!url || !s.sheet.value || !sel.selectionRef.value) return

@@ -1,11 +1,11 @@
-// Memory for the freeze choice and widths: the browser's storage under the host's key, else the component's lifetime.
+// Storage for the frozen panes display choice and column widths: the browser's storage under the host's key, otherwise for the component's lifetime.
 
 export interface Memory {
   recall<T>(name: string): T | null
   remember(name: string, value: unknown): void
 }
 
-/** A memory over `localStorage` under `storageKey()`, or an in-memory map when the host gives no key. */
+/** Storage over `localStorage` under `storageKey()`, or an in-memory map when the host provides no key. */
 export function createMemory(storageKey: () => string | undefined): Memory {
   const own = new Map<string, string>()
   return {
@@ -30,7 +30,7 @@ export function createMemory(storageKey: () => string | undefined): Memory {
         if (raw === null) localStorage.removeItem(`${key}:${name}`)
         else localStorage.setItem(`${key}:${name}`, raw)
       } catch {
-        // Private mode or a denied storage: the choice lives until the page goes.
+        // Private mode or denied storage: the choice lasts until the page is closed.
       }
     },
   }

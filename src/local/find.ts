@@ -1,19 +1,19 @@
-// Excel's Find and Replace All over the session: xlcalc's `findCells` with the options of Excel's dialog gives the cells
-// Find gives, in its order, from the cell Find Next goes on from, hidden ones skipped as Find skips them, the display
-// filter's rows alone; `replaceInCells` replaces as Excel's Replace All. The session keeps the texts it searches.
+// Excel's Find and Replace All over the session: xlcalc's `findCells` with the options of Excel's dialog returns the cells
+// Find returns, in its order, from the cell Find Next continues from, skipping hidden ones as Find does, and only the display
+// filter's rows; `replaceInCells` replaces as Excel's Replace All does. The session caches the texts it searches.
 import type { AsyncSession, FindCellsOptions, ReplaceResult } from 'xlcalc'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
 import { cellRect, unionRect } from '../rect'
 import type { FindRequest, FindResult } from '../contract/source'
 import type { CellsBox } from './outcome'
 
-/** Hits of a search in one answer; the total counts them all. */
+/** A search's matches in one response; the total counts them all. */
 const FIND_MAX_HITS = 500
 const WHOLE_SHEET = 'A1:XFD1048576'
 
 const rangesOf = (req: FindRequest) => [{ sheet: req.sheet, range: req.range ?? WHOLE_SHEET }]
 
-/** The dialog's options both Find and Replace take, under the display filter its rows alone. */
+/** The dialog options both Find and Replace take, limited to the display filter's rows under it. */
 function matchOf(req: FindRequest, rows: number[] | null) {
   return {
     wildcards: true,
@@ -24,7 +24,7 @@ function matchOf(req: FindRequest, rows: number[] | null) {
   }
 }
 
-/** The cell Find Next goes on from, when it is one the search reads: the library refuses a cell outside the range, as Excel does. */
+/** The cell Find Next continues from, when it is one the search reads: the library rejects a cell outside the range, as Excel does. */
 function afterOf(req: FindRequest, rows: number[] | null): FindCellsOptions['after'] {
   const at = req.after ? parseCell(req.after) : null
   if (!at) return undefined
@@ -34,7 +34,7 @@ function afterOf(req: FindRequest, rows: number[] | null): FindCellsOptions['aft
   return { sheet: req.sheet, cell: cellAddress(at.row, at.col) }
 }
 
-/** Excel's Find: at most `FIND_MAX_HITS` hits in its order, from the first after `after` round past the end, and the count of all; `rows`, the display filter's in ascending order. */
+/** Excel's Find: at most `FIND_MAX_HITS` matches in its order, from the first after `after`, wrapping around at the end, and the total count; `rows`, the display filter's in ascending order. */
 export async function findHits(s: AsyncSession, req: FindRequest, rows: number[] | null, signal?: AbortSignal): Promise<FindResult> {
   const values = req.lookIn === 'values'
   const after = afterOf(req, rows)
@@ -57,14 +57,14 @@ export async function findHits(s: AsyncSession, req: FindRequest, rows: number[]
   }
 }
 
-/** Excel's Replace All: the cells Find finds in the text they open with, whatever Look in says, each with the matches replaced, in one step of undo. */
+/** Excel's Replace All: the cells Find finds in the text they open with, whatever Look in says, each with its matches replaced, as a single undo step. */
 export function replaceAll(s: AsyncSession, req: FindRequest, by: string, rows: number[] | null): Promise<ReplaceResult> {
   return s.replaceInCells(rangesOf(req), req.query, by, matchOf(req, rows))
 }
 
 /**
- * Cells scattered over a sheet (Replace All's) in rectangles of at most `max` cells, so that reading them fits windows;
- * the cells come in Find's order, which keeps neighbours together.
+ * Cells scattered over a sheet (Replace All's) in ranges of at most `max` cells, so that reading them fits in windows;
+ * the cells come in Find's order, which keeps neighbors together.
  */
 export function boxesUnder(sheet: string, cells: { row: number; col: number }[], max: number): Required<CellsBox>[] {
   const out: Required<CellsBox>[] = []

@@ -1,6 +1,6 @@
-// localSource: a sheet source over an xlcalc book whose session runs in a Web Worker pool or in the page's thread.
-// The session holds the book, computes it, finds as Excel's Find and answers windows, sheets and edits as Excel makes
-// them; this side keeps the columns of shown values the display filter read, patched by the changes and dropped on a reload.
+// localSource: a sheet source over an xlcalc workbook whose session runs in a Web Worker pool or on the page's thread.
+// The session holds and calculates the workbook, finds as Excel's Find does and returns windows, sheets and edits as Excel
+// makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
 import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../contract/source'
@@ -18,7 +18,7 @@ import type { LocalSource, LocalSourceOptions } from './types'
 import { validationOf } from './validation'
 import { windowOf } from './window'
 
-/** A display filter's rows as `visibleRows` last gave them and where the sheet's rows ended then; ascending (a search's and totals') once asked. */
+/** A display filter's rows as `visibleRows` last returned them and where the sheet's rows ended then; ascending (for search and totals) once requested. */
 interface RowList {
   key: string
   rows: number[]
@@ -33,7 +33,7 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
   return createCalcPool({ threads: 1, ...opts.pool })
 }
 
-/** A sheet of the book's layout with where its cells end, as the component lists it. */
+/** A sheet of the workbook's layout with where its cells end, as the component lists it. */
 function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
   const f = sheet.frozen
   const outline = outlineOf(outlineGroups(sheet), sheet.outline)
@@ -47,7 +47,7 @@ function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
   }
 }
 
-/** Lines as `setLayout` and the structure operations name them (`C`, `B:D`; `5`, `5:9`) from what the component sends. */
+/** Rows or columns as `setLayout` and the structure operations name them (`C`, `B:D`; `5`, `5:9`), from what the component sends. */
 function linesOf(text: string, axis: LineAxis): string | null {
   const span = lineSpan(text, axis)
   return span && linesKey(span.first, span.last, axis)
@@ -70,18 +70,18 @@ async function outlineOp(s: AsyncSession, change: OutlineChange): Promise<SheetO
 /** A source over `input`: the workbook is passed to the session as is (its cells are not copied), so do not change it afterwards. */
 export function localSource(input: BookInput, opts: LocalSourceOptions = {}): LocalSource {
   const locale = input.locale ?? 'en-US'
-  // What each function does, for Insert Function: loaded with the first tip, as a host that only computes needs none of it.
+  // Function descriptions, for Insert Function: loaded with the first tooltip, since a host that only calculates needs none of them.
   let describe: Promise<((fn: string, words: Locale | string) => string | null) | null> | undefined
   const maxCells = opts.maxCells ?? DEFAULT_MAX_CELLS
   const listeners = new Set<(event: SourceEvent) => void>()
-  /** Shown values of sheets that the display filter or its funnel needed, by the sheet's name key. */
+  /** Displayed values of the sheets that the display filter or its funnel needed, by the sheet's name key. */
   const values = new Map<string, Promise<SheetValues>>()
-  /** The rows of a sheet's display filter, as last given by `visibleRows`: windows under the filter read them. */
+  /** The rows of a sheet's display filter, as `visibleRows` last returned them: windows under the filter use them. */
   const lists = new Map<string, RowList>()
   let calc: Calc | null = null
   let session: AsyncSession | null = null
 
-  /** The source's own changes one after another: each reads what the one before left. */
+  /** The source's own changes in sequence: each starts from the state the previous one left. */
   let last: Promise<unknown> = Promise.resolve()
   function serial<A extends unknown[], R>(run: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
     return (...args) => {
@@ -106,26 +106,26 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     for (const l of listeners) l(event)
   }
 
-  /** The book changed in many places: kept values are dropped and subscribers read the sheets and windows again. */
+  /** The workbook changed in many places: cached values are dropped and subscribers read the sheets and windows again. */
   function reload(): void {
     values.clear()
     lists.clear()
     emit({ kind: 'reload' })
   }
-  /** Whether a conditional format of the book shows numbers by a format of its own, which changes cells' shown text. */
+  /** Whether a conditional format of the workbook displays numbers with its own number format, which changes the cells' displayed text. */
   const rulesFormat = input.sheets.some((sh) => sh.conditionalFormats?.some((r) => 'style' in r && r.style?.numberFormat !== undefined))
   /**
-   * Conditional formats may show cells otherwise anywhere their rules meet (the library's `repaint`), which cell updates do
-   * not carry: subscribers read the windows over those ranges again. A rule changes no value, so the kept values stay unless
-   * a rule formats numbers (reading a sheet's values again is a pass over all its cells). The display filters' lists stay:
-   * the component keeps its list until the filter is applied again, as Excel keeps rows until Reapply.
+   * Conditional formats may change how cells look anywhere their rules apply (the library's `repaint`), which cell updates
+   * do not carry: subscribers re-read the windows over those ranges. A rule changes no value, so the cached values are kept
+   * unless a rule formats numbers (re-reading a sheet's values is a pass over all its cells). The display filters' row lists
+   * are kept: the component keeps its list until the filter is reapplied, as Excel keeps rows until Reapply.
    */
   function repaint(ranges: RangeRef[]): void {
     if (rulesFormat) values.clear()
     emit({ kind: 'repaint', ranges: ranges.map((x) => ({ sheet: x.sheet, range: x.range })) })
   }
 
-  /** The session's changes as cell updates, the edited cells' in their place, and the kept values brought up to date, a sheet's at once. */
+  /** The session's changes as cell updates, with the edited cells' updates in place, and the cached values updated, one sheet at a time. */
   function take(changes: CellChange[], edited: Map<string, CellUpdate> = new Map()): CellUpdate[] {
     const out = new Map(edited)
     for (const ch of changes) {
@@ -152,7 +152,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return list
   }
 
-  /** A sheet's shown values: where its cells end read once, its columns as the filter needs them. */
+  /** A sheet's displayed values: where its cells end, read once, and its columns as the filter needs them. */
   function sheetValues(s: AsyncSession, sheet: string): Promise<SheetValues> {
     const key = nameKey(sheet)
     let got = values.get(key)
@@ -171,7 +171,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return v
   }
 
-  /** The rows of a sheet under a filter: the list `visibleRows` gave for it, so windows match what the component holds. */
+  /** The rows of a sheet under a filter: the list `visibleRows` returned for it, so windows match what the component holds. */
   async function rowsUnder(s: AsyncSession, sheet: string, filter: SheetFilter, fresh: boolean, signal?: AbortSignal): Promise<RowList> {
     const key = filterKey(filter)
     const kept = lists.get(nameKey(sheet))
@@ -182,15 +182,15 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return list
   }
 
-  /** The rows a search or totals under the display filter read; null without a filter or when it hides no row (a sort alone). */
+  /** The rows a search or totals read under the display filter; null without a filter or when it hides no row (a sort alone). */
   async function searchedRows(s: AsyncSession, sheet: string, filter: SheetFilter | undefined, signal?: AbortSignal): Promise<number[] | null> {
     if (!filterActive(filter)) return null
     const list = await rowsUnder(s, sheet, filter, false, signal)
-    // the library takes the rows on the sheet in ascending order; a filter that hides none searches as without it
+    // the library takes the sheet's rows in ascending order; a filter that hides none searches as if there were none
     return list.rows.length < list.max ? (list.asc ??= [...list.rows].sort((a, b) => a - b)) : null
   }
 
-  /** The edited cells as they are now, with their formulas as shown and edit texts; `truncated` when a sheet's rectangle held more than a window. */
+  /** The edited cells in their current state, with their formulas as displayed and edit texts; `truncated` when a sheet's range had more than a window. */
   async function editedIn(s: AsyncSession, boxes: CellsBox[]): Promise<{ updates: Map<string, CellUpdate>; truncated: boolean }> {
     const updates = new Map<string, CellUpdate>()
     let truncated = false
@@ -210,7 +210,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { updates, truncated }
   }
 
-  /** A change made: its updates, the edited cells' as they are now, told to subscribers, then the looks it may have changed; a reload where updates cannot carry it. */
+  /** A completed change: its updates, with the edited cells' current state, sent to subscribers, then the formatting it may have changed; a reload where updates cannot carry it. */
   async function settle(s: AsyncSession, got: EditResult, boxes: CellsBox[]): Promise<Extract<EditOutcome, { ok: true }>> {
     const { updates, truncated } = await editedIn(s, boxes)
     const changes = take(got.changes, updates)
@@ -222,7 +222,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { ok: true, changes }
   }
 
-  /** A change of the book: after the source's changes before it, on the session, an exception of the session as its outcome by `failure`. */
+  /** A change of the workbook: after the source's pending changes, on the session, with a session exception turned into its outcome by `failure`. */
   function mutation<A extends unknown[], R>(run: (s: AsyncSession, ...args: A) => Promise<R>, failure: (e: unknown) => R): (...args: A) => Promise<R> {
     return serial(async (...args: A) => {
       const s = await open()
@@ -233,11 +233,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       }
     })
   }
-  /** An exception as the outcome of a change of typed input (the book refuses it) or of another change (it failed). */
+  /** An exception as the outcome of a change of typed input (the workbook rejects it) or of another change (it failed). */
   const refusedBy = (e: unknown) => outcomeOf(e, 'refused')
   const failedBy = (e: unknown) => outcomeOf(e, 'failed')
 
-  /** A change the windows cannot carry: the kept values brought up to date, then the sheets and windows read again. */
+  /** A change the windows cannot carry: the cached values are updated, then the sheets and windows are read again. */
   function reloaded(changes: CellChange[]): EditOutcome {
     const out = take(changes)
     reload()
@@ -245,10 +245,10 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   }
 
   /**
-   * Typed texts, each read as typed into its cell, in one step; only empty cells (Delete over a selection) clear the content.
-   * A value a rule of data validation does not take, of any style, refuses the call with the rule's alert before anything is
-   * written, as Excel's alert holds the entry; the library picks the strictest rule a batch breaks. With `accept` (a
-   * warning's Yes, an information's OK) the texts are written without asking the rules again.
+   * Typed texts, each parsed as typed into its cell, in one step; only empty entries (Delete over a selection) clear the contents.
+   * A value that violates a data validation rule of any style rejects the call with the rule's alert before anything is
+   * written, as Excel's alert holds back the entry; the library picks the strictest rule a batch violates. With `accept`
+   * (Yes on a warning, OK on an information alert) the texts are written without checking the rules again.
    */
   async function edit(s: AsyncSession, entries: CellEntry[], opts?: EditOptions): Promise<EditOutcome> {
     const cells: { sheet: string; cell: string; text: string | null }[] = []
@@ -265,7 +265,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return got.ok ? settle(s, got, boxes) : refusalOf(got)
   }
 
-  /** Clipboard text as Excel pastes it at a cell, one step of the undo; the selection goes over what it filled. */
+  /** Clipboard text as Excel pastes it at a cell, as a single undo step; the selection covers the filled range. */
   async function paste(s: AsyncSession, sheet: string, cell: string, text: string): Promise<EditOutcome> {
     const got = await s.pasteText(sheet, cell, text)
     if (!got.ok) return refusalOf(got)
@@ -274,9 +274,9 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   }
 
   /**
-   * An item picked from a list's dropdown, as Excel writes it: the item's `input` the session gives (a cell's value as it is,
-   * a literal item read as typed in en-US), the cell's format kept, no rule asked, one step of the undo. The list is read
-   * again, as Excel computes it, and an item whose text is no longer at its place is refused.
+   * An item chosen from a list's dropdown, written as Excel writes it: the item's `input` from the session (a cell's value
+   * as is, a literal item parsed as typed in en-US), the cell's number format kept, no rule checked, a single undo step. The
+   * list is read again, as Excel recalculates it, and an item whose text is no longer at its position is rejected.
    */
   async function pick(s: AsyncSession, sheet: string, cell: string, item: number, text: string): Promise<EditOutcome> {
     const at = parseCell(cell)
@@ -288,7 +288,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return settle(s, await s.setCells([{ sheet, cell: addr, input: got.input }]), boxesOf([{ sheet, cell: addr }]))
   }
 
-  /** Control+Return: the text read once in the active cell and entered into every cell of the range, which stays selected; the active cell's rule refuses as in `edit`. */
+  /** Ctrl+Enter: the text parsed once in the active cell and entered into every cell of the range, which stays selected; the active cell's rule rejects as in `edit`. */
   async function fill(s: AsyncSession, sheet: string, range: string, text: string, active: string, opts?: EditOptions): Promise<EditOutcome> {
     const rect = parseRange(range)
     if (!rect) return failed(`Not a range: ${range}`)
@@ -298,12 +298,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { ...out, select: { sheet, range: rangeAddress(rect) } }
   }
 
-  /** The session's undo or redo, whole; the selection goes over the cells it took back, on the first of their sheets. */
+  /** The session's undo or redo of a whole change; the selection covers the cells it restored, on the first of their sheets. */
   async function step(s: AsyncSession, kind: 'undo' | 'redo'): Promise<EditOutcome> {
     const got = await s[kind]()
     if (!got) return { ok: true, changes: [] }
-    // The step's changes keep the read values current and the filters' lists stay as the component holds them; a step that needs more reloads, which drops both.
-    // TODO(xlcalc): a structure step's undo does not list the cells it empties (a copy onto empty cells), so the sheet is read again, as after the operation.
+    // The step's changes keep the cached values current and the filters' row lists stay as the component holds them; a step that needs more reloads, which drops both.
+    // TODO(xlcalc): undoing a structure step does not list the cells it empties (a copy onto empty cells), so the sheet is read again, as after the operation.
     if (got.call === 'editStructure') return reloaded(got.changes)
     const boxes = boxesOf(got.cells ?? [])
     const out = await settle(s, got, boxes)
@@ -322,7 +322,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     if ('columns' in change) {
       const columns = linesOf(change.columns, 'columns')
       if (!columns) return failed(`Not columns: ${change.columns}`)
-      // a width set by hand is no longer the fitted one, which typing widens
+      // a manually set width is no longer the fitted one, which typing widens
       edit = change.fit ? { sheet: change.sheet, columns, fit: true } : { sheet: change.sheet, columns, set: { ...(change.width !== undefined ? { width: change.width, bestFit: null } : {}), ...shown(change.width) } }
     } else {
       const rows = linesOf(change.rows, 'rows')
@@ -330,14 +330,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       edit = change.fit ? { sheet: change.sheet, rows, fit: true } : { sheet: change.sheet, rows, set: { ...(change.height !== undefined ? { height: change.height, bestFit: null } : {}), ...shown(change.height) } }
     }
     const got = await s.setLayout([edit])
-    // A size set with the mouse the component already shows; lines hidden, shown or fitted it reads again.
+    // The component already displays a size set with the mouse; it re-reads rows or columns that were hidden, unhidden or fitted.
     if (change.hidden !== undefined || ('fit' in change && change.fit)) return reloaded(got.changes)
     const changes = take(got.changes)
     if (changes.length) emit({ kind: 'changed', changes })
     return { ok: true, changes }
   }
 
-  /** Formatting as Excel formats a selection: the style over the one each cell shows, in one patch of the session. */
+  /** Formatting as Excel formats a selection: the style applied on top of each cell's displayed style, in one patch of the session. */
   async function format(s: AsyncSession, sheet: string, patches: FormatPatch[]): Promise<EditOutcome> {
     const cells: CellPatch[] = []
     for (const p of patches) {
@@ -348,8 +348,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
     if (!cells.length) return { ok: true, changes: [] }
     const got = await s.patchCells(cells)
-    // A number format changes what cells show and open with, which windows carry: the sheet is read again. A look alone changes no
-    // text or size, so the windows over the ranges are read again in place and the values the filter read stay.
+    // A number format changes how cells are displayed and what they open with, which windows carry: the sheet is read again.
+    // A style alone changes no text or size, so the windows over the ranges are re-read in place and the filter's cached values stay.
     if (cells.some((c) => c.set.numberFormat !== undefined)) return reloaded(got.changes)
     const changes = take(got.changes)
     emit({ kind: 'repaint', ranges: [...patches.filter((p) => p.style !== undefined).map((p) => ({ sheet, range: p.range })), ...(got.repaint ?? []).map((x) => ({ sheet: x.sheet, range: x.range }))] })
@@ -358,8 +358,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
 
   /**
    * Excel's Replace All: the cells Find finds in formulas, whatever `lookIn` says (`./find`), each written as typed with its
-   * matches replaced, in one `setCellTexts` and so one step of undo. As Excel's paste does, a replacement neither widens a
-   * column nor checks data validation (not measured in Excel). A text the session refuses refuses the call, nothing written.
+   * matches replaced, in one `setCellTexts` and so a single undo step. As with Excel's paste, a replacement neither widens a
+   * column nor checks data validation (not measured in Excel). A text the session rejects rejects the call, and nothing is written.
    */
   async function replace(s: AsyncSession, req: FindRequest, by: string): Promise<ReplaceOutcome> {
     const got = await replaceAll(s, req, by, await searchedRows(s, req.sheet, req.filter))
@@ -370,13 +370,13 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { ...(await settle(s, got, boxesUnder(req.sheet, cells, maxCells))), replaced: got.replaced, ...refused }
   }
 
-  /** Excel's outline commands as xlcalc's (`outlineOp`): a structure operation, one step of the undo with SUBTOTAL and AGGREGATE recomputed; a refusal is the library's, in the book's language. */
+  /** Excel's outline commands as xlcalc's (`outlineOp`): a structure operation, a single undo step that recalculates SUBTOTAL and AGGREGATE; a rejection is the library's, in the workbook's language. */
   async function outline(s: AsyncSession, change: OutlineChange): Promise<EditOutcome> {
     const op = await outlineOp(s, change)
     return 'ok' in op ? op : structure(s, op)
   }
 
-  /** Excel's Freeze Panes: the sheet's frozen rows and columns in one `setLayout` call, one step of the undo (null or nothing frozen unfreezes); subscribers read the sheets again (`reload`), the values the filter read stay. */
+  /** Excel's Freeze Panes: the sheet's frozen rows and columns in one `setLayout` call, a single undo step (null or nothing frozen unfreezes); subscribers read the sheets again (`reload`), and the filter's cached values stay. */
   async function freeze(s: AsyncSession, sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome> {
     const frozen = panes && (panes.rows > 0 || panes.cols > 0) ? { ...(panes.rows > 0 ? { rows: panes.rows } : {}), ...(panes.cols > 0 ? { columns: panes.cols } : {}) } : null
     const got = await s.setLayout([{ sheet, frozen }])
@@ -432,7 +432,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
-    /** The session's copy of a range as Excel puts it on the clipboard (xlcalc 0.34): values by their formats, hidden lines left out; a range too large is refused. */
+    /** The session's copy of a range as Excel puts it on the clipboard (xlcalc 0.34): values formatted by their number formats, hidden rows and columns omitted; a range too large is rejected. */
     async copyText(sheet, range, opts) {
       const s = await open()
       throwIfAborted(opts?.signal)
@@ -445,14 +445,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       return got
     },
-    /** Every function a formula can call, by its name in the book's locale (English where the locale names none, as Excel ru-RU shows `ABS`), in the locale's alphabetical order. */
+    /** Every function a formula can call, by its name in the workbook's locale (English where the locale has no name, as Excel ru-RU displays `ABS`), in the locale's alphabetical order. */
     async functionNames(signal) {
       await ready
       throwIfAborted(signal)
       const local = LOCALES.get(locale)?.functions ?? {}
       return FUNCTION_NAMES.map((name) => local[name] ?? name).sort(new Intl.Collator(locale).compare)
     },
-    /** A function's tip and description in the book's locale (its words loaded on the first ask), by its name in English or the locale; a table lookup, the component keeps what it got. */
+    /** A function's argument tooltip and description in the workbook's locale (its localized names loaded on the first request), by its name in English or in the locale; a table lookup, and the component caches the result. */
     async functionSignature(name, signal) {
       await ready
       throwIfAborted(signal)
@@ -466,20 +466,20 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     async explain(sheet, cell) {
       return (await (await open()).explain(sheet, cell)).text
     },
-    /** Excel's Control and an arrow: the session's `getEnd`, measured as Excel's Range.End. */
+    /** Excel's Ctrl+arrow: the session's `getEnd`, measured as Excel's Range.End. */
     async end(sheet, cell, direction, signal) {
       const s = await open()
       throwIfAborted(signal)
       return s.getEnd(sheet, cell, direction)
     },
-    /** Totals of a range: the session's summary without the cells, under a display filter over its rows. */
+    /** Totals of a range: the session's summary without the cells, under a display filter over its rows only. */
     async stats(sheet, range, filter, signal) {
       const s = await open()
       throwIfAborted(signal)
       const rows = await searchedRows(s, sheet, filter, signal)
       try {
         const got = await s.summarizeRanges([{ sheet, range }], { ...(rows ? { rows } : {}), ...(signal ? { signal } : {}) })
-        // an overflowed sum is #NUM!, no number to show
+        // an overflowing sum is #NUM!, with no number to display
         return { cells: got.cells, numbers: got.numbers, sum: typeof got.sum === 'number' ? got.sum : NaN, min: got.min, max: got.max }
       } catch (e) {
         throwIfAborted(signal)
@@ -493,7 +493,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       try {
         return await findHits(s, req, rows, signal)
       } catch (e) {
-        // the library's refusal of an aborted call is the abort the component expects
+        // the library's rejection of an aborted call is the abort the component expects
         throwIfAborted(signal)
         throw e
       }

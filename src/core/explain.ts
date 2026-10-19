@@ -1,5 +1,5 @@
-// Excel's Trace Precedents as a panel: the source's tree of the active cell's precedents as text, asked again as the cell
-// moves or its value changes (after a pause, a late answer dropped), its references to go to.
+// Excel's Trace Precedents as a panel: the source's tree of the active cell's precedents as text, requested again as the
+// cell moves or its value changes (after a pause, with a late response discarded), with its references to navigate to.
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { cellAddress, quoteSheetIfNeeded } from 'xlcalc/a1'
 import type { GridReference } from 'xlcalc/contract'
@@ -8,12 +8,12 @@ import { isGridRef } from '../grid-ref'
 import type { Formula } from './formula'
 import type { SheetState } from './state'
 
-/** The pause after the active cell moves before the source is asked, so keys held down do not ask for every cell they pass. */
+/** The pause after the active cell moves before the source is queried, so held-down keys do not request every cell they pass. */
 export const EXPLAIN_DELAY_MS = 150
-/** What sets a line's formula off from its node: xlcalc's `explain` writes `B4 = 30  ← SUM(B2:B3)`. */
+/** What separates a line's formula from its node: xlcalc's `explain` writes `B4 = 30  ← SUM(B2:B3)`. */
 const ARROW = '  ← '
 
-/** A piece of a line of the tree: a reference with the sheet it is on, or text, `from` when it is after the node's arrow (its formula, where the value came from). */
+/** A piece of a tree line: a reference with the sheet it is on, or text; `from` when it is after the node's arrow (its formula, where the value came from). */
 export interface ExplainPart {
   text: string
   ref?: GridReference & { sheet: string }
@@ -25,10 +25,10 @@ export interface ExplainLine {
 }
 
 /**
- * The source's text as the tree's lines, as xlcalc's `explain` writes it: a node a line, two spaces of indent a level, the
- * node's reference first (`'Q 4'!A2 = 60  ← Data!A4*2`). References to cells, columns or rows of one sheet become parts,
- * read as stored formula text, which reads addresses alike in every locale; one without a sheet is on its line's node's
- * sheet, else on `sheet`. Anything else (a table, a reference across sheets, another workbook's) stays text.
+ * The source's text as the tree's lines, as xlcalc's `explain` writes it: one node per line, each two-space indent one
+ * level, the node's reference first (`'Q 4'!A2 = 60  ← Data!A4*2`). References to cells, columns or rows on a single sheet
+ * become pieces, parsed as stored formula text, which parses addresses the same in every locale; one without a sheet name
+ * is on the sheet of its line's node, otherwise on `sheet`. Anything else (a table, a 3D reference, another workbook's) stays text.
  */
 export function explainLines(text: string, sheet: string): ExplainLine[] {
   const out: ExplainLine[] = []
@@ -60,16 +60,16 @@ export function explainLines(text: string, sheet: string): ExplainLine[] {
 export function useExplain(s: SheetState, f: Formula) {
   const available = computed(() => typeof s.source().explain === 'function')
   const open = ref(false)
-  /** The cell the lines are of (`'Q 4'!B6`), the lines, an answer awaited, the last one failed. */
+  /** The cell the lines belong to (`'Q 4'!B6`), the lines, whether a response is awaited, whether the last one failed. */
   const place = ref('')
   const lines = shallowRef<ExplainLine[]>([])
   const busy = ref(false)
   const failed = ref(false)
   let timer: ReturnType<typeof setTimeout> | null = null
-  /** The request in force: an older answer, or one asked before the panel closed, is dropped (the contract's `explain` takes no signal). */
+  /** The current request: an older response, or one requested before the panel closed, is discarded (the contract's `explain` takes no signal). */
   let seq = 0
 
-  /** Ask for the active cell after `delay` (at once without one); a request still out is dropped when its answer comes. */
+  /** Requests the active cell's tree after `delay` (at once without one); a request still pending is discarded when its response arrives. */
   function schedule(delay = EXPLAIN_DELAY_MS): void {
     if (timer) clearTimeout(timer)
     timer = null
@@ -105,7 +105,7 @@ export function useExplain(s: SheetState, f: Formula) {
     busy.value = false
   }
 
-  // The active cell, and what it shows: a move, or a value an edit changed, asks again while the panel is open.
+  // The active cell and its displayed text: a move, or a value an edit changed, requests again while the panel is open.
   const subject = computed(() => {
     const a = s.selected.value
     return a && s.sheet.value ? [s.sheetName.value, a.row, a.col, f.selectedFormula.value, f.selectedValue.value].join('\u0000') : ''
@@ -114,7 +114,7 @@ export function useExplain(s: SheetState, f: Formula) {
     if (open.value) schedule()
   })
 
-  /** Open the panel at the active cell; false without the source's `explain` or a cell. */
+  /** Opens the panel for the active cell; false without the source's `explain` or a cell. */
   function show(): boolean {
     if (!available.value || !s.sheet.value || !s.selected.value) return false
     open.value = true
@@ -128,11 +128,11 @@ export function useExplain(s: SheetState, f: Formula) {
     busy.value = false
     s.focusGrid()
   }
-  /** The book changed elsewhere: the tree is asked again. */
+  /** The workbook changed elsewhere: the tree is requested again. */
   function refresh(): void {
     if (open.value) schedule()
   }
-  // The sheet's end: no request after the pause, an answer out dropped.
+  // The sheet is unmounted: no request after the pause, and a pending response is discarded.
   onScopeDispose(() => {
     if (timer) clearTimeout(timer)
     seq++

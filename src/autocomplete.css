@@ -1,11 +1,11 @@
-/* Formula AutoComplete (FunctionList): the list of functions under the field being edited, a list of popup.css. */
+/* Formula AutoComplete (FunctionList): the function list below the editor, a popup.css list. */
 .xs-fl {
   z-index: 15;
 }
 .xs-fl-item {
   padding: 0 6px;
 }
-/* Excel's tip with a function's arguments (FunctionTip) under the field, the current argument bold; wrapped inside a narrow view. */
+/* Excel's argument tooltip (FunctionTip) below the editor, with the current argument in bold; wrapped inside a narrow viewport. */
 .xs-ft {
   position: absolute;
   z-index: 15;

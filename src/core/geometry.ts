@@ -2,20 +2,20 @@
 import { computed, triggerRef, type Ref, type ShallowRef } from 'vue'
 import { columnWidthFromPoints, columnWidthToPoints, MAX_ROW_HEIGHT } from 'xlcalc/text'
 
-/** Resizing limits of a column, in pixels. */
+/** A column's resizing limits, in pixels. */
 export const MIN_COL_PX = 20
 export const MAX_COL_PX = 900
 
 /** The widest column xlsx stores. */
 const MAX_COL_WIDTH = 255
 
-/** A column width as xlsx stores it to whole pixels in the library's geometry (Excel for Mac, 53 points without a width), the one xlcalc lays out `####`, overflow and wrapping by. */
+/** A column width as xlsx stores it, in whole pixels in the library's geometry (Excel for Mac's, 53 points without a width), the one xlcalc uses to lay out `####`, overflow and wrapping. */
 export function colPx(width: number | null | undefined): number {
   if (width !== null && width !== undefined && width <= 0) return 0
   return Math.round((columnWidthToPoints(width) * 4) / 3)
 }
 
-/** The widest column the library's geometry takes, in points. */
+/** The widest column the library's geometry accepts, in points. */
 const MAX_COL_PT = 1535
 
 /** Pixels back to the stored width, in whole points as the library stores them. */
@@ -24,7 +24,7 @@ export const widthFromPx = (px: number): number => Math.min(MAX_COL_WIDTH, colum
 /** Points to pixels at 96 dpi. */
 export const rowPx = (pt: number): number => (pt <= 0 ? 0 : Math.round((pt * 4) / 3))
 
-/** A row dragged by its edge: down to 2 px, up to Excel's highest row. */
+/** A row dragged by its edge: down to 2 px, up to Excel's tallest row. */
 export const MIN_ROW_PX = 2
 export const MAX_ROW_PX = rowPx(MAX_ROW_HEIGHT)
 
@@ -58,16 +58,16 @@ export function indexAt(offsets: Float64Array, count: number, x: number): number
 interface GeometryInput {
   rowCount: Readonly<Ref<number>>
   colCount: Readonly<Ref<number>>
-  /** Columns' widths as the book stores them (null: the default). */
+  /** Column widths as the workbook stores them (null: the default). */
   bookWidths: ShallowRef<Map<number, number | null>>
-  /** Widths set with the mouse, pixels by column; they win over the book. */
+  /** Widths set with the mouse, in pixels by column; they take precedence over the workbook's. */
   userWidths: ShallowRef<Record<number, number>>
-  /** Row heights in pixels that differ from the default (0 hides a row): changed in place through `setHeights`, or replaced whole. */
+  /** Row heights in pixels that differ from the default (0 hides a row): changed in place through `setHeights`, or replaced as a whole. */
   heights: ShallowRef<Map<number, number>>
   defaultRowPx: Ref<number>
-  /** The display filter in force: another one is another order of rows. */
+  /** The display filter in effect: another one is another order of rows. */
   visible: Readonly<Ref<unknown>>
-  /** The sheet row shown at a display index (heights are the sheet rows') and back. */
+  /** The sheet row displayed at a display index (heights are the sheet rows') and back. */
   rowOf: (d: number) => number
   indexOf: (r: number) => number | undefined
 }
@@ -80,7 +80,7 @@ export function useGeometry(i: GeometryInput) {
   /** Display rows whose heights `setHeights` changed since the offsets were summed, and what they were summed over. */
   let changed: { from: number; to: number } | null = null
   let summed: { heights: Map<number, number>; def: number; count: number; visible: unknown } | null = null
-  /** Sheet rows' heights in pixels, in place (undefined: the default); true when one changed. */
+  /** Sheet row heights in pixels, in place (undefined: the default); true when one changed. */
   function setHeights(rows: Iterable<readonly [number, number | undefined]>): boolean {
     const heights = i.heights.value
     let any = false
@@ -95,7 +95,7 @@ export function useGeometry(i: GeometryInput) {
     if (any) triggerRef(i.heights)
     return any
   }
-  /** Offsets of rows: summed again from the first row `setHeights` changed and shifted past the last (a million rows sum slowly, a shift is a copy); summed whole after anything else. */
+  /** Row offsets: summed again from the first row `setHeights` changed and shifted after the last (a million rows sum slowly, a shift is a copy); summed in full after anything else. */
   const rowOffsets = computed((prev?: Float64Array) => {
     const heights = i.heights.value
     const def = i.defaultRowPx.value
@@ -120,7 +120,7 @@ export function useGeometry(i: GeometryInput) {
   const rowAt = (y: number): number => indexAt(rowOffsets.value, i.rowCount.value, y)
   /**
    * Hidden display rows and columns (no height, no width), the same set while they are the same: a cell finds its
-   * neighbours by these, so a size changed elsewhere does not draw it again. Null for rows hidden by default (a book whose
+   * neighbors by these, so a size changed elsewhere does not redraw it. Null for rows hidden by default (a workbook whose
    * default height is 0), which are found by their heights.
    */
   const hiddenRows = computed((prev?: Set<number> | null) => {
@@ -142,7 +142,7 @@ export function useGeometry(i: GeometryInput) {
     const set = hiddenRows.value
     return set ? set.has(d) : heightOf(d) === 0
   }
-  /** The next shown row in a direction, skipping hidden ones; at the edge the same row. */
+  /** The next visible row in a direction, skipping hidden ones; at the edge, the same row. */
   function nextRow(d: number, dir: 1 | -1): number {
     let n = d + dir
     while (n >= 1 && n <= i.rowCount.value && rowHidden(n)) n += dir
@@ -153,10 +153,10 @@ export function useGeometry(i: GeometryInput) {
     while (n >= 1 && n <= i.colCount.value && hiddenCols.value.has(n)) n += dir
     return n >= 1 && n <= i.colCount.value ? n : c
   }
-  /** Whether a shown row or column lies beyond in a direction (the edge of a border lookup). */
+  /** Whether a visible row or column lies further in a direction (the edge for a border lookup). */
   const hasRow = (d: number, dir: 1 | -1): boolean => nextRow(d, dir) !== d
   const hasCol = (c: number, dir: 1 | -1): boolean => nextCol(c, dir) !== c
-  /** Height of rows d..d+rs-1 together (a merged area). */
+  /** The height of rows d..d+rs-1 together (a merged range). */
   const spanHeight = (d: number, rs = 1): number => {
     const off = rowOffsets.value
     return (off[Math.min(d + rs - 1, i.rowCount.value)] ?? 0) - (off[d - 1] ?? 0)

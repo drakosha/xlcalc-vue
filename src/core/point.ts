@@ -1,7 +1,7 @@
-// Excel's Point mode: while a formula is edited and the caret stands where a reference may (`refAt` says `insert`), a
-// press on the sheet puts the cell's address at the caret, a drag a range's, a letter or a number a whole column's or
-// row's; in a field typing opened over a cell an arrow does what `refAt` says (a reference to the cell beside the edited
-// one, the text entered, nothing), and the next press or key before anything is typed moves the reference as on the sheet.
+// Excel's Point mode: while a formula is being edited and the caret is where a reference may go (`refAt` returns `insert`),
+// a press on the sheet inserts the cell's address at the caret, a drag a range's, a column letter or a row number an entire
+// column's or row's; in an editor opened by typing over a cell an arrow does what `refAt` says (a reference to the cell next
+// to the edited one, the text entered, or nothing), and the next press or key before anything is typed moves the reference as on the sheet.
 import type { Ref } from 'vue'
 import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellPosition, PointAction, ScanOptions } from 'xlcalc/contract'
@@ -12,32 +12,32 @@ import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
 
-/** What a press points at: cells, whole columns (a letter) or whole rows (a number). */
+/** What a press points at: cells, entire columns (a letter) or entire rows (a number). */
 export type PointKind = 'cells' | 'columns' | 'rows'
 
 /** The arrows' steps: rows and columns. */
 const ARROWS: Record<string, [-1 | 0 | 1, -1 | 0 | 1]> = { ArrowDown: [1, 0], ArrowUp: [-1, 0], ArrowRight: [0, 1], ArrowLeft: [0, -1] }
-/** Keys that point besides the arrows, as they move on the sheet (Excel measured Home and Page Down). */
+/** Keys that point besides the arrows, as they move on the sheet (measured in Excel: Home and Page Down). */
 const MOVES = new Set(['Home', 'PageDown', 'PageUp'])
 
 interface PointDeps {
-  /** The open field's element. */
+  /** The open editor's element. */
   input: () => HTMLTextAreaElement | null
-  /** Show the draft's new text with its caret in the field. */
+  /** Shows the draft's new text with its caret in the editor. */
   show: () => void
-  /** Close the list of functions. */
+  /** Closes the function list. */
   closeList: () => void
-  /** How the book's formula text reads (its locale); null while the locale loads. */
+  /** How the workbook's formula text is parsed (its locale); null while the locale loads. */
   scan: () => ScanOptions | null
-  /** Enter the draft and move the selection the arrow's way. */
+  /** Enters the draft and moves the selection in the arrow's direction. */
   commit: (dr: -1 | 0 | 1, dc: -1 | 0 | 1) => void
 }
 
 export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref<EditorState | null>, deps: PointDeps) {
-  /** The reference the last press wrote: its field, its place in the draft, the draft with it, what it covers and where it began. */
+  /** The reference the last press wrote: its editor, its position in the draft, the draft with it, what it covers and where it started. */
   let run: { ed: EditorState; from: number; to: number; text: string; kind: PointKind; anchor: CellPosition; far: CellPosition } | null = null
   let dragging = false
-  /** The last press was taken: its mousedown keeps the field's focus, its click and double click pick nothing. */
+  /** The last press was handled: its mousedown keeps the editor's focus, and its click and double click select nothing. */
   let taken = false
 
   /** A press's or a move's corners: a column runs from row 1 to the last, a row from column 1 to the last. */
@@ -62,14 +62,14 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     taken = dragging = true
     return true
   }
-  /** The run the caret stands at the end of, nothing typed since: the next press or arrow replaces its reference. */
+  /** The run the caret is at the end of, with nothing typed since: the next press or arrow replaces its reference. */
   const going = (ed: EditorState, start: number, end: number) => (run !== null && run.ed === ed && run.text === ed.text && start === run.to && end === run.to ? run : null)
-  /** What an arrow does at `caret` with nothing pointed (`refAt`); nothing while the locale loads. */
+  /** What an arrow does at `caret` with no reference inserted yet (`refAt`); nothing while the locale loads. */
   const actionAt = (text: string, caret: number): PointAction => {
     const scan = deps.scan()
     return scan ? refAt(text, caret, scan) : { action: 'none' }
   }
-  /** A new reference's place in the draft; before the formula's first character it comes with an `=` of its own (`equals`), as Excel puts it. */
+  /** A new reference's position in the draft; before the formula's first character it comes with its own `=` (`equals`), as Excel inserts it. */
   function begin(ed: EditorState, start: number, end: number, act: PointAction | null): { ed: EditorState; from: number; to: number; text: string } {
     if (act?.action !== 'insert' || !act.equals) return { ed, from: start, to: end, text: ed.text }
     ed.text = ed.text.slice(0, start) + '=' + ed.text.slice(end)
@@ -77,10 +77,10 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
   }
   let seq = 0
   /**
-   * A key in a field typing opened over a cell (Enter mode; F2 or the formula bar move the caret). A reference pointed
-   * moves as the selection moves on the sheet: from its first cell, or with Shift its far corner. With nothing pointed an
-   * arrow does what `refAt` says: a reference from the edited cell (with Shift a range from it), the text entered, or
-   * nothing; Home and Page Down or Up point only where a reference goes in. True when taken.
+   * A key in an editor opened by typing over a cell (Enter mode; with F2 or in the formula bar keys move the caret). An
+   * inserted reference moves as the selection moves on the sheet: from its first cell, or with Shift its far corner. With no
+   * reference inserted yet, an arrow does what `refAt` says: a reference from the edited cell (with Shift a range from it),
+   * the text entered, or nothing; Home and Page Down or Page Up point only where a reference can go. True when handled.
    */
   function key(e: KeyboardEvent): boolean {
     const way = ARROWS[e.key]
@@ -112,7 +112,7 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     e.preventDefault()
     const mine = ++seq
     const text = ed.text
-    // the source's `end` answers later: a key, a press or typing meanwhile wins
+    // the source's `end` responds later: a key, a press or typing meanwhile takes precedence
     const point = (p: CellPosition | null): void => {
       if (!p || mine !== seq || editor.value !== ed || ed.text !== text) return
       const anchor = extend ? (last ? last.anchor : from) : p
@@ -133,7 +133,7 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     const [, far] = corners(run.kind, s.rowOf(p.d), p.col)
     if (far.row !== run.far.row || far.col !== run.far.col) write(far)
   }
-  /** The reference from the anchor to `far` in place of the run's, the caret after it; a draft changed meanwhile ends the run. */
+  /** Replaces the run's reference with the one from the anchor to `far`, with the caret after it; a draft changed meanwhile ends the run. */
   function write(far: CellPosition): void {
     const ed = editor.value
     if (!run || ed !== run.ed || ed.text !== run.text) {
@@ -150,7 +150,7 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     deps.show()
   }
   const up = (): void => void (dragging = false)
-  /** The mousedown of a taken press must not move the focus: the field would lose it and commit. */
+  /** The mousedown of a handled press must not move focus: the editor would lose it and commit. */
   function onMouseDown(e: MouseEvent): void {
     if (taken) e.preventDefault()
   }

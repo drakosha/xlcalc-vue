@@ -1,5 +1,5 @@
-// Excel's Number Format box in the book's locale, as xlcalc measured it (`xlcalc/text`, without the engine): the items of
-// its list and the category a format shows by, for the toolbar's list and the Format Cells dialog's Number tab.
+// Excel's Number Format box in the workbook's locale, as measured by xlcalc (`xlcalc/text`, without the engine): the items of
+// its list and the category of a format, for the toolbar's list and the Format Cells dialog's Number tab.
 import { computed, type ComputedRef } from 'vue'
 import type { FormatChoice, NumberFormatCategory } from 'xlcalc/contract'
 import { numberFormatCategory, numberFormatChoices } from 'xlcalc/text'
@@ -13,8 +13,8 @@ export interface NumberFormats {
 }
 
 /**
- * The box in the book's locale (`SheetView`'s `locale`, en-US without one): a locale of the package's loads as its own
- * chunk, as the grid's formula text does; a tag the package has no module for is read as en-US.
+ * The box in the workbook's locale (`SheetView`'s `locale`, en-US without one): one of the package's locales loads as a
+ * separate chunk, as the grid's formula text does; a tag the package has no module for is treated as en-US.
  */
 export function useNumberFormats(tag: () => string | undefined): NumberFormats {
   /** The locale object, undefined for en-US, null while its module loads. */
@@ -25,7 +25,7 @@ export function useNumberFormats(tag: () => string | undefined): NumberFormats {
     try {
       return numberFormatCategory(code ?? 0, locale.value)
     } catch {
-      // a code being typed that is no format yet has no category
+      // a code still being typed that is not a valid format yet has no category
       return null
     }
   }

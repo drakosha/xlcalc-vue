@@ -1,4 +1,4 @@
-/* The structure menu and its dialogs (SheetMenu.vue), in the sheet's --xs-* variables; a finger gets 44 px targets. */
+/* The structure menu and its dialogs (SheetMenu.vue), in the sheet's --xs-* variables; touch gets 44 px targets. */
 .xs-menu {
   position: fixed;
   z-index: var(--xs-z-menu);
@@ -38,7 +38,7 @@
   text-align: left;
   cursor: pointer;
 }
-/* A menu's item on one line, as Excel's: the menu is measured at the pointer and moved left to fit, not narrowed there. */
+/* A menu item on one line, as in Excel: the menu is measured at the pointer and moved left to fit, not narrowed there. */
 .xs-menu > .xs-menu-item {
   white-space: nowrap;
 }
@@ -92,7 +92,7 @@
   gap: 6px;
 }
 
-/* ── a finger ── */
+/* ── touch ── */
 .xs-touch .xs-menu {
   font-size: 15px;
 }

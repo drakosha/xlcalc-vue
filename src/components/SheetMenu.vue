@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// The menus of lines, tabs and cells at the pointer (kept on screen) and their small dialogs: a size in Excel's units, the question before a
-// sheet with data is deleted, the hidden sheets to show, rows or columns to group. A press outside or Esc closes them.
-// Keys in a menu as in Excel's: Down and Up round its enabled items, Home and End, Enter or Space chooses, Esc and Tab close;
-// a press in the menu leaves the focus where the keys put it.
+// The context menus of rows, columns, tabs and cells at the pointer (kept on screen) and their small dialogs: a size in Excel's units,
+// the confirmation before a sheet with data is deleted, the hidden sheets to unhide, rows or columns to group. A click outside or Esc closes them.
+// Keys in a menu as in Excel: Down and Up cycle through its enabled items, Home and End, Enter or Space chooses, Esc and Tab close;
+// a press in the menu leaves focus where the keys put it.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useSheetContext } from './context'
 import DialogShell from './DialogShell.vue'
@@ -13,14 +13,14 @@ const ctx = useSheetContext()
 const { menu } = ctx
 const m = ctx.messages
 
-/** Room kept between the menu and the window's edge. */
+/** The margin kept between the menu and the window's edge. */
 const EDGE_PX = 4
 
 const box = ref<HTMLElement | null>(null)
 const pos = ref({ left: '0px', top: '0px' })
-/** Where the focus was before the menu opened, to go back to when the menu closes with the focus in it. */
+/** Where focus was before the menu opened, to return to when the menu closes with focus in it. */
 let before: HTMLElement | null = null
-// Open at the pointer, then moved inside the window: left of a right edge, above a pointer near the bottom (the tabs).
+// Opens at the pointer, then is moved inside the window: to the left of a right edge, above a pointer near the bottom (the tabs).
 watch(menu.open, async (o, was) => {
   if (!o) return void (was && giveBack())
   if (!was) before = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -33,7 +33,7 @@ watch(menu.open, async (o, was) => {
   pos.value = { left: `${left}px`, top: `${top}px` }
   enabled()[0]?.focus({ preventScroll: true })
 })
-/** Back to the element focused before the menu (the grid if it is gone), when the focus is still in the menu. */
+/** Returns focus to the element focused before the menu (the grid if it is gone), when focus is still in the menu. */
 function giveBack(): void {
   const el = before
   before = null
@@ -53,7 +53,7 @@ function onMenuKey(e: KeyboardEvent): void {
   else if (e.key === 'End') next = list.length - 1
   else if (e.key === 'Enter' || e.key === ' ' || e.key === 'Tab') next = -1
   else return
-  // the menu's own keys: no page scroll, no button's own click after ours, nothing for the grid or the page
+  // the menu's own keys: no page scroll, no button click after ours, nothing for the grid or the page
   e.preventDefault()
   e.stopPropagation()
   if (next >= 0) return void list[next]?.focus({ preventScroll: true })
@@ -66,10 +66,10 @@ const size = computed(() => (menu.dialog.value?.kind === 'size' ? menu.dialog.va
 const doomed = computed(() => (menu.dialog.value?.kind === 'deleteSheet' ? menu.dialog.value.sheet : null))
 const hidden = computed(() => (menu.dialog.value?.kind === 'unhide' ? menu.dialog.value.sheets : null))
 const grouping = computed(() => (menu.dialog.value?.kind === 'outline' ? menu.dialog.value : null))
-/** A size opens on its field's text selected, a grouping on its first choice. */
+/** A size dialog opens with its input's text selected, a grouping dialog with its first choice. */
 const dialogFocus = computed(() => (size.value ? '[data-xs-dialog-input]' : grouping.value ? '[data-xs-outline-axis]' : undefined))
 const closeDialog = () => (menu.dialog.value = null)
-/** The dialog's title names it for a screen reader. */
+/** The dialog's title labels it for screen readers. */
 const titleId = `${useId()}-title`
 
 useOutsidePress(box, () => menu.close(), () => !!menu.open.value)

@@ -1,4 +1,4 @@
-// An xlsx file into a book and a book with its values into a file, through `xlcalc/xlsx`, which loads only when used.
+// An xlsx file into a workbook and a workbook with its values into a file, through `xlcalc/xlsx`, which loads only when used.
 import type { Locale } from 'xlcalc'
 import type { XlsxIssue, XlsxRead, XlsxWritten } from 'xlcalc/xlsx'
 import { loadLocale } from './locale'
@@ -9,7 +9,7 @@ export interface XlsxIssuesOptions {
   locale?: string | Locale
 }
 
-/** The reader's and writer's `locale`, a tag's module loaded first: the library takes a tag it has loaded and refuses others. */
+/** The reader's and writer's `locale`, with a tag's module loaded first: the library accepts a tag it has loaded and rejects others. */
 async function issuesIn(opts: XlsxIssuesOptions): Promise<{ locale?: string | Locale }> {
   if (opts.locale === undefined) return {}
   if (typeof opts.locale === 'string') await loadLocale(opts.locale)

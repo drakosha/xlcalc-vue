@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// A book's sheet over a SheetSource: the formula bar, the grid with windows, styles and editing, the precedents' panel, the tabs, and messages.
+// A workbook sheet over a SheetSource: the formula bar, the grid with windows, styles and editing, the Trace Precedents panel, the tabs, and messages.
 import { getCurrentInstance, provide } from 'vue'
 import type { ListSort, SheetFailure, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState } from '../contract/view'
 import { useSheet, type SheetEmit } from '../core/sheet'
@@ -34,18 +34,18 @@ const emit = defineEmits<{
   openLink: [link: SheetLinkEvent]
   /** List mode: a sortable column's title was clicked; the host sorts the list and sends `reload`. */
   sort: [sort: ListSort]
-  /** List mode: a drill-down cell was clicked or took Enter. */
+  /** List mode: a drill-down cell was clicked or Enter was pressed on it. */
   cellDrill: [cell: { sheet: string; cell: string }]
   /** List mode (`openRows`): a row was opened from its first column or by Enter. */
   rowOpen: [row: { sheet: string; row: number }]
 }>()
 defineSlots<{
-  /** The book cannot be shown: the source's error and a retry. */
+  /** The workbook cannot be displayed: the source's error and a retry function. */
   fallback?: (scope: { failure: SheetFailure; retry: () => void }) => unknown
 }>()
 
 const instance = getCurrentInstance()
-/** Whether the host listens to `openLink`: without it a web link opens as an ordinary link. */
+/** Whether the host listens to `openLink`: without a listener a web link opens as an ordinary link. */
 const hostLinks = () => hasListener(instance, 'onOpenLink')
 const ctx = useSheet(props, emit as SheetEmit, hostLinks)
 provide(sheetContextKey, ctx)
@@ -77,7 +77,7 @@ const wait = ctx.w.wait
       <div class="xs-main">
         <div class="xs-body">
           <SheetGrid />
-          <!-- A book being recomputed: the sheet waits over the grid with a stopwatch, and asks again every second. -->
+          <!-- A workbook being recalculated: the sheet waits over the grid with a stopwatch and requests again every second. -->
           <div v-if="wait" class="xs-wait" role="status" aria-live="polite" data-xs-wait>
             <IconSpinner class="xs-spin xs-wait-icon" />
             <p class="xs-wait-title">{{ m.waiting }}</p>

@@ -1,4 +1,4 @@
-// The formula the bar shows (the draft's while one is typed) in pieces with coloured references, and the formula's ranges highlighted on the grid as in Excel.
+// The formula the formula bar displays (the draft's while one is typed) in pieces with colored references, and the formula's ranges highlighted on the grid, as in Excel.
 import { computed, type Ref } from 'vue'
 import { cellAddress, nameKey, sameName } from 'xlcalc/a1'
 import type { CellRect, GridReference, ScanOptions } from 'xlcalc/contract'
@@ -9,25 +9,25 @@ import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
 
-/** A piece of a formula as the bar shows it; a reference carries its range and colour. */
+/** A piece of a formula as the formula bar displays it; a reference carries its range and color. */
 export interface FormulaPart {
   text: string
   ref?: GridReference
   color?: string
 }
 
-/** Colours of a formula's ranges, as Excel's: each range its own, equal references one. */
+/** The colors of a formula's ranges, as in Excel: each range its own, and equal references the same one. */
 const REF_COLORS = ['#2563eb', '#dc2626', '#7c3aed', '#16a34a', '#ea580c', '#0891b2', '#db2777']
-/** How many formulas of a selection are read and how many ranges painted: past that it is noise and slow. */
+/** How many formulas of a selection are read and how many ranges painted: beyond that it is noise and slow. */
 const PRECEDENT_CELLS_MAX = 500
 const PRECEDENT_RANGES_MAX = 24
-/** Formula texts whose references are kept; past that the memory starts over. */
+/** The number of formula texts whose references are cached; beyond that the cache starts over. */
 const SCAN_CACHE_MAX = 4096
 
-/** A reference's key: equal references (`A1`, `$A$1`; a sheet in any case) get one colour. */
+/** A reference's key: equal references (`A1`, `$A$1`; a sheet name in any letter case) get one color. */
 const refKey = (r: GridReference): string => `${r.sheet === undefined ? '' : nameKey(r.sheet)}!${r.top}:${r.left}:${r.bottom}:${r.right}`
 
-/** Whether two maps of colours hold the same references with the same colours in the same order. */
+/** Whether two color maps hold the same references with the same colors in the same order. */
 function sameColors(a: Map<string, { color: string }>, b: Map<string, { color: string }>): boolean {
   if (a.size !== b.size) return false
   const it = a.entries()
@@ -49,15 +49,15 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     return selectedFormula.value
   })
 
-  /** How formula text is read: in the book's locale once its module is in, as stored text where xlcalc has none or it failed to load (addresses read alike in every locale); null while it loads. */
+  /** How formula text is parsed: in the workbook's locale once its module has loaded, as stored text where xlcalc has none or it failed to load (addresses parse the same in every locale); null while it loads. */
   const bookLocale = useLocaleModule(() => s.locale.value)
   const scan = computed<ScanOptions | null>(() => (bookLocale.value === null ? null : bookLocale.value ? { locale: bookLocale.value } : {}))
-  /** How the book's formula text reads, for `xlcalc/text`; null while its locale loads. */
+  /** How the workbook's formula text is parsed, for `xlcalc/text`; null while its locale loads. */
   const scanOptions = (): ScanOptions | null => scan.value
-  /** References of formulas read under the current scan options, by text: a drag reads the same cells over and over. */
+  /** References of formulas parsed under the current scan options, by text: a drag reads the same cells over and over. */
   let scanned = new Map<string, GridReference[]>()
   let scannedWith: ScanOptions | null = null
-  /** References the grid shows: to cells, columns or rows of one sheet; a table's and one across sheets stay text. */
+  /** References the grid displays: to cells, columns or rows of a single sheet; a table reference and a 3D reference stay text. */
   function gridRefs(formula: string): GridReference[] {
     const opts = scan.value
     if (!opts) return []
@@ -73,16 +73,16 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     return refs
   }
 
-  /** The formulas of the selection's cells but the active one, by window (body, frozen rows, frozen columns) and row by row; each cell once, up to the limit. */
+  /** The formulas of the selection's cells except the active one, by window (body, frozen rows, frozen columns) and row by row; each cell once, up to the limit. */
   function selectionFormulas(r: CellRect, take: (formula: string) => void): void {
-    // Cells change in place: a computed reading them follows the windows' revision.
+    // Cells change in place: a computed that reads them follows the windows' revision.
     void w.revision.value
     let cells = 0
     for (const kind of ['body', 'top', 'left'] as const) {
       const slot = w.slots[kind].value
       const win = slot.win
       if (!win || slot.view !== w.viewKey()) continue
-      // Without a filter display rows are the sheet's, so the rows outside the selection are not walked.
+      // Without a filter display rows are the sheet's rows, so rows outside the selection are not walked.
       const d1 = s.visible.value ? win.row : Math.max(win.row, r.top)
       const d2 = s.visible.value ? win.row + slot.rows - 1 : Math.min(win.row + slot.rows - 1, r.bottom)
       const c1 = Math.max(win.col, r.left)
@@ -92,7 +92,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
         if (row < r.top || row > r.bottom) continue
         for (let col = c1; col <= c2; col++) {
           const f = win.formulas[cellAddress(row, col)]
-          // A cell two windows hold is the first one's.
+          // A cell held by two windows belongs to the first one.
           if (f === undefined || sel.isActive(row, col) || w.slotAt(d, col) !== slot) continue
           if (++cells > PRECEDENT_CELLS_MAX) return
           take(f)
@@ -100,7 +100,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
       }
     }
   }
-  /** Source ranges: the active cell's formula first (its colours in the bar), then the other formulas of the selection; the same map as before while they are the same. */
+  /** Source ranges: the active cell's formula first (its colors in the formula bar), then the selection's other formulas; the same map as before while they are the same. */
   const refColors = computed((prev?: Map<string, { ref: GridReference; color: string }>) => {
     const out = new Map<string, { ref: GridReference; color: string }>()
     const consider = (formula: string) => {
@@ -117,7 +117,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     if (r && sel.multi.value && draft.value === null) selectionFormulas(r, consider)
     return prev && sameColors(prev, out) ? prev : out
   })
-  /** Pieces of the shown formula (the draft's while one is typed, else the active cell's): the text between references, and each reference with its range and the colour its frame has on the grid. */
+  /** Pieces of the displayed formula (the draft's while one is typed, otherwise the active cell's): the text between references, and each reference with its range and the color of its border on the grid. */
   const formulaParts = computed<FormulaPart[]>(() => {
     const formula = shownFormula.value
     if (!formula) return []
@@ -131,7 +131,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     if (at < formula.length) out.push({ text: formula.slice(at) })
     return out
   })
-  /** The sheet a reference leads to: its index, or -1 when the book has no such sheet. */
+  /** The sheet a reference points to: its index, or -1 when the workbook has no such sheet. */
   function refSheet(ref: { sheet?: string }): number {
     if (ref.sheet === undefined) return s.active.value
     return sheetIndexByName(ref.sheet)
@@ -139,7 +139,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
   function sheetIndexByName(name: string): number {
     return s.sheets.value.findIndex((x) => sameName(x.name, name))
   }
-  /** Highlighted ranges on the active sheet, cut to the grid, with their frame's sides and tint ready for each cell. */
+  /** Highlighted ranges on the active sheet, clipped to the grid, with their border sides and tint prepared for each cell. */
   const highlights = computed(() =>
     [...refColors.value.values()]
       .filter(({ ref }) => refSheet(ref) === s.active.value)
@@ -155,7 +155,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
         tint: `linear-gradient(${color}1f, ${color}1f)`,
       })),
   )
-  /** A cell's highlight: a frame on the range's edges only (Excel draws no inner lines) and a light tint; `hl` the ranges to look in (a row's). */
+  /** A cell's highlight: a border on the range's edges only (Excel draws no inner lines) and a light tint; `hl` the ranges to search (a row's). */
   function highlightAt(row: number, col: number, hl: readonly Highlight[] = highlights.value): { edges: string[]; tints: string[] } | null {
     let out: { edges: string[]; tints: string[] } | null = null
     for (const h of hl) {
@@ -174,5 +174,5 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
 }
 
 export type Formula = ReturnType<typeof useFormula>
-/** A highlighted range with its frame's sides and tint. */
+/** A highlighted range with its border sides and tint. */
 export type Highlight = Formula['highlights']['value'][number]

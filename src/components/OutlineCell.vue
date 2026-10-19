@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// A line's cell of an outline bar (rows left of the numbers, columns above the letters): the brackets of the groups it is
-// in and the buttons of the groups it is the summary line of, each level in its slot.
+// A row's or column's cell in an outline bar (rows to the left of the numbers, columns above the letters): the brackets of the
+// groups it is in and the buttons of the groups whose summary it is, each level in its slot.
 import { computed } from 'vue'
 import type { OutlineAxis } from '../core/outline'
 import { useSheetContext } from './context'
@@ -10,7 +10,7 @@ const ctx = useSheetContext()
 const ol = ctx.outline
 const m = ctx.messages
 const marks = computed(() => ol.marks(props.axis, props.line))
-/** The summaries are before their groups (above, left): the brackets turn the other way. */
+/** The summaries are before their groups (above, to the left): the brackets turn the other way. */
 const before = computed(() => ol.outline.value && !(props.axis === 'rows' ? ol.outline.value.summaryBelow : ol.outline.value.summaryRight))
 </script>
 

@@ -1,7 +1,7 @@
-// Copy, cut and paste inside the book, as Excel's: Control+C and Control+X put the selection's text on the clipboard and
-// mark the range with a moving border; a paste of that same text (or of a clipboard the browser will not read) pastes the
-// range itself through the source's `structure` (`copyRange`, `moveRange`), formulas moved as Excel moves them, and any
-// other text is pasted as text. The cells' menu does the same through the browser's clipboard API.
+// Copy, cut and paste within the workbook, as in Excel: Ctrl+C and Ctrl+X put the selection's text on the clipboard and
+// mark the range with a moving border; pasting that same text (or a clipboard the browser does not provide) pastes the
+// range itself through the source's `structure` (`copyRange`, `moveRange`), with formulas adjusted as Excel adjusts them,
+// and any other text is pasted as text. The cell menu does the same through the browser's Clipboard API.
 import { computed, shallowRef, watch, type Ref } from 'vue'
 import { cellAddress, rangeAddress } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
@@ -22,43 +22,43 @@ export interface ClipMark {
   rect: CellRect
   text: string | null
   cut: boolean
-  /** The shown text the copy event took, when the source's own copy text replaced it on the clipboard: a paste of either is this copy. */
+  /** The displayed text the copy event put on the clipboard, when the source's own copy text replaced it there: pasting either counts as this copy. */
   shown?: string
 }
 
 export interface ClipDeps {
   notify: (text: string) => void
   editor: Ref<EditorState | null>
-  /** Whether a column is shown: Excel leaves hidden ones out of a copy. */
+  /** Whether a column is visible: Excel omits hidden ones from a copy. */
   colShown: (col: number) => boolean
 }
 
-/** Clipboard text as compared: line ends of any system, without the last one. */
+/** Clipboard text as compared: line endings of any system, without the last one. */
 const plain = (t: string) => t.replace(/\r\n?/g, '\n').replace(/\n$/, '')
 
 export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, ed: Editing, cmd: Commands, totals: Totals, deps: ClipDeps) {
   const mark = shallowRef<ClipMark | null>(null)
-  /** The text of a copy mode that ended (Esc, an edit, a cut pasted): Excel has nothing to paste then, so that text is not pasted again. */
+  /** The text of a copy mode that ended (Esc, an edit, a pasted cut): Excel has nothing to paste then, so pasting that text does nothing. */
   let spent: string | null = null
   function clear(): void {
     if (!mark.value) return
     spent = mark.value.text
     mark.value = null
   }
-  // Excel's copy mode ends with a change of cells and when a cell's field opens.
+  // Excel's copy mode ends with a change of cells and when a cell editor opens.
   s.hooks.changing = clear
   watch(deps.editor, (e) => e && clear())
 
   const canCut = cmd.canRanges
-  /** The menu's Paste: our copy, or a clipboard the browser may let the page read. */
+  /** The menu's Paste: our copy, or a clipboard the browser may allow the page to read. */
   const canPaste = computed(() => s.editable.value && (!!mark.value || typeof navigator.clipboard?.readText === 'function'))
 
   // ── the selection as text ──
-  /** What a copy takes: display rows of the selection and its columns, up to the data. */
+  /** What a copy takes: the selection's display rows and columns, up to the data. */
   function extentOf(r: CellRect): { ds: number[]; c2: number } {
     return { ds: listOf(totals.shownRows(r.top, Math.min(r.bottom, Math.max(r.top, s.dataRows.value)))), c2: Math.min(r.right, Math.max(r.left, s.dataCols.value)) }
   }
-  /** The shown rows and columns as Excel puts plain text on the clipboard (xlcalc's formatClipboard): tabs, CRLF, quotes around a tab or a line break. */
+  /** The visible rows and columns as Excel puts plain text on the clipboard (xlcalc's formatClipboard): tabs, CRLF, quotes around a tab or a line break. */
   const tsv = (cell: (d: number, col: number) => string, rows: number[], left: number, last: number) => {
     const cols: number[] = []
     for (let col = left; col <= last; col++) if (deps.colShown(col)) cols.push(col)
@@ -67,13 +67,13 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
       { trailingNewline: !onMac() },
     )
   }
-  /** The text from the loaded windows; null when they do not hold it all. */
+  /** The text from the loaded windows; null when they do not hold all of it. */
   function loadedText(r: CellRect): string | null {
     const { ds, c2 } = extentOf(r)
     if (!ds.length) return ''
     return totals.inWindows(ds, r.left, c2) ? tsv(w.textAt, ds, r.left, c2) : null
   }
-  /** The text read from the source in one window, cut by the cell limit. */
+  /** The text read from the source in one window, truncated by the cell limit. */
   async function fetchedText(r: CellRect): Promise<{ text: string; partial: boolean }> {
     const { ds, c2 } = extentOf(r)
     const d1 = ds[0]!
@@ -88,12 +88,12 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   }
 
   // ── copy and cut ──
-  /** Copy or cut the selection: its text to the clipboard (`write` is the copy event's, else the browser's clipboard API) and the range marked. */
+  /** Copies or cuts the selection: its text to the clipboard (`write` is the copy event's, otherwise the browser's Clipboard API) and the range marked. */
   async function put(cut: boolean, write: ((text: string) => void) | null): Promise<void> {
     const r = sel.selRect.value
     const full = sel.fullRect.value
     if (!r || !full) return
-    // Under the display filter a copy is a text of the shown rows: there is no range to paste.
+    // Under the display filter a copy is the text of the visible rows: there is no range to paste.
     const m: ClipMark | null = s.visible.value ? null : { sheet: s.sheetName.value, rect: full, text: null, cut }
     spent = null
     mark.value = m
@@ -105,7 +105,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
       if (exact) void replaceWith(mark.value, now, exact)
       return
     }
-    // the source's copy, else (none, or refused as too large) the windows' text
+    // the source's copy, otherwise (none, or rejected as too large) the windows' text
     const fromWindows = async () => (now !== null ? { text: now, partial: false } : await fetchedText(r))
     let got: { text: string; partial: boolean }
     try {
@@ -119,11 +119,11 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
       await navigator.clipboard.writeText(got.text)
       if (got.partial) deps.notify(s.messages.value.copyPartial)
     } catch {
-      // The copy still pastes inside the book.
+      // The copy still pastes within the workbook.
       deps.notify(s.messages.value.clipboardDenied)
     }
   }
-  /** The source's copy of the selection cut to the data (values by their formats, as Excel copies them); null without `copyText`, under the display filter or past the data. */
+  /** The source's copy of the selection clipped to the data (values formatted by their number formats, as Excel copies them); null without `copyText`, under the display filter or beyond the data. */
   function sourceText(r: CellRect): Promise<string> | null {
     const copy = s.sourceMethod('copyText')
     const bottom = Math.min(r.bottom, Math.max(r.top, s.dataRows.value))
@@ -131,7 +131,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     if (!copy || s.visible.value || r.top > s.dataRows.value || r.left > s.dataCols.value) return null
     return copy(s.sheetName.value, rangeAddress({ top: r.top, left: r.left, bottom, right }), { trailingNewline: !onMac() })
   }
-  /** The source's text in place of the shown one the copy event took, through the clipboard API (a browser that refuses keeps the shown one); the mark knows both. */
+  /** Replaces the displayed text the copy event wrote with the source's text, through the Clipboard API (a browser that denies it keeps the displayed one); the mark knows both. */
   async function replaceWith(m: ClipMark | null, shown: string, exact: Promise<string>): Promise<void> {
     let text: string
     try {
@@ -143,7 +143,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     }
     if (m && mark.value === m) mark.value = { ...m, text, shown }
   }
-  /** The mark takes its text once known, unless another copy came meanwhile. */
+  /** The mark takes its text once known, unless another copy happened meanwhile. */
   function named(m: ClipMark | null, text: string): void {
     if (m && mark.value === m) mark.value = { ...m, text }
   }
@@ -158,20 +158,20 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   const onCut = (e: ClipboardEvent) => take(e, true)
 
   // ── paste ──
-  /** A paste on the grid or from the menu: the marked range when the clipboard holds its text or gives none (null), else the text. */
+  /** A paste on the grid or from the menu: the marked range when the clipboard holds its text or provides none (null), otherwise the text. */
   function pasteWith(text: string | null): void {
     if (!s.editable.value) return
     const m = mark.value
     if (m && (!text || m.text === null || plain(text) === plain(m.text) || (m.shown !== undefined && plain(text) === plain(m.shown)))) {
       if (cmd.canRanges.value) return void pasteMark(m)
-      // Without `structure` (or under the display filter) the copy goes as its text; its last CRLF ends the rectangle, not an empty row to paste.
+      // Without `structure` (or under the display filter) the copy is pasted as text; its final CRLF ends the range rather than adding an empty row.
       text = m.text?.replace(/\r\n$/, '') ?? null
     } else if (!m && text && spent !== null && plain(text) === plain(spent)) return
     if (text) ed.pasteText(text)
   }
   /**
-   * The marked range pasted at the selection, as Excel pastes it: a copy tiles a selection its size divides, else goes
-   * once from the top-left cell; a cut moves to the top-left cell and its mark ends. The pasted range is selected.
+   * Pastes the marked range at the selection, as Excel pastes it: a copy is tiled over a selection whose size is a multiple
+   * of it, otherwise pasted once from the top-left cell; a cut moves to the top-left cell and its mark ends. The pasted range is selected.
    */
   async function pasteMark(m: ClipMark): Promise<void> {
     const a = sel.fullRect.value
@@ -198,14 +198,14 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     pasteWith(e.clipboardData ? e.clipboardData.getData('text/plain') : null)
   }
 
-  // ── the cells' menu ──
-  /** Copy and Cut: the browser's clipboard API takes the text; refused, the copy still pastes inside the book. */
+  // ── the cell menu ──
+  /** Copy and Cut: the browser's Clipboard API takes the text; if it is denied, the copy still pastes within the workbook. */
   function copy(cut: boolean): void {
     if (cut && !canCut.value) return
     s.focusGrid()
     void put(cut, null)
   }
-  /** Paste: the clipboard read through the browser's API; a browser that will not give it pastes only our own copy. */
+  /** Paste: the clipboard read through the browser's API; a browser that does not provide it pastes only our own copy. */
   async function paste(): Promise<void> {
     s.focusGrid()
     let text: string | null = null
@@ -218,7 +218,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     pasteWith(text)
   }
 
-  /** The moving border round the marked range on its sheet. */
+  /** The moving border around the marked range on its sheet. */
   const ants = computed(() => {
     const m = mark.value
     if (!m || m.sheet !== s.sheetName.value || s.visible.value) return null

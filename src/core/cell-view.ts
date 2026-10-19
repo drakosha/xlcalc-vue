@@ -1,4 +1,4 @@
-// One drawn cell: its classes, CSS and tooltip, the content box, borders shared with neighbours, merges and text overflow.
+// One drawn cell: its classes, CSS and tooltip, the content box, borders shared with neighbors, merges and text overflow.
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { cellAddress, rectContains } from 'xlcalc/a1'
 import type { BorderLine, CellStyle, Icon } from 'xlcalc/contract'
@@ -14,12 +14,12 @@ import type { SheetState } from './state'
 import type { Viewport } from './viewport'
 import type { CellData, Windows } from './windows'
 
-/** Vertical padding of a cell; with its borders it sits inside the row's height. */
+/** A cell's vertical padding; with its borders it fits inside the row's height. */
 const CELL_PAD_V = 1
-/** How far text may overflow into empty neighbours, in pixels. */
+/** How far text may overflow into empty neighbors, in pixels. */
 const OVERFLOW_MAX = 2000
 
-/** A merge as drawn: its size in the book (box height) and in drawn rows and columns (hidden ones are not in the DOM). */
+/** A merged range as drawn: its size in the workbook (box height) and in drawn rows and columns (hidden ones are not in the DOM). */
 export interface MergeSpan {
   rs: number
   cs: number
@@ -34,33 +34,33 @@ export interface CellView {
   box: { class: string[]; style: Record<string, string> }
   kind: ContentKind
   text: string
-  /** Underline and strike, set on the element that carries the text. */
+  /** Underline and strikethrough, set on the element that holds the text. */
   deco: Record<string, string>
-  /** Overflow into empty neighbours: pixels taken left and right, the text's place, its background (hides crossed grid lines, as in Excel). */
+  /** Overflow into empty neighbors: the pixels taken on the left and right, the text's position, its background (hides crossed gridlines, as in Excel). */
   ov?: { left: number; right: number; justify: string; bg: string }
   link?: CellData['link']
-  /** A conditional format's icon, drawn at the cell's left before its text. */
+  /** A conditional format's icon, drawn at the left of the cell before its text. */
   icon?: Icon
-  /** The draft typed in the formula bar stands for `text`, drawn apart so typing does not redraw the grid; `fill`: the width Excel's Fill repeats it across. */
+  /** The draft typed in the formula bar replaces `text`, drawn separately so typing does not redraw the grid; `fill`: the width Excel's Fill alignment repeats it across. */
   draft?: { fill?: number }
 }
 
-/** What of the often changing state a drawn row's cells need, worked out by row: a change redraws only the rows it touches. */
+/** The frequently changing state that a drawn row's cells need, computed per row: a change redraws only the rows it affects. */
 export interface RowState {
   /** The row's height in pixels. */
   height: number
-  /** The selection over the row: its columns, whether the row is its top, how many rows below this one it ends (counted only as far as the row's merges reach), several cells or one; null when it misses the row. */
+  /** The selection over the row: its columns, whether the row is its top, how many rows below this one it ends (counted only as far as the row's merges reach), several cells or one; null when it does not cross the row. */
   sel: { left: number; right: number; top: boolean; below: number; multi: boolean } | null
   /** The active cell's column in the row; 0 for none. */
   active: number
   /** The formula's ranges over the row. */
   hl: readonly Highlight[]
-  /** Columns of the search's hits in the row, and of the current one (0: not in the row). */
+  /** Columns of the search matches in the row, and of the current one (0: not in the row). */
   hits: ReadonlySet<number> | undefined
   hitNow: number
   /** The columns of the range just jumped to, over the row. */
   flash: { left: number; right: number } | null
-  /** The field open on a cell of the row: its column, and whether it is the formula bar's. */
+  /** The editor open on a cell of the row: its column, and whether it is the formula bar's. */
   editor: { col: number; bar: boolean } | null
 }
 
@@ -80,7 +80,7 @@ export function sameRowState(a: RowState, b: RowState): boolean {
   )
 }
 
-/** Whether two maps of merges drawn hold the same spans. */
+/** Whether two maps of drawn merges hold the same spans. */
 function sameMerges(a: Map<string, MergeSpan | null>, b: Map<string, MergeSpan | null>): boolean {
   if (a.size !== b.size) return false
   for (const [key, x] of b) {
@@ -90,12 +90,12 @@ function sameMerges(a: Map<string, MergeSpan | null>, b: Map<string, MergeSpan |
   return true
 }
 
-/** Links a browser may open by itself; anything else (`javascript:` and the like) goes to the host or is shown only. */
+/** Links a browser may open on its own; anything else (`javascript:` and the like) goes to the host or is only displayed. */
 export const safeHref = (href: string | undefined): boolean => !!href && /^(https?:|mailto:|tel:|ftp:)/i.test(href.trim())
 
 interface CellViewDeps {
   editor: Ref<EditorState | null>
-  /** Search hits by `row:col`, and the current one. */
+  /** Search matches by `row:col`, and the current one. */
   find: { hitSet: ComputedRef<Set<string>>; current: ComputedRef<string> }
   /** Whether the host listens to `openLink`. */
   hostLinks: () => boolean
@@ -114,7 +114,7 @@ export function useCellView(
   ed: Editing,
   deps: CellViewDeps,
 ) {
-  /** Merges of the drawn piece by sheet rows: the top-left cell's span, null for covered cells. A merge not wholly drawn (or across the freeze edge) is drawn as plain cells; under a filter only one-row merges stay. */
+  /** Merges of the drawn area by sheet rows: the top-left cell's span, null for covered cells. A merge not drawn in full (or crossing the freeze edge) is drawn as plain cells; under a filter only one-row merges stay. */
   const merges = computed((prev?: Map<string, MergeSpan | null>) => {
     const map = new Map<string, MergeSpan | null>()
     const rowsOk = (d1: number, d2: number) => d2 <= v.frozenRows.value || (d1 >= v.firstRow.value && d2 <= v.lastRow.value)
@@ -130,16 +130,16 @@ export function useCellView(
       for (let d = d1; d <= d2; d++) if (geo.heightOf(d) > 0) rsDom++
       for (let c = m.left; c <= m.right; c++) if (geo.widthOf(c) > 0) csDom++
       if (!rsDom || !csDom) continue
-      // The top-left cell may be hidden: the merge then starts at its first shown cell.
+      // The top-left cell may be hidden: the merge then starts at its first visible cell.
       const d0 = geo.heightOf(d1) > 0 ? d1 : geo.nextRow(d1, 1)
       const c0 = geo.widthOf(m.left) > 0 ? m.left : geo.nextCol(m.left, 1)
       for (let r = m.top; r <= m.bottom; r++) for (let c = m.left; c <= m.right; c++) map.set(`${r}:${c}`, null)
       map.set(`${s.rowOf(d0)}:${c0}`, { rs: d2 - d0 + 1, cs: m.right - c0 + 1, rsDom, csDom })
     }
-    // The same map while the merges drawn are the same: every cell reads it, sizes and the scroll recompute it.
+    // The same map while the drawn merges are the same: every cell reads it, and sizes and scrolling recompute it.
     return prev && sameMerges(prev, map) ? prev : map
   })
-  /** A cell's merge as drawn; no key is made on a piece without merges (the grid asks for every drawn cell). */
+  /** A cell's merge as drawn; no key is built for an area without merges (the grid asks for every drawn cell). */
   const spanOf = (r: number, c: number) => (merges.value.size ? merges.value.get(`${r}:${c}`) : undefined)
   const coveredByMerge = (r: number, c: number) => spanOf(r, c) === null
 
@@ -154,7 +154,7 @@ export function useCellView(
     }
     return map
   })
-  /** The search's hits by sheet row: their columns. */
+  /** The search matches by sheet row: their columns. */
   const hitRows = computed(() => {
     const map = new Map<number, Set<number>>()
     for (const key of deps.find.hitSet.value) {
@@ -166,7 +166,7 @@ export function useCellView(
     }
     return map
   })
-  /** The often changing state a row's cells read, worked out for display row `d`, sheet row `r`. */
+  /** The frequently changing state that a row's cells read, computed for display row `d` and sheet row `r`. */
   function rowState(d: number, r: number): RowState {
     const rect = sel.selRect.value
     const inRect = !!rect && r >= rect.top && r <= rect.bottom
@@ -186,7 +186,7 @@ export function useCellView(
     }
   }
 
-  /** Where a drawn column sits among its neighbours of the same pane, for overflow. */
+  /** Where a drawn column sits among its neighbors in the same pane, for overflow. */
   const colPlace = computed(() => {
     const map = new Map<number, { list: number[]; i: number }>()
     for (const list of [v.frozenColList.value, v.shownCols.value]) list.forEach((c, i) => map.set(c, { list, i }))
@@ -201,20 +201,20 @@ export function useCellView(
   const freezeRows = () => s.sheet.value?.freeze?.rows ?? 0
   const freezeCols = () => s.sheet.value?.freeze?.cols ?? 0
 
-  /** A side's line: the cell's own, else the neighbour's facing side (one line in Excel); else a fill hides the grid line. */
+  /** A side's line: the cell's own, otherwise the neighbor's facing side (one line in Excel); otherwise a fill hides the gridline. */
   function edge(own: BorderLine | undefined, other: BorderLine | undefined, fill: string | undefined): { css?: CssLine; width: number } {
     const line = own ?? other
     if (line) return { css: borderCss(line), width: borderWidth(line) }
     return { css: fill ? { width: '1px', style: 'solid', color: fill } : undefined, width: 1 }
   }
 
-  /** May a neighbour take this cell's overflowing text: loaded, empty, not merged, not being edited. */
+  /** Whether a neighbor may take this cell's overflowing text: loaded, empty, not merged, not being edited. */
   function free(d: number, c: number, row: RowState): boolean {
     const r = s.rowOf(d)
     if (!w.emptyAt(d, c) || spanOf(r, c) !== undefined || ed.pendingAt(r, c) !== undefined) return false
     return row.editor?.col !== c
   }
-  /** Text overflow as Excel draws it: left-aligned text runs right over empty cells, right-aligned left, centred both ways. */
+  /** Text overflow as Excel draws it: left-aligned text runs right over empty cells, right-aligned text left, centered text both ways. */
   function overflowOf(d: number, c: number, h: Horizontal, bg: string, row: RowState): CellView['ov'] {
     const place = colPlace.value.get(c)
     if (!place) return undefined
@@ -246,7 +246,7 @@ export function useCellView(
     return undefined
   }
 
-  /** Background layers, top first: the note's corner, selection and highlight tints, the data bar at the bottom. */
+  /** Background layers, top first: the note indicator, selection and highlight tints, the data bar at the bottom. */
   function layers(css: Record<string, string>, list: Layer[]): void {
     if (!list.length) return
     css.backgroundImage = list.map((l) => l.img).join(', ')
@@ -255,13 +255,13 @@ export function useCellView(
     css.backgroundRepeat = 'no-repeat'
   }
 
-  /** Everything to draw cell (r, c); `d` is its display row, `frozen` whether its row is a frozen one, `row` its row's state (`rowState`). */
+  /** Everything needed to draw cell (r, c); `d` is its display row, `frozen` whether its row is frozen, `row` its row's state (`rowState`). */
   function cellView(d: number, r: number, c: number, frozen: boolean, row: RowState): CellView {
     const addr = cellAddress(r, c)
     const at = cellRect(r, c)
     const data = w.cellData(d, c, addr)
     const span = spanOf(r, c)
-    // The merge's last row: display (geometry, neighbours) and sheet (selection, tables); under a filter merges are one row.
+    // The merge's last row: by display index (geometry, neighbors) and by sheet row (selection, tables); under a filter merges are one row.
     const d2 = span ? d + span.rs - 1 : d
     const r2 = span ? r + span.rs - 1 : r
     const c2 = span ? c + span.cs - 1 : c
@@ -269,7 +269,7 @@ export function useCellView(
     const m = s.messages.value
     const pendingText = ed.pendingAt(r, c)
     const look = data.look
-    // A rule that hides the value leaves the bar or the icon alone; the tooltip still has the value.
+    // A rule that hides the value leaves only the bar or the icon; the tooltip still has the value.
     const barDraft = pendingText === undefined && !!row.editor && row.editor.bar && row.editor.col === c
     const shownText = pendingText !== undefined ? (pendingText ?? '') : barDraft || look?.hideValue ? '' : data.text
     const hasText = barDraft ? !draftBlank.value : shownText !== ''
@@ -278,7 +278,7 @@ export function useCellView(
     if (frozen) css.top = v.stickyTop(d)
     if (c <= v.frozenCols.value) css.left = v.stickyLeft(c)
 
-    // Borders: right and bottom are the cell's own grid lines; top and left only at the sheet's edge (else the neighbour draws them).
+    // Borders: right and bottom are the cell's own gridlines; top and left only at the sheet's edge (otherwise the neighbor draws them).
     const rightStyle = span ? styleOf(d, c2) : st
     const bottomStyle = span ? styleOf(d2, c) : st
     const colRight = geo.nextCol(c2, 1)
@@ -296,7 +296,7 @@ export function useCellView(
     }
     if (st?.border?.left && !geo.hasCol(c, -1)) setSide(css, 'Left', borderCss(st.border.left)!)
 
-    // Insets: formula ranges, the selection's frame and tables' frames; tints and bars as background layers.
+    // Insets: formula ranges, the selection's border and table borders; tints and bars as background layers.
     const shadows: string[] = []
     const bg: Layer[] = []
     const full = '100% 100%'
@@ -332,7 +332,7 @@ export function useCellView(
     layers(css, bg)
 
     const lock = ed.lockAt(r, c)
-    // List mode: a drill-down cell, or the first column's cell below the header opening its row.
+    // List mode: a drill-down cell, or a first-column cell below the header that opens its row.
     const rowLink = !data.drill && c === 1 && deps.openRows() && r > freezeRows()
     const cls = [
       'xs-cell',
@@ -345,7 +345,7 @@ export function useCellView(
       lock !== null ? 'xs-locked' : '',
       tableHead ? 'xs-thead' : '',
       frozen && c <= v.frozenCols.value ? 'xs-fz-corner' : frozen ? 'xs-fz-row' : c <= v.frozenCols.value ? 'xs-fz-col' : '',
-      // The book's freeze edge shows always: with the lock it parts the sticky panes, without it it shows what the lock freezes.
+      // The workbook's freeze edge is always shown: with the lock on it separates the sticky panes, with it off it shows what the lock freezes.
       d2 === freezeRows() ? 'xs-fz-edge-b' : '',
       c2 === freezeCols() ? 'xs-fz-edge-r' : '',
       data.drill ? 'xs-drill' : '',
@@ -357,7 +357,7 @@ export function useCellView(
     if (lock !== null) titleParts.push(m.locked(lock))
     if (pendingText !== undefined) titleParts.push(m.pending)
 
-    // The content box: exactly the row's height (a <tr> height is a minimum), text clipped as in Excel.
+    // The content box: exactly the row's height (a <tr> height is a minimum), with text clipped as in Excel.
     const h = horizontalOf(st, data.value)
     const wraps = wrapsOf(st)
     const vAlign = verticalOf(st)
@@ -382,7 +382,7 @@ export function useCellView(
     if (look?.icon) {
       view.icon = look.icon
       box.class.push('xs-iconic')
-      // The icon alone stands by the cell's alignment (General at the left), as Excel's Show Icon Only.
+      // The icon alone follows the cell's alignment (General at the left), as Excel's Show Icon Only does.
       if (!hasText) {
         view.kind = 'icon'
         const own = st?.alignment?.horizontal

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Excel's Insert Function window: a search, the category box (recently used, all, the source's categories), the functions, and the syntax and description of the one selected.
+// Excel's Insert Function dialog: a search box, the category box (recently used, all, the source's categories), the functions, and the syntax and description of the selected one.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { FUNCTION_CATEGORIES } from 'xlcalc/text'
 import { stepIndex } from '../core/list-keys'
@@ -13,7 +13,7 @@ const emit = defineEmits<{ pick: [name: string]; close: [] }>()
 const ctx = useSheetContext()
 const m = ctx.messages
 
-/** The functions used last, newest first, as Excel's Most Recently Used; in the sheet's memory. */
+/** The most recently used functions, newest first, as Excel's Most Recently Used; kept in the sheet's storage. */
 const RECENT = 'recentFunctions'
 const RECENT_MAX = 10
 
@@ -26,13 +26,13 @@ const index = ref(0)
 const list = ref<HTMLElement | null>(null)
 const ctrl = new AbortController()
 
-/** The categories the source's functions fall in, in Excel's order, by their names in the locale. */
+/** The categories of the source's functions, in Excel's order, by their names in the locale. */
 const categories = computed(() => {
   const named = new Map<string, string>()
   for (const sig of sigs.value.values()) if (sig && !named.has(sig.category)) named.set(sig.category, sig.categoryName)
   return FUNCTION_CATEGORIES.filter((c) => named.has(c)).map((c) => ({ key: c, name: named.get(c)! }))
 })
-/** The category's functions whose names hold the search, in any case: the name itself first, then those it begins, then the rest. */
+/** The category's functions whose names contain the search text, case-insensitively: an exact match first, then names that begin with it, then the rest. */
 const shown = computed(() => {
   const known = new Set(names.value)
   const base = category.value === 'recent' ? recent.filter((n) => known.has(n)) : category.value === 'all' ? names.value : names.value.filter((n) => sigs.value.get(n)?.category === category.value)
@@ -60,7 +60,7 @@ onMounted(async () => {
   const got = await src.functionNames(ctrl.signal).catch(() => null)
   if (!got || ctrl.signal.aborted) return
   names.value = got
-  // Every name's signature, once per source (the tip keeps them): the categories, the syntax and the description.
+  // Every name's signature, once per source (the tooltip caches them): the categories, the syntax and the description.
   const all = await Promise.all(got.map(async (name) => [name, await ctx.ed.tip.signature(name)] as const))
   if (!ctrl.signal.aborted) sigs.value = new Map(all)
 })
@@ -72,7 +72,7 @@ function ok(): void {
   ctx.memory.remember(RECENT, [name, ...recent.filter((n) => n !== name)].slice(0, RECENT_MAX))
   emit('pick', name)
 }
-/** Up and Down move along the functions; Home, End and the page keys stay the search field's. */
+/** Up and Down move through the functions; Home, End and the page keys stay with the search box. */
 function onKey(e: KeyboardEvent): void {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault()

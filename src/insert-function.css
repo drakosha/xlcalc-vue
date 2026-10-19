@@ -1,10 +1,10 @@
-/* Excel's Insert Function window (InsertFunction.vue) in the sheet's --xs-* variables: a DialogShell box (modal.css), the whole screen on a phone, 44 px targets under a finger. */
+/* Excel's Insert Function dialog (InsertFunction.vue) in the sheet's --xs-* variables: a DialogShell box (modal.css), full screen on a phone, 44 px targets on a touch screen. */
 .xs-ifn {
   gap: 8px;
   width: min(420px, 100%);
   padding: 14px;
 }
-/* Only the list gives way when the box is short. */
+/* Only the list shrinks when the box is short. */
 .xs-ifn > * {
   flex-shrink: 0;
 }
@@ -13,7 +13,7 @@
   flex-direction: column;
   gap: 4px;
 }
-/* The list: eight names high, a scroll past them. */
+/* The list: eight names tall, scrolling beyond them. */
 .xs-ifn .xs-ifn-list {
   position: relative;
   flex: 0 1 auto;
@@ -45,13 +45,13 @@
   color: var(--xs-muted);
 }
 
-/* ── a phone: the whole screen (DialogShell's `full`), the list takes the room left ── */
+/* ── a phone: full screen (DialogShell's `full`), the list takes the remaining space ── */
 .xs-narrow .xs-ifn .xs-ifn-list {
   flex: 1 1 0;
   height: auto;
 }
 
-/* ── a finger ── */
+/* ── touch ── */
 .xs-touch .xs-ifn {
   font-size: 15px;
 }

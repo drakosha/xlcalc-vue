@@ -1,27 +1,27 @@
-// A formula's references coloured on one run of text by the CSS Custom Highlight API, as the formula bar's layer needs: elements around them would shape the text apart from the field's under it; and which of them lies under a point.
+// A formula's references colored on a single text run by the CSS Custom Highlight API, as the formula bar's layer needs (elements around them would shape the text differently from the input's text under it), and which one lies under a point.
 
-/** A piece of a text node to colour: its offsets and colour, underlined while a held Ctrl or Cmd would go to it. */
+/** A piece of a text node to color: its offsets and color, underlined while a held Ctrl or Cmd would navigate to it. */
 export interface RefPaint {
   from: number
   to: number
   color: string
   underline?: boolean
 }
-/** Ranges painted, each with its highlight's name, to take back on the next paint. */
+/** Painted ranges, each with its highlight's name, to remove on the next paint. */
 export type Painted = [name: string, range: Range][]
 
-/** The highlight's name of each colour (underlined apart), shared by every bar on the page (the registry is the document's). */
+/** The highlight name for each color (underlined ones separate), shared by every formula bar on the page (the registry belongs to the document). */
 const names = new Map<string, string>()
-/** The rules of the colours, adopted by each document or shadow root a bar is in. */
+/** The color rules, adopted by each document or shadow root a formula bar is in. */
 const sheets = new WeakMap<Document | ShadowRoot, CSSStyleSheet>()
-/** The same sheets for a new colour's rule, held weakly: a shadow root gone takes its sheet with it. */
+/** The same style sheets for a new color's rule, held weakly: a removed shadow root takes its sheet with it. */
 const allSheets = new Set<WeakRef<CSSStyleSheet>>()
 const rule = (key: string, name: string) => {
   const [color, underline] = key.split(' ')
   return `.xs-fx-layer::highlight(${name}) { color: ${color};${underline ? ' text-decoration: underline;' : ''} }`
 }
 
-/** The browser paints highlights: else the layer colours references with spans. */
+/** Whether the browser paints highlights; otherwise the layer colors references with spans. */
 export const canPaint = (): boolean => typeof CSS !== 'undefined' && 'highlights' in CSS && typeof Highlight === 'function' && typeof CSSStyleSheet === 'function'
 
 function nameOf(key: string, root: Document | ShadowRoot): string {
@@ -46,7 +46,7 @@ function nameOf(key: string, root: Document | ShadowRoot): string {
   return name
 }
 
-/** Colour `pieces` of `node` in place of what `before` painted; null takes the old paint away only. */
+/** Colors `pieces` of `node` in place of what `before` painted; null only removes the old paint. */
 export function paintRefs(node: Text | null, pieces: RefPaint[], before: Painted): Painted {
   for (const [name, range] of before) CSS.highlights.get(name)?.delete(range)
   if (!node) return []
@@ -63,7 +63,7 @@ export function paintRefs(node: Text | null, pieces: RefPaint[], before: Painted
   })
 }
 
-/** A range over `layer`'s text from one offset to another, its text nodes walked (spans or one node). */
+/** A range over `layer`'s text from one offset to another, walking its text nodes (spans or a single node). */
 function rangeIn(layer: HTMLElement, from: number, to: number): Range {
   const range = new Range()
   const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT)
@@ -79,7 +79,7 @@ function rangeIn(layer: HTMLElement, from: number, to: number): Range {
 
 /**
  * The piece of `layer`'s text under a point (of the mouse or a finger), by the boxes its characters are drawn in, its line's
- * height around them and `slop` pixels aside; -1 off them all. Past a line's end or between lines there is none.
+ * height around them and `slop` pixels to either side; -1 when off all of them. Beyond a line's end or between lines there is none.
  */
 export function pieceAtPoint(layer: HTMLElement, pieces: { from: number; to: number }[], x: number, y: number, slop = 0): number {
   const line = parseFloat(getComputedStyle(layer).lineHeight)

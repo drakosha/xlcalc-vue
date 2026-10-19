@@ -1,5 +1,5 @@
-// Windows of data: three slots (body, frozen rows, frozen columns), loaded under the scroll, patched by edits, read again in place by a repaint.
-// Rows of windows are display indexes (`d`): with a display filter they are places in its list, not the sheet's rows.
+// Data windows: three slots (body, frozen rows, frozen columns), loaded as the grid scrolls, patched by edits, re-read in place on a repaint.
+// Window rows are display indexes (`d`): with a display filter they are positions in its list, not the sheet's rows.
 import { computed, nextTick, ref, shallowRef, triggerRef, type ShallowRef } from 'vue'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
 import type { CellPosition, CellRect, CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
@@ -13,19 +13,19 @@ import { rowPx, type Geometry } from './geometry'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
 
-/** Fetch margins: a window is taken with spare rows and columns so an ordinary scroll needs no request. */
+/** Fetch margins: a window is requested with spare rows and columns, so ordinary scrolling needs no request. */
 const FETCH_ROWS = 120
 const FETCH_COLS = 12
 const MAX_COLS = 200
-/** Delay before asking again for a window that is not ready yet, and how many times (over a host's recompute limit). */
+/** The delay before requesting a window that is not ready yet again, and how many times (beyond a host's recalculation limit). */
 const PENDING_RETRY_MS = 1000
 const PENDING_POLLS_MAX = 200
-/** A repaint that follows the last one closer than this waits as long for more before asking. */
+/** A repaint that follows the previous one within this interval waits as long for more before requesting. */
 const REPAINT_DELAY_MS = 80
 
 export type SlotKind = 'body' | 'top' | 'left'
 
-/** A rectangle of a window by display rows. */
+/** A window's range by display rows. */
 interface Area {
   row: number
   rows: number
@@ -33,30 +33,30 @@ interface Area {
   cols: number
 }
 
-/** The request in flight: its view and rectangle (a repaint may meet it), whether it reads a drawn window again in place, and the changes that came meanwhile. */
+/** The pending request: its view and range (a repaint may overlap it), whether it re-reads a drawn window in place, and the changes that arrived meanwhile. */
 interface Asked extends Area {
   view: string
-  /** A window on screen read again for a repaint: it stays drawn meanwhile, so there is no loading mark. */
+  /** An on-screen window re-read for a repaint: it stays drawn meanwhile, so there is no loading indicator. */
   quiet: boolean
-  /** Cell updates that came while the request was out: the answer may have been read before them, so they go over it. */
+  /** Cell updates that arrived while the request was pending: the response may have been read before them, so they are applied over it. */
   missed: CellUpdate[]
 }
 
-/** One window: what is loaded, the request in flight and the one already answered (so neither repeats). */
+/** One window: what is loaded, the pending request and the one already answered (so neither repeats). */
 export interface Slot {
-  /** The sheet and the filter the window was asked under: another filter means other rows. */
+  /** The sheet and filter the window was requested under: another filter means other rows. */
   view: string
   win: SheetWindow | null
   rows: number
   cols: number
-  /** The window's merges and the sheet's tables, read once when it comes. */
+  /** The window's merged ranges and the sheet's tables, read once when it arrives. */
   merges: CellRect[]
   tables: SheetTable[]
   pendingKey: string
   servedKey: string
   ctrl: AbortController | null
   asked: Asked | null
-  /** A repaint met the window: it is read again, drawn as it is until the answer comes. */
+  /** A repaint overlapped the window: it is re-read, drawn as is until the response arrives. */
   stale: boolean
 }
 
@@ -67,7 +67,7 @@ interface Need {
   c2: number
 }
 
-/** A table of the sheet with its range read. */
+/** A table of the sheet with its range parsed. */
 export type SheetTable = NonNullable<SheetWindow['tables']>[number] & { rect: CellRect }
 
 const newSlot = (): Slot => ({ view: '', win: null, rows: 0, cols: 0, merges: [], tables: [], pendingKey: '', servedKey: '', ctrl: null, asked: null, stale: false })
@@ -81,16 +81,16 @@ export interface CellData {
   color: string | undefined
   link: NonNullable<SheetWindow['links']>[string] | undefined
   note: NonNullable<SheetWindow['notes']>[string] | undefined
-  /** What conditional formats give the cell. */
+  /** The cell's conditional formatting. */
   look: ConditionalAppearance | undefined
-  /** A drill-down of list mode: marked in its window's `drill` and not empty. */
+  /** A list mode drill-down: marked in its window's `drill` and not empty. */
   drill: boolean
   loaded: boolean
 }
 
-/** A cell's look: what the conditional formats give it. */
+/** A cell's formatting from its conditional formats. */
 const lookOf = (w: SheetWindow, addr: string): ConditionalAppearance | undefined => w.appearance?.[addr]
-/** The style a window's cell shows: its own (or its row's, column's), with a conditional format's over it. */
+/** A window cell's displayed style: its own (or its row's or column's), with a conditional format's style on top. */
 function shownStyle(w: SheetWindow, addr: string, look: ConditionalAppearance | undefined): CellStyle | undefined {
   const id = w.styleIds[addr]
   return lookStyle(id === undefined ? undefined : w.styles[id], look?.style)
@@ -99,24 +99,24 @@ function shownStyle(w: SheetWindow, addr: string, look: ConditionalAppearance | 
 export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   const slots: Record<SlotKind, ShallowRef<Slot>> = { body: shallowRef(newSlot()), top: shallowRef(newSlot()), left: shallowRef(newSlot()) }
   const order: SlotKind[] = ['body', 'top', 'left']
-  /** Generation of the book and sheet: an answer sent before a switch must not overwrite fresh data. */
+  /** Generation of the workbook and sheet: a response sent before a switch must not overwrite fresh data. */
   let epoch = 0
 
-  /** The sheet and filter the windows must be of now: made once per change, each drawn cell reads it several times. */
+  /** The sheet and filter the windows must belong to now: built once per change, read several times by each drawn cell. */
   const view = computed(() => `${s.sheetName.value}\u0000${s.visible.value?.key ?? ''}`)
   const viewKey = () => view.value
   /**
    * Cells change in place inside their windows: `revision` counts every change; the grid reads a cell under its display
-   * row's own revision, made as the row is drawn, so a change redraws the rows it is in and nothing off screen.
+   * row's own revision, taken as the row is drawn, so a change redraws the rows it is in and nothing off screen.
    */
   const revision = shallowRef(0)
   const rowRevisions = new Map<number, ShallowRef<number>>()
-  /** The window holding a cell by display row: the body first, then the frozen ones (they meet at the corner). */
+  /** The window holding a cell by display row: the body first, then the frozen ones (they overlap at the corner). */
   function slotAt(d: number, col: number): Slot | null {
     void revision.value
     return holder(d, col)
   }
-  /** The same for drawing a cell. */
+  /** The same, for drawing a cell. */
   function drawnSlot(d: number, col: number): Slot | null {
     let rev = rowRevisions.get(d)
     if (!rev) rowRevisions.set(d, (rev = shallowRef(0)))
@@ -137,7 +137,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const slot = slotAt(d, col)
     return slot ? (slot.win!.text[d - slot.win!.row]?.[col - slot.win!.col] ?? '') : ''
   }
-  /** A cell's style as drawn; records of a window are keyed by the cell's own address (`addr`, by its sheet row). */
+  /** A cell's style as drawn; a window's records are keyed by the cell's own address (`addr`, by its sheet row). */
   function styleAt(d: number, col: number, addr: string): CellStyle | undefined {
     const w = drawnSlot(d, col)?.win
     return w ? shownStyle(w, addr, w.appearance?.[addr]) : undefined
@@ -160,14 +160,14 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       loaded: true,
     }
   }
-  /** Whether a cell is known to be empty: loaded, no text, no value. */
+  /** Whether a cell is known to be empty: loaded, with no text and no value. */
   function emptyAt(d: number, col: number): boolean {
     const slot = drawnSlot(d, col)
     if (!slot) return false
     const w = slot.win!
     return isBlank(w.text[d - w.row]?.[col - w.col], w.values[d - w.row]?.[col - w.col])
   }
-  /** A cell by the sheet's row: its window and the cell's place in it; null when the filter hides the row or no window holds it. */
+  /** A cell by sheet row: its window and the cell's position in it; null when the filter hides the row or no window holds it. */
   function cellOfRow(r: number, col: number): { win: SheetWindow; i: number; j: number } | null {
     const d = s.indexOf(r)
     const win = d === undefined ? undefined : slotAt(d, col)?.win
@@ -182,22 +182,22 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     return c?.win.values[c.i]?.[c.j]
   }
   const formulaOfRow = (r: number, col: number): string | undefined => cellOfRow(r, col)?.win.formulas[cellAddress(r, col)]
-  /** Whether a cell is known to be empty by the sheet's row: loaded, no text, no value. */
+  /** Whether a cell is known to be empty, by sheet row: loaded, with no text and no value. */
   const emptyAtRow = (r: number, col: number): boolean => {
     const c = cellOfRow(r, col)
     return !!c && isBlank(c.win.text[c.i]?.[c.j], c.win.values[c.i]?.[c.j])
   }
-  /** The text a cell opens with from its window's `editText` (a cell left out opens empty); undefined when the window has none. */
+  /** The text a cell opens with, from its window's `editText` (a cell missing from it opens empty); undefined when the window has none. */
   const editTextOfRow = (r: number, col: number): string | undefined => {
     const texts = cellOfRow(r, col)?.win.editText
     return texts ? (texts[cellAddress(r, col)] ?? '') : undefined
   }
-  /** Whether a cell (a sheet row) is a drill-down of list mode: loaded, marked in its window's `drill` and not empty. */
+  /** Whether a cell (by sheet row) is a list mode drill-down: loaded, marked in its window's `drill` and not empty. */
   const drillOfRow = (r: number, col: number): boolean => {
     const c = cellOfRow(r, col)
     return !!c?.win.drill?.[cellAddress(r, col)] && (c.win.text[c.i]?.[c.j] ?? '') !== ''
   }
-  /** The style a cell shows and its number format code (none: General), from its loaded window; null when none holds it. */
+  /** A cell's displayed style and its number format code (none: General), from its loaded window; null when no window holds it. */
   const lookOfRow = (r: number, col: number): { style?: CellStyle; numberFormat?: string } | null => {
     const w = cellOfRow(r, col)?.win
     if (!w) return null
@@ -209,7 +209,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   }
 
   const current = (kind: SlotKind) => (slots[kind].value.view === viewKey() ? slots[kind].value : null)
-  /** Merged areas of the loaded windows (by sheet rows), each once. */
+  /** Merged ranges of the loaded windows (by sheet rows), each once. */
   const merges = computed(() => {
     const seen = new Set<string>()
     const out: CellRect[] = []
@@ -224,7 +224,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     }
     return out
   })
-  /** The sheet's tables and the notice: the same in every window of the sheet. */
+  /** The sheet's tables and notice: the same in every window of the sheet. */
   const tables = computed(() => {
     for (const kind of order) {
       const slot = current(kind)
@@ -240,18 +240,18 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     return ''
   })
 
-  /** The rectangle a slot must hold: the body under the scroll, frozen rows across the body, frozen columns down it. */
+  /** The range a slot must hold: the body under the scroll, frozen rows across the body, frozen columns down it. */
   function needOf(kind: SlotKind): Need | null {
     if (kind === 'body') return { r1: v.firstRow.value, r2: v.lastRow.value, c1: v.firstCol.value, c2: v.lastCol.value }
     if (kind === 'top') return v.frozenRows.value ? { r1: 1, r2: v.frozenRows.value, c1: 1, c2: v.lastCol.value } : null
     return v.frozenCols.value ? { r1: v.firstRow.value, r2: v.lastRow.value, c1: 1, c2: v.frozenCols.value } : null
   }
-  /** Where the source stops giving rows and columns (it cut a window there); until then the grid asks past the data, where line styles reach. */
+  /** Where the source stops returning rows and columns (it truncated a window there); until then the grid requests beyond the data, as far as row and column styles extend. */
   let edge = { rows: Infinity, cols: Infinity }
-  /** The edge in force: data grown by edits past it is asked for again. */
+  /** The edge in effect: data that edits extend beyond it is requested again. */
   const edgeRows = () => Math.max(edge.rows, s.dataShown.value)
   const edgeCols = () => Math.max(edge.cols, s.dataCols.value)
-  /** Whether a slot covers a need; a window cut at the source's edge or by the cell limit counts, or loading would loop. */
+  /** Whether a slot covers a need; a window truncated at the source's edge or by the cell limit counts, or loading would loop. */
   function covered(slot: Slot, need: Need): boolean {
     const w = slot.win
     if (!w || slot.stale || slot.view !== viewKey()) return false
@@ -265,7 +265,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   async function load(kind: SlotKind, need: Need): Promise<void> {
     const slot = slots[kind].value
     const maxCells = s.source().maxCells ?? DEFAULT_MAX_CELLS
-    // Margins only up to the grid's end; past the source's known edge there is nothing to ask for.
+    // Margins only up to the grid's end; beyond the source's known edge there is nothing to request.
     const lastCol = Math.max(1, Math.min(s.colCount.value, edgeCols()))
     const lastRow = Math.max(1, Math.min(s.rowCount.value, edgeRows()))
     const col = kind === 'left' ? 1 : Math.max(1, Math.min(need.c1, lastCol) - FETCH_COLS)
@@ -284,7 +284,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     slot.ctrl = ctrl
     slot.asked = { view, row, rows, col, cols, quiet, missed: [] }
     const mine = epoch
-    // An edit may have replaced the slot object meanwhile, a repaint may have aborted the request for another: it is the slot's while its controller is.
+    // An edit may have replaced the slot object meanwhile, and a repaint may have aborted the request for another: the response belongs to the slot while its controller does.
     const owns = () => slots[kind].value.ctrl === ctrl
     const release = () => {
       if (!owns()) return
@@ -309,7 +309,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       stopWait()
       takeSizes(got)
       const width = Math.max(got.widths.length, got.text[0]?.length ?? 0)
-      // A window shorter than asked, at or past the data's edge: the source stops there, the grid will not ask past it.
+      // A window shorter than requested, at or beyond the data's edge: the source stops there, and the grid will not request beyond it.
       if (width < cols && req.col + width - 1 >= s.dataCols.value) edge = { ...edge, cols: req.col + width - 1 }
       if (got.text.length < rows && req.row + got.text.length - 1 >= s.dataShown.value) edge = { ...edge, rows: req.row + got.text.length - 1 }
       const merged = got.merges.flatMap((m) => { const r = parseRange(m); return r ? [r] : [] })
@@ -320,7 +320,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         if (at) patch(next, ch, at)
       }
       slots[kind].value = next
-      // Every drawn row reads the new window and makes its revision again.
+      // Every drawn row reads the new window and takes its revision again.
       rowRevisions.clear()
       s.failure.value = null
     } catch (e) {
@@ -331,18 +331,18 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     } finally {
       if (mine === epoch && !wait.value) {
         s.loading.value = order.some((k) => slots[k].value.pendingKey !== '' && !slots[k].value.asked?.quiet)
-        // The scroll may have moved on while the request was out.
+        // The scroll may have moved on while the request was pending.
         if (!s.failure.value) ensure()
       }
     }
   }
 
-  // ── a book being recomputed: the source answers `pending`, the sheet waits with a stopwatch and asks again ──
+  // ── a workbook being recalculated: the source returns `pending`, and the sheet waits with a stopwatch and requests again ──
   const wait = ref<{ since: number; elapsedMs: number } | null>(null)
   const waitSeconds = ref(0)
   let waitTimer: ReturnType<typeof setInterval> | null = null
   let polls = 0
-  /** Start or go on waiting; false (and a failure) once the polls run out. */
+  /** Starts or continues waiting; false (and a failure) once the retries run out. */
   function awaitPending(elapsedMs: number): boolean {
     if (!wait.value) {
       wait.value = { since: Date.now(), elapsedMs }
@@ -368,7 +368,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     waitSeconds.value = 0
   }
 
-  /** Widths, heights and the default height from a window, changed in place; rows above the frame keep it still when their heights change. */
+  /** Widths, heights and the default height from a window, changed in place; rows above the viewport keep it steady when their heights change. */
   function takeSizes(w: SheetWindow): void {
     const widths = s.bookWidths.value
     let widthsChanged = false
@@ -400,7 +400,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const after = geo.rowOffsets.value[anchor - 1] ?? 0
     const el = s.scroller.value
     if (el && after !== before && s.scrollTop.value > 0) {
-      // The scroll the grid draws by moves now; the frame follows once the rows are drawn at their new heights, one write and no read.
+      // The scroll the grid draws by moves now; the viewport follows once the rows are drawn at their new heights, with one write and no read.
       const top = Math.max(0, s.scrollTop.value + after - before)
       s.scrollTop.value = top
       void nextTick(() => {
@@ -409,7 +409,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     }
   }
 
-  /** Load what the drawn piece needs and the slots do not hold. */
+  /** Loads what the drawn area needs and the slots do not hold. */
   function ensure(): void {
     if (s.failure.value || s.filterWait.value || !s.sheet.value || s.rowCount.value === 0) return
     for (const kind of order) {
@@ -418,7 +418,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     }
   }
 
-  /** Drop every window: answers in flight are aborted and ignored. */
+  /** Drops every window: pending responses are aborted and ignored. */
   function reset(): void {
     epoch++
     rowRevisions.clear()
@@ -433,14 +433,14 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     }
     s.loading.value = false
   }
-  /** Forget the sheet's sizes too (another sheet, or a reload). */
+  /** Forgets the sheet's sizes too (another sheet, or a reload). */
   function resetSizes(): void {
     s.bookWidths.value = new Map()
     s.heights.value = new Map()
     s.defaultRowPx.value = rowPx(DEFAULT_ROW_HEIGHT)
   }
 
-  /** A cell's new state into a slot's window, in place; its display row when that changed anything, else null (the window does not hold the cell, or it was so already). */
+  /** Writes a cell's new state into a slot's window, in place; returns its display row when that changed anything, otherwise null (the window does not hold the cell, or it was unchanged). */
   function patch(slot: Slot, ch: CellUpdate, at: CellPosition): number | null {
     const w = slot.win
     const d = s.indexOf(at.row)
@@ -472,7 +472,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     return changed ? d : null
   }
 
-  /** New cell states into the loaded windows and over the answers of requests out; the rest are dropped, an unloaded window comes fresh anyway. */
+  /** Writes new cell states into the loaded windows and over the responses of pending requests; the rest are dropped, since an unloaded window arrives fresh anyway. */
   function applyChanges(changes: CellUpdate[]): void {
     let changed = false
     const rows = new Set<number>()
@@ -498,7 +498,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     }
   }
 
-  /** Whether an area of display rows holds a cell of these rectangles (by sheet rows): under a filter, by the rows of its places. */
+  /** Whether an area of display rows contains a cell of these ranges (by sheet rows): under a filter, by the rows at its positions. */
   function meets(area: Area, rects: CellRect[]): boolean {
     const last = area.row + area.rows - 1
     for (const r of rects) {
@@ -507,7 +507,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         if (r.bottom >= area.row && r.top <= last) return true
         continue
       }
-      // The shorter way: the rectangle's rows by their display places, or the area's places by their rows.
+      // The shorter way: the range's rows by their display positions, or the area's positions by their rows.
       if (r.bottom - r.top < area.rows) {
         for (let row = r.top; row <= r.bottom; row++) {
           const d = s.indexOf(row)
@@ -523,16 +523,16 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     return false
   }
 
-  /** Ranges of repaints that came in the same task, read together. */
+  /** Ranges of repaints that arrived in the same task, read together. */
   let repaints: { sheet: string; range: string }[] = []
-  /** When the last repaint was read, and the timer of a repaint put off. */
+  /** When the last repaint was read, and the timer of a deferred repaint. */
   let repaintAt = -Infinity
   let repaintTimer: ReturnType<typeof setTimeout> | null = null
   /**
-   * Read again, in place, the windows that meet these ranges of the sheet shown (cells that may look otherwise after a change):
-   * each stays drawn until its answer comes, under the same display rows; a request out that meets them is aborted and sent
-   * again, as it may have been read before the change. Ranges of other sheets are read when their sheet is shown. Repaints
-   * of one task are read together; one that follows another closely asks once they stop.
+   * Re-reads in place the windows that overlap these ranges of the displayed sheet (cells that may look different after a
+   * change): each stays drawn until its response arrives, under the same display rows; a pending request that overlaps them
+   * is aborted and sent again, since it may have been read before the change. Ranges of other sheets are read when their
+   * sheet is displayed. Repaints from one task are read together; one that closely follows another requests once they stop.
    */
   function repaint(ranges: { sheet: string; range: string }[]): void {
     if (!repaints.length) queueMicrotask(takeRepaints)

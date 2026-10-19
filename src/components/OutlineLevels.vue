@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Excel's level buttons 1…N+1 of an outline bar, in the corner: the rows' across the bar at the letters' height, the
-// columns' down the bar over the numbers. Level k collapses the groups of level k and deeper and expands the others.
+// Excel's level buttons 1…N+1 of an outline bar, in the corner: the rows' buttons across the bar at the column letters'
+// height, the columns' buttons down the bar above the row numbers. Level k collapses the groups at level k and deeper and expands the others.
 import { computed } from 'vue'
 import type { OutlineAxis } from '../core/outline'
 import { useSheetContext } from './context'

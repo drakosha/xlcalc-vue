@@ -4,7 +4,7 @@ import type { SheetMessages } from './contract/messages'
 
 /** `n` and its English noun, singular for one. */
 const countEn = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
-/** The tail of a search status when the source cut the list. */
+/** The end of a search status when the source truncated the list. */
 const shownEn = (total: number, shown: number) => (total > shown ? ` (the first ${shown} shown)` : '')
 /** A sort's direction as an arrow, in both sets. */
 const sortArrow = (dir: 'asc' | 'desc') => (dir === 'asc' ? '↑' : '↓')
@@ -272,7 +272,7 @@ function plural(n: number, one: string, few: string, many: string): string {
 }
 /** `n` and its Russian noun in the right plural. */
 const countRu = (n: number, one: string, few: string, many: string) => `${n} ${plural(n, one, few, many)}`
-/** The tail of a search status when the source cut the list. */
+/** The end of a search status when the source truncated the list. */
 const shownRu = (total: number, shown: number) => (total > shown ? ` (показаны первые ${shown})` : '')
 
 export const ruMessages: SheetMessages = {
@@ -541,7 +541,7 @@ export const ruMessages: SheetMessages = {
   mergeWarning: 'При объединении ячеек сохраняется только значение из верхней левой ячейки, а значения из остальных ячеек удаляются.',
 }
 
-/** A component's texts: the English set under the part a host passed. */
+/** A component's texts: the English set overridden by the part a host passed. */
 export function useMessages(part: () => Partial<SheetMessages> | undefined): ComputedRef<SheetMessages> {
   return computed(() => ({ ...enMessages, ...part() }))
 }

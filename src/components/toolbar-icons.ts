@@ -1,8 +1,8 @@
-// The toolbar's icons as inline SVGs in the look of icons.ts; the colour buttons draw their colour as a bar under the glyph.
+// The toolbar's icons as inline SVGs in the style of icons.ts; the color buttons draw their color as a bar under the glyph.
 import { h, type FunctionalComponent } from 'vue'
 import { ICON_ATTRS, icon } from './icons'
 
-/** A glyph over a bar of `colour` (none: an outline), as Excel's Font Color and Fill Color buttons show the colour they apply. */
+/** A glyph over a bar of `colour` (none: an outline), as Excel's Font Color and Fill Color buttons show the color they apply. */
 const colourIcon = (paths: string[]): FunctionalComponent<{ colour?: string | null }> => {
   const c: FunctionalComponent<{ colour?: string | null }> = (props) =>
     h('svg', ICON_ATTRS, [
@@ -30,5 +30,5 @@ export const IconAlignRight = icon(['M3 6h18', 'M9 12h12', 'M6 18h15'])
 export const IconWrap = icon(['M3 6h18', 'M3 12h15a3 3 0 1 1 0 6h-4', 'm16 16-2 2 2 2', 'M3 18h7'])
 export const IconMore = icon(['M5 12h.01', 'M12 12h.01', 'M19 12h.01'], { 'stroke-width': 3 })
 export const IconFormatCells = icon(['M3 4h18v16H3z', 'M3 10h18', 'M9 10v10', 'M13 14h5', 'M13 17h3'])
-/** Merge & Center: a cell's box over the cells it takes in, with the arrow both ways. */
+/** Merge & Center: a cell's box over the cells it covers, with a two-way arrow. */
 export const IconMerge = icon(['M3 5h18v14H3z', 'M7 12h10', 'm9 9.5-2.5 2.5L9 14.5', 'm15 9.5 2.5 2.5-2.5 2.5'])

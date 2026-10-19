@@ -1,4 +1,4 @@
-// The display filter and sort, the funnel on a column's letter: the data do not change, the source lists the rows to show in order.
+// The display filter and sort, with the funnel on a column letter: the data do not change, and the source lists the rows to display, in order.
 import { computed, nextTick, onScopeDispose, ref, watch } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import { isAbort } from '../abort'
@@ -14,9 +14,9 @@ type Sort = NonNullable<SheetFilter['sort']>
 export function useFilter(s: SheetState, w: Windows, notify: (text: string) => void) {
   const cols = ref<Record<number, ColumnFilter>>({})
   const sort = ref<Sort | null>(null)
-  /** The funnel needs both: the rows to show and a column's values. */
+  /** The funnel needs both: the rows to display and a column's values. */
   const available = computed(() => typeof s.source().visibleRows === 'function' && typeof s.source().columnValues === 'function')
-  /** Header rows the filter leaves alone: the book's frozen rows, else the first row, as Excel does. */
+  /** Header rows the filter leaves alone: the workbook's frozen rows, otherwise the first row, as Excel does. */
   const head = computed(() => {
     const frozen = s.sheet.value?.freeze?.rows ?? 0
     return clamp(frozen > 0 ? frozen : 1, 0, Math.max(0, s.dataRows.value - 1))
@@ -31,10 +31,10 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
   })
   const key = computed(() => (spec.value ? filterKey(spec.value) : ''))
 
-  // ── the list of shown rows: asked when the conditions change, windows wait for it ──
+  // ── the list of displayed rows: requested when the conditions change, and windows wait for it ──
   let seq = 0
   let ctrl: AbortController | null = null
-  /** Put a list of shown rows in force (null: none); windows start over in the new rows. */
+  /** Puts a list of displayed rows into effect (null: none); windows start over in the new rows. */
   function apply(next: SheetState['visible']['value']): void {
     s.visible.value = next
     s.filterWait.value = false
@@ -65,19 +65,19 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     }
   }
   watch([() => s.sheetName.value, key], () => void fetchVisible())
-  /** Each sheet row's display index (0: not shown), a row listed twice at its last place: a typed array, a million rows are 4 MB. */
+  /** Each sheet row's display index (0: not displayed), with a row listed twice at its last position: a typed array, since a million rows take 4 MB. */
   function displayIndex(rows: number[]): Int32Array {
     const index = new Int32Array(rows.reduce((m, r) => Math.max(m, r), 0) + 1)
     rows.forEach((r, i) => (index[r] = i + 1))
     return index
   }
 
-  /** Conditions are remembered by sheet (under the host's storage key). */
+  /** Conditions are stored per sheet (under the host's storage key). */
   const memoryName = () => `filter:${s.sheetName.value}`
   function remember(): void {
     if (s.sheetName.value) s.memory.remember(memoryName(), active.value ? { cols: cols.value, sort: sort.value } : null)
   }
-  /** The sheet's conditions from memory, before its windows load; the list of rows comes by the watcher. */
+  /** The sheet's stored conditions, before its windows load; the row list arrives through the watcher. */
   function restore(): void {
     close()
     const saved = s.memory.recall<{ cols?: Record<number, ColumnFilter>; sort?: Sort | null }>(memoryName())
@@ -86,15 +86,15 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     sort.value = saved?.sort ?? null
     s.filterWait.value = !!(available.value && (Object.keys(cols.value).length || sort.value))
   }
-  /** Read the list again (the source reloaded): the rows may have changed. */
+  /** Reads the list again (the source reloaded): the rows may have changed. */
   function refresh(): Promise<void> {
     if (s.visible.value) s.visible.value = { ...s.visible.value, key: '' }
     return fetchVisible()
   }
   /**
-   * Excel's Reapply (Control+Alt+L): the conditions and the sort again over the data as they are now, so rows an edit took
-   * out of them go and rows it brought in come; the scroll stays, and the active cell too unless its row went, when the row
-   * now at its place takes it. False when no filter is in force or the list could not be read.
+   * Excel's Reapply (Ctrl+Alt+L): applies the conditions and the sort again to the current data, so rows that no longer
+   * match after an edit are hidden and rows that now match appear; the scroll stays, and so does the active cell unless its
+   * row was hidden, in which case the row now at its position takes it. False when no filter is in effect or the list could not be read.
    */
   async function reapply(): Promise<boolean> {
     if (!active.value || !available.value) return false
@@ -111,7 +111,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     }
     return true
   }
-  /** Drop every condition at once: the rows go back to the sheet's order. */
+  /** Clears every condition at once: the rows return to the sheet's order. */
   function clear(): void {
     cols.value = {}
     sort.value = null
@@ -125,7 +125,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     notify(s.messages.value.unfiltered(row))
   }
 
-  /** The line under the grid: shown rows of all, the columns with conditions, the sort. */
+  /** The status line below the grid: visible rows out of all, the columns with conditions, the sort. */
   const status = computed(() => {
     if (!active.value) return ''
     const fmt = new Intl.NumberFormat(s.locale.value)
@@ -135,13 +135,13 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     return s.messages.value.filterStatus(fmt.format(shown), fmt.format(Math.max(0, s.dataRows.value - head.value)), names, sorted)
   })
 
-  // ── the funnel of a column: its values with checks, a substring, the sort ──
+  // ── a column's funnel: its values with checkboxes, a substring, the sort ──
   const open = ref<number | null>(null)
   const pos = ref({ left: 0, top: 0 })
   const values = ref<{ text: string; count: number }[]>([])
   const more = ref(0)
   const busy = ref(false)
-  /** The draft: checked values (null: all) and a substring; Apply or Enter puts it in force. */
+  /** The draft: checked values (null: all) and a substring; Apply or Enter puts it into effect. */
   const draftValues = ref<Set<string> | null>(null)
   const draftText = ref('')
   const draftSearch = ref('')
@@ -175,7 +175,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     valuesSeq++
     void nextTick(s.focusGrid)
   }
-  /** The funnel's title: the header cell's text and the letters, or the letters alone. */
+  /** The funnel's title: the header cell's text and the column letters, or the letters alone. */
   const title = computed(() => {
     const c = open.value
     if (c === null) return ''
@@ -206,7 +206,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
       draftValues.value = next.size === values.value.length && values.value.every((v) => next.has(v.text)) ? null : next
     }
   }
-  /** Put the draft in force: a condition on the column, or none when all is checked and there is no substring. */
+  /** Puts the draft into effect: a condition on the column, or none when everything is checked and there is no substring. */
   function applyDraft(): void {
     const c = open.value
     if (c === null) return
@@ -241,7 +241,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     }
   }
 
-  // The sheet's end: the list out is aborted, a column's values out dropped.
+  // The sheet is unmounted: the pending list is aborted, and pending column values are discarded.
   onScopeDispose(() => {
     seq++
     valuesSeq++

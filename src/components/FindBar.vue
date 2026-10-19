@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Excel's Find and Replace under the formula bar: the query, Find Next and Previous, the dialog's options, the range it
-// looks within, and the replace row; the source finds, hits in the frame are tinted and the active one pulses.
+// Excel's Find and Replace below the formula bar: the query, Find Next and Find Previous, the dialog's options, the range it
+// searches within, and the Replace row; the source finds, matches in the viewport are highlighted and the current one pulses.
 import type { FindRunner } from '../core/find'
 import { useSheetContext } from './context'
 import { fieldValue, refInto } from './dom'
@@ -11,7 +11,7 @@ const ctx = useSheetContext()
 const { find } = ctx
 const m = ctx.messages
 const setInput = refInto(find.input)
-/** Replacements go to the source as an edit goes: their cells drawn from the outcome, a refusal in the sheet's message line. */
+/** Replacements go to the source as an edit does: their cells drawn from the outcome, a rejection in the sheet's message line. */
 const run: FindRunner = (call) => ctx.ed.run(call, [], null, null)
 </script>
 

@@ -1,4 +1,4 @@
-// The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the frame's size.
+// The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the viewport's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, triggerRef, watch } from 'vue'
 import { cellAddress, linesKey, parseCell, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
@@ -41,9 +41,9 @@ export interface SheetEmit {
 const MESSAGE_MS = 6000
 
 /**
- * The sheet to show once the sheets were read again: the one asked for; else the same one (`keep`); else, as Excel goes
- * on from a sheet deleted or hidden, the next shown sheet from where it stood, or the one before it at the end. Names
- * match in any case, as Excel's do.
+ * The sheet to display once the sheets have been read again: the requested one; otherwise the same one (`keep`); otherwise,
+ * as Excel moves on from a deleted or hidden sheet, the next visible sheet from its position, or the previous one at the
+ * end. Names match case-insensitively, as Excel's do.
  */
 function sheetAfter(list: SheetInfo[], name: string, at: number, target: SheetTarget | null): { index: number; keep: boolean } {
   const shown = (i: number) => i >= 0 && !list[i]!.hidden
@@ -84,7 +84,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   /** Excel's formula bar expanded to several lines; it stays so until toggled, whatever the cell. */
   const barOpen = ref(false)
   const toggleBar = () => (barOpen.value = !barOpen.value)
-  /** Excel's Control+Shift+U (on a Mac too, any layout): the formula bar expanded or collapsed; true when taken. */
+  /** Excel's Ctrl+Shift+U (on a Mac too, with any layout): expands or collapses the formula bar; true when handled. */
   function barKey(e: KeyboardEvent): boolean {
     if (!e.ctrlKey || !e.shiftKey || e.altKey || e.metaKey || shortcutLetter(e) !== 'u') return false
     e.preventDefault()
@@ -94,7 +94,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const alerts = useValidationAlert()
   const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask })
   const point = usePoint(s, sel, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, scan: f.scanOptions, commit: ed.commit })
-  // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, else in as typed past the rule.
+  // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, otherwise in as typed, past the rule.
   const validation = useValidation({
     source: () => s.source(),
     sheet: () => s.sheetName.value,
@@ -107,7 +107,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       if (lock !== null) return notify(s.messages.value.locked(lock))
       const source = s.source()
       const entry = [{ sheet: at.sheet, cell: at.cell, text }]
-      // a pick refused (the list changed meanwhile) asks the rule again, so the list shows what the source holds now
+      // a rejected pick (the list changed meanwhile) requests the rule again, so the list shows what the source holds now
       if (source.pick) void ed.run(() => source.pick!(at.sheet, at.cell, item, text), entry, null, null).then((out) => out.ok || validation.refresh())
       else void ed.send(entry, null, { accept: true })
     },
@@ -118,7 +118,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const explain = useExplain(s, f)
   const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows })
   const list = useList(s, w, emit, props)
-  /** The look of the active cell, from its loaded window: the `state` event and the font keys take it. */
+  /** The active cell's formatting, from its loaded window: the `state` event and the font shortcuts use it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
   const cmd = useCommands(s, sel, ed, {
     reload,
@@ -137,7 +137,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
 
-  /** What the host's template ref gets: the commands as the sheet's own keys and menus give them. */
+  /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
     undo: () => ed.stepHistory('undo'),
     redo: () => ed.stepHistory('redo'),
@@ -152,13 +152,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
 
   // ── sheets ──
-  /** Tabs: sheets hidden in the book are not shown, as in Excel; their indexes stay. */
+  /** Tabs: sheets hidden in the workbook get no tab, as in Excel; their indexes stay. */
   const tabs = computed(() => s.sheets.value.map((x, i) => ({ sheet: x, i })).filter(({ sheet }) => !sheet.hidden))
-  /** Excel shows the tabs with one sheet too; `hideLoneTab` only from two. */
+  /** Excel shows the tabs with a single sheet too; `hideLoneTab` shows them only from two. */
   const showTabs = computed(() => tabs.value.length > (props.hideLoneTab ? 1 : 0))
   const hasLayout = () => typeof s.source().layout === 'function'
 
-  /** Make a sheet active: windows, sizes, selection and scroll start over. */
+  /** Makes a sheet active: windows, sizes, selection and scroll start over. */
   function activate(index: number): void {
     w.reset()
     w.resetSizes()
@@ -182,7 +182,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
 
   let initSeq = 0
-  /** Read the book from the start: sheets, the first shown sheet, a focus waiting for it. */
+  /** Reads the workbook from the start: sheets, the first visible sheet, and a pending focus. */
   async function init(): Promise<void> {
     const mine = ++initSeq
     clip.clear()
@@ -208,7 +208,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   let reloads = 0
   let repaints = 0
   let target: SheetTarget | null = null
-  /** Read the sheets and windows again, keeping the sheet, selection and scroll (a reload event or a conflict); a sheet gone or hidden gives way to its neighbour. */
+  /** Reads the sheets and windows again, keeping the sheet, selection and scroll (a reload event or a conflict); a deleted or hidden sheet gives way to its neighbor. */
   async function reload(): Promise<void> {
     reloads++
     const name = s.sheetName.value
@@ -236,7 +236,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     void init()
   }
 
-  /** A grip takes the pointer for its drag: the page neither selects nor scrolls, and the grid picks no cell under it. */
+  /** A grip captures the pointer for its drag: the page neither selects nor scrolls, and the grid does not select the cell under it. */
   function holdPointer(e: PointerEvent): void {
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     e.preventDefault()
@@ -244,7 +244,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
 
   // ── column width with the mouse ──
-  /** Book widths before the first resize in this session, for a double click to restore them through the source. */
+  /** Workbook widths before the first resize in this session, so a double click can restore them through the source. */
   const originalWidths = new Map<number, number>()
   let drag: { col: number; startX: number; startW: number } | null = null
   function startResize(e: PointerEvent, col: number): void {
@@ -267,20 +267,20 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (px !== undefined) void saveWidth(col, px)
     w.ensure()
   }
-  /** A double click on a column's edge fits it, as Excel, with every selected whole column when it is one of them; without `layout` (or with `edgeRestoresWidth`) the book's width comes back. */
+  /** A double click on a column edge fits the column, as Excel does, together with every selected entire column when it is one of them; without `layout` (or with `edgeRestoresWidth`) it restores the workbook's width. */
   const fitsOnEdge = computed(() => !props.edgeRestoresWidth && cmd.can('layout'))
   function onEdgeDouble(col: number): void {
     if (!fitsOnEdge.value) return resetWidth(col)
     const { first, last } = sel.linesOf(sel.wholeColumns.value, col)
     void cmd.layout({ sheet: s.sheetName.value, columns: linesKey(first, last, 'columns'), fit: true })
   }
-  /** The widths set with the mouse but a column's. */
+  /** The widths set with the mouse, except a column's. */
   function widthsWithout(col: number): Record<number, number> {
     const next = { ...s.userWidths.value }
     delete next[col]
     return next
   }
-  /** The book's width back. */
+  /** Restores the workbook's width. */
   function resetWidth(col: number): void {
     const next = widthsWithout(col)
     if (!hasLayout()) {
@@ -293,7 +293,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     s.userWidths.value = { ...next, [col]: px }
     void saveWidth(col, px)
   }
-  /** With `layout` the width goes to the source; without it the browser remembers it. */
+  /** With `layout` the width goes to the source; without it the browser stores it. */
   async function saveWidth(col: number, px: number): Promise<void> {
     const layout = s.sourceMethod('layout')
     if (!layout) {
@@ -306,7 +306,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     try {
       const got = await layout({ sheet, columns: linesKey(col, col, 'columns'), width: widthFromPx(px) })
       ok = got.ok
-      // cells the width shows otherwise (a date past its #####) come back as changes, as an edit's do
+      // cells whose display changes with the width (a date that no longer shows #####) come back as changes, as with an edit
       if (got.ok) w.applyChanges(got.changes)
       else text = got.message
     } catch (e) {
@@ -318,9 +318,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
 
   // ── row height with the mouse ──
-  /** The grip on a number's edge, where the source sets heights; not for a finger, which snaps to it from the number (its long press opens the menu, with Row Height). */
+  /** The grip on a row number's edge, where the source sets heights; not for touch, which would snap to it from the number (a long press opens the menu, which has Row Height). */
   const rowsResizable = computed(() => cmd.can('layout') && !v.touch.value)
-  /** The dragged row drawn at the new height meanwhile; the release sets it for every selected whole row it is one of. */
+  /** The dragged row is drawn at the new height meanwhile; the release sets it for every selected entire row it is one of. */
   let rowDrag: { first: number; last: number; row: number; startY: number; startH: number; px: number } | null = null
   function startRowResize(e: PointerEvent, row: number): void {
     if (!rowsResizable.value || e.button !== 0) return
@@ -334,7 +334,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + e.clientY - rowDrag.startY)))
     geo.setHeights([[rowDrag.row, rowDrag.px]])
   }
-  /** A double click on a number's edge fits the row, every selected whole row when it is one of them, as Excel's AutoFit. */
+  /** A double click on a row number's edge fits the row, and every selected entire row when it is one of them, as Excel's AutoFit does. */
   function onRowEdgeDouble(row: number): void {
     if (!rowsResizable.value) return
     const { first, last } = sel.linesOf(sel.wholeRows.value, row)
@@ -345,13 +345,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     rowDrag = null
     if (!d || d.px === d.startH) return
     const out = await cmd.layout({ sheet: s.sheetName.value, rows: linesKey(d.first, d.last, 'rows'), height: ptFromPx(d.px) })
-    // A refused height: the rows are read again as the source has them.
+    // A rejected height: the rows are read again as the source has them.
     if (!out?.ok) await reload()
     w.ensure()
   }
 
-  // ── links in cells ──
-  /** A link clicked in a cell: a place in the book is the component's, anything else goes to the host if it listens. */
+  // ── hyperlinks in cells ──
+  /** A hyperlink clicked in a cell: a location in the workbook is handled by the component, anything else goes to the host if it listens. */
   function onLink(e: MouseEvent, link: NonNullable<SheetWindow['links']>[string], row: number, col: number): void {
     if (link.location) {
       e.preventDefault()
@@ -363,7 +363,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     emit('openLink', { ...link, sheet: s.sheetName.value, cell: cellAddress(row, col) })
   }
 
-  // ── keys on the grid: search and Esc first (a popover, the find bar, the copy mode, the precedents), then the font, editing and moves ──
+  // ── keys on the grid: search and Esc first (a popover, the Find bar, copy mode, the precedents), then font shortcuts, editing and navigation ──
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
@@ -373,13 +373,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       find.openFind()
       return
     }
-    // Control+H on a Mac too, as Excel for Mac: Cmd+H hides the browser.
+    // Ctrl+H on a Mac too, as in Excel for Mac: Cmd+H hides the browser.
     if (e.ctrlKey && !e.altKey && shortcutLetter(e) === 'h' && find.available.value) {
       e.preventDefault()
       find.openReplace()
       return
     }
-    // Control+1 on a Mac too: the browser keeps Cmd+1 for its first tab.
+    // Ctrl+1 on a Mac too: the browser reserves Cmd+1 for its first tab.
     if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.key === '1' || e.code === 'Digit1') && cmd.openFormat()) {
       e.preventDefault()
       return
@@ -390,7 +390,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       else find.closeFind()
       return
     }
-    // Esc ends Excel's copy mode: the moving border goes.
+    // Esc ends Excel's copy mode: the moving border disappears.
     if (e.key === 'Escape' && clip.mark.value) {
       e.preventDefault()
       clip.clear()
@@ -401,25 +401,25 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       explain.close()
       return
     }
-    // Excel's Control+Page Down and Page Up: the next or the previous shown sheet, no further than the ends.
+    // Excel's Ctrl+Page Down and Ctrl+Page Up: the next or the previous visible sheet, stopping at the ends.
     if (e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && (e.key === 'PageDown' || e.key === 'PageUp')) {
       e.preventDefault()
       const next = tabs.value[tabs.value.findIndex((t) => t.i === s.active.value) + (e.key === 'PageDown' ? 1 : -1)]
       if (next) void pickSheet(next.i)
       return
     }
-    // Excel's Reapply, Control+Alt+L on a Mac too: Cmd+Option+L is the browser's downloads.
+    // Excel's Reapply, Ctrl+Alt+L on a Mac too: Cmd+Option+L opens the browser's downloads.
     if (e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey && shortcutLetter(e) === 'l' && filter.active.value) {
       e.preventDefault()
       void filter.reapply()
       return
     }
-    // List mode's Enter opens the active cell's drill-down or row instead of moving.
+    // In list mode Enter opens the active cell's drill-down or row instead of moving.
     if (list.key(e)) return
     ed.onGridKey(e)
   }
 
-  // ── the frame ──
+  // ── the viewport ──
   function onScroll(): void {
     const el = s.scroller.value
     if (!el) return
@@ -435,7 +435,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     observer?.observe(el)
     sel.measure()
   })
-  // What is drawn decides what is loaded: scroll, resize, freeze and new data all come here.
+  // What is drawn decides what is loaded: scrolling, resizing, freezing and new data all end up here.
   watch(
     () => [v.firstRow.value, v.lastRow.value, v.firstCol.value, v.lastCol.value, v.frozenRows.value, v.frozenCols.value, s.dataRows.value, s.dataCols.value],
     () => w.ensure(),
@@ -443,7 +443,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   onMounted(() => {
     sel.measure()
     subscribe()
-    // The first window goes after the frame is measured, or it would be asked again at the real size.
+    // The first window is requested after the viewport is measured, or it would be requested again at the real size.
     void init()
   })
 
@@ -462,7 +462,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
           if (event.message) notify(event.message)
           void reload()
         }
-        // A list of cells or the rules themselves may have changed, and the precedents' values: asked once a stream of events stops.
+        // A list of cells or the rules themselves may have changed, and the precedents' values too: requested once a burst of events ends.
         if (event.kind !== 'repaint') {
           validation.refresh(VALIDATION_DELAY_MS)
           explain.refresh()
@@ -477,7 +477,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     },
   )
 
-  // The sheet and selection go out: formula, value and look come from the loaded window; the Format Cells dialog reads them too.
+  // The sheet and selection are reported: formula, value and formatting come from the loaded window; the Format Cells dialog reads them too.
   const viewState = computed<SheetViewState | null>(() => {
     if (!s.sheet.value || !sel.selectionRef.value) return null
     const look = activeLook.value

@@ -1,4 +1,4 @@
-/* The precedents' panel (ExplainPanel.vue) beside the grid: right of it, below it on a phone, in the sheet's --xs-* variables; --xs-explain-w and --xs-explain-h size it. */
+/* The Trace Precedents panel (ExplainPanel.vue) next to the grid: to its right, below it on a phone, in the sheet's --xs-* variables; --xs-explain-w and --xs-explain-h size it. */
 .xs-main {
   display: flex;
   flex: 1 1 auto;
@@ -63,7 +63,7 @@
   padding: 4px 10px;
   color: var(--xs-muted);
 }
-/* A level is 14 px of indent with a guide line, as a tree's. */
+/* A level is 14 px of indent with a guide line, as in a tree view. */
 .xs-explain-line {
   padding: 2px 10px 2px calc(10px + var(--xs-explain-depth, 0) * 14px);
   background: repeating-linear-gradient(to right, var(--xs-grid) 0 1px, transparent 1px 14px) no-repeat 14px 0 / calc(var(--xs-explain-depth, 0) * 14px) 100%;
@@ -90,7 +90,7 @@
 .xs-explain-from {
   color: var(--xs-muted);
 }
-/* A finger: each line at least 44 px high, its references 44 px targets. */
+/* Touch: each line at least 44 px tall, its references 44 px targets. */
 .xs-touch .xs-explain-line {
   display: flex;
   flex-wrap: wrap;
