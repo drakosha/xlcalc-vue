@@ -222,7 +222,7 @@ describe('Replace', () => {
     await w.find('[data-xs-replace-all]').trigger('click')
     await settle()
     expect(status(w)).toBe('Replaced: 2')
-    expect(w.find('.xs-message').text()).toBe('1 cell was left as it was: The formula does not read')
+    expect(w.find('.xs-message').text()).toBe('1 cell was left unchanged: The formula does not read')
   })
 
   it('a refusal shows in the sheet’s message line and changes nothing', async () => {

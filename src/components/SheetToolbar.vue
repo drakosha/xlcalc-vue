@@ -114,8 +114,8 @@ const kebab = (name: string) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase(
 /** Excel's split buttons of the font's and the fill's colours: the button applies the last colour, the menu the choice without one and the palette. */
 type Colouring = 'font' | 'fill'
 const COLOURS: { what: Colouring; icon: typeof IconFontColour; title: keyof SheetMessages; none: keyof SheetMessages; noneHook: string }[] = [
-  { what: 'font', icon: IconFontColour, title: 'fontColour', none: 'colourAuto', noneHook: 'colour-auto' },
-  { what: 'fill', icon: IconFillColour, title: 'fillColour', none: 'fillNone', noneHook: 'fill-none' },
+  { what: 'font', icon: IconFontColour, title: 'fontColor', none: 'colorAuto', noneHook: 'colour-auto' },
+  { what: 'fill', icon: IconFillColour, title: 'fillColor', none: 'fillNone', noneHook: 'fill-none' },
 ]
 const text = (key: keyof SheetMessages) => m.value[key] as string
 
@@ -309,8 +309,8 @@ function pickNumber(e: Event): void {
             type="button"
             class="xs-tool xs-tb-caret"
             :data-tb="`${c.what}-palette`"
-            :title="m.pickColour"
-            :aria-label="m.pickColour"
+            :title="m.pickColor"
+            :aria-label="m.pickColor"
             :aria-expanded="open === c.what"
             :disabled="!state"
             @click="toggle(c.what)"

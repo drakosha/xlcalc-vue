@@ -91,8 +91,8 @@ const pressed = (e: BorderEdge) => !!shownEdge(props.start, props.draft, e)
           </svg>
         </button>
       </div>
-      <span class="xs-fmt-label">{{ m.fmtColour }}</span>
-      <FormatColour :model-value="upperColour(draft.line.color)" :none-label="m.colourAuto" :messages="m" name="line" @update:model-value="setColour" @invalid="emit('invalid', $event)" />
+      <span class="xs-fmt-label">{{ m.fmtColor }}</span>
+      <FormatColour :model-value="upperColour(draft.line.color)" :none-label="m.colorAuto" :messages="m" name="line" @update:model-value="setColour" @invalid="emit('invalid', $event)" />
     </fieldset>
     <div class="xs-fmt-stack">
       <fieldset class="xs-fmt-box">

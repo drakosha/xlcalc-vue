@@ -277,7 +277,7 @@ describe('the precedents’ panel', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(panel(w).exists()).toBe(true)
     expect(calls.map((c) => c.cell)).toEqual(['B2'])
-    expect(panel(w).text()).toContain('Reading…')
+    expect(panel(w).text()).toContain('Loading…')
     // Keys held down ask once, after the pause.
     await key(w, 'ArrowDown')
     await vi.advanceTimersByTimeAsync(EXPLAIN_DELAY_MS - 50)

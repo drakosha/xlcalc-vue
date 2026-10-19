@@ -186,10 +186,10 @@ export interface SheetMessages {
   bold: string
   italic: string
   underline: string
-  fontColour: string
-  fillColour: string
-  pickColour: string
-  colourAuto: string
+  fontColor: string
+  fillColor: string
+  pickColor: string
+  colorAuto: string
   fillNone: string
   borders: string
   borderAll: string
@@ -223,9 +223,9 @@ export interface SheetMessages {
   fmtUnderline: string
   fmtUnderlineKind: (k: 'none' | 'single' | 'double') => string
   fmtStrike: string
-  fmtColour: string
-  fmtColourCode: string
-  fmtColourBad: string
+  fmtColor: string
+  fmtColorCode: string
+  fmtColorBad: string
   fmtBackground: string
   fmtLine: string
   fmtLineStyle: (style: string) => string
@@ -267,13 +267,13 @@ const shownEn = (total: number, shown: number) => (total > shown ? ` (the first 
 const sortArrow = (dir: 'asc' | 'desc') => (dir === 'asc' ? '↑' : '↓')
 
 export const enMessages: SheetMessages = {
-  back: 'Back to where you came from',
-  backEmpty: 'No jumps yet',
+  back: 'Back to the previous location',
+  backEmpty: 'Nothing to go back to',
   address: 'The selection’s address. Type one (B12, B2:D9, Sheet!C7) and press Enter to go there',
   addressBad: 'Not an address: try B12, B2:D9 or Sheet!C7',
   goSheet: (name) => `Go to sheet “${name}”`,
   showRange: 'Show the range',
-  cellLink: 'Copy a link to this place in the book',
+  cellLink: 'Copy a link to this location in the workbook',
   cellLinkCopied: (ref) => `Link to ${ref} copied`,
   clipboardDenied: 'The browser denied access to the clipboard',
   freeze: (rows, cols, on) => {
@@ -281,17 +281,17 @@ export const enMessages: SheetMessages = {
       .filter(Boolean)
       .join(' and ')
     return on
-      ? `The book freezes ${what} (the line marks the edge): click to unfreeze`
-      : `Unfrozen, the line marks the edge: click to freeze ${what} as the book does`
+      ? `The workbook freezes ${what} (the line marks the edge): click to unfreeze`
+      : `Unfrozen; the line marks the edge: click to freeze ${what} as the workbook does`
   },
   note: (author) => (author ? `Note (${author})` : 'Note'),
-  linkInBook: (location) => `In the book: ${location}`,
+  linkInBook: (location) => `In this workbook: ${location}`,
   linkOpen: 'Open',
   linkDead: (href) => `Link: ${href}`,
-  loading: 'Reading the book…',
+  loading: 'Loading the workbook…',
   empty: 'The sheet is empty',
   retry: 'Retry',
-  loadFailed: 'Could not open the book',
+  loadFailed: 'Could not open the workbook',
   copyFailed: 'Could not copy the selection',
   copyPartial: 'Only part of the selection was copied: too many cells at once',
   statsCount: (n) => `Count: ${n}`,
@@ -323,14 +323,14 @@ export const enMessages: SheetMessages = {
   outlineExpand: 'Show Detail',
   outlineCollapse: 'Hide Detail',
   outlineLevel: (n) => `Show level ${n}`,
-  outlineDeepest: 'Groups go seven levels deep at most',
+  outlineDeepest: 'Groups can be nested at most seven levels deep',
   outlineNone: 'There is no group here to ungroup',
   cellMenu: 'Cells',
   menuCut: 'Cut',
   menuCopy: 'Copy',
   menuPaste: 'Paste',
-  pasteDenied: 'The browser does not let the page read the clipboard: paste with Ctrl+V (Cmd+V on a Mac)',
-  fillHandle: 'Drag to fill the cells beside; double-click to fill down along the data',
+  pasteDenied: 'The browser does not allow this page to read the clipboard: paste with Ctrl+V (Cmd+V on a Mac)',
+  fillHandle: 'Drag to fill adjacent cells; double-click to fill down to the end of the data',
   menuReapply: 'Reapply',
   filterReapply: 'Reapply the filter and sort to the data as they are now (Ctrl+Alt+L)',
   menuFreezePanes: 'Freeze Panes',
@@ -339,9 +339,9 @@ export const enMessages: SheetMessages = {
   menuFreezeFirstColumn: 'Freeze First Column',
   menuPrecedents: 'Trace Precedents',
   explainTitle: 'Precedents',
-  explainReading: 'Reading…',
-  explainFailed: 'Could not read the cell’s precedents',
-  explainEmpty: 'The source says nothing of this cell',
+  explainReading: 'Loading…',
+  explainFailed: 'Could not load the cell’s precedents',
+  explainEmpty: 'The source returned nothing for this cell',
   columnWidth: 'Column width, in characters',
   rowHeight: 'Row height, in points',
   widthRange: 'Column width must be between 0 and 255',
@@ -352,18 +352,18 @@ export const enMessages: SheetMessages = {
   deleteSheetText: (name) => `The sheet “${name}” will be deleted with its data.`,
   unhideSheet: 'Unhide a sheet',
   rename: 'The sheet’s name',
-  selectColumn: 'Click selects the column',
-  selectRow: 'Click selects the row',
-  sortColumn: 'Click sorts by this column',
+  selectColumn: 'Click to select the column',
+  selectRow: 'Click to select the row',
+  sortColumn: 'Click to sort by this column',
   openRow: 'Open the row',
-  selectAll: 'Click selects the whole sheet',
-  resize: 'Drag to change the width; a double click restores the book’s width',
-  resizeFit: 'Drag to change the width; a double click fits it to the contents',
-  resizeRow: 'Drag to change the height; a double click fits it to the contents',
-  conflict: 'The book was changed elsewhere: check and press Enter again',
+  selectAll: 'Click to select the entire sheet',
+  resize: 'Drag to change the width; double-click to restore the workbook’s width',
+  resizeFit: 'Drag to change the width; double-click to fit the contents',
+  resizeRow: 'Drag to change the height; double-click to fit the contents',
+  conflict: 'The workbook was changed elsewhere: check and press Enter again',
   locked: (reason) => `This cell cannot be changed: ${reason}`,
-  editFailed: 'The edit did not go through',
-  pasteOffSheet: 'Cannot paste here: the data would go past the edge of the sheet',
+  editFailed: 'The edit failed',
+  pasteOffSheet: 'Cannot paste here: the data would extend past the edge of the sheet',
   tooManyCells: 'Too many cells for one edit',
   pending: 'Saving…',
   close: 'Close',
@@ -378,10 +378,10 @@ export const enMessages: SheetMessages = {
   insertFunctionPick: 'Select a function',
   expandBar: 'Expand Formula Bar (Ctrl+Shift+U)',
   collapseBar: 'Collapse Formula Bar (Ctrl+Shift+U)',
-  waiting: 'The book is being recomputed…',
+  waiting: 'The workbook is recalculating…',
   waitSeconds: (n) => `${n} s`,
-  waitHint: 'The values will show once the computation is done',
-  waitTimeout: 'The book’s recomputation did not finish in time',
+  waitHint: 'The values will appear once the calculation is done',
+  waitTimeout: 'The workbook’s recalculation did not finish in time',
   find: 'Find on the sheet (Ctrl+F)',
   findPlaceholder: 'Find on the sheet…',
   findPrev: 'Previous (Shift+Enter)',
@@ -400,15 +400,15 @@ export const enMessages: SheetMessages = {
   findByRows: 'By Rows',
   findByColumns: 'By Columns',
   findWithin: (range) => `Within ${range}`,
-  findWholeSheet: 'Search the whole sheet',
+  findWholeSheet: 'Search the entire sheet',
   replaceToggle: 'Replace (Ctrl+H)',
   replacePlaceholder: 'Replace with…',
   replaceOne: 'Replace',
   replaceAll: 'Replace All',
   replaceDone: (n) => (n ? `Replaced: ${n}` : 'Nothing to replace'),
-  replaceRefused: (n, why) => `${countEn(n, 'cell was', 'cells were')} left as ${n === 1 ? 'it was' : 'they were'}: ${why}`,
+  replaceRefused: (n, why) => `${countEn(n, 'cell was', 'cells were')} left unchanged: ${why}`,
   filter: 'Filter and sort',
-  filterOn: 'A filter on this column is on',
+  filterOn: 'This column is filtered',
   filterColumn: (letters) => `Column ${letters}`,
   filterNamed: (name, letters) => `${name} (${letters})`,
   sortAsc: 'Sort ascending',
@@ -417,8 +417,8 @@ export const enMessages: SheetMessages = {
   filterSearch: 'Find in the list…',
   filterAll: 'Select all',
   filterEmpty: '(empty)',
-  filterMore: (n) => `${n} more values, narrow them with text`,
-  filterReading: 'Reading the values…',
+  filterMore: (n) => `${n} more values; type text to narrow the list`,
+  filterReading: 'Loading the values…',
   filterApply: 'Apply',
   filterReset: 'Reset',
   filterClear: 'Clear the filter and sort',
@@ -427,7 +427,7 @@ export const enMessages: SheetMessages = {
       .filter(Boolean)
       .join(', '),
   filterFailed: 'Could not apply the filter',
-  valuesFailed: 'Could not read the column’s values',
+  valuesFailed: 'Could not load the column’s values',
   unfiltered: (row) => `The filter is cleared: it hid row ${row}`,
   toolbar: 'Formatting',
   toolbarMore: 'More formatting',
@@ -436,21 +436,21 @@ export const enMessages: SheetMessages = {
   bold: 'Bold',
   italic: 'Italic',
   underline: 'Underline',
-  fontColour: 'Font colour',
-  fillColour: 'Fill colour',
-  pickColour: 'Pick a colour',
-  colourAuto: 'Automatic',
-  fillNone: 'No fill',
+  fontColor: 'Font Color',
+  fillColor: 'Fill Color',
+  pickColor: 'Choose a color',
+  colorAuto: 'Automatic',
+  fillNone: 'No Fill',
   borders: 'Borders',
-  borderAll: 'All borders',
-  borderOutside: 'Outside borders',
-  borderBottom: 'Bottom border',
-  borderNone: 'No border',
-  alignLeft: 'Align left',
+  borderAll: 'All Borders',
+  borderOutside: 'Outside Borders',
+  borderBottom: 'Bottom Border',
+  borderNone: 'No Border',
+  alignLeft: 'Align Left',
   alignCenter: 'Center',
-  alignRight: 'Align right',
-  wrapText: 'Wrap text',
-  numberFormat: 'Number format',
+  alignRight: 'Align Right',
+  wrapText: 'Wrap Text',
+  numberFormat: 'Number Format',
   formatCells: 'Format Cells',
   formatCellsOpen: 'Format Cells… (Ctrl+1)',
   fmtTab: (tab) => ({ number: 'Number', alignment: 'Alignment', font: 'Font', border: 'Border', fill: 'Fill' })[tab],
@@ -465,7 +465,7 @@ export const enMessages: SheetMessages = {
   fmtIndent: 'Indent',
   fmtIndentRange: 'The indent must be a whole number from 0 to 250',
   fmtFontName: 'Font',
-  fmtFontDefault: 'The book’s font',
+  fmtFontDefault: 'The workbook’s font',
   fmtFontStyle: 'Font style',
   fmtFontStyleKind: (k) => ({ regular: 'Regular', italic: 'Italic', bold: 'Bold', boldItalic: 'Bold Italic' })[k],
   fmtSize: 'Size',
@@ -473,10 +473,10 @@ export const enMessages: SheetMessages = {
   fmtUnderline: 'Underline',
   fmtUnderlineKind: (k) => ({ none: 'None', single: 'Single', double: 'Double' })[k],
   fmtStrike: 'Strikethrough',
-  fmtColour: 'Colour',
-  fmtColourCode: 'Colour code, #RRGGBB',
-  fmtColourBad: 'A colour is # and six hexadecimal digits',
-  fmtBackground: 'Background colour',
+  fmtColor: 'Color',
+  fmtColorCode: 'Color code, #RRGGBB',
+  fmtColorBad: 'A color is # followed by six hexadecimal digits',
+  fmtBackground: 'Background Color',
   fmtLine: 'Line',
   fmtLineStyle: (style) =>
     ({
@@ -498,19 +498,19 @@ export const enMessages: SheetMessages = {
   fmtPreset: (p) => ({ none: 'None', outline: 'Outline', inside: 'Inside' })[p],
   fmtEdges: 'Border',
   fmtEdge: (e) => ({ top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right', insideH: 'Inside horizontal', insideV: 'Inside vertical' })[e],
-  validationList: 'Pick from the list (Alt+Down)',
+  validationList: 'Choose from the list (Alt+Down)',
   validationTitle: 'Microsoft Excel',
   validationYes: 'Yes',
   validationNo: 'No',
   validationContinue: 'Continue?',
   validationStyle: (severity) => ({ stop: 'Stop', warning: 'Warning', information: 'Information' })[severity],
-  formulaQuestion: 'Fix the formula, or restore what the cell had?',
+  formulaQuestion: 'Fix the formula, or restore the cell’s previous contents?',
   formulaFix: 'Fix',
   formulaRevert: 'Restore',
   typoFound: (correction) => `We found a typo in your formula and tried to correct it to: ${correction}. Would you like to accept this correction?`,
   missingParenthesis: 'This formula is missing an opening or closing parenthesis.',
   functionList: 'Functions',
-  functionHint: 'Tab or a double click enters the function',
+  functionHint: 'Press Tab or double-click to insert the function',
   mergeCenter: 'Merge & Center',
   mergeMenu: 'Merge options',
   mergeAcross: 'Merge Across',
@@ -705,10 +705,10 @@ export const ruMessages: SheetMessages = {
   bold: 'Полужирный',
   italic: 'Курсив',
   underline: 'Подчёркнутый',
-  fontColour: 'Цвет текста',
-  fillColour: 'Цвет заливки',
-  pickColour: 'Выбрать цвет',
-  colourAuto: 'Авто',
+  fontColor: 'Цвет текста',
+  fillColor: 'Цвет заливки',
+  pickColor: 'Выбрать цвет',
+  colorAuto: 'Авто',
   fillNone: 'Нет заливки',
   borders: 'Границы',
   borderAll: 'Все границы',
@@ -751,9 +751,9 @@ export const ruMessages: SheetMessages = {
   fmtUnderline: 'Подчёркивание',
   fmtUnderlineKind: (k) => ({ none: 'нет', single: 'одинарное', double: 'двойное' })[k],
   fmtStrike: 'Зачёркнутый',
-  fmtColour: 'Цвет',
-  fmtColourCode: 'Код цвета, #RRGGBB',
-  fmtColourBad: 'Цвет записывается как # и шесть шестнадцатеричных цифр',
+  fmtColor: 'Цвет',
+  fmtColorCode: 'Код цвета, #RRGGBB',
+  fmtColorBad: 'Цвет записывается как # и шесть шестнадцатеричных цифр',
   fmtBackground: 'Цвет фона',
   fmtLine: 'Линия',
   fmtLineStyle: (style) =>

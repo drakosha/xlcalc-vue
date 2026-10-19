@@ -216,7 +216,7 @@ describe('memorySource: the commands as Excel and ./local give them', () => {
 
   it('a group at the sheet’s edge has no summary row, so no button: its command is refused, a level button hides it', async () => {
     const s = sheet({ '1:3': 1 }, { summaryBelow: false })
-    expect(await s.run({ op: 'collapse', ...lvl('1:3', 1) })).toEqual({ ok: false, reason: 'refused', message: "The group of rows 1:3 has no summary row, past the sheet's edge: Excel draws no button for it" })
+    expect(await s.run({ op: 'collapse', ...lvl('1:3', 1) })).toEqual({ ok: false, reason: 'refused', message: "The group of rows 1:3 has no summary row within the sheet: Excel draws no button for it" })
     expect(await s.hidden()).toEqual([])
     await s.run({ op: 'showLevel', axis: 'rows', level: 1 })
     expect(await s.hidden()).toEqual([1, 2, 3])

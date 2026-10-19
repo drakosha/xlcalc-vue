@@ -57,7 +57,7 @@ export function outlineOp(change: OutlineChange, groups: (axis: LineAxis) => rea
   }
   const g = groups(axis).find((x) => x.first === span.first && x.last === span.last && x.level === change.level)
   if (!g) return { refused: `No group of level ${change.level} over the ${axis} ${text}` }
-  if (g.summary === null) return { refused: `The group of ${axis} ${text} has no summary ${axis === 'rows' ? 'row' : 'column'}, past the sheet's edge: Excel draws no button for it` }
+  if (g.summary === null) return { refused: `The group of ${axis} ${text} has no summary ${axis === 'rows' ? 'row' : 'column'} within the sheet: Excel draws no button for it` }
   const op = change.op === 'collapse' ? 'hideDetail' : 'showDetail'
   return axis === 'rows' ? { op, row: g.summary } : { op, column: colLetters(g.summary) }
 }

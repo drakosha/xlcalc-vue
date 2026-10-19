@@ -201,8 +201,8 @@ const cancel = () => emit('close')
         </label>
         <p v-if="errors.fontSize" class="xs-fmt-error" role="alert">{{ m.fmtSizeRange }}</p>
         <fieldset class="xs-fmt-box xs-fmt-wide">
-          <legend>{{ m.fmtColour }}</legend>
-          <FormatColour v-model="draft.fontColour" :none-label="m.colourAuto" :messages="m" name="font" @invalid="badColour.font = $event" />
+          <legend>{{ m.fmtColor }}</legend>
+          <FormatColour v-model="draft.fontColour" :none-label="m.colorAuto" :messages="m" name="font" @invalid="badColour.font = $event" />
         </fieldset>
       </div>
 
