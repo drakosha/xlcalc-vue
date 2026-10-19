@@ -130,7 +130,7 @@ async function outlineScenario(page: Page, base: string): Promise<void> {
   await page.waitForFunction(() => [...document.querySelectorAll('.xs-head')].map((h) => h.textContent!.trim()).slice(0, 2).join(' ') === 'A E')
   const total = await page.locator('[data-cell="10:5"]').textContent()
   await page.screenshot({ path: resolve(out, 'local-1920-outline-level.png') })
-  console.log(`[1920] outline: + shows 6:8, Control+Z hides it, level 1 leaves the total (E10 = ${total?.trim()}), columns B:D collapsed; rows now ${(await numbers(page)).slice(0, 4).join(' ')}`)
+  console.log(`[1920] outline: + shows 6:8, Ctrl+Z hides it, level 1 leaves the total (E10 = ${total?.trim()}), columns B:D collapsed; rows now ${(await numbers(page)).slice(0, 4).join(' ')}`)
 }
 
 /**
@@ -151,7 +151,7 @@ async function validationScenario(page: Page, base: string): Promise<void> {
     await page.locator(`[data-xs-alert-button="${button}"]`).click()
     await shows(page, at, after)
   }
-  console.log('[1920] validation: 500 under a stop rule refused through the pool, Cancel kept 5; 50% under a warning written on Yes')
+  console.log('[1920] validation: 500 under a stop rule rejected through the pool, Cancel kept 5; 50% under a warning written on Yes')
 }
 
 /** A small ru-RU file opened from the file input, typed into, filled with Ctrl+Enter, pasted into, undone, redone, saved and opened again. */
@@ -181,7 +181,7 @@ async function fileScenario(browser: Browser, base: string): Promise<void> {
   await shows(page, '3:2', '8')
   await page.locator('[data-cell="3:2"]').click()
   const bar = await page.locator('.xs-fx-input').inputValue()
-  if (bar !== '=A3*2') throw new Error(`B3 after Control+Return: ${bar}`)
+  if (bar !== '=A3*2') throw new Error(`B3 after Ctrl+Enter: ${bar}`)
   await shot('fill')
   // A paste at C1, a percentage cell: 5 is 500 % (no automatic percentage entry), '007 keeps its apostrophe.
   await page.locator('[data-cell="1:3"]').click()
@@ -209,7 +209,7 @@ async function fileScenario(browser: Browser, base: string): Promise<void> {
   await shows(page, '1:4', "'007")
   await shot('reopened')
   if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`)
-  console.log('[file] typed, Control+Return, paste, undo, redo, saved and opened again: values as edited')
+  console.log('[file] typed, Ctrl+Enter, paste, undo, redo, saved and opened again: values as edited')
   await context.close()
 }
 
@@ -231,8 +231,8 @@ async function production(browser: Browser): Promise<void> {
       const opened: Opened[] = []
       for (let i = 0; i < (size.phone ? 1 : RUNS); i++) opened.push(await open(page, base, 'Витрина!B3', '3:2'))
       const o = opened[0]!
-      if (o.workers < 1) throw new Error('no Web Worker computes the book')
-      console.log(`[${size.name}] open ${ROWS} rows: first cells drawn ${fmt(opened.map((x) => x.drawn))}; session ready ${fmt(opened.map((x) => x.ready))}; book built ${fmt(opened.map((x) => x.built))}; workers ${o.workers}`)
+      if (o.workers < 1) throw new Error('no Web Worker calculates the workbook')
+      console.log(`[${size.name}] open ${ROWS} rows: first cells drawn ${fmt(opened.map((x) => x.drawn))}; session ready ${fmt(opened.map((x) => x.ready))}; workbook built ${fmt(opened.map((x) => x.built))}; workers ${o.workers}`)
       await page.waitForTimeout(300)
       await page.screenshot({ path: resolve(out, `local-${size.name}-open.png`) })
 
@@ -246,11 +246,11 @@ async function production(browser: Browser): Promise<void> {
         // Enter moved down a row: back to B3
         if (!size.phone) await page.keyboard.press('ArrowUp')
       }
-      console.log(`[${size.name}] the share D4 recoloured by the edit: ${before} → ${await share()}`)
+      console.log(`[${size.name}] the share D4 recolored by the edit: ${before} → ${await share()}`)
       const total = await page.locator('[data-cell="9:2"]').textContent()
       console.log(`[${size.name}] edit Витрина!B3, Enter to the total B9 on screen: ${fmt(watched.map((x) => x.shown))}; B9 = ${total}`)
       const looks = watched.flatMap((x) => (x.look === null ? [] : [x.look]))
-      console.log(`[${size.name}] Enter to the shares D3:D7 recoloured: ${looks.length ? fmt(looks) : 'none'} (${looks.length} of ${watched.length} edits recoloured)`)
+      console.log(`[${size.name}] Enter to the shares D3:D7 recolored: ${looks.length ? fmt(looks) : 'none'} (${looks.length} of ${watched.length} edits recolored)`)
       const blank = watched.map((x) => x.blank)
       console.log(`[${size.name}] frames drawn with A3 empty within ${WATCH_MS} ms of Enter: ${blank.join(', ')}`)
       if (blank.some((n) => n > 0)) throw new Error(`an edit drew the sheet empty: ${blank.join(', ')} frames`)
@@ -298,7 +298,7 @@ async function dev(browser: Browser): Promise<void> {
   try {
     const page = await browser.newPage({ viewport: { width: 1920, height: 1200 } })
     const o = await open(page, server.resolvedUrls!.local[0]!, 'Витрина!B3', '3:2')
-    if (o.workers < 1) throw new Error('dev: no Web Worker computes the book')
+    if (o.workers < 1) throw new Error('dev: no Web Worker calculates the workbook')
     console.log(`[dev] first cells drawn ${Math.round(o.drawn)} ms, workers ${o.workers}`)
     await page.close()
   } finally {

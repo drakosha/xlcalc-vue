@@ -125,7 +125,7 @@ async function checkTargets(page: Page, where: string): Promise<void> {
 }
 async function checkNoSideScroll(page: Page, where: string): Promise<void> {
   const { scroll, width } = await page.evaluate(() => ({ scroll: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth), width: window.innerWidth }))
-  if (scroll > width) throw new Error(`${where}: the page scrolls sideways (${scroll} > ${width})`)
+  if (scroll > width) throw new Error(`${where}: the page scrolls horizontally (${scroll} > ${width})`)
 }
 
 /** Enters text into a cell: typed over it on a desktop, through the formula bar on a phone. */
@@ -174,13 +174,13 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   // 1. A new ru-RU workbook.
   await press(page, size, '[data-spa="new"]')
   await page.waitForSelector('[data-spa-locale="ru-RU"]')
-  if (size.phone) await checkTargets(page, at('new book dialog'))
+  if (size.phone) await checkTargets(page, at('new workbook dialog'))
   await press(page, size, '[data-spa-locale="ru-RU"]')
   await shot('new')
   await press(page, size, '[data-spa="create"]')
   await page.waitForSelector('[data-cell="1:1"]')
   await ready(page)
-  expect(at('a new book is ru-RU'), (await bookOf(page)).locale, 'ru-RU')
+  expect(at('a new workbook is ru-RU'), (await bookOf(page)).locale, 'ru-RU')
 
   // 2. Values and a formula in ru-RU.
   await enter(page, size, '1:1', '0,25')
@@ -289,16 +289,16 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
 
   // 9. Values and formatting as saved; the cell typed after saving is not there.
   for (const [cell, text] of [['1:1', '25,00%'], ['2:1', '50,00%'], ['3:1', '75,00%'], ['1:2', '']] as const) await shows(page, cell, text)
-  expect(at('name of the opened book'), await page.locator('[data-spa-name]').inputValue(), `Проверка-${size.name}`)
+  expect(at('name of the opened workbook'), await page.locator('[data-spa-name]').inputValue(), `Проверка-${size.name}`)
   const book = await bookOf(page)
   expect(at('reopened locale'), book.locale, 'ru-RU')
   expect(at('reopened A3'), { formula: cellOf(book, 'A3').formula, bold: cellOf(book, 'A3').style?.font?.bold, format: cellOf(book, 'A3').numberFormat }, { formula: 'SUM(A1:A2)', bold: true, format: 10 })
   expect(at('reopened borders'), bordersOf(book), OUTSIDE)
   await page.locator('[data-cell="2:1"]').click()
   await page.waitForSelector('[data-tb="bold"][aria-pressed="true"]')
-  await boxNames(page, PERCENT, at('the box on the opened percent'))
+  await boxNames(page, PERCENT, at('the box on the opened percentage'))
   const seen = await page.evaluate(() => [...((window as any).__seen as Set<string>)])
-  if (!seen.includes('Пересчёт…')) throw new Error(`${at('status')}: never showed the recomputation: ${JSON.stringify(seen)}`)
+  if (!seen.includes('Пересчёт…')) throw new Error(`${at('status')}: never showed the recalculation: ${JSON.stringify(seen)}`)
   if (size.phone) {
     await checkTargets(page, at('reopened'))
     await checkNoSideScroll(page, at('reopened'))
@@ -310,7 +310,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await page.locator('[data-tb="number"]').selectOption('percentage')
     await ready(page)
     const formatted = await bookOf(page)
-    expect(at('column C in percent'), (formatted.sheets[0]!.columns as Record<string, any>).C.numberFormat, 10)
+    expect(at('column C in percentage'), (formatted.sheets[0]!.columns as Record<string, any>).C.numberFormat, 10)
     expect(at('C7 has no format of its own'), cellOf(formatted, 'C7').numberFormat, undefined)
     await page.locator('[data-cell="7:3"]').click()
     await boxNames(page, PERCENT, at('the box on C7'))
@@ -320,7 +320,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await shot('column-format')
   }
   const t = await page.evaluate(() => (window as any).__spa.timings() as { open: number; change: number })
-  console.log(`${at('ok')}: new ru-RU book, values, bold, percent, outside borders, undo, redo, saved as ${download.suggestedFilename()}, opened again in ${Math.round(t.open)} ms${size.phone ? '' : ', a column\'s format on its empty cell'}`)
+  console.log(`${at('ok')}: new ru-RU workbook, values, bold, percentage, outside borders, undo, redo, saved as ${download.suggestedFilename()}, opened again in ${Math.round(t.open)} ms${size.phone ? '' : ', a column\'s format on its empty cell'}`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -387,7 +387,7 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
     await shot('tab-menu')
     await page.locator('[data-cell="6:3"]').tap()
     await page.waitForFunction(() => !document.querySelector('[data-xs-menu]'))
-    console.log(`${at('ok')}: a row inserted from the menu a long press opened; the width box and a tab's menu by finger`)
+    console.log(`${at('ok')}: a row inserted from the menu that a long press opened; the width dialog and a tab menu by touch`)
     if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
     await context.close()
     return
@@ -406,7 +406,7 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
   await page.locator('[data-xs-menu="unhide"]').click()
   await page.waitForSelector('.xs-head[data-col="2"]')
   await ready(page)
-  expect(at('B shown'), (await letters(page)).slice(0, 3), ['A', 'B', 'C'])
+  expect(at('B unhidden'), (await letters(page)).slice(0, 3), ['A', 'B', 'C'])
 
   // 3. A sheet added by "+", renamed on its tab, deleted: the sheet before it is displayed again.
   await page.locator('[data-xs-add-sheet]').click()
@@ -437,9 +437,9 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
   await page.waitForFunction((w) => document.querySelector<HTMLElement>('.xs-head[data-col="2"]')!.getBoundingClientRect().width > w + 40, before)
   await ready(page)
   const fitted = (await bookOf(page)).sheets[0]!.columns?.B?.width
-  if (!(typeof fitted === 'number' && fitted > 20)) throw new Error(`${at('fit')}: B is ${fitted} wide in the book`)
+  if (!(typeof fitted === 'number' && fitted > 20)) throw new Error(`${at('fit')}: B is ${fitted} wide in the workbook`)
   await shot('fitted')
-  console.log(`${at('ok')}: row inserted (A4 is SUM(A1:A3)), B hidden and shown, sheet added, renamed and deleted, B fitted from ${Math.round(before)} px to ${Math.round(await widthOf())} px (${fitted})`)
+  console.log(`${at('ok')}: row inserted (A4 is SUM(A1:A3)), B hidden and unhidden, sheet added, renamed and deleted, B fitted from ${Math.round(before)} px to ${Math.round(await widthOf())} px (${fitted})`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -448,7 +448,7 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
 const findStatus = (page: Page) => page.evaluate(() => document.querySelector('.xs-find-status')?.textContent?.trim() ?? '')
 async function statusIs(page: Page, text: string, where: string): Promise<void> {
   await page.waitForFunction((t) => document.querySelector('.xs-find-status')?.textContent?.trim() === t, text, { timeout: 30_000 }).catch(async () => {
-    throw new Error(`${where}: the find bar says ${JSON.stringify(await findStatus(page))}, want ${JSON.stringify(text)}`)
+    throw new Error(`${where}: the Find bar shows ${JSON.stringify(await findStatus(page))}, want ${JSON.stringify(text)}`)
   })
 }
 
@@ -496,7 +496,7 @@ async function findFormatScenario(browser: Browser, base: string, size: Size): P
   await shot('find-case')
   await page.locator('[data-xs-find-look]').selectOption('values')
   await statusIs(page, '2 из 2', at('tea, match case, in values'))
-  expect(at('the hit in values'), await page.evaluate(() => document.querySelector('.xs-cell.xs-active')?.getAttribute('data-cell')), '4:1')
+  expect(at('the match in values'), await page.evaluate(() => document.querySelector('.xs-cell.xs-active')?.getAttribute('data-cell')), '4:1')
   await shot('find-values')
 
   // 2. Replace All in formulas: tea in any letter case to milk, A4 recalculates from the new A1; Ctrl+Z undoes it as a whole.
@@ -519,7 +519,7 @@ async function findFormatScenario(browser: Browser, base: string, size: Size): P
   await page.keyboard.press('Control+z')
   for (const [cell, text] of [['1:1', 'tea'], ['3:1', 'Tea time'], ['4:1', 'tea cup']] as const) await shows(page, cell, text)
   await ready(page)
-  expect(at('A1 after Control+Z'), cellOf(await bookOf(page), 'A1').value, 'tea')
+  expect(at('A1 after Ctrl+Z'), cellOf(await bookOf(page), 'A1').value, 'tea')
   await shot('replace-undone')
   await page.locator('.xs-find [aria-label="Закрыть"]').last().click()
 
@@ -573,7 +573,7 @@ async function findFormatScenario(browser: Browser, base: string, size: Size): P
   const undone = await bookOf(page)
   expect(at('Format Cells undone in one step'), [cellOf(undone, 'A1').style, cellOf(undone, 'B1').numberFormat], [undefined, undefined])
   await shot('format-undone')
-  console.log(`${at('ok')}: found with Match case and in values, Replace All of 2 cells and its Control+Z, Format Cells (bold 14, outline, percent) and its undo`)
+  console.log(`${at('ok')}: found with Match case and in values, Replace All of 2 cells and its Ctrl+Z, Format Cells (bold 14, outline, percentage) and its undo`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -633,8 +633,8 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
     else await page.locator(`[data-cell="${cell}"]`).click({ button: 'right' })
     await page.waitForSelector(`[data-xs-menu="${item}"]`)
     if (check) {
-      await checkTargets(page, at('cells menu'))
-      await checkNoSideScroll(page, at('cells menu'))
+      await checkTargets(page, at('cell menu'))
+      await checkNoSideScroll(page, at('cell menu'))
       await shot('cells-menu')
     }
     await press(page, size, `[data-xs-menu="${item}"]`)
@@ -758,7 +758,7 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   await shot('pasted')
   await undo()
   expect(at('the paste undone'), await formulas(page, ['D6', 'E6']), [null, null])
-  expect(at('an undo ends the copy mode'), await antsShown(page), false)
+  expect(at('an undo ends copy mode'), await antsShown(page), false)
   await stale(['6:4', '6:5'], "the paste's undo")
   await shot('paste-undone')
 
@@ -782,7 +782,7 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   expect(at('the move undone'), await formulas(page, ['B1', 'D2']), ['A1*10', null])
   await shot('move-undone')
   if (size.phone) await checkNoSideScroll(page, at('after the moves'))
-  console.log(`${at('ok')}: B1 filled to B4 by ${size.phone ? 'a finger' : 'the mouse'} (B4 is A4*10), 1, 2 filled on to 3, 4, A1:B1 pasted at D6 (E6 is D6*10), B1 moved to D2 (A1*10), each undone`)
+  console.log(`${at('ok')}: B1 filled to B4 by ${size.phone ? 'touch' : 'the mouse'} (B4 is A4*10), 1, 2 continued to 3, 4, A1:B1 pasted at D6 (E6 is D6*10), B1 moved to D2 (A1*10), each undone`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -836,7 +836,7 @@ async function autocompleteScenario(browser: Browser, base: string, size: Size):
   if (size.phone) await page.locator('[data-xs-function="СУММ"]').tap()
   else await page.keyboard.press('Tab')
   await page.waitForSelector('[data-xs-functions]', { state: 'detached' })
-  expect(at('the field after the pick'), await page.locator(field).inputValue(), '=СУММ(')
+  expect(at('the editor after the pick'), await page.locator(field).inputValue(), '=СУММ(')
   expect(at('the focus after the pick'), await page.evaluate((sel) => document.activeElement === document.querySelector(sel), field), true)
 
   // 3. The range and Enter: A4 sums A1:A3.
@@ -844,7 +844,7 @@ async function autocompleteScenario(browser: Browser, base: string, size: Size):
   await page.keyboard.press('Enter')
   await shows(page, '4:1', '6')
   await ready(page)
-  expect(at('A4 in the book'), cellOf(await bookOf(page), 'A4').formula, 'SUM(A1:A3)')
+  expect(at('A4 in the workbook'), cellOf(await bookOf(page), 'A4').formula, 'SUM(A1:A3)')
   await shot('summed')
   if (size.phone) {
     // the formula bar over a formula with references: no target under 44 px
@@ -853,7 +853,7 @@ async function autocompleteScenario(browser: Browser, base: string, size: Size):
     await checkTargets(page, at('the formula bar over a formula'))
     await shot('formula-bar')
   }
-  console.log(`${at('ok')}: =СУ listed СУММ first, ${size.phone ? 'a tap' : 'Tab'} entered СУММ(, A4 is SUM(A1:A3) = 6`)
+  console.log(`${at('ok')}: =СУ listed СУММ first, ${size.phone ? 'a tap' : 'Tab'} inserted СУММ(, A4 is SUM(A1:A3) = 6`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -893,14 +893,14 @@ async function tipScenario(browser: Browser, base: string, size: Size): Promise<
     const r = el.getBoundingClientRect()
     return { text: el.textContent!.trim(), current: el.querySelector('.xs-ft-on')!.textContent!.trim(), inside: r.left >= 0 && r.right <= window.innerWidth && r.top >= 0 && r.bottom <= window.innerHeight }
   })
-  expect(at('the tip'), tip, { text: 'СУММ(число1;[число2];...)', current: 'число2', inside: true })
-  expect(at('the tip’s place'), await page.locator(size.phone ? '.xs-fx [data-xs-tip]' : '.xs-scroller [data-xs-tip]').count(), 1)
-  if (size.phone) await checkNoSideScroll(page, at('the tip'))
+  expect(at('the tooltip'), tip, { text: 'СУММ(число1;[число2];...)', current: 'число2', inside: true })
+  expect(at('the tooltip’s position'), await page.locator(size.phone ? '.xs-fx [data-xs-tip]' : '.xs-scroller [data-xs-tip]').count(), 1)
+  if (size.phone) await checkNoSideScroll(page, at('the tooltip'))
   await page.screenshot({ path: resolve(out, `spa-${size.name}-t01-tip.png`) })
   await page.keyboard.press('Escape')
   await page.waitForSelector('[data-xs-tip]', { state: 'detached' })
   expect(at('A1 after Esc'), cellOf(await bookOf(page), 'A1').formula, undefined)
-  console.log(`${at('ok')}: =СУММ(1; showed СУММ(число1;[число2];...) with число2 in bold ${size.phone ? 'under the formula bar' : 'under the cell'}; Esc took the edit and the tip`)
+  console.log(`${at('ok')}: =СУММ(1; showed СУММ(число1;[число2];...) with число2 in bold ${size.phone ? 'below the formula bar' : 'below the cell'}; Esc canceled the edit and closed the tooltip`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -929,7 +929,7 @@ async function insertScenario(browser: Browser, base: string, size: Size): Promi
   await ready(page)
 
   await press(page, size, '[data-cell="1:1"]')
-  expect(at('Cancel and Enter outside an edit'), await page.evaluate(() => ['cancel', 'enter'].map((b) => document.querySelector<HTMLButtonElement>(`[data-xs-bar-${b}]`)!.disabled)), [true, true])
+  expect(at('Cancel and Enter outside editing'), await page.evaluate(() => ['cancel', 'enter'].map((b) => document.querySelector<HTMLButtonElement>(`[data-xs-bar-${b}]`)!.disabled)), [true, true])
   await press(page, size, '[data-xs-bar-fx]')
   await page.waitForSelector('[data-xs-insert-function] [data-xs-if-item]')
   await page.locator('[data-xs-if-search]').fill('сумм')
@@ -958,14 +958,14 @@ async function insertScenario(browser: Browser, base: string, size: Size): Promi
   await press(page, size, '[data-xs-dialog-ok]')
   await page.waitForSelector('.xs-bar-editing')
   const field = await page.locator('.xs-fx-input').evaluate((el: HTMLTextAreaElement) => ({ text: el.value, caret: el.selectionStart, focused: document.activeElement === el }))
-  expect(at('the bar after OK'), field, { text: '=СУММ(', caret: 6, focused: true })
+  expect(at('the formula bar after OK'), field, { text: '=СУММ(', caret: 6, focused: true })
   await page.keyboard.type('1;2')
   await page.screenshot({ path: resolve(out, `spa-${size.name}-i03-typed.png`) })
   // The function's parenthesis left open: ✓ closes it as Excel's Enter does (xlcalc 0.44)
   await press(page, size, '[data-xs-bar-enter]')
   await shows(page, '1:1', '3')
   await ready(page)
-  expect(at('A1 in the book'), cellOf(await bookOf(page), 'A1').formula, 'SUM(1,2)')
+  expect(at('A1 in the workbook'), cellOf(await bookOf(page), 'A1').formula, 'SUM(1,2)')
   expect(at('the active cell after Enter'), await page.locator('.xs-address').inputValue(), 'A1')
   await press(page, size, '[data-xs-bar-fx]')
   await page.waitForSelector('[data-xs-insert-function] [data-xs-if-item]')
@@ -973,7 +973,7 @@ async function insertScenario(browser: Browser, base: string, size: Size): Promi
   expect(at('the recently used'), again, { category: 'recent', first: 'СУММ' })
   await page.keyboard.press('Escape')
   await page.waitForSelector('[data-xs-insert-function]', { state: 'detached' })
-  console.log(`${at('ok')}: fx found СУММ with its syntax and description, ${logical.length} logical functions, OK and 1;2 and ✓ closed the bracket and wrote 3 in A1, which stayed active; СУММ heads the recently used`)
+  console.log(`${at('ok')}: fx found СУММ with its syntax and description, ${logical.length} logical functions, OK and 1;2 and ✓ closed the parenthesis and wrote 3 in A1, which stayed active; СУММ heads the recently used`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -1003,7 +1003,7 @@ async function cycleScenario(browser: Browser, base: string, size: Size): Promis
   await ready(page)
   for (const [cell, text] of [['1:1', '2'], ['1:2', '2'], ['1:3', '20']] as const) await shows(page, cell, text)
   await page.screenshot({ path: resolve(out, `spa-${size.name}-c01-cycle.png`) })
-  console.log(`${at('ok')}: A1, B1 and C1 hold the file's 2, 2 and 20 through an edit of D1, E1 computed`)
+  console.log(`${at('ok')}: A1, B1 and C1 keep the file's 2, 2 and 20 through an edit of D1, E1 calculated`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -1029,7 +1029,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.mouse.down()
   await page.mouse.move(a2.x, a2.y, { steps: 4 })
   await page.mouse.up()
-  expect(at('the field after the drag'), await field(), '=СУММ(A1:A2')
+  expect(at('the editor after the drag'), await field(), '=СУММ(A1:A2')
   await page.keyboard.type(')')
   await page.keyboard.press('Enter')
   await shows(page, '1:3', '3')
@@ -1037,7 +1037,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.locator('[data-cell="1:4"]').click()
   await page.keyboard.type('=')
   await page.keyboard.press('ArrowLeft')
-  expect(at('the field after Left'), await field(), '=C1')
+  expect(at('the editor after Left'), await field(), '=C1')
   await page.keyboard.type('*2')
   await page.keyboard.press('Enter')
   await shows(page, '1:4', '6')
@@ -1047,7 +1047,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.keyboard.press('ArrowUp')
   await page.keyboard.press('ControlOrMeta+ArrowLeft')
   await page.waitForFunction(() => (document.querySelector('.xs-editor') as HTMLTextAreaElement | null)?.value === '=D1', null, { timeout: 10_000 }).catch(() => {})
-  expect(at('the field after Command+Left'), await field(), '=D1')
+  expect(at('the editor after Cmd+Left'), await field(), '=D1')
   await page.keyboard.type('+0')
   await page.keyboard.press('ArrowRight')
   await shows(page, '2:6', '6')
@@ -1082,7 +1082,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.mouse.up()
   await ready(page)
   const byHand = await rowOf('3')
-  if (byHand?.bestFit || byHand?.height === fitted.height) throw new Error(`${at('row 3 by hand')}: ${JSON.stringify(byHand)}`)
+  if (byHand?.bestFit || byHand?.height === fitted.height) throw new Error(`${at('row 3 set manually')}: ${JSON.stringify(byHand)}`)
   g = await grip()
   await page.mouse.dblclick(g.x + g.width / 2, g.y + 3)
   await ready(page)
@@ -1100,11 +1100,11 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
     await page.waitForTimeout(50)
     copied = await page.evaluate(() => navigator.clipboard.readText())
   }
-  expect(at('E1 shown'), shown, '1234568')
+  expect(at('E1 displayed'), shown, '1234568')
   expect(at('E1 copied'), copied, want)
   await page.mouse.move(size.width / 2, size.height / 2)
   await page.screenshot({ path: resolve(out, `spa-${size.name}-p02-row-height.png`) })
-  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3, =C1*2 by Left gives 6, =D1+0 by Up and Command+Left entered by Right; =1) asked and put back; two lines in A3 wrap and fit row 3 to ${fitted.height} pt, by hand ${byHand?.height} pt, a double click fits it again; E1 shows ${shown} and copies ${JSON.stringify(copied)}`)
+  console.log(`${at('ok')}: =СУММ(A1:A2) by a drag gives 3, =C1*2 by Left gives 6, =D1+0 by Up and Cmd+Left entered by Right; =1) prompted and restored; two lines in A3 wrap and fit row 3 to ${fitted.height} pt, manually ${byHand?.height} pt, a double click fits it again; E1 displays ${shown} and copies ${JSON.stringify(copied)}`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -1147,7 +1147,7 @@ async function typoScenario(browser: Browser, base: string, size: Size): Promise
   else await page.keyboard.press('Enter')
   await shows(page, '1:1', '3')
   await ready(page)
-  expect(at('A1 in the book'), cellOf(await bookOf(page), 'A1').formula, '(1+2)')
+  expect(at('A1 in the workbook'), cellOf(await bookOf(page), 'A1').formula, '(1+2)')
   expect(at('the active cell after Yes'), await page.locator('.xs-address').inputValue(), 'A2')
 
   await enter(page, size, '1:2', '=1+СУММ(2')
@@ -1158,10 +1158,10 @@ async function typoScenario(browser: Browser, base: string, size: Size): Promise
   await page.screenshot({ path: resolve(out, `spa-${size.name}-t02-parenthesis.png`) })
   await press(page, size, '[data-xs-alert-button="ok"]')
   await page.waitForSelector('[data-xs-alert]', { state: 'detached' })
-  expect(at('the bar after OK'), await page.locator('.xs-fx-input').inputValue(), '=1+СУММ(2')
+  expect(at('the formula bar after OK'), await page.locator('.xs-fx-input').inputValue(), '=1+СУММ(2')
   expect(at('the active cell after OK'), await page.locator('.xs-address').inputValue(), 'B1')
-  if (!(await page.locator(size.phone ? '.xs-bar-editing' : '.xs-editor:not(.xs-editor-idle)').count())) throw new Error(`${at('the field after OK')}: not open`)
-  console.log(`${at('ok')}: =(1+2 offered =(1+2), Yes wrote 3 and went to A2; =1+СУММ(2 with Esc said the bracket is missing, OK left the field open`)
+  if (!(await page.locator(size.phone ? '.xs-bar-editing' : '.xs-editor:not(.xs-editor-idle)').count())) throw new Error(`${at('the editor after OK')}: not open`)
+  console.log(`${at('ok')}: =(1+2 offered =(1+2), Yes wrote 3 and moved to A2; =1+СУММ(2 with Esc said the parenthesis is missing, OK left the editor open`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -1201,21 +1201,21 @@ async function mergeScenario(browser: Browser, base: string, size: Size): Promis
   if (await page.locator('[data-cell="1:2"]').count()) throw new Error(`${at('merged')}: B1 is still drawn`)
   await page.waitForSelector('[data-tb="merge"][aria-pressed="true"]')
   const merged = await bookOf(page)
-  expect(at('merged areas'), merged.sheets[0]!.merges, ['A1:B1'])
+  expect(at('merged ranges'), merged.sheets[0]!.merges, ['A1:B1'])
   expect(at('A1 merged'), cellOf(merged, 'A1').value, 'Total')
-  expect(at('A1 centred'), cellOf(merged, 'A1').style?.alignment?.horizontal, 'center')
+  expect(at('A1 centered'), cellOf(merged, 'A1').style?.alignment?.horizontal, 'center')
   expect(at('B1 merged'), cellOf(merged, 'B1').value, undefined)
   await shot(3, 'merged')
   await page.keyboard.press('Control+z')
   await page.waitForSelector('[data-cell="1:2"]', { timeout: 30_000 })
   await ready(page)
   const back = await bookOf(page)
-  expect(at('merged areas after Control+Z'), back.sheets[0]!.merges ?? [], [])
-  expect(at('B1 after Control+Z'), cellOf(back, 'B1').value, 5)
+  expect(at('merged ranges after Ctrl+Z'), back.sheets[0]!.merges ?? [], [])
+  expect(at('B1 after Ctrl+Z'), cellOf(back, 'B1').value, 5)
   await shows(page, '1:2', '5')
   await page.waitForSelector('[data-tb="merge"][aria-pressed="false"]')
   await shot(4, 'merge-undone')
-  console.log(`${at('ok')}: A1:B1 with two values warned, Enter merged and centred it (B1 gone, the button pressed), Control+Z split it with B1 back`)
+  console.log(`${at('ok')}: A1:B1 with two values warned, Enter merged and centered it (B1 gone, the button pressed), Ctrl+Z split it with B1 restored`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
@@ -1293,10 +1293,10 @@ async function limitScenario(browser: Browser, base: string, size: Size): Promis
   await page.waitForFunction(() => /100000/.test(document.querySelector('.xs-message')?.textContent ?? ''), null, { timeout: 30_000 })
   const ms = Date.now() - t
   await ready(page)
-  expect(at('B1 after the refusal'), cellOf(await bookOf(page), 'B1').value, undefined)
-  if (ms > 2000) throw new Error(`${at('refusal')}: ${ms} ms, want under 2 s`)
+  expect(at('B1 after the rejection'), cellOf(await bookOf(page), 'B1').value, undefined)
+  if (ms > 2000) throw new Error(`${at('rejection')}: ${ms} ms, want under 2 s`)
   await page.screenshot({ path: resolve(out, `spa-${size.name}-l01-limit.png`) })
-  console.log(`${at('ok')}: Control+Down from A1 to A3; A1 copied over column B refused in ${ms} ms: ${await page.locator('.xs-message').textContent()}`)
+  console.log(`${at('ok')}: Ctrl+Down from A1 to A3; A1 copied over column B rejected in ${ms} ms: ${await page.locator('.xs-message').textContent()}`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }

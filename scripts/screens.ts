@@ -139,7 +139,7 @@ async function validationScreens(page: Page, size: (typeof SIZES)[number]): Prom
   await enter('9', 'stop')
   await shot(page, size.name, '46-validation-stop-default')
   await press('[data-xs-alert-button="retry"]')
-  console.log(`validation ${size.name}: the message, the list and an item entered, Cancel, Yes and OK left 5, 50 and ASAP`)
+  console.log(`validation ${size.name}: the input message, the list and an item entered; Cancel, Yes and OK left 5, 50 and ASAP`)
 }
 
 /**
@@ -167,7 +167,7 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   // Keys in the menu: focus on its first enabled item (Cut is disabled on a formula), Down to the next one, shown as focused.
   await page.keyboard.press('ArrowDown')
   const focused = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.xsMenu)
-  if (focused !== 'paste') throw new Error(`Down in the cells' menu went to ${focused}`)
+  if (focused !== 'paste') throw new Error(`Down in the cell menu went to ${focused}`)
   await shot(page, size.name, '50-freeze-menu-keys')
   await choose('freeze')
   await page.waitForSelector('[data-cell="2:1"].xs-fz-corner')
@@ -231,7 +231,7 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   await shot(page, size.name, '55-reapply-after')
   if (size.mobile) await checkTargets(page, true)
   await page.locator('[data-xs-filter-clear]').click()
-  console.log(`commands ${size.name}: freeze at B3 and unfreeze, the precedents of B12 and Формулы!B2, row 3 gone after ${size.mobile ? 'the line\'s Reapply' : 'Control+Alt+L'}`)
+  console.log(`commands ${size.name}: freeze at B3 and unfreeze, the precedents of B12 and Формулы!B2, row 3 hidden after ${size.mobile ? 'the status line\'s Reapply' : 'Ctrl+Alt+L'}`)
 }
 
 /**
@@ -241,7 +241,7 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
 async function checkOverlay(page: Page, label: string, refs = false): Promise<void> {
   if (refs) {
     const painted = await page.evaluate(() => [...CSS.highlights.keys()].filter((k) => k.startsWith('xs-ref-') && CSS.highlights.get(k)!.size > 0).length)
-    if (!painted) throw new Error(`the bar's references are not coloured (${label})`)
+    if (!painted) throw new Error(`the formula bar's references are not colored (${label})`)
   }
   const fx = page.locator('.xs-fx')
   const black = Array.from({ length: 24 }, (_, i) => `.xs-fx-layer::highlight(xs-ref-${i}) { color: #000 !important }`).join(' ')
@@ -278,7 +278,7 @@ async function checkOverlay(page: Page, label: string, refs = false): Promise<vo
   const name = label.replace(/\W+/g, '-')
   writeFileSync(resolve(out, `overlay-${name}-layer.png`), Buffer.from(layer, 'base64'))
   writeFileSync(resolve(out, `overlay-${name}-field.png`), Buffer.from(field, 'base64'))
-  throw new Error(`the bar's layer does not lie on its field (${label}): ${diff} pixels differ, test-results/screens/overlay-${name}-*.png`)
+  throw new Error(`the formula bar's layer does not line up with its input (${label}): ${diff} pixels differ, test-results/screens/overlay-${name}-*.png`)
 }
 
 /** The formula bar with the mouse, as in Excel and a code editor: Ctrl+click (Cmd on a Mac) on a reference goes to it, a drag starts editing with the dragged-over text selected, a click moves an editor open in the cell to the formula bar at the caret. */
@@ -324,9 +324,9 @@ async function barMouse(page: Page): Promise<void> {
   await page.mouse.click(caret.x, caret.y)
   await page.waitForTimeout(100)
   const moved = await field()
-  if (!moved.editing || moved.at[0] !== 3 || moved.at[1] !== 3 || (await page.locator('.xs-editor:not(.xs-editor-idle)').count())) throw new Error(`a click on the bar did not take the cell's field there at the caret: ${JSON.stringify(moved)}`)
+  if (!moved.editing || moved.at[0] !== 3 || moved.at[1] !== 3 || (await page.locator('.xs-editor:not(.xs-editor-idle)').count())) throw new Error(`a click on the formula bar did not move the cell editor there at the caret: ${JSON.stringify(moved)}`)
   await page.keyboard.press('Escape')
-  console.log(`bar mouse: Ctrl+click went to A2:A5, a drag selected [1, 5] in an edit, the cell's field moved to the bar at 3`)
+  console.log(`formula bar mouse: Ctrl+click went to A2:A5, a drag selected [1, 5] in an edit, the cell editor moved to the formula bar at 3`)
 }
 
 /**
@@ -369,7 +369,7 @@ async function barGo(page: Page, size: (typeof SIZES)[number]): Promise<void> {
     await page.locator('.xs-bar').screenshot({ path: resolve(out, `${size.name}-63-bar-go-hover.png`) })
     await page.keyboard.up('ControlOrMeta')
     const up = await state()
-    if (up.go || up.cursor === 'pointer' || up.underlined.length) throw new Error(`the key let go left the underline or the hand: ${JSON.stringify(up)}`)
+    if (up.go || up.cursor === 'pointer' || up.underlined.length) throw new Error(`the released key left the underline or the hand pointer: ${JSON.stringify(up)}`)
     const off = await centre(text.indexOf('СУММ') + 1)
     await page.mouse.move(off.x, off.y)
     await page.keyboard.down('ControlOrMeta')
@@ -378,7 +378,7 @@ async function barGo(page: Page, size: (typeof SIZES)[number]): Promise<void> {
     const later = await state()
     await page.keyboard.up('ControlOrMeta')
     if (name.go || name.underlined.length || !later.go || later.underlined.join() !== 'A2:A5') throw new Error(`the key first, then the mouse onto A2:A5: ${JSON.stringify({ name, later })}`)
-    return void console.log(`bar go ${size.name}: Cmd held over A2:A5 underlined it with a hand, the key let go took both away, over СУММ nothing`)
+    return void console.log(`formula bar navigation ${size.name}: Cmd held over A2:A5 underlined it with a hand pointer, releasing the key removed both, nothing over СУММ`)
   }
   // collapsed on a phone, the formula bar shows its first line: A:A
   const ref = await centre(text.indexOf('A:A') + 1)
@@ -393,7 +393,7 @@ async function barGo(page: Page, size: (typeof SIZES)[number]): Promise<void> {
   const tapped = await state()
   if (tapped.address !== 'B6' || !tapped.editing) throw new Error(`a tap on A:A did not start the edit: ${JSON.stringify(tapped)}`)
   await page.keyboard.press('Escape')
-  console.log(`bar go ${size.name}: a long press on A:A went to it without an edit, a tap on it started the edit`)
+  console.log(`formula bar navigation ${size.name}: a long press on A:A went to it without an edit, a tap on it started editing`)
 }
 
 /** Excel's formula bar over a six-line cell: one line high with the grid in place, expanded by its arrow, a click's caret where it was placed, and the caret moved to the last visible line in the collapsed input. */
@@ -410,7 +410,7 @@ async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   await open(page, 'Оформление!H8')
   await page.waitForTimeout(2200)
   const collapsed = await measure()
-  if (collapsed.grid !== plain.grid) throw new Error(`a cell of six lines moved the grid from ${plain.grid} to ${collapsed.grid} px`)
+  if (collapsed.grid !== plain.grid) throw new Error(`a six-line cell moved the grid from ${plain.grid} to ${collapsed.grid} px`)
   await shot(page, size.name, '36-bar-collapsed')
   await checkOverlay(page, 'six lines collapsed')
   if (size.mobile) await checkTargets(page, true)
@@ -444,7 +444,7 @@ async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   else await page.keyboard.press('Control+Shift+KeyU')
   await page.waitForSelector('.xs-bar-editing .xs-fx-open')
   const editingOpen = await measure()
-  if (editing.grid !== collapsed.grid || editingOpen.grid !== expanded.grid) throw new Error(`the open field moved the grid: ${JSON.stringify({ collapsed, editing, expanded, editingOpen })}`)
+  if (editing.grid !== collapsed.grid || editingOpen.grid !== expanded.grid) throw new Error(`the open editor moved the grid: ${JSON.stringify({ collapsed, editing, expanded, editingOpen })}`)
   // A long formula's draft wraps over lines with its references colored: the layer lines up with the input, expanded and collapsed.
   await page.keyboard.press('ControlOrMeta+A')
   await page.keyboard.insertText(`=${Array.from({ length: 12 }, (_, i) => `СУММ(A${i + 1}:C${i + 9})*$B$${i + 2}`).join('+')}`)
@@ -457,8 +457,8 @@ async function barScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   await page.waitForTimeout(100)
   await checkOverlay(page, 'a long draft collapsed', true)
   await page.keyboard.press('Escape')
-  if ([plain, collapsed, expanded].some((m) => m.wide)) throw new Error(`the page scrolls sideways: ${JSON.stringify({ plain, collapsed, expanded })}`)
-  console.log(`bar ${size.name}: ${collapsed.bar} px collapsed over six lines (one line: ${plain.bar} px), ${expanded.bar} px expanded, the same with the field open; the caret's line scrolled into view (${caret.top} of ${caret.room} px)`)
+  if ([plain, collapsed, expanded].some((m) => m.wide)) throw new Error(`the page scrolls horizontally: ${JSON.stringify({ plain, collapsed, expanded })}`)
+  console.log(`formula bar ${size.name}: ${collapsed.bar} px collapsed over six lines (one line: ${plain.bar} px), ${expanded.bar} px expanded, the same with the editor open; the caret's line scrolled into view (${caret.top} of ${caret.room} px)`)
 }
 
 /** Merge & Center on the app's toolbar (spa.html): its dropdown open (on a phone in the toolbar's menu), then A1:B2 merged and centered. */
@@ -489,8 +489,8 @@ async function mergeScreens(page: Page, size: (typeof SIZES)[number]): Promise<v
   await page.waitForTimeout(2200)
   await shot(page, size.name, '57-merged')
   const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
-  if (wide) throw new Error(`merge ${size.name}: the page scrolls sideways`)
-  console.log(`merge ${size.name}: the list under Merge & Center, A1:B2 merged and centred, the button pressed`)
+  if (wide) throw new Error(`merge ${size.name}: the page scrolls horizontally`)
+  console.log(`merge ${size.name}: the dropdown under Merge & Center, A1:B2 merged and centered, the button pressed`)
 }
 
 /**
@@ -518,8 +518,8 @@ async function typoScreens(page: Page, size: (typeof SIZES)[number]): Promise<vo
   await press('[data-xs-alert-button="ok"]')
   await page.waitForSelector('[data-xs-alert]', { state: 'detached' })
   const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
-  if (wide) throw new Error(`typo ${size.name}: the page scrolls sideways`)
-  console.log(`typo ${size.name}: =(1+2 offered =(1+2), No said the bracket is missing, OK left the field open`)
+  if (wide) throw new Error(`typo ${size.name}: the page scrolls horizontally`)
+  console.log(`typo ${size.name}: =(1+2 offered =(1+2), No said the parenthesis is missing, OK left the editor open`)
 }
 
 /**
@@ -542,7 +542,7 @@ async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
         lines: Math.round(r.height / 18),
       }
     })
-    if (got.current !== current || !got.inside || got.list || got.wide) throw new Error(`tip ${size.name} ${where}: ${JSON.stringify(got)}, want ${current} in the window alone`)
+    if (got.current !== current || !got.inside || got.list || got.wide) throw new Error(`tooltip ${size.name} ${where}: ${JSON.stringify(got)}, want ${current} inside the window, alone`)
     return got
   }
   await page.goto(`${base}spa.html?lang=ru`)
@@ -564,7 +564,7 @@ async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   // Excel's Cancel and Enter next to the formula bar, enabled while the edit is open
   await shot(page, size.name, '60-bar-buttons')
   await page.keyboard.press('Escape')
-  console.log(`tip ${size.name}: SUMIFS in a cell (${cell.lines} lines), ROUND in the bar (${bar.lines} lines), inside the window, no list, no side scroll`)
+  console.log(`tooltip ${size.name}: SUMIFS in a cell (${cell.lines} lines), ROUND in the formula bar (${bar.lines} lines), inside the window, no list, no horizontal scroll`)
 
   // Excel's Insert Function: the dialog over the full list, then a category with the syntax and description of the selected one.
   await press('[data-xs-bar-fx]')
@@ -577,7 +577,7 @@ async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   await page.waitForTimeout(100)
   await shot(page, size.name, '62-insert-category')
   const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
-  if (wide) throw new Error(`insert ${size.name}: the page scrolls sideways`)
+  if (wide) throw new Error(`insert ${size.name}: the page scrolls horizontally`)
   await page.keyboard.press('Escape')
   await page.waitForSelector('[data-xs-insert-function]', { state: 'detached' })
 }
