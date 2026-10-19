@@ -1,91 +1,92 @@
 /**
  * The sheet source contract: everything the component knows about its data. Rows and columns are 1-based, cells
- * are A1 addresses. The source shows formulas in its own locale and parses what a person typed; the component knows
- * nothing about the engine, the formula locale or HTTP. Optional methods turn features on: without `edit` the sheet
+ * are A1 addresses. The source displays formulas in its own locale and parses what the user typed; the component knows
+ * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
 import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, StructureOp, StylePatch } from 'xlcalc/contract'
 
-/** Where a sheet takes its data from; the component knows only this. */
+/** The sheet's data source; the component accesses its data only through this interface. */
 export interface SheetSource {
-  /** The book's sheets in order; read again after a structure edit and on a `reload` event. */
+  /** The workbook's sheets in order; read again after a structure change and on a `reload` event. */
   sheets(signal?: AbortSignal): Promise<SheetInfo[]>
-  /** A rectangle of a sheet, at most `maxCells` cells. */
+  /** A rectangular block of a sheet's cells (a window), at most `maxCells` cells. */
   window(req: WindowRequest, signal?: AbortSignal): Promise<SheetWindow | SheetPending>
   /** An edit as typed (`=SUM(A1:A3)`, `1.5`, `'007`); `null` clears. Without it the sheet is read-only. `opts.accept`: see `EditOptions`. */
   edit?(entries: CellEntry[], opts?: EditOptions): Promise<EditOutcome>
-  /** Clipboard text pasted at a cell as Excel pastes it, one step of undo; `select` is what it filled. Without it the fields go to `edit`. */
+  /** Clipboard text pasted at a cell as Excel pastes it, as a single undo step; `select` is the filled range. Without it the fields go to `edit`. */
   paste?(sheet: string, cell: string, text: string): Promise<EditOutcome>
-  /** Control+Return: the text typed into the active cell entered into every cell of `range`. Without it only the active cell takes it. */
+  /** Ctrl+Enter: the text typed into the active cell, entered into every cell of `range`. Without it only the active cell gets it. */
   fill?(sheet: string, range: string, text: string, active: string, opts?: EditOptions): Promise<EditOutcome>
-  /** Take back the book's last change, whole (`ok` with no changes when there is none); `select` is where it was. Without it there is no undo. */
+  /** Undoes the workbook's last change as a whole (`ok` with no changes when there is none); `select` is where it was. Without it there is no undo. */
   undo?(): Promise<EditOutcome>
-  /** Do the last undone change again. */
+  /** Redoes the last undone change. */
   redo?(): Promise<EditOutcome>
   /** A structure operation; without it there is no structure menu. */
   structure?(op: SheetOp): Promise<EditOutcome>
-  /** Column widths and row heights set with the mouse; without it a width lives until the page reloads. */
+  /** Column widths and row heights set with the mouse; without it a changed width lasts until the page reloads. */
   layout?(edit: LayoutChange): Promise<EditOutcome>
   /**
-   * A range's plain text as Excel puts it on the clipboard: values by their formats without the column's clipping (a
-   * narrow date is a date, not `##`), hidden rows and columns left out, rows at CRLF, with one at the end unless
-   * `trailingNewline` is false (Excel for Mac). A range too large to copy is refused with an error. Without it the
-   * sheet copies the texts its windows show.
+   * A range's plain text as Excel puts it on the clipboard: values formatted by their number formats and not clipped to
+   * the column width (a date in a narrow column is the date, not `##`), hidden rows and columns omitted, rows ending with
+   * CRLF, the last one included unless `trailingNewline` is false (Excel for Mac). A range too large to copy is rejected
+   * with an error. Without it the sheet copies the displayed text of its windows.
    */
   copyText?(sheet: string, range: string, opts?: { trailingNewline?: boolean; signal?: AbortSignal }): Promise<string>
   /**
-   * Formatting of ranges (`B2:D9`, whole columns `B:D`, rows `2:5`) in one step of undo, as Excel formats a selection:
-   * style fields go over the style each cell shows (null removes a field), `style: null` removes the cells' own style, a
-   * number format or null; several patches carry what differs by place (outside borders). Without it there is no toolbar.
+   * Formats ranges (`B2:D9`, entire columns `B:D`, rows `2:5`) as a single undo step, as Excel formats a selection:
+   * style fields apply on top of each cell's displayed style (null removes a field), `style: null` removes the cells' own
+   * style, and a number format or null sets the format; several patches carry what differs by position (outside borders).
+   * Without it there is no toolbar.
    */
   format?(sheet: string, patches: FormatPatch[]): Promise<EditOutcome>
   /** Changes made elsewhere: another tab, an agent, the clock. Returns the unsubscribe function. */
   subscribe?(listener: (event: SourceEvent) => void): () => void
-  /** A cell's data validation as Excel shows it on the cell: the list of its dropdown and its input message; null when no rule is over the cell. */
+  /** A cell's data validation as Excel displays it on the cell: its dropdown list and its input message; null when no rule applies to the cell. */
   validation?(sheet: string, cell: string, signal?: AbortSignal): Promise<SheetValidation | null>
   /**
-   * An item picked from a list rule's dropdown: the `item`th of `validation`'s `list` (`text`, to tell when the list changed),
-   * written as Excel writes a picked item (its value, not read as typed text; the cell's format kept), the rule not asked,
-   * one step of undo. Without it the item goes to `edit` as typed, with `accept`.
+   * An item chosen from a list rule's dropdown: item number `item` of `validation`'s `list` (with its `text`, to detect a
+   * changed list), written as Excel writes a chosen item (its value, not parsed as typed text; the cell's number format
+   * kept), without checking the rule, as a single undo step. Without it the item goes to `edit` as typed, with `accept`.
    */
   pick?(sheet: string, cell: string, item: number, text: string): Promise<EditOutcome>
-  /** Excel's Freeze Panes: the rows above and the columns left of a cell kept in view (`{ rows: 2, cols: 1 }`), null unfreezes; one step of undo. Without it the sheet's lock alone hides a book's freeze. */
+  /** Excel's Freeze Panes: the rows above and the columns to the left of a cell kept in view (`{ rows: 2, cols: 1 }`), null unfreezes; a single undo step. Without it only the sheet's lock button hides the workbook's frozen panes. */
   freeze?(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome>
   /** The functions a formula can call, by their names as typed in the source's locale (`СУММ` in ru-RU), for Excel's Formula AutoComplete. */
   functionNames?(signal?: AbortSignal): Promise<string[]>
   /**
-   * A function's arguments for Excel's tip while a formula is typed (`SUM(number1, [number2], ...)`, in ru-RU
-   * `СУММ(число1;[число2];...)`): the name as typed, in English or the source's locale, any case; null for a function it
-   * does not know. Without it there is no tip.
+   * A function's arguments for Excel's argument tooltip while a formula is typed (`SUM(number1, [number2], ...)`, in ru-RU
+   * `СУММ(число1;[число2];...)`): the name as typed, in English or in the source's locale, in any letter case; null for a
+   * function the source does not know. Without it there is no tooltip.
    */
   functionSignature?(name: string, signal?: AbortSignal): Promise<SheetFunctionSignature | null>
-  /** A cell's precedents tree as text. */
+  /** A cell's precedent tree as text. */
   explain?(sheet: string, cell: string): Promise<string>
   /**
-   * Excel's Control and an arrow key from a cell (`Range.End`): the cell it goes to (`B12`), the end of the block of cells
-   * that hold something, the next such cell, or the sheet's edge, hidden lines passed. Without it the sheet goes to the
-   * edge of the data it knows.
+   * Excel's Ctrl+arrow from a cell (`Range.End`): the cell it goes to (`B12`), which is the end of the block of non-empty
+   * cells, the next non-empty cell, or the edge of the sheet, skipping hidden rows or columns. Without it the sheet goes to
+   * the edge of the data known to it.
    */
   end?(sheet: string, cell: string, direction: 'up' | 'down' | 'left' | 'right', signal?: AbortSignal): Promise<string>
-  /** Totals of a rectangle; without it the component counts over the loaded windows. */
+  /** Totals of a range; without it the component counts over the loaded windows. */
   stats?(sheet: string, range: string, filter?: SheetFilter, signal?: AbortSignal): Promise<RangeStats>
-  /** Excel's Find on a sheet: hits in Excel's order, by rows or by columns (under a display filter only its visible rows). Without it there is no search. */
+  /** Excel's Find on a sheet: matches in Excel's order, by rows or by columns (under a display filter, only its visible rows). Without it there is no search. */
   find?(req: FindRequest, signal?: AbortSignal): Promise<FindResult>
-  /** Excel's Replace All: every cell `find` finds for `req`, looked for in formulas whatever `lookIn` says, as Excel replaces, with the matched text replaced by `by`, in one step of undo. */
+  /** Excel's Replace All: every cell `find` finds for `req`, searched in formulas whatever `lookIn` says, as Excel replaces, with the matched text replaced by `by`, as a single undo step. */
   replace?(req: FindRequest, by: string): Promise<ReplaceOutcome>
-  /** Excel's outline commands: Group, Ungroup, a group's button and a level button. Without it the outline is drawn but does not change. */
+  /** Excel's outline commands: Group, Ungroup, a group's button and a level button. Without it the outline is drawn but cannot be changed. */
   outline?(change: OutlineChange): Promise<EditOutcome>
   /** The sheet's rows in display order under the filter and sort; `rows: null` when there are no conditions. */
   visibleRows?(sheet: string, filter: SheetFilter, signal?: AbortSignal): Promise<{ rows: number[] | null }>
   /** A column's values for the filter funnel, over the rows visible under the other columns' conditions. */
   columnValues?(sheet: string, col: number, filter: SheetFilter, signal?: AbortSignal): Promise<{ values: { text: string; count: number }[]; more: number }>
-  /** The cell limit of one window, 20,000 by default. */
+  /** The maximum number of cells in one window, 20,000 by default. */
   readonly maxCells?: number
-  /** The steps `undo` and `redo` can take, as of the last finished call: a toolbar turns its buttons on by them. */
+  /** The number of steps `undo` and `redo` can take, as of the last completed call: a toolbar enables its buttons by them. */
   readonly history?: { readonly undo: number; readonly redo: number }
 }
 
-/** A function's signature as a source gives it, with what Excel's Insert Function shows under the syntax: one line of what the function does, in the source's locale. */
+/** A function's signature as returned by a source, with what Excel's Insert Function displays under the syntax: a one-line description of the function, in the source's locale. */
 export type SheetFunctionSignature = FunctionSignature & { description?: string }
 
 /** A range's formatting in `SheetSource.format`. */
@@ -97,7 +98,7 @@ export interface FormatPatch {
 
 /** A display filter and sort: the data do not change. */
 export interface SheetFilter {
-  /** Header rows on top that are never filtered. */
+  /** Header rows at the top, which are never filtered. */
   head: number
   cols?: Record<number, { values?: string[]; text?: string }>
   sort?: { col: number; dir: 'asc' | 'desc' }
@@ -116,35 +117,35 @@ export interface SheetInfo {
   maxRow: number
   maxCol: number
   freeze?: { rows: number; cols: number }
-  /** Not on the tabs; `very` (xlsx's veryHidden) is not offered to show again either, as Excel offers it nowhere. */
+  /** Not shown on the tabs; `very` (xlsx's veryHidden) is also not offered for Unhide, since Excel never offers it. */
   hidden?: boolean | 'very'
-  /** Rectangles that cannot be edited, with the reason for a tooltip (for example a script's areas). */
+  /** Ranges that cannot be edited, with the reason for a tooltip (for example, ranges managed by a script). */
   locked?: { range: string; reason: string }[]
-  /** List mode: column titles in the header instead of letters; `sortable` lets a header click sort. */
+  /** List mode: column titles in the header instead of letters; `sortable` makes a header click sort. */
   columns?: { title: string; align?: 'left' | 'center' | 'right'; sortable?: boolean }[]
-  /** Row numbers on the left, on by default; a list has none. */
+  /** Row numbers on the left, shown by default; a list has none. */
   rowNumbers?: boolean
-  /** A totals row held at the bottom: the shown text by the sheet's columns (null: empty). */
+  /** A totals row pinned to the bottom: the displayed text for each of the sheet's columns (null: empty). */
   totals?: (string | null)[]
   /** Excel's outline (Data > Group): the sheet's groups of rows and columns; a sheet without groups has none. */
   outline?: SheetOutline
 }
 
-/** A sheet's groups as Excel draws them in the bars beside the row numbers and above the column letters. */
+/** A sheet's groups as Excel draws them in the bars next to the row numbers and above the column letters. */
 export interface SheetOutline {
-  /** Groups of rows by their first row, the outer before the inner where two begin together. */
+  /** Groups of rows by their first row, the outer group before the inner one when both start on the same row. */
   rows: OutlineGroup[]
   columns: OutlineGroup[]
   /** A group's summary row, which holds its button, is below it (Excel's default) or above it. */
   summaryBelow: boolean
-  /** A group's summary column is right of it (Excel's default) or left of it. */
+  /** A group's summary column is to the right of it (Excel's default) or to the left of it. */
   summaryRight: boolean
 }
 
 /**
- * A group: the lines `from`..`to` (rows, or columns by number) of outline level `level` or deeper, with no such line
- * beside them; `level` is 1 to 7, so every line inside a group of level 2 is inside one of level 1 too. `collapsed`: its
- * lines are hidden and its button shows +.
+ * A group: the rows or columns `from`..`to` (columns by number) at outline level `level` or deeper, with no such row
+ * or column adjacent to them; `level` is 1 to 7, so every row or column inside a level-2 group is also inside a level-1
+ * group. `collapsed`: its rows or columns are hidden and its button shows +.
  */
 export interface OutlineGroup {
   from: number
@@ -154,10 +155,11 @@ export interface OutlineGroup {
 }
 
 /**
- * Excel's outline commands on a sheet, each one step of undo: Group and Ungroup put whole lines one level deeper or
- * shallower (`rows: '3:6'`, `columns: 'B:D'`); collapse and expand are a group's button (Excel's Hide Detail and Show
- * Detail), the group named by its lines and level as `SheetOutline` gives it; `showLevel` is a level button: groups of
- * `level` and deeper collapsed, the shallower ones expanded, one past the deepest level expanding all.
+ * Excel's outline commands on a sheet, each a single undo step: Group and Ungroup move entire rows or columns one level
+ * deeper or shallower (`rows: '3:6'`, `columns: 'B:D'`); collapse and expand are a group's button (Excel's Hide Detail
+ * and Show Detail), with the group identified by its rows or columns and level as `SheetOutline` returns it; `showLevel`
+ * is a level button: groups at `level` and deeper are collapsed, shallower ones expanded, and one past the deepest level
+ * expands all.
  */
 export type OutlineChange =
   | { op: 'group' | 'ungroup'; sheet: string; rows: string }
@@ -166,44 +168,46 @@ export type OutlineChange =
   | { op: 'collapse' | 'expand'; sheet: string; columns: string; level: number }
   | { op: 'showLevel'; sheet: string; axis: 'rows' | 'columns'; level: number }
 
-/** What Excel's Find looks for and where, as its dialog's options give it. */
+/** What Excel's Find searches for and where, as set by the options of its dialog. */
 export interface FindRequest {
   sheet: string
-  /** The text to find; `*` stands for any characters, `?` for one, and `~` before either of them or itself for that character, as in Excel. */
+  /** The text to find; `*` matches any characters, `?` one character, and `~` before either of them or before itself matches that character, as in Excel. */
   query: string
-  /** Only within this range, as Excel finds within a selection of more than one cell; the whole sheet without it. */
+  /** Only within this range, as Excel searches within a selection of more than one cell; the entire sheet without it. */
   range?: string
   /** Match case; without it the case is ignored. */
   matchCase?: boolean
-  /** Match entire cell contents: the whole text matches the query, not a part of it. */
+  /** Match entire cell contents: the entire text matches the query, not a part of it. */
   wholeCell?: boolean
-  /** Look in: the text a cell opens with (formulas as typed in the book's locale, Excel's default) or the text it shows. */
+  /** Look in: the text a cell opens with for editing (formulas as typed in the workbook's locale, Excel's default) or its displayed text. */
   lookIn?: 'formulas' | 'values'
-  /** Search by columns: hits column by column; row by row without it. */
+  /** Search by columns: matches column by column; row by row without it. */
   byColumns?: boolean
   /**
-   * Find Next from this cell (`B12`), as Excel's Find goes on from the active cell (`Range.Find`'s After): the hits in Find's
-   * order from the first after it, round past the end, the cell itself last. Without it they come from the range's first cell.
-   * A source that does not take it gives them from the first cell, and Find Next goes by the hits it gave.
+   * Find Next from this cell (`B12`), as Excel's Find continues from the active cell (`Range.Find`'s After): the matches in
+   * Find's order starting from the first one after it, wrapping around at the end, with the cell itself last. Without it they
+   * start from the range's first cell. A source that does not support it returns them from the first cell, and Find Next
+   * moves through the matches it returned.
    */
   after?: string
-  /** The display filter in force: only its visible rows. */
+  /** The display filter in effect: only its visible rows are searched. */
   filter?: SheetFilter
 }
 
-/** Hits of a search, at most as many as the source gives in one answer; `total` counts them all. */
+/** The matches of a search, at most as many as the source returns in one response; `total` counts them all. */
 export interface FindResult {
   hits: { row: number; col: number }[]
   total: number
 }
 
 /**
- * The outcome of Replace All and how many cells it changed (Excel's "We made N replacements"); `refused`: the cells whose new
- * text Excel would not take (a formula that no longer reads), left as they were while the others are written, with why.
+ * The outcome of Replace All and how many cells it changed (Excel's "We made N replacements"); `refused`: the cells whose
+ * new text Excel would not accept (a formula that no longer parses), left unchanged while the others are written, with the
+ * reason.
  */
 export type ReplaceOutcome = EditOutcome & { replaced: number; refused?: { sheet: string; cell: string; message: string }[] }
 
-/** With a filter `row` is a display index (a place among the visible rows). */
+/** With a filter, `row` is a display index (a position among the visible rows). */
 export interface WindowRequest {
   sheet: string
   row: number
@@ -216,40 +220,40 @@ export interface WindowRequest {
 export interface SheetWindow {
   row: number
   col: number
-  /** Shown text, the window's rows × columns; an empty cell is ''. */
+  /** Displayed text, the window's rows × columns; an empty cell is ''. */
   text: string[][]
-  /** Values of the same cells: selection totals and alignment use them. */
+  /** Values of the same cells, used for selection totals and alignment. */
   values: CellValue[][]
-  /** Formulas by address as they are shown and edited (the source's locale), without `=`. */
+  /** Formulas by address as they are displayed and edited (in the source's locale), without `=`. */
   formulas: Record<string, string>
-  /** The text each cell opens with for editing, as Excel's formula bar shows it; a cell left out opens empty. Without it the component writes it from the value and the formula. */
+  /** The text each cell opens with for editing, as Excel's formula bar displays it; a cell missing from it opens empty. Without it the component produces the text from the value and the formula. */
   editText?: Record<string, string>
-  /** The colour of the format's section (`#RRGGBB`). */
+  /** The color from the number format's section (`#RRGGBB`). */
   colors: Record<string, string>
   styleIds: Record<string, number>
   styles: CellStyle[]
-  /** The number format each cell shows by, as a code (its own, else its row's or column's); a cell left out is General. For a toolbar. */
+  /** The number format code each cell is displayed with (its own, otherwise its row's or column's); a cell missing from it is General. For a toolbar. */
   numberFormats?: Record<string, string>
-  /** The window's column widths (units of xlcalc's `ColumnInput.width`, null for the default), row heights in points. */
+  /** The window's column widths (in the units of xlcalc's `ColumnInput.width`, null for the default), row heights in points. */
   widths: (number | null)[]
   rowHeights: Record<number, number>
   merges: string[]
   /** The default row height in points. */
   defaultRowHeight?: number
-  /** The sheet's tables: their header and border are drawn from these. */
+  /** The sheet's tables, from which their header and border are drawn. */
   tables?: { name: string; range: string; headerRow: number }[]
-  /** What the sheet's conditional formats give cells, as xlcalc computes it: a style over the cell's, a data bar, an icon, the value hidden. */
+  /** The cells' conditional formatting as xlcalc calculates it: a style on top of the cell's own, a data bar, an icon, a hidden value. */
   appearance?: Record<string, ConditionalAppearance>
-  /** Hyperlinks: an external address, a place in the book (`Sheet!B12`), a tooltip, a host's target (a file of the host). */
+  /** Hyperlinks: an external address, a location in the workbook (`Sheet!B12`), a tooltip, a host-specific target (such as a file of the host). */
   links?: Record<string, { href?: string; location?: string; tooltip?: string; target?: string }>
   notes?: Record<string, { author?: string; text: string }>
-  /** A notice above the grid (for example "values computed on the server"). */
+  /** A notice above the grid (for example, "values calculated on the server"). */
   notice?: string
-  /** Cells with a drill-down (list mode): underlined, a click or Enter emits `cellDrill`. */
+  /** Drill-down cells (list mode): underlined, and a click or Enter emits `cellDrill`. */
   drill?: Record<string, true>
 }
 
-/** The window is not ready yet (the host's book is recomputing): the component waits and asks again. */
+/** The window is not ready yet (the host's workbook is recalculating): the component waits and requests it again. */
 export interface SheetPending {
   pending: { elapsedMs: number }
 }
@@ -260,37 +264,37 @@ export interface CellEntry {
   text: string | null
 }
 
-/** How an edit goes on. */
+/** Options of an edit. */
 export interface EditOptions {
-  /** The person kept a value the cell's rule does not take, by a warning's Yes or an information's OK: write it without asking the rule again. */
+  /** The user kept a value the cell's rule rejects, with Yes on a warning or OK on an information alert: write it without checking the rule again. */
   accept?: true
-  /** The text was edited from the cell's own (F2, a double click, the formula bar), not typed over the cell: Excel's percent editor adds no `%` then (`6%` in a `0%` cell is 0.06). */
+  /** The text was edited starting from the cell's own text (F2, a double click, the formula bar), not typed over the cell: Excel's automatic percentage entry then adds no `%` (`6%` in a `0%` cell is 0.06). */
   inPlace?: true
 }
 
-/** A cell's data validation as the person meets it: Excel's dropdown of a list rule and the message shown while the cell is selected. */
+/** A cell's data validation as the user sees it: Excel's dropdown of a list rule and the message displayed while the cell is selected. */
 export interface SheetValidation {
-  /** A list rule that shows its dropdown: the items as their text, in order; empty when its formula gives none. */
+  /** A list rule that shows its dropdown: the items as text, in order; empty when its formula returns none. */
   list?: string[]
-  /** The input message (Excel's title up to 32 characters, text up to 255). */
+  /** The input message (in Excel, a title of up to 32 characters and text of up to 255). */
   prompt?: { title?: string; text: string }
 }
 
-/** The alert of a rule of data validation for a value it does not take, as Excel shows it: stop (Retry, Cancel), warning (Continue? Yes, No, Cancel), information (OK, Cancel). */
+/** A data validation rule's alert for a value that violates it, as Excel displays it: stop (Retry, Cancel), warning (Continue? Yes, No, Cancel), information (OK, Cancel). */
 export interface SheetValidationAlert {
   severity: 'stop' | 'warning' | 'information'
-  /** The rule's title, else the component's default ("Microsoft Excel"). */
+  /** The rule's title, otherwise the component's default ("Microsoft Excel"). */
   title?: string
-  /** The rule's message, else the source's text of the rule. */
+  /** The rule's message, otherwise the source's description of the rule. */
   message: string
-  /** The cell the value was refused in. */
+  /** The cell where the value was rejected. */
   sheet: string
   cell: string
 }
 
 export type SheetOp = Exclude<StructureOp, { op: 'addTable' | 'renameTable' | 'deleteTable' | 'convertTable' }>
 
-/** Columns or rows changed: a width or height set with the mouse, lines hidden or shown, columns or rows fitted to what they show (Excel's double click on an edge). */
+/** Columns or rows changed: a width or height set with the mouse, rows or columns hidden or unhidden, columns or rows fitted to their contents (Excel's double click on an edge). */
 export type LayoutChange =
   | { sheet: string; columns: string; width?: number; hidden?: boolean; fit?: true }
   | { sheet: string; rows: string; height?: number; hidden?: boolean; fit?: true }
@@ -299,45 +303,45 @@ export type EditOutcome =
   | {
       ok: true
       changes: CellUpdate[]
-      /** Where the selection goes after `paste`, `fill`, `undo` or `redo`: what they filled or took back; `edit` gives none (the cursor has moved on). */
+      /** Where the selection goes after `paste`, `fill`, `undo` or `redo`: the range they filled or restored; `edit` returns none (the active cell has already moved). */
       select?: { sheet: string; range: string }
     }
   | {
       ok: false
       /**
-       * conflict: the book changed elsewhere; refused: the cell is locked or the operation is not allowed;
+       * conflict: the workbook changed elsewhere; refused: the cell is locked or the operation is not allowed;
        * invalid: the formula does not parse (`at` is the position in the typed text); failed: anything else.
        */
       reason: 'conflict' | 'refused' | 'invalid' | 'failed'
       message: string
       at?: number
       /**
-       * For `invalid`: the formula Excel offers instead in its "We found a typo in your formula" window, in the source's locale
-       * (brackets left open closed, `=(1+2` → `=(1+2)`); the component asks to accept it and sends the edit again with it.
+       * For `invalid`: the formula Excel suggests instead in its "We found a typo in your formula" dialog, in the source's
+       * locale (unclosed parentheses closed, `=(1+2` → `=(1+2)`); the component offers to accept it and sends the edit again with it.
        */
       correction?: string
-      /** A value a rule of data validation does not take (`refused`): the component shows Excel's alert, and sends the edit again with `accept` after a warning's Yes or an information's OK. */
+      /** A value that violates a data validation rule (`refused`): the component displays Excel's alert, and sends the edit again with `accept` after Yes on a warning or OK on an information alert. */
       alert?: SheetValidationAlert
     }
 
-/** A cell's new state after an edit or a recomputation. */
+/** A cell's new state after an edit or a recalculation. */
 export interface CellUpdate {
   sheet: string
   cell: string
   text: string
   value: CellValue
   color?: string
-  /** Only for edited cells: the formula as shown, or null when the cell no longer has one. */
+  /** Only for edited cells: the formula as displayed, or null when the cell no longer has one. */
   formula?: string | null
-  /** Only for edited cells, from a source whose windows have `editText`: the text the cell opens with now. */
+  /** Only for edited cells, from a source whose windows have `editText`: the text the cell now opens with for editing. */
   editText?: string
-  /** Only for edited cells, from a source whose windows have `numberFormats`: the format code it shows by now (null: General), as a typed date sets one. */
+  /** Only for edited cells, from a source whose windows have `numberFormats`: the format code the cell is now displayed with (null: General), as when a typed date sets one. */
   numberFormat?: string | null
 }
 
 export type SourceEvent =
   | { kind: 'changed'; changes: CellUpdate[] }
-  /** Much or something unknown changed: read the sheets and windows again. */
+  /** Many or unknown things changed: read the sheets and windows again. */
   | { kind: 'reload'; message?: string }
-  /** Cells of these ranges may look otherwise (conditional formats): windows that meet them are read again in place, the sheets, sizes and display filter as they are. */
+  /** Cells in these ranges may look different (conditional formats): windows that overlap them are re-read in place, keeping the sheets, sizes and display filter as they are. */
   | { kind: 'repaint'; ranges: { sheet: string; range: string }[] }
