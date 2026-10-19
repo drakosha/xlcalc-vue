@@ -18,7 +18,7 @@ const ITEMS = ['Да', 'Нет', '', 'Может быть']
 const style = (w: VueWrapper, sel: string) => (w.find(sel).element as HTMLElement).style
 
 describe('ValidationDropdown', () => {
-  it('puts the arrow right of the cell and opens nothing until asked', async () => {
+  it('puts the arrow to the right of the cell and opens nothing until requested', async () => {
     const w = mount(ValidationDropdown, { props: { rect: CELL, items: ITEMS, open: false }, attachTo: document.body })
     expect([style(w, '.xs-vd-anchor').left, style(w, '.xs-vd-anchor').top, style(w, '.xs-vd-anchor').height]).toEqual(['164px', '40px', '20px'])
     expect(w.find('[data-xs-dropdown-arrow]').attributes('aria-expanded')).toBe('false')
@@ -27,7 +27,7 @@ describe('ValidationDropdown', () => {
     expect(w.emitted('toggle')).toHaveLength(1)
   })
 
-  it('lists the items under the cell as wide as the cell and its arrow, a blank one kept; a click gives the item’s place', async () => {
+  it("lists the items below the cell, as wide as the cell plus its arrow, with a blank one kept; a click reports the item's position", async () => {
     const w = mount(ValidationDropdown, { props: { rect: CELL, items: ITEMS, open: true, active: 1, messages: ruMessages }, attachTo: document.body })
     const list = w.find('[data-xs-dropdown-list]')
     expect([style(w, '.xs-vd-list').left, style(w, '.xs-vd-list').top, style(w, '.xs-vd-list').width]).toEqual(['100px', '60px', '81px'])
@@ -40,7 +40,7 @@ describe('ValidationDropdown', () => {
     expect(w.emitted('hover')).toEqual([[0]])
   })
 
-  it('opens the list over the cell where the view has no room below; a finger gets 44 px', async () => {
+  it('opens the list above the cell where the viewport has no room below; touch input gets 44 px', async () => {
     const view = { top: 0, left: 0, width: 390, height: 120 }
     const w = mount(ValidationDropdown, { props: { rect: CELL, items: ITEMS, open: true, view, touch: true }, attachTo: document.body })
     // four 44 px items plus the border fit neither below the cell's bottom at 60 px nor above its top at 40 px: below
@@ -74,7 +74,7 @@ describe('ValidationPrompt', () => {
     expect(bare.find('b').exists()).toBe(false)
   })
 
-  it('goes left of the cell’s middle where the view ends on the right, and over the cell where it ends below', async () => {
+  it("moves left of the cell's middle where the viewport ends on the right, and over the cell where it ends below", async () => {
     const w = mount(ValidationPrompt, {
       props: { rect: { top: 100, left: 300, width: 64, height: 20 }, prompt: { text: 'Длинная подсказка' }, view: { top: 0, left: 0, width: 390, height: 140 } },
       attachTo: document.body,
@@ -93,7 +93,7 @@ describe('ValidationAlert', () => {
   const buttons = (w: VueWrapper) => w.findAll('[data-xs-alert-button]').map((b) => b.text())
   const focused = () => (document.activeElement as HTMLElement | null)?.dataset.xsAlertButton
 
-  it('stop: the title, the message, Retry and Cancel, open on Retry', async () => {
+  it('stop: the title, the message, Retry and Cancel, opening with Retry focused', async () => {
     const w = mount(ValidationAlert, { props: { alert: alert('stop', { title: 'Число' }) }, attachTo: document.body })
     await settle()
     expect(w.find('[data-xs-alert="stop"]').attributes('role')).toBe('alertdialog')
@@ -107,13 +107,13 @@ describe('ValidationAlert', () => {
     expect(w.emitted('answer')).toEqual([['retry'], ['cancel']])
   })
 
-  it('names Retry by the sheet’s own `retry` text', async () => {
+  it("labels Retry with the sheet's own `retry` text", async () => {
     const w = mount(ValidationAlert, { props: { alert: alert('stop'), messages: { retry: 'Again' } }, attachTo: document.body })
     await settle()
     expect(buttons(w)).toEqual(['Again', 'Cancel'])
   })
 
-  it('warning in Russian: «Microsoft Excel», the message and «Продолжить?», Да, Нет и Отмена, open on Нет', async () => {
+  it('warning in Russian: «Microsoft Excel», the message and «Продолжить?», Да, Нет and Отмена, opening with Нет focused', async () => {
     const w = mount(ValidationAlert, { props: { alert: alert('warning'), messages: ruMessages }, attachTo: document.body })
     await settle()
     expect(w.find('.xs-va-title').text()).toBe('Microsoft Excel')
@@ -125,7 +125,7 @@ describe('ValidationAlert', () => {
     expect(w.emitted('answer')).toEqual([['accept'], ['retry'], ['cancel']])
   })
 
-  it('information: OK and Cancel, open on OK; Esc is Cancel; Tab and Shift+Tab go round the buttons', async () => {
+  it('information: OK and Cancel, opening with OK focused; Esc means Cancel; Tab and Shift+Tab cycle through the buttons', async () => {
     const w = mount(ValidationAlert, { props: { alert: alert('information') }, attachTo: document.body })
     await settle()
     expect(buttons(w)).toEqual(['OK', 'Cancel'])

@@ -33,7 +33,7 @@ const td = (w: VueWrapper, row: number, col: number) => w.find(`[data-cell="${ro
 /** Fake timers for the panel's pause; setImmediate stays real, since flushPromises needs it. */
 const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
 
-describe('Reapply of the display filter', () => {
+describe('Reapply for the display filter', () => {
   /** A list filtered on B = a under the host's storage key: rows 2, 4 and 6 visible. */
   const book = (): MemoryBook => ({
     sheets: [{ name: 'S', cells: { A1: 'Name', B1: 'Status', A2: 'n2', B2: 'a', A3: 'n3', B3: 'b', A4: 'n4', B4: 'a', A5: 'n5', B5: 'b', A6: 'n6', B6: 'a' } }],
@@ -47,7 +47,7 @@ describe('Reapply of the display filter', () => {
     return { source, visibleRows, w }
   }
 
-  it('Control+Alt+L applies the conditions again: a row an edit took out goes, one it brought in comes; the scroll and a shown active cell stay', async () => {
+  it('Ctrl+Alt+L reapplies the conditions: a row that no longer matches after an edit is hidden, one that now matches appears; the scroll and a visible active cell stay', async () => {
     const { source, visibleRows, w } = await filtered()
     await td(w, 6, 1).trigger('pointerdown', { button: 0 })
     source.setCells('S', { B4: 'b', B3: 'a' })
@@ -70,7 +70,7 @@ describe('Reapply of the display filter', () => {
     expect(numbers(w)).toEqual(['1', '3', '6'])
   })
 
-  it('an active cell whose row goes takes the row now at its place; the selection collapses to it', async () => {
+  it('an active cell whose row is hidden moves to the row now at its position; the selection collapses to it', async () => {
     const { source, w } = await filtered()
     await goTo(w, 'B4:C6')
     source.setCells('S', { B4: 'b' })
@@ -81,7 +81,7 @@ describe('Reapply of the display filter', () => {
     expect([active(w), address(w)]).toEqual(['6:2', 'B6'])
   })
 
-  it('the cells’ menu, the filter line’s button and the host’s reapplyFilter() reapply too; with no filter there is nothing to reapply', async () => {
+  it("the cell menu, the filter status line's button and the host's reapplyFilter() reapply too; with no filter there is nothing to reapply", async () => {
     const plain = memorySource(book())
     const plainRows = vi.spyOn(plain, 'visibleRows')
     const bare = await mountSheet(plain)
@@ -112,7 +112,7 @@ describe('Reapply of the display filter', () => {
     expect(numbers(w)).toEqual(['1', '3', '4'])
   })
 
-  it('takes Excel’s names in Russian', async () => {
+  it("uses Excel's names in Russian", async () => {
     localStorage.setItem('k:filter:S', JSON.stringify({ cols: { 2: { values: ['a'] } }, sort: null }))
     const w = await mountSheet(memorySource(book()), { storageKey: 'k', messages: ruMessages })
     // the stored filter is reapplied through the source's visibleRows, in as many rounds as the machine's load takes
@@ -131,7 +131,7 @@ describe('Freeze Panes', () => {
   const book = (freeze?: { rows: number; cols: number }): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 'h', H90: 'end' }, ...(freeze ? { freeze } : {}) }, { name: 'T', cells: { A1: 't' } }] })
   const frozen = (w: VueWrapper) => ({ corner: td(w, 1, 1).classes().includes('xs-fz-corner'), rows: w.findAll('.xs-fz-row').length > 0, cols: w.findAll('.xs-fz-col').length > 0 })
 
-  it('the menu freezes the rows above and the columns left of the active cell through `freeze`; Unfreeze Panes takes them off', async () => {
+  it('the menu freezes the rows above and the columns to the left of the active cell through `freeze`; Unfreeze Panes removes them', async () => {
     const source = memorySource(book())
     const freeze = vi.spyOn(source, 'freeze')
     const sheets = vi.spyOn(source, 'sheets')
@@ -164,7 +164,7 @@ describe('Freeze Panes', () => {
     expect(frozen(w)).toEqual({ corner: false, rows: false, cols: true })
   })
 
-  it('a freeze made shows over the lock that hid the book’s panes and over the half-frame rule; an unfreeze forgets the lock’s choice', async () => {
+  it("panes frozen by a command display regardless of the lock that hid the workbook's panes and of the half-viewport rule; unfreezing clears the lock's choice", async () => {
     const source = memorySource(book({ rows: 2, cols: 1 }))
     const w = await mountSheet(source, { storageKey: 'k' })
     await w.find('.xs-tools .xs-tool').trigger('click')
@@ -186,7 +186,7 @@ describe('Freeze Panes', () => {
     expect(w.findAll('.xs-fz-row')).toHaveLength(0)
   })
 
-  it('from A1 freezes at the frame’s middle as Excel; whole columns or rows freeze left of or above them', async () => {
+  it("with A1 active it freezes at the viewport's middle, as Excel does; entire columns or rows freeze to the left of or above them", async () => {
     const source = memorySource(book())
     const freeze = vi.spyOn(source, 'freeze')
     const w = await mountSheet(source)
@@ -201,7 +201,7 @@ describe('Freeze Panes', () => {
     expect(freeze).toHaveBeenLastCalledWith('S', { rows: 4, cols: 0 })
   })
 
-  it('nothing is sent without `freeze`, on a read-only sheet, or with nothing to unfreeze; a refusal is shown', async () => {
+  it('nothing is sent without `freeze`, on a read-only sheet, or with nothing to unfreeze; a rejection is displayed', async () => {
     const source = memorySource(book())
     const freeze = vi.spyOn(source, 'freeze')
     const ro = await mountSheet(source, { readOnly: true })
@@ -226,7 +226,7 @@ describe('Freeze Panes', () => {
     expect(await api(bare).freezePanes('topRow')).toBeNull()
   })
 
-  it('with the local source the book takes the panes, one step of undo: Control+Z takes them back', async () => {
+  it('with the local source the workbook stores the panes as a single undo step: Ctrl+Z removes them', async () => {
     const source = localSource({ locale: 'en-US', sheets: [{ name: 'S', cells: { A1: { value: 1 }, C5: { value: 2 } } }] }, { calc: 'inline' })
     const w = await mountSheet(source)
     await settle(12)
@@ -243,7 +243,7 @@ describe('Freeze Panes', () => {
   })
 })
 
-describe('the precedents’ panel', () => {
+describe('the Trace Precedents panel', () => {
   const book = (): MemoryBook => ({
     sheets: [
       { name: 'Data', cells: { A2: 10, A3: 20, A4: { value: 30, formula: 'SUM(A2:A3)' }, B2: { value: 60, formula: 'A4*2' } } },
@@ -264,7 +264,7 @@ describe('the precedents’ panel', () => {
   }
   const lines = (w: VueWrapper) => w.findAll('[data-xs-explain-line]').map((l) => l.text())
 
-  it('Trace Precedents opens the panel at the active cell; it follows the cell after a pause and drops a late answer', async () => {
+  it('Trace Precedents opens the panel for the active cell; it follows the cell after a pause and discards a late response', async () => {
     fakeTimers()
     const source = memorySource(book())
     const { calls, explain } = held()
@@ -301,7 +301,7 @@ describe('the precedents’ panel', () => {
     expect(lines(w)).toEqual(['Data!B4 = 5'])
   })
 
-  it('shows the memory book’s tree; a reference goes to its range, one without a sheet on its line’s; Esc, the cross and the host close it', async () => {
+  it("shows the in-memory workbook's tree; a reference goes to its range, one without a sheet name on its line's sheet; Esc, the close button and the host close it", async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, "'Q 4'!A2")
     expect(api(w).explain()).toBe(true)
@@ -333,7 +333,7 @@ describe('the precedents’ panel', () => {
     expect(panel(w).exists()).toBe(false)
   })
 
-  it('a failed answer is said; without `explain` there is no item and no panel', async () => {
+  it('a failed response is reported; without `explain` there is no menu item and no panel', async () => {
     const source = memorySource(book())
     source.explain = vi.fn(async () => Promise.reject(new Error('boom')))
     const w = await mountSheet(source, { messages: ruMessages })
@@ -361,7 +361,7 @@ describe('the explain text', () => {
   })
   const shape = (text: string, sheet: string) => explainLines(text, sheet).map((l) => [l.depth, l.parts.map((p) => (p.ref ? `[${p.ref.sheet}|${p.text}]` : p.from ? `{${p.text}}` : p.text)).join('')])
 
-  it('reads xlcalc’s text: the depth by the indent, each reference with its sheet, the formula after the arrow set off', () => {
+  it("parses xlcalc's text: the depth by the indent, each reference with its sheet, the formula after the arrow separated", () => {
     registerLocale(ruRU)
     const text = createSession(input('en-US')).explain('T 2', 'A1').text
     expect(shape(text, 'T 2')).toEqual([
@@ -376,7 +376,7 @@ describe('the explain text', () => {
     expect(shape(ru, 'S')[0]).toEqual([0, "[T 2|'T 2'!A2] = 11{  ← ОКРУГЛ(}[T 2|A1]{*1,5;0)}"])
   })
 
-  it('memorySource writes a tree as xlcalc’s en-US one, from the formulas as given', async () => {
+  it("memorySource writes a tree like xlcalc's en-US one, from the formulas as given", async () => {
     const memory = memorySource({
       sheets: [
         { name: 'S', cells: { A1: 1, A2: 2, A3: { value: 3, formula: 'SUM(A1:A2)' }, B1: { value: 6, formula: 'A3*2' }, C1: 'x', D1: { value: 9, formula: 'SUM(A:A)+C1' } } },
@@ -392,7 +392,7 @@ describe('the explain text', () => {
 })
 
 describe('memorySource under a display filter', () => {
-  it('the grid keeps its rows when a window is read again after an edit took one out of the conditions', async () => {
+  it('the grid keeps its rows when a window is re-read after an edit made one fail the conditions', async () => {
     localStorage.setItem('k:filter:S', JSON.stringify({ cols: { 2: { values: ['a'] } }, sort: null }))
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 'Name', B1: 'Status', A2: 'n2', B2: 'a', A3: 'n3', B3: 'b', A4: 'n4', B4: 'a', A5: 'n5', B5: 'b', A6: 'n6', B6: 'a' } }] })
     const w = await mountSheet(source, { storageKey: 'k' })
@@ -405,7 +405,7 @@ describe('memorySource under a display filter', () => {
 })
 
 describe('memorySource’s freeze', () => {
-  it('keeps the panes on its own copy of the sheet', async () => {
+  it('keeps the panes in its own copy of the sheet', async () => {
     const book: MemoryBook = { sheets: [{ name: 'S', cells: {}, freeze: { rows: 1, cols: 0 } }] }
     const source = memorySource(book)
     const outcome: EditOutcome = await source.freeze!('S', { rows: 2, cols: 3 })

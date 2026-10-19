@@ -24,7 +24,7 @@ describe('a formula in en-US', () => {
     ],
   })
 
-  it('colours its references to cells in the bar and leaves the rest plain; equal references share a colour', async () => {
+  it('colors its cell references in the formula bar and leaves the rest plain; equal references share a color', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'B1')
     // A table reference, a 3D reference and a string's text stay text.
@@ -37,7 +37,7 @@ describe('a formula in en-US', () => {
     expect(tinted(w, '9:3')).toBe(false)
   })
 
-  it('highlights a draft as it is typed, a half-typed one too', async () => {
+  it('highlights a draft as it is typed, a partially typed one too', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'D1')
     await key(w, '=')
@@ -50,7 +50,7 @@ describe('a formula in en-US', () => {
 })
 
 describe('the formulas of a selection', () => {
-  it("highlight their ranges after the active cell's, each cell's in order; formulas outside it are not read", async () => {
+  it("highlight their ranges after the active cell's, each cell's in order; formulas outside the selection are not read", async () => {
     const book: MemoryBook = { sheets: [{ name: 'S', cells: { B2: { value: 1, formula: 'D5' }, C2: { value: 1, formula: 'G1' }, C3: { value: 1, formula: 'E6+D5' }, B5: { value: 1, formula: 'F1' } } }] }
     const w = await mountSheet(memorySource(book))
     const ctx = (w.vm.$ as unknown as { provides: Record<symbol, SheetContext> }).provides[sheetContextKey as symbol]!
@@ -73,7 +73,7 @@ describe('a formula in ru-RU', () => {
   const formula = 'СУММ({1;2:3;4};A1)+ЕСЛИ(B2>0,5;C2;D2)'
   const book = (): MemoryBook => ({ sheets: [{ name: 'Лист', cells: { A1: 1, B2: 2, F1: { value: 3, formula }, E3: 4 } }] })
 
-  it("is read in the locale's formula text once its module loads", async () => {
+  it("is parsed in the locale's formula text once its module loads", async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true, locale: 'ru-RU' })
     await goTo(w, 'F1')
     await vi.waitFor(() => expect(refs(w)).toEqual(['A1', 'B2', 'C2', 'D2']))
@@ -83,7 +83,7 @@ describe('a formula in ru-RU', () => {
   })
 })
 
-describe('places', () => {
+describe('locations', () => {
   const book = (): MemoryBook => ({
     sheets: [
       { name: 'S', cells: { A1: 1, B1: { value: 1, formula: 'STRASSE!A1' }, D5: 1 } },
@@ -92,7 +92,7 @@ describe('places', () => {
     ],
   })
 
-  it('the address box takes a range in any case, a sheet quoted or not, a sheet alone; not a formula or a table', async () => {
+  it('the Name Box accepts a range in any letter case, a sheet name quoted or not, a sheet alone; not a formula or a table', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true, messages: { addressBad: 'Bad address' } })
     await goTo(w, 'b2:c3')
     expect(address(w)).toBe('B2:C3')
@@ -108,7 +108,7 @@ describe('places', () => {
     }
   })
 
-  it('a sheet in a reference is found as the book compares names; the link quotes a sheet as Excel writes it', async () => {
+  it('a sheet in a reference is matched as the workbook compares names; the link quotes a sheet name as Excel writes it', async () => {
     const writeText = vi.fn(async () => {})
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     const w = await mountSheet(memorySource(book()), { readOnly: true, cellUrl: (ref: string) => `at=${ref}` })

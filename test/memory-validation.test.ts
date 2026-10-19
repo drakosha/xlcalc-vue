@@ -20,7 +20,7 @@ const book = (): MemoryBook => ({
 })
 
 describe('memorySource: data validation', () => {
-  it('gives a cell’s list and input message, a rule without them empty, no rule null', async () => {
+  it("returns a cell's list and input message, empty for a rule without them, null for no rule", async () => {
     const src = memorySource(book())
     expect(await src.validation!('S', 'A5')).toEqual({ list: ['Да', 'Нет'], prompt: { title: 'Ответ', text: 'Да или нет' } })
     expect(await src.validation!('S', 'C1')).toEqual({ list: ['Да', 'Нет'], prompt: { title: 'Ответ', text: 'Да или нет' } })
@@ -29,7 +29,7 @@ describe('memorySource: data validation', () => {
     expect(await src.validation!('T', 'A1')).toBeNull()
   })
 
-  it('refuses a value off the list or out of bounds with the rule’s alert, Excel’s title and text by default', async () => {
+  it("rejects a value not on the list or out of bounds with the rule's alert, with Excel's title and text by default", async () => {
     const src = memorySource(book())
     expect(await src.edit!([{ sheet: 'S', cell: 'B2', text: '11' }])).toEqual({
       ok: false,
@@ -51,12 +51,12 @@ describe('memorySource: data validation', () => {
     expect('text' in w && w.text).toEqual([['', '', '', '', '']])
   })
 
-  it('takes what the rule takes: an item with spaces about it, a whole number within, a blank, a formula', async () => {
+  it('accepts what the rule accepts: an item with surrounding spaces, a whole number within bounds, a blank, a formula', async () => {
     const src = memorySource(book())
     expect(await src.edit!([{ sheet: 'S', cell: 'A2', text: ' Нет ' }, { sheet: 'S', cell: 'B2', text: '10' }, { sheet: 'S', cell: 'B3', text: '=B1*9' }, { sheet: 'S', cell: 'B1', text: null }])).toMatchObject({ ok: true })
   })
 
-  it('writes a refused value with `accept`; a stop rule of several cells refuses before a warning', async () => {
+  it('writes a rejected value with `accept`; a stop rule on one of several cells rejects before a warning', async () => {
     const src = memorySource(book())
     expect(await src.edit!([{ sheet: 'S', cell: 'D2', text: '-1' }, { sheet: 'S', cell: 'B2', text: '0' }])).toMatchObject({ ok: false, alert: { severity: 'stop', cell: 'B2' } })
     expect(await src.edit!([{ sheet: 'S', cell: 'D2', text: '-1' }], { accept: true })).toMatchObject({ ok: true, changes: [{ cell: 'D2', value: -1 }] })

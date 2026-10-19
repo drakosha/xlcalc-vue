@@ -41,8 +41,8 @@ async function editingKeyEscape(w: VueWrapper): Promise<void> {
   await settle()
 }
 
-describe('Cancel and Enter by the formula bar', () => {
-  it('are off outside an edit and on while one is open, labelled from the messages', async () => {
+describe('Cancel and Enter next to the formula bar', () => {
+  it('are disabled outside editing and enabled while an edit is open, labeled from the messages', async () => {
     const w = await mountSheet(memorySource(book()), { messages: ruMessages })
     expect(button(w, 'cancel').attributes('disabled')).toBeDefined()
     expect(button(w, 'enter').attributes('disabled')).toBeDefined()
@@ -56,7 +56,7 @@ describe('Cancel and Enter by the formula bar', () => {
     expect(button(w, 'enter').attributes('disabled')).toBeUndefined()
   })
 
-  it('Cancel drops the edit, the cell keeps its text', async () => {
+  it('Cancel discards the edit, and the cell keeps its text', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'C1')
     await key(w, 'F2')
@@ -80,14 +80,14 @@ describe('Cancel and Enter by the formula bar', () => {
 })
 
 describe('Insert Function', () => {
-  it('is off without functionNames and on a read-only sheet', async () => {
+  it('is disabled without functionNames and on a read-only sheet', async () => {
     const plain = await mountSheet(memorySource({ sheets: [{ name: 'S', cells: { A1: 1 } }] }))
     expect(button(plain, 'fx').attributes('disabled')).toBeDefined()
     const read = await mountSheet(memorySource(book()), { readOnly: true })
     expect(button(read, 'fx').attributes('disabled')).toBeDefined()
   })
 
-  it('opens a dialog of the functions; the search narrows it by any part of the name, in any case; the syntax of the one selected shows', async () => {
+  it("opens a dialog of the functions; the search narrows it by any part of the name, case-insensitively; the selected function's syntax is shown", async () => {
     const { source } = signed()
     const w = await mountSheet(source, { messages: ruMessages })
     await goTo(w, 'B2')
@@ -108,7 +108,7 @@ describe('Insert Function', () => {
     expect(w.find('[data-xs-if-syntax]').text()).toBe('СУММЕСЛИ(число1;[число2];...)')
   })
 
-  it('OK opens the edit of the active cell in the formula bar with =NAME( and the caret after the bracket', async () => {
+  it('OK starts editing the active cell in the formula bar with =NAME( and the caret after the parenthesis', async () => {
     const { source } = signed()
     const w = await mountSheet(source)
     await goTo(w, 'B2')
@@ -123,7 +123,7 @@ describe('Insert Function', () => {
     expect([barField(w).selectionStart, barField(w).selectionEnd]).toEqual([6, 6])
   })
 
-  it('with an edit open puts NAME( at the draft’s caret, the edit kept open meanwhile; an empty draft gets = first', async () => {
+  it("with an edit open, inserts NAME( at the draft's caret, keeping the edit open meanwhile; an empty draft gets = first", async () => {
     const { source } = signed()
     const w = await mountSheet(source)
     await goTo(w, 'B2')
@@ -150,7 +150,7 @@ describe('Insert Function', () => {
     expect((w.find('.xs-editor').element as HTMLTextAreaElement).value).toBe('=СРЗНАЧ(')
   })
 
-  it('Esc and Cancel close it and leave the cell and the edit as they were', async () => {
+  it('Esc and Cancel close it and leave the cell and the edit unchanged', async () => {
     const { source } = signed()
     const w = await mountSheet(source)
     await goTo(w, 'C1')
@@ -170,7 +170,7 @@ describe('Insert Function', () => {
     expect((w.find('.xs-editor').element as HTMLTextAreaElement).value).toBe('text')
   })
 
-  it("a category narrows the list, in Excel's order by the source's names; the description of the one selected shows; OK puts it first among the recently used", async () => {
+  it("a category narrows the list, in Excel's order by the source's names; the selected function's description is shown; OK puts it first among the recently used", async () => {
     const { source } = signed()
     const w = await mountSheet(source, { messages: ruMessages })
     await goTo(w, 'B2')

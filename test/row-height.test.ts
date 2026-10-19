@@ -24,8 +24,8 @@ async function dragGrip(w: VueWrapper, row: number, dy: number): Promise<void> {
   await settle()
 }
 
-describe('row height with the mouse', () => {
-  it('the drag sets the row’s height in points through `layout`; the row is drawn at it', async () => {
+describe('row height set with the mouse', () => {
+  it("the drag sets the row's height in points through `layout`, and the row is drawn at that height", async () => {
     const source = memorySource(book())
     const layout = vi.spyOn(source, 'layout')
     const w = await mountSheet(source)
@@ -36,7 +36,7 @@ describe('row height with the mouse', () => {
     expect(rowPx(w, 2)).toBe(20)
   })
 
-  it("a drag stops at Excel's highest row, 409.5 points", async () => {
+  it("a drag stops at Excel's tallest row, 409.5 points", async () => {
     const source = memorySource(book())
     const layout = vi.spyOn(source, 'layout')
     const w = await mountSheet(source)
@@ -44,7 +44,7 @@ describe('row height with the mouse', () => {
     expect(layout.mock.calls.map((c) => c[0])).toEqual([{ sheet: 'S', rows: '3', height: 409.5 }])
   })
 
-  it('with whole rows selected, a drag on one of them sets them all', async () => {
+  it('with entire rows selected, a drag on one of them sets them all', async () => {
     const source = memorySource(book())
     const layout = vi.spyOn(source, 'layout')
     const w = await mountSheet(source)
@@ -54,7 +54,7 @@ describe('row height with the mouse', () => {
     expect([rowPx(w, 2), rowPx(w, 3), rowPx(w, 4)]).toEqual([30, 30, 30])
   })
 
-  it('a double click on the grip fits the row, or every selected whole row it is one of, through `layout`', async () => {
+  it('a double click on the grip fits the row, or every selected entire row it is one of, through `layout`', async () => {
     const source = memorySource(book())
     const layout = vi.spyOn(source, 'layout')
     const w = await mountSheet(source)
@@ -78,7 +78,7 @@ describe('row height with the mouse', () => {
     expect((w.find('.xs-address').element as HTMLInputElement).value).toBe('A1')
   })
 
-  it('no grip on a phone: a finger on a number snaps to it and the number’s long press opens no menu; the menu sets the height there', async () => {
+  it("no grip on a phone: a finger on a row number would snap to it, and the number's long press opens no menu; the menu sets the height there", async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-scroller') ? 390 : 0
     })

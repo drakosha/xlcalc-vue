@@ -29,7 +29,7 @@ async function goTo(w: VueWrapper, address: string): Promise<void> {
 describe('search', () => {
   const book = (): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 'apple', B3: 'pineapple', C10: 'Apple pie', D20: 'pear' } }] })
 
-  it('asks the source, jumps to the first hit, steps with Enter and Shift+Enter, tints hits; Esc closes', async () => {
+  it('queries the source, jumps to the first match, steps with Enter and Shift+Enter, highlights matches; Esc closes', async () => {
     fakeTimers()
     const source = memorySource(book())
     const find = vi.spyOn(source, 'find')
@@ -81,7 +81,7 @@ describe('the display filter', () => {
     await label.find('input').trigger('change')
   }
 
-  it('applies a column condition: the header stays, rows go by display index, numbers stay the sheet’s', async () => {
+  it("applies a column condition: the header stays, rows go by display index, row numbers stay the sheet's", async () => {
     const source = memorySource(book())
     const visibleRows = vi.spyOn(source, 'visibleRows')
     const window = vi.spyOn(source, 'window')
@@ -106,7 +106,7 @@ describe('the display filter', () => {
     expect(active(w)).toBe('4:1')
   })
 
-  it('offers no Freeze Panes under the display filter, whose rows on screen are not the sheet\'s', async () => {
+  it("offers no Freeze Panes under the display filter, whose rows on screen are not the sheet's", async () => {
     const source = memorySource(book())
     const freeze = vi.fn(async () => ({ ok: true as const, changes: [] }))
     const w = await mountSheet({ ...source, freeze })
@@ -127,7 +127,7 @@ describe('the display filter', () => {
     expect(freeze).not.toHaveBeenCalled()
   })
 
-  it('sorts from the funnel; clearing brings the sheet’s order back', async () => {
+  it("sorts from the funnel; clearing restores the sheet's order", async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await funnel(w, 1)
     await w.find('.xs-popover button[title="Sort descending"]').trigger('click')
@@ -140,7 +140,7 @@ describe('the display filter', () => {
     expect(w.find('[data-xs-filter-status]').exists()).toBe(false)
   })
 
-  it('remembers the conditions by sheet under storageKey', async () => {
+  it('stores the conditions per sheet under storageKey', async () => {
     const source = memorySource(book())
     const w = await mountSheet(source, { readOnly: true, storageKey: 'k' })
     await funnel(w, 2)
@@ -159,7 +159,7 @@ describe('the display filter', () => {
     expect(numbers(again)).toEqual(['1', '3', '5'])
   })
 
-  it('a jump to a row the filter hides clears it, with a message', async () => {
+  it('a jump to a row the filter hides clears the filter, with a message', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await funnel(w, 2)
     await uncheck(w, 'b')
@@ -172,7 +172,7 @@ describe('the display filter', () => {
     expect(w.find('.xs-message').text()).toBe('The filter is cleared: it hid row 3')
   })
 
-  it('a jump to a shown row past the count of shown rows lands on that row', async () => {
+  it('a jump to a visible row beyond the count of visible rows lands on that row', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await funnel(w, 2)
     await uncheck(w, 'b')
@@ -193,7 +193,7 @@ describe('the display filter', () => {
 })
 
 describe('totals from the source', () => {
-  it('asks `stats` a moment after the selection settles, with the range and the filter', async () => {
+  it('requests `stats` a moment after the selection settles, with the range and the filter', async () => {
     fakeTimers()
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 1, B2: 2 } }] })
     const stats = vi.spyOn(source, 'stats').mockResolvedValue({ cells: 99, numbers: 1, sum: 5, min: 5, max: 5 })
@@ -208,7 +208,7 @@ describe('totals from the source', () => {
     expect(w.find('.xs-stats').text()).toBe('Count: 99 · Sum: 5 · Average: 5 · Numbers: 1')
   })
 
-  it('without `stats` the loaded windows count', async () => {
+  it('without `stats` the loaded windows are counted', async () => {
     fakeTimers()
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 1, B2: 2 } }] })
     delete (source as Partial<SheetSource>).stats
@@ -220,7 +220,7 @@ describe('totals from the source', () => {
   })
 })
 
-describe('a book being recomputed', () => {
+describe('a workbook being recalculated', () => {
   /** Sheets whose windows return `pending` while `busy(sheet)` says so. */
   function waiting(busy: (sheet: string) => boolean) {
     const calls: WindowRequest[] = []
@@ -238,7 +238,7 @@ describe('a book being recomputed', () => {
     return { source, calls }
   }
 
-  it('waits with a stopwatch, asks again every second and draws the window once ready', async () => {
+  it('waits with a stopwatch, requests again every second and draws the window once ready', async () => {
     fakeTimers()
     let polls = 0
     const { source, calls } = waiting(() => ++polls <= 2)
@@ -256,7 +256,7 @@ describe('a book being recomputed', () => {
     expect(w.find('[data-cell="2:3"]').text()).toBe('One23')
   })
 
-  it('stops asking for the previous sheet when another is picked', async () => {
+  it('stops requesting for the previous sheet when another is selected', async () => {
     fakeTimers()
     const { source, calls } = waiting((sheet) => sheet === 'One')
     const w = await mountSheet(source, { readOnly: true })
@@ -270,7 +270,7 @@ describe('a book being recomputed', () => {
     expect(w.find('[data-cell="1:1"]').text()).toBe('Two11')
   })
 
-  it('gives up after the limit of polls', async () => {
+  it('gives up after the retry limit', async () => {
     fakeTimers()
     const { source } = waiting(() => true)
     const w = await mountSheet(source, { readOnly: true, messages: { waitTimeout: 'Too long' } })

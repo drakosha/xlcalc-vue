@@ -18,8 +18,8 @@ async function operate(op: SheetOp, prepare?: (s: LocalSource) => Promise<unknow
 }
 const names = async (s: LocalSource) => (await s.sheets()).map((x) => x.name)
 
-describe('localSource: structure operations, each answered by a reload', () => {
-  it('undo and redo of a copy onto empty cells reload, as the step does not list the cells it empties', async () => {
+describe('localSource: structure operations, each followed by a reload', () => {
+  it('undo and redo of a copy onto empty cells reload, since the step does not list the cells it empties', async () => {
     const { s, got } = await operate({ op: 'copyRange', from: { sheet: 'Лист1', range: 'A1:A2' }, to: { sheet: 'Лист1', range: 'H1' } })
     expect(got).toMatchObject({ ok: true })
     expect((await win(s, 'Лист1', 1, 2, 8, 1)).values).toEqual([[1], [2]])
@@ -34,7 +34,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect((await win(s, 'Лист1', 1, 2, 8, 1)).values).toEqual([[1], [2]])
   })
 
-  it('insertRows: formulas move, the window reads the moved book', async () => {
+  it('insertRows: formulas are adjusted, and the window reads the changed workbook', async () => {
     const { s, got, events } = await operate({ op: 'insertRows', sheet: 'Лист1', row: 2 })
     expect(got.ok).toBe(true)
     expect(events).toEqual([{ kind: 'reload' }])
@@ -47,7 +47,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect((await s.sheets())[0]).toMatchObject({ maxRow: 6 })
   })
 
-  it('deleteRows: the rows below move up, a range shrinks', async () => {
+  it('deleteRows: the rows below move up, and a range shrinks', async () => {
     const { s, got, events } = await operate({ op: 'deleteRows', sheet: 'Лист1', row: 1 })
     expect(got.ok).toBe(true)
     expect(events).toEqual([{ kind: 'reload' }])
@@ -57,7 +57,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect((await s.sheets())[0]).toMatchObject({ maxRow: 4 })
   })
 
-  it('insertColumns: formulas move right', async () => {
+  it('insertColumns: formulas shift right', async () => {
     const { s, got, events } = await operate({ op: 'insertColumns', sheet: 'Лист1', column: 'A' })
     expect(got.ok).toBe(true)
     expect(events).toEqual([{ kind: 'reload' }])
@@ -67,7 +67,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect((await s.sheets())[0]).toMatchObject({ maxCol: 8 })
   })
 
-  it('deleteColumns: formulas move left', async () => {
+  it('deleteColumns: formulas shift left', async () => {
     const { s, got, events } = await operate({ op: 'deleteColumns', sheet: 'Таблица', column: 'D' })
     expect(got.ok).toBe(true)
     expect(events).toEqual([{ kind: 'reload' }])
@@ -77,7 +77,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect((await s.sheets())[1]).toMatchObject({ maxCol: 4 })
   })
 
-  it('moveRange: the cells go, search finds them at their new place', async () => {
+  it('moveRange: the cells move, and search finds them at their new location', async () => {
     const { s, got, events } = await operate({ op: 'moveRange', from: { sheet: 'Список', range: 'A3:B3' }, to: { sheet: 'Список', cell: 'D3' } }, (s) => s.find({ sheet: 'Список', query: 'а' }))
     expect(got.ok).toBe(true)
     expect(events).toEqual([{ kind: 'reload' }])
@@ -85,7 +85,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect((await s.find({ sheet: 'Список', query: 'а' })).hits).toEqual([{ row: 3, col: 4 }])
   })
 
-  it('copyRange: a formula is copied with its references moved', async () => {
+  it('copyRange: a formula is copied with its references adjusted', async () => {
     const { s, got, events } = await operate({ op: 'copyRange', from: { sheet: 'Лист1', range: 'A3' }, to: { sheet: 'Лист1', range: 'C3' } })
     expect(got.ok).toBe(true)
     expect(events).toEqual([{ kind: 'reload' }])
@@ -94,7 +94,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect(w.values).toEqual([[3, 'на лист', 0]])
   })
 
-  it('renameSheet: the formulas name it anew; a taken name is refused with the library message', async () => {
+  it("renameSheet: formulas use the new name; a name already in use is rejected with the library's message", async () => {
     const { s, got, events } = await operate({ op: 'renameSheet', sheet: 'Список', name: 'Люди' }, (s) => s.edit([{ sheet: 'Лист1', cell: 'H1', text: '=Список!B2*2' }]))
     expect(got).toMatchObject({ ok: true })
     expect(events).toEqual([{ kind: 'reload' }])
@@ -109,7 +109,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect(refused.ok ? '' : refused.message).toMatch(/таблица/)
   })
 
-  it('deleteSheet: the sheet goes, references to it become #ССЫЛКА!', async () => {
+  it('deleteSheet: the sheet is removed, and references to it become #ССЫЛКА!', async () => {
     const { s, got, events } = await operate({ op: 'deleteSheet', sheet: 'Список' }, (s) => s.edit([{ sheet: 'Лист1', cell: 'H1', text: '=Список!B2*2' }]))
     expect(got).toMatchObject({ ok: true })
     expect(events).toEqual([{ kind: 'reload' }])
@@ -134,7 +134,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect((await win(s, 'Список', 2, 1, 1, 2)).values).toEqual([['б', 5]])
   })
 
-  it('hideSheet and unhideSheet: the list says which sheets are hidden', async () => {
+  it('hideSheet and unhideSheet: the list shows which sheets are hidden', async () => {
     const { s, got, events } = await operate({ op: 'hideSheet', sheet: 'Таблица' })
     expect(got).toMatchObject({ ok: true })
     expect(events).toEqual([{ kind: 'reload' }])
@@ -146,7 +146,7 @@ describe('localSource: structure operations, each answered by a reload', () => {
 })
 
 describe('localSource: widths, heights, formats, frozen panes', () => {
-  it('sets a column width and a row height in the book', async () => {
+  it('sets a column width and a row height in the workbook', async () => {
     const s = source()
     expect(await s.layout({ sheet: 'Лист1', columns: 'C', width: 15 })).toMatchObject({ ok: true })
     expect(await s.layout({ sheet: 'Лист1', columns: 'E', width: 9 })).toMatchObject({ ok: true })
@@ -158,7 +158,7 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(b.sheets[0]!.columns?.C).toEqual({ width: 15 })
   })
 
-  it('hides and shows lines keeping their size, and fits columns to what they show, each by a reload', async () => {
+  it('hides and unhides rows and columns keeping their size, and fits columns to their contents, each followed by a reload', async () => {
     const s = source()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -183,7 +183,7 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(events.slice(0, 5)).toEqual([{ kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }])
   })
 
-  it('a line break typed wraps the cell and fits its row (xlcalc 0.33); Fit brings a row set by hand back to its text', async () => {
+  it('a typed line break wraps the cell and fits its row (xlcalc 0.33); fitting returns a manually sized row to its text', async () => {
     const s = source()
     expect(await s.edit([{ sheet: 'Лист1', cell: 'F8', text: 'один\nдва' }])).toMatchObject({ ok: true })
     let b = await s.book()
@@ -217,7 +217,7 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(styleOf(w, 'A2')).toEqual(italic)
   })
 
-  it('formats several ranges in one step of undo, as outside borders over a selection', async () => {
+  it('formats several ranges as a single undo step, like outside borders over a selection', async () => {
     const s = source()
     const line = { style: 'thin' as const }
     const got = await s.format('Список', [
@@ -236,7 +236,7 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(['D2', 'E2', 'D3', 'E3'].map((a) => styleOf(w, a))).toEqual([undefined, undefined, undefined, undefined])
   })
 
-  it('formats empty cells and whole columns, and keeps notes and formulas', async () => {
+  it('formats empty cells and entire columns, and keeps notes and formulas', async () => {
     const s = source()
     await s.format('Лист1', [{ range: 'H1:H2', style: BOLD }])
     await s.format('Лист1', [{ range: 'B:B', style: ROW_FILL }])
@@ -248,7 +248,7 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(w.links?.B2).toBeDefined()
   })
 
-  it('formats a bold row across a filled column as Excel does: their crossing cells get both', async () => {
+  it('formats a bold row across a filled column as Excel does: their intersecting cells get both', async () => {
     const s = source()
     const FILL = { fill: { color: '#ddeeff' } }
     expect(await s.format('Список', [{ range: 'C:C', style: FILL }])).toMatchObject({ ok: true })
@@ -260,7 +260,7 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(styleOf(w, 'B3')).toBeUndefined()
   })
 
-  it('formats over each cell\'s look: bold keeps a cell italic, rows 2:3 at once', async () => {
+  it("formats on top of each cell's formatting: bold keeps a cell italic, rows 2:3 at once", async () => {
     const s = source()
     await s.format('Список', [{ range: 'A2', style: { font: { italic: true } } }])
     await s.format('Список', [{ range: '2:3', style: { font: { bold: true } } }])
@@ -269,7 +269,7 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(styleOf(w, 'A3')).toEqual({ font: { bold: true } })
   })
 
-  it('reloads after a number format, which changes what cells show and open with; a look alone repaints its ranges', async () => {
+  it('reloads after a number format, which changes how cells are displayed and what they open with; formatting alone repaints its ranges', async () => {
     const { s, count } = watched()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -288,7 +288,7 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(count('getCells')).toBe(1)
   })
 
-  it('freezes panes in the book, the values the filter read kept', async () => {
+  it("freezes panes in the workbook, keeping the filter's cached values", async () => {
     const { s, count } = watched()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -304,7 +304,7 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(events).toEqual([{ kind: 'reload' }, { kind: 'reload' }])
   })
 
-  it('the fill handle lays its copies into the rows a filter hides too, as Excel’s does (xlcalc 0.51)', async () => {
+  it("the fill handle puts its copies into rows hidden by a filter too, as Excel's does (xlcalc 0.51)", async () => {
     const s = source({ sheets: [{ name: 'S', filtered: true, cells: { A1: { value: 'x' } }, rows: { '3': { hidden: true } } }] })
     expect(await s.structure({ op: 'fillRange', sheet: 'S', range: 'A1', to: 'A1:A4' })).toMatchObject({ ok: true })
     expect((await win(s, 'S', 1, 4, 1, 1)).values.map((r) => r[0])).toEqual(['x', 'x', 'x', 'x'])

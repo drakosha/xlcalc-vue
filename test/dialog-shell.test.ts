@@ -14,7 +14,7 @@ const content = () => [h('input', { class: 'first', value: 'abc' }), h('button',
 const focused = () => (document.activeElement as HTMLElement | null)?.className
 
 describe('DialogShell', () => {
-  it('opens on the control its selector names, a field with its text selected; the box itself without one', async () => {
+  it('focuses the control its selector names on opening, an input with its text selected; the box itself without one', async () => {
     const w = mount(DialogShell, { props: { focus: '.first' }, slots: { default: content }, attachTo: document.body })
     await settle()
     const input = w.find('.first').element as HTMLInputElement
@@ -25,14 +25,14 @@ describe('DialogShell', () => {
     expect(document.activeElement).toBe(bare.find('.xs-modal').element)
   })
 
-  it('gives the box what it is given: its class, label and listeners; role and aria-modal of its own', async () => {
+  it('passes on what it is given to the box: its class, label and listeners, with its own role and aria-modal', async () => {
     const w = mount(DialogShell, { props: { role: 'alertdialog' }, attrs: { class: 'mine', 'aria-label': 'Box', 'data-x': '1' }, slots: { default: content }, attachTo: document.body })
     const box = w.find('.xs-modal')
     expect([box.classes('mine'), box.attributes('aria-label'), box.attributes('data-x'), box.attributes('role'), box.attributes('aria-modal')]).toEqual([true, 'Box', '1', 'alertdialog', 'true'])
     expect(w.find('.xs-modal-back').classes('mine')).toBe(false)
   })
 
-  it('closes on Esc, and on a press on the backdrop unless it may not', async () => {
+  it('closes on Esc, and on a click on the backdrop unless not allowed', async () => {
     const w = mount(DialogShell, { slots: { default: content }, attachTo: document.body })
     await w.find('.middle').trigger('keydown', { key: 'Escape' })
     await w.find('.xs-modal-back').trigger('pointerdown')

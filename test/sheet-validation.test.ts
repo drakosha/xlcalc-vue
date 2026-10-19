@@ -30,7 +30,7 @@ const press = async (button: string) => {
 }
 
 describe('data validation on the sheet', () => {
-  it('a stop: Retry opens the field with the typed text, Cancel leaves the cell as it was on the active cell', async () => {
+  it('a stop alert: Retry reopens the editor with the typed text, Cancel leaves the active cell unchanged', async () => {
     const source = memorySource(book())
     const edit = vi.spyOn(source, 'edit')
     const w = await mountSheet(source)
@@ -55,7 +55,7 @@ describe('data validation on the sheet', () => {
     expect(edit.mock.calls.every((c) => c[1] === undefined)).toBe(true)
   })
 
-  it('a warning: Yes writes the value with accept', async () => {
+  it('a warning alert: Yes writes the value with accept', async () => {
     const source = memorySource(book())
     const edit = vi.spyOn(source, 'edit')
     const w = await mountSheet(source)
@@ -71,7 +71,7 @@ describe('data validation on the sheet', () => {
     expect(cellText(w, 2, 1)).toBe('50')
   })
 
-  it('a list: the arrow by the active cell, Alt+Down opens the items, Enter enters one past the rule; the input message shows', async () => {
+  it('a list: the arrow next to the active cell, Alt+Down opens the items, Enter enters one past the rule; the input message appears', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const source = memorySource(book())
     const edit = vi.spyOn(source, 'edit')
@@ -97,7 +97,7 @@ describe('data validation on the sheet', () => {
     expect(w.find('[data-xs-prompt]').exists()).toBe(false)
   })
 
-  it('a pick the source refuses asks the cell\'s rule again, so the list shows what the source holds now', async () => {
+  it("a pick the source rejects requests the cell's rule again, so the list shows what the source holds now", async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const source = memorySource(book())
     const validation = vi.spyOn(source, 'validation')
@@ -117,7 +117,7 @@ describe('data validation on the sheet', () => {
     expect(validation.mock.calls.length).toBeGreaterThan(asked)
   })
 
-  it('a list over a source with pick: an item goes to pick by its place and text, not to edit', async () => {
+  it('a list over a source with pick: an item goes to pick by its position and text, not to edit', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const source = memorySource(book())
     const edit = vi.spyOn(source, 'edit')

@@ -36,7 +36,7 @@ const loadingShown = (w: VueWrapper) => w.find('.xs-loading').exists()
 const pause = () => new Promise((r) => setTimeout(r, 100))
 
 describe('repaint in the grid', () => {
-  it('reads again in place only the windows that meet its ranges: no sheets, the old window drawn until the new one comes', async () => {
+  it('re-reads in place only the windows that overlap its ranges: no sheets, and the old window stays drawn until the new one arrives', async () => {
     let version = 0
     const sheets: SheetInfo[] = [{ name: 'S', maxRow: 3000, maxCol: 40, freeze: { rows: 2, cols: 1 } }, { name: 'T', maxRow: 5, maxCol: 5 }]
     const f = fakeSource(sheets, { manual: true, cell: (sheet, r, c) => `${sheet}:${cellAddress(r, c)}:${version}` })
@@ -91,7 +91,7 @@ describe('repaint in the grid', () => {
     expect(f.sheetsCalls).toBe(1)
   })
 
-  it('sends one request per window: a second repaint aborts the first, and the first answer coming late is dropped', async () => {
+  it('sends one request per window: a second repaint aborts the first, and the first response arriving late is discarded', async () => {
     const sheet: SheetInfo = { name: 'S', maxRow: 100, maxCol: 5 }
     const f = fakeSource([sheet], { manual: true })
     const w = await mountSheet(f.source, { readOnly: true })
@@ -116,7 +116,7 @@ describe('repaint in the grid', () => {
     expect(f.held).toHaveLength(0)
   })
 
-  it('reads the repaints of one task together; one that follows closely asks once they stop', async () => {
+  it('reads the repaints from one task together; one that closely follows requests once they stop', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
     try {
       const f = fakeSource([{ name: 'S', maxRow: 100, maxCol: 5 }])
@@ -144,7 +144,7 @@ describe('repaint in the grid', () => {
     }
   })
 
-  it('under a display filter meets the ranges by the sheet rows the windows show', async () => {
+  it('under a display filter overlaps the ranges by the sheet rows the windows display', async () => {
     localStorage.setItem('k:filter:S', JSON.stringify({ cols: { 1: { values: ['x'] } }, sort: null }))
     const cells: MemoryBook['sheets'][number]['cells'] = { A1: 'head' }
     for (let r = 2; r <= 600; r++) cells[`A${r}`] = r === 500 ? 'x' : 'y'
@@ -167,7 +167,7 @@ describe('repaint in the grid', () => {
     expect(window.mock.calls.at(-1)![0]).toMatchObject({ row: 1, filter: { cols: { 1: { values: ['x'] } } } })
   })
 
-  it('keeps a change that came between the request and the answer', async () => {
+  it('keeps a change that arrived between the request and the response', async () => {
     const sheet: SheetInfo = { name: 'S', maxRow: 100, maxCol: 5 }
     const f = fakeSource([sheet], { manual: true })
     const w = await mountSheet(f.source, { readOnly: true })
@@ -210,7 +210,7 @@ describe('repaint from the local source', () => {
   const numbers = (w: VueWrapper) => w.findAll('.xs-num').map((n) => n.text())
   const fill = (w: VueWrapper, r: number, c: number) => getComputedStyle(w.find(`[data-cell="${r}:${c}"]`).element).backgroundColor
 
-  it('sends changed and repaint after an edit in a book with rules, repaint after a look and reload after a number format', async () => {
+  it('sends changed and repaint after an edit in a workbook with rules, repaint after a formatting change and reload after a number format', async () => {
     const s = localSource(book(), { calc: 'inline' })
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -227,7 +227,7 @@ describe('repaint from the local source', () => {
     await s.close()
   })
 
-  it('keeps the display filter rows of the source after an edit and an undo that only repaint, a rule with a number format too', async () => {
+  it("keeps the source's display filter rows after an edit and an undo that only repaint, also with a rule that has a number format", async () => {
     for (const numberFormat of [undefined, '0.00']) {
       const b = book()
       if (numberFormat) b.sheets[0]!.conditionalFormats!.push({ type: 'cellIs', ranges: ['B2:B6'], operator: 'greaterThan', formulas: ['5'], style: { numberFormat } })
@@ -249,7 +249,7 @@ describe('repaint from the local source', () => {
     }
   })
 
-  it('keeps a row that left the display filter by an edit, recoloured, until the filter is applied again', async () => {
+  it('keeps a row that no longer matches the display filter after an edit, recolored, until the filter is reapplied', async () => {
     localStorage.setItem('k:filter:S', JSON.stringify({ cols: filter.cols, sort: null }))
     const s = localSource(book(), { calc: 'inline' })
     const w = await mountSheet(s, { storageKey: 'k' })

@@ -8,7 +8,7 @@ afterEach(() => {
 })
 
 describe('windows', () => {
-  it('sends no second request for a slot while one is in flight', async () => {
+  it('sends no second request for a slot while one is pending', async () => {
     const f = fakeSource([{ name: 'S', maxRow: 5000, maxCol: 10 }], { manual: true })
     const w = await mountSheet(f.source, { readOnly: true })
     expect(f.requests).toHaveLength(1)
@@ -28,7 +28,7 @@ describe('windows', () => {
     expect(f.requests[1]!.row).toBeLessThanOrEqual(400)
   })
 
-  it('drops a late answer for the previous sheet', async () => {
+  it('discards a late response for the previous sheet', async () => {
     const f = fakeSource(
       [
         { name: 'One', maxRow: 50, maxCol: 5 },
@@ -93,7 +93,7 @@ describe('windows', () => {
     expect(cellText(w, 4900, 2)).toBe('S:B4900')
   })
 
-  it('takes changed events into the loaded windows, and reloads on a reload event', async () => {
+  it('applies changed events to the loaded windows, and reloads on a reload event', async () => {
     const f = fakeSource([{ name: 'S', maxRow: 100, maxCol: 5 }])
     const w = await mountSheet(f.source, { readOnly: true })
     f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: 'C3', text: 'from elsewhere', value: 'from elsewhere' }, { sheet: 'Other', cell: 'C4', text: 'x', value: 'x' }] })
@@ -109,7 +109,7 @@ describe('windows', () => {
     expect(w.find('.xs-message').text()).toContain('Updated elsewhere')
   })
 
-  it('shows the fallback slot when the book cannot be read, and retries', async () => {
+  it('shows the fallback slot when the workbook cannot be read, and retries', async () => {
     let fail = true
     const f = fakeSource([{ name: 'S', maxRow: 5, maxCol: 5 }])
     const sheets = f.source.sheets

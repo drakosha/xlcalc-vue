@@ -20,7 +20,7 @@ const formatting = () => {
 }
 
 describe('the sheet’s dialogs', () => {
-  it('Control+H opens the search bar with its replace row, the Russian layout too', async () => {
+  it('Ctrl+H opens the search bar with its Replace row, on the Russian layout too', async () => {
     const w = await mountSheet(memorySource(book()))
     await key(w, 'h', { ctrlKey: true })
     await settle()
@@ -33,7 +33,7 @@ describe('the sheet’s dialogs', () => {
     expect(w.find('[data-xs-replace-input]').exists()).toBe(true)
   })
 
-  it('Control+1 opens Format Cells at the active cell’s look; OK formats the selection in one call', async () => {
+  it("Ctrl+1 opens Format Cells with the active cell's formatting; OK formats the selection in one call", async () => {
     const { source, format } = formatting()
     const w = await mountSheet(source)
     await goTo(w, 'B2')
@@ -50,7 +50,7 @@ describe('the sheet’s dialogs', () => {
     expect(w.find('[data-fmt]').exists()).toBe(false)
   })
 
-  it('a read-only sheet has no Format Cells: Control+1 does nothing and formatCells() is false', async () => {
+  it('a read-only sheet has no Format Cells: Ctrl+1 does nothing and formatCells() returns false', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await key(w, '1', { ctrlKey: true, code: 'Digit1' })
     await settle()
@@ -58,7 +58,7 @@ describe('the sheet’s dialogs', () => {
     expect((w.vm as unknown as SheetViewApi).formatCells()).toBe(false)
   })
 
-  it('the toolbar’s Format Cells… opens the sheet’s dialog when it has the sheet', async () => {
+  it("the toolbar's Format Cells… opens the sheet's dialog when it has the sheet", async () => {
     const { source } = formatting()
     const Host = defineComponent(() => {
       const sheet = ref<SheetViewApi | null>(null)

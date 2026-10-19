@@ -22,7 +22,7 @@ const side = (w: VueWrapper, r: number, c: number, s: 'Top' | 'Right' | 'Bottom'
 const box = (w: VueWrapper, r: number, c: number) => (td(w, r, c).find('.xs-in').element as HTMLElement).style
 
 describe('cell style', () => {
-  it('draws font, fill and borders, and aligns General by the value', async () => {
+  it('draws the font, fill and borders, and aligns General by value', async () => {
     const book: MemoryBook = {
       styles: [
         {},
@@ -56,7 +56,7 @@ describe('cell style', () => {
     expect(box(w, 2, 1).height).toBe(`${20 - 2 - 3}px`)
   })
 
-  it('takes the left neighbour line and hides grid lines under a fill', async () => {
+  it("uses the left neighbor's line and hides gridlines under a fill", async () => {
     const book: MemoryBook = {
       styles: [{}, { border: { left: { style: 'medium', color: '#00ff00' } } }, { fill: { color: '#abcdef' } }],
       sheets: [{ name: 'S', cells: { A1: 'a', B1: { value: 'b', style: 1 }, A3: { value: 'f', style: 2 } } }],
@@ -67,7 +67,7 @@ describe('cell style', () => {
     expect(side(w, 2, 1, 'Bottom')).toBe('1px solid #abcdef')
   })
 
-  it('shows the section colour, a data bar, a note and a table header', async () => {
+  it('shows the section color, a data bar, a note indicator and a table header', async () => {
     const book: MemoryBook = {
       sheets: [
         {
@@ -96,7 +96,7 @@ describe('cell style', () => {
     expect(w.find('.xs-notice').text()).toBe('Values computed elsewhere')
   })
 
-  it('lets text overflow into empty neighbours, but not numbers or wrapped text', async () => {
+  it('lets text overflow into empty neighbors, but not numbers or wrapped text', async () => {
     const book: MemoryBook = { styles: [{}, { alignment: { wrap: true } }], sheets: [{ name: 'S', cells: { A1: 'a long title', A2: 12345, A3: { value: 'wrapped', style: 1 }, A4: 'stops', B4: 'x' } }] }
     const w = await mountSheet(memorySource(book), { readOnly: true })
     expect(td(w, 1, 1).classes()).toContain('xs-spill')
@@ -107,7 +107,7 @@ describe('cell style', () => {
   })
 })
 
-describe('shape of the sheet', () => {
+describe('sheet structure', () => {
   it('draws a merge as one cell, skipping hidden rows and columns', async () => {
     const book: MemoryBook = { sheets: [{ name: 'S', cells: { A1: 'merged', E5: 'end' }, merges: ['A1:C3'], widths: { B: 0 }, heights: { '2': 0 } }] }
     const w = await mountSheet(memorySource(book), { readOnly: true })
@@ -120,7 +120,7 @@ describe('shape of the sheet', () => {
     expect(w.findAll('.xs-head').map((n) => n.text())).toEqual(['A', 'C', 'D', 'E'])
   })
 
-  it('hides hidden sheets from the tabs and opens the first visible one', async () => {
+  it('omits hidden sheets from the tabs and opens the first visible one', async () => {
     const book: MemoryBook = { sheets: [{ name: 'Hidden', hidden: true, cells: { A1: 'h' } }, { name: 'One', cells: { A1: 'one' } }, { name: 'Two', cells: { A1: 'two' } }] }
     const states: unknown[] = []
     const w = await mountSheet(memorySource(book), { readOnly: true, onState: (s: unknown) => states.push(s) })
@@ -129,7 +129,7 @@ describe('shape of the sheet', () => {
     expect(states.at(-1)).toEqual({ sheet: 'One', ref: 'A1', value: 'one' })
   })
 
-  it('takes column titles and no row numbers from SheetInfo (the ground for list mode)', async () => {
+  it('uses column titles and no row numbers from SheetInfo (the basis for list mode)', async () => {
     const book: MemoryBook = { sheets: [{ name: 'L', rowNumbers: false, columns: [{ title: 'Name' }, { title: 'Sum' }], cells: { A1: 'a', B1: 1 } }] }
     const w = await mountSheet(memorySource(book), { readOnly: true })
     expect(w.findAll('.xs-head').map((h) => h.text())).toEqual(['Name', 'Sum'])
@@ -149,20 +149,20 @@ describe('shape of the sheet', () => {
 })
 
 describe('props and slots', () => {
-  it('a book of no sheets stops reading and shows an empty frame, not "Reading the book…" for ever', async () => {
+  it('a workbook without sheets stops loading and shows an empty viewport, not "Loading the workbook…" forever', async () => {
     const w = await mountSheet(memorySource({ sheets: [] }))
     await settle()
     expect(w.find('.xs-loading').exists()).toBe(false)
     expect(w.findAll('.xs-tab')).toHaveLength(0)
   })
 
-  it('formulaBar: false hides the bar', async () => {
+  it('formulaBar: false hides the formula bar', async () => {
     const w = await mountSheet(memorySource({ sheets: [{ name: 'S', cells: { A1: 1 } }] }), { formulaBar: false })
     expect(w.find('.xs-bar').exists()).toBe(false)
     expect(w.find('[data-cell="1:1"]').text()).toBe('1')
   })
 
-  it('the fallback slot gets the source error and a retry', async () => {
+  it("the fallback slot receives the source's error and a retry function", async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 1 } }] })
     const sheets = source.sheets
     let fail = true
@@ -182,7 +182,7 @@ describe('props and slots', () => {
   })
 })
 
-describe('links', () => {
+describe('hyperlinks', () => {
   const book: MemoryBook = {
     sheets: [
       {
@@ -197,7 +197,7 @@ describe('links', () => {
       { name: 'Other sheet', cells: { B7: 'here' } },
     ],
   }
-  it('opens a web link as a link; a place in the book itself; a host target by `openLink`', async () => {
+  it('opens a web link as a link and a location in the workbook itself, and passes a host target to `openLink`', async () => {
     const opened: unknown[] = []
     const w = await mountSheet(memorySource(book), { readOnly: true, onOpenLink: (l: unknown) => opened.push(l) })
     expect(td(w, 1, 1).find('a.xs-link').attributes('href')).toBe('https://example.org/')
@@ -209,7 +209,7 @@ describe('links', () => {
     expect(w.find('.xs-tab-on').text()).toBe('Other sheet')
     expect(w.find('.xs-cell.xs-active').attributes('data-cell')).toBe('7:2')
   })
-  it('without an `openLink` listener a host target or an unsafe link is only shown', async () => {
+  it('without an `openLink` listener a host target or an unsafe link is only displayed', async () => {
     const w = await mountSheet(memorySource(book), { readOnly: true })
     expect(td(w, 3, 1).find('.xs-deadlink').exists()).toBe(true)
     expect(td(w, 4, 1).find('.xs-deadlink').exists()).toBe(true)
@@ -218,7 +218,7 @@ describe('links', () => {
 
 describe('freeze', () => {
   const book = (rows: number): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 'h', E80: 'end' }, freeze: { rows, cols: 1 } }] })
-  it('sticks the frozen panes; the lock drops them and the choice is remembered by storageKey', async () => {
+  it('sticks the frozen panes; the lock hides them and the choice is stored under storageKey', async () => {
     const w = await mountSheet(memorySource(book(2)), { readOnly: true, storageKey: 'k' })
     expect(td(w, 1, 1).classes()).toContain('xs-fz-corner')
     expect(td(w, 2, 2).classes()).toContain('xs-fz-row')
@@ -230,14 +230,14 @@ describe('freeze', () => {
     const again = await mountSheet(memorySource(book(2)), { readOnly: true, storageKey: 'k' })
     expect(td(again, 1, 1).classes()).not.toContain('xs-fz-corner')
   })
-  it('drops by itself when the frozen rows eat over half the frame', async () => {
+  it('hides them on its own when the frozen rows take over half the viewport', async () => {
     const w = await mountSheet(memorySource(book(20)), { readOnly: true })
     expect(td(w, 1, 1).classes()).not.toContain('xs-fz-corner')
     expect(w.find('.xs-tools .xs-tool').exists()).toBe(true)
   })
 })
 
-describe('column width with the mouse', () => {
+describe('column width set with the mouse', () => {
   async function drag(w: VueWrapper, col: number, dx: number): Promise<void> {
     const grip = w.findAll('.xs-head')[col - 1]!.find('.xs-grip')
     await grip.trigger('pointerdown', { clientX: 100, pointerId: 1 })
@@ -247,7 +247,7 @@ describe('column width with the mouse', () => {
   }
   const colWidths = (w: VueWrapper) => w.findAll('col').map((c) => (c.element as HTMLElement).style.width)
 
-  it('without `layout` the browser remembers it; a double click restores the book width', async () => {
+  it("without `layout` the browser stores it; a double click restores the workbook's width", async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { C3: 'x' } }] })
     delete (source as { layout?: unknown }).layout
     const w = await mountSheet(source, { storageKey: 'k' })
@@ -259,7 +259,7 @@ describe('column width with the mouse', () => {
     expect(localStorage.getItem('k:widths:S')).toBeNull()
   })
 
-  it('with `layout` the width goes to the source in its units; edgeRestoresWidth: a double click restores the book width', async () => {
+  it("with `layout` the width goes to the source in its units; edgeRestoresWidth: a double click restores the workbook's width", async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { C3: 'x' } }] })
     const layout = vi.spyOn(source, 'layout')
     const w = await mountSheet(source, { storageKey: 'k', edgeRestoresWidth: true })
@@ -270,7 +270,7 @@ describe('column width with the mouse', () => {
     expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', width: widthFromPx(colPx(null)) })
   })
 
-  it("a width set with the mouse shows the cells the source says it changed: a date that did not fit shows itself", async () => {
+  it("a width set with the mouse redraws the cells the source reports as changed: a date that did not fit is displayed", async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { A5: '#####' } }] })
     vi.spyOn(source, 'layout').mockResolvedValue({ ok: true, changes: [{ sheet: 'S', cell: 'A5', text: '15.03.2026', value: 46096 }] })
     const w = await mountSheet(source)
@@ -279,7 +279,7 @@ describe('column width with the mouse', () => {
     expect(cellText(w, 5, 1)).toBe('15.03.2026')
   })
 
-  it('edgeRestoresWidth: after a structure operation a double click does not give a column the width remembered for the one it replaced', async () => {
+  it('edgeRestoresWidth: after a structure operation a double click does not give a column the width stored for the one it replaced', async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { C3: 'x' }, widths: { C: 20 } }] })
     const layout = vi.spyOn(source, 'layout')
     source.structure = vi.fn(async () => ({ ok: true as const, changes: [] }))
@@ -294,7 +294,7 @@ describe('column width with the mouse', () => {
     expect(layout).not.toHaveBeenCalled()
   })
 
-  it('a double click on an edge fits the column through `layout`, as Excel; every selected whole column when it is one of them', async () => {
+  it('a double click on an edge fits the column through `layout`, as Excel does, together with every selected entire column when it is one of them', async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { C3: 'x' } }] })
     const layout = vi.spyOn(source, 'layout')
     const sheets = vi.spyOn(source, 'sheets')
@@ -317,7 +317,7 @@ describe('column width with the mouse', () => {
     expect(layout).toHaveBeenCalledTimes(3)
   })
 
-  it("a column without a width of its own is the library's default, 8.83203125 (53 points, 71 px)", async () => {
+  it("a column without its own width has the library's default, 8.83203125 (53 points, 71 px)", async () => {
     const w = await mountSheet(memorySource({ sheets: [{ name: 'S', cells: { A1: 'a' }, widths: { B: 8.83203125 } }] }))
     expect(colWidths(w)[1]).toBe('71px')
     expect(colWidths(w)[2]).toBe('71px')

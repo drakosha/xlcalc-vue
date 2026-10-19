@@ -39,8 +39,8 @@ async function enter(w: VueWrapper, text: string, k = 'Enter', extra: Record<str
   await answered()
 }
 
-describe('a formula left open with a correction', () => {
-  it('Enter on =(1+2 asks to accept =(1+2), Yes the default; Yes enters it and the selection goes down', async () => {
+describe('an unclosed formula with a correction', () => {
+  it('Enter on =(1+2 prompts to accept =(1+2), with Yes as the default; Yes enters it and the selection moves down', async () => {
     const w = await mountRu()
     await enter(w, '=(1+2')
     const box = alertOf('typo')
@@ -63,7 +63,7 @@ describe('a formula left open with a correction', () => {
     expect((w.find('.xs-fx-input').element as HTMLTextAreaElement).value).toBe('=(1+2)')
   })
 
-  it('No, or Esc, says a bracket is missing; after its OK the field is open with the text typed', async () => {
+  it('No, or Esc, says a parenthesis is missing; after its OK the editor is open with the typed text', async () => {
     for (const how of ['no', 'escape'] as const) {
       const w = await mountRu()
       await enter(w, '=1+СУММ(2')
@@ -87,7 +87,7 @@ describe('a formula left open with a correction', () => {
     }
   })
 
-  it('Tab, Control+Return over a range and the formula bar’s Enter (✓) go the same way after Yes', async () => {
+  it("Tab, Ctrl+Enter over a range and the formula bar's Enter (✓) behave the same after Yes", async () => {
     const w = await mountRu()
     await enter(w, '=(1+2', 'Tab')
     button('yes').click()
@@ -119,7 +119,7 @@ describe('a formula left open with a correction', () => {
     expect(active(w)).toBe('1:3')
   })
 
-  it('without a correction the question is Fix or Restore, as before', async () => {
+  it('without a correction the prompt offers Fix or Restore, as before', async () => {
     const w = await mountRu()
     await enter(w, '=СУММ(A1:A2))')
     expect(alertOf('typo')).toBeNull()

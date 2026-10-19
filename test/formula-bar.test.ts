@@ -13,7 +13,7 @@ const toggle = (w: VueWrapper) => w.find('[data-xs-bar-toggle]')
 const expanded = (w: VueWrapper) => w.find('.xs-fx').classes().includes('xs-fx-open')
 
 describe('formula bar height', () => {
-  it('shows a cell of several lines collapsed to one line, with the button to expand it', async () => {
+  it('shows a multi-line cell collapsed to one line, with the button to expand it', async () => {
     const w = await mountSheet(memorySource(book()))
     expect(barField(w).value).toBe('one\ntwo\nthree\nfour\nfive\nsix')
     expect(expanded(w)).toBe(false)
@@ -22,7 +22,7 @@ describe('formula bar height', () => {
     expect(toggle(w).attributes('title')).toBe(enMessages.expandBar)
   })
 
-  it('the button expands and collapses it; the labels follow', async () => {
+  it('the button expands and collapses it, and the labels follow', async () => {
     const w = await mountSheet(memorySource(book()), { messages: ruMessages })
     expect(toggle(w).attributes('aria-label')).toBe(ruMessages.expandBar)
     await toggle(w).trigger('click')
@@ -34,7 +34,7 @@ describe('formula bar height', () => {
     expect(toggle(w).attributes('aria-expanded')).toBe('false')
   })
 
-  it('Control+Shift+U on the grid toggles it, any layout; Control+U alone does not', async () => {
+  it('Ctrl+Shift+U on the grid toggles it, with any layout; Ctrl+U alone does not', async () => {
     const w = await mountSheet(memorySource(book()))
     await key(w, 'U', { ctrlKey: true, shiftKey: true, code: 'KeyU' })
     expect(expanded(w)).toBe(true)
@@ -44,7 +44,7 @@ describe('formula bar height', () => {
     expect(expanded(w)).toBe(false)
   })
 
-  it('Control+Shift+U in the bar field toggles it and the edit goes on', async () => {
+  it("Ctrl+Shift+U in the formula bar's input toggles it, and the edit continues", async () => {
     const w = await mountSheet(memorySource(book()))
     await pressBar(w, 3)
     const editing = () => w.find('.xs-bar').classes().includes('xs-bar-editing')

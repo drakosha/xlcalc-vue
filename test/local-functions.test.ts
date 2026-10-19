@@ -9,7 +9,7 @@ import { book, closeAll, source } from './local-fixture'
 afterEach(closeAll)
 
 describe('localSource: functionNames', () => {
-  it('in ru-RU: the Russian name, else the English one, each function once, by the Russian alphabet', async () => {
+  it('in ru-RU: the Russian name, otherwise the English one, each function once, in Russian alphabetical order', async () => {
     const names = await source().functionNames()
     expect(names).toHaveLength(FUNCTION_NAMES.length)
     expect(names).toEqual(FUNCTION_NAMES.map((f) => ruRU.functions[f] ?? f).sort(new Intl.Collator('ru-RU').compare))
@@ -35,12 +35,12 @@ describe('localSource: functionNames', () => {
 })
 
 describe('localSource: functionSignature', () => {
-  it('in en-US: SUM’s tip, the name in any case', async () => {
+  it("in en-US: SUM's tooltip, with the name in any letter case", async () => {
     const sig = await source({ ...book(), locale: 'en-US' }).functionSignature('sum')
     expect(sig).toEqual({ name: 'SUM', fn: 'SUM', args: [{ name: 'number1', optional: false }, { name: 'number2', optional: true }], repeat: 1, text: 'SUM(number1, [number2], ...)', category: 'math', categoryName: 'Math & Trig', description: 'The sum of numbers.' })
   })
 
-  it('in ru-RU: the Russian tip, by the Russian name or the English one; null for no function', async () => {
+  it('in ru-RU: the Russian tooltip, by the Russian name or the English one; null for an unknown function', async () => {
     const src = source()
     expect((await src.functionSignature('СУММ'))?.text).toBe('СУММ(число1;[число2];...)')
     expect((await src.functionSignature('sum'))?.text).toBe('СУММ(число1;[число2];...)')

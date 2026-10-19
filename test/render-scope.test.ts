@@ -26,7 +26,7 @@ async function open() {
 }
 
 describe('render scope', () => {
-  it('typing in the cell field redraws no cell, a formula only when its references change', async () => {
+  it('typing in the cell editor redraws no cell, and a formula only when its references change', async () => {
     const { w, ctx, count } = await open()
     ctx.ed.startEdit({ mode: 'edit', text: '' })
     await settle()
@@ -65,7 +65,7 @@ describe('render scope', () => {
     }
   })
 
-  it('a change of a cell off screen redraws no cell, nor one that changes nothing; it shows once scrolled to', async () => {
+  it('a change of a cell off screen redraws no cell, nor does one that changes nothing; it shows once scrolled into view', async () => {
     const { w, ctx, f, count } = await open()
     const d = ctx.v.lastRow.value + 20
     expect(ctx.w.slotAt(d, 3)).not.toBeNull()
@@ -102,7 +102,7 @@ describe('render scope', () => {
     expect(states[states.length - 1]![0]).toMatchObject({ value: 'far', formula: 'A1&"far"' })
   })
 
-  it("a stream of changes asks the active cell's rule once it stops", async () => {
+  it("a burst of changes requests the active cell's rule once it ends", async () => {
     const f = fakeSource([{ name: 'S', maxRow: 200, maxCol: 20 }])
     const validation = vi.fn(async () => null)
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
@@ -123,7 +123,7 @@ describe('render scope', () => {
     }
   })
 
-  it('a scroll row by row redraws once a step of rows, the screen always drawn with spare rows around it', async () => {
+  it('scrolling row by row redraws once per step of rows, with the screen always drawn with spare rows around it', async () => {
     const { ctx, count } = await open()
     const v = ctx.v
     let redraws = 0
@@ -140,7 +140,7 @@ describe('render scope', () => {
     expect(redraws).toBeLessThanOrEqual(11)
   })
 
-  it('rows above the frame that come taller keep the frame on its rows: the scroll moves by their growth', async () => {
+  it('rows above the viewport that grow taller keep the viewport on its rows: the scroll moves by their growth', async () => {
     const f = fakeSource([{ name: 'S', maxRow: 2000, maxCol: 10 }])
     let tall = false
     const window = f.source.window
@@ -166,7 +166,7 @@ describe('render scope', () => {
     expect(ctx.geo.rowAt(ctx.scrollTop.value)).toBe(anchor)
   })
 
-  it('a move of the active cell or of the selection redraws the rows it touches', async () => {
+  it('a move of the active cell or of the selection redraws the rows it affects', async () => {
     const { ctx, count } = await open()
     const perRow = ctx.v.shownCols.value.length
     ctx.selected.value = { row: 5, col: 3 }
@@ -187,7 +187,7 @@ describe('render scope', () => {
     expect(count.calls).toBe(2 * perRow)
   })
 
-  it('a scroll by a step draws only the rows that come in', async () => {
+  it('a scroll by a step draws only the rows that come into view', async () => {
     const { ctx, count } = await open()
     ctx.scrollTop.value = 200
     await settle()
@@ -201,7 +201,7 @@ describe('render scope', () => {
     expect(count.calls).toBe(come * ctx.v.shownCols.value.length)
   })
 
-  it("a column's width or a row's height dragged redraws no cell, or the row's alone", async () => {
+  it("dragging a column's width or a row's height redraws no cell, or only the row's", async () => {
     const { ctx, count } = await open()
     const drawn = ctx.v.shownCols.value
     count.take()
@@ -217,7 +217,7 @@ describe('render scope', () => {
     expect(count.calls).toBe(ctx.v.shownCols.value.length)
   })
 
-  it('a scroll sideways makes the views of the columns it brings in, not of those that stay (numbers: no text runs over)', async () => {
+  it('a horizontal scroll creates the views of the columns it brings into view, not of those that stay (numbers: no text overflows)', async () => {
     const f = fakeSource([{ name: 'S', maxRow: 200, maxCol: 20 }], { cell: (_s, r, c) => String(r * 100 + c) })
     const ctx = contextOf(await mountSheet(f.source))
     const count = countCells(ctx)

@@ -27,7 +27,7 @@ function source(methods: Partial<SheetSource>, quiet = false, sheets: SheetInfo[
 }
 
 describe('SheetView exposes undo and redo', () => {
-  it('through the source, the selection where the outcome says: no flash, no step back, on another sheet too', async () => {
+  it('through the source, with the selection where the outcome puts it: no flash, no Back history entry, on another sheet too', async () => {
     const undo = vi.fn(async (): Promise<EditOutcome> => ({ ok: true, changes: [], select: { sheet: 'S', range: 'B2:C3' } }))
     const redo = vi.fn(async (): Promise<EditOutcome> => ({ ok: true, changes: [], select: { sheet: 'T', range: 'C4' } }))
     const w = await mountSheet(source({ undo, redo }).source)
@@ -43,7 +43,7 @@ describe('SheetView exposes undo and redo', () => {
     expect(backOff(w)).toBe(true)
   })
 
-  it('give null without the source’s methods, and on a read-only sheet', async () => {
+  it("return null without the source's methods, and on a read-only sheet", async () => {
     const plain = await mountSheet(source({}).source)
     expect(await api(plain).undo()).toBeNull()
     const undo = vi.fn(async () => OK)
@@ -75,7 +75,7 @@ describe('a source without edit', () => {
 })
 
 describe('SheetView exposes format', () => {
-  it('formats the selection as Excel writes it (whole columns B:B), or the ranges given, on the active sheet', async () => {
+  it('formats the selection as Excel writes it (entire columns B:B), or the given ranges, on the active sheet', async () => {
     const format = vi.fn(async () => OK)
     const w = await mountSheet(source({ format }).source)
     await w.findAll('.xs-head')[1]!.trigger('click')
@@ -87,7 +87,7 @@ describe('SheetView exposes format', () => {
     ])
   })
 
-  it('reads the sheet again after a source that does not tell, once after one that sends reload', async () => {
+  it('reloads the sheet after a source that reports nothing, and only once after one that sends reload', async () => {
     const quiet = source({ format: vi.fn(async () => OK) }, true)
     const w = await mountSheet(quiet.source)
     const before = quiet.sheetsCalls
@@ -104,7 +104,7 @@ describe('SheetView exposes format', () => {
     expect(told.sheetsCalls).toBe(was + 1)
   })
 
-  it('a format the source repaints is not read again besides: the windows over its ranges alone', async () => {
+  it('a format change that the source repaints is not read a second time: only the windows over its ranges are', async () => {
     const painted = source({})
     painted.source.format = vi.fn(async () => (painted.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'B2' }] }), OK))
     const w = await mountSheet(painted.source)
@@ -117,7 +117,7 @@ describe('SheetView exposes format', () => {
     expect(painted.requests.length - windows).toBe(1)
   })
 
-  it('shows the source’s refusal in its message line', async () => {
+  it("shows the source's rejection in its message line", async () => {
     const w = await mountSheet(source({ format: vi.fn(async (): Promise<EditOutcome> => ({ ok: false, reason: 'refused', message: 'Лист защищён' })) }).source)
     expect(await api(w).format([{ style: { font: { bold: true } } }])).toMatchObject({ ok: false })
     await settle()
@@ -125,7 +125,7 @@ describe('SheetView exposes format', () => {
   })
 })
 
-describe('Control+B, Control+I and Control+U', () => {
+describe('Ctrl+B, Ctrl+I and Ctrl+U', () => {
   /** A1 bold, B1 plain: the toggle follows the active cell's formatting. */
   function styled() {
     const f = source({ format: vi.fn(async () => OK) })
@@ -137,7 +137,7 @@ describe('Control+B, Control+I and Control+U', () => {
     return f
   }
 
-  it('toggle bold, italic and underline over the selection by the active cell, Cmd on a Mac, by the key’s place on another layout', async () => {
+  it("toggle bold, italic and underline over the selection according to the active cell, Cmd on a Mac, by the key's position on another layout", async () => {
     const f = styled()
     const w = await mountSheet(f.source)
     await key(w, 'b', { ctrlKey: true, code: 'KeyB' })
@@ -153,7 +153,7 @@ describe('Control+B, Control+I and Control+U', () => {
     ])
   })
 
-  it('do nothing without format, and leave the browser its keys then', async () => {
+  it('do nothing without format, and leave the keys to the browser then', async () => {
     const w = await mountSheet(source({}).source)
     const e = new KeyboardEvent('keydown', { key: 'b', code: 'KeyB', ctrlKey: true, bubbles: true, cancelable: true })
     w.find('.xs-scroller').element.dispatchEvent(e)
@@ -185,7 +185,7 @@ describe('SheetView exposes structure', () => {
     return { source: f.source, ops }
   }
 
-  it('shows the sheet Excel shows after: a new or unhidden one, the next after a deleted or hidden one, the one before at the end', async () => {
+  it('displays the sheet Excel displays afterwards: a new or unhidden one, the next after a deleted or hidden one, the previous one at the end', async () => {
     const b = book(['A', 'B', 'C', 'D'])
     const states: { sheet: string }[] = []
     const w = await mountSheet(b.source, { onState: (s: { sheet: string } | null) => s && states.push(s) })
@@ -202,7 +202,7 @@ describe('SheetView exposes structure', () => {
     expect(await shown({ op: 'unhideSheet', sheet: 'C' })).toBe('C')
   })
 
-  it('keeps the selection on a renamed sheet, and the source’s reload is the only one', async () => {
+  it("keeps the selection on a renamed sheet, and the source's reload is the only one", async () => {
     const b = book(['A', 'B'], false)
     const w = await mountSheet(b.source)
     await goTo(w, 'B2')
@@ -211,7 +211,7 @@ describe('SheetView exposes structure', () => {
     expect([tab(w), active(w)]).toEqual(['Итоги', '2:2'])
   })
 
-  it('finds the sheet asked for by its name in any case, as Excel names sheets', async () => {
+  it('finds the requested sheet by name, case-insensitively, as Excel compares sheet names', async () => {
     const b = book(['A', 'B'])
     const rename = b.source.structure!
     b.source.structure = (op) => rename(op.op === 'renameSheet' ? { ...op, name: op.name.toUpperCase() } : op)
@@ -222,7 +222,7 @@ describe('SheetView exposes structure', () => {
     expect([tab(w), active(w)]).toEqual(['DATA', '2:2'])
   })
 
-  it('shows a refusal by its message, and does nothing on a read-only sheet', async () => {
+  it('displays a rejection with its message, and does nothing on a read-only sheet', async () => {
     const b = book(['A', 'B'])
     const w = await mountSheet(b.source)
     expect(await api(w).structure({ op: 'moveSheet', sheet: 'A' })).toMatchObject({ ok: false })
@@ -234,7 +234,7 @@ describe('SheetView exposes structure', () => {
 })
 
 describe("a source's methods", () => {
-  it('are called on the source itself, as a class’s methods need their this', async () => {
+  it("are called on the source itself, since a class's methods need their this", async () => {
     const f = fakeSource([{ name: 'S', maxRow: 20, maxCol: 6 }])
     const seen: string[] = []
     const own = { ...f.source }

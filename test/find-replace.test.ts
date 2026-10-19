@@ -33,7 +33,7 @@ async function pause(): Promise<void> {
 }
 
 describe('Find', () => {
-  it('asks with Excel’s options: in formulas by default, match case, the entire cell, values, by columns', async () => {
+  it("queries with Excel's options: in formulas by default, Match case, Match entire cell contents, values, by columns", async () => {
     fakeTimers()
     const source = memorySource(book())
     const find = vi.spyOn(source, 'find')
@@ -50,7 +50,7 @@ describe('Find', () => {
     expect(w.findAll('.xs-cell.xs-hit').map((c) => c.attributes('data-cell'))).toEqual(['1:1'])
   })
 
-  it('goes on from the active cell in the order asked, as Find Next does, and wraps round', async () => {
+  it('continues from the active cell in the chosen order, as Find Next does, and wraps around', async () => {
     fakeTimers()
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'A5')
@@ -69,7 +69,7 @@ describe('Find', () => {
     expect(active(w)).toBe('1:1')
   })
 
-  it('from a hit goes to the next one in the source\'s order, as Find gives it by blocks on a filtered sheet', async () => {
+  it("from a match goes to the next one in the source's order, as Find returns them by blocks on a filtered sheet", async () => {
     fakeTimers()
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 'x', C1: 'x', A3: 'x', C3: 'x' } }] })
     // Excel's Find on a filtered sheet with row 2 and column B hidden returns the blocks' cells first: A1, C1, A3, C3 by columns too
@@ -92,7 +92,7 @@ describe('Find', () => {
     expect(active(w)).toBe('3:3')
   })
 
-  it('the replace row\'s toggle counts again but leaves the active cell, as Excel\'s Find and Replace tabs do', async () => {
+  it("the Replace row's toggle recounts but leaves the active cell, as Excel's Find and Replace tabs do", async () => {
     fakeTimers()
     const source = memorySource(book())
     const find = vi.spyOn(source, 'find')
@@ -112,7 +112,7 @@ describe('Find', () => {
     expect(active(w)).toBe(at)
   })
 
-  it('goes past the hits the source gave, as Excel\'s Find Next reaches every one: the next ones from the active cell', async () => {
+  it("goes beyond the matches the source returned, as Excel's Find Next reaches every one: the next ones from the active cell", async () => {
     fakeTimers()
     // 2,500 matches in column A; memorySource returns 1,000 at a time
     const cells: Record<string, string> = {}
@@ -142,7 +142,7 @@ describe('Find', () => {
     expect(active(w)).toBe('1002:1')
   })
 
-  it('looks within a selection of more than one cell, as Excel does, until the person drops it', async () => {
+  it('searches within a selection of more than one cell, as Excel does, until the user removes it', async () => {
     fakeTimers()
     const source = memorySource(book())
     const find = vi.spyOn(source, 'find')
@@ -166,7 +166,7 @@ describe('Replace', () => {
     await w.find('[data-xs-replace-input]').setValue(by)
   }
 
-  it('Replace All goes through the source in formulas, the grid shows what it wrote, the bar says how many', async () => {
+  it('Replace All goes through the source in formulas, the grid shows what it wrote, and the bar reports how many', async () => {
     fakeTimers()
     const source = memorySource(book())
     const replace = vi.spyOn(source, 'replace')
@@ -188,7 +188,7 @@ describe('Replace', () => {
     expect(w.findAll('.xs-cell.xs-hit')).toHaveLength(0)
   })
 
-  it('Replace replaces the active cell when it is a hit and goes to the next; elsewhere it only finds', async () => {
+  it('Replace replaces the active cell when it is a match and goes to the next; elsewhere it only finds', async () => {
     fakeTimers()
     const source = memorySource(book())
     const replace = vi.spyOn(source, 'replace')
@@ -210,7 +210,7 @@ describe('Replace', () => {
     expect(status(w)).toBe('1 of 2')
   })
 
-  it('Replace All tells the cells it left as they were, with the source\'s why', async () => {
+  it("Replace All reports the cells it left unchanged, with the source's reason", async () => {
     fakeTimers()
     const source = memorySource(book())
     vi.spyOn(source, 'replace').mockResolvedValue({ ok: true, changes: [], replaced: 2, refused: [{ sheet: 'S', cell: 'E1', message: 'The formula does not read' }] })
@@ -225,7 +225,7 @@ describe('Replace', () => {
     expect(w.find('.xs-message').text()).toBe('1 cell was left unchanged: The formula does not read')
   })
 
-  it('a refusal shows in the sheet’s message line and changes nothing', async () => {
+  it("a rejection appears in the sheet's message line and changes nothing", async () => {
     fakeTimers()
     const source = memorySource(book())
     vi.spyOn(source, 'replace').mockResolvedValue({ ok: false, reason: 'refused', message: 'The sheet is protected', replaced: 0 })
@@ -239,7 +239,7 @@ describe('Replace', () => {
     expect(status(w)).toBe('2 of 3')
   })
 
-  it('there is no replacing on a read-only sheet or without the source’s `replace`', async () => {
+  it("there is no replacing on a read-only sheet or without the source's `replace`", async () => {
     fakeTimers()
     const ro = await mountSheet(memorySource(book()), { readOnly: true })
     await search(ro, 'apple')

@@ -50,7 +50,7 @@ async function press(w: VueWrapper, row: number, col: number, opts: { shiftKey?:
 }
 
 describe('Point mode', () => {
-  it('a click after = puts the cell at the caret; the field stays open, the active cell stays, the focus stays', async () => {
+  it('a click after = inserts the cell at the caret; the editor stays open, and the active cell and focus stay', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await typeIn(w, '=')
@@ -66,7 +66,7 @@ describe('Point mode', () => {
     expect(edits).toEqual([[{ sheet: 'S', cell: 'A1', text: '=C3' }]])
   })
 
-  it('a drag gives the range; the next click replaces it, Shift extends from its first corner', async () => {
+  it('a drag inserts the range; the next click replaces it, Shift extends it from its first corner', async () => {
     const w = await mountSheet(recorded().source)
     await typeIn(w, '=SUM(')
     await press(w, 2, 2, { through: [[3, 3], [4, 4]] })
@@ -78,7 +78,7 @@ describe('Point mode', () => {
     expect(active(w)).toBe('1:1')
   })
 
-  it('after an operator typed a click adds a reference; the text after the caret stays', async () => {
+  it('after a typed operator a click adds a reference; the text after the caret stays', async () => {
     const w = await mountSheet(recorded().source)
     await typeIn(w, '=')
     await press(w, 2, 2)
@@ -89,7 +89,7 @@ describe('Point mode', () => {
     expect(field(w).selectionStart).toBe(6)
   })
 
-  it('selected text where a reference may stand is replaced', async () => {
+  it('selected text where a reference can go is replaced', async () => {
     const w = await mountSheet(recorded().source)
     await typeIn(w, '=A1+B1')
     field(w).setSelectionRange(1, 3)
@@ -97,7 +97,7 @@ describe('Point mode', () => {
     expect(field(w).value).toBe('=D4+B1')
   })
 
-  it('a letter puts its column, a number its row', async () => {
+  it('a column letter inserts its column, a row number its row', async () => {
     const w = await mountSheet(recorded().source)
     await typeIn(w, '=SUM(')
     const letter = w.find('th[data-col="2"]')
@@ -116,7 +116,7 @@ describe('Point mode', () => {
     expect(active(w)).toBe('1:1')
   })
 
-  it('a double click while pointing does not open another cell', async () => {
+  it('a double click while inserting references does not open another cell', async () => {
     const w = await mountSheet(recorded().source)
     await typeIn(w, '=')
     await press(w, 3, 3)
@@ -126,7 +126,7 @@ describe('Point mode', () => {
     expect(active(w)).toBe('1:1')
   })
 
-  it('where no reference may stand the click is the sheet’s as before: no address goes in, the cell is picked', async () => {
+  it('where no reference can go, the click belongs to the sheet as before: no address is inserted, the cell is selected', async () => {
     for (const text of ['=5', 'abc', '=A1)', '="a ']) {
       const w = await mountSheet(recorded().source)
       await typeIn(w, text)
@@ -138,7 +138,7 @@ describe('Point mode', () => {
     }
   })
 
-  it('a click puts the cell where an arrow would point: after a leading + or -, a space after an operand, a point', async () => {
+  it('a click inserts the cell where an arrow would: after a leading + or -, a space after an operand, a decimal point', async () => {
     for (const [text, got] of [['+', '+C3'], ['-', '-C3'], ['=A1 ', '=A1 C3'], ['=1.', '=1.C3'], ['=S!', '=S!C3']]) {
       const w = await mountSheet(recorded().source)
       await typeIn(w, text!)
@@ -148,7 +148,7 @@ describe('Point mode', () => {
     }
   })
 
-  it('the list separator of the book’s locale: `;` in ru-RU, a comma there is a decimal point', async () => {
+  it("the list separator of the workbook's locale: `;` in ru-RU, where a comma is the decimal separator", async () => {
     const w = await mountSheet(recorded().source, { locale: 'ru-RU' })
     await settle()
     await typeIn(w, '=СУММ(1;')
@@ -171,14 +171,14 @@ describe('Point mode', () => {
   })
 })
 
-describe('Point mode with the arrows', () => {
+describe('Point mode with the arrow keys', () => {
   /** An arrow in the editor, with the caret where it was. */
   async function arrow(w: VueWrapper, k: string, shiftKey = false): Promise<void> {
     await editorKey(w, k, { shiftKey })
     await settle()
   }
 
-  it('after = typed over a cell an arrow puts the cell beside it; arrows move the reference, Shift extends it, a typed operator fixes it', async () => {
+  it('after = typed over a cell an arrow inserts the adjacent cell; arrows move the reference, Shift extends it, a typed operator fixes it', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'B2')
@@ -205,7 +205,7 @@ describe('Point mode with the arrows', () => {
     expect(edits).toEqual([[{ sheet: 'S', cell: 'B2', text: '=C2+B1' }]])
   })
 
-  it('at the sheet’s edge the reference stays', async () => {
+  it('at the edge of the sheet the reference stays', async () => {
     const w = await mountSheet(recorded().source)
     await typeIn(w, '=')
     await arrow(w, 'ArrowUp')
@@ -214,7 +214,7 @@ describe('Point mode with the arrows', () => {
     expect(field(w).value).toBe('=A1')
   })
 
-  it('a reference the mouse put goes on with the arrows', async () => {
+  it('a reference inserted with the mouse continues to move with the arrows', async () => {
     const w = await mountSheet(recorded().source)
     await typeIn(w, '=')
     await press(w, 3, 3)
@@ -222,7 +222,7 @@ describe('Point mode with the arrows', () => {
     expect(field(w).value).toBe('=C4')
   })
 
-  it('the arrows move the caret in a field F2 opened; F2 turns them to pointing', async () => {
+  it('the arrows move the caret in an editor opened with F2; F2 switches them to inserting references', async () => {
     const w = await mountSheet(recorded().source)
     await goTo(w, 'B2')
     await key(w, 'F2')
@@ -250,7 +250,7 @@ describe('Point mode with the arrows', () => {
     expect((bar.element as HTMLTextAreaElement).value).toBe('=1+')
   })
 
-  it('the list separator of a ru-RU book', async () => {
+  it('the list separator of a ru-RU workbook', async () => {
     const w = await mountSheet(recorded().source, { locale: 'ru-RU' })
     // the sheet parses formulas in ru-RU once the locale's module has loaded, a chunk loaded as the sheet mounts
     await LOCALE_MODULES['ru-RU']!()
@@ -262,7 +262,7 @@ describe('Point mode with the arrows', () => {
   })
 })
 
-describe('Point mode: what an arrow does with nothing pointed, as Excel measured (refAt)', () => {
+describe('Point mode: what an arrow does with no reference inserted yet, as measured in Excel (refAt)', () => {
   /** A key in the editor as the browser sends it; the event tells whether the editor's own move was prevented. */
   async function press(w: VueWrapper, k: string, init: KeyboardEventInit = {}): Promise<KeyboardEvent> {
     const e = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...init })
@@ -271,7 +271,7 @@ describe('Point mode: what an arrow does with nothing pointed, as Excel measured
     return e
   }
 
-  it('after a whole operand the arrow enters the formula and moves the selection, as Enter does that way', async () => {
+  it('after a complete operand the arrow enters the formula and moves the selection, as Enter does in that direction', async () => {
     for (const [text, k, to] of [['=5', 'ArrowRight', '2:3'], ['=A1', 'ArrowDown', '3:2'], ['=SUM(A1)', 'ArrowLeft', '2:1'], ['=D3+1', 'ArrowUp', '1:2'], ['=TRUE', 'ArrowRight', '2:3']] as const) {
       const { source, edits } = recorded()
       const w = await mountSheet(source)
@@ -283,7 +283,7 @@ describe('Point mode: what an arrow does with nothing pointed, as Excel measured
     }
   })
 
-  it('with the caret before the formula the arrow puts the cell with an = of its own, as Excel; a value is entered', async () => {
+  it('with the caret before the formula the arrow inserts the cell with its own =, as Excel does; a value is entered', async () => {
     for (const [text, k, got] of [['=A1', 'ArrowRight', '=D3=A1'], ['+1', 'ArrowDown', '=C4+1']] as const) {
       const w = await mountSheet(recorded().source)
       await goTo(w, 'C3')
@@ -305,7 +305,7 @@ describe('Point mode: what an arrow does with nothing pointed, as Excel measured
     expect([editorOpen(w), active(w), edits]).toEqual([false, '3:4', [[{ sheet: 'S', cell: 'C3', text: '5' }]]])
   })
 
-  it('a leading + or - begins a formula: the arrow points', async () => {
+  it('a leading + or - starts a formula: the arrow inserts a reference', async () => {
     for (const [text, k, got] of [['+', 'ArrowRight', '+D3'], ['-', 'ArrowDown', '-C4'], ['=-', 'ArrowLeft', '=-B3']] as const) {
       const w = await mountSheet(recorded().source)
       await goTo(w, 'C3')
@@ -316,7 +316,7 @@ describe('Point mode: what an arrow does with nothing pointed, as Excel measured
     }
   })
 
-  it('a space after an operand (the intersection), a point, a sheet’s ! take a reference', async () => {
+  it("a space after an operand (the intersection), a decimal point and a sheet's ! accept a reference", async () => {
     for (const [text, got] of [['=A1 ', '=A1 D3'], ['=1.', '=1.D3'], ['=A1.', '=A1.D3'], ['=S!', '=S!D3'], ['=A1:', '=A1:D3']] as const) {
       const w = await mountSheet(recorded().source)
       await goTo(w, 'C3')
@@ -327,7 +327,7 @@ describe('Point mode: what an arrow does with nothing pointed, as Excel measured
     }
   })
 
-  it('where the formula does not read, or inside a string, a quoted sheet’s name or a table’s brackets, the arrow does nothing', async () => {
+  it("where the formula does not parse, or inside a string, a quoted sheet name or a table's brackets, the arrow does nothing", async () => {
     for (const text of ['=A1)', '=1e', '={1', '=$', '="a', "='a b", '=T[']) {
       const { source, edits } = recorded()
       const w = await mountSheet(source)
@@ -339,7 +339,7 @@ describe('Point mode: what an arrow does with nothing pointed, as Excel measured
     }
   })
 
-  it('in a ru-RU book the locale decides: `=1,5` is entered, `=1.5` and `=A1,` do nothing', async () => {
+  it('in a ru-RU workbook the locale decides: `=1,5` is entered, `=1.5` and `=A1,` do nothing', async () => {
     for (const [text, open] of [['=1,5', false], ['=1.5', true], ['=A1,', true]] as const) {
       const w = await mountSheet(recorded().source, { locale: 'ru-RU' })
       await settle()
@@ -351,7 +351,7 @@ describe('Point mode: what an arrow does with nothing pointed, as Excel measured
     }
   })
 
-  it('the first Shift and arrow after = makes a range from the edited cell', async () => {
+  it('the first Shift+arrow after = makes a range from the edited cell', async () => {
     const w = await mountSheet(recorded().source)
     await goTo(w, 'C3')
     await typeIn(w, '=')
@@ -362,7 +362,7 @@ describe('Point mode: what an arrow does with nothing pointed, as Excel measured
     expect(active(w)).toBe('3:3')
   })
 
-  it('Command and an arrow (Control on Windows) jump to the data’s edge by the source’s end, Shift extends; Home, Page Down and Page Up point', async () => {
+  it("Cmd+arrow (Ctrl on Windows) jumps to the data's edge by the source's end, Shift extends; Home, Page Down and Page Up insert references", async () => {
     const src = memorySource(book())
     const end = vi.fn(async (_sheet: string, cell: string, dir: string) => (cell === 'D3' && dir === 'down' ? 'D6' : cell))
     const w = await mountSheet({ ...src, end })

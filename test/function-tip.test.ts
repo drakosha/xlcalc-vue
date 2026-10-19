@@ -41,20 +41,20 @@ async function caretTo(w: VueWrapper, at: number): Promise<void> {
   await settle()
 }
 
-describe('tipParts: the tip in pieces with the current argument', () => {
+describe('tipParts: the tooltip in pieces with the current argument', () => {
   const sum = functionSignature('SUM')!
   const sumifs = functionSignature('SUMIFS')!
   const on = (parts: ReturnType<typeof tipParts>) => parts.filter((p) => p.current).map((p) => p.text)
   const text = (parts: ReturnType<typeof tipParts>) => parts.map((p) => p.text).join('')
 
-  it('an argument of the list', () => {
+  it('an argument within the list', () => {
     expect(text(tipParts(sum, 0))).toBe('SUM(number1, [number2], ...)')
     expect(on(tipParts(sum, 0))).toEqual(['number1'])
     expect(on(tipParts(sum, 1))).toEqual(['number2'])
     expect(on(tipParts(sumifs, 2))).toEqual(['criteria1'])
   })
 
-  it('past the list the repeated group goes on, its numbers counted on', () => {
+  it('beyond the list the repeating group continues, with its numbers counted up', () => {
     expect(text(tipParts(sum, 2))).toBe('SUM(number1, [number2], [number3], ...)')
     expect(on(tipParts(sum, 2))).toEqual(['number3'])
     expect(on(tipParts(sum, 4))).toEqual(['number5'])
@@ -64,19 +64,19 @@ describe('tipParts: the tip in pieces with the current argument', () => {
     expect(text(tipParts(functionSignature('СУММ', { ...ruRU, ...ruRUFunctionText })!, 2))).toBe('СУММ(число1;[число2];[число3];...)')
   })
 
-  it('past the arguments of a function that takes no more: none in bold', () => {
+  it('beyond the last argument of a function that takes no more: nothing in bold', () => {
     const round = functionSignature('ROUND')!
     expect(text(tipParts(round, 2))).toBe(round.text)
     expect(on(tipParts(round, 2))).toEqual([])
   })
 
-  it('a signature of the host’s own, with names the text does not hold, is shown as its text', () => {
+  it("a host's own signature, with names its text does not contain, is displayed as its text", () => {
     const own: SheetFunctionSignature = { name: 'F', fn: 'F', args: [{ name: 'x', optional: false }], repeat: 0, text: 'F(value)', category: 'math', categoryName: 'Math & Trig', description: 'The host’s own.' }
     expect(tipParts(own, 0)).toEqual([{ text: 'F(value)' }])
   })
 })
 
-describe('the tip under the cell', () => {
+describe('the tooltip below the cell', () => {
   it('in `=SUM(` the first argument, and the next one after a separator', async () => {
     const { source } = signed()
     const w = await mountSheet(source)
@@ -89,7 +89,7 @@ describe('the tip under the cell', () => {
     expect(current()).toBe('number3')
   })
 
-  it('SUMIFS: the second group of criteria, then the third one counted on', async () => {
+  it('SUMIFS: the second group of criteria, then the third, counted up', async () => {
     const { source } = signed()
     const w = await mountSheet(source)
     await typeFormula(w, '=SUMIFS(A1:A3, B1:B3, "x", ')
@@ -100,7 +100,7 @@ describe('the tip under the cell', () => {
     expect(tip()).toContain('[criteria_range3, criteria3]')
   })
 
-  it('ru-RU: `=СУММ(1;` is at the second argument; the source is asked by the English name', async () => {
+  it('ru-RU: `=СУММ(1;` is at the second argument; the source is queried by the English name', async () => {
     const { source, asked } = signed(ruRU)
     const w = await mountSheet(source, { locale: 'ru-RU' })
     await settle()
@@ -126,7 +126,7 @@ describe('the tip under the cell', () => {
     expect(current()).toBe('number3')
   })
 
-  it('none in a string, after the closing bracket, outside a formula, nor for an unknown name', async () => {
+  it('none in a string, after the closing parenthesis, outside a formula, or for an unknown name', async () => {
     const { source } = signed()
     const w = await mountSheet(source)
     await typeFormula(w, '="SUM(')
@@ -147,7 +147,7 @@ describe('the tip under the cell', () => {
     expect(tip()).toBeNull()
   })
 
-  it('follows the caret: back inside the brackets it shows, out of them it closes', async () => {
+  it('follows the caret: it appears back inside the parentheses and closes outside them', async () => {
     const { source } = signed()
     const w = await mountSheet(source)
     await typeFormula(w, '=SUM(1)')
@@ -166,7 +166,7 @@ describe('the tip under the cell', () => {
     expect(tip()).toBeNull()
   })
 
-  it('not with the list of functions: the list first, the tip once it closes', async () => {
+  it('never together with the function list: the list first, the tooltip once it closes', async () => {
     const { source } = signed(undefined, ['ROUND', 'SUM', 'SUMIF'])
     const w = await mountSheet(source)
     await typeFormula(w, '=SUM(1, RO')
@@ -178,7 +178,7 @@ describe('the tip under the cell', () => {
     expect(current()).toBe('number2')
   })
 
-  it('Esc cancels the edit with the tip; Enter commits and closes it', async () => {
+  it('Esc cancels the edit along with the tooltip; Enter commits and closes it', async () => {
     const { source } = signed()
     const w = await mountSheet(source)
     await typeFormula(w, '=SUM(')
@@ -194,8 +194,8 @@ describe('the tip under the cell', () => {
   })
 })
 
-describe('the source’s signatures', () => {
-  it('asked by name once, not at every key, with a signal; the name in any case is one', async () => {
+describe("the source's signatures", () => {
+  it('requested by name once, not on every keystroke, with a signal; any letter case of a name counts as one', async () => {
     const { source, asked } = signed()
     const w = await mountSheet(source)
     await typeFormula(w, '=SUM(')
@@ -212,7 +212,7 @@ describe('the source’s signatures', () => {
     expect(asked.mock.calls[0]![1]).toBeInstanceOf(AbortSignal)
   })
 
-  it('an answer for a call the caret left is aborted and not shown', async () => {
+  it('a response for a call the caret has left is aborted and not shown', async () => {
     const { source } = signed()
     const signals: AbortSignal[] = []
     const gives: ((s: SheetFunctionSignature | null) => void)[] = []
@@ -234,7 +234,7 @@ describe('the source’s signatures', () => {
     expect(tip()).toMatch(/^ROUND\(/)
   })
 
-  it('a failed request shows nothing and is asked again later', async () => {
+  it('a failed request shows nothing and is retried later', async () => {
     const { source } = signed()
     const asked = vi.fn().mockRejectedValueOnce(new Error('offline')).mockImplementation(async (name: string) => functionSignature(name))
     source.functionSignature = asked
@@ -248,8 +248,8 @@ describe('the source’s signatures', () => {
   })
 })
 
-describe('the tip under the formula bar', () => {
-  it('shows under the bar’s field', async () => {
+describe('the tooltip below the formula bar', () => {
+  it("appears below the formula bar's input", async () => {
     const { source } = signed()
     const w = await mountSheet(source)
     await pressBar(w, 0)
@@ -268,7 +268,7 @@ describe('FunctionTip', () => {
   const VIEW = { top: 0, left: 0, width: 360, height: 400 }
   const parts = tipParts(functionSignature('СУММ', { ...ruRU, ...ruRUFunctionText })!, 1)
 
-  it('under the field, kept inside the view by its measured width; over the field where the view has no room below', async () => {
+  it('below the editor, kept inside the viewport by its measured width; above the editor where the viewport has no room below', async () => {
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(300)
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(36)
     const w = mount(FunctionTip, { props: { rect: FIELD, parts, view: VIEW } })
@@ -280,14 +280,14 @@ describe('FunctionTip', () => {
     expect((low.element as HTMLElement).style.top).toBe(`${380 - 36}px`)
   })
 
-  it('the current argument bold; a narrow view may break the line after a separator or "(", not inside a name', () => {
+  it('the current argument in bold; a narrow viewport may break the line after a separator or "(", not inside a name', () => {
     const w = mount(FunctionTip, { props: { rect: FIELD, parts } })
     expect(w.find('.xs-ft-on').text()).toBe('число2')
     expect(w.html().replace(/<!--.*?-->|\s/g, '')).toContain('СУММ(<wbr>число1;<wbr>[<b')
     expect(w.text()).toBe('СУММ(число1;[число2];...)')
   })
 
-  it('a press on the tip keeps the field’s focus', () => {
+  it("a press on the tooltip keeps the editor's focus", () => {
     const w = mount(FunctionTip, { props: { rect: FIELD, parts }, attachTo: document.body })
     const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
     w.element.dispatchEvent(down)

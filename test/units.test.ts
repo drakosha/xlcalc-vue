@@ -38,7 +38,7 @@ describe('Excel units', () => {
 })
 
 describe('style to CSS', () => {
-  it('General aligns by the value as Excel does', () => {
+  it('General aligns by value as Excel does', () => {
     expect(generalAlign(1)).toBe('right')
     expect(generalAlign('x')).toBe('left')
     expect(generalAlign(true)).toBe('center')
@@ -47,14 +47,14 @@ describe('style to CSS', () => {
     expect(horizontalOf({ alignment: { horizontal: 'general' } }, 5)).toBe('right')
     expect(horizontalOf({ alignment: { horizontal: 'left' } }, 5)).toBe('left')
   })
-  it('vertical: the bottom by default; justify and distributed wrap', () => {
+  it('vertical: bottom by default; justify and distributed wrap', () => {
     expect(verticalOf(undefined)).toBe('bottom')
     expect(verticalOf({ alignment: { vertical: 'center' } })).toBe('center')
     expect(verticalOf({ alignment: { vertical: 'justify' } })).toBe('top')
     expect(wrapsOf({ alignment: { horizontal: 'justify' } })).toBe(true)
     expect(wrapsOf({ alignment: { horizontal: 'left' } })).toBe(false)
   })
-  it('every xlsx border kind has a CSS line', () => {
+  it('every xlsx border style has a CSS line', () => {
     const line = (l: Parameters<typeof borderCss>[0]) => Object.values(borderCss(l)!).join(' ')
     expect(line({ style: 'thin' })).toBe('1px solid var(--xs-border-auto)')
     expect(line({ style: 'medium', color: '#ff0000' })).toBe('2px solid #ff0000')
@@ -67,7 +67,7 @@ describe('style to CSS', () => {
     expect(borderWidth({ style: 'slantDashDot' })).toBe(2)
     expect(borderCss(undefined)).toBeUndefined()
   })
-  it('font, colours and fill; the format section colour wins over the font colour', () => {
+  it("font, colors and fill; the format section's color takes precedence over the font color", () => {
     expect(fontCss({ font: { name: 'Arial', size: 22, bold: true, italic: true, underline: 'double', strike: true, color: '#111111' }, fill: { color: '#ffff00' } }, undefined)).toEqual({
       fontFamily: '"Arial", var(--xs-font)',
       fontSize: '25px',
@@ -90,7 +90,7 @@ describe('style to CSS', () => {
   })
 })
 
-describe("rows' offsets", () => {
+describe("row offsets", () => {
   /** Geometry over its own state: `visible` a display order of sheet rows, or null. */
   function rig(count: number) {
     const heights = shallowRef(new Map<number, number>())
@@ -111,7 +111,7 @@ describe("rows' offsets", () => {
     return { geo, heights, visible, rowCount, full }
   }
 
-  it('changed heights sum again from the first changed row, the same as summing all; a filter, a reset and a new count too', () => {
+  it('changed heights are summed again from the first changed row, matching a full sum; and after a filter, a reset and a new count', () => {
     const { geo, heights, visible, rowCount, full } = rig(500)
     expect([...geo.rowOffsets.value]).toEqual([...full()])
     const steps: (() => void)[] = [

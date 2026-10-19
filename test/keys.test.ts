@@ -10,8 +10,8 @@ afterEach(() => {
 
 const book = (): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 'apple', B2: 5 } }] })
 
-describe('shortcut letters on another layout', () => {
-  it('Control+A selects all by the key under A: Russian and Greek', async () => {
+describe('shortcut letters on another keyboard layout', () => {
+  it('Ctrl+A selects all by the key in the A position: Russian and Greek', async () => {
     for (const k of ['ф', 'α']) {
       const w = await mountSheet(memorySource(book()))
       await key(w, k, { ctrlKey: true, code: 'KeyA' })
@@ -21,7 +21,7 @@ describe('shortcut letters on another layout', () => {
     }
   })
 
-  it('Control+F and Control+H open the search bar by the keys under F and H on a Greek layout', async () => {
+  it('Ctrl+F and Ctrl+H open the search bar by the keys in the F and H positions on a Greek layout', async () => {
     const w = await mountSheet(memorySource(book()))
     await key(w, 'φ', { ctrlKey: true, code: 'KeyF' })
     await settle()
@@ -34,7 +34,7 @@ describe('shortcut letters on another layout', () => {
     expect(w.find('[data-xs-replace-input]').exists()).toBe(true)
   })
 
-  it('AltGr comes as Control+Alt and types its character: no select all, no search', async () => {
+  it('AltGr arrives as Ctrl+Alt and types its character: no select all, no search', async () => {
     const w = await mountSheet(memorySource(book()))
     await key(w, 'ą', { ctrlKey: true, altKey: true, code: 'KeyA' })
     await settle()

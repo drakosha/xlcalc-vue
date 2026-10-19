@@ -31,7 +31,7 @@ function recorded(b = book()) {
 }
 
 describe('keys', () => {
-  it('typing over a cell starts a new text; Enter sends it and moves down', async () => {
+  it('typing over a cell starts a new entry; Enter sends it and moves down', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     expect(active(w)).toBe('1:1')
@@ -46,7 +46,7 @@ describe('keys', () => {
     expect(cellText(w, 1, 1)).toBe('xyz')
   })
 
-  it('Tab, Shift+Tab, Shift+Enter commit and move; Esc cancels', async () => {
+  it('Tab, Shift+Tab and Shift+Enter commit and move; Esc cancels', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'B2')
@@ -70,7 +70,7 @@ describe('keys', () => {
     expect(edits.map((e) => e[0]!.cell + '=' + e[0]!.text)).toEqual(['B2=1', 'C2=2', 'B2=3'])
   })
 
-  it('Enter and Tab without a field move the cursor; arrows after typing commit', async () => {
+  it('Enter and Tab without an editor move the active cell; arrows after typing commit', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await key(w, 'Enter')
@@ -84,7 +84,7 @@ describe('keys', () => {
     expect(edits).toEqual([[{ sheet: 'S', cell: 'B2', text: 'q' }]])
   })
 
-  it('F2 and a double click open the field with the formula or the value', async () => {
+  it('F2 and a double click open the editor with the formula or the value', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'B2')
@@ -100,7 +100,7 @@ describe('keys', () => {
     expect((w.find('.xs-editor').element as HTMLTextAreaElement).value).toBe('b1')
   })
 
-  it('a text the book would read as a number or a date opens with an apostrophe, and Enter leaves it a text', async () => {
+  it('text the workbook would parse as a number or a date opens with an apostrophe, and Enter keeps it text', async () => {
     const { source, edits } = recorded({ sheets: [{ name: 'S', cells: { A1: { value: '007', text: '007' }, A2: { value: '15.03.2026' }, A3: 'plain' } }] })
     const w = await mountSheet(source, { locale: 'ru-RU' })
     const field = () => (w.find('.xs-editor').element as HTMLTextAreaElement).value
@@ -119,7 +119,7 @@ describe('keys', () => {
     expect(edits).toEqual([])
   })
 
-  it('Delete clears the selection, skipping cells known empty', async () => {
+  it('Delete clears the selection, skipping cells known to be empty', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'A1:C3')
@@ -131,7 +131,7 @@ describe('keys', () => {
     expect(cellText(w, 1, 1)).toBe('')
   })
 
-  it('a paste lays the text out as Excel pastes it, from the active cell; one value fills the selection', async () => {
+  it('a paste lays the text out as Excel pastes it, from the active cell; a single value fills the selection', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'B5')
@@ -153,7 +153,7 @@ describe('keys', () => {
     expect(edits[1]!.map((e) => `${e.cell}=${e.text}`)).toEqual(['E1=7', 'E2=7'])
   })
 
-  it('a paste reads quoted fields as Excel pastes them, fields at tabs and rows at line breaks', async () => {
+  it('a paste parses quoted fields as Excel pastes them, with fields at tabs and rows at line breaks', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'B5')
@@ -162,7 +162,7 @@ describe('keys', () => {
     expect(edits[0]!.map((e) => `${e.cell}=${e.text}`)).toEqual(['B5=x\ny', 'C5=say "hi"', 'B6=z', 'C6=null'])
   })
 
-  it('a paste that would leave the sheet is refused whole, as Excel refuses it, and says why', async () => {
+  it('a paste that would extend past the sheet is rejected as a whole, as Excel rejects it, with the reason', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'XFD1048576')
@@ -188,7 +188,7 @@ describe('keys', () => {
 })
 
 describe('locked cells', () => {
-  it('are not sent: the field does not open and the reason is shown', async () => {
+  it('are not sent: the editor does not open and the reason is displayed', async () => {
     const { source, edits } = recorded()
     const w = await mountSheet(source)
     await goTo(w, 'D3')
@@ -217,7 +217,7 @@ describe('outcomes', () => {
     return { source, edits, release: () => release() }
   }
 
-  it('while in flight the cell shows the typed text as pending', async () => {
+  it('while pending the cell displays the typed text as pending', async () => {
     const h = held({ ok: true, changes: [] })
     const w = await mountSheet(h.source)
     await key(w, 'n')
@@ -233,7 +233,7 @@ describe('outcomes', () => {
     expect(cellText(w, 1, 1)).toBe('new')
   })
 
-  it('conflict: the text stays in the field, the windows are read again, a message', async () => {
+  it('conflict: the text stays in the editor, the windows are read again, and a message appears', async () => {
     const h = held({ ok: false, reason: 'conflict', message: '' })
     const w = await mountSheet(h.source, { messages: { conflict: 'Changed elsewhere' } })
     const windows = h.source.window
@@ -258,7 +258,7 @@ describe('outcomes', () => {
   const alertBox = () => document.querySelector('[data-xs-alert="formula"]')
   const alertButton = (b: string) => document.querySelector<HTMLElement>(`[data-xs-alert-button="${b}"]`)!
 
-  it('invalid: the sheet asks with the source message; Fix opens the field again with the caret at `at`', async () => {
+  it("invalid: the sheet prompts with the source's message; Fix reopens the editor with the caret at `at`", async () => {
     const h = held({ ok: false, reason: 'invalid', message: 'Missing bracket', at: 4 })
     const w = await mountSheet(h.source)
     await key(w, '=')
@@ -280,7 +280,7 @@ describe('outcomes', () => {
     expect(el.selectionStart).toBe(4)
   })
 
-  it('invalid: Restore, or Esc in the question, leaves the cell as it was and the field closed', async () => {
+  it('invalid: Restore, or Esc in the prompt, leaves the cell unchanged and the editor closed', async () => {
     for (const how of ['button', 'escape'] as const) {
       const h = held({ ok: false, reason: 'invalid', message: 'Missing bracket', at: 4 })
       const w = await mountSheet(h.source)
@@ -301,7 +301,7 @@ describe('outcomes', () => {
     }
   })
 
-  it('refused and failed: the cell comes back as it was, with a message', async () => {
+  it('refused and failed: the cell reverts, with a message', async () => {
     for (const reason of ['refused', 'failed'] as const) {
       const h = held({ ok: false, reason, message: `no: ${reason}` })
       const w = await mountSheet(h.source)

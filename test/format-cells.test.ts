@@ -19,8 +19,8 @@ function ok(state: SheetViewState, change: (d: FormatDraft, s: ReturnType<typeof
   return patchesOf(start, draft)
 }
 
-describe('the fields as the active cell opens them', () => {
-  it('takes the font, the alignment, the fill, the number format among those offered and the cell’s own sides', () => {
+describe("the inputs as the active cell's formatting fills them", () => {
+  it("uses the font, the alignment, the fill, the number format among those offered and the cell's own sides", () => {
     const s = startOf(
       at('B2', {
         numberFormat: '0%',
@@ -37,7 +37,7 @@ describe('the fields as the active cell opens them', () => {
     expect(s.edges).toEqual({ top: THIN, bottom: null, left: null, right: null })
   })
 
-  it('opens a cell without a look at Excel’s defaults, a code of its own as Custom, a range’s edges unknown', () => {
+  it("opens a cell without formatting at Excel's defaults, its own code as Custom, a range's edges unknown", () => {
     expect(startOf(at('A1')).draft).toMatchObject({ numberCode: 'General', numberFormat: null, horizontal: 'general', vertical: 'bottom', wrap: false, indent: '0', fontName: '', fontSize: '', fontStyle: 'regular', underline: 'none', fontColour: null, fill: null })
     expect(startOf(at('A1', { numberFormat: '0.000' })).draft).toMatchObject({ numberCode: '0.000' })
     const range = startOf(at('B2:D4', { style: { border: { top: THIN } } }))
@@ -50,14 +50,14 @@ describe('OK’s patches', () => {
     expect(ok(at('B2', { style: { font: { bold: true } }, numberFormat: '0.000' }), () => {})).toEqual([])
   })
 
-  it('the font as set, over the selection; a size to Excel’s half points', () => {
+  it("the font as set, over the selection; a size rounded to Excel's half points", () => {
     const patches = ok(at('B2:C3'), (d) => {
       Object.assign(d, { fontName: 'Arial', fontSize: '10,3', fontStyle: 'boldItalic', underline: 'single', strike: true, fontColour: '#C00000' })
     })
     expect(patches).toEqual([{ style: { font: { name: 'Arial', size: 10.5, bold: true, italic: true, underline: 'single', strike: true, color: '#C00000' } } }])
   })
 
-  it('a field back at Excel’s default takes the cell’s own off', () => {
+  it("an input reset to Excel's default removes the cell's own setting", () => {
     const state = at('B2', { style: { font: { bold: true, color: '#FF0000', size: 14 }, alignment: { horizontal: 'center', vertical: 'top', wrap: true, indent: 1 }, fill: { color: '#FFFF00' } } })
     const patches = ok(state, (d) => {
       Object.assign(d, { fontStyle: 'regular', fontColour: null, fontSize: '', horizontal: 'general', vertical: 'bottom', wrap: false, indent: '0', fill: null })
@@ -71,7 +71,7 @@ describe('OK’s patches', () => {
     ])
   })
 
-  it('an item of Excel’s list by what it sets, a code typed as written; the same code sends nothing', () => {
+  it("an item from Excel's list by what it sets, a typed code as written; the same code sends nothing", () => {
     expect(ok(at('A1:A3'), (d) => pickNumber(d, item('percentage')))).toEqual([{ numberFormat: 10 }])
     expect(ok(at('A1'), (d) => typeNumber(d, ' 0.000 '))).toEqual([{ numberFormat: '0.000' }])
     expect(ok(at('A1', { numberFormat: '0.000' }), (d) => typeNumber(d, '0.000'))).toEqual([])
@@ -79,7 +79,7 @@ describe('OK’s patches', () => {
     expect(ok(at('A1', { numberFormat: '0.000' }), (d) => pickNumber(d, item('general')))).toEqual([{ numberFormat: 0 }])
   })
 
-  it('an item puts its code in the field, to be changed from there as Excel’s Custom', () => {
+  it("an item puts its code in the input, to edit from there as with Excel's Custom", () => {
     const patches = ok(at('A1'), (d) => {
       pickNumber(d, item('percentage'))
       expect(d.numberCode).toBe('0.00%')
@@ -90,7 +90,7 @@ describe('OK’s patches', () => {
 })
 
 describe('the Border tab', () => {
-  it('an edge’s button draws the line, or takes it off when the edge has that line; one cell’s sides on the cell', () => {
+  it("an edge's button draws the line, or removes it when the edge has that line; a single cell's sides on the cell", () => {
     const patches = ok(at('B2', { style: { border: { top: THIN } } }), (d, s) => {
       pressEdge(s, d, 'top')
       pressEdge(s, d, 'bottom')
@@ -102,7 +102,7 @@ describe('the Border tab', () => {
     ])
   })
 
-  it('Outline and Inside with one line make one patch over every cell; None takes every line off at once', () => {
+  it('Outline and Inside with one line make one patch over every cell; None removes every line at once', () => {
     expect(ok(at('B2:D4'), (d, s) => {
       d.line = { ...RED }
       pressPreset(s, d, 'outline')
@@ -111,7 +111,7 @@ describe('the Border tab', () => {
     expect(ok(at('B2:D4'), (d, s) => pressPreset(s, d, 'none'))).toEqual([{ range: 'B2:D4', style: { border: null } }])
   })
 
-  it('the outline as four patches, a line inside on both sides of the cells it lies between, in one call', () => {
+  it('the outline as four patches, an inside line on the sides of both cells it lies between, in one call', () => {
     expect(ok(at('B2:D4'), (d, s) => pressPreset(s, d, 'outline'))).toEqual([
       { range: 'B2:D2', style: { border: { top: THIN } } },
       { range: 'B4:D4', style: { border: { bottom: THIN } } },
@@ -124,7 +124,7 @@ describe('the Border tab', () => {
     ])
   })
 
-  it('a range’s edge pressed twice is taken off, as Excel’s grey button; one cell has no inside lines', () => {
+  it("a range's edge clicked twice is removed, as with Excel's gray button; a single cell has no inside lines", () => {
     expect(ok(at('B2:C3'), (d, s) => {
       pressEdge(s, d, 'insideV')
       pressEdge(s, d, 'insideV')
@@ -150,7 +150,7 @@ describe('the Border tab', () => {
 
 describe('the limits OK checks', () => {
   const errors = (d: Partial<FormatDraft>) => draftErrors({ ...startOf(at('A1')).draft, ...d })
-  it('a font of 1 to 409 points, an indent of 0 to 250, a code of the cell’s own not empty', () => {
+  it("a font of 1 to 409 points, an indent of 0 to 250, and a non-empty code of the cell's own", () => {
     expect(errors({ fontSize: '10,5', indent: '250' })).toEqual({})
     expect(errors({ fontSize: '0', indent: '251' })).toEqual({ fontSize: true, indent: true })
     expect(errors({ fontSize: '409.5', indent: '-1' })).toEqual({ fontSize: true, indent: true })
@@ -159,7 +159,7 @@ describe('the limits OK checks', () => {
     expect(errors({ fontSize: '', indent: ' 3 ' })).toEqual({})
   })
 
-  it('an alignment without Excel’s indent takes the indent back to 0; one with it keeps it; what is no alignment changes nothing', () => {
+  it("an alignment without Excel's indent resets the indent to 0; one with it keeps it; an invalid alignment changes nothing", () => {
     const d = { ...startOf(at('A1')).draft, horizontal: 'left' as const, indent: '3' }
     setHorizontal(d, 'right')
     expect([d.horizontal, d.indent]).toEqual(['right', '3'])

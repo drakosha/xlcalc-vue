@@ -41,7 +41,7 @@ const subtotal = async (s: LocalSource) => (await win(s, 'S', 12, 1, 3, 1)).valu
 const rowsOf = async (s: LocalSource) => (await s.book()).sheets[0]!.rows ?? {}
 
 describe('localSource: the outline of a sheet', () => {
-  it('gives the groups from the levels and hidden lines, Excel’s summaries by default; a sheet without groups has none', async () => {
+  it("returns the groups from the levels and hidden rows or columns, with Excel's summaries by default; a sheet without groups has none", async () => {
     const { s } = await opened()
     expect(await outlineOf(s)).toEqual({
       rows: [
@@ -56,14 +56,14 @@ describe('localSource: the outline of a sheet', () => {
     expect((await s.sheets())[1]).not.toHaveProperty('outline')
   })
 
-  it('takes the summary settings and a height of 0 as hidden', async () => {
+  it('accepts the summary settings and treats a height of 0 as hidden', async () => {
     const { s } = await opened(book({ rows: { '3:4': { outlineLevel: 1, height: 0 } }, columns: {}, outline: { summaryBelow: false } }))
     expect(await outlineOf(s)).toEqual({ rows: [{ from: 3, to: 4, level: 1, collapsed: true }], columns: [], summaryBelow: false, summaryRight: true })
   })
 })
 
 describe('localSource: outline commands', () => {
-  it('Show Detail of the outer group keeps the inner one collapsed; each command is one step of the undo, sent as a reload', async () => {
+  it('Show Detail of the outer group keeps the inner one collapsed; each command is a single undo step, sent as a reload', async () => {
     const { s, events, run } = await opened()
     expect(await hiddenRows(s)).toEqual([6, 7, 8, 9])
     expect(await run({ op: 'collapse', rows: '2:10', level: 1 })).toEqual({ ok: true, changes: [expect.objectContaining({ cell: 'C12' })] })
@@ -78,7 +78,7 @@ describe('localSource: outline commands', () => {
     expect(await hiddenRows(s)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10])
   })
 
-  it('the button of a group sharing its summary row with the outer group acts on the whole detail of that row', async () => {
+  it('the button of a group that shares its summary row with the outer group acts on all the detail of that row', async () => {
     // rows 3:7 at level 1 with 5:7 at level 2: both groups end at row 7 and have their buttons on row 8
     const { s, run } = await opened(book({ rows: { '3:4': { outlineLevel: 1 }, '5:7': { outlineLevel: 2 } }, columns: {} }))
     expect(await run({ op: 'collapse', rows: '5:7', level: 2 })).toMatchObject({ ok: true })
@@ -92,7 +92,7 @@ describe('localSource: outline commands', () => {
     expect(await rowsOf(s)).toEqual({ '3:4': { outlineLevel: 1 }, '5:7': { outlineLevel: 2 } })
   })
 
-  it('rows hidden by hand under a summary row mark it at once: saveXlsx writes the mark, and the group stays collapsed inside the outer one', async () => {
+  it('rows hidden manually under a summary row flag it at once: saveXlsx writes the flag, and the group stays collapsed inside the outer one', async () => {
     const { s, run } = await opened(book({ rows: NESTED, columns: {} }))
     await s.layout!({ sheet: 'S', rows: '5:7', hidden: true })
     expect((await outlineOf(s))!.rows).toEqual([
@@ -107,7 +107,7 @@ describe('localSource: outline commands', () => {
     expect(await hiddenRows(s)).toEqual([5, 6, 7])
   })
 
-  it('a level button shows the grouped rows hidden by hand; a summary row it hides keeps its mark, so its group stays collapsed', async () => {
+  it('a level button shows manually hidden grouped rows; a summary row it hides keeps its flag, so its group stays collapsed', async () => {
     const { s, run } = await opened(book({ rows: { '3:4': { outlineLevel: 1 }, '5:7': { outlineLevel: 2 }, '8': { outlineLevel: 1 }, '9': { outlineLevel: 1, hidden: true }, '10': { outlineLevel: 1 } }, columns: {} }))
     expect(await hiddenRows(s)).toEqual([9])
     await run({ op: 'showLevel', axis: 'rows', level: 2 })
@@ -124,7 +124,7 @@ describe('localSource: outline commands', () => {
     expect(Object.values(await rowsOf(s)).some((r) => r.collapsed)).toBe(false)
   })
 
-  it('Group and Ungroup over columns; a level button over rows; a refusal is the library’s message', async () => {
+  it("Group and Ungroup over columns; a level button over rows; a rejection is the library's message", async () => {
     const { s, run } = await opened()
     expect(await run({ op: 'group', columns: 'C:C' })).toMatchObject({ ok: true })
     expect((await outlineOf(s))!.columns).toEqual([
@@ -139,7 +139,7 @@ describe('localSource: outline commands', () => {
     expect(await run({ op: 'collapse', rows: '3:4', level: 2 })).toEqual({ ok: false, reason: 'refused', message: 'No group of level 2 over the rows 3:4' })
   })
 
-  it('Group past the seventh level and Ungroup of rows in no group are refused in the book’s language; Group beside the seventh level deepens the rest', async () => {
+  it("Group beyond the seventh level and Ungroup of rows in no group are rejected in the workbook's language; Group next to the seventh level deepens the rest", async () => {
     const { s, run } = await opened(book({ rows: {}, columns: {} }, 'ru-RU'))
     for (let i = 0; i < 7; i++) expect(await run({ op: 'group', rows: '3:6' })).toMatchObject({ ok: true })
     expect(await run({ op: 'group', rows: '3:6' })).toEqual({ ok: false, reason: 'refused', message: 'Нельзя сгруппировать строки 3:6: они уже на самом глубоком уровне структуры, 7' })
@@ -148,7 +148,7 @@ describe('localSource: outline commands', () => {
     expect(await rowsOf(s)).toEqual({ '2': { outlineLevel: 1 }, '3:6': { outlineLevel: 7 } })
   })
 
-  it('undo takes a command back whole, the hidden rows and the marks, and redo does it again', async () => {
+  it('undo reverts a command as a whole, the hidden rows and the flags, and redo applies it again', async () => {
     const { s, run } = await opened(book({ rows: NESTED, columns: {} }))
     await run({ op: 'collapse', rows: '5:7', level: 2 })
     const collapsed = await rowsOf(s)
@@ -162,7 +162,7 @@ describe('localSource: outline commands', () => {
     expect(await hiddenRows(s)).toEqual([5, 6, 7])
   })
 
-  it('a group at the sheet’s edge has no summary row, so no button: its command is refused, a level button hides it', async () => {
+  it('a group at the edge of the sheet has no summary row, so no button: its command is rejected, and a level button hides it', async () => {
     const { s, run } = await opened(book({ rows: { '1:3': { outlineLevel: 1 } }, columns: {}, outline: { summaryBelow: false } }))
     expect(await run({ op: 'collapse', rows: '1:3', level: 1 })).toEqual({ ok: false, reason: 'refused', message: "The group of rows 1:3 has no summary row within the sheet: Excel draws no button for it" })
     expect(await hiddenRows(s)).toEqual([])
@@ -171,7 +171,7 @@ describe('localSource: outline commands', () => {
     expect((await outlineOf(s))!.rows).toEqual([{ from: 1, to: 3, level: 1, collapsed: true }])
   })
 
-  it('a line hidden by a height of 0 is shown again at the default height', async () => {
+  it('a row hidden by a height of 0 is unhidden at the default height', async () => {
     const { s, run } = await opened(book({ rows: { '3:4': { outlineLevel: 1, height: 0 } }, columns: {} }))
     await run({ op: 'expand', rows: '3:4', level: 1 })
     expect(await hiddenRows(s)).toEqual([])

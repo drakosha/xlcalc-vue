@@ -30,13 +30,13 @@ const book = (): BookInput => ({
 })
 
 describe('localSource: a cell’s dropdown and input message', () => {
-  it('gives a literal list’s items and the input message, a list of cells as their cells show, blanks inside kept', async () => {
+  it("returns a literal list's items and the input message, a list of cells as the cells display them, with blanks inside kept", async () => {
     const s = source(book())
     expect(await s.validation!('S', 'A3')).toEqual({ list: ['Да', 'Нет', 'Может быть'], prompt: { title: 'Ответ', text: 'Выберите из списка' } })
     expect(await s.validation!('S', 'F2')).toEqual({ list: ['1,50', 'два', '', 'четыре'] })
   })
 
-  it('gives an empty list for a formula that gives none, no list without the dropdown, no message turned off', async () => {
+  it('returns an empty list for a formula that returns none, no list without the dropdown, no message when turned off', async () => {
     const s = source(book())
     expect(await s.validation!('S', 'G1')).toEqual({ list: [] })
     expect(await s.validation!('S', 'H1')).toEqual({})
@@ -45,7 +45,7 @@ describe('localSource: a cell’s dropdown and input message', () => {
     expect(await s.validation!('S', 'K1')).toBeNull()
   })
 
-  it('reads the list as the book is now', async () => {
+  it("reads the list from the workbook's current state", async () => {
     const s = source(book())
     await s.edit([{ sheet: 'S', cell: 'E3', text: 'три' }])
     expect((await s.validation!('S', 'F1'))?.list).toEqual(['1,50', 'два', 'три', 'четыре'])
@@ -59,8 +59,8 @@ describe('localSource: a cell’s dropdown and input message', () => {
   })
 })
 
-describe('localSource: a value a rule does not take', () => {
-  it('refuses it for any style with the alert, nothing written', async () => {
+describe('localSource: a value that violates a rule', () => {
+  it('rejects it for any style with the alert, writing nothing', async () => {
     const s = source(book())
     expect(await s.edit([{ sheet: 'S', cell: 'B2', text: '11' }])).toEqual({
       ok: false,
@@ -78,7 +78,7 @@ describe('localSource: a value a rule does not take', () => {
     expect(s.history).toEqual({ undo: 0, redo: 0 })
   })
 
-  it('writes it with `accept`, as Excel after Yes or OK, in one step of the undo', async () => {
+  it('writes it with `accept`, as Excel does after Yes or OK, as a single undo step', async () => {
     const s = source(book())
     expect(await s.edit([{ sheet: 'S', cell: 'C2', text: '-1' }], { accept: true })).toMatchObject({ ok: true, changes: [{ cell: 'C2', value: -1 }] })
     expect(await s.edit([{ sheet: 'S', cell: 'D2', text: '-2' }], { accept: true })).toMatchObject({ ok: true, changes: [{ cell: 'D2', value: -2 }] })
@@ -87,20 +87,20 @@ describe('localSource: a value a rule does not take', () => {
     expect(await s.edit([{ sheet: 'S', cell: 'C3', text: '=СУММ(' }], { accept: true })).toMatchObject({ ok: false, reason: 'invalid' })
   })
 
-  it('refuses several cells by the strictest rule they break, the warning before the stop given first', async () => {
+  it('rejects several cells by the strictest rule they violate, even when the warning comes before the stop', async () => {
     const s = source(book())
     const got = await s.edit([{ sheet: 'S', cell: 'C2', text: '-1' }, { sheet: 'S', cell: 'D2', text: '-1' }, { sheet: 'S', cell: 'B3', text: '0' }])
     expect(got).toMatchObject({ ok: false, alert: { severity: 'stop', cell: 'B3' } })
     expect(await s.edit([{ sheet: 'S', cell: 'D2', text: '-1' }, { sheet: 'S', cell: 'C2', text: '-1' }])).toMatchObject({ ok: false, alert: { severity: 'warning', cell: 'C2' } })
   })
 
-  it('takes any value under a rule that shows no alert, and a cleared cell', async () => {
+  it('accepts any value under a rule that shows no alert, and a cleared cell', async () => {
     const s = source(book())
     expect(await s.edit([{ sheet: 'S', cell: 'J1', text: '-5' }])).toMatchObject({ ok: true })
     expect(await s.edit([{ sheet: 'S', cell: 'B1', text: null }])).toMatchObject({ ok: true })
   })
 
-  it('Control+Return checks the active cell’s rule, and fills with `accept`', async () => {
+  it("Ctrl+Enter checks the active cell's rule, and fills with `accept`", async () => {
     const s = source(book())
     expect(await s.fill!('S', 'C1:C3', '-7', 'C2')).toMatchObject({ ok: false, reason: 'refused', alert: { severity: 'warning', sheet: 'S', cell: 'C2' } })
     expect(s.history).toEqual({ undo: 0, redo: 0 })
@@ -108,14 +108,14 @@ describe('localSource: a value a rule does not take', () => {
     expect((await win(s, 'S', 1, 3, 3, 1)).values).toEqual([[-7], [-7], [-7]])
   })
 
-  it('pastes without checking, as Excel', async () => {
+  it('pastes without checking, as Excel does', async () => {
     const s = source(book())
     expect(await s.paste!('S', 'B2', '99\t-3')).toMatchObject({ ok: true })
     expect((await win(s, 'S', 2, 1, 2, 2)).values).toEqual([[99, -3]])
   })
 })
 
-describe('localSource: an item picked from a dropdown', () => {
+describe('localSource: an item chosen from a dropdown', () => {
   /** ru-RU: a list of cells containing the text 001, the text 1/2 and 0.5 displayed as 50 %; a literal list; both over General cells. */
   const lists = (): BookInput => ({
     locale: 'ru-RU',
@@ -131,7 +131,7 @@ describe('localSource: an item picked from a dropdown', () => {
     ],
   })
 
-  it('writes a cell\'s item as its value, not as typed, and keeps the cell\'s format, in one step of undo', async () => {
+  it("writes a cell item as its value, not as typed, keeping the cell's number format, as a single undo step", async () => {
     const s = source(lists())
     expect(await s.validation('S', 'A1')).toEqual({ list: ['001', '1/2', '50%'] })
     expect(await s.pick('S', 'A1', 0, '001')).toMatchObject({ ok: true, changes: [{ cell: 'A1', value: '001', text: '001' }] })
@@ -143,7 +143,7 @@ describe('localSource: an item picked from a dropdown', () => {
     expect((await win(s, 'S', 1, 3, 1, 1)).values).toEqual([['001'], ['1/2'], [null]])
   })
 
-  it('reads a literal item as typed in en-US, whatever the book\'s locale', async () => {
+  it("parses a literal item as typed in en-US, whatever the workbook's locale", async () => {
     const s = source(lists())
     expect(await s.pick('S', 'B1', 0, '001')).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: 1 }] })
     expect(await s.pick('S', 'B2', 1, '1/2')).toMatchObject({ ok: true })
@@ -152,7 +152,7 @@ describe('localSource: an item picked from a dropdown', () => {
     expect((await s.book()).sheets[0]!.cells.B2).toEqual({ value: (Date.UTC(year, 0, 2) - Date.UTC(1899, 11, 30)) / 86_400_000, numberFormat: 16 })
   })
 
-  it('refuses an item whose text the list no longer has at its place, nothing written', async () => {
+  it('rejects an item whose text the list no longer has at its position, writing nothing', async () => {
     const s = source(lists())
     expect(await s.pick('S', 'A1', 0, '002')).toMatchObject({ ok: false, reason: 'conflict' })
     expect(await s.pick('S', 'A1', 7, '001')).toMatchObject({ ok: false, reason: 'conflict' })

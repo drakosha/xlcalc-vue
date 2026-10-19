@@ -66,21 +66,21 @@ const hidden = (filtered: boolean): BookInput => ({
 })
 
 describe('localSource: find', () => {
-  it('looks in formulas by default, as Excel: the text each cell opens with, formulas in the book’s locale', async () => {
+  it("searches in formulas by default, as Excel does: the text each cell opens with, formulas in the workbook's locale", async () => {
     const s = source()
     expect(await found(s, { sheet: 'Лист1', query: 'С' })).toEqual(['1:2 с примечанием', '2:2 ссылка', '3:1 =СУММ(A1:A2)', '3:2 на лист', '4:2 место', '5:4 строка'])
     expect(await found(s, { sheet: 'Лист1', query: 'С', lookIn: 'values' })).toEqual(['1:2 с примечанием', '2:2 ссылка', '3:2 на лист', '4:2 место', '5:4 строка'])
     expect(await found(s, { sheet: 'Таблица', query: '[@' })).toEqual(['2:3 =[@Сумма]*2', '3:3 =[@Сумма]*2'])
   })
 
-  it('reads the shown text, or in formulas the text the cell opens with', async () => {
+  it('reads the displayed text, or in formulas the text the cell opens with', async () => {
     const s = source(formats())
     expect(await found(s, { sheet: 'S', query: '1250,5' })).toEqual(['1:2 1250,5'])
     expect(await found(s, { sheet: 'S', query: '1250,5', lookIn: 'values' })).toEqual(['1:5 1250,55'])
     expect(await found(s, { sheet: 'S', query: 'сумм' })).toEqual(['1:5 =СУММ(B1:C1)'])
   })
 
-  it('reads a value as its edit text in formulas and as shown in values: dates by the column’s format, numbers whole', async () => {
+  it("reads a value as its edit text in formulas and as displayed in values: dates by the column's format, numbers in full", async () => {
     const s = source(formats())
     expect(await at(s, { query: '15.03' })).toEqual(['1:1'])
     expect(await at(s, { query: '1250,5' })).toEqual(['1:2'])
@@ -90,7 +90,7 @@ describe('localSource: find', () => {
     expect(await at(s, { query: '=сумм(*)', wholeCell: true })).toEqual(['1:5'])
   })
 
-  it('reads the query as Excel’s Find: `?` is one UTF-16 unit, a text has no apostrophe, σ ς Σ are one letter, i is not İ', async () => {
+  it("interprets the query as Excel's Find does: `?` is one UTF-16 code unit, text has no apostrophe, σ ς Σ are one letter, i does not match İ", async () => {
     const s = source(letters())
     expect(await at(s, { query: 'a??b' })).toEqual(['1:1'])
     expect(await at(s, { query: 'a?b' })).toEqual([])
@@ -101,7 +101,7 @@ describe('localSource: find', () => {
     expect(await at(s, { query: 'i' })).toEqual([])
   })
 
-  it('skips hidden cells as Find: in values always, in formulas on a sheet with a filter, there by the blocks hidden lines leave', async () => {
+  it('skips hidden cells as Find does: always in values, and in formulas on a filtered sheet, where it goes by the blocks between hidden rows or columns', async () => {
     const plain = source(hidden(false))
     expect(await at(plain, { query: 'x', lookIn: 'values' })).toEqual(['1:1', '1:3', '3:1', '3:3'])
     expect(await at(plain, { query: 'x', lookIn: 'values', byColumns: true })).toEqual(['1:1', '3:1', '1:3', '3:3'])
@@ -111,7 +111,7 @@ describe('localSource: find', () => {
     expect(await at(filtered, { query: 'x', byColumns: true })).toEqual(['1:1', '1:3', '3:1', '3:3'])
   })
 
-  it('takes the range, the order by columns and the display filter', async () => {
+  it('applies the range, the column order and the display filter', async () => {
     const s = source()
     expect(await found(s, { sheet: 'Список', query: '*', range: 'A3:B4' })).toEqual(['3:1 а', '3:2 30', '4:1 б', '4:2 нет'])
     expect(await found(s, { sheet: 'Список', query: '*', range: 'A3:B4', byColumns: true })).toEqual(['3:1 а', '4:1 б', '3:2 30', '4:2 нет'])
@@ -120,7 +120,7 @@ describe('localSource: find', () => {
     expect(await found(s, { sheet: 'Список', query: '?', wholeCell: true, filter })).toEqual(['2:1 б', '2:2 5', '4:1 б'])
   })
 
-  it('counts under the display filter only its rows, in Find’s order', async () => {
+  it("counts only the display filter's rows under it, in Find's order", async () => {
     // 12,001 matches in column A, more than a page; the filter keeps the header and every third row
     const cells: Record<string, CellInput> = {}
     for (let r = 1; r <= 12_001; r++) {
@@ -137,7 +137,7 @@ describe('localSource: find', () => {
     expect(got.hits.at(-1)).toMatchObject({ row: 1497, col: 1 })
   })
 
-  it('goes on from a cell, as Find Next does: from the first hit after it, round past the end, the cell itself last', async () => {
+  it('continues from a cell, as Find Next does: from the first match after it, wrapping around at the end, with the cell itself last', async () => {
     const s = source(hidden(false))
     const order = async (req: Partial<FindRequest>) => (await at(s, { ...req, query: 'x' })).join(' ')
     expect(await order({ after: 'B2' })).toBe('2:3 3:1 3:2 3:3 1:1 1:2 1:3 2:1 2:2')
@@ -146,7 +146,7 @@ describe('localSource: find', () => {
     expect(await order({ after: 'E9', range: 'A1:B2' })).toBe('1:1 1:2 2:1 2:2')
   })
 
-  it('finds the cells as they are after edits, a format and an undo', async () => {
+  it('finds the cells in their state after edits, a format change and an undo', async () => {
     const s = source(formats())
     expect(await at(s, { query: 'x' })).toEqual(['1:6'])
     await s.edit([{ sheet: 'S', cell: 'F1', text: 'y' }, { sheet: 'S', cell: 'F2', text: '=F1&"x"' }])
@@ -160,7 +160,7 @@ describe('localSource: find', () => {
 })
 
 describe('localSource: replace', () => {
-  it('replaces in formulas in one step of undo, tells subscribers and gives the changes and the count', async () => {
+  it('replaces in formulas as a single undo step, notifies subscribers, and returns the changes and the count', async () => {
     const s = source()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -175,7 +175,7 @@ describe('localSource: replace', () => {
     expect((await win(s, 'Лист1', 3, 1, 1, 1)).formulas).toEqual({ A3: 'СУММ(A1:A2)' })
   })
 
-  it('writes each new text as typed: the apostrophe keeps a text, numbers in the locale, the columns as they are', async () => {
+  it('writes each new text as typed: the apostrophe keeps text, numbers in the locale, the columns unchanged', async () => {
     const s = source(formats())
     // 15.03.2026 → 16.03.2026 by the column's date format, 1250,5 → 1260,6; a percentage cell is omitted, since typing `6%`
     // into it gives the text `6%%` (the library's automatic percentage entry for fresh typing, see the report)
@@ -187,7 +187,7 @@ describe('localSource: replace', () => {
     expect((await s.book()).sheets[0]!.columns?.F).toBeUndefined()
   })
 
-  it('replaces in the cells Find finds, by Excel’s rules: a text without its apostrophe, `?` one UTF-16 unit', async () => {
+  it("replaces in the cells Find finds, by Excel's rules: text without its apostrophe, `?` as one UTF-16 code unit", async () => {
     const s = source(letters())
     expect(await s.replace({ sheet: 'S', query: '007', wholeCell: true }, '8')).toMatchObject({ ok: true, replaced: 1 })
     expect((await win(s, 'S', 1, 1, 2, 1)).values).toEqual([['8']])
@@ -196,7 +196,7 @@ describe('localSource: replace', () => {
     expect((await win(s, 'S', 1, 1, 1, 1)).values).toEqual([['y']])
   })
 
-  it('replaces hidden cells as Excel’s Replace finds them, in formulas: all on a sheet without a filter, the visible ones with it', async () => {
+  it("replaces hidden cells as Excel's Replace finds them, in formulas: all on an unfiltered sheet, the visible ones on a filtered one", async () => {
     expect(await source(hidden(false)).replace({ sheet: 'S', query: 'x', lookIn: 'values' }, 'y')).toMatchObject({ ok: true, replaced: 9 })
     const filtered = source(hidden(true))
     expect(await filtered.replace({ sheet: 'S', query: 'x', lookIn: 'values' }, 'y')).toMatchObject({ ok: true, replaced: 4 })
@@ -212,7 +212,7 @@ describe('localSource: replace', () => {
     expect((await win(s, 'Список', 2, 5, 2, 1)).values).toEqual([[6], [30], ['нет'], [7], [1.5]])
   })
 
-  it('reads cells replaced far apart back in windows of the cell limit, so subscribers get changes, not a reload', async () => {
+  it('reads back distant replaced cells in windows of the cell limit, so subscribers get changes rather than a reload', async () => {
     const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'x' }, C50: { value: 'x' }, A9000: { value: 'x' } } }] }, { maxCells: 10 })
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -221,7 +221,7 @@ describe('localSource: replace', () => {
     expect(events.map((e) => e.kind)).toEqual(['changed'])
   })
 
-  it('finds nothing to replace in shown text, and leaves a formula the replacement breaks as it was, with why', async () => {
+  it('finds nothing to replace in displayed text, and leaves a formula that the replacement breaks unchanged, with the reason', async () => {
     const s = source(formats())
     const before = s.history.undo
     expect(await s.replace({ sheet: 'S', query: '1 250', lookIn: 'values' }, '2')).toEqual({ ok: true, changes: [], replaced: 0 })
