@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The bar over the grid, as in Excel: back, the address box, the formula's field (its references coloured, its list of functions and tip of arguments) one line high or expanded, link and lock.
+// The bar above the grid, as in Excel: Back, the Name Box, the formula input (with colored references, the function list and the argument tooltip), one line high or expanded, the link and the lock.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { GridReference } from 'xlcalc/contract'
@@ -25,31 +25,31 @@ const activeLink = computed(() => {
   const a = active.value
   return a ? ctx.w.cellData(a.row, a.col, cellAddress(a.row, a.col)).link : undefined
 })
-/** What the field holds: the draft of an open field, in the cell too, else the text the active cell opens with, as Excel's formula bar. */
+/** What the input contains: the draft of an open editor, in the cell too, otherwise the text the active cell opens with, as in Excel's formula bar. */
 const barText = computed(() => {
   const open = ctx.editor.value
   if (open) return open.text
   const a = active.value
   return a ? ed.editText(a.row, a.col) : ''
 })
-/** Outside an edit the field takes no typing where none can start: a read-only sheet, a locked cell, no active cell. */
+/** Outside editing, the input accepts no typing where no edit can start: a read-only sheet, a locked cell, no active cell. */
 const barReadonly = computed(() => {
   const a = active.value
   return !ctx.editor.value && (!ctx.editable.value || !a || ed.lockAt(a.row, a.col) !== null)
 })
-/** The text in pieces for the layer over the field: a formula's references in the colours of their frames on the grid (the draft's while one is typed), else the text whole. */
+/** The text in pieces for the layer over the input: a formula's references in the colors of their range borders on the grid (the draft's while one is typed), otherwise the text as a whole. */
 const parts = computed<FormulaPart[]>(() => {
   const text = barText.value
   const refs = f.formulaParts.value
   return refs.length && text === `=${f.shownFormula.value}` ? [{ text: '=' }, ...refs] : [{ text }]
 })
-/** The layer's text: a last line break shows an empty line in the field, so the layer needs a character on it to have that line too. */
+/** The layer's text: a final line break shows an empty line in the input, so the layer needs a character on it to have that line too. */
 const layerText = computed(() => (barText.value.endsWith('\n') ? `${barText.value} ` : barText.value))
-/** Highlights colour the references on the layer's one text node, which then lies on the field's text to the pixel; without them, spans. */
+/** Highlights color the references on the layer's single text node, which then lines up with the input's text to the pixel; without the API, spans. */
 const painting = canPaint()
 let painted: Painted = []
 
-/** The references one can go to (their sheet is in the book): their part and offsets in the text. */
+/** The references one can go to (their sheet is in the workbook): their text and offsets. */
 const goable = computed(() => {
   const out: { part: number; from: number; to: number; ref: GridReference }[] = []
   let from = 0
@@ -60,18 +60,18 @@ const goable = computed(() => {
   })
   return out
 })
-/** The reference whose characters the caret stands at (either edge counts). */
+/** The reference whose characters the caret is at (either edge counts). */
 const refAt = (at: number): GridReference | null => goable.value.find((g) => at >= g.from && at <= g.to)?.ref ?? null
-/** Outside an edit with the mouse, Ctrl+click (Cmd+click) goes to a reference, as in a code editor: said in the field's tip. */
+/** Outside editing with a mouse, Ctrl+click (Cmd+click) goes to a reference, as in a code editor: the input's tooltip says so. */
 const goTip = computed(() => (!ctx.editor.value && !v.touch.value && goable.value.length ? m.value.goRefHint(onMac() ? 'Cmd' : 'Ctrl') : undefined))
-/** A press with Ctrl or Cmd outside an edit: its click goes to the reference under the caret instead of editing. */
+/** A press with Ctrl or Cmd outside editing: its click goes to the reference under the caret instead of editing. */
 let going = false
 function onFieldDown(e: MouseEvent): void {
-  // the mouse's press a browser may send after a finger's long press that went: the field takes no focus
+  // a mouse press a browser may send after a finger's long press that already navigated: the input takes no focus
   if (ctx.menu.press.after()) return void e.preventDefault()
   going = !ctx.editor.value && !v.touch.value && isMod(e)
 }
-/** The field's focus starts the edit in the bar where the press put the caret or the selection, as F2 does; a field open in the cell moves here with its draft. */
+/** Focusing the input starts editing in the formula bar where the press put the caret or the selection, as F2 does; an editor open in the cell moves here with its draft. */
 function onFieldFocus(e: FocusEvent): void {
   if (going || ctx.menu.press.after() || !ctx.editable.value) return
   const open = ctx.editor.value
@@ -94,7 +94,7 @@ function onFieldBlur(e: FocusEvent): void {
   going = false
   ed.onEditorBlur(e, 'bar')
 }
-/** A key in the field outside an edit (the edit ended while it kept the focus) starts one, so the field never parts from the cell; on a read-only field Esc goes back to the grid. */
+/** A key in the input outside editing (the edit ended while it kept focus) starts one, so the input always follows the cell; on a read-only input Esc returns to the grid. */
 function onFieldKey(e: KeyboardEvent): void {
   if (!ctx.editor.value && !e.isComposing && !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
     const el = e.target as HTMLTextAreaElement
@@ -103,18 +103,18 @@ function onFieldKey(e: KeyboardEvent): void {
   }
   ed.onEditorKey(e)
 }
-/** Go to a reference's range from the bar: the grid takes the focus, as after the address box. */
+/** Goes to a reference's range from the formula bar: the grid takes focus, as after the Name Box. */
 function goRef(ref: GridReference): void {
   ctx.focusGrid()
   nav.goRef(ref)
 }
-/** The layer scrolls with the field; outside an edit in the bar a new text shows from its top. */
+/** The layer scrolls with the input; outside editing in the formula bar a new text is shown from its top. */
 const layer = shallowRef<HTMLElement | null>(null)
 
-/** While Ctrl or Cmd is held outside an edit, the reference under the mouse is underlined and the cursor a hand, as a code editor's link; either comes first. */
+/** While Ctrl or Cmd is held outside editing, the reference under the pointer is underlined and the pointer becomes a hand, like a link in a code editor; either may come first. */
 const modHeld = ref(false)
 let mouseAt: { x: number; y: number } | null = null
-/** The index in `goable` of the reference under the mouse while it would go, else -1. */
+/** The index in `goable` of the reference under the pointer while it would navigate, otherwise -1. */
 const hovered = ref(-1)
 function updateHover(): void {
   const on = modHeld.value && mouseAt && layer.value && !ctx.editor.value && !v.touch.value
@@ -151,8 +151,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('blur', onWindowBlur)
 })
 
-// A finger held on a reference outside an edit goes to it, with the time and the slop of the sheet's long presses; the browser's menu and selection of that press are held back.
-/** How far beside a reference's characters a finger still lands on it, px; how far the finger may then move is the long press's own slop. */
+// A long press on a reference outside editing goes to it, with the timing and slop of the sheet's long presses; the browser's menu and text selection for that press are suppressed.
+/** How far beside a reference's characters a finger still lands on it, in px; how far the finger may then move is the long press's own slop. */
 const FINGER_SLOP_PX = 6
 let pressRef: GridReference | null = null
 const pressHeld = ref(false)
@@ -176,7 +176,7 @@ function onFieldPointerEnd(): void {
   ctx.menu.press.cancel()
   pressHeld.value = false
 }
-/** A browser's long press may bring its menu before the press's time: the press goes then; the menu of its tail is held back too. */
+/** A browser's long press may bring up its menu before the press's time: the press is canceled then; the menu that follows it is suppressed too. */
 function onFieldContext(e: MouseEvent): void {
   const pending = pressHeld.value && pressRef
   if (!pending && !ctx.menu.press.after()) return
@@ -218,7 +218,7 @@ if (painting) {
   )
   onBeforeUnmount(() => (painted = paintRefs(null, [], painted)))
 }
-/** Excel's Insert Function: on an editable sheet whose source names its functions; its window keeps an open edit open. */
+/** Excel's Insert Function: on an editable sheet whose source lists its functions; its dialog keeps an open edit open. */
 const canInsert = computed(() => ctx.editable.value && !!ctx.source().functionNames)
 const inserting = ref(false)
 function onInsertPick(name: string): void {
@@ -230,7 +230,7 @@ function onInsertClose(): void {
   if (ctx.editor.value) ed.focusEditor()
   else ctx.focusGrid()
 }
-/** A finger has no funnels on the letters (too small to hit): one in the bar opens the active cell's column. */
+/** Touch input gets no funnels on the column letters (too small to hit): one in the formula bar opens the active cell's column. */
 const barFunnel = computed(() => v.touch.value && ctx.filter.available.value && ctx.dataRows.value > 1)
 function openBarFunnel(e: MouseEvent): void {
   const col = active.value?.col ?? 1
@@ -239,7 +239,7 @@ function openBarFunnel(e: MouseEvent): void {
 }
 const setBarInput = refInto(ctx.barInput)
 
-/** The list of functions or the tip of arguments under the bar's field, in the formula's coordinates, kept inside the window: measured as one opens, as the text changes and as the bar expands or collapses. */
+/** The function list or the argument tooltip below the formula bar's input, in the formula's coordinates, kept inside the viewport: measured as one opens, as the text changes and as the bar expands or collapses. */
 const listPlace = shallowRef<{ rect: PopupRect; view: PopupRect } | null>(null)
 watch(
   () => [editingBar.value && (ed.ac.open.value || !!ed.tip.parts.value), ctx.editor.value?.text, ctx.barOpen.value] as const,
@@ -301,7 +301,7 @@ function onAddressEsc(e: KeyboardEvent): void {
       @keydown.esc.prevent="onAddressEsc"
     />
     <div class="xs-fx-line">
-      <!-- Excel's Cancel, Enter and Insert Function left of the field; a press keeps an open field's focus until the button acts -->
+      <!-- Excel's Cancel, Enter and Insert Function to the left of the input; a press keeps an open editor's focus until the button acts -->
       <button type="button" class="xs-tool" :disabled="!ctx.editor.value" :title="m.cancel" :aria-label="m.cancel" data-xs-bar-cancel @mousedown.prevent @click="ed.cancel()">
         <IconClose />
       </button>
@@ -338,7 +338,7 @@ function onAddressEsc(e: KeyboardEvent): void {
           @scroll="syncLayer"
           @blur="onFieldBlur"
         ></textarea>
-        <!-- the same text over the transparent field's, its references coloured; the caret and the selection are the field's -->
+      <!-- the same text over the transparent input's, with its references colored; the caret and the selection are the input's -->
         <div v-if="painting" ref="layer" class="xs-fx-layer" aria-hidden="true">{{ layerText }}</div>
         <div v-else ref="layer" class="xs-fx-layer" aria-hidden="true"><template v-for="(part, i) in parts" :key="i"><span v-if="part.color" :class="['xs-ref', { 'xs-ref-go': i === hoveredPart }]" :style="{ color: part.color }">{{ part.text }}</span><template v-else>{{ part.text }}</template></template>{{ layerText.slice(barText.length) }}</div>
         <FunctionList
@@ -354,7 +354,7 @@ function onAddressEsc(e: KeyboardEvent): void {
         />
         <FunctionTip v-if="listPlace && editingBar && ed.tip.parts.value" :rect="listPlace.rect" :view="listPlace.view" :parts="ed.tip.parts.value" />
       </div>
-      <!-- Excel's arrow at the bar's right end; a press keeps an open field open -->
+      <!-- Excel's arrow at the bar's right end; a press keeps an open editor open -->
       <button
         type="button"
         class="xs-tool"

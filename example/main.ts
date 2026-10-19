@@ -1,4 +1,4 @@
-// The example: the sheet component over the "all formatting" book in memory.
+// The example: the sheet component over the in-memory "all formatting" workbook.
 import { createApp } from 'vue'
 import App from './App.vue'
 

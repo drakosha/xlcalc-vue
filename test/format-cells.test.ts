@@ -1,17 +1,17 @@
 // @vitest-environment node
-// The Format Cells dialog's rules: its fields as the active cell opens them, the Border tab's buttons, the limits OK
-// checks and the patches it sends, only for what changed, the borders on their ranges in the same call.
+// The Format Cells dialog's rules: its inputs as the active cell fills them, the Border tab's buttons, the limits OK checks
+// and the patches it sends, only for what changed, with the borders on their ranges in the same call.
 import { describe, expect, it } from 'vitest'
 import { numberFormatChoices } from 'xlcalc/text'
 import type { SheetViewState } from '../src'
 import { draftErrors, patchesOf, pickNumber, pressEdge, pressPreset, setHorizontal, shownEdge, startOf, typeNumber, type FormatDraft } from '../src/format-cells'
 
-/** Excel's list as xlcalc gives it in en-US. */
+/** Excel's list as xlcalc returns it in en-US. */
 const item = (key: string) => numberFormatChoices().find((c) => c.key === key)!
 const THIN = { style: 'thin' } as const
 const RED = { style: 'medium', color: '#C00000' } as const
 const at = (ref: string, more: Partial<SheetViewState> = {}): SheetViewState => ({ sheet: 'S', ref, ...more })
-/** The dialog opened on `state`, its fields changed by `change`, and OK's patches. */
+/** The dialog opened on `state`, its inputs changed by `change`, and OK's patches. */
 function ok(state: SheetViewState, change: (d: FormatDraft, s: ReturnType<typeof startOf>) => void) {
   const start = startOf(state)
   const draft = structuredClone(start.draft)
@@ -133,7 +133,7 @@ describe('the Border tab', () => {
       { range: 'C2:C3', style: { border: { left: null } } },
     ])
     expect(ok(at('B2'), (d, s) => pressPreset(s, d, 'inside'))).toEqual([])
-    // a cell's side known to have no line, drawn and taken off again, is as it was
+    // a cell side known to have no line, drawn and removed again, is as it was
     expect(ok(at('B2'), (d, s) => {
       pressEdge(s, d, 'left')
       pressEdge(s, d, 'left')

@@ -1,4 +1,4 @@
-/* The funnel's list (FilterPopover.vue): a column's values with checks, a substring, the sort; under its letter, over the whole sheet on a phone. */
+/* The funnel's list (FilterPopover.vue): a column's values with checkboxes, a substring, the sort; below its column letter, over the entire sheet on a phone. */
 .xs-popover {
   position: fixed;
   z-index: var(--xs-z-menu);
@@ -14,7 +14,7 @@
   font-size: var(--xs-font-size);
   box-shadow: var(--xs-shadow-menu);
 }
-/* On a phone the list takes the whole screen, with room for fingers. */
+/* On a phone the list takes the full screen, with room for touch. */
 .xs-popover-full {
   inset: 0;
   width: auto;

@@ -1,12 +1,12 @@
-// A synthetic ru-RU book for the local source: a showcase sheet (a table, a note, links, formats, conditional formats), a
-// sheet of Excel's outline, one of data validation and xlcalc's synthetic book.
+// A synthetic ru-RU workbook for the local source: a showcase sheet (a table, a note, hyperlinks, formats, conditional formats),
+// a sheet with Excel's outline, one with data validation, and xlcalc's synthetic workbook.
 import type { BookInput, CellInput, CellStyle, ConditionalFormat } from 'xlcalc'
 import { synthBook } from 'xlcalc/unstable/synth'
 
 const HEAD: CellStyle = { font: { bold: true, color: '#ffffff' }, fill: { color: '#2f5597' }, alignment: { horizontal: 'center' } }
 const TITLE: CellStyle = { font: { bold: true, size: 14 }, alignment: { horizontal: 'center', vertical: 'center' } }
 const TOTAL: CellStyle = { font: { bold: true }, border: { top: { style: 'thin' }, bottom: { style: 'double' } } }
-/** A data bar over the amounts and a colour scale over the shares: an amount typed recolours every share. */
+/** A data bar over the amounts and a color scale over the shares: typing an amount recolors every share. */
 const RULES: ConditionalFormat[] = [
   { type: 'dataBar', ranges: ['B3:B7'], min: { type: 'autoMin' }, max: { type: 'autoMax' }, color: '#638EC6', border: '#638EC6' },
   { type: 'colorScale', ranges: ['D3:D7'], points: [{ value: { type: 'min' }, color: '#F8696B' }, { value: { type: 'percentile', value: '50' }, color: '#FFEB84' }, { value: { type: 'max' }, color: '#63BE7B' }] },
@@ -14,7 +14,7 @@ const RULES: ConditionalFormat[] = [
 
 /**
  * Excel's outline over formulas: costs by item under two sections, each section's SUBTOTAL on its summary row, the sections
- * under the total; the second section collapsed (its rows hidden, its summary row marked); months under their quarter.
+ * under the total; the second section collapsed (its rows hidden, its summary row flagged); months under their quarter.
  */
 function outlineSheet(): BookInput['sheets'][number] {
   const cells: Record<string, CellInput> = { A1: { value: 'Статья', style: 1 }, B1: { value: 'Янв', style: 1 }, C1: { value: 'Фев', style: 1 }, D1: { value: 'Мар', style: 1 }, E1: { value: 'Кв. 1', style: 1 } }
@@ -44,7 +44,7 @@ function outlineSheet(): BookInput['sheets'][number] {
   }
 }
 
-/** Excel's data validation as xlcalc keeps it: a literal list, a list of cells, whole numbers and decimals of the three alert styles, an input message. */
+/** Excel's data validation as xlcalc stores it: a literal list, a list of cells, whole numbers and decimals with the three alert styles, an input message. */
 function validationSheet(): BookInput['sheets'][number] {
   const cells: Record<string, CellInput> = { A1: { value: 'Поле', style: 1 }, B1: { value: 'Значение', style: 1 }, D1: { value: 'Склады', style: 1 } }
   const fields: [string, CellInput['value']][] = [['Статус', 'открыт'], ['Склад', 'Север'], ['Количество', 5], ['Скидка', 0.1], ['Приоритет', 'средний']]
@@ -68,7 +68,7 @@ function validationSheet(): BookInput['sheets'][number] {
   }
 }
 
-/** The synthetic book of `rows` data rows, with a showcase sheet first and the data sheet's header frozen and formatted. */
+/** The synthetic workbook of `rows` data rows, with a showcase sheet first and the data sheet's header frozen and formatted. */
 export function localBook(rows: number): BookInput {
   const { book } = synthBook({ seed: 7, rows })
   const styles: CellStyle[] = [{}, HEAD, TITLE, TOTAL]

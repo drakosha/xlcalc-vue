@@ -1,5 +1,5 @@
 // memorySource and data validation: a sheet's simple rules (a list, whole numbers within bounds), a cell's dropdown and
-// input message, a value refused with its alert unless the edit is accepted.
+// input message, and a value rejected with its alert unless the edit is accepted.
 import { describe, expect, it } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 

@@ -1,31 +1,31 @@
-// Queries of the memory source over a sheet's shown text: the display filter and sort, search, a column's values, totals.
+// The in-memory source's queries over a sheet's displayed text: the display filter and sort, search, a column's values, totals.
 import type { CellRect } from 'xlcalc/contract'
 import { findCells, replaceCells, type CellText, type EachCell } from './find-match'
 import { columnList as listOf, filterActive, visibleList as listUnder, type QuerySheet } from './sheet-query'
 import type { FindRequest, FindResult, RangeStats, SheetFilter } from './contract/source'
 import { addCell, noStats } from './stats'
 
-/** What the queries read of a sheet: the display filter's reading, and for search where its columns end and what each cell opens with. */
+/** What the queries read of a sheet: what the display filter reads, and for search where its columns end and what each cell opens with. */
 export interface MemorySheetQuery extends QuerySheet {
   maxCol: number
-  /** The text a cell opens with: its formula, else its value as typed. */
+  /** The text a cell opens with: its formula, otherwise its value as typed. */
   editAt(row: number, col: number): string
 }
 
-/** Hits a search gives at most; `total` counts all. */
+/** The maximum number of matches a search returns; `total` counts them all. */
 const HITS_MAX = 1000
 
-/** The sheet's rows in display order: the header first, then the rows that meet the conditions, sorted; null without conditions. */
+/** The sheet's rows in display order: the header first, then the rows that match the conditions, sorted; null without conditions. */
 export function visibleList(sheet: MemorySheetQuery, filter: SheetFilter | undefined): number[] | null {
   return filterActive(filter) ? listUnder(sheet, filter) : null
 }
 
-/** A column's shown values with their counts, over the rows the other columns' conditions leave; '' is an empty cell. */
+/** A column's displayed values with their counts, over the rows the other columns' conditions keep; '' is an empty cell. */
 export function columnList(sheet: MemorySheetQuery, col: number, filter: SheetFilter): { values: { text: string; count: number }[]; more: number } {
   return listOf(sheet, col, filter)
 }
 
-/** Every cell's text a search reads: what it opens with (Look in: Formulas, Excel's default), or what it shows. */
+/** Every cell text a search reads: what it opens with (Look in: Formulas, Excel's default), or its displayed text. */
 function cellsOf(sheet: MemorySheetQuery, lookIn: FindRequest['lookIn']): EachCell {
   const textAt = lookIn === 'values' ? sheet.textAt : sheet.editAt
   return (visit) => {
@@ -37,7 +37,7 @@ const shownRows = (sheet: MemorySheetQuery, filter: SheetFilter | undefined): Se
   return list ? new Set(list) : null
 }
 
-/** Excel's Find: hits in its order, only the shown rows under a filter. */
+/** Excel's Find: matches in its order, only the visible rows under a filter. */
 export function findHits(sheet: MemorySheetQuery, req: FindRequest): FindResult {
   return findCells(cellsOf(sheet, req.lookIn), req, shownRows(sheet, req.filter), HITS_MAX)
 }
@@ -47,7 +47,7 @@ export function replaceTexts(sheet: MemorySheetQuery, req: FindRequest, by: stri
   return replaceCells(cellsOf(sheet, 'formulas'), req, by, shownRows(sheet, req.filter))
 }
 
-/** Totals of a rectangle as Excel's status line, over the shown rows under a filter. */
+/** Totals of a range as in Excel's status bar, over the visible rows under a filter. */
 export function rangeStats(sheet: MemorySheetQuery, rect: CellRect, filter: SheetFilter | undefined): RangeStats {
   const shown = shownRows(sheet, filter)
   const out = noStats()

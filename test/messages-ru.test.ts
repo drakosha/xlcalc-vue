@@ -1,4 +1,4 @@
-// The Russian texts name columns as Excel in Russian does: "столбец", not "колонка".
+// The Russian texts name columns as Russian Excel does: "столбец", not "колонка".
 import { describe, expect, it } from 'vitest'
 import { ruMessages } from '../src'
 

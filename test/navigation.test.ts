@@ -1,5 +1,5 @@
-// Jumps and the bar: the address box, history back, the flash, `focus`, `state`, the cell link, formula references and
-// their highlight, selection by headers with Shift, totals and copying; and the phone: a narrow frame, tap and double tap.
+// Jumps and the formula bar: the Name Box, Back history, the flash, `focus`, `state`, the cell link, formula references and
+// their highlight, selection by headers with Shift, totals and copying; and the phone: a narrow viewport, tap and double tap.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
@@ -95,7 +95,7 @@ describe('formula bar', () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'B1')
     expect(w.findAll('.xs-fx-layer .xs-ref').map((r) => r.text())).toEqual(['A1:A3'])
-    // As Excel's formula bar: the text the cell opens with, no value after it.
+    // As in Excel's formula bar: the text the cell opens with, no value after it.
     expect(barField(w).value).toBe('=SUM(A1:A3)')
     // The formula's range is highlighted on the grid.
     expect((w.find('[data-cell="2:1"]').element as HTMLElement).style.backgroundImage).toContain('linear-gradient')
@@ -159,7 +159,7 @@ describe('selection', () => {
     await goTo(w, 'C:C')
     expect(ref()).toBe('C:C')
     expect(sel(w)).toContain('20:3')
-    // Data grows past the grid's rows: the column stays whole.
+    // Data grows beyond the grid's rows: the column stays entire.
     f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: 'A400', text: 'x', value: 'x' }] })
     await settle()
     expect(ref()).toBe('C:C')
@@ -227,26 +227,26 @@ describe('keys on an editable sheet', () => {
       steps.push(active(w)!)
       expect(sel(w).sort()).toEqual(all)
     }
-    // down the column, then the top of the next, then round to the first
+    // down the column, then the top of the next one, then wrapping around to the first
     expect(steps).toEqual(['3:2', '2:3', '3:3', '2:2'])
     await key('Tab')
     expect(active(w)).toBe('2:3')
     await key('Tab')
     expect(active(w)).toBe('3:2')
-    // back with Shift: up the column; left along the row and round to the last cell
+    // back with Shift: up the column; left along the row and wrapping around to the last cell
     await key('Enter', { shiftKey: true })
     expect(active(w)).toBe('2:2')
     await key('Tab', { shiftKey: true })
     expect(active(w)).toBe('3:3')
     expect(sel(w).sort()).toEqual(all)
-    // a value typed and entered goes to the active cell, and Enter goes on inside the selection
+    // a value typed and entered goes to the active cell, and Enter continues inside the selection
     await key('7')
     await w.find('.xs-editor').trigger('keydown', { key: 'Enter' })
     await settle()
     expect(w.find('[data-cell="3:3"]').text()).toBe('7')
     expect(active(w)).toBe('2:2')
     expect(sel(w).sort()).toEqual(all)
-    // an arrow drops the selection to the active cell's move
+    // an arrow collapses the selection to the active cell's move
     await key('ArrowRight')
     expect(sel(w)).toEqual(['2:3'])
   })
@@ -261,7 +261,7 @@ describe('keys on an editable sheet', () => {
     await key('ArrowDown')
     expect(active(w)).toBe('3:2')
     expect(sel(w)).toEqual(['3:2'])
-    // a column's letter, then Down: the cell under the column's first
+    // a column letter, then Down: the cell below the column's first
     await w.findAll('.xs-head')[2]!.trigger('click')
     await key('ArrowDown')
     expect(active(w)).toBe('2:3')

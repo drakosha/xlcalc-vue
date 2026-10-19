@@ -1,8 +1,8 @@
-// The menus as Excel's: on row numbers and column letters (insert, delete, sizes, hide, unhide, group, ungroup), on the
-// sheet tabs (insert, delete, rename, move, hide, unhide) and "+" after them, on cells (cut, copy, paste, the display
-// filter's Reapply, Freeze Panes and its kinds, Trace Precedents); a right click
-// opens one, a finger's long press too. Its small dialogs ask a size, confirm a sheet's deletion, list hidden sheets, ask
-// rows or columns.
+// Excel's context menus: on row numbers and column letters (insert, delete, sizes, hide, unhide, group, ungroup), on the
+// sheet tabs (insert, delete, rename, move, hide, unhide) and the "+" after them, on cells (cut, copy, paste, the display
+// filter's Reapply, Freeze Panes and its variants, Trace Precedents); a right click
+// opens one, and so does a long press on a touch screen. Its small dialogs ask for a size, confirm a sheet's deletion,
+// list hidden sheets, and ask whether to group rows or columns.
 import { computed, nextTick, onScopeDispose, ref, shallowRef } from 'vue'
 import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, rectContains, sameName } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
@@ -19,12 +19,12 @@ import type { Outline, OutlineAxis, OutlineOp } from './outline'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 
-/** A finger held this long on a number, a letter or a tab opens the menu; moved further than the slop it scrolls instead. */
+/** A finger held this long on a row number, a column letter or a tab opens the menu; moved beyond the slop, it scrolls instead. */
 const LONG_PRESS_MS = 500
 const PRESS_SLOP_PX = 10
-/** The lift, click and browser's context menu that follow a long press are its own for this long. */
+/** The release, click and browser context menu that follow a long press belong to it for this long. */
 const PRESS_TAIL_MS = 800
-/** Excel's limit of the Column Width box, in characters; the Row Height box's is the highest row, `MAX_ROW_HEIGHT`. */
+/** Excel's limit of the Column Width box, in characters; the Row Height box's limit is the tallest row, `MAX_ROW_HEIGHT`. */
 const MAX_WIDTH_CHARS = 255
 
 export type MenuKind = 'rows' | 'columns' | 'sheet' | 'cells'
@@ -34,11 +34,11 @@ export interface MenuItem {
   label: string
   run: () => void
   disabled?: boolean
-  /** A line above it, between groups. */
+  /** A separator above it, between groups. */
   group?: boolean
 }
 
-/** The open menu: where it is, what it acts on (lines of the selection, a sheet by its index; the cells' menu acts on the selection). */
+/** The open menu: where it is and what it acts on (the selected rows or columns, a sheet by its index; the cell menu acts on the selection). */
 export interface OpenMenu {
   kind: MenuKind
   x: number
@@ -47,7 +47,7 @@ export interface OpenMenu {
   last: number
 }
 
-/** A small dialog over the sheet: a size in Excel's units, the question before a sheet with data goes, the hidden sheets, rows or columns to group. */
+/** A small dialog over the sheet: a size in Excel's units, the confirmation before a sheet with data is deleted, the hidden sheets, rows or columns to group. */
 export type MenuDialog =
   | { kind: 'size'; axis: 'columns' | 'rows'; first: number; last: number; draft: string; error: string }
   | { kind: 'deleteSheet'; sheet: string }
@@ -61,7 +61,7 @@ export interface MenuDeps {
   clip: Clip
   filter: Filter
   explain: Explain
-  /** Whether the book freezes panes on the sheet shown: the first freeze item is then Unfreeze Panes, as Excel's. */
+  /** Whether the workbook freezes panes on the displayed sheet: the first freeze item is then Unfreeze Panes, as in Excel. */
   frozen: () => boolean
 }
 
@@ -75,17 +75,17 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
 
   // ── what the menu acts on ──
   const linesAvailable = computed(() => cmd.can('structure') || cmd.can('layout') || cmd.can('outline'))
-  /** Open the menu of a row number or a column letter: a line outside a selection of whole lines selects it first, as Excel. */
+  /** Opens the menu of a row number or a column letter: a row or column outside a selection of entire rows or columns is selected first, as in Excel. */
   function openLines(kind: 'rows' | 'columns', line: number, x: number, y: number): boolean {
     if (!linesAvailable.value) return false
     const whole = kind === 'rows' ? sel.wholeRows.value : sel.wholeColumns.value
-    // Under a display filter the rows between two shown ones are not the shown ones: the menu acts on the row pressed.
+    // Under a display filter the rows between two visible ones are not visible rows: the menu acts on the clicked row.
     const lines = sel.linesOf(kind === 'rows' && s.visible.value ? null : whole, line)
     if (lines !== whole) (kind === 'rows' ? sel.pickRow : sel.pickColumn)(line)
     open.value = { kind, x, y, first: lines.first, last: Math.min(lines.last, kind === 'rows' ? MAX_ROWS : MAX_COLS) }
     return true
   }
-  /** Open a tab's menu: the sheet becomes the active one, as a right click on a tab makes it in Excel. */
+  /** Opens a tab's menu: the sheet becomes active, as a right click on a tab makes it in Excel. */
   async function openSheet(index: number, x: number, y: number): Promise<boolean> {
     if (!cmd.can('structure') || !s.sheets.value[index]) return false
     await deps.pickSheet(index)
@@ -93,7 +93,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     return true
   }
 
-  /** Open the cells' menu: a cell outside the selection selects it first, as Excel. */
+  /** Opens the cell menu: a cell outside the selection is selected first, as in Excel. */
   function openCells(row: number, col: number, x: number, y: number): void {
     const r = sel.fullRect.value
     if (!r || !rectContains(r, cellRect(row, col))) sel.pickCell(row, col)
@@ -106,7 +106,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     if (o.kind === 'cells') return cellItems()
     return o.kind === 'sheet' ? sheetItems(o.first) : lineItems(o.kind, o.first, o.last)
   })
-  /** Cut, Copy and Paste inside the book (a read-only sheet only copies), Reapply under a display filter, Freeze Panes with the source's `freeze`, Trace Precedents with its `explain`. */
+  /** Cut, Copy and Paste within the workbook (a read-only sheet only copies), Reapply under a display filter, Freeze Panes with the source's `freeze`, Trace Precedents with its `explain`. */
   function cellItems(): MenuItem[] {
     const clip = deps.clip
     const copy: MenuItem = { id: 'copy', label: m().menuCopy, run: () => clip.copy(false) }
@@ -118,7 +118,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
           { id: 'paste', label: m().menuPaste, disabled: !clip.canPaste.value, run: () => void clip.paste() },
         ]
     if (deps.filter.active.value && deps.filter.available.value) out.push({ id: 'reapply', label: m().menuReapply, run: () => void deps.filter.reapply(), group: true })
-    // the display filter's rows on screen are not the sheet's, which panes freeze
+    // the display filter's rows on screen are not the sheet's rows, which panes freeze
     if (cmd.can('freeze') && !s.visible.value) {
       const frozen = deps.frozen()
       out.push(
@@ -146,7 +146,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
       out.push(
         { id: 'size', label: axis === 'rows' ? m().menuRowHeight : m().menuColumnWidth, run: () => openSize(axis, first, last), group: out.length > 0 },
         { id: 'hide', label: m().menuHide, run: () => void cmd.layout({ sheet, ...lines, hidden: true }) },
-        // always there, as Excel's: the grid knows a hidden line only from the windows it has read
+        // always present, as in Excel: the grid knows a hidden row or column only from the windows it has read
         { id: 'unhide', label: m().menuUnhide, run: () => void cmd.layout({ sheet, ...lines, hidden: false }) },
       )
     }
@@ -169,7 +169,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
       { id: 'insertSheet', label: m().menuInsert, run: () => void cmd.structure({ op: 'insertSheet', name: nextSheetName(), before: name }) },
       { id: 'deleteSheet', label: m().menuDelete, run: () => deleteSheet(info) },
       { id: 'rename', label: m().menuRename, run: () => startRename(index) },
-      // Excel moves a sheet among the shown ones: before the shown sheet left of it, or past the one right of it.
+      // Excel moves a sheet among the visible ones: before the visible sheet to its left, or after the one to its right.
       { id: 'moveLeft', label: m().menuMoveLeft, disabled: k <= 0, run: () => void cmd.structure({ op: 'moveSheet', sheet: name, before: tabs[k - 1]!.sheet.name }), group: true },
       { id: 'moveRight', label: m().menuMoveRight, disabled: k < 0 || k >= tabs.length - 1, run: () => void cmd.structure(k + 2 < tabs.length ? { op: 'moveSheet', sheet: name, before: tabs[k + 2]!.sheet.name } : { op: 'moveSheet', sheet: name }) },
       { id: 'hideSheet', label: m().menuHide, run: () => void cmd.structure({ op: 'hideSheet', sheet: name }), group: true },
@@ -185,7 +185,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
 
   // ── sizes in Excel's units: characters for a width, points for a height ──
   const decimals = (x: number) => new Intl.NumberFormat(s.locale.value, { maximumFractionDigits: 2, useGrouping: false }).format(x)
-  /** A column's width as the book stores it: one dragged meanwhile from its pixels, else the book's; null for the default. */
+  /** A column's width as the workbook stores it: one dragged meanwhile, from its pixels, otherwise the workbook's; null for the default. */
   const storedWidth = (col: number): number | null => {
     const px = s.userWidths.value[col]
     return px !== undefined ? widthFromPx(px) : (s.bookWidths.value.get(col) ?? null)
@@ -194,7 +194,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     const size = axis === 'columns' ? columnWidthToChars(storedWidth(first)) : ptFromPx(s.heights.value.get(first) ?? s.defaultRowPx.value)
     dialog.value = { kind: 'size', axis, first, last, draft: decimals(size), error: '' }
   }
-  /** The box's number as typed, a decimal comma or point; NaN for anything else. */
+  /** The dialog's number as typed, with a decimal comma or point; NaN for anything else. */
   const parseSize = (text: string): number => (/^\s*\d+(?:[.,]\d*)?\s*$/.test(text) ? Number(text.trim().replace(',', '.')) : Number.NaN)
   function applySize(): void {
     const d = dialog.value
@@ -209,13 +209,13 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     const sheet = s.sheetName.value
     const key = linesKey(d.first, d.last, d.axis)
     const lines = linesOn(d.axis, key)
-    // A size of 0 hides the lines, as Excel's boxes take it; the size they had comes back when they are shown.
+    // A size of 0 hides the rows or columns, as Excel's dialogs accept it; their previous size comes back when they are unhidden.
     if (n === 0) void cmd.layout({ sheet, ...lines, hidden: true })
     else if (d.axis === 'columns') void cmd.layout({ sheet, columns: key, width: columnWidthFromChars(n) })
     else void cmd.layout({ sheet, rows: key, height: n })
   }
 
-  // ── Group and Ungroup over a selection of cells: Excel's box asks rows or columns, rows first ──
+  // ── Group and Ungroup over a cell range: Excel's dialog asks whether to group rows or columns, rows first ──
   function askOutline(op: OutlineOp): void {
     const rect = sel.fullRect.value
     if (rect) dialog.value = { kind: 'outline', op, axis: 'rows', rect }
@@ -229,9 +229,9 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
   }
 
   // ── sheets ──
-  /** The last number this sheet gave a new sheet: Excel counts on past one deleted since. */
+  /** The last number this sheet gave a new sheet: Excel keeps counting past one deleted since. */
   let issued = 0
-  /** Excel's name for a new sheet: the interface's word and the next number past the sheets' count and their own numbers. */
+  /** Excel's name for a new sheet: the interface's word and the next number beyond the sheet count and the numbers already in names. */
   function nextSheetName(): string {
     const prefix = m().sheetNamePrefix
     const own = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)$`, 'i')
@@ -241,9 +241,9 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     issued = n
     return `${prefix}${n}`
   }
-  /** "+": a new sheet at the end, shown once it is in. */
+  /** "+": a new sheet at the end, displayed once it is added. */
   const addSheet = () => cmd.structure({ op: 'insertSheet', name: nextSheetName() })
-  /** Excel asks before a sheet with data goes; an empty one goes at once. */
+  /** Excel asks before deleting a sheet with data; an empty one is deleted at once. */
   function deleteSheet(info: SheetInfo): void {
     if (info.maxRow > 0 && info.maxCol > 0) dialog.value = { kind: 'deleteSheet', sheet: info.name }
     else void cmd.structure({ op: 'deleteSheet', sheet: info.name })
@@ -259,7 +259,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     void cmd.structure({ op: 'unhideSheet', sheet: name })
   }
 
-  // ── renaming on the tab, as Excel's: Enter keeps the name, Esc drops it, a refusal keeps the field ──
+  // ── renaming on the tab, as in Excel: Enter keeps the name, Esc discards it, a rejection keeps the input ──
   const renameInput = ref<HTMLInputElement | null>(null)
   function startRename(index: number): void {
     if (!cmd.can('structure') || !s.sheets.value[index]) return
@@ -270,7 +270,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     })
   }
   let renameBusy = false
-  /** Enter keeps the field after a refusal, for the name to be mended; leaving the field drops it then. */
+  /** After a rejection Enter keeps the input, so the name can be fixed; leaving the input then discards it. */
   async function commitRename(left = false): Promise<void> {
     const r = renaming.value
     if (!r || renameBusy) return
@@ -287,7 +287,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
   }
   const cancelRename = () => (renaming.value = null)
 
-  // A finger's long press, one for the numbers, letters, cells, tabs and the formula bar's references: its tail is each one's.
+  // A long press on a touch screen, shared by row numbers, column letters, cells, tabs and the formula bar's references: what follows it belongs to each.
   const press = useLongPress()
 
   /** The range the open menu acts on, for its caption (`2:5`, `B:D`, `B2:C4`, the sheet's name). */
@@ -327,11 +327,11 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
 
 export type Menu = ReturnType<typeof useMenu>
 
-/** A finger's long press: held still for `LONG_PRESS_MS` it opens what `start` was given; moved further than the slop it scrolls instead. */
+/** A long press on a touch screen: held still for `LONG_PRESS_MS`, it opens what `start` was given; moved beyond the slop, it scrolls instead. */
 export function useLongPress() {
   let press: { timer: ReturnType<typeof setTimeout>; x: number; y: number } | null = null
   let pressedAt = -Infinity
-  /** A finger down: `open` runs at its point if it stays put long enough. */
+  /** A finger down: `open` runs at its point if it stays still long enough. */
   function start(e: PointerEvent, open: (x: number, y: number) => void): void {
     if (e.pointerType !== 'touch' || e.isPrimary === false) return
     cancel()
@@ -353,17 +353,17 @@ export function useLongPress() {
     if (press) clearTimeout(press.timer)
     press = null
   }
-  /** Whether a click or a context menu now is the tail of a long press that opened something. */
+  /** Whether a click or a context menu now is what follows a long press that opened something. */
   const after = () => Date.now() - pressedAt < PRESS_TAIL_MS
   /** Whether a finger is down and still, its long press yet to come. */
   const pressing = () => press !== null
-  /** The browser's context menu where ours opens: none of its own, no press going on; false for the tail of a long press that opened ours (a browser sends it after). */
+  /** The browser's context menu where ours opens: suppresses the browser's own and cancels a press in progress; false for what follows a long press that opened ours (a browser sends it afterwards), true otherwise. */
   function context(e: MouseEvent): boolean {
     e.preventDefault()
     cancel()
     return !after()
   }
-  // The sheet's end: a press held then opens nothing.
+  // The sheet is unmounted: a press held then opens nothing.
   onScopeDispose(cancel)
   return { start, move, cancel, after, pressing, context }
 }

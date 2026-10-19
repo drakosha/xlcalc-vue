@@ -1,6 +1,6 @@
-// Excel's Find and Replace in the sheet's bar: the options go to the source's request, Find Next goes on from the active
-// cell, a selection of several cells is where the search looks, Replace and Replace All go through the source's
-// `replace` as an edit goes and the grid shows what they wrote.
+// Excel's Find and Replace in the sheet's bar: the options go into the source's request, Find Next continues from the
+// active cell, a selection of several cells limits the search, and Replace and Replace All go through the source's
+// `replace` as an edit does, with the grid showing what they wrote.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
@@ -13,13 +13,13 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-/** Fake timers for the pause before the source is asked; setImmediate stays real, flushPromises needs it. */
+/** Fake timers for the pause before the source is queried; setImmediate stays real, since flushPromises needs it. */
 const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
 const book = (): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 'apple', B3: 'pineapple', C10: 'Apple pie', D20: 'pear' } }] })
 const lastRequest = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.at(-1)![0] as FindRequest
 const status = (w: VueWrapper) => w.find('.xs-find-status').text()
 
-/** Open the bar with Ctrl+F, type a query and let the pause pass. */
+/** Opens the bar with Ctrl+F, types a query and lets the pause pass. */
 async function search(w: VueWrapper, query: string): Promise<void> {
   await key(w, 'f', { ctrlKey: true })
   await settle()
@@ -72,7 +72,7 @@ describe('Find', () => {
   it('from a hit goes to the next one in the source\'s order, as Find gives it by blocks on a filtered sheet', async () => {
     fakeTimers()
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 'x', C1: 'x', A3: 'x', C3: 'x' } }] })
-    // Excel's Find on a filtered sheet with row 2 and column B hidden gives the blocks' cells first: A1, C1, A3, C3 by columns too
+    // Excel's Find on a filtered sheet with row 2 and column B hidden returns the blocks' cells first: A1, C1, A3, C3 by columns too
     vi.spyOn(source, 'find').mockResolvedValue({ hits: [{ row: 1, col: 1 }, { row: 1, col: 3 }, { row: 3, col: 1 }, { row: 3, col: 3 }], total: 4 })
     const w = await mountSheet(source)
     await search(w, 'x')
@@ -106,7 +106,7 @@ describe('Find', () => {
     const calls = find.mock.calls.length
     await w.find('[data-xs-find-replace]').trigger('click')
     await pause()
-    // Replace looks in formulas: the bar asks again, and the active cell stays
+    // Replace searches in formulas: the bar requests again, and the active cell stays
     expect(find.mock.calls.length).toBeGreaterThan(calls)
     expect(lastRequest(find).lookIn).toBe('formulas')
     expect(active(w)).toBe(at)
@@ -114,7 +114,7 @@ describe('Find', () => {
 
   it('goes past the hits the source gave, as Excel\'s Find Next reaches every one: the next ones from the active cell', async () => {
     fakeTimers()
-    // 2,500 hits in column A; memorySource gives 1,000 at a time
+    // 2,500 matches in column A; memorySource returns 1,000 at a time
     const cells: Record<string, string> = {}
     for (let r = 1; r <= 2500; r++) cells[`A${r}`] = 'x'
     const source = memorySource({ sheets: [{ name: 'S', cells }] })
@@ -123,19 +123,19 @@ describe('Find', () => {
     const next = () => w.find('.xs-find-input').trigger('keydown', { key: 'Enter' })
     await goTo(w, 'B700')
     await search(w, 'x')
-    // a new query from B700: the first hit after it, A701, asked from there as Excel's Find After
+    // a new query from B700: the first match after it, A701, requested from there as Excel's Find After
     expect(active(w)).toBe('701:1')
     expect(lastRequest(find).after).toBe('B700')
     await goTo(w, 'A2500')
     await next()
     await settle()
-    // round past the end to A1, asked from A2500
+    // wrapping around at the end to A1, requested from A2500
     expect(active(w)).toBe('1:1')
-    // the last of the hits given, A1000, then on
+    // the last of the returned matches, A1000, then onward
     await goTo(w, 'A1000')
     await next()
     await settle()
-    // past the 1,000 hits given: the next ones come from the active cell
+    // beyond the 1,000 returned matches: the next ones are requested from the active cell
     expect(active(w)).toBe('1001:1')
     expect(lastRequest(find).after).toBe('A1000')
     await next()
@@ -174,7 +174,7 @@ describe('Replace', () => {
     await search(w, 'apple')
     await w.find('[data-xs-find-options]').trigger('click')
     await w.find('[data-xs-find-look]').setValue('values')
-    // Excel's Replace looks in formulas only, whatever Find was set to
+    // Excel's Replace searches in formulas only, whatever Find was set to
     await w.find('[data-xs-find-replace]').trigger('click')
     await w.find('[data-xs-replace-input]').setValue('kiwi')
     expect((w.find('[data-xs-find-look]').element as HTMLSelectElement).value).toBe('formulas')
@@ -235,7 +235,7 @@ describe('Replace', () => {
     await settle()
     expect(w.find('.xs-message').text()).toBe('The sheet is protected')
     expect(cellText(w, 1, 1)).toBe('apple')
-    // Find Next went on from A1, the active cell, to B3
+    // Find Next continued from A1, the active cell, to B3
     expect(status(w)).toBe('2 of 3')
   })
 

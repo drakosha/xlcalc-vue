@@ -1,5 +1,5 @@
-// Excel's Merge & Center and its list (Merge Across, Merge Cells, Unmerge Cells) over the selection through the source's
-// `structure`, with Excel's warning before cells holding more than one value are merged: the library keeps the top-left one.
+// Excel's Merge & Center and its dropdown (Merge Across, Merge Cells, Unmerge Cells) over the selection through the source's
+// `structure`, with Excel's warning before cells containing more than one value are merged: the library keeps the top-left one.
 import { computed } from 'vue'
 import { cellAddress, mergedArea, rangeAddress, rectContains, rectsMeet } from 'xlcalc/a1'
 import type { CellRect, CellValue } from 'xlcalc/contract'
@@ -15,7 +15,7 @@ import type { Windows } from './windows'
 import type { MergeCommand } from '../contract/view'
 
 interface MergeDeps {
-  /** Show an alert and wait for the answer. */
+  /** Shows an alert and waits for the answer. */
   ask: (alert: SheetAlert) => Promise<AlertAnswer>
 }
 
@@ -23,9 +23,9 @@ const holds = (text: string | undefined, value: CellValue | undefined, formula: 
 
 export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Commands, deps: MergeDeps) {
   const read = useSheetReads(s)
-  /** The commands act: the source has `structure`, the sheet is editable, and no display filter scatters its rows. */
+  /** The commands are available: the source has `structure`, the sheet is editable, and no display filter scatters its rows. */
   const available = computed(() => !!s.sheet.value && cmd.canRanges.value)
-  /** The merged area the active cell is in, from the loaded windows: Excel's button is pressed on it. */
+  /** The merged range containing the active cell, from the loaded windows: Excel's button shows as pressed on it. */
   const area = computed<CellRect | null>(() => {
     const a = s.selected.value
     if (!a) return null
@@ -33,17 +33,17 @@ export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Command
   })
 
   /**
-   * Whether a merge loses values, as Excel warns: an area (each row of it with `across`) where more than one cell holds a
-   * value or a formula. Cells past the sheet's data are empty; the loaded windows answer when they hold the rectangle,
-   * else the source's windows over it, a tile of `maxCells` at a time. A window not to be had warns, to be safe; null once
-   * `signal` stopped the reads (another sheet, the sheet's end).
+   * Whether a merge loses values, as Excel warns: a range (each row of it with `across`) where more than one cell contains a
+   * value or a formula. Cells beyond the sheet's data are empty; the loaded windows answer when they hold the range,
+   * otherwise the source's windows over it, a tile of `maxCells` at a time. A window that cannot be read warns, to be safe;
+   * null once `signal` stopped the reads (another sheet, the sheet unmounted).
    */
   async function loses(sheet: string, r: CellRect, across: boolean, signal: AbortSignal): Promise<boolean | null> {
     const bottom = Math.min(r.bottom, s.dataRows.value)
     const right = Math.min(r.right, s.dataCols.value)
     if (bottom < r.top || right < r.left) return false
     const counts = new Map<number, number>()
-    /** One more cell holding something in the row's area: true once an area has two. */
+    /** One more non-empty cell in the row's range: true once a range has two. */
     const add = (row: number): boolean => {
       const key = across ? row : 0
       const n = (counts.get(key) ?? 0) + 1
@@ -89,8 +89,8 @@ export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Command
   }
 
   /**
-   * A merge command over the selection, as Excel's: none on one cell outside a merged area; before a merge that loses values
-   * Excel's warning, whose Cancel sends nothing. The source's outcome, or null when nothing was sent.
+   * A merge command over the selection, as in Excel: none on a single cell outside a merged range; before a merge that loses
+   * values, Excel's warning, whose Cancel sends nothing. The source's outcome, or null when nothing was sent.
    */
   async function run(command: MergeCommand): Promise<EditOutcome | null> {
     const r = sel.fullRect.value
@@ -101,7 +101,7 @@ export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Command
     if (r.top === r.bottom && r.left === r.right && !w.merges.value.some((m) => rectsMeet(m, r))) return null
     if (command === 'unmergeCells') return cmd.structure({ op: 'unmergeCells', sheet, range })
     const across = command === 'mergeAcross'
-    // The area the merge takes in: the selection grown by the loaded merged areas it meets, as the library grows it.
+    // The range the merge covers: the selection extended by the loaded merged ranges it overlaps, as the library extends it.
     const lost = await loses(sheet, mergedArea(r, w.merges.value), across, read())
     if (lost === null) return null
     if (lost) {

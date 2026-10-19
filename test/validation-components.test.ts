@@ -1,5 +1,5 @@
-// The components of data validation on their own: the dropdown's arrow and list, the input message and its place, the
-// alert's buttons by style with Excel's default and texts, Esc and the answers.
+// The data validation components on their own: the dropdown's arrow and list, the input message and its position, the
+// alert's buttons by style with Excel's default button and texts, Esc and the answers.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import ValidationAlert from '../src/components/ValidationAlert.vue'
@@ -43,7 +43,7 @@ describe('ValidationDropdown', () => {
   it('opens the list over the cell where the view has no room below; a finger gets 44 px', async () => {
     const view = { top: 0, left: 0, width: 390, height: 120 }
     const w = mount(ValidationDropdown, { props: { rect: CELL, items: ITEMS, open: true, view, touch: true }, attachTo: document.body })
-    // four items of 44 px and the border do not fit under the cell's bottom at 60 px, nor over its top at 40 px: below
+    // four 44 px items plus the border fit neither below the cell's bottom at 60 px nor above its top at 40 px: below
     expect(style(w, '.xs-vd-list').top).toBe('60px')
     expect(w.classes()).toContain('xs-vd-touch')
     expect(style(w, '.xs-vd-list').width).toBe('108px')
@@ -83,7 +83,7 @@ describe('ValidationPrompt', () => {
     Object.defineProperty(w.element, 'offsetHeight', { value: 40 })
     await w.setProps({ prompt: { text: 'Длинная подсказка' } })
     await settle()
-    // the middle at 332 + 150 passes 390: the box ends at the middle; 124 + 40 passes 140: over the cell
+    // the middle at 332 + 150 goes beyond 390: the box ends at the middle; 124 + 40 goes beyond 140: over the cell
     expect([style(w, '.xs-vp').left, style(w, '.xs-vp').top]).toEqual(['182px', '56px'])
   })
 })

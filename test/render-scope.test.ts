@@ -1,4 +1,4 @@
-// What a change redraws: typing, events and moves touch only the cells they change, not every drawn cell.
+// What a change redraws: typing, events and moves affect only the cells they change, not every drawn cell.
 import type { VueWrapper } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { nextTick, triggerRef } from 'vue'
@@ -8,7 +8,7 @@ import { cellText, fakeSource, mountSheet, settle, type } from './helpers'
 
 const contextOf = (w: VueWrapper) => (w.vm.$ as unknown as { provides: Record<symbol, SheetContext> }).provides[sheetContextKey as symbol]!
 
-/** Counts the grid's calls of `cellView` (the template reads it from the context on each render). */
+/** Counts the grid's calls to `cellView` (the template reads it from the context on each render). */
 function countCells(ctx: SheetContext) {
   const own = ctx.views.cellView
   let n = 0
@@ -80,7 +80,7 @@ describe('render scope', () => {
     count.take()
     f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: 'C2', text: 'near', value: 'near' }] })
     await nextTick()
-    // Its row and the one above (whose bottom line reads it) are drawn again, not the grid.
+    // Its row and the one above (whose bottom line reads it) are redrawn, not the grid.
     const perRow = ctx.v.shownCols.value.length
     expect(count.calls).toBeGreaterThan(0)
     expect(count.calls).toBeLessThanOrEqual(2 * perRow)
@@ -178,12 +178,12 @@ describe('render scope', () => {
     count.take()
     ctx.extent.value = { row: 9, col: 5 }
     await nextTick()
-    // Rows 6 to 9 come into the selection.
+    // Rows 6 to 9 enter the selection.
     expect(count.calls).toBe(4 * perRow)
     count.take()
     ctx.extent.value = { row: 10, col: 5 }
     await nextTick()
-    // The old bottom row loses its edge, the new one comes in.
+    // The old bottom row loses its edge, and the new one gets it.
     expect(count.calls).toBe(2 * perRow)
   })
 

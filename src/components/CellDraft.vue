@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The draft typed in the formula bar, shown in its cell: a component of its own, so a typed character redraws this text and not the grid.
+// The draft typed in the formula bar, displayed in its cell: a separate component, so a typed character redraws this text and not the grid.
 import { computed } from 'vue'
 import { fillText } from '../core/cell-style'
 import { useSheetContext } from './context'

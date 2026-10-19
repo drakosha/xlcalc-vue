@@ -1,4 +1,4 @@
-/* The formatting toolbar: the sheet's --xs-* variables and its .xs-tool buttons (style.css), in groups with menus under them. */
+/* The formatting toolbar: the sheet's --xs-* variables and its .xs-tool buttons (style.css), in groups with menus below them. */
 .xs-toolbar {
   position: relative;
   z-index: 30;
@@ -66,7 +66,7 @@
   font-size: 12px;
 }
 
-/* ── a menu under a button: palettes and borders ── */
+/* ── a menu below a button: palettes and borders ── */
 .xs-tb-pop {
   position: absolute;
   top: calc(100% + 3px);
@@ -100,13 +100,13 @@
 .xs-tb-item[aria-pressed='true'] {
   background: var(--xs-head-bg);
 }
-/* The palette a little smaller than the dialog's, as Excel's menu draws it (a finger's is the same, controls.css). */
+/* The palette slightly smaller than the dialog's, as Excel's menu draws it (the touch one is the same, controls.css). */
 .xs-toolbar:not(.xs-touch) .xs-swatches {
   --xs-swatch: 18px;
   gap: 3px;
 }
 
-/* ── a narrow frame: the first buttons in a row, the rest in a menu under the toolbar ── */
+/* ── a narrow viewport: the first buttons in a row, the rest in a menu below the toolbar ── */
 .xs-tb-narrow .xs-tb-row {
   flex: 1 1 auto;
   flex-wrap: nowrap;
@@ -140,7 +140,7 @@
   right: 8px;
 }
 
-/* ── a finger: every target at least 44 × 44 px ── */
+/* ── touch: every target at least 44 × 44 px ── */
 .xs-touch .xs-tb-select {
   max-width: none;
 }

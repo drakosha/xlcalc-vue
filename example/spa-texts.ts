@@ -11,7 +11,7 @@ export interface SpaTexts {
   saveAs: string
   settings: string
   bookName: string
-  /** Excel's name of a new book: Book1, Книга1. */
+  /** Excel's name for a new workbook: Book1, Книга1. */
   defaultName: (n: number) => string
   newTitle: string
   bookLocale: string
@@ -26,10 +26,10 @@ export interface SpaTexts {
   ready: string
   busy: string
   saving: string
-  /** The status while a file is read, and while its book computes for the first time. */
+  /** The status while a file is read, and while its workbook is calculated for the first time. */
   reading: string
   computing: string
-  /** A number as the interface writes it: 3 406, 3,406. */
+  /** A number as the interface formats it: 3 406, 3,406. */
   count: (n: number) => string
   /** The notice of what a file lost: its title, each kind's name, and its details. */
   lostTitle: string
@@ -48,7 +48,7 @@ export interface SpaTexts {
 }
 
 const ms = (n: number) => Math.round(n)
-/** The first eight of a list, and how many more. */
+/** The first eight items of a list, and how many more. */
 const firstOf = (xs: string[], more: (n: number) => string) => xs.slice(0, 8).join(', ') + (xs.length > 8 ? more(xs.length - 8) : '')
 const enCount = new Intl.NumberFormat('en-US')
 const ruCount = new Intl.NumberFormat('ru-RU')
@@ -204,7 +204,7 @@ export const TEXTS: Record<SpaLang, SpaTexts> = {
   },
 }
 
-/** The interface language: `?lang=`, else the browser's, Russian for Russian and English for the rest. */
+/** The interface language: `?lang=`, otherwise the browser's, Russian for Russian and English for the rest. */
 export function pickLang(asked: string | null): SpaLang {
   if (asked === 'ru' || asked === 'en') return asked
   return typeof navigator !== 'undefined' && /^ru\b/i.test(navigator.language) ? 'ru' : 'en'

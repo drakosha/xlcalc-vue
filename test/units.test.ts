@@ -1,4 +1,4 @@
-// Pure pieces: Excel units, prefix sums and the style's CSS.
+// Pure functions: Excel units, prefix sums and the style's CSS.
 import { describe, expect, it } from 'vitest'
 import { ref, shallowRef } from 'vue'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, generalAlign, horizontalOf, verticalOf, wrapsOf } from '../src/core/cell-style'
@@ -6,7 +6,7 @@ import { colPx, fontPx, indexAt, prefixSums, rowPx, useGeometry, widthFromPx } f
 
 describe('Excel units', () => {
   it("column widths in the library's geometry (Excel for Mac) to whole pixels and back", () => {
-    // A column without a width of its own is 53 points, 70.67 px; xlcalc lays out `####` and overflow by these.
+    // A column without its own width is 53 points, 70.67 px; xlcalc lays out `####` and overflow by these.
     expect(colPx(null)).toBe(71)
     expect(colPx(8.83203125)).toBe(71)
     expect(colPx(9.140625)).toBe(73)
@@ -14,7 +14,7 @@ describe('Excel units', () => {
     expect(colPx(0)).toBe(0)
     expect(widthFromPx(71)).toBe(8.83203125)
     expect(widthFromPx(120)).toBe(15)
-    // a width goes back in whole points, as the library stores it; pixels of whole points come back as they were
+    // a width converts back in whole points, as the library stores it; pixels of whole points come back unchanged
     for (const px of [20, 40, 72, 120, 332]) expect(colPx(widthFromPx(px))).toBe(px)
     expect(widthFromPx(4000)).toBe(255)
   })
@@ -91,7 +91,7 @@ describe('style to CSS', () => {
 })
 
 describe("rows' offsets", () => {
-  /** Geometry over a state of its own: `visible` a display order of sheet rows, or null. */
+  /** Geometry over its own state: `visible` a display order of sheet rows, or null. */
   function rig(count: number) {
     const heights = shallowRef(new Map<number, number>())
     const visible = shallowRef<number[] | null>(null)

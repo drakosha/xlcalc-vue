@@ -1,4 +1,4 @@
-// Excel's buttons left of the formula bar's field: Cancel and Enter while an edit is open, and Insert Function with its dialog over the source's names.
+// Excel's buttons to the left of the formula bar's input: Cancel and Enter while an edit is open, and Insert Function with its dialog over the source's names.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { FunctionCategory } from 'xlcalc/contract'
@@ -17,7 +17,7 @@ const about: Record<string, { category: FunctionCategory; categoryName: string; 
   СРЗНАЧ: { category: 'statistical', categoryName: 'Статистические', description: 'Среднее аргументов.' },
   МАКС: { category: 'statistical', categoryName: 'Статистические', description: 'Наибольшее значение.' },
 }
-/** A source with the book's functions and their signatures. */
+/** A source with the workbook's functions and their signatures. */
 function signed() {
   const source = memorySource(book())
   const asked: string[] = []
@@ -98,7 +98,7 @@ describe('Insert Function', () => {
     expect(dialog(w).text()).toContain('Выберите функцию')
     expect(document.activeElement).toBe(w.find('[data-xs-if-search]').element)
     expect(items(w)).toEqual(['БДСУММ', 'СУММ', 'СРЗНАЧ', 'СУММЕСЛИ', 'МАКС'])
-    // The name itself first, then those it begins, then the rest that hold it.
+    // An exact match first, then names that begin with it, then the rest that contain it.
     await w.find('[data-xs-if-search]').setValue('сумм')
     await settle()
     expect(items(w)).toEqual(['СУММ', 'СУММЕСЛИ', 'БДСУММ'])
@@ -177,7 +177,7 @@ describe('Insert Function', () => {
     await press(w, 'fx')
     const category = w.find('[data-xs-if-category]')
     expect(category.findAll('option').map((o) => o.text())).toEqual(['10 недавно использовавшихся', 'Полный алфавитный перечень', 'Математические', 'Статистические', 'Работа с базой данных'])
-    // Nothing used yet: the whole list first.
+    // Nothing used yet: the full list first.
     expect((category.element as HTMLSelectElement).value).toBe('all')
     await category.setValue('statistical')
     await settle()

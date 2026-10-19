@@ -1,11 +1,11 @@
-// A sheet's shown texts and values as the display filter reads them (`../sheet-query`): each column read from the
-// session when a condition, a sort or a funnel first needs it, kept in arrays by row and brought up to date by edits.
+// A sheet's displayed texts and values as the display filter reads them (`../sheet-query`): each column read from the
+// session when a condition, a sort or a funnel first needs it, cached in arrays by row and kept up to date by edits.
 import type { CellValue, CellView } from 'xlcalc'
 import { colLetters, parseCell } from 'xlcalc/a1'
 import { throwIfAborted } from '../abort'
 import type { QuerySheet } from '../sheet-query'
 
-/** What a cell holds, for its value. */
+/** What a cell contains, for its value. */
 const EMPTY = 0
 const NUMBER = 1
 const TEXT = 2
@@ -14,7 +14,7 @@ const ERROR = 4
 
 const isEmpty = (value: CellValue | undefined): boolean => value === null || value === undefined || value === ''
 
-/** A column's cells by row: the shown texts, their values' kinds, numbers (a boolean as 0 or 1), and a text value its shown text does not say or an error's code. */
+/** A column's cells by row: the displayed texts, their values' kinds, numbers (a boolean as 0 or 1), and a text value that its displayed text does not show, or an error's code. */
 class Column {
   texts: string[]
   kinds: Uint8Array
@@ -62,7 +62,7 @@ class Column {
     }
   }
 
-  /** Room for `size` rows at least, doubling, so that edits past the end do not copy at each row. */
+  /** Room for at least `size` rows, doubling, so that edits beyond the end do not copy on every row. */
   private grow(size: number): void {
     const n = Math.max(size, this.kinds.length * 2)
     const kinds = new Uint8Array(n)
@@ -75,7 +75,7 @@ class Column {
   }
 }
 
-/** A column being read: when it is done, the signal that stops the read, and the changes that came meanwhile. */
+/** A column being read: when it is done, the signal that stops the read, and the changes that arrived meanwhile. */
 interface Reading {
   done: Promise<void>
   signal?: AbortSignal
@@ -88,15 +88,15 @@ export class SheetValues implements QuerySheet {
   private readonly cols = new Map<number, Column>()
   private readonly reading = new Map<number, Reading>()
 
-  /** `maxRow`: where the sheet's cells end; an edit past it moves it on, as Excel's used range grows. */
+  /** `maxRow`: where the sheet's cells end; an edit beyond it extends it, as Excel's used range grows. */
   constructor(
     public maxRow: number,
     private readonly read: (ranges: string[], signal?: AbortSignal) => Promise<Record<string, CellView>>,
   ) {}
 
   /**
-   * The columns read, the missing ones in one call that `signal` stops. A read another request started and its signal
-   * stopped is made again for this one.
+   * The columns read, with the missing ones read in one call that `signal` stops. A read that another request started and
+   * its signal stopped is repeated for this one.
    */
   async load(cols: number[], signal?: AbortSignal): Promise<void> {
     for (;;) {
@@ -107,7 +107,7 @@ export class SheetValues implements QuerySheet {
         await Promise.all(pending.map((r) => r.done))
         return
       } catch (e) {
-        // the session refuses a stopped call with an error of its own; the component expects an abort
+        // the session rejects a stopped call with its own error; the component expects an abort
         throwIfAborted(signal)
         if (!pending.some((r) => r.signal?.aborted)) throw e
       }
@@ -139,7 +139,7 @@ export class SheetValues implements QuerySheet {
     for (const c of want) this.reading.set(c, { done, signal, missed: [] })
   }
 
-  /** A cell's new text and value, kept where its column is read or being read. */
+  /** A cell's new text and value, stored where its column is read or being read. */
   set(row: number, col: number, text: string, value: CellValue | undefined): void {
     if (row > this.maxRow && (text !== '' || !isEmpty(value))) this.maxRow = row
     const column = this.cols.get(col)

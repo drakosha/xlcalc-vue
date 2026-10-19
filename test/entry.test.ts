@@ -1,5 +1,5 @@
-// Entry through the source's optional methods: Control+Return (`fill`), a paste in one call (`paste`), undo and redo,
-// `select` of an outcome, and the text a cell opens with from its window (`editText`).
+// Entry through the source's optional methods: Ctrl+Enter (`fill`), a paste in one call (`paste`), undo and redo,
+// an outcome's `select`, and the text a cell opens with from its window (`editText`).
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
@@ -18,7 +18,7 @@ const book = (): MemoryBook => ({
   ],
 })
 const cell = (ref: string, text: string, value: CellUpdate['value'] = text): CellUpdate => ({ sheet: 'S', cell: ref, text, value, formula: null })
-/** A call whose answer the test gives when it likes. */
+/** A call whose response the test provides when it chooses. */
 function held() {
   let answer: (o: EditOutcome) => void = () => {}
   const call = vi.fn((..._args: unknown[]) => new Promise<EditOutcome>((resolve) => (answer = resolve)))
@@ -44,7 +44,7 @@ describe('Control+Return', () => {
     expect(editorOpen(w)).toBe(false)
     expect(active(w)).toBe('1:2')
     expect(address(w)).toBe('B1:B3')
-    // In flight every cell of the range shows the typed text as pending.
+    // While pending, every cell of the range displays the typed text as pending.
     for (const r of [1, 2, 3]) {
       expect(w.find(`[data-cell="${r}:2"]`).classes()).toContain('xs-pending')
       expect(cellText(w, r, 2)).toBe('=A1*2')
@@ -214,7 +214,7 @@ describe('undo and redo', () => {
     await settle()
     expect(undo).toHaveBeenCalledTimes(2)
     expect(redo).toHaveBeenCalledTimes(3)
-    // In the field Control+Z is the field's own undo.
+    // In the editor Ctrl+Z is the editor's own undo.
     await key(w, 'x')
     await editorKey(w, 'z', { code: 'KeyZ', ctrlKey: true })
     await settle()
@@ -255,7 +255,7 @@ describe('undo and redo', () => {
 })
 
 describe('the text a cell opens with', () => {
-  /** A memory book whose windows carry `editText` from `texts` (cells left out open empty). */
+  /** An in-memory workbook whose windows carry `editText` from `texts` (cells not listed open empty). */
   function withEditText(texts: Record<string, string>) {
     const source = memorySource({
       sheets: [{ name: 'S', cells: { A1: { value: 46096, text: '15 марта 2026 г.' }, A2: { value: 0.05, text: '5%' }, A3: { value: 'x', text: 'x' }, A4: { value: 3, formula: 'A2+1' } } }],

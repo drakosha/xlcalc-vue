@@ -1,5 +1,5 @@
 // @vitest-environment node
-// localSource paste, Control+Return, undo and redo: text read as Excel reads it there, one step of the undo per call.
+// localSource paste, Ctrl+Enter, undo and redo: text parsed as Excel parses it there, a single undo step per call.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BookInput } from 'xlcalc'
 import type { SourceEvent } from '../src/contract/source'
@@ -7,7 +7,7 @@ import { closeAll, source, watched, win } from './local-fixture'
 
 afterEach(closeAll)
 
-/** A ru-RU sheet with numbers in A, a percent column C and a stop rule over D. */
+/** A ru-RU sheet with numbers in A, a percentage column C and a stop rule over D. */
 const sheet = (): BookInput => ({
   locale: 'ru-RU',
   sheets: [{
@@ -162,7 +162,7 @@ describe('localSource: undo and redo', () => {
     expect(await s.redo!()).toEqual({ ok: true, changes: [] })
     expect((await win(s, 'S', 1, 1, 4, 1)).values).toEqual([[1]])
     expect(events).toEqual([])
-    // a step undone before a refusal stays to redo: the refused value wrote nothing that would forget it
+    // a step undone before a rejection stays available to redo: the rejected value wrote nothing that would clear it
     await s.edit([{ sheet: 'S', cell: 'B1', text: '1' }])
     await s.undo!()
     expect(await s.fill!('S', 'D1:D2', '-1', 'D1')).toMatchObject({ ok: false, reason: 'refused' })

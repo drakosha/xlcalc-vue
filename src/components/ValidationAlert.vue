@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// Excel's alert for a value a rule of data validation does not take: its style's icon, the rule's title ("Microsoft Excel"
+// Excel's alert for a value that violates a data validation rule: its style's icon, the rule's title ("Microsoft Excel"
 // without one) and message, and the style's buttons: Stop, Retry and Cancel; Warning, "Continue?" and Yes, No and Cancel;
-// Information, OK and Cancel; the sheet's question on a formula that does not read, Fix and Restore; Excel's correction of a
-// formula left open, Yes and No, and its message after No, OK; the warning before a merge, OK and Cancel. It opens on the
-// default button (Retry, No, OK, Fix, Yes), Esc is Cancel (Restore, No, OK); 44 px targets on a phone.
+// Information, OK and Cancel; the sheet's prompt for a formula that cannot be parsed, Fix and Restore; Excel's correction of
+// an unclosed formula, Yes and No, and its message after No, OK; the warning before a merge, OK and Cancel. It opens with the
+// default button focused (Retry, No, OK, Fix, Yes), and Esc means Cancel (Restore, No, OK); 44 px targets on a phone.
 import { computed, ref, useId, watch } from 'vue'
 import { ALERT_BUTTONS, ALERT_DEFAULT, type AlertAnswer, type AlertButton, type SheetAlert } from '../core/validation'
 import { useMessages } from '../messages'
@@ -20,7 +20,7 @@ const props = withDefaults(
   { messages: undefined },
 )
 const emit = defineEmits<{
-  /** The person's answer: `accept` (Yes, OK), `retry` (Retry, No) or `cancel`. */
+  /** The user's answer: `accept` (Yes, OK), `retry` (Retry, No) or `cancel`. */
   answer: [answer: AlertAnswer]
 }>()
 
@@ -29,13 +29,13 @@ const id = useId()
 const buttons = computed(() => (props.alert ? ALERT_BUTTONS[props.alert.severity] : []))
 const label = (b: AlertButton): string =>
   ({ retry: m.value.retry, cancel: m.value.cancel, yes: m.value.validationYes, no: m.value.validationNo, ok: m.value.ok, fix: m.value.formulaFix, revert: m.value.formulaRevert })[b]
-/** The icon's style: the sheet's own questions and messages show a warning's. */
+/** The icon's style: the sheet's own prompts and messages show a warning's. */
 const style = computed(() => {
   const severity = props.alert?.severity ?? 'stop'
   return severity === 'stop' || severity === 'information' ? severity : 'warning'
 })
 
-/** Each alert is drawn anew, so that it opens on its default button, as Excel's. */
+/** Each alert is drawn anew, so that it opens with its default button focused, as Excel's does. */
 const serial = ref(0)
 watch(
   () => props.alert,

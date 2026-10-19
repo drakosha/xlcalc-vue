@@ -1,20 +1,20 @@
-// A window of a sheet from xlcalc's viewport: shown text, values, formulas in the book's locale, the text each cell
-// opens with, looks and what conditional formats give cells, sizes, merged areas, tables, notes and links. Under a
-// display filter only merged areas of one shown row stay, as Excel shows them; that rule is the one part of the window
-// xlcalc does not give.
+// A sheet window from xlcalc's viewport: displayed text, values, formulas in the workbook's locale, the text each cell
+// opens with, styles and conditional formatting, sizes, merged ranges, tables, notes and hyperlinks. Under a display
+// filter only merged ranges on a single visible row stay, as Excel displays them; that rule is the only part of the window
+// xlcalc does not provide.
 import type { CellStyle, Viewport } from 'xlcalc'
 import { cellAddress, parseRange } from 'xlcalc/a1'
 import { DEFAULT_ROW_HEIGHT } from 'xlcalc/text'
 import type { SheetWindow } from '../contract/source'
 
 interface WindowShape {
-  /** The window's first row as asked: a sheet row, or a display index under a filter. */
+  /** The window's first row as requested: a sheet row, or a display index under a filter. */
   row: number
-  /** The sheet rows of the window in display order. */
+  /** The window's sheet rows in display order. */
   rows: number[]
   col: number
   cols: number
-  /** The rows come from a display filter: merged areas over several rows are left out, as Excel shows them then. */
+  /** The rows come from a display filter: merged ranges over several rows are omitted, as Excel displays them then. */
   filtered: boolean
   notice?: string
 }
@@ -43,7 +43,7 @@ export function windowOf(v: Viewport, a: WindowShape): SheetWindow {
     notes: {},
     ...(a.notice ? { notice: a.notice } : {}),
   }
-  // A row at the default height (xlcalc's for a row without one) is left out of `rowHeights`.
+  // A row at the default height (xlcalc's for a row without one) is omitted from `rowHeights`.
   for (const r of v.rows) if (r.hidden || r.height !== DEFAULT_ROW_HEIGHT) win.rowHeights[r.row] = r.hidden ? 0 : r.height
   const lastCol = a.col + a.cols - 1
   for (const r of a.rows) {
@@ -63,7 +63,7 @@ export function windowOf(v: Viewport, a: WindowShape): SheetWindow {
       if (cell.note) win.notes![addr] = cell.note
       if (cell.appearance) win.appearance![addr] = cell.appearance
       if (cell.link) {
-        // with an address the place is in what it points to (Excel's SubAddress), not in this book
+        // with an address the location belongs to what it points to (Excel's SubAddress), not to this workbook
         const { url, location, tooltip } = cell.link
         const to = url ? { href: location ? `${url}#${location}` : url } : location ? { location } : {}
         win.links![addr] = { ...to, ...(tooltip ? { tooltip } : {}) }

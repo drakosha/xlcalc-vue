@@ -1,5 +1,5 @@
 // @vitest-environment node
-// localSource changes of the book's shape and look: structure operations, widths and heights, formats, frozen panes.
+// localSource changes to the workbook's shape and formatting: structure operations, widths and heights, formats, frozen panes.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { LocalSource } from '../src/local'
 import type { SheetOp, SourceEvent } from '../src/contract/source'
@@ -99,13 +99,13 @@ describe('localSource: structure operations, each answered by a reload', () => {
     expect(got).toMatchObject({ ok: true })
     expect(events).toEqual([{ kind: 'reload' }])
     expect(await names(s)).toEqual(['Лист1', 'Таблица', 'Люди'])
-    // the sheet in quotes only where Excel puts them, in the formula as shown and the text the cell opens with
+    // the sheet name in quotes only where Excel puts them, in the formula as displayed and in the text the cell opens with
     const w = await win(s, 'Лист1', 1, 1, 8, 1)
     expect(w.formulas).toEqual({ H1: 'Люди!B2*2' })
     expect(w.editText).toEqual({ H1: '=Люди!B2*2' })
     const refused = await s.structure({ op: 'renameSheet', sheet: 'Люди', name: 'таблица' })
     expect(refused).toMatchObject({ ok: false, reason: 'refused' })
-    // the library's message, in the book's locale
+    // the library's message, in the workbook's locale
     expect(refused.ok ? '' : refused.message).toMatch(/таблица/)
   })
 
@@ -170,14 +170,14 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     await s.layout({ sheet: 'Лист1', columns: 'B', hidden: false })
     await s.layout({ sheet: 'Лист1', rows: '2', hidden: false })
     w = await win(s, 'Лист1', 1, 3, 1, 3)
-    // the width and the height they had come back, as Excel shows a line again
+    // their previous width and height come back, as Excel displays a row or column again
     expect(w.widths[1]).toBe(20)
     expect(w.rowHeights[2]).toBe(30)
     await s.layout({ sheet: 'Лист1', columns: 'B', fit: true })
     const b = await s.book()
     expect(b.sheets[0]!.columns?.B).toMatchObject({ bestFit: true })
     expect(b.sheets[0]!.columns!.B!.width).toBeLessThan(20)
-    // a width set by hand after the fit is no longer the fitted one
+    // a width set manually after the fit is no longer the fitted one
     await s.layout({ sheet: 'Лист1', columns: 'B', width: 12 })
     expect((await s.book()).sheets[0]!.columns?.B).toEqual({ width: 12 })
     expect(events.slice(0, 5)).toEqual([{ kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }, { kind: 'reload' }])
@@ -278,7 +278,7 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     const w = await win(s, 'Лист1', 1, 2, 1, 1)
     expect(w.numberFormats).toMatchObject({ A1: '0%', A2: '0%' })
     expect(w.editText).toMatchObject({ A1: '100%', A2: '200%' })
-    // a look over cells and over whole rows: the windows over them are read again in place, the values the filter read stay
+    // formatting over cells and over entire rows: the windows over them are re-read in place, and the filter's cached values stay
     const filter = { head: 1, cols: { 1: { values: ['б'] } } }
     expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4])
     await s.format('Список', [{ range: 'A1', style: BOLD }, { range: '3:4', style: ROW_FILL }])

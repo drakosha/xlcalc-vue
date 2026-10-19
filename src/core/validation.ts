@@ -1,13 +1,13 @@
-// Excel's data validation on the sheet: the rule of the active cell asked of the source as the cell changes (its dropdown
-// list, open or not, with its item, and its input message), and the alert of a refused value with the person's answer.
+// Excel's data validation on the sheet: the active cell's rule requested from the source as the cell changes (its dropdown
+// list, open or closed, with its highlighted item, and its input message), and the alert for a rejected value with the user's answer.
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { SheetSource, SheetValidation, SheetValidationAlert } from '../contract/source'
 import { listStep, stepIndex } from './list-keys'
 
-/** How long the active cell stays before its rule is asked: arrows held over a column ask once, at the end. */
+/** How long the active cell stays before its rule is requested: holding an arrow key down a column requests once, at the end. */
 export const VALIDATION_DELAY_MS = 60
-/** Items the list shows at once, as Excel's; Page Up and Page Down move by them. */
+/** Items the list displays at once, as in Excel; Page Up and Page Down move by them. */
 export const LIST_ROWS = 8
 
 export interface ValidationPlace {
@@ -20,15 +20,15 @@ export interface ValidationDeps {
   sheet: () => string
   /** The active cell; null for none. */
   active: () => { row: number; col: number } | null
-  /** The active cell's shown text: the list opens at the item it equals. */
+  /** The active cell's displayed text: the list opens at the item equal to it. */
   text?: () => string
-  /** An item chosen from the list (a click, Enter), by its text and its place in the list: the sheet enters it into the cell. */
+  /** An item chosen from the list (a click, Enter), by its text and position in the list: the sheet enters it into the cell. */
   pick: (text: string, place: ValidationPlace, item: number) => void
 }
 
-/** The rule of the active cell as Excel shows it: the source asked once the cell stays, an older answer dropped, the list's state. */
+/** The active cell's rule as Excel displays it: requested from the source once the cell stays, an older response discarded, and the list's state. */
 export function useValidation(deps: ValidationDeps) {
-  /** What the source gave for `place`; null while it is asked, without a rule, or without the source's `validation`. */
+  /** What the source returned for `place`; null while it is requested, without a rule, or without the source's `validation`. */
   const current = shallowRef<SheetValidation | null>(null)
   const place = shallowRef<ValidationPlace | null>(null)
   const open = ref(false)
@@ -51,7 +51,7 @@ export function useValidation(deps: ValidationDeps) {
     ctrl?.abort()
     ctrl = null
   }
-  /** Ask the source for the active cell's rule after `wait` ms; a request for an earlier cell is aborted, its answer dropped. */
+  /** Requests the active cell's rule from the source after `wait` ms; a request for an earlier cell is aborted and its response discarded. */
   function ask(wait: number): void {
     drop()
     const at = where()
@@ -77,14 +77,14 @@ export function useValidation(deps: ValidationDeps) {
     if (wait > 0) timer = setTimeout(() => void run(), wait)
     else void run()
   }
-  /** Ask again after `wait` ms (now by default), the shown rule kept until the answer (a list of cells after an edit). */
+  /** Requests again after `wait` ms (immediately by default), keeping the displayed rule until the response (a list of cells after an edit). */
   const refresh = (wait = 0) => ask(wait)
 
   function close(): void {
     open.value = false
     index.value = -1
   }
-  /** Open the list at the item the cell shows (Alt+Down, the arrow); its items are asked again, as Excel computes them on opening. False without a list. */
+  /** Opens the list at the item the cell displays (Alt+Down, the arrow); its items are requested again, as Excel recalculates them on opening. False without a list. */
   function openList(): boolean {
     const items = list.value
     if (!items) return false
@@ -95,12 +95,12 @@ export function useValidation(deps: ValidationDeps) {
     return true
   }
   const toggle = () => (open.value ? close() : openList())
-  /** Highlight the item `by` steps away, within the list; from none, down goes to the first. */
+  /** Highlights the item `by` steps away, within the list; from none, Down goes to the first. */
   function move(by: number): void {
     const n = list.value?.length ?? 0
     if (n) index.value = stepIndex(index.value, by, n)
   }
-  /** Enter an item into the cell (the highlighted one by default) and close the list; false for no item. */
+  /** Enters an item into the cell (the highlighted one by default) and closes the list; false for no item. */
   function choose(i = index.value): boolean {
     const items = list.value
     const at = place.value
@@ -111,7 +111,7 @@ export function useValidation(deps: ValidationDeps) {
     return true
   }
 
-  /** Keys on the grid: Alt+Down opens the list; while it is open the arrows, Page keys, Home and End move, Enter enters, Esc and Alt+Up close. True when taken. */
+  /** Keys on the grid: Alt+Down opens the list; while it is open the arrows, Page Up and Page Down, Home and End move, Enter enters, Esc and Alt+Up close. True when handled. */
   function onKey(e: KeyboardEvent): boolean {
     if (e.isComposing) return false
     if (!open.value) {
@@ -119,13 +119,13 @@ export function useValidation(deps: ValidationDeps) {
       e.preventDefault()
       return true
     }
-    // Alt+Down does nothing more on an open list, Alt+Up closes it
+    // Alt+Down does nothing more on an open list, and Alt+Up closes it
     const by = e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp') ? null : listStep(e.key, list.value?.length ?? 0, LIST_ROWS)
     if (by !== null) move(by)
     else if (e.key === 'ArrowUp' || e.key === 'Escape') close()
     else if (e.key === 'Enter') void (choose() || close())
     else if (e.key !== 'ArrowDown') {
-      // anything else closes the list and goes on to the grid (a character starts typing, Tab moves)
+      // any other key closes the list and goes on to the grid (a character starts typing, Tab moves)
       close()
       return false
     }
@@ -137,7 +137,7 @@ export function useValidation(deps: ValidationDeps) {
     stopped = true
     drop()
   }
-  // A new cell, sheet or source: what was shown goes at once, the new rule is asked once the cell stays.
+  // A new cell, sheet or source: the displayed rule goes at once, and the new rule is requested once the cell stays.
   watch(
     () => [where(), deps.source()] as const,
     ([at, src], old) => {
@@ -149,7 +149,7 @@ export function useValidation(deps: ValidationDeps) {
     },
     { immediate: true },
   )
-  // The end of the scope it runs in (the sheet's) stops asking.
+  // When the scope it runs in (the sheet's) ends, requests stop.
   if (getCurrentScope()) onScopeDispose(stop)
 
   return { current, place, list, prompt, open, index, refresh, openList, close, toggle, choose, onKey }
@@ -157,7 +157,7 @@ export function useValidation(deps: ValidationDeps) {
 
 export type Validation = ReturnType<typeof useValidation>
 
-/** The sheet's own question on a formula that does not read: Fix opens the field again, Restore leaves the cell as it was, so Enter or a click away is a way out. */
+/** The sheet's own prompt for a formula that cannot be parsed: Fix reopens the editor, Restore leaves the cell unchanged, so Enter or a click elsewhere is a way out. */
 export interface FormulaAlert {
   severity: 'formula'
   title?: undefined
@@ -166,7 +166,7 @@ export interface FormulaAlert {
   sheet: string
   cell: string
 }
-/** Excel's warning before cells holding more than one value are merged: OK merges, Cancel leaves them. */
+/** Excel's warning before cells containing more than one value are merged: OK merges, Cancel leaves them. */
 export interface MergeAlert {
   severity: 'merge'
   title?: undefined
@@ -175,7 +175,7 @@ export interface MergeAlert {
   sheet: string
   cell: string
 }
-/** Excel's window on a formula left open that it offers to correct: Yes enters the correction, No (or Esc) says what is missing. */
+/** Excel's dialog for an unclosed formula that it offers to correct: Yes enters the correction, No (or Esc) says what is missing. */
 export interface TypoAlert {
   severity: 'typo'
   title?: undefined
@@ -184,7 +184,7 @@ export interface TypoAlert {
   sheet: string
   cell: string
 }
-/** Excel's message after No to a correction, with OK only: the field opens again with the text typed. */
+/** Excel's message after No to a correction, with OK only: the editor reopens with the typed text. */
 export interface ParenthesisAlert {
   severity: 'parenthesis'
   title?: undefined
@@ -192,14 +192,14 @@ export interface ParenthesisAlert {
   sheet: string
   cell: string
 }
-/** What the alert shows: a rule's refusal, the question on a formula, Excel's correction of one and what is missing, or the warning before a merge. */
+/** What the alert displays: a rule's rejection, the prompt for a formula, Excel's correction of one and what is missing, or the warning before a merge. */
 export type SheetAlert = SheetValidationAlert | FormulaAlert | TypoAlert | ParenthesisAlert | MergeAlert
 
-/** What the person's answer to an alert does with the refused edit: send it again with `accept`, open the field again with the text, or leave the cell as it was. */
+/** What the user's answer to an alert does with the rejected edit: send it again with `accept`, reopen the editor with the text, or leave the cell unchanged. */
 export type AlertAnswer = 'accept' | 'retry' | 'cancel'
 export type AlertButton = 'retry' | 'cancel' | 'yes' | 'no' | 'ok' | 'fix' | 'revert'
 
-/** Excel's buttons of an alert by its style, in Excel's order, and what each answers (Help is left out); the formula's question after them. */
+/** Excel's alert buttons by style, in Excel's order, and the answer each gives (Help is omitted); the formula prompt's buttons after them. */
 export const ALERT_BUTTONS: Record<SheetAlert['severity'], { button: AlertButton; answer: AlertAnswer }[]> = {
   stop: [
     { button: 'retry', answer: 'retry' },
@@ -228,21 +228,21 @@ export const ALERT_BUTTONS: Record<SheetAlert['severity'], { button: AlertButton
     { button: 'cancel', answer: 'cancel' },
   ],
 }
-/** The button an alert opens on, which Enter presses: Retry, No (a warning keeps a value only by a click on Yes), OK; Yes for Excel's correction. */
+/** The button an alert opens with, which Enter presses: Retry, No (a warning keeps a value only on a click on Yes), OK; Yes for Excel's correction. */
 export const ALERT_DEFAULT: Record<SheetAlert['severity'], AlertButton> = { stop: 'retry', warning: 'no', information: 'ok', formula: 'fix', typo: 'yes', parenthesis: 'ok', merge: 'ok' }
 
-/** The alert of a refused value: shown until the person answers; one at a time, a new one answering the old with Cancel. */
+/** The alert for a rejected value: shown until the user answers; one at a time, and a new one answers the old one with Cancel. */
 export function useValidationAlert() {
   const alert = shallowRef<SheetAlert | null>(null)
   let settle: ((a: AlertAnswer) => void) | null = null
 
-  /** Show the alert and wait for the answer. */
+  /** Shows the alert and waits for the answer. */
   function ask(next: SheetAlert): Promise<AlertAnswer> {
     answer('cancel')
     alert.value = next
     return new Promise((resolve) => (settle = resolve))
   }
-  /** The person's answer (the alert's `answer` event): the alert goes and `ask` resolves. */
+  /** The user's answer (the alert's `answer` event): the alert closes and `ask` resolves. */
   function answer(a: AlertAnswer): void {
     const done = settle
     settle = null

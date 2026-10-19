@@ -1,4 +1,4 @@
-/* Data validation (ValidationDropdown, ValidationPrompt, ValidationAlert) in the sheet's --xs-* variables: the dropdown and the input message lie in the grid's content, the alert over the page; a finger gets 44 px targets. */
+/* Data validation (ValidationDropdown, ValidationPrompt, ValidationAlert) in the sheet's --xs-* variables: the dropdown and the input message lie in the grid's content, the alert over the page; touch gets 44 px targets. */
 .xs-sheet {
   --xs-prompt-bg: #ffffe1;
   --xs-prompt-fg: #1f2328;
@@ -8,7 +8,7 @@
   --xs-alert-information: #0f6cbd;
 }
 
-/* ── the dropdown: the arrow right of the cell, at its bottom as Excel's; the list under the cell, over the input message ── */
+/* ── the dropdown: the arrow to the right of the cell, at its bottom as in Excel; the list below the cell, over the input message ── */
 .xs-vd {
   position: absolute;
   top: 0;
@@ -22,7 +22,7 @@
   display: flex;
   align-items: flex-end;
 }
-/* Excel's light grey button, in the headers' colours so that a dark sheet has a dark one. */
+/* Excel's light gray button, in the header colors so that a dark sheet has a dark one. */
 .xs-vd-arrow {
   display: inline-flex;
   align-items: center;
@@ -46,7 +46,7 @@
   width: 10px;
   height: 10px;
 }
-/* The list: a list of popup.css. */
+/* The list: a popup.css list. */
 .xs-vd-list {
   z-index: 8;
 }
@@ -90,7 +90,7 @@
   pointer-events: none;
 }
 
-/* ── the alert: a DialogShell box over the page (modal.css), as Excel's ── */
+/* ── the alert: a DialogShell box over the page (modal.css), as in Excel ── */
 .xs-va {
   width: min(420px, 100%);
 }
@@ -137,7 +137,7 @@
   border-radius: 4px;
 }
 
-/* ── a finger (the sheet's, a phone's too): buttons of 44 px, the text larger ── */
+/* ── touch (the sheet's, a phone's too): 44 px buttons, larger text ── */
 .xs-touch .xs-modal.xs-va {
   font-size: 15px;
 }

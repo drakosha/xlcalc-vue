@@ -1,4 +1,4 @@
-// Test helpers: mounting the sheet, settling promises, and a source whose answers the test controls.
+// Test helpers: mounting the sheet, settling promises, and a source whose responses the test controls.
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
@@ -6,7 +6,7 @@ import type { CellValue } from 'xlcalc/contract'
 import { SheetView } from '../src'
 import type { CellEntry, EditOutcome, SheetInfo, SheetSource, SheetWindow, SourceEvent, WindowRequest } from '../src/contract/source'
 
-/** Let promises, watchers and renders run out. */
+/** Lets promises, watchers and renders run to completion. */
 export async function settle(rounds = 6): Promise<void> {
   for (let i = 0; i < rounds; i++) {
     await flushPromises()
@@ -15,8 +15,8 @@ export async function settle(rounds = 6): Promise<void> {
 }
 
 /**
- * Settles until `ready` holds: for work that takes as many rounds as the machine's load makes (a book computed in portions,
- * a module loaded), where a fixed count of rounds fails on a busy machine. Real time, so it works under faked timers too.
+ * Settles until `ready` holds: for work that takes as many rounds as the machine's load requires (a workbook calculated in
+ * slices, a module loaded), where a fixed number of rounds fails on a busy machine. Real time, so it works under fake timers too.
  */
 export async function until(ready: () => boolean, ms = 15_000): Promise<void> {
   const end = performance.now() + ms
@@ -32,7 +32,7 @@ export async function mountSheet(source: SheetSource, props: Record<string, unkn
   return wrapper
 }
 
-/** A window of a rectangle with text from `cell` (values: numbers when the text is one). */
+/** A window over a range with text from `cell` (values: numbers when the text is one). */
 export function gridWindow(req: WindowRequest, cell: (row: number, col: number) => string, extra: Partial<SheetWindow> = {}): SheetWindow {
   const text: string[][] = []
   const values: CellValue[][] = []
@@ -57,7 +57,7 @@ interface Pending {
   reject: (e: unknown) => void
 }
 
-/** A source with sheets of the given size; `manual` holds window answers until the test releases them. */
+/** A source with sheets of the given size; `manual` holds window responses until the test releases them. */
 export function fakeSource(sheets: SheetInfo[], opts: { manual?: boolean; cell?: (sheet: string, row: number, col: number) => string; edit?: (entries: CellEntry[]) => Promise<EditOutcome> } = {}) {
   const cell = opts.cell ?? ((sheet: string, r: number, c: number) => `${sheet}:${cellAddress(r, c)}`)
   const requests: WindowRequest[] = []
@@ -98,7 +98,7 @@ export function fakeSource(sheets: SheetInfo[], opts: { manual?: boolean; cell?:
     get sheetsCalls() {
       return sheetsCalls
     },
-    /** Answer a held request with its rectangle. */
+    /** Answers a held request with its range. */
     release(p: Pending) {
       held.splice(held.indexOf(p), 1)
       p.resolve(build(p.req))
@@ -115,7 +115,7 @@ export function cellText(wrapper: VueWrapper, row: number, col: number): string 
   return td.exists() ? td.text() : undefined
 }
 
-// Keys on the grid and in the cell's field, the active cell, the field's state and the address box.
+// Keys on the grid and in the cell editor, the active cell, the editor's state and the Name Box.
 export const key = (w: VueWrapper, k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
 export const editorKey = (w: VueWrapper, k: string, extra: Record<string, unknown> = {}) => w.find('.xs-editor').trigger('keydown', { key: k, ...extra })
 export const active = (w: VueWrapper) => w.find('.xs-cell.xs-active').attributes('data-cell')
@@ -132,15 +132,15 @@ export async function goTo(w: VueWrapper, place: string): Promise<void> {
   await input.trigger('keydown', { key: 'Enter' })
   await settle()
 }
-/** Paste text on the grid as the browser sends it. */
+/** Pastes text on the grid as the browser sends it. */
 export function paste(w: VueWrapper, text: string): void {
   const e = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
   Object.defineProperty(e, 'clipboardData', { value: { getData: () => text } })
   w.find('.xs-scroller').element.dispatchEvent(e)
 }
-/** The formula bar's field. */
+/** The formula bar's input. */
 export const barField = (w: VueWrapper) => w.find('.xs-fx-input').element as HTMLTextAreaElement
-/** A press on the formula bar's field as the browser sends it: the caret (or a dragged selection) where the mouse put it, then mousedown, focus and click, with `keys` held. */
+/** A press on the formula bar's input as the browser sends it: the caret (or a dragged selection) where the mouse put it, then mousedown, focus and click, with `keys` held. */
 export async function pressBar(w: VueWrapper, from: number, to = from, keys: MouseEventInit = {}): Promise<void> {
   const el = barField(w)
   el.setSelectionRange(from, to)

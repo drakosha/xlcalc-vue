@@ -1,4 +1,4 @@
-// The formula bar is always a field, as Excel's: it holds the active cell's text, a press starts the edit with the caret or the selection where the mouse put it, and a read-only sheet lets the text be selected only.
+// The formula bar is always an input, as in Excel: it contains the active cell's text, a press starts editing with the caret or the selection where the mouse put it, and a read-only sheet only lets the text be selected.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
@@ -19,9 +19,9 @@ describe('the formula bar field', () => {
     expect(barField(w).value).toBe('1')
     await goTo(w, 'B1')
     expect(barField(w).value).toBe('=SUM(A1:A2)')
-    // One field, no buttons over it.
+    // One input, with no buttons over it.
     expect(w.findAll('.xs-fx button')).toHaveLength(0)
-    // A range: the active cell's text, no address before it.
+    // A range: the active cell's text, with no address before it.
     await goTo(w, 'B1:C2')
     expect(barField(w).value).toBe('=SUM(A1:A2)')
     await goTo(w, 'C1')
@@ -157,7 +157,7 @@ describe('the formula bar field', () => {
   })
 })
 
-/** The layer's text laid out on one line, ten pixels a character from x 0, y 0 to 20: a point at character `i` is x i * 10 + 5. */
+/** The layer's text laid out on one line, ten pixels per character from x 0, y 0 to 20: a point at character `i` is x i * 10 + 5. */
 function layoutLayer(): void {
   const offset = (node: Node, at: number): number => {
     const walker = document.createTreeWalker(document.querySelector('.xs-fx-layer')!, NodeFilter.SHOW_TEXT)

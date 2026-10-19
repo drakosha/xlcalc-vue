@@ -1,26 +1,26 @@
 <script setup lang="ts">
-// Excel's tip with a function's arguments under the field being edited (over it where the view has no room below), the
-// current argument in bold, kept inside the view and wrapped on a narrow one; a press keeps the field's focus.
+// Excel's argument tooltip below the editor (above it where the viewport has no room below), with the current argument in
+// bold, kept inside the viewport and wrapped in a narrow one; a press keeps the editor's focus.
 import { computed, onMounted, ref, watch } from 'vue'
 import type { TipPart } from '../core/function-tip'
 import { clampLeft, placeBelowOrAbove, type PopupRect } from './popup'
 
 const props = withDefaults(
   defineProps<{
-    /** The field, in the coordinates of the element the tip is placed in. */
+    /** The editor, in the coordinates of the element the tooltip is placed in. */
     rect: PopupRect
     parts: readonly TipPart[]
-    /** What is in view, in the same coordinates: the tip stays inside it. */
+    /** The part in view, in the same coordinates: the tooltip stays inside it. */
     view?: PopupRect
   }>(),
   { view: undefined },
 )
 
-/** A narrow view wraps the tip after a separator or an opening bracket (ru-RU's `;` has no space to break at), not inside a name. */
+/** A narrow viewport wraps the tooltip after a separator or an opening parenthesis (ru-RU's `;` has no space to break at), not inside a name. */
 const BREAK = /[;,(]$/
 const pieces = (text: string) => text.split(/(?<=[;,(])/)
 const el = ref<HTMLElement | null>(null)
-/** The tip's measured size: it places itself once it knows how wide and high its text is. */
+/** The tooltip's measured size: it positions itself once it knows its text's width and height. */
 const size = ref({ width: 0, height: 0 })
 function measure(): void {
   const e = el.value

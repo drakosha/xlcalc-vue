@@ -1,5 +1,5 @@
-// The sheet's modal box: the focus put inside on opening, Esc and a press on the backdrop close it (the latter only where
-// it may), Tab past the last control goes round to the first and Shift+Tab back.
+// The sheet's modal box: focus moved inside on opening, Esc and a click on the backdrop close it (the latter only where
+// allowed), and Tab past the last control wraps to the first and Shift+Tab back.
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { h } from 'vue'
@@ -51,7 +51,7 @@ describe('DialogShell', () => {
     expect(focused()).toBe('first')
     await w.find('.first').trigger('keydown', { key: 'Tab', shiftKey: true })
     expect(focused()).toBe('last')
-    // between the two the browser's own order stands
+    // between the two the browser's own order applies
     ;(w.find('.middle').element as HTMLElement).focus()
     const e = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
     w.find('.middle').element.dispatchEvent(e)

@@ -1,6 +1,6 @@
 // The local source in a browser: the example's local.html built for production (the pool's thread bundled by Vite) and
-// served, then the dev server once. Measures the opening of the synthetic book and edits, checks a Web Worker computes,
-// takes screenshots at 390 × 844 and 1920 × 1200. Run: npm run check:local. Output: test-results/screens/local-*.png.
+// served, then on the dev server once. Measures opening the synthetic workbook and edits, checks that a Web Worker calculates,
+// and takes screenshots at 390 × 844 and 1920 × 1200. Run: npm run check:local. Output: test-results/screens/local-*.png.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { chromium, type Browser, type Page } from 'playwright'
@@ -26,7 +26,7 @@ interface Opened {
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!
 const fmt = (xs: number[]) => `median ${Math.round(median(xs))} ms (${xs.map((x) => Math.round(x)).join(', ')})`
 
-/** Open the page at a place; the time from navigation to the first drawn cell of the place's sheet. */
+/** Opens the page at a location; returns the time from navigation to the first drawn cell of the location's sheet. */
 async function open(page: Page, base: string, place: string, cell: string): Promise<Opened> {
   await page.goto(`${base}local.html?rows=${ROWS}&sheet=${encodeURIComponent(place)}`)
   await page.waitForFunction((c) => !!document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim(), cell, { timeout: 60_000, polling: 'raf' })
@@ -36,24 +36,24 @@ async function open(page: Page, base: string, place: string, cell: string): Prom
   return { drawn, ready: t.ready, built: t.built, workers: page.workers().length }
 }
 
-/** What an edit showed, in ms from Enter: the watched cell's new text, the first cell of `looks` recoloured (null: none within the watch), frames drawn with `steady` empty. */
+/** What an edit showed, in ms from Enter: the watched cell's new text, the first cell of `looks` recolored (null: none within the watch period), frames drawn with `steady` empty. */
 interface Watched {
   shown: number
   look: number | null
   blank: number
 }
 
-/** How long frames are watched after Enter: a recolour and an empty frame come well within it. */
+/** How long frames are watched after Enter: a recolor and an empty frame happen well within it. */
 const WATCH_MS = 1500
 
 /**
- * Type into the active cell (the formula bar on a phone) and press Enter. Every frame until WATCH_MS after Enter is looked
- * at: when `watch` shows other text, when a drawn cell of `looks` changes its background (a conditional format's repaint),
- * and whether `steady`, a cell that always has text, was drawn empty (the windows dropped and read again).
+ * Types into the active cell (the formula bar on a phone) and presses Enter. Every frame until WATCH_MS after Enter is
+ * examined: when `watch` displays other text, when a drawn cell of `looks` changes its background (a conditional format's
+ * repaint), and whether `steady`, a cell that always has text, was drawn empty (the windows dropped and read again).
  */
 async function typeAndWatch(page: Page, text: string, watch: string, phone: boolean, looks: string[] = [], steady = '3:1'): Promise<Watched> {
   if (phone) {
-    // the bar opens with the cell's text, as Excel's does: replace it
+    // the formula bar opens with the cell's text, as Excel's does: replace it
     await page.locator('.xs-fx').tap()
     await page.keyboard.press('ControlOrMeta+A')
   } else await page.locator('.xs-scroller').focus()
@@ -74,7 +74,7 @@ async function typeAndWatch(page: Page, text: string, watch: string, phone: bool
         const x = w.__watch
         const now = performance.now()
         if (x.enter) {
-          // a cell drawn empty (its window dropped) has neither its new text nor its new colour yet
+          // a cell drawn empty (its window dropped) has neither its new text nor its new color yet
           const text = textOf(cell)
           if (!x.shown && text.trim() && text !== before) x.shown = now
           if (!x.look && looks.some((c, i) => textOf(c).trim() && bg(c) !== colours[i])) x.look = now
@@ -103,15 +103,15 @@ async function lastEdit(page: Page, count: number): Promise<{ ms: number; change
   return page.evaluate((n) => (window as any).__xs.edits[n - 1], count)
 }
 
-/** Wait until a cell (`row:col`) shows `text`. */
+/** Waits until a cell (`row:col`) displays `text`. */
 async function shows(page: Page, cell: string, text: string): Promise<void> {
   await page.waitForFunction(([c, t]) => document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim() === t, [cell, text] as const, { timeout: 30_000 })
 }
 
-/** The row numbers drawn, in order. */
+/** The drawn row numbers, in order. */
 const numbers = (page: Page) => page.evaluate(() => [...document.querySelectorAll('.xs-num')].map((n) => n.textContent!.trim()))
 
-/** Excel's outline in the pool: a collapsed section shown by its button and hidden again by Control+Z, a level button, the columns' group. */
+/** Excel's outline through the pool: a collapsed section shown by its button and hidden again by Ctrl+Z, a level button, the column group. */
 async function outlineScenario(page: Page, base: string): Promise<void> {
   await open(page, base, 'Структура!A1', '1:1')
   const rows = async (want: string) => {
@@ -134,8 +134,8 @@ async function outlineScenario(page: Page, base: string): Promise<void> {
 }
 
 /**
- * Data validation through the pool: a value a stop rule and one a warning rule do not take are refused with the rule's text
- * on the message line (the sheet has no alert yet), and the cells keep their values.
+ * Data validation through the pool: a value that violates a stop rule and one that violates a warning rule are rejected with
+ * the rule's text in the message line (the sheet has no alert yet), and the cells keep their values.
  */
 async function validationScenario(page: Page, base: string): Promise<void> {
   for (const [cell, at, typed, text, severity, button, after] of [
@@ -154,7 +154,7 @@ async function validationScenario(page: Page, base: string): Promise<void> {
   console.log('[1920] validation: 500 under a stop rule refused through the pool, Cancel kept 5; 50% under a warning written on Yes')
 }
 
-/** A small ru-RU file opened from the field, typed into, filled with Control+Return, pasted into, undone, redone, saved and opened again. */
+/** A small ru-RU file opened from the file input, typed into, filled with Ctrl+Enter, pasted into, undone, redone, saved and opened again. */
 async function fileScenario(browser: Browser, base: string): Promise<void> {
   const file = resolve(out, 'local-small.xlsx')
   registerLocale(ruRU)
@@ -173,7 +173,7 @@ async function fileScenario(browser: Browser, base: string): Promise<void> {
   await page.keyboard.type('abc')
   await page.keyboard.press('Enter')
   await shows(page, '1:4', 'abc')
-  // Control+Return over B1:B3: the formula moves as a copy moves it.
+  // Ctrl+Enter over B1:B3: the formula is adjusted as a copy adjusts it.
   await page.locator('[data-cell="1:2"]').click()
   await page.locator('[data-cell="3:2"]').click({ modifiers: ['Shift'] })
   await page.keyboard.type('=A1*2')
@@ -183,7 +183,7 @@ async function fileScenario(browser: Browser, base: string): Promise<void> {
   const bar = await page.locator('.xs-fx-input').inputValue()
   if (bar !== '=A3*2') throw new Error(`B3 after Control+Return: ${bar}`)
   await shot('fill')
-  // A paste at C1, a percent cell: 5 is 500 % (no percent editor), '007 keeps its apostrophe.
+  // A paste at C1, a percentage cell: 5 is 500 % (no automatic percentage entry), '007 keeps its apostrophe.
   await page.locator('[data-cell="1:3"]').click()
   await page.locator('.xs-scroller').evaluate((el) => {
     const data = new DataTransfer()
@@ -193,7 +193,7 @@ async function fileScenario(browser: Browser, base: string): Promise<void> {
   await shows(page, '1:3', '500%')
   await shows(page, '1:4', "'007")
   await shot('paste')
-  // One undo takes the paste back whole, a redo does it again.
+  // One undo removes the paste as a whole, and a redo applies it again.
   await page.keyboard.press('Control+Z')
   await shows(page, '1:3', '')
   await shows(page, '1:4', 'abc')
@@ -236,7 +236,7 @@ async function production(browser: Browser): Promise<void> {
       await page.waitForTimeout(300)
       await page.screenshot({ path: resolve(out, `local-${size.name}-open.png`) })
 
-      // A value in the table: its total below on screen, and the colour scale over the shares recoloured (the edit's repaint).
+      // A value in the table: its total below on screen, and the color scale over the shares recolored (the edit's repaint).
       const share = () => page.evaluate(() => getComputedStyle(document.querySelector('[data-cell="4:4"]')!).backgroundColor)
       const before = await share()
       const watched: Watched[] = []
@@ -258,7 +258,7 @@ async function production(browser: Browser): Promise<void> {
       await page.screenshot({ path: resolve(out, `local-${size.name}-edit.png`) })
 
       if (!size.phone) {
-        // An amount on the data sheet: the SUMIFS of other sheets recompute.
+        // An amount on the data sheet: the SUMIFS on other sheets recalculate.
         await open(page, base, 'Данные!D2', '2:4')
         const before = await page.evaluate(() => (window as any).__xs.edits.length as number)
         await page.locator('.xs-scroller').focus()
@@ -268,7 +268,7 @@ async function production(browser: Browser): Promise<void> {
         console.log(`[${size.name}] edit Данные!D2: ${Math.round(e.ms)} ms in the source, ${e.changes} cells changed`)
         await page.waitForTimeout(200)
         await page.screenshot({ path: resolve(out, `local-${size.name}-data.png`) })
-        // A formula that does not parse: the field opens again with the message.
+        // A formula that does not parse: the editor reopens with the message.
         await open(page, base, 'Витрина!F3', '3:1')
         await page.locator('.xs-scroller').focus()
         await page.keyboard.type('=СУММ(B3:B4')

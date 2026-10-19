@@ -1,5 +1,5 @@
-// What the boxes over the grid share: a place under the field or over it, kept inside the view; a list's height and its
-// scroll to the highlighted item; a press outside while one is open.
+// What the boxes over the grid share: a position below the input or above it, kept inside the viewport; a list's height and
+// its scroll to the highlighted item; a press outside while one is open.
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
@@ -16,9 +16,9 @@ describe('placeBelowOrAbove', () => {
   it('puts the box under the field, over it only where the view has no room below and room above', () => {
     expect(placeBelowOrAbove(FIELD, 60, VIEW)).toBe(120)
     expect(placeBelowOrAbove(FIELD, 90, VIEW)).toBe(10)
-    // room neither way: under it
+    // no room either way: below it
     expect(placeBelowOrAbove(FIELD, 110, VIEW)).toBe(120)
-    // no view: under it
+    // no viewport: below it
     expect(placeBelowOrAbove(FIELD, 500, undefined)).toBe(120)
   })
 
@@ -42,7 +42,7 @@ describe('clampLeft and listHeight', () => {
 })
 
 describe('scrollToItem', () => {
-  /** A list 100 px high of ten items of 30 px, the layout given by hand. */
+  /** A 100 px tall list of ten 30 px items, with the layout set by hand. */
   function list(): HTMLElement {
     const ul = document.createElement('ul')
     Object.defineProperty(ul, 'clientHeight', { value: 100 })

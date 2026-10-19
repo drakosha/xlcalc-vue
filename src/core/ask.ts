@@ -1,7 +1,7 @@
-// One question to the source with a signal of its own: a throw inside it fails as a rejection does, and an answer or a
-// failure that comes once the question is no longer the one in force is dropped.
+// One query to the source with its own signal: an exception inside it fails as a rejection does, and a response or a
+// failure that arrives once the query is no longer the current one is discarded.
 
-/** Ask `call` with a new controller's signal; `take` or `fail` run only while `live()` holds. Gives the controller, to abort it. */
+/** Calls `call` with a new controller's signal; `take` or `fail` run only while `live()` holds. Returns the controller, to abort it. */
 export function askSource<T>(call: (signal: AbortSignal) => Promise<T>, live: () => boolean, take: (value: T) => void, fail: () => void): AbortController {
   const ctrl = new AbortController()
   const asked = async () => call(ctrl.signal)

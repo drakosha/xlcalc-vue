@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// Excel's Format Cells dialog (Control+1) over the selection the sheet's `state` event gives: Number, Alignment, Font,
-// Border and Fill, what xlcalc's cell style holds; the Number tab is Excel's Number Format box in the book's locale
-// (xlcalc's list and categories). It opens at the active cell's look; OK emits the patches of `SheetView.format` for what
-// changed (one call, one step of undo) and closes, Cancel closes. Full screen on a phone.
+// Excel's Format Cells dialog (Ctrl+1) for the selection reported by the sheet's `state` event: Number, Alignment, Font,
+// Border and Fill, the settings xlcalc's cell style supports; the Number tab is Excel's Number Format box in the workbook's
+// locale (xlcalc's list and categories). It opens with the active cell's formatting; OK emits the patches for `SheetView.format`
+// covering what changed (one call, a single undo step) and closes, Cancel closes. Full screen on a phone.
 import { computed, reactive, ref, shallowRef, toRaw, watch } from 'vue'
 import type { SheetFormatPatch, SheetViewState } from '../contract/view'
 import {
@@ -60,7 +60,7 @@ const numbers = useNumberFormats(() => props.locale)
 const tab = ref<FormatTab>('number')
 const start = shallowRef<FormatStart | null>(null)
 const draft = ref<FormatDraft | null>(null)
-/** Colour fields holding what is no colour, by picker. */
+/** Color inputs holding an invalid color, by picker. */
 const badColour = reactive<Record<string, boolean>>({})
 
 watch(
@@ -76,12 +76,12 @@ watch(
 
 const errors = computed(() => (draft.value ? draftErrors(draft.value) : {}))
 const blocked = computed(() => Object.keys(errors.value).length > 0 || Object.values(badColour).some(Boolean))
-/** The category Excel's box names for the code in the field. */
+/** The category Excel's box names for the code in the input. */
 const category = computed(() => (draft.value ? numbers.categoryOf(draft.value.numberCode.trim() || undefined) : null))
 
 function ok(): void {
   if (!start.value || !draft.value || blocked.value) return
-  // plain objects: a source in a thread clones them, and a reactive proxy does not clone
+  // plain objects: a source in a worker thread clones them, and a reactive proxy cannot be cloned
   const patches = patchesOf(start.value, toRaw(draft.value))
   if (patches.length) emit('apply', patches)
   emit('close')

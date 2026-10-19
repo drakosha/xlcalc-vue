@@ -1,10 +1,10 @@
-// What the sheet and the toolbar tell of their frame alike: a phone's width, and a finger as the pointer.
+// What the sheet and the toolbar both detect about their viewport: a phone width, and touch as the pointer.
 import { onScopeDispose, ref, type Ref } from 'vue'
 
-/** Under this width a frame is a phone's: narrower row numbers, the toolbar's buttons in a menu. */
+/** Below this width a viewport counts as a phone's: narrower row numbers, the toolbar's buttons in a menu. */
 export const NARROW_PX = 600
 
-/** Whether a finger points (`pointer: coarse`), following the media query until the scope ends. */
+/** Whether the pointer is touch (`pointer: coarse`), following the media query until the scope ends. */
 export function useCoarsePointer(): Ref<boolean> {
   const coarse = ref(false)
   if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {

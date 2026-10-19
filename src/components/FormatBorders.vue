@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The Border tab of the Format Cells dialog, as Excel's: a line's kind and colour, the presets None, Outline and Inside,
+// The Border tab of the Format Cells dialog, as in Excel: a line style and color, the presets None, Outline and Inside,
 // a button for each edge, and a preview of the selection's edges drawn as the grid draws them.
 import { computed, h, type FunctionalComponent } from 'vue'
 import type { BorderLine } from 'xlcalc/contract'
@@ -14,14 +14,14 @@ const emit = defineEmits<{ invalid: [bad: boolean] }>()
 const m = computed(() => props.messages)
 
 const PRESETS = ['none', 'outline', 'inside'] as const
-/** The edge buttons as Excel lays them round the preview: across on its left, down under it. */
+/** The edge buttons as Excel lays them out around the preview: horizontal edges to its left, vertical ones below it. */
 const EDGE_GROUPS: { cls: string; edges: BorderEdge[] }[] = [
   { cls: 'xs-fmt-edge-col', edges: ['top', 'insideH', 'bottom'] },
   { cls: 'xs-fmt-edge-row', edges: ['left', 'insideV', 'right'] },
 ]
 const EDGE_PATH: Record<BorderEdge, string> = { top: 'M4 4h16', insideH: 'M4 12h16', bottom: 'M4 20h16', left: 'M4 4v16', insideV: 'M12 4v16', right: 'M20 4v16' }
 const PRESET_PATHS: Record<(typeof PRESETS)[number], string[]> = { none: [], outline: ['M4 4h16v16H4z'], inside: ['M4 12h16', 'M12 4v16'] }
-/** A preset's or an edge's icon: the cell's frame dashed and the lines it draws. */
+/** A preset's or an edge's icon: the cell's outline dashed and the lines it draws. */
 const BorderIcon: FunctionalComponent<{ paths: string[] }> = (p) =>
   h('svg', { class: 'xs-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'aria-hidden': 'true' }, [
     h('path', { d: 'M4 4h16v16H4z', 'stroke-width': 1, 'stroke-dasharray': '2 2' }),
@@ -31,7 +31,7 @@ BorderIcon.props = ['paths']
 
 const has = computed(() => new Set(edgesIn(props.start)))
 const DASHES: Partial<Record<BorderLine['style'], string>> = { hair: '1 1', dotted: '1 2', dashed: '4 2', mediumDashed: '6 3', dashDot: '5 2 1 2', mediumDashDot: '7 3 2 3', dashDotDot: '5 2 1 2 1 2', mediumDashDotDot: '7 3 2 3 2 3', slantDashDot: '7 2 3 2' }
-/** Each line's sample as an SVG stroke: its width and dashes, a double one as two strokes. */
+/** Each line style's sample as an SVG stroke: its width and dashes, a double line as two strokes. */
 const SAMPLES = Object.fromEntries(
   LINE_STYLES.map((style) => [style, { width: style === 'double' ? 1 : Math.min(3, parseInt(borderCss({ style })!.width, 10)), dash: DASHES[style] ?? '', double: style === 'double' }]),
 ) as Record<BorderLine['style'], { width: number; dash: string; double: boolean }>
@@ -39,7 +39,7 @@ function setColour(c: string | null): void {
   props.draft.line = c ? { style: props.draft.line.style, color: c } : { style: props.draft.line.style }
 }
 
-/** The preview's cells: two by two for a range (its outline and the lines inside), one for a cell. */
+/** The preview's cells: two by two for a range (its outline and inside lines), one for a single cell. */
 const multi = computed(() => has.value.has('insideH') || has.value.has('insideV'))
 const cells = computed(() => {
   const rows = has.value.has('insideH') ? 2 : 1

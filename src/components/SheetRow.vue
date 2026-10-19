@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// A drawn row of the grid: its outline bar's cell, its number and its cells. A component of its own, so a change redraws
-// only the rows it touches: the cells read the selection, the highlights, the hits, the flash and the field by their row.
+// A drawn grid row: its outline bar cell, its number and its cells. A separate component, so a change redraws only the rows
+// it affects: the cells read the selection, the highlights, the matches, the flash and the editor through their row.
 import { computed, type ComputedRef } from 'vue'
 import { sameRowState, type CellView, type RowState } from '../core/cell-view'
 import CellDraft from './CellDraft.vue'
@@ -9,7 +9,7 @@ import { useSheetContext } from './context'
 import OutlineCell from './OutlineCell.vue'
 
 const props = defineProps<{
-  /** The display row and the sheet's. */
+  /** The display row and the sheet row. */
   d: number
   r: number
   frozen: boolean
@@ -17,7 +17,7 @@ const props = defineProps<{
   cols: readonly { key: string; c: number }[]
 }>()
 const emit = defineEmits<{
-  /** A click on the row's number: the row picked, extended with Shift. */
+  /** A click on the row number: selects the row, extended with Shift. */
   pick: [row: number, extend: boolean]
 }>()
 const ctx = useSheetContext()
@@ -25,14 +25,14 @@ const { v, views } = ctx
 const m = ctx.messages
 const freezeRows = computed(() => ctx.sheet.value?.freeze?.rows ?? 0)
 
-/** The often changing state over this row, the same object while it is the same: the row is drawn again only when it changes. */
+/** The frequently changing state over this row, the same object while it is the same: the row is redrawn only when it changes. */
 const state = computed((prev?: RowState) => {
   const next = views.rowState(props.d, props.r)
   return prev && sameRowState(prev, next) ? prev : next
 })
 /**
- * Each drawn cell's view as a computed of its own (null where a merge covers the cell): a column scrolled in or out
- * leaves the other cells' views as they were, and their memo leaves their DOM alone.
+ * Each drawn cell's view as a separate computed (null where a merge covers the cell): a column scrolled in or out leaves
+ * the other cells' views unchanged, and their memo leaves their DOM alone.
  */
 const viewOfCol = new Map<number, ComputedRef<CellView | null>>()
 function viewOf(c: number): CellView | null {
@@ -40,7 +40,7 @@ function viewOf(c: number): CellView | null {
   if (!view) viewOfCol.set(c, (view = computed(() => (views.coveredByMerge(props.r, c) ? null : views.cellView(props.d, props.r, c, props.frozen, state.value)))))
   return view.value
 }
-/** The row's cells by column: a spacer's empty cell (no view), else the cell's view; cells a merge covers are left out. */
+/** The row's cells by column: a spacer's empty cell (no view), otherwise the cell's view; cells covered by a merge are omitted. */
 const cells = computed(() => {
   const out: { key: string; c: number; cv: CellView | null }[] = []
   const drawn = new Set<number>()
@@ -52,7 +52,7 @@ const cells = computed(() => {
       if (cv) out.push({ key: k.key, c: k.c, cv })
     }
   }
-  // the views of columns no longer drawn go
+  // the views of columns no longer drawn are dropped
   for (const c of viewOfCol.keys()) if (!drawn.has(c)) viewOfCol.delete(c)
   return out
 })
@@ -86,7 +86,7 @@ const spacer = computed(() => (props.frozen ? { class: 'xs-fz-row', style: { top
         @dblclick.stop="ctx.onRowEdgeDouble(r)"
       ></span>
     </th>
-    <!-- a cell whose view is the same object as before is not patched: its view stands for everything it draws -->
+    <!-- a cell whose view is the same object as before is not patched: its view represents everything it draws -->
     <td v-for="{ key, c, cv } in cells" :key="key" v-memo="[cv, cv ? m : spacer]" v-bind="cv ? cv.attrs : spacer">
       <template v-if="cv">
         <div :class="cv.box.class" :style="cv.box.style">

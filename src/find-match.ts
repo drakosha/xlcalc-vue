@@ -1,37 +1,37 @@
-// Excel's Find and Replace over cells' texts for `memorySource`: a text matches and is replaced by the library's
-// `findMatcher` and `findReplacer` (as its `findCells` and `replaceInCells`); this side keeps the range, the display
-// filter's rows and the order by rows or by columns from a cell. `./local` finds and replaces by the session.
+// Excel's Find and Replace over cell texts for `memorySource`: a text is matched and replaced by the library's
+// `findMatcher` and `findReplacer` (as in its `findCells` and `replaceInCells`); this side handles the range, the display
+// filter's rows and the row or column order from a cell. `./local` finds and replaces through the session.
 import { parseCell, parseRange } from 'xlcalc/a1'
 import { findMatcher, findReplacer } from 'xlcalc/text'
 import type { FindRequest, FindResult } from './contract/source'
 
-/** Visits every cell a search reads with its text (what it opens with, or what it shows), in any order. */
+/** Visits every cell a search reads with its text (what it opens with, or its displayed text), in any order. */
 export type EachCell = (visit: (row: number, col: number, text: string) => void) => void
 
-/** A cell and its text: a hit, or a cell Replace All writes. */
+/** A cell and its text: a match, or a cell Replace All writes. */
 export interface CellText {
   row: number
   col: number
   text: string
 }
 
-/** The request's options as the library's Find takes them; Excel's Find always reads wildcards. */
+/** The request's options as the library's Find takes them; Excel's Find always interprets wildcards. */
 const optionsOf = (req: Pick<FindRequest, 'matchCase' | 'wholeCell'>) => ({ wildcards: true, caseSensitive: !!req.matchCase, wholeCell: !!req.wholeCell })
 
-/** Whether a cell is where the request looks: inside its range and on a row the display filter shows. */
+/** Whether a cell is within the request's scope: inside its range and on a row the display filter shows. */
 function placeOf(req: FindRequest, visible: Set<number> | null): (row: number, col: number) => boolean {
   const r = req.range ? parseRange(req.range) : null
   if (req.range && !r) return () => false
   return (row, col) => (!r || (row >= r.top && row <= r.bottom && col >= r.left && col <= r.right)) && (!visible || visible.has(row))
 }
 
-/** Excel's order of cells for Find: row by row, or column by column. */
+/** Excel's cell order for Find: row by row, or column by column. */
 export const cellOrder =
   (byColumns: boolean | undefined) =>
   (a: { row: number; col: number }, b: { row: number; col: number }): number =>
     byColumns ? a.col - b.col || a.row - b.row : a.row - b.row || a.col - b.col
 
-/** The cells whose text matches, in Excel's order from the first after `req.after` round past the end, at most `max` of them; `total` counts them all. */
+/** The cells whose text matches, in Excel's order from the first after `req.after`, wrapping around at the end, at most `max` of them; `total` counts them all. */
 export function findCells(each: EachCell, req: FindRequest, visible: Set<number> | null, max: number): FindResult {
   const test = findMatcher(req.query, optionsOf(req))
   if (!test) return { hits: [], total: 0 }
@@ -50,7 +50,7 @@ export function findCells(each: EachCell, req: FindRequest, visible: Set<number>
 
 /**
  * Replace All's new texts: each cell the request finds with its new text, in Excel's order. Cells whose text would not
- * change are left out: written again, a memory cell would lose the shown text it was given.
+ * change are omitted: written again, an in-memory cell would lose the displayed text it was given.
  */
 export function replaceCells(each: EachCell, req: FindRequest, by: string, visible: Set<number> | null): CellText[] {
   const replace = findReplacer(req.query, by, optionsOf(req))

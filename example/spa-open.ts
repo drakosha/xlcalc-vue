@@ -1,31 +1,29 @@
-// What the app takes from a file it opens: the book's language, the sheet to show first and what the file lost, by kind.
-import type { BookInput, CellInput } from 'xlcalc'
+// What the app takes from a file it opens: the workbook's language, the sheet to show first and what the file lost, by kind.
+import type { BookInput } from 'xlcalc'
 import { quoteSheetIfNeeded } from 'xlcalc/text'
 import type { XlsxIssue, XlsxIssueCode } from 'xlcalc/xlsx'
 import { BOOK_LOCALES, type BookLocale, type SpaLang } from './spa-texts'
 
-/** The locale of the interface's language: a new book's, and a file's that names none. */
+/** The locale of the interface's language: a new workbook's, and that of a file that specifies none. */
 export const localeOfLang = (lang: SpaLang): BookLocale => (lang === 'ru' ? 'ru-RU' : 'en-US')
 
 /**
- * The locale a file's book opens in: the one the file names (xlcalc keeps it in the file), else the interface's, as
- * Excel shows a file's formulas in its user's language; xlsx itself keeps no language.
+ * The locale a file's workbook opens in: the one the file specifies (xlcalc stores it in the file), otherwise the
+ * interface's, as Excel displays a file's formulas in its user's language; xlsx itself stores no language.
  */
 export function bookLocaleOf(file: string | undefined, lang: SpaLang): BookLocale {
   return BOOK_LOCALES.includes(file as BookLocale) ? (file as BookLocale) : localeOfLang(lang)
 }
 
-const hasData = (c: CellInput) => c.formula !== undefined || (c.value !== undefined && c.value !== null && c.value !== '')
-
 /**
- * The sheet to show first: the first visible one with a value or a formula. Excel opens the sheet active when the file
- * was saved, which the library does not read; without it a divider sheet at the front would open empty.
+ * The sheet to show first, as Excel opens a file: the sheet that was active when it was saved (`activeSheet`, which the
+ * reader returns only for a visible sheet), otherwise the first visible one, since Excel saves no active tab for the first.
  */
 export function firstShownSheet(book: BookInput): string | undefined {
-  return book.sheets.find((s) => !s.hidden && Object.values(s.cells).some(hasData))?.name
+  return book.activeSheet ?? book.sheets.find((s) => !s.hidden)?.name
 }
 
-/** Kinds by what they mean to a reader: what changes values first, then content, then the look, settings and names last. */
+/** Kinds by what they mean to a reader: what changes values first, then content, then formatting, and settings and names last. */
 const ORDER: XlsxIssueCode[] = [
   'externalLink', 'userFunction', 'formula', 'dataTable', 'errorValue', 'errorConstant', 'part', 'table', 'pivotTable',
   'drawing', 'sheetKind', 'cellMetadata', 'connection', 'macros', 'conditionalFormat', 'dataValidation', 'hyperlink',
@@ -34,7 +32,7 @@ const ORDER: XlsxIssueCode[] = [
 ]
 const EXAMPLES = 5
 
-/** Places of one kind: how many, and the first few. */
+/** Locations of one kind: how many, and the first few. */
 export interface LossPlaces {
   count: number
   examples: string[]
@@ -44,16 +42,16 @@ export interface LossKind {
   code: XlsxIssueCode
   /** The issues of the kind. */
   count: number
-  /** Their messages, each once, with how many issues have it, in the order met. */
+  /** Their messages, each once, with how many issues have it, in order of appearance. */
   messages: { text: string; count: number }[]
-  /** The sheets they are about, in the order met. */
+  /** The sheets they concern, in order of appearance. */
   sheets: string[]
-  /** Their cells (`Sheet!A1`, the sheet quoted where Excel quotes it) and names. */
+  /** Their cells (`Sheet!A1`, with the sheet quoted where Excel quotes it) and names. */
   cells: LossPlaces
   names: LossPlaces
 }
 
-/** A place counted once, however many issues of the kind are about it. */
+/** A location counted once, however many issues of the kind concern it. */
 function place(p: LossPlaces, seen: Set<string>, text: string): void {
   if (seen.has(text)) return
   seen.add(text)

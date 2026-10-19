@@ -1,28 +1,29 @@
-// The app like Excel in a browser: the example's spa.html built for production and served by `vite preview`, driven by
-// Playwright on a desktop (1920 × 1200, mouse and keys) and a phone (390 × 844, touch). Each creates a ru-RU book, types
+// The Excel-like app in a browser: the example's spa.html built for production and served by `vite preview`, driven by
+// Playwright on a desktop (1920 × 1200, mouse and keys) and a phone (390 × 844, touch). Each creates a ru-RU workbook, types
 // values and a formula, makes them bold and Percentage (Excel's 0.00%) and draws outside borders from the toolbar, undoes and redoes, saves
-// the book, opens the saved file again (dropped on the page, or from the picker) and checks values and formatting; on
-// the desktop a column in percent shows its format's category in the box on its empty cell.
-// Then the structure menu on a new book: on the desktop a row inserted by a right click (the formula under it moves),
-// a column hidden and shown, a sheet added by "+", renamed and deleted, a column fitted by a double click on its edge;
-// on the phone a row inserted from the menu a long press opens.
-// Then Find and Replace and Format Cells on a new book: a search with Match case and in values, Replace All and its
-// Control+Z, the dialog's font, outline and percent with OK and their undo.
-// Then the fill handle and cut, copy and paste inside the book: a formula dragged three rows down by its handle (on the
-// desktop a drag dropped by Esc first, which copies nothing), a series 1, 2 dragged on to 3, 4, a range
-// with a formula copied and pasted, a formula cut and pasted, each undone (Control+C, X, V on the desktop, the cells' menu
+// the workbook, opens the saved file again (dropped on the page, or from the file picker) and checks values and formatting; on
+// the desktop a percentage column shows its format's category in the box on its empty cell.
+// Then the structure menu on a new workbook: on the desktop a row inserted by a right click (the formula below it moves),
+// a column hidden and unhidden, a sheet added by "+", renamed and deleted, a column fitted by a double click on its edge;
+// on the phone a row inserted from the menu that a long press opens.
+// Then Find and Replace and Format Cells on a new workbook: a search with Match case and in values, Replace All and its
+// Ctrl+Z, and the dialog's font, outline and percentage with OK, and their undo.
+// Then the fill handle and cut, copy and paste within the workbook: a formula dragged three rows down by its handle (on the
+// desktop a drag canceled by Esc first, which copies nothing), a series 1, 2 continued to 3, 4, a range
+// with a formula copied and pasted, a formula cut and pasted, each undone (Ctrl+C, Ctrl+X, Ctrl+V on the desktop, the cell menu
 // on the phone).
 // Then Formula AutoComplete: `=СУ` typed into a cell (the formula bar on the phone) lists СУММ first, Tab (a tap on the
-// phone) enters `СУММ(`, and `A1:A3)` with Enter sums the column.
-// Then the tip with a function's arguments: `=СУММ(1;` shows `СУММ(число1;[число2];...)` with число2 in bold, Esc takes it.
-// Then, on the desktop, a file with a circular reference opened from the picker holds the values it stores, as Excel
-// opens it, through an edit elsewhere; Control+Down goes to the end of a block (Range.End); and a cell copied over a
-// whole column is refused at once by the app's limit of cells one change writes, the book as it was.
-// Then Excel's typo window: `=(1+2` with Enter offers `=(1+2)`, Yes writes 3; No says a bracket is missing and opens the field again.
-// Then, on the desktop, Merge & Center over A1:B1 holding two values: Excel's warning, Enter for OK, one centred cell, Control+Z.
-// On the phone every target is at least 44 px and the page never scrolls sideways. Run: npm run check:spa; SPA_URL=<url> checks a published app instead.
-// DEMO=1 npm run check:spa runs it on the demo's build (`--mode demo`, served under /demo/), which /demo/ opens and
-// which holds no source map.
+// phone) inserts `СУММ(`, and `A1:A3)` with Enter sums the column.
+// Then the argument tooltip: `=СУММ(1;` shows `СУММ(число1;[число2];...)` with число2 in bold, and Esc removes it.
+// Then, on the desktop, a file with a circular reference opened from the file picker keeps its stored values, as Excel
+// opens it, through an edit elsewhere; a file opens on its saved active sheet and Save as records the sheet on screen;
+// Ctrl+Down goes to the end of a block (Range.End); and a cell copied over an
+// entire column is rejected at once by the app's limit on cells one change writes, leaving the workbook unchanged.
+// Then Excel's typo dialog: `=(1+2` with Enter offers `=(1+2)`, Yes writes 3; No says a parenthesis is missing and reopens the editor.
+// Then, on the desktop, Merge & Center over A1:B1 with two values: Excel's warning, Enter for OK, one centered cell, Ctrl+Z.
+// On the phone every target is at least 44 px and the page never scrolls horizontally. Run: npm run check:spa; SPA_URL=<url> checks a published app instead.
+// DEMO=1 npm run check:spa runs it on the demo build (`--mode demo`, served under /demo/), checking that /demo/ opens it and
+// that it contains no source maps.
 // Output: test-results/screens/spa-*.png and the saved files.
 import { mkdirSync, readdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
@@ -33,7 +34,7 @@ import type { BookInput, CellStyle } from 'xlcalc'
 import { parseCell, parseRange } from 'xlcalc/a1'
 import { ruRU } from 'xlcalc/locales/ru-RU'
 import { numberFormatCategory } from 'xlcalc/text'
-import { writeXlsx } from 'xlcalc/xlsx'
+import { readXlsx, writeXlsx } from 'xlcalc/xlsx'
 import { longPress } from './touch.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -50,26 +51,26 @@ interface Size {
   phone: boolean
 }
 
-/** Wait until a cell (`row:col`) shows `text`. */
+/** Waits until a cell (`row:col`) displays `text`. */
 async function shows(page: Page, cell: string, text: string): Promise<void> {
   await page.waitForFunction(([c, t]) => document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim() === t, [cell, text] as const, { timeout: 30_000 })
 }
-/** The name ru-RU's box gives Percentage (`0.00%`), by xlcalc's rule, whichever Excel's the library follows. */
+/** The name ru-RU's box gives Percentage (`0.00%`), by xlcalc's rule, whichever Excel the library follows. */
 const PERCENT = numberFormatCategory(10, ruRU).name
-/** Wait until the toolbar's Number Format box names `name`. */
+/** Waits until the toolbar's Number Format box names `name`. */
 async function boxNames(page: Page, name: string, where: string): Promise<void> {
   const shown = () => page.evaluate(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.trim())
   await page.waitForFunction((n) => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.trim() === n, name, { timeout: 30_000 }).catch(async () => {
     throw new Error(`${where}: the box names ${JSON.stringify(await shown())}, want ${JSON.stringify(name)}`)
   })
 }
-/** Wait for the status bar's Ready. */
+/** Waits for Ready in the status bar. */
 async function ready(page: Page): Promise<void> {
   await page.waitForFunction(() => document.querySelector('[data-spa-status]')?.textContent?.trim() === 'Готово', null, { timeout: 30_000 })
 }
-/** The book as the app's source holds it now. */
+/** The workbook as the app's source holds it now. */
 const bookOf = (page: Page) => page.evaluate(() => (window as any).__spa.book() as Promise<BookInput>)
-/** The last look of a sheet's look layer over a cell: what an empty cell with only a look of its own shows (xlcalc 0.28). */
+/** The last style of a sheet's style layer over a cell: what an empty cell with only its own formatting displays (xlcalc 0.28). */
 function lookOf(sheet: BookInput['sheets'][number], addr: string): { style?: number; numberFormat?: unknown } | undefined {
   const at = parseCell(addr)!
   const looks = sheet.looks ?? []
@@ -79,7 +80,7 @@ function lookOf(sheet: BookInput['sheets'][number], addr: string): { style?: num
   }
   return undefined
 }
-/** A cell of the first sheet: its own style object and number format, from its entry or else the sheet's look layer. */
+/** A cell of the first sheet: its own style object and number format, from its entry or otherwise the sheet's style layer. */
 function cellOf(book: BookInput, addr: string): { style: CellStyle | undefined; numberFormat: unknown; formula?: string; value?: unknown } {
   const c = (book.sheets[0]!.cells as Record<string, any>)[addr] ?? lookOf(book.sheets[0]!, addr) ?? {}
   return { style: c.style === undefined ? undefined : book.styles?.[c.style], numberFormat: c.numberFormat, formula: c.formula, value: c.value }
@@ -89,7 +90,7 @@ const canon = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof 
 function expect(what: string, got: unknown, want: unknown): void {
   if (canon(got) !== canon(want)) throw new Error(`${what}: ${canon(got)}, want ${canon(want)}`)
 }
-/** The outside borders of A1:A3 as the book holds them: top on A1, bottom on A3, left and right on all three. */
+/** The outside borders of A1:A3 as the workbook holds them: top on A1, bottom on A3, left and right on all three. */
 function bordersOf(book: BookInput): unknown[] {
   return ['A1', 'A2', 'A3'].map((a) => cellOf(book, a).style?.border ?? null)
 }
@@ -99,7 +100,7 @@ const OUTSIDE = [
   { bottom: THIN, left: THIN, right: THIN },
 ]
 
-/** Every button, field and list visible in the app bar, the toolbar (and its menus), the find bar and the dialogs at least 44 × 44 px; fields by their height. */
+/** Every button, input and list visible in the app bar, the toolbar (and its menus), the Find bar and the dialogs is at least 44 × 44 px; inputs by their height. */
 async function checkTargets(page: Page, where: string): Promise<void> {
   const small = await page.evaluate(() =>
     [
@@ -127,7 +128,7 @@ async function checkNoSideScroll(page: Page, where: string): Promise<void> {
   if (scroll > width) throw new Error(`${where}: the page scrolls sideways (${scroll} > ${width})`)
 }
 
-/** A text into a cell: typed over it on a desktop, through the formula bar on a phone. */
+/** Enters text into a cell: typed over it on a desktop, through the formula bar on a phone. */
 async function enter(page: Page, size: Size, cell: string, text: string): Promise<void> {
   if (size.phone) {
     await page.locator(`[data-cell="${cell}"]`).tap()
@@ -161,7 +162,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   await page.goto(`${base}spa.html?lang=ru`)
   await page.waitForSelector('[data-cell="1:1"]')
   await ready(page)
-  // The status bar's texts as they come, to see the recomputation show and go.
+  // The status bar's texts as they arrive, to see the recalculation indicator appear and disappear.
   await page.evaluate(() => {
     const seen = new Set<string>()
     const el = document.querySelector('[data-spa-status]')!
@@ -170,7 +171,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   })
   if (size.phone) await checkNoSideScroll(page, at('open'))
 
-  // 1. A new ru-RU book.
+  // 1. A new ru-RU workbook.
   await press(page, size, '[data-spa="new"]')
   await page.waitForSelector('[data-spa-locale="ru-RU"]')
   if (size.phone) await checkTargets(page, at('new book dialog'))
@@ -189,7 +190,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   await ready(page)
   await shot('values')
 
-  // 3. A1:A3 bold: by the mouse with Shift, on a phone through the address box.
+  // 3. A1:A3 bold: with the mouse and Shift, on a phone through the Name Box.
   if (size.phone) {
     await page.locator('.xs-address').tap()
     await page.locator('.xs-address').fill('A1:A3')
@@ -204,7 +205,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   expect(at('A3 drawn bold'), weight, '700')
   await shot('bold')
 
-  // 4. Percent from the number format list (in the menu on a phone).
+  // 4. Percentage from the number format list (in the menu on a phone).
   if (size.phone) {
     await press(page, size, '[data-tb="more"]')
     await page.waitForSelector('[data-tb-menu]:not([style*="none"]) [data-tb="number"]')
@@ -215,7 +216,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   await page.locator('[data-tb="number"]').selectOption('percentage')
   await shows(page, '1:1', '25,00%')
   await shows(page, '3:1', '75,00%')
-  // The source reloads after formatting: the list shows the new format of the active cell.
+  // The source reloads after formatting: the list shows the active cell's new format.
   await boxNames(page, PERCENT, at('the box after Percentage'))
   await shot('percent')
 
@@ -241,7 +242,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   }
   await shot('outside')
 
-  // 6. Undo takes the borders back whole, redo draws them again.
+  // 6. Undo removes the borders as a whole, and redo draws them again.
   await press(page, size, '[data-tb="undo"]')
   await ready(page)
   await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-cell="3:1"]')!).borderBottomColor !== 'rgb(0, 0, 0)')
@@ -261,8 +262,8 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   await ready(page)
   await shot('saved')
 
-  // 8. Open the saved file: dropped on the page on a desktop, from the picker on a phone.
-  // A cell typed after saving (Latin: Playwright types Cyrillic without keydown, which the grid needs to open its field).
+  // 8. Open the saved file: dropped on the page on a desktop, from the file picker on a phone.
+  // A cell typed after saving (Latin: Playwright types Cyrillic without keydown, which the grid needs to open its editor).
   await enter(page, size, '1:2', 'draft')
   await shows(page, '1:2', 'draft')
   const file = { name: download.suggestedFilename(), mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: await readFile(saved) }
@@ -304,7 +305,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   }
   await shot('reopened')
   if (!size.phone) {
-    // 10. Column C in percent: its empty cell shows the column's format's category in the box, as Excel's does.
+    // 10. Column C in percentage format: its empty cell shows the column format's category in the box, as Excel's does.
     await page.locator('.xs-head[data-col="3"]').click()
     await page.locator('[data-tb="number"]').selectOption('percentage')
     await ready(page)
@@ -324,12 +325,12 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   await context.close()
 }
 
-/** The letters of the column headers the grid draws, in order. */
+/** The column header letters the grid draws, in order. */
 const letters = (page: Page) => page.evaluate(() => [...document.querySelectorAll('.xs-head .xs-head-label')].map((h) => h.textContent!.trim()))
 const tabNames = (page: Page) => page.evaluate(() => [...document.querySelectorAll('.xs-tab')].map((t) => t.textContent!.trim()))
 const activeTab = (page: Page) => page.evaluate(() => document.querySelector('.xs-tab-on')?.textContent?.trim())
 
-/** The structure menu on a new ru-RU book: rows, columns, sheets and the fit by a double click (on a phone a long press). */
+/** The structure menu on a new ru-RU workbook: rows, columns, sheets and fitting by a double click (on a phone a long press). */
 async function structureScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
   const page = await context.newPage()
@@ -353,7 +354,7 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
   await enter(page, size, '3:1', '=СУММ(A1:A2)')
   await shows(page, '3:1', '3')
   await ready(page)
-  // One sheet has its tab and "+", as in Excel.
+  // A single sheet has its tab and "+", as in Excel.
   expect(at('one sheet has its tab'), await tabNames(page), ['Лист1'])
 
   // 1. A row inserted above row 2 from the menu: the sum moves to A4 and reads A1:A3.
@@ -371,7 +372,7 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
   expect(at('the sum moved'), cellOf(await bookOf(page), 'A4').formula, 'SUM(A1:A3)')
   await shot('row-inserted')
   if (size.phone) {
-    // The width box of a letter's menu and a tab's menu, by finger too.
+    // The width dialog from a column letter's menu and a tab's menu, by touch too.
     await longPress(page, '.xs-head[data-col="2"]')
     await press(page, size, '[data-xs-menu="size"]')
     await page.waitForSelector('[data-xs-dialog-input]')
@@ -392,7 +393,7 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
     return
   }
 
-  // 2. Column B hidden from its letter's menu, shown again over A:C.
+  // 2. Column B hidden from its letter's menu, unhidden over A:C.
   await page.locator('.xs-head[data-col="2"]').click({ button: 'right' })
   await page.locator('[data-xs-menu="hide"]').click()
   await page.waitForFunction(() => !document.querySelector('.xs-head[data-col="2"]'))
@@ -407,7 +408,7 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
   await ready(page)
   expect(at('B shown'), (await letters(page)).slice(0, 3), ['A', 'B', 'C'])
 
-  // 3. A sheet added by "+", renamed on its tab, deleted: the sheet before it shows again.
+  // 3. A sheet added by "+", renamed on its tab, deleted: the sheet before it is displayed again.
   await page.locator('[data-xs-add-sheet]').click()
   await page.waitForFunction(() => document.querySelector('.xs-tab-on')?.textContent?.trim() === 'Лист2')
   await ready(page)
@@ -443,7 +444,7 @@ async function structureScenario(browser: Browser, base: string, size: Size): Pr
   await context.close()
 }
 
-/** The find bar's status. */
+/** The Find bar's status. */
 const findStatus = (page: Page) => page.evaluate(() => document.querySelector('.xs-find-status')?.textContent?.trim() ?? '')
 async function statusIs(page: Page, text: string, where: string): Promise<void> {
   await page.waitForFunction((t) => document.querySelector('.xs-find-status')?.textContent?.trim() === t, text, { timeout: 30_000 }).catch(async () => {
@@ -452,8 +453,8 @@ async function statusIs(page: Page, text: string, where: string): Promise<void> 
 }
 
 /**
- * Find and Replace and Format Cells on a new ru-RU book: a search with Match case, then in values, Replace All and its
- * Control+Z, and the dialog's font, outline and percent over A1:B3 with OK, one step of undo.
+ * Find and Replace and Format Cells on a new ru-RU workbook: a search with Match case, then in values, Replace All and its
+ * Ctrl+Z, and the dialog's font, outline and percentage over A1:B3 with OK, as a single undo step.
  */
 async function findFormatScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
@@ -477,7 +478,7 @@ async function findFormatScenario(browser: Browser, base: string, size: Size): P
   await shows(page, '4:1', 'tea cup')
   await ready(page)
 
-  // 1. Find: "tea" in any case, then with Match case, then in values, where A4 shows it by its formula.
+  // 1. Find: "tea" in any letter case, then with Match case, then in values, where A4 displays it by its formula.
   if (size.phone) await press(page, size, '[data-xs-find]')
   else {
     await page.locator('[data-cell="5:1"]').click()
@@ -498,7 +499,7 @@ async function findFormatScenario(browser: Browser, base: string, size: Size): P
   expect(at('the hit in values'), await page.evaluate(() => document.querySelector('.xs-cell.xs-active')?.getAttribute('data-cell')), '4:1')
   await shot('find-values')
 
-  // 2. Replace All in formulas: tea in any case to milk, A4 computes from the new A1; Control+Z takes it back whole.
+  // 2. Replace All in formulas: tea in any letter case to milk, A4 recalculates from the new A1; Ctrl+Z undoes it as a whole.
   await press(page, size, '[data-xs-find-case]')
   await press(page, size, '[data-xs-find-replace]')
   await page.locator('[data-xs-replace-input]').fill('milk')
@@ -522,7 +523,7 @@ async function findFormatScenario(browser: Browser, base: string, size: Size): P
   await shot('replace-undone')
   await page.locator('.xs-find [aria-label="Закрыть"]').last().click()
 
-  // 3. Format Cells over A1:B3 from the toolbar: bold 14 pt, the outline, percent; OK formats it in one step of undo.
+  // 3. Format Cells over A1:B3 from the toolbar: bold 14 pt, the outline, percentage; OK formats it as a single undo step.
   if (size.phone) {
     await page.locator('.xs-address').tap()
     await page.locator('.xs-address').fill('A1:B3')
@@ -577,12 +578,12 @@ async function findFormatScenario(browser: Browser, base: string, size: Size): P
   await context.close()
 }
 
-/** The middle of an element on the page. */
+/** The center of an element on the page. */
 async function middle(page: Page, selector: string): Promise<{ x: number; y: number }> {
   const box = (await page.locator(selector).boundingBox())!
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
-/** A finger put down at `from`, moved to `to` in steps and lifted, as Chromium's touch input gets it; `held` runs before the lift. */
+/** A finger put down at `from`, moved to `to` in steps and lifted, as Chromium's touch input receives it; `held` runs before the lift. */
 async function touchDrag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }, held: () => Promise<unknown>): Promise<void> {
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] })
@@ -593,17 +594,17 @@ async function touchDrag(page: Page, from: { x: number; y: number }, to: { x: nu
 }
 const addressOf = (page: Page) => page.locator('.xs-address').inputValue()
 const antsShown = async (page: Page) => (await page.locator('[data-xs-ants]').count()) > 0
-/** A cell's formula and value in the book as the app's source holds it. */
+/** A cell's formula and value in the workbook as the app's source holds it. */
 const formulas = async (page: Page, cells: string[]) => {
   const book = await bookOf(page)
   return cells.map((a) => cellOf(book, a).formula ?? cellOf(book, a).value ?? null)
 }
 
 /**
- * The fill handle and cut, copy and paste inside the book on a new ru-RU book: B1's formula dragged three rows down by
- * its handle (the mouse, or a finger on the phone), C1:C2 (1, 2) dragged to C4 going on as a series, A1:B1 copied and
- * pasted at D6, B1 cut and pasted at D2 (Control+C, X and V on the desktop, the cells' menu a long press opens on the
- * phone), each taken back by Control+Z (the toolbar's undo on the phone). The book is checked after each step, the grid too.
+ * The fill handle and cut, copy and paste within the workbook on a new ru-RU workbook: B1's formula dragged three rows down
+ * by its handle (the mouse, or a finger on the phone), C1:C2 (1, 2) dragged to C4 continuing as a series, A1:B1 copied and
+ * pasted at D6, B1 cut and pasted at D2 (Ctrl+C, Ctrl+X and Ctrl+V on the desktop, the cell menu that a long press opens on
+ * the phone), each undone by Ctrl+Z (the toolbar's Undo on the phone). The workbook is checked after each step, and the grid too.
  */
 async function fillCopyScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({
@@ -620,13 +621,13 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   let step = 0
   const shot = (name: string) => page.screenshot({ path: resolve(out, `spa-${size.name}-c${String(++step).padStart(2, '0')}-${name}.png`) })
   const at = (what: string) => `[${size.name} fill and copy] ${what}`
-  /** Control+Z, or the toolbar's undo on the phone. */
+  /** Ctrl+Z, or the toolbar's Undo on the phone. */
   const undo = async () => {
     if (size.phone) await press(page, size, '[data-tb="undo"]')
     else await page.keyboard.press('ControlOrMeta+z')
     await ready(page)
   }
-  /** Open the cells' menu on a cell (a right click, a long press) and pick an item. */
+  /** Opens the cell menu on a cell (a right click, a long press) and chooses an item. */
   const menuItem = async (cell: string, item: string, check = false) => {
     if (size.phone) await longPress(page, `[data-cell="${cell}"]`)
     else await page.locator(`[data-cell="${cell}"]`).click({ button: 'right' })
@@ -639,8 +640,8 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
     await press(page, size, `[data-xs-menu="${item}"]`)
     await page.waitForFunction(() => !document.querySelector('[data-xs-menu]'))
   }
-  /** Select a cell or a range: by the mouse, or through the address box on the phone (a second tap on a cell opens its field). */
-  /** After the undo of a copy onto empty cells the grid has them empty: `./local` reads the sheet again after a structure step. */
+  /** Selects a cell or a range: with the mouse, or through the Name Box on the phone (a second tap on a cell opens its editor). */
+  /** After undoing a copy onto empty cells the grid has them empty: `./local` reads the sheet again after a structure step. */
   const stale = async (cells: string[], what: string) => {
     const shown = await page.evaluate((list) => list.map((c) => document.querySelector(`[data-cell="${c}"]`)?.textContent?.trim() ?? ''), cells)
     expect(`${at('grid')} after ${what}`, shown, cells.map(() => ''))
@@ -672,7 +673,7 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   await shows(page, '1:2', '10')
   await ready(page)
 
-  // 1. B1's fill handle dragged to B4: the formula is copied down, each copy reading its own row; B1:B4 is selected.
+  // 1. B1's fill handle dragged to B4: the formula is copied down, each copy referring to its own row; B1:B4 is selected.
   await select('1:2')
   await page.waitForSelector('[data-xs-fill-handle]')
   const handle = await middle(page, '[data-xs-fill-handle]')
@@ -686,7 +687,7 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
     await shot('fill-drag')
   }
   if (!size.phone) {
-    // Esc while dragged drops the drag, as in Excel: the frame goes, the release copies nothing, B1 stays selected.
+    // Esc during the drag cancels it, as in Excel: the outline disappears, the release copies nothing, and B1 stays selected.
     await page.mouse.move(handle.x, handle.y)
     await page.mouse.down()
     await page.mouse.move(target.x, target.y, { steps: 8 })
@@ -716,7 +717,7 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   await stale(['2:2', '3:2', '4:2'], "the fill's undo")
   await shot('fill-undone')
 
-  // 1b. C1:C2 (1, 2) dragged by the handle to C4: the series goes on with 3 and 4, as Excel's fill handle; C1:C4 is selected.
+  // 1b. C1:C2 (1, 2) dragged by the handle to C4: the series continues with 3 and 4, as with Excel's fill handle; C1:C4 is selected.
   await select('1:3', '2:3')
   await page.waitForSelector('[data-xs-fill-handle]')
   const seriesHandle = await middle(page, '[data-xs-fill-handle]')
@@ -739,7 +740,7 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   expect(at('the series undone'), await formulas(page, ['C3', 'C4']), [null, null])
   await stale(['3:3', '4:3'], "the series' undo")
 
-  // 2. A1:B1 copied: its moving border; pasted at D6, where E6 reads D6; the border stays until Esc.
+  // 2. A1:B1 copied: its moving border; pasted at D6, where E6 refers to D6; the border stays until Esc.
   await select('1:1', '1:2')
   if (size.phone) await menuItem('1:1', 'copy', true)
   else await page.keyboard.press('ControlOrMeta+c')
@@ -761,7 +762,7 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   await stale(['6:4', '6:5'], "the paste's undo")
   await shot('paste-undone')
 
-  // 3. B1 cut and pasted at D2: the formula moves and still reads A1, B1 is empty, the border goes; the undo puts it back.
+  // 3. B1 cut and pasted at D2: the formula moves and still refers to A1, B1 is empty, the border disappears; undo restores it.
   await select('1:2')
   if (size.phone) await menuItem('1:2', 'cut')
   else await page.keyboard.press('ControlOrMeta+x')
@@ -787,9 +788,9 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
 }
 
 /**
- * Formula AutoComplete on a new ru-RU book: `=СУ` typed into A4 (in the cell on the desktop, in the formula bar on the
- * phone) lists the functions it begins with СУММ highlighted first; Tab, or a tap on the phone, enters `СУММ(`, and
- * `A1:A3)` with Enter gives the sum of A1:A3.
+ * Formula AutoComplete on a new ru-RU workbook: `=СУ` typed into A4 (in the cell on the desktop, in the formula bar on the
+ * phone) lists the functions that begin with it, with СУММ highlighted first; Tab, or a tap on the phone, inserts `СУММ(`,
+ * and `A1:A3)` with Enter gives the sum of A1:A3.
  */
 async function autocompleteScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
@@ -813,7 +814,7 @@ async function autocompleteScenario(browser: Browser, base: string, size: Size):
   await shows(page, '3:1', '3')
   await ready(page)
 
-  // 1. `=СУ`: the list under the field, СУММ first and highlighted.
+  // 1. `=СУ`: the list below the editor, with СУММ first and highlighted.
   const field = size.phone ? '.xs-fx-input' : '.xs-editor'
   if (size.phone) {
     await page.locator('[data-cell="4:1"]').tap()
@@ -831,7 +832,7 @@ async function autocompleteScenario(browser: Browser, base: string, size: Size):
   }
   await shot('autocomplete')
 
-  // 2. Tab, or a tap on the item: `СУММ(` with the caret after it, the field still open.
+  // 2. Tab, or a tap on the item: `СУММ(` with the caret after it, the editor still open.
   if (size.phone) await page.locator('[data-xs-function="СУММ"]').tap()
   else await page.keyboard.press('Tab')
   await page.waitForSelector('[data-xs-functions]', { state: 'detached' })
@@ -858,9 +859,9 @@ async function autocompleteScenario(browser: Browser, base: string, size: Size):
 }
 
 /**
- * Excel's tip with a function's arguments on a new ru-RU book: `=СУММ(1;` typed into A1 (in the cell on the desktop, in
- * the formula bar on the phone) shows `СУММ(число1;[число2];...)` under the field with число2 in bold, inside the window;
- * Esc cancels the edit and the tip goes with it.
+ * Excel's argument tooltip on a new ru-RU workbook: `=СУММ(1;` typed into A1 (in the cell on the desktop, in the formula bar
+ * on the phone) shows `СУММ(число1;[число2];...)` below the editor with число2 in bold, inside the window; Esc cancels the
+ * edit and the tooltip disappears with it.
  */
 async function tipScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
@@ -883,7 +884,7 @@ async function tipScenario(browser: Browser, base: string, size: Size): Promise<
     await page.locator('[data-cell="1:1"]').tap()
     await page.locator('.xs-fx').tap()
   } else await page.locator('[data-cell="1:1"]').click()
-  // `=` by its key opens the cell's field; the Cyrillic comes as text input into it
+  // `=` by its key opens the cell editor; the Cyrillic arrives as text input into it
   await page.keyboard.press('=')
   await page.keyboard.type('СУММ(1;')
   await page.waitForSelector('[data-xs-tip] .xs-ft-on')
@@ -905,9 +906,10 @@ async function tipScenario(browser: Browser, base: string, size: Size): Promise<
 }
 
 /**
- * Excel's Insert Function on a new ru-RU book: fx by the formula bar opens the window, the search finds СУММ with its syntax and
- * description, a category narrows the list, OK opens A1's edit in the bar with `=СУММ(`, `1;2` and the bar's Enter (✓) ask of the open
- * bracket as Enter does, Fix and `)` and ✓ write 3 and keep A1 active; the window opens next on the recently used, СУММ among them.
+ * Excel's Insert Function on a new ru-RU workbook: fx next to the formula bar opens the dialog, the search finds СУММ with its
+ * syntax and description, a category narrows the list, OK starts A1's edit in the formula bar with `=СУММ(`, `1;2` and the
+ * formula bar's Enter (✓) prompt about the unclosed parenthesis as Enter does, Fix and `)` and ✓ write 3 and keep A1 active;
+ * the dialog next opens on the recently used functions, with СУММ among them.
  */
 async function insertScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
@@ -959,7 +961,7 @@ async function insertScenario(browser: Browser, base: string, size: Size): Promi
   expect(at('the bar after OK'), field, { text: '=СУММ(', caret: 6, focused: true })
   await page.keyboard.type('1;2')
   await page.screenshot({ path: resolve(out, `spa-${size.name}-i03-typed.png`) })
-  // The function's bracket left open: ✓ closes it as Excel's Enter does (xlcalc 0.44)
+  // The function's parenthesis left open: ✓ closes it as Excel's Enter does (xlcalc 0.44)
   await press(page, size, '[data-xs-bar-enter]')
   await shows(page, '1:1', '3')
   await ready(page)
@@ -976,7 +978,7 @@ async function insertScenario(browser: Browser, base: string, size: Size): Promi
   await context.close()
 }
 
-/** A file whose A1 and B1 read each other, C1 reads them and E1 does not, with the values Excel would store; opened from the picker. */
+/** A file whose A1 and B1 refer to each other, C1 refers to them and E1 does not, with the values Excel would store; opened from the file picker. */
 async function cycleScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
   const page = await context.newPage()
@@ -1006,7 +1008,7 @@ async function cycleScenario(browser: Browser, base: string, size: Size): Promis
   await context.close()
 }
 
-/** A formula's range dragged on the sheet and a reference by an arrow (Point mode), a formula that does not read put back, two typed lines wrapping and fitting their row, its edge dragged and double-clicked. */
+/** A formula's range dragged on the sheet and a reference inserted by an arrow (Point mode), a formula that cannot be parsed restored, two typed lines wrapping and fitting their row, and its edge dragged and double-clicked. */
 async function formulaRowScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, permissions: ['clipboard-read', 'clipboard-write'] })
   const page = await context.newPage()
@@ -1019,7 +1021,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.waitForSelector('[data-cell="1:1"]')
   await ready(page)
   for (const [cell, text] of [['1:1', '1'], ['2:1', '2']] as const) await enter(page, size, cell, text)
-  // =СУММ( and a drag from A1 to A2: the range goes into the field, which stays open
+  // =СУММ( and a drag from A1 to A2: the range goes into the editor, which stays open
   await page.locator('[data-cell="1:3"]').click()
   await page.keyboard.type('=СУММ(')
   const [a1, a2] = [await middle(page, '[data-cell="1:1"]'), await middle(page, '[data-cell="2:1"]')]
@@ -1031,7 +1033,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.keyboard.type(')')
   await page.keyboard.press('Enter')
   await shows(page, '1:3', '3')
-  // = typed over D1 and Left: C1 goes into the field, as Excel's arrows point
+  // = typed over D1 and Left: C1 goes into the editor, as Excel's arrows insert references
   await page.locator('[data-cell="1:4"]').click()
   await page.keyboard.type('=')
   await page.keyboard.press('ArrowLeft')
@@ -1039,7 +1041,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.keyboard.type('*2')
   await page.keyboard.press('Enter')
   await shows(page, '1:4', '6')
-  // = over F2, Up points at F1, Command+Left (Control on Windows) jumps to the data's edge, D1; Right after a typed operand enters the formula and moves on, as Excel's refAt
+  // = over F2, Up inserts F1, Cmd+Left (Ctrl on Windows) jumps to the data's edge, D1; Right after a typed operand enters the formula and moves on, as Excel's refAt
   await page.locator('[data-cell="2:6"]').click()
   await page.keyboard.type('=')
   await page.keyboard.press('ArrowUp')
@@ -1050,7 +1052,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.keyboard.press('ArrowRight')
   await shows(page, '2:6', '6')
   expect(at('the active cell after Right'), await page.locator('.xs-cell.xs-active').getAttribute('data-cell'), '2:7')
-  // a formula that does not read, left by a click where no reference may stand: the question, Restore leaves the cell empty
+  // a formula that cannot be parsed, left by a click where no reference can go: the prompt, and Restore leaves the cell empty
   await page.locator('[data-cell="2:3"]').click()
   await page.keyboard.type('=1)')
   await page.locator('[data-cell="5:5"]').click()
@@ -1059,7 +1061,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.locator('[data-xs-alert-button="revert"]').click()
   await page.waitForSelector('[data-xs-alert]', { state: 'detached' })
   expect(at('C2 after Restore'), cellOf(await bookOf(page), 'C2').formula, undefined)
-  // two lines typed into A3: the cell wraps and its row fits them by itself (xlcalc 0.33), as Excel's
+  // two lines typed into A3: the cell wraps and its row fits them on its own (xlcalc 0.33), as in Excel
   await page.locator('[data-cell="3:1"]').click()
   await page.keyboard.type('one')
   await page.keyboard.press('Alt+Enter')
@@ -1071,7 +1073,7 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   const fitted = await rowOf('3')
   if (!fitted?.bestFit || !(fitted.height! > 15)) throw new Error(`${at('row 3 after two lines')}: ${JSON.stringify(fitted)}, want fitted above 15 pt`)
   expect(at('A3 wraps'), cellOf(await bookOf(page), 'A3').style?.alignment?.wrap, true)
-  // its edge dragged 10 px up sets a height by hand, a double click fits the row again
+  // its edge dragged 10 px up sets a height manually, and a double click fits the row again
   const grip = async () => (await page.locator('th[data-row="3"] .xs-grip').boundingBox())!
   let g = await grip()
   await page.mouse.move(g.x + g.width / 2, g.y + 3)
@@ -1085,13 +1087,13 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
   await page.mouse.dblclick(g.x + g.width / 2, g.y + 3)
   await ready(page)
   expect(at('row 3 fitted again'), await rowOf('3'), fitted)
-  // a number wider than its column shows rounded to it; its copy is General without the column, 11 digits, the session's copyText as Excel copies it
+  // a number wider than its column is displayed rounded to fit; its copy is General regardless of the column, 11 digits, the session's copyText as Excel copies it
   await enter(page, size, '1:5', '1234567,891234')
   await ready(page)
   const shown = (await page.locator('[data-cell="1:5"]').textContent())!.trim()
   await page.locator('[data-cell="1:5"]').click()
   await page.keyboard.press('ControlOrMeta+c')
-  // Excel for Mac copies without the last CRLF, Excel for Windows with it
+  // Excel for Mac copies without the final CRLF, Excel for Windows with it
   const want = (await page.evaluate(() => /Mac/.test(navigator.platform))) ? '1234567,891' : '1234567,891\r\n'
   let copied = ''
   for (let i = 0; i < 100 && copied !== want; i++) {
@@ -1108,9 +1110,9 @@ async function formulaRowScenario(browser: Browser, base: string, size: Size): P
 }
 
 /**
- * Excel's typo window on a new ru-RU book (xlcalc 0.44): `=(1+2` with Enter offers `=(1+2)`, Enter on the window is Yes,
- * A1 holds 3 and the selection went down; `=1+СУММ(2` with No (Esc) says a bracket is missing, and after OK the field is open
- * with the text typed.
+ * Excel's typo dialog on a new ru-RU workbook (xlcalc 0.44): `=(1+2` with Enter offers `=(1+2)`, Enter in the dialog is Yes,
+ * A1 contains 3 and the selection moved down; `=1+СУММ(2` with No (Esc) says a parenthesis is missing, and after OK the editor
+ * is open with the typed text.
  */
 async function typoScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.phone ? 2 : 1, isMobile: size.phone, hasTouch: size.phone })
@@ -1165,8 +1167,8 @@ async function typoScenario(browser: Browser, base: string, size: Size): Promise
 }
 
 /**
- * Merge & Center on the desktop: A1 and B1 hold values, so Excel's warning comes first; Enter is its OK, A1:B1 becomes
- * one centred cell with A1's value and B1's gone, the button pressed on it; Control+Z splits it and brings B1 back.
+ * Merge & Center on the desktop: A1 and B1 contain values, so Excel's warning comes first; Enter is its OK, A1:B1 becomes
+ * one centered cell with A1's value and B1's gone, and the button shows as pressed on it; Ctrl+Z splits it and restores B1.
  */
 async function mergeScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
@@ -1220,7 +1222,53 @@ async function mergeScenario(browser: Browser, base: string, size: Size): Promis
 
 const demo = process.env.DEMO === '1'
 const mode = demo ? { mode: 'demo' } : {}
-/** A cell copied over a whole column: the app's limit of writes refuses it at once, as a source's refusal, and nothing changes. */
+/**
+ * The sheet a file opens on, as in Excel: the one saved as active (`Notes`), and after a move to `Data` Save as records
+ * `Data`; a file without a saved active sheet opens on its first visible sheet, the empty `Intro` too.
+ */
+async function activeSheetScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  const at = (what: string) => `[${size.name} active sheet] ${what}`
+  const activeTab = async () => (await page.locator('.xs-tab.xs-tab-on').textContent())?.trim()
+  const values: { name: string; cells: Record<string, { value: number | string }> }[] = [{ name: 'Intro', cells: {} }, { name: 'Data', cells: { A1: { value: 1 } } }, { name: 'Notes', cells: { A1: { value: 'n' } } }]
+  const sheets: BookInput['sheets'] = values
+  const open = async (name: string, activeSheet?: string) => {
+    const { data } = await writeXlsx({ book: { sheets, ...(activeSheet ? { activeSheet } : {}) }, result: { sheets: values } })
+    const [picker] = await Promise.all([page.waitForEvent('filechooser'), press(page, size, '[data-spa="open"]')])
+    await picker.setFiles({ name, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(data) })
+    await ready(page)
+  }
+
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await open('Активный.xlsx', 'Notes')
+  await shows(page, '1:1', 'n')
+  expect(at('opened on'), await activeTab(), 'Notes')
+
+  // the sheet on screen when saving is the one the file records as active
+  await page.locator('.xs-tab', { hasText: 'Data' }).click()
+  await shows(page, '1:1', '1')
+  const [download] = await Promise.all([page.waitForEvent('download'), press(page, size, '[data-spa="save"]')])
+  const saved = resolve(out, `spa-${size.name}-active.xlsx`)
+  await download.saveAs(saved)
+  await ready(page)
+  expect(at('saved active sheet'), (await readXlsx(await readFile(saved))).book.activeSheet, 'Data')
+
+  // no saved active sheet: Excel opens the first visible one, an empty divider too
+  await open('Первый.xlsx')
+  await page.waitForFunction(() => document.querySelector('.xs-tab.xs-tab-on')?.textContent?.trim() === 'Intro')
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-c02-active.png`) })
+  console.log(`${at('ok')}: a file opened on its saved active sheet Notes, Save as after a move to Data recorded Data, a file without one opened on Intro`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
+/** A cell copied over an entire column: the app's write limit rejects it at once, as a source's rejection, and nothing changes. */
 async function limitScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
   const page = await context.newPage()
@@ -1233,7 +1281,7 @@ async function limitScenario(browser: Browser, base: string, size: Size): Promis
   await ready(page)
   for (const [cell, text] of [['1:1', 'x'], ['2:1', '1'], ['3:1', '2']] as const) await enter(page, size, cell, text)
   await ready(page)
-  // Control+Down from A1 goes to the end of the block, A3, as Excel's Range.End
+  // Ctrl+Down from A1 goes to the end of the block, A3, as Excel's Range.End does
   await page.locator('[data-cell="1:1"]').click()
   await page.keyboard.press('Control+ArrowDown')
   await page.waitForFunction(() => document.querySelector('.xs-cell.xs-active')?.getAttribute('data-cell') === '3:1', null, { timeout: 30_000 })
@@ -1286,6 +1334,7 @@ try {
   await insertScenario(browser, base, desktop)
   await insertScenario(browser, base, phone)
   await cycleScenario(browser, base, desktop)
+  await activeSheetScenario(browser, base, desktop)
   await limitScenario(browser, base, desktop)
   await formulaRowScenario(browser, base, desktop)
   await typoScenario(browser, base, desktop)

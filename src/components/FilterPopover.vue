@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The funnel's list: a column's values with checks, a substring, the sort; under its letter, on a phone over the whole sheet.
+// The funnel's list: a column's values with checkboxes, a substring, the sort; below its column letter, over the entire sheet on a phone.
 import { useSheetContext } from './context'
 import { IconClose, IconSortAsc, IconSortDesc } from './icons'
 import { useOutsidePress } from './popup'
@@ -9,7 +9,7 @@ const ctx = useSheetContext()
 const { filter } = ctx
 const m = ctx.messages
 
-// A press outside the list (and outside the funnels) closes it.
+// A click outside the list (and outside the funnels) closes it.
 useOutsidePress('[data-xs-funnel],.xs-funnel', () => filter.close(), () => filter.open.value !== null)
 const focusFirst = (el: unknown) => {
   if (el) (el as HTMLInputElement).focus({ preventScroll: true })

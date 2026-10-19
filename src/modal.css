@@ -10,11 +10,11 @@
   background: var(--xs-backdrop);
   -webkit-tap-highlight-color: transparent;
 }
-/* An alert lies over a dialog it comes from. */
+/* An alert lies over the dialog it comes from. */
 .xs-modal-back.xs-modal-alert {
   z-index: var(--xs-z-alert);
 }
-/* The Format Cells dialog can stand outside a sheet, whose box-sizing its parts expect. */
+/* The Format Cells dialog can be placed outside a sheet, whose box-sizing its parts expect. */
 .xs-modal-back *,
 .xs-modal-back *::before,
 .xs-modal-back *::after {
@@ -39,7 +39,7 @@
 .xs-modal-title {
   font-weight: 600;
 }
-/* A window that takes the whole screen on a phone. */
+/* A dialog that takes the full screen on a phone. */
 .xs-narrow .xs-modal-full {
   padding: 0;
 }

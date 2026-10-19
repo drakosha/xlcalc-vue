@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// Excel's formatting toolbar over a sheet source: undo and redo, bold, italic, underline, font and fill colours, borders,
-// horizontal alignment, wrapping, Merge & Center with its list (through the sheet, with the source's `structure`) and
-// Excel's Number Format box (xlcalc's, in the book's locale) over the selection the sheet's `state` event gives, and
-// Format Cells for a host that shows the dialog. On a narrow frame what does not fit
-// goes into a menu; on a finger every target is 44 × 44 px.
+// Excel's formatting toolbar over a sheet source: undo and redo, bold, italic, underline, font and fill colors, borders,
+// horizontal alignment, wrapping, Merge & Center with its dropdown (through the sheet, with the source's `structure`) and
+// Excel's Number Format box (xlcalc's, in the workbook's locale), applied to the selection the sheet's `state` event
+// reports, and Format Cells for a host that displays the dialog. In a narrow viewport what does not fit
+// goes into a menu; on a touch screen every target is 44 × 44 px.
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarSource } from '../contract/view'
 import { failedOutcome } from '../failure'
@@ -82,7 +82,7 @@ const emit = defineEmits<{
 
 const m = useMessages(() => props.messages)
 const instance = getCurrentInstance()
-/** Whether the host listens to `formatCells` now, so that the button opens its own dialog instead of the sheet's. */
+/** Whether the host listens to `formatCells` now, so the button opens its own dialog instead of the sheet's. */
 const hostDialog = () => hasListener(instance, 'onFormatCells')
 function formatCells(): void {
   if (hostDialog() || !props.sheet) emit('formatCells')
@@ -106,10 +106,10 @@ const BORDERS: { kind: BorderKind; icon: typeof IconBold; title: keyof SheetMess
   { kind: 'bottom', icon: IconBorderBottom, title: 'borderBottom' },
   { kind: 'none', icon: IconBorderNone, title: 'borderNone' },
 ]
-/** Excel's list under Merge & Center: each item is named by its command's text, its hook (`data-tb`) is the command in kebab case. */
+/** Excel's dropdown under Merge & Center: each item is named by its command's text, and its hook (`data-tb`) is the command in kebab case. */
 const MERGES: readonly MergeCommand[] = ['mergeCenter', 'mergeAcross', 'mergeCells', 'unmergeCells']
 const kebab = (name: string) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
-/** Excel's split buttons of the font's and the fill's colours: the button applies the last colour, the menu the choice without one and the palette. */
+/** Excel's split buttons for font and fill color: the button applies the last color, the menu offers the no-color choice and the palette. */
 type Colouring = 'font' | 'fill'
 const COLOURS: { what: Colouring; icon: typeof IconFontColour; title: keyof SheetMessages; none: keyof SheetMessages; noneHook: string }[] = [
   { what: 'font', icon: IconFontColour, title: 'fontColor', none: 'colorAuto', noneHook: 'colour-auto' },
@@ -117,8 +117,8 @@ const COLOURS: { what: Colouring; icon: typeof IconFontColour; title: keyof Shee
 ]
 const text = (key: keyof SheetMessages) => m.value[key] as string
 
-// ── what the active cell shows ──
-/** Excel's box: the list's items, and the name of the category the active cell's format is (General without one). */
+// ── the active cell's formatting ──
+/** Excel's box: the list's items, and the name of the category of the active cell's format (General without one). */
 const numbers = useNumberFormats(() => props.locale)
 const category = computed(() => (props.state ? numbers.categoryOf(props.state.numberFormat) : null))
 const fontColour = computed(() => upperColour(style.value?.font?.color))
@@ -134,11 +134,11 @@ const history = computed(() => {
 const canUndo = computed(() => !history.value || history.value.undo > 0)
 const canRedo = computed(() => !history.value || history.value.redo > 0)
 
-// ── the frame: narrow, a finger ──
+// ── the viewport: narrow, touch ──
 const root = ref<HTMLElement | null>(null)
 const width = ref(0)
 const coarse = useCoarsePointer()
-/** Under `NARROW_PX` the toolbar keeps its first buttons in a row and the rest in a menu, as the sheet goes narrow. */
+/** Below `NARROW_PX` the toolbar keeps its first buttons in a row and the rest in a menu, as the sheet narrows. */
 const narrow = computed(() => (width.value || (typeof window === 'undefined' ? NARROW_PX : window.innerWidth)) < NARROW_PX)
 const touch = computed(() => narrow.value || coarse.value)
 const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(([entry]) => (width.value = entry?.contentRect.width ?? 0))
@@ -147,7 +147,7 @@ watch(root, (el, old) => {
   if (el) observer?.observe(el)
 })
 
-// ── menus: the colour palettes, the borders, and the narrow frame's menu ──
+// ── menus: the color palettes, the borders, and the narrow layout's menu ──
 const open = ref<'font' | 'fill' | 'borders' | 'merge' | null>(null)
 const menu = ref(false)
 const toggle = (what: 'font' | 'fill' | 'borders' | 'merge') => (open.value = open.value === what ? null : what)
@@ -156,7 +156,7 @@ function closeAll(): void {
   menu.value = false
 }
 useOutsidePress(root, closeAll, () => open.value !== null || menu.value)
-/** Buttons do not take the focus from the grid, so its keys go on working; the number format list does take it. */
+/** Buttons do not take focus from the grid, so its keys keep working; the number format list does take it. */
 function keepFocus(e: MouseEvent): void {
   if (!(e.target as HTMLElement).closest('select')) e.preventDefault()
 }
@@ -175,7 +175,7 @@ onBeforeUnmount(() => {
   observer?.disconnect()
 })
 
-// ── calls: through the sheet when there is one, else the source's own ──
+// ── calls: through the sheet when there is one, otherwise the source's own ──
 async function run(call: () => Promise<EditOutcome | null>): Promise<EditOutcome | null> {
   let out: EditOutcome | null
   try {
@@ -188,7 +188,7 @@ async function run(call: () => Promise<EditOutcome | null>): Promise<EditOutcome
   emit('done')
   return out
 }
-/** Patches over the selection's sheet, in one call and so one step of undo. */
+/** Patches over the selection's sheet, in one call and so a single undo step. */
 function apply(patches: FormatPatch[]): void {
   const st = props.state
   const format = props.source.format
@@ -198,7 +198,7 @@ function apply(patches: FormatPatch[]): void {
 }
 const over = (p: Omit<FormatPatch, 'range'>): FormatPatch[] => (props.state ? [{ range: props.state.ref, ...p }] : [])
 
-/** Undo and redo one at a time: a second press while one is out sends nothing. */
+/** Undo and redo one at a time: a second press while one is pending sends nothing. */
 let stepping = false
 async function step(kind: 'undo' | 'redo'): Promise<void> {
   const call = props.source[kind]
@@ -213,10 +213,10 @@ async function step(kind: 'undo' | 'redo'): Promise<void> {
   }
 }
 
-// The split buttons apply the colour picked last, as Excel's do.
+// The split buttons apply the color picked last, as Excel's do.
 const last = reactive<Record<Colouring, string>>({ font: FIRST_FONT_COLOUR, fill: FIRST_FILL_COLOUR })
 const shown = computed<Record<Colouring, string | null>>(() => ({ font: fontColour.value, fill: fillColour.value }))
-/** A colour, or none (Automatic, No fill), on the text or the fill of the selection. */
+/** A color, or none (Automatic, No Fill), on the text or the fill of the selection. */
 function paint(what: Colouring, colour: string | null): void {
   if (colour) last[what] = colour
   open.value = null
@@ -226,9 +226,9 @@ function border(kind: BorderKind): void {
   open.value = null
   if (props.state) apply(borderPatches(props.state.ref, kind))
 }
-/** Excel's Merge & Center is pressed on a merged cell, and pressed then it unmerges. */
+/** Excel's Merge & Center shows as pressed on a merged cell, and clicking it then unmerges. */
 const merged = computed(() => !!props.state?.merged)
-/** A merge command through the sheet, which warns before values are lost and shows a refusal. */
+/** A merge command through the sheet, which warns before values are lost and displays a rejection. */
 function merge(command: MergeCommand): void {
   open.value = null
   const sheet = props.sheet

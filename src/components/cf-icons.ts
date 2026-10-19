@@ -1,4 +1,4 @@
-// The icons of Excel's 20 icon sets as small inline SVGs (16 × 16), in the colours Excel for Mac 16 draws them, by set and number.
+// The icons of Excel's 20 icon sets as small inline SVGs (16 × 16), in the colors Excel for Mac 16 draws them, by set and number.
 import { h, type FunctionalComponent } from 'vue'
 import type { Icon, IconSetName } from 'xlcalc/contract'
 
@@ -14,7 +14,7 @@ const GRAY: Paint = ['#A8A8A8', '#404040']
 const BLACK: Paint = ['#4C4C4C', '#000000']
 
 const ARROW = '8,1.5 14.5,8 10.5,8 10.5,14.5 5.5,14.5 5.5,8 1.5,8'
-/** An arrow up turned by `deg` clockwise: 90 is right, 180 down, 45 and 135 the diagonals, drawn larger to reach the corners as Excel's do. */
+/** An up arrow rotated `deg` clockwise: 90 is right, 180 down, 45 and 135 the diagonals, drawn larger to reach the corners as Excel's do. */
 const arrow = (deg: number, [fill, line]: Paint): Shape[] => {
   const turn = deg % 90 ? `translate(8 8) rotate(${deg}) scale(1.15) translate(-8 -8)` : deg ? `rotate(${deg} 8 8)` : ''
   return [['polygon', { points: ARROW, fill, stroke: line, 'stroke-linejoin': 'round', ...(turn ? { transform: turn } : {}) }]]
@@ -31,7 +31,7 @@ const flag = ([fill, line]: Paint): Shape[] => [
 ]
 const CROSS = 'M5.5 5.5 10.5 10.5M10.5 5.5 5.5 10.5'
 const CHECK = 'M4.8 8.3 7.2 10.6 11.3 5.6'
-/** A white cross, exclamation mark or check on a coloured disc. */
+/** A white cross, exclamation mark or check mark on a colored disc. */
 const circled = (fill: string, line: string, mark: 'x' | '!' | 'v'): Shape[] => {
   const stroke = { stroke: '#FFFFFF', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', fill: 'none' }
   const sign: Shape[] =
@@ -44,7 +44,7 @@ const mark = (d: string, [fill, line]: Paint): Shape[] => {
   return [['path', { ...base, stroke: line, 'stroke-width': 4.2 }], ['path', { ...base, stroke: fill, 'stroke-width': 2.4 }]]
 }
 
-/** A five-pointed star's points from the top, clockwise, outer and inner by turns. */
+/** A five-pointed star's points from the top, clockwise, alternating outer and inner. */
 const STAR = Array.from({ length: 10 }, (_, k) => {
   const a = ((-90 + k * 36) * Math.PI) / 180
   const r = k % 2 ? 3.1 : 7.4
@@ -68,13 +68,13 @@ const rating = (n: number): Shape[] =>
     const box = { x: 1 + i * 3.7, y: 15 - height, width: 2.6, height, rx: 0.6 }
     return ['rect', i < n ? { ...box, fill: '#002E5F' } : { ...box, fill: '#D4D4D5', stroke: '#A2A2A2', 'stroke-width': 0.8 }]
   })
-/** A disc filled clockwise from the top by quarters, 0 to 4. */
+/** A disc filled clockwise from the top in quarters, 0 to 4. */
 const quarter = (n: number): Shape[] => {
   const ring: Shape = ['circle', { cx: 8, cy: 8, r: 6.3, fill: n === 4 ? '#000000' : '#FFFFFF', stroke: '#000000', 'stroke-width': 1.4 }]
   const pie = ['', 'M8 8V1.7A6.3 6.3 0 0 1 14.3 8Z', 'M8 8V1.7A6.3 6.3 0 0 1 8 14.3Z', 'M8 8V1.7A6.3 6.3 0 1 1 1.7 8Z', ''][n]
   return pie ? [ring, ['path', { d: pie, fill: '#000000' }]] : [ring]
 }
-/** Four squares, `n` filled: the bottom left first, then the bottom right, the top left, the top right. */
+/** Four squares, `n` filled: bottom left first, then bottom right, top left, top right. */
 const boxes = (n: number): Shape[] =>
   [
     [1.5, 8.5],

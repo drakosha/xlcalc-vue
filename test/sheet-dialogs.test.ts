@@ -1,5 +1,5 @@
-// The sheet's own Find and Replace and Format Cells: Control+H opens the bar with its replace row, Control+1 and the
-// API's formatCells() open Format Cells at the active cell's look, OK formats the selection in one call of the source.
+// The sheet's own Find and Replace and Format Cells: Ctrl+H opens the bar with its Replace row, Ctrl+1 and the API's
+// formatCells() open Format Cells with the active cell's formatting, and OK formats the selection in one call to the source.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
@@ -13,7 +13,7 @@ afterEach(() => {
 })
 
 const book = (): MemoryBook => ({ styles: [{ font: { bold: true } }], sheets: [{ name: 'S', cells: { A1: 'apple', B2: { value: 5, style: 0 } } }] })
-/** A memory book with a source's `format` that takes the patches and changes nothing. */
+/** An in-memory workbook with a source `format` that accepts the patches and changes nothing. */
 const formatting = () => {
   const format = vi.fn(async (_sheet: string, _patches: FormatPatch[]): Promise<EditOutcome> => ({ ok: true, changes: [] }))
   return { source: { ...memorySource(book()), format } as SheetSource, format }

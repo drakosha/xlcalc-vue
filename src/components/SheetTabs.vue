@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The bottom line, as in Excel: sheet tabs (scrolling sideways on a phone), the filter's state with Reapply and Clear, and the selection's totals.
+// The bottom bar, as in Excel: sheet tabs (scrolling horizontally on a phone), the filter's status with Reapply and Clear, and the selection's totals.
 import { computed } from 'vue'
 import { useSheetContext } from './context'
 import { refInto } from './dom'
@@ -7,7 +7,7 @@ import { IconFilterOff, IconPlus, IconRetry } from './icons'
 
 const ctx = useSheetContext()
 const m = ctx.messages
-/** "+" after the tabs and the tabs' menu, as Excel's, with the source's structure on an editable sheet. */
+/** The "+" after the tabs and the tab menu, as in Excel, with the source's `structure` on an editable sheet. */
 const canAdd = computed(() => ctx.cmd.can('structure'))
 const { menu } = ctx
 const { press } = menu

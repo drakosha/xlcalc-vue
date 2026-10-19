@@ -1,6 +1,6 @@
-/* Excel's outline bars (OutlineCell.vue, OutlineLevels.vue) in --xs-* variables: thin grey brackets along a group's
-   lines with a tick at the far end, square buttons with − and + or a level's digit. The bars' sizes come from the grid
-   (--xs-outline-w, --xs-outline-h on the table); a finger presses the nearest button, so the drawing stays small. */
+/* Excel's outline bars (OutlineCell.vue, OutlineLevels.vue) in --xs-* variables: thin gray brackets along a group's rows
+   or columns with a tick at the far end, square buttons with − and + or a level's digit. The bars' sizes come from the grid
+   (--xs-outline-w, --xs-outline-h on the table); a tap presses the nearest button, so the drawing stays small. */
 .xs-sheet {
   /* internal: the bars' width and height, which the grid sets on its table; none without an outline */
   --xs-outline-w: 0px;
@@ -20,7 +20,7 @@
   border-bottom: 0;
   background: var(--xs-outline-bg);
 }
-/* Rows' bar cells stick left of the numbers, columns' bar cells above the letters; the corner and the level buttons both ways. */
+/* Row bar cells stick to the left of the row numbers, column bar cells above the column letters; the corner and the level buttons both ways. */
 .xs-ol-rows {
   position: sticky;
   left: 0;
@@ -119,7 +119,7 @@
   right: 0;
 }
 
-/* The buttons: a square centred on its slot's line, − and + drawn by gradients, a level's digit as text. */
+/* The buttons: a square centered on its slot's line, − and + drawn by gradients, a level's digit as text. */
 .xs-ol-btn {
   position: absolute;
   display: flex;

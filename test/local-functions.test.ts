@@ -1,6 +1,6 @@
 // @vitest-environment node
-// localSource's names for Formula AutoComplete: every function xlcalc computes, as the book's locale types it (English
-// where the locale names none), in the locale's alphabetical order.
+// localSource's names for Formula AutoComplete: every function xlcalc calculates, as typed in the workbook's locale (English
+// where the locale has no name of its own), in the locale's alphabetical order.
 import { afterEach, describe, expect, it } from 'vitest'
 import { FUNCTION_NAMES } from 'xlcalc'
 import { ruRU } from 'xlcalc/locales/ru-RU'

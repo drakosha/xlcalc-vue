@@ -1,5 +1,5 @@
-// The text a cell opens with when its source gives no `editText`: xlcalc's `entryText` in the book's locale by the cell's
-// number format (`xlcalc/entry`, a chunk loaded on the first such cell), the shown text until the chunk is in.
+// The text a cell opens with when its source provides no `editText`: xlcalc's `entryText` in the workbook's locale by the cell's
+// number format (`xlcalc/entry`, a chunk loaded for the first such cell), and the displayed text until the chunk has loaded.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryCell } from '../src'
@@ -11,7 +11,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** A memory book whose windows carry `numberFormats`, as a source over a real book gives them. */
+/** An in-memory workbook whose windows carry `numberFormats`, as a source over a real workbook returns them. */
 function withFormats(cells: Record<string, MemoryCell>, formats: Record<string, string>) {
   const source = memorySource({ sheets: [{ name: 'S', cells }] })
   const window = source.window.bind(source)
@@ -21,7 +21,7 @@ function withFormats(cells: Record<string, MemoryCell>, formats: Record<string, 
   }
   return source
 }
-/** What the field opens with on `place` by F2. */
+/** What the editor opens with on `place` with F2. */
 async function open(w: VueWrapper, place: string): Promise<string> {
   await goTo(w, place)
   await key(w, 'F2')

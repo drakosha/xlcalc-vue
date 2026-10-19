@@ -1,5 +1,5 @@
 /* The Format Cells dialog (FormatDialog.vue) in the sheet's --xs-* variables: a DialogShell box (modal.css), full screen on a
-   phone, 44 px targets under a finger. It may stand outside a sheet, so a phone and a finger are the window's media, not the sheet's classes. */
+   phone, 44 px targets on a touch screen. It may be placed outside a sheet, so phone width and touch are the window's media queries, not the sheet's classes. */
 .xs-fmt {
   width: min(600px, 100%);
 }
@@ -12,7 +12,7 @@
 .xs-fmt-title {
   font-size: 14px;
 }
-/* The close cross: a tool (controls.css) of the field's height. */
+/* The close button: a tool (controls.css) as tall as an input. */
 .xs-tool.xs-fmt-x {
   width: 26px;
   height: 26px;
@@ -141,7 +141,7 @@
   font-size: inherit;
 }
 
-/* ── a colour: the choice without one, Excel's palette, a code ── */
+/* ── a color: the no-color choice, Excel's palette, a code ── */
 .xs-fmt-colour {
   display: flex;
   flex-direction: column;
@@ -166,7 +166,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* ── the Border tab: lines, presets, edges round a preview ── */
+/* ── the Border tab: line styles, presets, edges around a preview ── */
 .xs-fmt-lines {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -269,7 +269,7 @@
   font-size: 11px;
 }
 
-/* ── a phone: the whole screen ── */
+/* ── a phone: full screen ── */
 @media (max-width: 599px) {
   .xs-modal-back.xs-fmt-back {
     padding: 0;
@@ -285,7 +285,7 @@
   }
 }
 
-/* ── a phone or a finger: every target at least 44 × 44 px ── */
+/* ── a phone or touch: every target at least 44 × 44 px ── */
 @media (max-width: 599px), (pointer: coarse) {
   .xs-modal.xs-fmt {
     font-size: 15px;

@@ -1,5 +1,5 @@
 // @vitest-environment node
-// localSource edits: typed text read in the book's locale, refusals, what the edited cells show after.
+// localSource edits: typed text parsed in the workbook's locale, rejections, and how the edited cells are displayed afterwards.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SourceEvent } from '../src/contract/source'
 import { BOLD, closeAll, source, styleOf, win } from './local-fixture'
@@ -27,7 +27,7 @@ describe('localSource: typed edits', () => {
 
   it('reads 15.03.2026 as a date with the date format', async () => {
     const s = source()
-    // B is 20 wide: in a column of the default width the date shows as ### (the library measures it so)
+    // B is 20 wide: in a column of the default width the date displays as ### (the library measures it so)
     const got = await s.edit([{ sheet: 'Лист1', cell: 'B4', text: '15.03.2026' }])
     expect(got).toMatchObject({ ok: true, changes: [{ cell: 'B4', value: 46096, text: '15.03.2026', numberFormat: 'dd.mm.yyyy' }] })
   })
@@ -82,7 +82,7 @@ describe('localSource: typed edits', () => {
     expect(await s.edit([{ sheet: 'S', cell: 'C1', text: '-4' }], { accept: true })).toMatchObject({ ok: true, changes: [{ cell: 'C1', value: -4 }] })
     expect((await win(s, 'S', 1, 1, 1, 3)).values).toEqual([[5, -3, -4]])
     expect(s.history).toEqual({ undo: 2, redo: 0 })
-    // several cells at once: a stop rule of any of them refuses all, a warning's cell coming first too
+    // several cells at once: a stop rule on any of them rejects all, even when a warning's cell comes first
     expect(await s.edit([{ sheet: 'S', cell: 'B2', text: '-5' }, { sheet: 'S', cell: 'A2', text: '-6' }])).toEqual({ ok: false, reason: 'refused', message: 'Только больше нуля', alert: { ...alert, cell: 'A2' } })
     expect((await win(s, 'S', 2, 1, 1, 2)).values).toEqual([[null, null]])
     expect(s.history).toEqual({ undo: 2, redo: 0 })
@@ -99,7 +99,7 @@ describe('localSource: typed edits', () => {
     const cells = (await s.book()).sheets[0]!.cells
     expect(cells.B1).toEqual({ note: { author: 'Аня', text: 'Проверить' } })
     expect(cells.B2).toBeUndefined()
-    // a cell left with its style alone is kept in the sheet's look layer (xlcalc 0.28), the grid draws it as before
+    // a cell left with only its style is kept in the sheet's style layer (xlcalc 0.28), and the grid draws it as before
     expect(cells.C1).toBeUndefined()
     const w = await win(s, 'Лист1', 1, 1, 3, 1)
     expect(w.values).toEqual([[null]])
@@ -116,7 +116,7 @@ describe('localSource: typed edits', () => {
     await s.undo()
     expect(events).toEqual([{ kind: 'reload' }, { kind: 'reload' }])
     expect((await win(s, 'Лист1', 2, 1, 2, 1)).links).toEqual({ B2: { href: 'https://example.org/', tooltip: 'Пример' } })
-    // a cell whose note stays and a cell without either are cell updates
+    // a cell whose note stays and a cell with neither are cell updates
     await s.edit([{ sheet: 'Лист1', cell: 'B1', text: null }, { sheet: 'Лист1', cell: 'A1', text: null }])
     expect(events.at(-1)).toMatchObject({ kind: 'changed' })
   })

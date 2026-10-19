@@ -1,4 +1,4 @@
-// The selection's totals for the status line: the source's `stats` when it has them, else the loaded windows.
+// The selection's totals for the status line: the source's `stats` when it has them, otherwise from the loaded windows.
 import { computed, onScopeDispose, shallowRef, watch } from 'vue'
 import type { RangeStats } from '../contract/source'
 import { addCell, noStats } from '../stats'
@@ -6,17 +6,17 @@ import type { Selection } from './selection'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
 
-/** A pause before asking the source for totals: a drag or Shift+arrows changes the selection many times a second. */
+/** A pause before requesting totals from the source: a drag or Shift+arrows changes the selection many times a second. */
 const STATS_DELAY_MS = 150
 
-/** Display rows of a selection: a run of them without a filter (a whole column is a million), else the filter's list. */
+/** A selection's display rows: a run of them without a filter (an entire column is a million), otherwise the filter's list. */
 export type ShownRows = { from: number; to: number } | number[]
 const countOf = (ds: ShownRows): number => (Array.isArray(ds) ? ds.length : Math.max(0, ds.to - ds.from + 1))
 /** The rows as a list, for what needs each one (a copy's text). */
 export const listOf = (ds: ShownRows): number[] => (Array.isArray(ds) ? ds : Array.from({ length: countOf(ds) }, (_, i) => ds.from + i))
 
 export function useTotals(s: SheetState, w: Windows, sel: Selection) {
-  /** Display rows of the selection: under a filter only the shown rows between its corners, in display order. */
+  /** The selection's display rows: under a filter only the visible rows between its corners, in display order. */
   function shownRows(r1: number, r2: number): ShownRows {
     const list = s.visible.value?.rows
     if (!list) return { from: r1, to: r2 }
@@ -38,7 +38,7 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection) {
     }
     return true
   }
-  /** Number formats by locale: made once, a drag changes the totals many times a second. */
+  /** Number formats by locale: created once, since a drag changes the totals many times a second. */
   const formats = new Map<string, Intl.NumberFormat>()
   const numberFormat = (locale: string, digits?: number): Intl.NumberFormat => {
     const key = `${locale}\u0000${digits ?? ''}`
@@ -80,7 +80,7 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection) {
             if (!ctrl.signal.aborted && statsKey() === key) fromSource.value = { key, stats: got }
           })
           .catch(() => {
-            // Totals are an ornament: without them the loaded windows count.
+            // Totals are an extra: without them the loaded windows are counted.
           })
       }, STATS_DELAY_MS)
     },
@@ -91,7 +91,7 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection) {
     statsCtrl?.abort()
   })
 
-  /** Totals as Excel's status line: count of non-empty cells, and over numbers sum, average, min and max. */
+  /** Totals as in Excel's status bar: the count of non-empty cells, and over numbers the sum, average, min and max. */
   const statsText = computed(() => {
     const r = sel.selRect.value
     if (!r || !sel.multi.value) return ''
@@ -105,7 +105,7 @@ export function useTotals(s: SheetState, w: Windows, sel: Selection) {
       return s.messages.value.statsCells(numberFormat(s.locale.value).format(rows * (r.right - r.left + 1)))
     }
     const st = noStats()
-    // Each row's cells straight from the window holding its first one, which holds them all (inWindows).
+    // Each row's cells come straight from the window holding its first one, which holds them all (inWindows).
     const add = (d: number) => {
       const win = w.slotAt(d, r.left)!.win!
       const text = win.text[d - win.row]

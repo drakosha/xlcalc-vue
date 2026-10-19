@@ -1,12 +1,12 @@
 // @vitest-environment node
-// localSource over a ru-RU book in the same thread: sheets, windows, search, the display filter, totals, events.
+// localSource over a ru-RU workbook on the same thread: sheets, windows, search, the display filter, totals, events.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SheetFilter, SourceEvent } from '../src/contract/source'
 import type { CellView } from 'xlcalc'
 import { SheetValues } from '../src/local/query'
 import { BOLD, book, closeAll, COL_FILL, ROW_FILL, source, styleOf, watched, win } from './local-fixture'
 
-/** Excel's width of a column without one, as xlcalc gives it. */
+/** Excel's width of a column without one, as xlcalc returns it. */
 const DEFAULT_WIDTH = 8.83203125
 
 afterEach(closeAll)
@@ -53,7 +53,7 @@ describe('localSource: sheets and windows', () => {
   it('gives notes, links, widths, heights and merges', async () => {
     const w = await win(source(), 'Лист1', 1, 5, 1, 7)
     expect(w.notes).toEqual({ B1: { author: 'Аня', text: 'Проверить' } })
-    // a place with an address is a place in what the address points to, not in this book
+    // a location with an address is a location in what the address points to, not in this workbook
     expect(w.links).toEqual({ B2: { href: 'https://example.org/', tooltip: 'Пример' }, B3: { location: "'Таблица'!A1" }, B4: { href: 'https://example.org/page#top' } })
     // the library's widths: Excel's default where a column has none, 0 for a hidden one
     expect(w.widths).toEqual([DEFAULT_WIDTH, 20, DEFAULT_WIDTH, DEFAULT_WIDTH, 0, DEFAULT_WIDTH, DEFAULT_WIDTH])
@@ -68,7 +68,7 @@ describe('localSource: sheets and windows', () => {
       styles: [{ font: { bold: true } }],
     })
     const w = await win(s, 'S', 1, 5, 1, 2)
-    // an empty cell, styled by its column or not, opens empty and is left out
+    // an empty cell, styled by its column or not, opens empty and is omitted
     expect(w.editText).toEqual({ A1: '15.03.2026', A2: '5%', A3: "'007", A4: '=СУММ(A1:A2)' })
   })
 
@@ -78,7 +78,7 @@ describe('localSource: sheets and windows', () => {
       sheets: [{ name: 'S', cells: { A1: { value: 46096, numberFormat: 14 }, A2: { value: 0.05, numberFormat: '0%' }, A3: { value: 5 }, B1: { value: 2 } }, columns: { B: { numberFormat: '0.00' } }, rows: { '4': { numberFormat: '0%' } } }],
     })
     const w = await win(s, 'S', 1, 4, 1, 2)
-    // as Excel shows them: an empty cell by its column's format, by its row's where the two cross
+    // as Excel displays them: an empty cell by its column's format, by its row's where the two intersect
     expect(w.numberFormats).toEqual({ A1: 'dd.mm.yyyy', A2: '0%', B1: '0.00', B2: '0.00', B3: '0.00', A4: '0%', B4: '0%' })
   })
 
@@ -141,7 +141,7 @@ describe('localSource: search, display filter, totals', () => {
     expect(reads()).toEqual([['A1:A6'], ['B1:B6']])
     await s.edit([{ sheet: 'Список', cell: 'A6', text: 'б' }])
     expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4, 6])
-    // an edit past the sheet's end moves it on, as Excel's used range grows
+    // an edit beyond the sheet's end extends it, as Excel's used range grows
     await s.edit([{ sheet: 'Список', cell: 'A9', text: 'б' }])
     expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4, 6, 9])
     expect(await s.find({ sheet: 'Список', query: 'б', filter })).toMatchObject({ total: 4 })
@@ -256,7 +256,7 @@ describe('localSource: search, display filter, totals', () => {
     const filter: SheetFilter = { head: 1, sort: { col: 1, dir: 'asc' } }
     await s.visibleRows('S', filter)
     expect(await s.stats('S', 'A2:A5', filter)).toEqual(want)
-    // the rows showing nothing: the hidden number counts, the "" does not
+    // the rows displaying nothing: the hidden number counts, the "" does not
     const blanks: SheetFilter = { head: 1, cols: { 1: { values: [''] } } }
     expect((await s.visibleRows('S', blanks)).rows).toEqual([1, 2, 4])
     expect(await s.stats('S', 'A2:A5', blanks)).toEqual({ cells: 1, numbers: 1, sum: 5, min: 5, max: 5 })

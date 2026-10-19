@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// The sheet over localSource: xlcalc computes the synthetic book, or an xlsx file opened from the field, in a Web Worker
-// (`?calc=inline` in the page's thread); timings of the opening and of each edit are shown and kept in `window.__xs`
-// for the browser check, and the book saves back to xlsx under its file's name.
+// The sheet over localSource: xlcalc calculates the synthetic workbook, or an xlsx file opened from the file input, in a Web
+// Worker (`?calc=inline` on the page's thread); timings of the opening and of each edit are shown and stored in `window.__xs`
+// for the browser check, and the workbook saves back to xlsx under its file's name.
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
 import { SheetView, ruMessages, type SheetViewState } from '../src'
 import { groupIssues, localSource, openXlsx, saveXlsx, type IssueGroup, type LocalSource } from '../src/local'
@@ -18,13 +18,13 @@ const focus = shallowRef(params.get('sheet') ? { ref: params.get('sheet')! } : n
 const state = ref<SheetViewState | null>(null)
 const local = shallowRef<LocalSource>(start(localSource(book, { calc }), t0))
 const fileName = ref('synthetic.xlsx')
-/** What the opened file held that the book cannot, by kind. */
+/** What the opened file contained that the workbook cannot keep, by kind. */
 const lost = ref<IssueGroup[]>([])
 
 const debug = { timings: timings.value, edits: [] as { ms: number; changes: number }[], save: () => saveXlsx(local.value).then((x) => x.data.byteLength) }
 ;(window as unknown as { __xs: typeof debug }).__xs = debug
 
-/** A source whose opening is timed from `since` and whose failure is shown. */
+/** A source whose opening is timed from `since` and whose failure is displayed. */
 function start(s: LocalSource, since: number): LocalSource {
   failed.value = ''
   timings.value.ready = 0
@@ -35,7 +35,7 @@ function start(s: LocalSource, since: number): LocalSource {
   return s
 }
 
-/** The source with its edits timed: from the call to the outcome, recomputation included. */
+/** The source with its edits timed: from the call to the outcome, recalculation included. */
 const source = computed(() => {
   const s = local.value
   return {
@@ -53,7 +53,7 @@ const source = computed(() => {
   }
 })
 
-/** Open the chosen xlsx file: a new source over its book, the old one closed. */
+/** Opens the chosen xlsx file: a new source over its workbook, the old one closed. */
 async function openFile(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]

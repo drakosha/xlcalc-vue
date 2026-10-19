@@ -1,5 +1,5 @@
-// Data validation on the sheet: a refused value shows Excel's alert, whose answer writes it with `accept`, opens the
-// field again or leaves the cell as it was; a list's arrow and Alt+Down enter an item; the input message shows by the cell.
+// Data validation on the sheet: a rejected value shows Excel's alert, whose answer writes it with `accept`, reopens the
+// editor or leaves the cell unchanged; a list's arrow and Alt+Down enter an item; the input message appears next to the cell.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import { active, cellText, editorKey, editorOpen, goTo, key, mountSheet, settle, type } from './helpers'

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// A dialog over the app: a title, its fields and its buttons; Esc and a press on the backdrop close it.
+// A dialog over the app: a title, its inputs and its buttons; Esc and a click on the backdrop close it.
 import { onMounted, ref } from 'vue'
 
 defineProps<{ title: string }>()
 const emit = defineEmits<{ close: [] }>()
 const box = ref<HTMLElement | null>(null)
-// The first field takes the focus, so Esc and Enter work at once.
+// The first input takes focus, so Esc and Enter work at once.
 onMounted(() => box.value?.querySelector<HTMLElement>('input, select, button')?.focus())
 </script>
 

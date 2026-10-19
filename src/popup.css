@@ -1,5 +1,5 @@
-/* The lists under a cell or a field (FunctionList, ValidationDropdown): Excel's items of 18 px, the highlighted one in the
-   accent, 44 px under a finger; in the sheet's --xs-* variables. */
+/* The lists below a cell or an input (FunctionList, ValidationDropdown): Excel's 18 px items, the highlighted one in the
+   accent color, 44 px on a touch screen; in the sheet's --xs-* variables. */
 .xs-sheet {
   --xs-fl-line: #7a7a7a;
 }

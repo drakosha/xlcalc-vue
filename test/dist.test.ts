@@ -1,5 +1,5 @@
-// The built main entry carries no engine: xlcalc/a1 and xlcalc/text are bundled in, ru-RU's formula text comes as a chunk of its
-// own for a book in ru-RU, xlcalc/entry as one for a source without `editText`, and nothing is imported but vue.
+// The built main entry point includes no engine: xlcalc/a1 and xlcalc/text are bundled in, ru-RU's formula text comes as a
+// separate chunk for a workbook in ru-RU, xlcalc/entry as one for a source without `editText`, and nothing is imported but vue.
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -14,7 +14,7 @@ const chunk = (name: string) => chunks.find((f) => f.startsWith(`${name}-`))!
 
 beforeAll(async () => {
   out = mkdtempSync(join(tmpdir(), 'xs-dist-'))
-  // A production build, as `npm run build` makes it: under vitest NODE_ENV is `test`, and a dev build names source paths.
+  // A production build, as `npm run build` produces it: under vitest NODE_ENV is `test`, and a dev build names source paths.
   const env = process.env.NODE_ENV
   process.env.NODE_ENV = 'production'
   try {
@@ -29,7 +29,7 @@ afterAll(() => rmSync(out, { recursive: true, force: true }))
 
 const staticImports = (code: string) => [...code.matchAll(/(?:^|[;\n])\s*import\s*(?:[^'";]*?from\s*)?["']([^"']+)["']/g)].map((m) => m[1])
 const dynamicImports = (code: string) => [...code.matchAll(/import\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1])
-/** The code without the bundler's comments that name the modules it took (`//#region node_modules/xlcalc/dist/a1.js`). */
+/** The code without the bundler's comments that name the modules it included (`//#region node_modules/xlcalc/dist/a1.js`). */
 const code = (text: string) => text.replace(/^\/\/#(?:end)?region.*$/gm, '')
 
 describe('dist/index.js', () => {
@@ -40,7 +40,7 @@ describe('dist/index.js', () => {
   })
   it('carries no engine: xlcalc/a1 and xlcalc/text are a few dozen kilobytes', () => {
     expect(js.length).toBeGreaterThan(10_000)
-    // the component with its dialogs and bars is some 330 KB unminified; the engine would be megabytes
+    // the component with its dialogs and bars is about 330 KB unminified; the engine would be megabytes
     expect(js.length).toBeLessThan(400_000)
     expect(js).toContain('//#region node_modules/xlcalc/dist/a1.js')
     expect(js).toContain('//#region node_modules/xlcalc/dist/scan.js')
@@ -61,7 +61,7 @@ describe('the ru-RU chunk', () => {
     expect(staticImports(ru)).toEqual([])
     expect(dynamicImports(ru)).toEqual([])
     expect(code(ru)).not.toMatch(/xlcalc/)
-    // Since xlcalc 0.42 the locale carries each function's description in Russian, for Insert Function.
+    // Since xlcalc 0.42 the locale includes each function's description in Russian, for Insert Function.
     expect(ru.length).toBeLessThan(75_000)
   })
 })
@@ -73,7 +73,7 @@ describe('the xlcalc/entry chunk', () => {
     expect(staticImports(entry)).toEqual([])
     expect(dynamicImports(entry)).toEqual([])
     expect(code(entry)).not.toMatch(/xlcalc/)
-    // xlcalc's typed entry without the engine, the parts it shares with xlcalc/a1 and xlcalc/text included
+    // xlcalc's typed-entry module without the engine, including the parts it shares with xlcalc/a1 and xlcalc/text
     expect(entry.length).toBeLessThan(150_000)
   })
 })

@@ -1,6 +1,6 @@
 // @vitest-environment node
-// localSource and Excel's outline on xlcalc's groups and commands (its docs/outline.md): the sheets give `outlineGroups`,
-// each command is one `editStructure` (one step of the undo, SUBTOTAL recomputed) answered by a reload.
+// localSource and Excel's outline on xlcalc's groups and commands (its docs/outline.md): the sheets return `outlineGroups`,
+// each command is one `editStructure` (a single undo step, SUBTOTAL recalculated) followed by a reload.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BookInput } from 'xlcalc'
 import { openXlsx, saveXlsx, type LocalSource } from '../src/local'
@@ -9,7 +9,7 @@ import { closeAll, source, win } from './local-fixture'
 
 afterEach(closeAll)
 
-/** A command without its sheet, each kind of `OutlineChange` kept apart. */
+/** A command without its sheet, with each kind of `OutlineChange` kept separate. */
 type Change = OutlineChange extends infer C ? (C extends unknown ? Omit<C, 'sheet'> : never) : never
 type Sheet = BookInput['sheets'][number]
 

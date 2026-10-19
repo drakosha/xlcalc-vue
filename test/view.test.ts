@@ -1,5 +1,5 @@
-// Drawing: the book's styles, General alignment, merges, hidden rows, columns and sheets, links, notes, tables, notice,
-// overflow, the freeze lock and its memory, and the column width with the mouse.
+// Drawing: the workbook's styles, General alignment, merges, hidden rows, columns and sheets, hyperlinks, notes, tables,
+// the notice, overflow, the freeze lock and its storage, and column width set with the mouse.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -41,9 +41,9 @@ describe('cell style', () => {
     expect(a1.fontSize).toBe('25px')
     expect(a1.backgroundColor).toBe('#ffff00')
     expect(side(w, 2, 1, 'Bottom')).toBe('3px solid #ff0000')
-    // One line between A2 and B2: A2's own right side wins over B2's left.
+    // One line between A2 and B2: A2's own right side takes precedence over B2's left.
     expect(side(w, 2, 1, 'Right')).toBe('1px dashed var(--xs-border-auto)')
-    // B2's own left side is drawn by its neighbour A2 (which has a right side of its own here), never by B2 itself.
+    // B2's own left side is drawn by its neighbor A2 (which has a right side of its own here), never by B2 itself.
     expect(side(w, 2, 2, 'Left')).toBe('')
     expect(box(w, 3, 1).textAlign).toBe('right')
     expect(box(w, 3, 2).textAlign).toBe('left')
@@ -52,7 +52,7 @@ describe('cell style', () => {
     expect(box(w, 4, 1).paddingLeft).toBe('')
     expect(td(w, 4, 1).find('.xs-in').classes()).toEqual(expect.arrayContaining(['xs-wrap', 'xs-top']))
     expect(td(w, 3, 1).find('.xs-in').classes()).toContain('xs-bot')
-    // The row's height holds the thick bottom line: the box is the rest.
+    // The row's height includes the thick bottom line: the box is the rest.
     expect(box(w, 2, 1).height).toBe(`${20 - 2 - 3}px`)
   })
 
@@ -88,7 +88,7 @@ describe('cell style', () => {
     expect(td(w, 1, 1).text()).toBe('(1)')
     expect(css(w, 1, 1).backgroundImage).toContain('var(--xs-note)')
     expect(td(w, 1, 1).attributes('title')).toContain('Note (Ann): Check it')
-    // an old-style bar is drawn as an Excel bar of the window's appearance would be: from the left edge to its share
+    // an old-style bar is drawn as an Excel bar from the window's appearance would be: from the left edge to its share
     expect(css(w, 1, 2).backgroundImage).toContain('linear-gradient(to right, transparent 0%, #638ec6 0%, color-mix(in srgb, #638ec6 18%, white) 25%, transparent 25%)')
     expect(td(w, 3, 2).classes()).toContain('xs-thead')
     expect(td(w, 4, 2).classes()).not.toContain('xs-thead')
@@ -288,7 +288,7 @@ describe('column width with the mouse', () => {
     await (w.vm as unknown as SheetViewApi).structure({ op: 'insertColumns', sheet: 'S', column: 'B' })
     await settle()
     layout.mockClear()
-    // C is now a new column; the remembered width was the old C's, which is D.
+    // C is now a new column; the stored width belonged to the old C, which is now D.
     await w.findAll('.xs-head')[2]!.find('.xs-grip').trigger('dblclick')
     await settle()
     expect(layout).not.toHaveBeenCalled()
@@ -304,7 +304,7 @@ describe('column width with the mouse', () => {
     await grip(2).trigger('dblclick')
     await settle()
     expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B', fit: true })
-    // The source tells nothing: the sheet reads its widths again itself.
+    // The source reports nothing: the sheet reads its widths again itself.
     expect(sheets.mock.calls.length).toBe(reads + 1)
     await w.findAll('.xs-head')[1]!.trigger('click')
     await w.findAll('.xs-head')[3]!.trigger('click', { shiftKey: true })

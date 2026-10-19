@@ -1,24 +1,24 @@
-// xlsx files read and written in a thread of their own (spa-files-worker.ts): a large file takes seconds either way,
-// and the page keeps drawing meanwhile. Books cross between the threads as their sheets without cells, then the cells
-// in slices, so that neither side stops for a whole book at once.
+// xlsx files read and written in a separate thread (spa-files-worker.ts): a large file takes seconds either way, and the
+// page keeps drawing meanwhile. Workbooks are transferred between the threads as their sheets without cells, then the cells
+// in slices, so that neither side blocks for an entire workbook at once.
 import type { BookInput, BookSnapshot } from 'xlcalc'
 import type { XlsxCached, XlsxIssue } from 'xlcalc/xlsx'
 
-/** Cells per message: a slice is taken in one task of a few milliseconds. */
+/** Cells per message: a slice is processed in one task of a few milliseconds. */
 export const SLICE = 20_000
 
 type Cells = Record<string, unknown>
-/** Which sheets a slice belongs to: the book's, the result's values, or the values a file read stores. */
+/** Which sheets a slice belongs to: the workbook's, the result's values, or the values stored in a file that was read. */
 export type Part = 'book' | 'result' | 'cached'
 
-/** A file read: the book, the values it stores for formulas (for a session to open it as Excel does) and what it lost. */
+/** A file that was read: the workbook, the values it stores for formulas (for a session to open it as Excel does) and what it lost. */
 export interface FileRead {
   book: BookInput
   cached: XlsxCached
   issues: XlsxIssue[]
 }
 
-/** From the thread: a file read (the book without cells first), a file written, or why not. */
+/** From the thread: a file read (the workbook without cells first), a file written, or why not. */
 export type FromThread =
   | ({ kind: 'head' } & FileRead)
   | { kind: 'cells'; part: Part; sheet: number; cells: Cells }
@@ -32,7 +32,7 @@ export type ToThread =
   | { kind: 'cells'; part: Part; sheet: number; cells: Cells }
   | { kind: 'write' }
 
-/** Sheets with their cells left out: what goes ahead of the slices. */
+/** Sheets with their cells omitted: what is sent ahead of the slices. */
 export const withoutCells = <S extends { cells: Cells }>(sheets: S[]): S[] => sheets.map((s) => ({ ...s, cells: {} }))
 
 /** The cells of sheets in slices of `SLICE`, sheet by sheet. */
@@ -52,7 +52,7 @@ export function* slicesOf(sheets: { cells: Cells }[]): Generator<{ sheet: number
   }
 }
 
-/** A slice put back into its sheet. */
+/** Puts a slice back into its sheet. */
 export function take(sheets: { cells: Cells }[], m: { sheet: number; cells: Cells }): void {
   Object.assign(sheets[m.sheet]!.cells, m.cells)
 }
@@ -71,7 +71,7 @@ function turn(): Promise<void> {
   })
 }
 
-/** A job of a new thread, which ends with it: `send` gives it its messages, `on` takes its answers until one settles the job. */
+/** A job for a new thread, which ends with it: `send` gives it its messages, `on` takes its responses until one settles the job. */
 function job<T>(send: (post: (m: ToThread, transfer?: Transferable[]) => void) => Promise<void> | void, on: (m: FromThread, done: (v: T) => void, fail: (e: Error) => void) => void): Promise<T> {
   const worker = new Worker(new URL('./spa-files-worker.ts', import.meta.url), { type: 'module' })
   return new Promise<T>((done, fail) => {
@@ -81,7 +81,7 @@ function job<T>(send: (post: (m: ToThread, transfer?: Transferable[]) => void) =
   }).finally(() => worker.terminate())
 }
 
-/** Read a file into a book and its stored values in a thread; `issues` say what the book cannot hold, in `locale`'s language. */
+/** Reads a file into a workbook and its stored values in a thread; `issues` say what the workbook cannot keep, in `locale`'s language. */
 export function readInThread(file: Blob, locale: string): Promise<FileRead> {
   let head: FileRead | null = null
   return job(
@@ -94,7 +94,7 @@ export function readInThread(file: Blob, locale: string): Promise<FileRead> {
   )
 }
 
-/** Write a snapshot of a book and its values into an xlsx file in a thread; the slices go a turn of the page apart. */
+/** Writes a snapshot of a workbook and its values into an xlsx file in a thread; the slices go one turn of the page apart. */
 export function writeInThread(snapshot: BookSnapshot): Promise<Uint8Array> {
   const { book, result } = snapshot
   return job<Uint8Array>(

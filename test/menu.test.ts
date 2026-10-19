@@ -1,6 +1,6 @@
-// The structure menu: on row numbers and column letters it inserts and deletes the selected lines, sets their size in
-// Excel's units, hides and shows them; on the tabs it inserts, renames, moves, deletes, hides and shows sheets. A right
-// click opens it, a finger's long press too; a refusal shows the source's message.
+// The structure menu: on row numbers and column letters it inserts and deletes the selected rows or columns, sets their size
+// in Excel's units, hides and unhides them; on the tabs it inserts, renames, moves, deletes, hides and unhides sheets. A right
+// click opens it, and so does a long press on a touch screen; a rejection displays the source's message.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages, type MemoryBook } from '../src'
@@ -21,7 +21,7 @@ const book = (): MemoryBook => ({
     { name: 'U', cells: {} },
   ],
 })
-/** A memory book with a structure method the test watches. */
+/** An in-memory workbook with a structure method the test watches. */
 function withStructure(answer: (op: SheetOp) => EditOutcome = () => OK) {
   const source = memorySource(book())
   const structure = vi.fn(async (op: SheetOp) => answer(op))
@@ -112,7 +112,7 @@ describe('the menu on row numbers and column letters', () => {
     const w = await mountSheet(source)
     await context(head(w, 2))
     await pick('size')
-    // Excel for Mac's box, as xlcalc measured it: the default column is 8 characters, and 8 typed is the default width.
+    // Excel for Mac's dialog, as measured by xlcalc: the default column is 8 characters, and typing 8 gives the default width.
     expect(document.querySelector<HTMLInputElement>('[data-xs-dialog-input]')!.value).toBe('8')
     await answer('300')
     expect(dialog()!.textContent).toContain('Column width must be between 0 and 255')
@@ -197,7 +197,7 @@ describe('the menu on row numbers and column letters', () => {
 
 describe('keys in the menu, as Excel’s and the system’s menus', () => {
   const focused = () => (document.activeElement as HTMLElement | null)?.dataset.xsMenu
-  /** A key pressed where the focus is, as the browser sends it. */
+  /** A key pressed where focus is, as the browser sends it. */
   async function press(k: string, extra: KeyboardEventInit = {}): Promise<KeyboardEvent> {
     const e = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra })
     ;(document.activeElement ?? document.body).dispatchEvent(e)
@@ -267,7 +267,7 @@ describe('keys in the menu, as Excel’s and the system’s menus', () => {
 
   it('closes on Esc and on Tab, as Excel, with the focus back where it was', async () => {
     const w = await mountSheet(withStructure().source)
-    // Cut is on once the sheet is in, as many rounds as the machine's load makes
+    // Cut is enabled once the sheet has loaded, in as many rounds as the machine's load takes
     await until(() => !w.find('.xs-loading').exists())
     scroller(w).focus()
     await context(w.find('[data-cell="2:2"]'))
@@ -308,7 +308,7 @@ describe('a finger’s long press', () => {
     await wait(560)
     await settle()
     expect(items()).toEqual(['insert', 'delete', 'size', 'hide', 'unhide', 'group', 'ungroup'])
-    // The lift and the browser's own context menu after it belong to the press: the selection stays, the menu too.
+    // The release and the browser's own context menu after it belong to the press: the selection stays, and so does the menu.
     await num(w, 3).trigger('pointerup', touch())
     await num(w, 3).trigger('contextmenu')
     await num(w, 3).trigger('click')

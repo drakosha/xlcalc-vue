@@ -1,5 +1,5 @@
-// A row's height with the mouse, as Excel's: the grip on a number's bottom edge drags the row's height and the release sets it
-// through `layout`, for every selected whole row when the dragged one is among them; no grip without `layout` or read-only.
+// A row's height set with the mouse, as in Excel: the grip on a row number's bottom edge drags the row's height and the release
+// sets it through `layout`, for every selected entire row when the dragged one is among them; no grip without `layout` or when read-only.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'

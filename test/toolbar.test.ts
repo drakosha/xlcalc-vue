@@ -1,5 +1,5 @@
 // The formatting toolbar: its buttons call the source's `format`, `undo` and `redo` with Excel's patches over the
-// selection, and show what the active cell shows (the `state` event of the sheet).
+// selection, and show the active cell's formatting (from the sheet's `state` event).
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SheetToolbar, SheetView, ruMessages, type SheetViewState } from '../src'
@@ -13,7 +13,7 @@ afterEach(() => {
 const OK: EditOutcome = { ok: true, changes: [] }
 const THIN = { style: 'thin' }
 
-/** A source with the methods the toolbar calls, each a mock answering ok. */
+/** A source with the methods the toolbar calls, each a mock returning ok. */
 function source(extra: Record<string, unknown> = {}) {
   return {
     sheets: async () => [{ name: 'Лист1', maxRow: 10, maxCol: 5 }],
@@ -154,7 +154,7 @@ describe('SheetToolbar: what the active cell shows', () => {
 
   it('names the list’s items and the categories in the book’s locale', async () => {
     const w = mountBar(source(), at('A1', { numberFormat: '0%' }), { locale: 'ru-RU' })
-    // the locale's module comes as a chunk of its own
+    // the locale's module arrives as a separate chunk
     await vi.dynamicImportSettled()
     await settle()
     const select = () => w.find<HTMLSelectElement>('[data-tb="number"]').element
@@ -218,7 +218,7 @@ describe('SheetToolbar: undo and redo', () => {
 
   it('is off where the source’s history has no step, on where it has one or gives no history', async () => {
     const history = { undo: 0, redo: 1 }
-    // the step the format makes is in the history once the call is done, as the local source's
+    // the format's step is in the history once the call completes, as with the local source
     const src = source({ format: vi.fn(async () => ((history.undo = 1), OK)) })
     Object.defineProperty(src, 'history', { get: () => history })
     const w = mountBar(src, at('A1'))

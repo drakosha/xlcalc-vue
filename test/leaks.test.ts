@@ -1,5 +1,5 @@
-// What the sheet leaves behind when it goes or shows another sheet: no search after its pause, requests out aborted,
-// late answers dropped, and reads of the fill handle and of the merge's warning stopped.
+// What the sheet leaves behind when it is unmounted or displays another sheet: no search after its pause, pending requests
+// aborted, late responses discarded, and the fill handle's and the merge warning's reads stopped.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
@@ -19,7 +19,7 @@ const OK: EditOutcome = { ok: true, changes: [] }
 const contextOf = (w: VueWrapper) => (w.vm.$ as unknown as { provides: Record<symbol, SheetContext> }).provides[sheetContextKey as symbol]!
 const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
 
-/** A request held until the test lets it go, with the signal it came with. */
+/** A request held until the test releases it, with the signal it came with. */
 interface Held {
   signal?: AbortSignal
   go: () => void
@@ -28,7 +28,7 @@ interface Held {
 function hold<T>(list: Held[], signal: AbortSignal | undefined, answer: () => Promise<T>): Promise<T> {
   return new Promise((resolve, reject) => list.push({ signal, go: () => void answer().then(resolve, reject) }))
 }
-/** The source's windows held from `on()` on. */
+/** The source's windows held from `on()` onward. */
 function holdWindows(source: SheetSource) {
   const held: (Held & { req: WindowRequest })[] = []
   const own = source.window.bind(source)

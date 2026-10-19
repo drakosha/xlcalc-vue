@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// A modal box over the page, as the sheet's dialogs and alerts are: the dimmed backdrop (a press on it closes the box
-// where `outside` says so), Esc to close, the focus put inside on opening and kept inside by Tab. The box's own attributes
+// A modal box over the page, as the sheet's dialogs and alerts are: the dimmed backdrop (a click on it closes the box
+// where `outside` allows), Esc to close, focus moved inside on opening and kept inside by Tab. The box's own attributes
 // and listeners (its class, label, a form's submit) are those given to the shell.
 import { nextTick, onMounted, ref } from 'vue'
 
@@ -10,19 +10,19 @@ const props = withDefaults(
     /** The box's element: a form where Enter submits. */
     as?: 'div' | 'form'
     role?: 'dialog' | 'alertdialog'
-    /** A press on the backdrop closes the box; Excel's alerts stay up. */
+    /** A click on the backdrop closes the box; Excel's alerts stay open. */
     outside?: boolean
-    /** Full screen on a phone (the sheet's .xs-narrow), as Excel's larger windows go. */
+    /** Full screen on a phone (the sheet's .xs-narrow), as Excel's larger dialogs are. */
     full?: boolean
-    /** A class of the backdrop's own: the Format Cells dialog's carries the sheet's variables outside a sheet. */
+    /** An extra class for the backdrop: the Format Cells dialog's carries the sheet's variables outside a sheet. */
     backClass?: string
-    /** Where the focus goes on opening: a selector inside the box (a field gets its text selected); the box itself without one. */
+    /** Where focus goes on opening: a selector inside the box (an input gets its text selected); the box itself without one. */
     focus?: string
   }>(),
   { as: 'div', role: 'dialog', outside: true, full: false, backClass: undefined, focus: undefined },
 )
 const emit = defineEmits<{
-  /** Esc, or a press on the backdrop where `outside`. */
+  /** Esc, or a click on the backdrop where `outside` allows. */
   close: []
 }>()
 
@@ -36,7 +36,7 @@ onMounted(async () => {
   if (el instanceof HTMLInputElement) el.select()
 })
 
-/** Esc closes; Tab past the last control goes round to the first and Shift+Tab back, the box being modal. */
+/** Esc closes; Tab past the last control wraps to the first and Shift+Tab back, since the box is modal. */
 function onKey(e: KeyboardEvent): void {
   if (e.key === 'Escape') {
     e.preventDefault()

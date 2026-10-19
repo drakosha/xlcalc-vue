@@ -1,13 +1,13 @@
 <script setup lang="ts">
-// A colour of the Format Cells dialog: Automatic or No Color, Excel's palette as on the toolbar, and a #RRGGBB field.
+// A color in the Format Cells dialog: Automatic or No Color, Excel's palette as on the toolbar, and a #RRGGBB input.
 import { ref, watch } from 'vue'
 import type { SheetMessages } from '../contract/messages'
 import ColourSwatches from './ColourSwatches.vue'
 
 const props = defineProps<{
-  /** `#RRGGBB`, or null for the choice without a colour. */
+  /** `#RRGGBB`, or null for the no-color choice. */
   modelValue: string | null
-  /** The choice without a colour: Automatic for text and lines, No Color for a fill. */
+  /** The no-color choice: Automatic for text and lines, No Color for a fill. */
   noneLabel: string
   messages: SheetMessages
   /** Names the picker's buttons for tests and checks (`data-fmt-colour-of`). */
@@ -15,12 +15,12 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   'update:modelValue': [colour: string | null]
-  /** The field holds what is no colour: OK waits until it is one. */
+  /** The input holds an invalid color: OK waits until it is valid. */
   invalid: [bad: boolean]
 }>()
 
 const HEX = /^#?([0-9a-f]{6})$/i
-/** A code as `#RRGGBB`, null for what is no colour. */
+/** A code as `#RRGGBB`, null for an invalid color. */
 const hexOf = (text: string): string | null => {
   const m = HEX.exec(text.trim())
   return m ? `#${m[1]!.toUpperCase()}` : null
@@ -44,7 +44,7 @@ function pick(c: string | null): void {
   setBad(false)
   emit('update:modelValue', c)
 }
-/** A code typed: a colour once it is six hex digits, with or without `#`; empty is the choice without a colour. */
+/** A typed code: a color once it is six hex digits, with or without `#`; empty means the no-color choice. */
 function typed(): void {
   const hex = hexOf(code.value)
   if (hex) {

@@ -1,5 +1,5 @@
-// Excel's tip with a function's arguments while a formula is typed (`SUMIFS(sum_range, criteria_range1, …)`): the call the
-// caret stands in, its signature asked of the source once per name, the argument the caret is at in bold.
+// Excel's argument tooltip while a formula is typed (`SUMIFS(sum_range, criteria_range1, …)`): the call the caret is in,
+// its signature requested from the source once per name, and the argument at the caret in bold.
 import { computed, getCurrentScope, onScopeDispose, shallowRef, watch, type Ref } from 'vue'
 import type { ScanOptions } from 'xlcalc/contract'
 import { callAt } from 'xlcalc/text'
@@ -7,7 +7,7 @@ import type { SheetFunctionSignature, SheetSource } from '../contract/source'
 import { askSource } from './ask'
 import type { EditorState } from './editing'
 
-/** A piece of the tip's text; the argument the caret is at is `current`. */
+/** A piece of the tooltip's text; the argument at the caret is `current`. */
 export interface TipPart {
   text: string
   current?: boolean
@@ -15,23 +15,23 @@ export interface TipPart {
 
 /**
  * The innermost function call around `caret` in formula text typed in `opts.locale` (`callAt` of `xlcalc/text`): the name
- * the source is asked by, English in upper case (`SUM` for a typed `сумм`), and the argument's index from 0; null outside one.
+ * the source is queried by, English in uppercase (`SUM` for a typed `сумм`), and the argument's index from 0; null outside a call.
  */
 function callUnder(text: string, caret: number, opts: ScanOptions): { name: string; index: number } | null {
   const call = callAt(text, caret, opts)
   return call && { name: call.fn || call.name, index: call.index }
 }
 
-/** An argument's name past the list: the one `repeat` before it with its number counted on (`number2` → `number3`). */
+/** An argument's name beyond the list: the one `repeat` before it with its number counted up (`number2` → `number3`). */
 function nameAfter(names: string[], i: number, repeat: number): string {
   if (i < names.length) return names[i]!
   return nameAfter(names, i - repeat, repeat).replace(/\d+$/, (n) => String(Number(n) + 1))
 }
 
 /**
- * The tip in pieces with the argument at `index` current; past the list, the repeated group goes on with its numbers
- * counted on until it holds the argument (`SUM(number1, [number2], [number3], ...)`), as Excel's tip. A text that does
- * not hold the names in order is shown whole, nothing current.
+ * The tooltip in pieces with the argument at `index` current; beyond the list, the repeating group continues with its
+ * numbers counted up until it includes the argument (`SUM(number1, [number2], [number3], ...)`), as Excel's tooltip does.
+ * A text that does not contain the names in order is displayed as a whole, with nothing current.
  */
 export function tipParts(sig: SheetFunctionSignature, index: number): TipPart[] {
   const { text, args, repeat } = sig
@@ -43,7 +43,7 @@ export function tipParts(sig: SheetFunctionSignature, index: number): TipPart[] 
     spans.push({ at, end: at + a.name.length })
     pos = at + a.name.length
   }
-  // The repeated groups past the list go in before the closing `sep...)`, each in brackets as the last one is.
+  // The repeated groups beyond the list go before the closing `sep...)`, each in brackets like the last one.
   const tail = text.lastIndexOf('...)')
   const close = text.lastIndexOf(']', tail)
   const extend = index >= args.length && repeat > 0 && tail > 0 && close > 0 && args.length >= repeat
@@ -74,30 +74,30 @@ export function tipParts(sig: SheetFunctionSignature, index: number): TipPart[] 
 export interface FunctionTipDeps {
   source: () => SheetSource
   editor: Ref<EditorState | null>
-  /** The open field's element, for its caret. */
+  /** The open editor's element, for its caret. */
   input: () => HTMLTextAreaElement | null
-  /** How the book's formula text reads; null while its locale loads. */
+  /** How the workbook's formula text is parsed; null while its locale loads. */
   scan: () => ScanOptions | null
-  /** The list of functions is open: it goes first, the tip waits under it. */
+  /** The function list is open: it takes precedence, and the tooltip waits under it. */
   listOpen: () => boolean
 }
 
-/** The tip's state over the editor's draft: the signature of the call at the caret and its argument, asked once per name. */
+/** The tooltip's state over the editor's draft: the signature of the call at the caret and its argument, requested once per name. */
 export function useFunctionTip(deps: FunctionTipDeps) {
-  /** The signature shown and the argument the caret is at. */
+  /** The displayed signature and the argument at the caret. */
   const tip = shallowRef<{ sig: SheetFunctionSignature; index: number } | null>(null)
   const parts = computed(() => (tip.value && !deps.listOpen() ? tipParts(tip.value.sig, tip.value.index) : null))
-  /** Signatures by the name's upper case for one source; null for a name it does not know. */
+  /** Signatures by the name in uppercase for one source; null for a name it does not know. */
   let cache = new Map<string, SheetFunctionSignature | null>()
   let cacheOf: SheetSource | null = null
-  /** The call the caret stands in now, by the name's key. */
+  /** The call the caret is in now, by the name's key. */
   let want: { key: string; index: number } | null = null
   let pending: { key: string; ctrl: AbortController } | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
-  /** What the tip was last made for: a key's follow after the input's update finds the same and does nothing. */
+  /** What the tooltip was last built for: a keystroke's follow-up after the input's update finds the same and does nothing. */
   let asked: { text: string; caret: number | null; src: SheetSource; opts: ScanOptions | null } | null = null
 
-  /** The signatures kept for a source: another source starts them over. */
+  /** The signatures cached for a source: another source starts them over. */
   function cacheFor(src: SheetSource): Map<string, SheetFunctionSignature | null> {
     if (cacheOf !== src) {
       cache = new Map()
@@ -115,7 +115,7 @@ export function useFunctionTip(deps: FunctionTipDeps) {
     asked = null
     tip.value = null
   }
-  /** The tip for the caret at `caret` in `text` (null when text is selected): from the cache, else asked of the source by name. */
+  /** The tooltip for the caret at `caret` in `text` (null when text is selected): from the cache, otherwise requested from the source by name. */
   function update(text: string, caret: number | null): void {
     const src = deps.source()
     const opts = deps.scan()
@@ -146,7 +146,7 @@ export function useFunctionTip(deps: FunctionTipDeps) {
           if (want?.key === key && sig) tip.value = { sig, index: want.index }
         },
         () => {
-          // A failed request is not kept: the name is asked again when the caret comes to it next.
+          // A failed request is not cached: the name is requested again when the caret next reaches it.
           pending = null
           asked = null
         },
@@ -154,7 +154,7 @@ export function useFunctionTip(deps: FunctionTipDeps) {
     }
     pending = entry
   }
-  /** The caret moved in the field (a key, a click): the tip follows it once the move is done. */
+  /** The caret moved in the editor (a key, a click): the tooltip follows it once the move is done. */
   function follow(): void {
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
@@ -166,21 +166,21 @@ export function useFunctionTip(deps: FunctionTipDeps) {
     })
   }
 
-  /** A function's signature for Insert Function, from the tip's cache or asked of the source and kept; null for a name the source does not know or without `functionSignature`. */
+  /** A function's signature for Insert Function, from the tooltip's cache or requested from the source and cached; null for a name the source does not know or without `functionSignature`. */
   async function signature(name: string): Promise<SheetFunctionSignature | null> {
     const src = deps.source()
     if (!src.functionSignature) return null
     const cache = cacheFor(src)
     const key = name.toUpperCase()
     if (cache.has(key)) return cache.get(key)!
-    // A failed request is not kept, as the tip's.
+    // A failed request is not cached, as with the tooltip.
     const sig = await src.functionSignature(name).catch(() => undefined)
     if (sig === undefined) return null
     cache.set(key, sig)
     return sig
   }
 
-  // A field opened, moved between the cell and the bar or closed (Esc, a commit), or a new source: the tip goes.
+  // An editor opened, moved between the cell and the formula bar, or closed (Esc, a commit), or a new source: the tooltip goes away.
   watch([() => deps.editor.value, () => deps.editor.value?.place, deps.source], close)
   if (getCurrentScope())
     onScopeDispose(() => {

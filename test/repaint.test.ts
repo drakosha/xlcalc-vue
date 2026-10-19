@@ -1,5 +1,5 @@
-// The source event `repaint`: the windows that meet its ranges are read again in place (no sheets, no empty frame, the display
-// filter's rows kept), one request per window, edits that come meanwhile kept; the local source sends it after an edit.
+// The source event `repaint`: the windows that overlap its ranges are re-read in place (no sheets, no empty viewport, the
+// display filter's rows kept), one request per window, edits that arrive meanwhile kept; the local source sends it after an edit.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BookInput } from 'xlcalc'
@@ -17,13 +17,13 @@ afterEach(() => {
 type Fake = ReturnType<typeof fakeSource>
 type Held = Fake['held'][number]
 
-/** A held request answered with `text` in every cell, cut to the sheet as the fake source cuts it. */
+/** A held request answered with `text` in every cell, truncated to the sheet as the fake source truncates it. */
 function answer(f: Fake, p: Held, sheet: SheetInfo, text: string): void {
   f.held.splice(f.held.indexOf(p), 1)
   const req = p.req
   p.resolve(gridWindow({ ...req, rows: Math.min(req.rows, sheet.maxRow - req.row + 1), cols: Math.min(req.cols, sheet.maxCol - req.col + 1) }, () => text))
 }
-/** Answer every held request, and those their answers bring, until none is left. */
+/** Answers every held request, and those their responses trigger, until none is left. */
 async function drain(f: Fake): Promise<void> {
   while (f.held.length) {
     f.release(f.held[0]!)
@@ -32,7 +32,7 @@ async function drain(f: Fake): Promise<void> {
 }
 const rect = (q: WindowRequest) => ({ row: q.row, rows: q.rows, col: q.col, cols: q.cols })
 const loadingShown = (w: VueWrapper) => w.find('.xs-loading').exists()
-/** Longer than the wait of a repaint that follows another closely. */
+/** Longer than the wait of a repaint that closely follows another. */
 const pause = () => new Promise((r) => setTimeout(r, 100))
 
 describe('repaint in the grid', () => {
@@ -58,13 +58,13 @@ describe('repaint in the grid', () => {
     expect(cellText(w, 2000, 1)).toBe('S:A2000:0')
     expect(cellText(w, 2000, 3)).toBe('S:C2000:0')
 
-    // The frozen rows meet C1:C2; the body and the frozen column do not.
+    // The frozen rows overlap C1:C2; the body and the frozen column do not.
     version = 1
     let before = f.requests.length
     f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'C1:C2' }] })
     await settle()
     expect(f.requests.slice(before).map(rect)).toEqual([top])
-    // Until the answer the old window stays drawn, with no loading mark: nothing went empty.
+    // Until the response the old window stays drawn, with no loading indicator: nothing went empty.
     expect(cellText(w, 1, 3)).toBe('S:C1:0')
     expect(cellText(w, 2000, 3)).toBe('S:C2000:0')
     expect(loadingShown(w)).toBe(false)
@@ -153,11 +153,11 @@ describe('repaint in the grid', () => {
     const w = await mountSheet(source, { readOnly: true, storageKey: 'k' })
     expect(w.findAll('.xs-num').map((n) => n.text())).toEqual(['1', '500'])
     const before = window.mock.calls.length
-    // Row 3 is hidden by the filter, though its display place 3 is near the window's two.
+    // Row 3 is hidden by the filter, though its display position 3 is near the window's two.
     source.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A2:A3' }] })
     await settle()
     expect(window.mock.calls.length).toBe(before)
-    // A range taller than the window is met by the window's rows: none of 3 to 499 is shown.
+    // A range taller than the window is overlapped by the window's rows: none of 3 to 499 is displayed.
     source.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A3:A499' }] })
     await settle()
     expect(window.mock.calls.length).toBe(before)
@@ -178,7 +178,7 @@ describe('repaint in the grid', () => {
     f.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: 'C3', text: 'new', value: 'new' }] })
     await settle()
     expect(cellText(w, 3, 3)).toBe('new')
-    // The answer was read before the change: the change goes over it.
+    // The response was read before the change: the change is applied over it.
     answer(f, f.held[0]!, sheet, 'read')
     await settle()
     expect(cellText(w, 3, 3)).toBe('new')
@@ -189,7 +189,7 @@ describe('repaint in the grid', () => {
 describe('repaint from the local source', () => {
   const MIN = '#F8696B'
   const MAX = '#63BE7B'
-  /** Names in A, numbers in B under a colour scale; a funnel on B keeping 1 and 3 shows rows 1, 2, 4 and 6. */
+  /** Names in A, numbers in B under a color scale; a funnel on B keeping 1 and 3 shows rows 1, 2, 4 and 6. */
   const book = (): BookInput => ({
     sheets: [
       {
@@ -238,7 +238,7 @@ describe('repaint from the local source', () => {
         return got.text.map((line) => line[0])
       }
       expect((await s.visibleRows('S', filter)).rows).toEqual([1, 2, 4, 6])
-      // B4 leaves the condition and B3 comes into it: the rows stay those the filter gave until it is applied again.
+      // B4 no longer matches the condition and B3 now does: the rows stay those the filter returned until it is reapplied.
       await s.edit([{ sheet: 'S', cell: 'B4', text: '9' }])
       await s.edit([{ sheet: 'S', cell: 'B3', text: '3' }])
       expect(await rows()).toEqual(['Name', 'n2', 'n4', 'n6'])
@@ -268,7 +268,7 @@ describe('repaint from the local source', () => {
     expect(fill(w, 4, 2)).toBe(MAX)
     expect(fill(w, 6, 2)).not.toBe(MAX)
     expect(fill(w, 2, 2)).toBe(MIN)
-    // A reload applies the filter again: the row goes.
+    // A reload reapplies the filter: the row is hidden.
     expect(await s.format('S', [{ range: 'A1', numberFormat: '@' }])).toMatchObject({ ok: true })
     await settle(12)
     expect(numbers(w)).toEqual(['1', '2', '6'])

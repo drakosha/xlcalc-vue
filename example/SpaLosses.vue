@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// What a file lost, as Excel's message bar after opening: one line with each kind and its count, the details on a
+// What a file lost, like Excel's message bar after opening: one line with each kind and its count, the details on a
 // click (each message with its count, the sheets, example cells and names), and a close button.
 import { computed, ref } from 'vue'
 import type { LossKind } from './spa-open'
