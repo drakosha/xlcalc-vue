@@ -49,8 +49,8 @@ async function answer(text: string): Promise<void> {
   await settle()
 }
 
-describe('the menu on row numbers and column letters', () => {
-  it('inserts and deletes the selected rows, or the row clicked outside the selection, as Excel', async () => {
+describe('the context menu on row numbers and column letters', () => {
+  it('inserts and deletes the selected rows, or the row clicked outside the selection, as Excel does', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await context(num(w, 3))
@@ -85,7 +85,7 @@ describe('the menu on row numbers and column letters', () => {
     ])
   })
 
-  it('hides lines, and shows them on a selection over hidden ones', async () => {
+  it('hides rows or columns, and unhides them on a selection that spans hidden ones', async () => {
     const { source, layout } = withStructure()
     const w = await mountSheet(source)
     await head(w, 2).trigger('click')
@@ -107,7 +107,7 @@ describe('the menu on row numbers and column letters', () => {
     expect(w.findAll('.xs-num').map((n) => n.text()).slice(0, 3)).toEqual(['1', '3', '4'])
   })
 
-  it('sets a column width in characters and a row height in points, as Excel’s boxes; 0 hides; out of range is refused', async () => {
+  it("sets a column width in characters and a row height in points, as Excel's dialogs do; 0 hides; out-of-range values are rejected", async () => {
     const { source, layout } = withStructure()
     const w = await mountSheet(source)
     await context(head(w, 2))
@@ -141,7 +141,7 @@ describe('the menu on row numbers and column letters', () => {
     expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', rows: '4', hidden: true })
   })
 
-  it('reads and writes the sizes with the book’s decimal comma', async () => {
+  it("reads and writes the sizes with the workbook's decimal comma", async () => {
     const { source, layout } = withStructure()
     const w = await mountSheet(source, { locale: 'ru-RU', messages: ruMessages })
     await context(head(w, 3))
@@ -155,7 +155,7 @@ describe('the menu on row numbers and column letters', () => {
     expect(document.querySelector<HTMLInputElement>('[data-xs-dialog-input]')!.value).toBe('12,5')
   })
 
-  it('shows a refusal by the source’s message', async () => {
+  it("displays a rejection with the source's message", async () => {
     const { source } = withStructure(() => ({ ok: false, reason: 'refused', message: 'Нельзя сдвинуть непустые ячейки за край листа' }))
     const w = await mountSheet(source)
     await context(num(w, 2))
@@ -163,7 +163,7 @@ describe('the menu on row numbers and column letters', () => {
     expect(w.find('.xs-message').text()).toBe('Нельзя сдвинуть непустые ячейки за край листа')
   })
 
-  it('has no structure items without structure, no menu without layout and outline too, none on a read-only sheet', async () => {
+  it('has no structure items without structure, no menu without layout and outline either, and none on a read-only sheet', async () => {
     const plain = memorySource(book())
     const w = await mountSheet(plain)
     await context(num(w, 2))
@@ -182,7 +182,7 @@ describe('the menu on row numbers and column letters', () => {
     expect(items()).toEqual([])
   })
 
-  it('closes on Escape and on a press outside', async () => {
+  it('closes on Esc and on a click outside', async () => {
     const w = await mountSheet(withStructure().source)
     await context(num(w, 2))
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
@@ -195,7 +195,7 @@ describe('the menu on row numbers and column letters', () => {
   })
 })
 
-describe('keys in the menu, as Excel’s and the system’s menus', () => {
+describe("keys in the menu, as in Excel's and the system's menus", () => {
   const focused = () => (document.activeElement as HTMLElement | null)?.dataset.xsMenu
   /** A key pressed where focus is, as the browser sends it. */
   async function press(k: string, extra: KeyboardEventInit = {}): Promise<KeyboardEvent> {
@@ -206,7 +206,7 @@ describe('keys in the menu, as Excel’s and the system’s menus', () => {
   }
   const scroller = (w: VueWrapper) => w.find('.xs-scroller').element as HTMLElement
 
-  it('focuses the first item on opening; Down and Up go round past disabled items, Home and End to the first and last', async () => {
+  it('focuses the first item on opening; Down and Up cycle past disabled items, Home and End go to the first and the last', async () => {
     const w = await mountSheet(withStructure().source)
     await context(w.findAll('.xs-tab')[0]!)
     const all = [...document.querySelectorAll<HTMLElement>('[data-xs-menu]')]
@@ -221,7 +221,7 @@ describe('keys in the menu, as Excel’s and the system’s menus', () => {
     expect(went).toEqual(['deleteSheet', 'rename', 'moveRight', 'rename', 'hideSheet', 'insertSheet', 'hideSheet', 'insertSheet', 'hideSheet'])
   })
 
-  it('keeps the focus on its item when the menu’s caption is pressed, as a system menu', async () => {
+  it("keeps focus on its item when the menu's caption is clicked, as a system menu does", async () => {
     const w = await mountSheet(withStructure().source)
     await context(num(w, 2))
     await press('ArrowDown')
@@ -231,7 +231,7 @@ describe('keys in the menu, as Excel’s and the system’s menus', () => {
     expect(focused()).toBe('delete')
   })
 
-  it('chooses the focused item by Enter and by Space, as a click, and gives the focus back to the grid', async () => {
+  it('chooses the focused item with Enter and with Space, like a click, and returns focus to the grid', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     scroller(w).focus()
@@ -248,7 +248,7 @@ describe('keys in the menu, as Excel’s and the system’s menus', () => {
     ])
   })
 
-  it('keeps its keys from the grid and the page: the active cell stays, no edit opens', async () => {
+  it('keeps its keys from the grid and the page: the active cell stays, and no editor opens', async () => {
     const w = await mountSheet(withStructure().source)
     scroller(w).focus()
     await context(w.find('[data-cell="2:2"]'))
@@ -265,7 +265,7 @@ describe('keys in the menu, as Excel’s and the system’s menus', () => {
     expect(editorOpen(w)).toBe(false)
   })
 
-  it('closes on Esc and on Tab, as Excel, with the focus back where it was', async () => {
+  it('closes on Esc and on Tab, as in Excel, with focus returned where it was', async () => {
     const w = await mountSheet(withStructure().source)
     // Cut is enabled once the sheet has loaded, in as many rounds as the machine's load takes
     await until(() => !w.find('.xs-loading').exists())
@@ -287,11 +287,11 @@ describe('keys in the menu, as Excel’s and the system’s menus', () => {
   })
 })
 
-describe('a finger’s long press', () => {
+describe('a long press on a touch screen', () => {
   const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
   const touch = (x = 20, y = 30) => ({ pointerType: 'touch', isPrimary: true, button: 0, clientX: x, clientY: y })
 
-  it('opens the menu after half a second; a move (a scroll) or a lift before that does not', async () => {
+  it('opens the menu after half a second; a move (a scroll) or a release before that does not', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await num(w, 3).trigger('pointerdown', touch())
@@ -318,7 +318,7 @@ describe('a finger’s long press', () => {
     expect(structure).toHaveBeenCalledWith({ op: 'insertRows', sheet: 'S', row: 3, count: 1 })
   })
 
-  it('opens the tab’s menu too', async () => {
+  it('opens the tab menu too', async () => {
     const w = await mountSheet(withStructure().source)
     await w.findAll('.xs-tab')[1]!.trigger('pointerdown', touch())
     await wait(560)
@@ -328,8 +328,8 @@ describe('a finger’s long press', () => {
   })
 })
 
-describe('the menu on the tabs', () => {
-  it('inserts a sheet before the one clicked, shows the next after deleting an empty one, moves by the shown tabs', async () => {
+describe('the context menu on the tabs', () => {
+  it('inserts a sheet before the clicked one, displays the next one after deleting an empty one, moves among the visible tabs', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     const tab = (i: number) => w.findAll('.xs-tab')[i]!
@@ -351,7 +351,7 @@ describe('the menu on the tabs', () => {
     ])
   })
 
-  it('names each small dialog by its title for a screen reader', async () => {
+  it('labels each small dialog by its title for screen readers', async () => {
     const { source } = withStructure()
     const w = await mountSheet(source)
     const label = () => document.getElementById(dialog()!.getAttribute('aria-labelledby') ?? '')?.textContent
@@ -382,7 +382,7 @@ describe('the menu on the tabs', () => {
     expect(structure).toHaveBeenCalledWith({ op: 'deleteSheet', sheet: 'T' })
   })
 
-  it('renames on the tab itself: from the menu or a double click, Enter keeps, Esc drops; a refusal keeps the field', async () => {
+  it('renames on the tab itself: from the menu or by a double click, Enter keeps, Esc discards; a rejection keeps the input', async () => {
     let refuse = true
     const { source, structure } = withStructure(() => (refuse ? { ok: false, reason: 'refused', message: 'Лист «T» уже есть' } : OK))
     const w = await mountSheet(source)
@@ -411,7 +411,7 @@ describe('the menu on the tabs', () => {
     expect(field().exists()).toBe(false)
   })
 
-  it('hides a sheet; "Unhide…" lists the hidden ones and shows the one picked', async () => {
+  it('hides a sheet; "Unhide…" lists the hidden ones and unhides the chosen one', async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: {} }, { name: 'Скрытый', hidden: true, cells: {} }, { name: 'Ещё', hidden: true, cells: {} }] })
     const structure = vi.fn(async (_op: SheetOp) => OK)
     source.structure = structure
@@ -430,7 +430,7 @@ describe('the menu on the tabs', () => {
     ])
   })
 
-  it('does not offer a very hidden sheet to show again, as Excel does not', async () => {
+  it('does not offer a very hidden sheet for Unhide, as Excel does not', async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: {} }, { name: 'Скрытый', hidden: true, cells: {} }, { name: 'Тайный', hidden: 'very', cells: {} }] })
     source.structure = vi.fn(async (_op: SheetOp) => OK)
     const w = await mountSheet(source, { messages: ruMessages })
@@ -442,7 +442,7 @@ describe('the menu on the tabs', () => {
 })
 
 describe('with the local source', () => {
-  it('a row inserted from the menu moves the formula under it, as Excel', async () => {
+  it('a row inserted from the menu moves the formula below it, as in Excel', async () => {
     const source = localSource({ locale: 'en-US', sheets: [{ name: 'S', cells: { A1: { value: 1 }, A2: { value: 2 }, A3: { formula: 'SUM(A1:A2)' } } }] }, { calc: 'inline' })
     const states: { formula?: string }[] = []
     const w = await mountSheet(source, { onState: (st: { formula?: string } | null) => st && states.push(st) })

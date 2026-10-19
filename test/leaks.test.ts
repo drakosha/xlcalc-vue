@@ -40,7 +40,7 @@ function holdWindows(source: SheetSource) {
 describe('find', () => {
   const book = (): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 'apple' } }] })
 
-  it('asks nothing once the sheet is gone during the pause after typing', async () => {
+  it('queries nothing once the sheet is unmounted during the pause after typing', async () => {
     fakeTimers()
     const source = memorySource(book())
     const find = vi.spyOn(source, 'find')
@@ -53,7 +53,7 @@ describe('find', () => {
     expect(find).not.toHaveBeenCalled()
   })
 
-  it('aborts a search out when the sheet goes', async () => {
+  it('aborts a pending search when the sheet is unmounted', async () => {
     fakeTimers()
     const held: Held[] = []
     const source = memorySource(book())
@@ -71,7 +71,7 @@ describe('find', () => {
 })
 
 describe('the display filter', () => {
-  it('aborts the list of rows out when the sheet goes', async () => {
+  it('aborts the pending row list when the sheet is unmounted', async () => {
     const held: Held[] = []
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 'h', A2: 'a', A3: 'b' } }] })
     const own = source.visibleRows!.bind(source)
@@ -86,7 +86,7 @@ describe('the display filter', () => {
 })
 
 describe('explain', () => {
-  it('drops an answer that comes after the sheet went', async () => {
+  it('discards a response that arrives after the sheet was unmounted', async () => {
     const held: Held[] = []
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: { value: 2, formula: 'B1*2' }, B1: 1 } }] })
     source.explain = () => hold(held, undefined, async () => 'A1 = 2  ← B1*2')
@@ -103,7 +103,7 @@ describe('explain', () => {
 })
 
 describe('reads of the fill handle and the merge warning', () => {
-  it('a double click on the handle reads no further and fills nothing once another sheet is shown', async () => {
+  it('a double click on the handle reads no further and fills nothing once another sheet is displayed', async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 1, A2: 2, A3: 3, B1: 5 } }, { name: 'T', cells: { A1: 1 } }] })
     const structure = vi.fn(async (_op: SheetOp) => OK)
     source.structure = structure
@@ -122,7 +122,7 @@ describe('reads of the fill handle and the merge warning', () => {
     expect(structure).not.toHaveBeenCalled()
   })
 
-  it('the merge warning stops reading the windows when the sheet goes', async () => {
+  it('the merge warning stops reading the windows when the sheet is unmounted', async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 1, A4000: 2 } }] })
     source.structure = vi.fn(async () => OK)
     const windows = holdWindows(source)
@@ -138,7 +138,7 @@ describe('reads of the fill handle and the merge warning', () => {
 })
 
 describe('a long press', () => {
-  it('held on a tab while the sheet goes opens nothing after it', async () => {
+  it('held on a tab while the sheet is unmounted opens nothing afterwards', async () => {
     fakeTimers()
     const f = fakeSource([{ name: 'S', maxRow: 5, maxCol: 5 }, { name: 'T', maxRow: 5, maxCol: 5 }])
     f.source.structure = vi.fn(async () => OK)

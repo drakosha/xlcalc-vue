@@ -44,7 +44,7 @@ function exportsOf(path: string): string[] {
 const INTERNAL_VARS = new Set(['--xs-fx-lines', '--xs-explain-depth', '--xs-outline-h', '--xs-outline-w', '--xs-swatch', '--xs-touch-target'])
 
 describe('docs/api.md', () => {
-  it('names every export of both entries and every type of the contract', () => {
+  it('names every export of both entry points and every type of the contract', () => {
     const contract = readdirSync(join(root, 'src/contract')).flatMap((f) => [...read(`src/contract/${f}`).matchAll(/^export (?:interface|type) (\w+)/gm)].map((m) => m[1]!))
     expect(missing([...exportsOf('src/index.ts'), ...exportsOf('src/local/index.ts'), ...contract])).toEqual([])
   })
@@ -80,8 +80,8 @@ describe('docs/api.md', () => {
   })
 })
 
-describe('links of the README and docs/', () => {
-  it('lead to files that exist', () => {
+describe('links in the README and docs/', () => {
+  it('lead to existing files', () => {
     const pages = ['README.md', ...readdirSync(join(root, 'docs')).filter((f) => f.endsWith('.md')).map((f) => `docs/${f}`)]
     const broken = pages.flatMap((page) =>
       [...read(page).matchAll(/\]\(([^)#\s]+)(?:#[^)]*)?\)/g)]

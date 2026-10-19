@@ -26,7 +26,7 @@ function held() {
 }
 const field = (w: VueWrapper) => w.find('.xs-editor').element as HTMLTextAreaElement
 
-describe('Control+Return', () => {
+describe('Ctrl+Enter', () => {
   it('with `fill` and a range enters the text into the range from the active cell; the selection stays', async () => {
     const source = memorySource(book())
     const fill = held()
@@ -56,7 +56,7 @@ describe('Control+Return', () => {
     expect(address(w)).toBe('B1:B3')
   })
 
-  it('Cmd+Return in the formula bar sends the text even when it did not change, as the cell’s own text edited in place', async () => {
+  it("Cmd+Return in the formula bar sends the text even when it did not change, as the cell's own text edited in place", async () => {
     const source = memorySource(book())
     const fill = held()
     source.fill = fill.call
@@ -70,7 +70,7 @@ describe('Control+Return', () => {
     expect(address(w)).toBe('B1:C2')
   })
 
-  it('without `fill`, or on one cell, writes the active cell only and the cursor stays', async () => {
+  it('without `fill`, or on a single cell, writes only the active cell, and the active cell stays', async () => {
     const source = memorySource(book())
     const edit = vi.spyOn(source, 'edit')
     const w = await mountSheet(source)
@@ -97,7 +97,7 @@ describe('Control+Return', () => {
     expect(active(v)).toBe('2:3')
   })
 
-  it('checks locks over the whole range, and `invalid` opens the field again over the range', async () => {
+  it('checks locks over the entire range, and `invalid` reopens the editor over the range', async () => {
     const source = memorySource(book())
     const fill = held()
     source.fill = fill.call
@@ -128,7 +128,7 @@ describe('Control+Return', () => {
 })
 
 describe('paste through the source', () => {
-  it('goes in one call at the top-left cell of the selection; the selection goes to `select`', async () => {
+  it("goes in one call at the selection's top-left cell; the selection moves to `select`", async () => {
     const source = memorySource(book())
     const call = vi.fn(async (..._args: unknown[]): Promise<EditOutcome> => ({
       ok: true,
@@ -152,7 +152,7 @@ describe('paste through the source', () => {
     expect(active(w)).toBe('5:2')
   })
 
-  it('checks locks over the rectangle the text makes', async () => {
+  it('checks locks over the range the text covers', async () => {
     const source = memorySource(book())
     const call = vi.fn(async (): Promise<EditOutcome> => ({ ok: true, changes: [] }))
     source.paste = call
@@ -164,7 +164,7 @@ describe('paste through the source', () => {
     expect(w.find('.xs-message').text()).toContain('the script owns it')
   })
 
-  it("at the sheet's edge goes to the source, which refuses what leaves the sheet", async () => {
+  it("at the edge of the sheet goes to the source, which rejects what extends beyond the sheet", async () => {
     const source = memorySource(book())
     const call = vi.fn(async (..._args: unknown[]): Promise<EditOutcome> => ({ ok: false, reason: 'refused', message: 'off the sheet' }))
     source.paste = call
@@ -190,7 +190,7 @@ describe('paste through the source', () => {
 })
 
 describe('undo and redo', () => {
-  it('Control+Z, Control+Y, Cmd+Shift+Z and a Russian layout call the source; changes apply, the selection goes to `select`', async () => {
+  it('Ctrl+Z, Ctrl+Y, Cmd+Shift+Z and a Russian layout call the source; changes apply, the selection moves to `select`', async () => {
     const source = memorySource(book())
     const undo = vi.fn(async (): Promise<EditOutcome> => ({ ok: true, changes: [cell('A1', 'old')], select: { sheet: 'S', range: 'A1:B2' } }))
     const redo = vi.fn(async (): Promise<EditOutcome> => ({ ok: true, changes: [cell('A1', 'new')], select: { sheet: 'S', range: 'C3' } }))
@@ -240,7 +240,7 @@ describe('undo and redo', () => {
     expect(undo.call).toHaveBeenCalledTimes(2)
   })
 
-  it('leaves the selection where the person moved it while the call was out', async () => {
+  it('leaves the selection where the user moved it while the call was pending', async () => {
     const source = memorySource(book())
     const undo = held()
     source.undo = undo.call
@@ -277,7 +277,7 @@ describe('the text a cell opens with', () => {
   }
   const bar = (w: VueWrapper) => barField(w).value
 
-  it("opens with the window's editText, empty for a cell left out; the formula bar shows the same", async () => {
+  it("opens with the window's editText, empty for a cell missing from it; the formula bar shows the same", async () => {
     const source = withEditText({ A1: '15.03.2026', A2: '5%', A4: '=A2+1' })
     const w = await mountSheet(source)
     expect(await open(w, 'A1')).toBe('15.03.2026')
@@ -289,7 +289,7 @@ describe('the text a cell opens with', () => {
     expect(bar(w)).toBe('=A2+1')
   })
 
-  it('takes the new text from a change; without the dictionary the component writes it as before', async () => {
+  it('takes the new text from a change; without the map the component produces it as before', async () => {
     const source = withEditText({ A1: '15.03.2026' })
     const w = await mountSheet(source)
     source.emit({ kind: 'changed', changes: [{ sheet: 'S', cell: 'A1', text: '16 марта 2026 г.', value: 46097, formula: null, editText: '16.03.2026' }] })

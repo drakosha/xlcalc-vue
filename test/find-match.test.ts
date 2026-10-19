@@ -20,8 +20,8 @@ const req = (query: string, more: Partial<FindRequest> = {}): FindRequest => ({ 
 /** Whether a query (with options) finds the text. */
 const hit = (query: string, text: string, more: Partial<FindRequest> = {}) => findCells(cells({ A1: text }), req(query, more), null, 10).total === 1
 
-describe('the query as Excel reads it', () => {
-  it('* stands for any characters, ? for one, inside a cell’s text', () => {
+describe('the query as Excel interprets it', () => {
+  it("* matches any characters and ? one character, inside a cell's text", () => {
     expect(hit('a*e', 'apple')).toBe(true)
     expect(hit('a*e', 'ae')).toBe(true)
     expect(hit('a*e', 'ap')).toBe(false)
@@ -32,12 +32,12 @@ describe('the query as Excel reads it', () => {
     expect(hit('a?b', 'a\nb')).toBe(true)
   })
 
-  it('? is one UTF-16 unit, so a character outside the BMP takes two, as Excel’s Find counts', () => {
+  it("? is one UTF-16 code unit, so a character outside the BMP takes two, as Excel's Find counts", () => {
     expect(hit('?', '\u{1F600}', { wholeCell: true })).toBe(false)
     expect(hit('??', '\u{1F600}', { wholeCell: true })).toBe(true)
   })
 
-  it('~ before *, ? or ~ is that character; a ~ at the end is dropped, as the library reads a lookup', () => {
+  it('~ before *, ? or ~ matches that character; a trailing ~ is ignored, as the library parses a lookup', () => {
     expect(hit('5~*2', '=5*2')).toBe(true)
     expect(hit('5~*2', '502')).toBe(false)
     expect(hit('what~?', 'what?')).toBe(true)
@@ -47,7 +47,7 @@ describe('the query as Excel reads it', () => {
     expect(hit('ab~', 'xab')).toBe(true)
   })
 
-  it('takes every other character as it is, regular expression signs too', () => {
+  it('takes every other character literally, regular expression characters too', () => {
     expect(hit('(1+2)', '=(1+2)*3')).toBe(true)
     expect(hit('(1+2)', '=12')).toBe(false)
     expect(hit('[a]', 'x[a]x')).toBe(true)
@@ -55,7 +55,7 @@ describe('the query as Excel reads it', () => {
     expect(hit('.', 'abc')).toBe(false)
   })
 
-  it('ignores the case without Match case, Cyrillic too; with it the case counts', () => {
+  it('ignores case without Match case, Cyrillic too; with it case matters', () => {
     expect(hit('APPLE', 'apple pie')).toBe(true)
     expect(hit('сумм', '=СУММ(A1:A3)')).toBe(true)
     expect(hit('APPLE', 'apple pie', { matchCase: true })).toBe(false)
@@ -64,7 +64,7 @@ describe('the query as Excel reads it', () => {
     expect(hit('σ', 'ς', { wholeCell: true })).toBe(true)
   })
 
-  it('with Match entire cell contents the whole text matches the query', () => {
+  it('with Match entire cell contents the entire text must match the query', () => {
     expect(hit('apple', 'Apple', { wholeCell: true })).toBe(true)
     expect(hit('apple', 'apple pie', { wholeCell: true })).toBe(false)
     expect(hit('apple*', 'apple pie', { wholeCell: true })).toBe(true)
@@ -72,20 +72,20 @@ describe('the query as Excel reads it', () => {
     expect(hit('?', 'ab', { wholeCell: true })).toBe(false)
   })
 
-  it('an empty query, or ~ alone, finds nothing; an empty cell is never a hit', () => {
+  it('an empty query, or ~ alone, finds nothing; an empty cell is never a match', () => {
     expect(findCells(cells({ A1: '~' }), req('~'), null, 10)).toEqual({ hits: [], total: 0 })
     expect(findCells(cells({ A1: 'a' }), req(''), null, 10)).toEqual({ hits: [], total: 0 })
     expect(findCells(cells({ A1: '' }), req('*'), null, 10)).toEqual({ hits: [], total: 0 })
   })
 })
 
-describe('where and in which order', () => {
+describe('scope and order', () => {
   const texts: Record<string, string> = { '1:1': 'x1', '1:3': 'x2', '2:2': 'x3', '3:1': 'x4', '3:4': 'nothing', '4:2': 'x5' }
   const sheet = cells({ A1: 'x1', C1: 'x2', B2: 'x3', A3: 'x4', D3: 'nothing', B4: 'x5' })
   /** The matches' texts, in their order. */
   const textsOf = (got: { hits: { row: number; col: number }[] }) => got.hits.map((h) => texts[`${h.row}:${h.col}`])
 
-  it('by rows by default, by columns when asked', () => {
+  it('by rows by default, by columns when requested', () => {
     expect(findCells(sheet, req('x'), null, 10)).toEqual({
       hits: [
         { row: 1, col: 1 },
@@ -99,7 +99,7 @@ describe('where and in which order', () => {
     expect(textsOf(findCells(sheet, req('x', { byColumns: true }), null, 10))).toEqual(['x1', 'x4', 'x3', 'x5', 'x2'])
   })
 
-  it('only within a range, whole columns and rows too', () => {
+  it('only within a range, entire columns and rows too', () => {
     expect(textsOf(findCells(sheet, req('x', { range: 'B1:C3' }), null, 10))).toEqual(['x2', 'x3'])
     expect(textsOf(findCells(sheet, req('x', { range: 'B:B' }), null, 10))).toEqual(['x3', 'x5'])
     expect(textsOf(findCells(sheet, req('x', { range: '3:4' }), null, 10))).toEqual(['x4', 'x5'])
@@ -109,16 +109,16 @@ describe('where and in which order', () => {
     expect(textsOf(findCells(sheet, req('x'), new Set([1, 4]), 10))).toEqual(['x1', 'x2', 'x5'])
   })
 
-  it('gives at most `max` hits and counts them all', () => {
+  it('returns at most `max` matches and counts them all', () => {
     expect(findCells(sheet, req('x'), null, 2)).toEqual({ hits: [{ row: 1, col: 1 }, { row: 1, col: 3 }], total: 5 })
   })
 })
 
-describe('Replace All’s new texts', () => {
+describe("Replace All's new texts", () => {
   const replace = (texts: Record<string, string>, query: string, by: string, more: Partial<FindRequest> = {}) =>
     replaceCells(cells(texts), req(query, more), by, null).map((c) => [c.row, c.col, c.text])
 
-  it('replaces every match in a cell with the text as it is, in any case without Match case', () => {
+  it('replaces every match in a cell with the text as is, case-insensitively without Match case', () => {
     expect(replace({ A1: 'banana' }, 'a', 'o')).toEqual([[1, 1, 'bonono']])
     expect(replace({ A1: 'Aa' }, 'a', 'b')).toEqual([[1, 1, 'bb']])
     expect(replace({ A1: 'Aa' }, 'a', 'b', { matchCase: true })).toEqual([[1, 1, 'Ab']])
@@ -126,17 +126,17 @@ describe('Replace All’s new texts', () => {
     expect(replace({ A1: '=СУММ(A1:A3)' }, 'a3', 'A4')).toEqual([[1, 1, '=СУММ(A1:A4)']])
   })
 
-  it('a * takes as little as it can but the query’s last one, which takes the rest, as Excel’s Replace', () => {
+  it("each * matches as little as possible except the query's last one, which matches the rest, as with Excel's Replace", () => {
     expect(replace({ A1: 'banana' }, 'a*', 'X')).toEqual([[1, 1, 'bX']])
     expect(replace({ A1: 'abc' }, '*', 'X')).toEqual([[1, 1, 'X']])
     expect(replace({ A1: 'a1b2b' }, 'a*b', 'X')).toEqual([[1, 1, 'X2b']])
   })
 
-  it('with Match entire cell contents the whole text goes', () => {
+  it('with Match entire cell contents the entire text is replaced', () => {
     expect(replace({ A1: 'apple', A2: 'apple pie' }, 'apple', 'pear', { wholeCell: true })).toEqual([[1, 1, 'pear']])
   })
 
-  it('leaves out cells whose text would not change, and keeps to the range and the shown rows', () => {
+  it('omits cells whose text would not change, and stays within the range and the visible rows', () => {
     expect(replace({ A1: 'a', B1: 'b' }, 'a', 'a')).toEqual([])
     expect(replaceCells(cells({ A1: 'a', A2: 'a', B2: 'a' }), req('a', { range: 'A1:A2' }), 'z', new Set([2])).map((c) => [c.row, c.col, c.text])).toEqual([[2, 1, 'z']])
   })

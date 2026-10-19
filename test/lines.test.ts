@@ -33,8 +33,8 @@ function lined(cut: boolean) {
   }
   return { source, asked }
 }
-describe('styles of rows and columns past the data', () => {
-  it('a header row’s fill runs across the whole frame, past the last column of data', async () => {
+describe('row and column styles beyond the data', () => {
+  it("a header row's fill runs across the entire viewport, beyond the last column of data", async () => {
     wide()
     const { source } = lined(false)
     const w = await mountSheet(source)
@@ -44,7 +44,7 @@ describe('styles of rows and columns past the data', () => {
     expect(fill(25)).toBe('#d9e1f2')
   })
 
-  it('a source cutting its windows at the data does not make the grid ask again on every scroll', async () => {
+  it('a source that truncates its windows at the data does not make the grid request again on every scroll', async () => {
     wide()
     const { source, asked } = lined(true)
     const w = await mountSheet(source)
@@ -60,8 +60,8 @@ describe('styles of rows and columns past the data', () => {
   })
 })
 
-describe('the source’s edge and edits past it', () => {
-  it('a value typed past the edge the source cut at comes back with the next window', async () => {
+describe("the source's edge and edits beyond it", () => {
+  it('a value typed beyond the edge where the source truncated comes back with the next window', async () => {
     wide()
     let maxCol = 3
     const asked: WindowRequest[] = []

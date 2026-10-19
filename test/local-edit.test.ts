@@ -7,7 +7,7 @@ import { BOLD, closeAll, source, styleOf, win } from './local-fixture'
 afterEach(closeAll)
 
 describe('localSource: typed edits', () => {
-  it('a percent cell: a number typed over it takes %, the cell’s own text edited in place (F2) does not, as Excel', async () => {
+  it("a percentage cell: a number typed over it gets %, the cell's own text edited in place (F2) does not, as in Excel", async () => {
     const percent = () => source({ locale: 'ru-RU', sheets: [{ name: 'S', cells: { A1: { value: 0.05, numberFormat: '0%' }, A2: { value: 0.05, numberFormat: '0%' } } }] })
     const over = await percent().edit([{ sheet: 'S', cell: 'A1', text: '6%' }])
     expect(over.ok && over.changes.find((c) => c.cell === 'A1')?.value).toBe('6%%')
@@ -17,7 +17,7 @@ describe('localSource: typed edits', () => {
     expect(filled.ok && filled.changes.filter((c) => c.value === 0.07).map((c) => c.cell)).toEqual(['A1', 'A2'])
   })
 
-  it('reads 1,5 as a number in ru-RU and sends the dependent cell', async () => {
+  it('parses 1,5 as a number in ru-RU and sends the dependent cell', async () => {
     const got = await source().edit([{ sheet: 'Лист1', cell: 'A1', text: '1,5' }])
     expect(got.ok).toBe(true)
     if (!got.ok) return
@@ -25,14 +25,14 @@ describe('localSource: typed edits', () => {
     expect(got.changes.find((c) => c.cell === 'A3')).toMatchObject({ value: 3.5, text: '3,5' })
   })
 
-  it('reads 15.03.2026 as a date with the date format', async () => {
+  it('parses 15.03.2026 as a date with the date format', async () => {
     const s = source()
     // B is 20 wide: in a column of the default width the date displays as ### (the library measures it so)
     const got = await s.edit([{ sheet: 'Лист1', cell: 'B4', text: '15.03.2026' }])
     expect(got).toMatchObject({ ok: true, changes: [{ cell: 'B4', value: 46096, text: '15.03.2026', numberFormat: 'dd.mm.yyyy' }] })
   })
 
-  it('reads 15.03.2026 as a short date and 1 234,5 as a grouped number, widening the column the date does not fit', async () => {
+  it('parses 15.03.2026 as a short date and 1 234,5 as a grouped number, widening the column where the date does not fit', async () => {
     const s = source()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -45,7 +45,7 @@ describe('localSource: typed edits', () => {
     expect(events).toEqual([{ kind: 'reload' }])
   })
 
-  it('gives each edited cell the text it opens with now and its formula as shown', async () => {
+  it("returns each edited cell's current edit text and its formula as displayed", async () => {
     const got = await source().edit([
       { sheet: 'Список', cell: 'C2', text: '15.03.2026' },
       { sheet: 'Список', cell: 'C3', text: '5%' },
@@ -61,7 +61,7 @@ describe('localSource: typed edits', () => {
     expect(by.C5).toMatchObject({ editText: '=СУММ(B2:B3)', formula: 'СУММ(B2:B3)', value: 35 })
   })
 
-  it('refuses a value a rule of data validation does not take, of any style, with its alert and keeps the cell; `accept` writes it', async () => {
+  it('rejects a value that violates a data validation rule of any style with its alert and keeps the cell; `accept` writes it', async () => {
     const s = source({
       sheets: [{
         name: 'S',
@@ -88,7 +88,7 @@ describe('localSource: typed edits', () => {
     expect(s.history).toEqual({ undo: 2, redo: 0 })
   })
 
-  it('clears a selection as Excel\'s Delete: the content and the hyperlink go, the style, format and note stay', async () => {
+  it("clears a selection as Excel's Delete does: the contents and the hyperlink are removed, the style, format and note stay", async () => {
     const s = source()
     const got = await s.edit([
       { sheet: 'Лист1', cell: 'B1', text: null },
@@ -106,7 +106,7 @@ describe('localSource: typed edits', () => {
     expect(styleOf(w, 'C1')).toEqual(BOLD)
   })
 
-  it('reloads after a Delete that takes a hyperlink and after its undo: a cell update carries no note or link', async () => {
+  it('reloads after a Delete that removes a hyperlink and after its undo: a cell update carries no note or hyperlink', async () => {
     const s = source()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -121,7 +121,7 @@ describe('localSource: typed edits', () => {
     expect(events.at(-1)).toMatchObject({ kind: 'changed' })
   })
 
-  it('renames a table column by its header cell, and the formulas over it are shown anew', async () => {
+  it('renames a table column by its header cell, and the formulas that refer to it are displayed with the new name', async () => {
     const s = source()
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -130,14 +130,14 @@ describe('localSource: typed edits', () => {
     expect((await win(s, 'Таблица', 1, 3, 1, 5)).formulas.E1).toBe('СУММ(Продажи[Итог])')
   })
 
-  it('gives invalid with the position for a formula that does not parse, and changes nothing', async () => {
+  it('returns invalid with the position for a formula that does not parse, and changes nothing', async () => {
     const s = source()
     const got = await s.edit([{ sheet: 'Лист1', cell: 'A3', text: '=СУММ(A1:A2))' }])
     expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 12 })
     expect((await win(s, 'Лист1', 3, 1, 1, 1)).formulas.A3).toBe('СУММ(A1:A2)')
   })
 
-  it('gives the formula Excel offers for a typo as `correction`, in the book\'s locale, and none where Excel offers none', async () => {
+  it("returns the formula Excel suggests for a typo as `correction`, in the workbook's locale, and none where Excel suggests none", async () => {
     const s = source()
     expect(await s.edit([{ sheet: 'Лист1', cell: 'C2', text: '=(1+2' }])).toMatchObject({ ok: false, reason: 'invalid', correction: '=(1+2)' })
     expect(await s.edit([{ sheet: 'Лист1', cell: 'C2', text: '=1+СУММ(2' }])).toMatchObject({ ok: false, reason: 'invalid', correction: '=1+СУММ(2)' })
@@ -147,13 +147,13 @@ describe('localSource: typed edits', () => {
     expect((await win(s, 'Лист1', 2, 1, 3, 1)).text).toEqual([['']])
   })
 
-  it('closes a function left open as Excel does on Enter (xlcalc 0.44)', async () => {
+  it('closes an unclosed function as Excel does on Enter (xlcalc 0.44)', async () => {
     const s = source()
     expect(await s.edit([{ sheet: 'Лист1', cell: 'C3', text: '=СУММ(A1:A2' }])).toMatchObject({ ok: true })
     expect((await win(s, 'Лист1', 3, 1, 3, 1)).formulas.C3).toBe('СУММ(A1:A2)')
   })
 
-  it('returns the edited formula in the locale, percent, boolean and apostrophe text', async () => {
+  it('returns the edited formula in the locale, and percentage, boolean and apostrophe text', async () => {
     const s = source()
     const got = await s.edit([
       { sheet: 'Лист1', cell: 'C3', text: '=СУММ(A1:A2)*2' },
@@ -170,7 +170,7 @@ describe('localSource: typed edits', () => {
     expect(by.C6).toMatchObject({ value: '007', text: '007' })
   })
 
-  it('keeps the cell style, note and link through an edit, and a clear keeps them too', async () => {
+  it("keeps the cell's style, note and hyperlink through an edit, and clearing keeps them too", async () => {
     const s = source()
     await s.edit([
       { sheet: 'Лист1', cell: 'B1', text: 'новый' },
@@ -185,12 +185,12 @@ describe('localSource: typed edits', () => {
     expect(styleOf(w, 'C1')).toEqual(BOLD)
   })
 
-  it('refuses what the book refuses: a formula in a table header', async () => {
+  it('rejects what the workbook rejects: a formula in a table header', async () => {
     const got = await source().edit([{ sheet: 'Таблица', cell: 'B1', text: '=1+1' }])
     expect(got).toMatchObject({ ok: false, reason: 'refused' })
   })
 
-  it('grows the sheet extent with an edit past it', async () => {
+  it("extends the sheet's extent with an edit beyond it", async () => {
     const s = source()
     await s.edit([{ sheet: 'Список', cell: 'D9', text: '1' }])
     expect((await s.sheets())[2]).toMatchObject({ maxRow: 9, maxCol: 4 })

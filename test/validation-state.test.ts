@@ -35,8 +35,8 @@ async function pass(ms = VALIDATION_DELAY_MS): Promise<void> {
   await nextTick()
 }
 
-describe('useValidation: the active cell’s rule', () => {
-  it('asks once the cell stays: arrows over cells ask for the last one alone', async () => {
+describe("useValidation: the active cell's rule", () => {
+  it('requests once the cell stays: arrows across cells request only the last one', async () => {
     const { source, calls } = rules()
     const { v, active } = setup(source)
     await nextTick()
@@ -54,7 +54,7 @@ describe('useValidation: the active cell’s rule', () => {
     expect(v.prompt.value).toEqual({ text: 'Выберите' })
   })
 
-  it('aborts the request of a cell left, drops its late answer, and shows nothing meanwhile', async () => {
+  it('aborts the request for a cell that was left, discards its late response, and shows nothing meanwhile', async () => {
     const { source, calls } = rules((cell) => (cell === 'B1' ? { prompt: { text: 'B' } } : { prompt: { text: 'A' } }))
     const { v, active } = setup(source)
     await pass()
@@ -73,7 +73,7 @@ describe('useValidation: the active cell’s rule', () => {
     expect(v.current.value).toBeNull()
   })
 
-  it('asks again on another sheet and stops with its scope; a source without `validation` is not asked', async () => {
+  it('requests again on another sheet and stops with its scope; a source without `validation` is not queried', async () => {
     const { source, calls } = rules()
     const { sheet, scope } = setup(source)
     await pass()
@@ -102,7 +102,7 @@ describe('useValidation: the list', () => {
     return { ...s, calls: r.calls }
   }
 
-  it('Alt+Down opens it at the cell’s item; the arrows, Page keys, Home and End move; Enter enters the item and closes', async () => {
+  it("Alt+Down opens it at the cell's item; the arrows, Page Up and Page Down, Home and End move; Enter enters the item and closes", async () => {
     const { v, text, pick, calls } = await ready()
     text.value = 'Нет'
     expect(v.onKey(key('ArrowDown'))).toBe(false)
@@ -168,7 +168,7 @@ describe('useValidation: the list', () => {
 describe('useValidationAlert', () => {
   const alert: SheetValidationAlert = { severity: 'warning', message: 'Лучше больше нуля', sheet: 'S', cell: 'C2' }
 
-  it('shows the alert until the answer, a new alert answering the old with Cancel', async () => {
+  it('shows the alert until the answer, with a new alert answering the old one with Cancel', async () => {
     const a = useValidationAlert()
     const first = a.ask(alert)
     expect(a.alert.value).toEqual(alert)
@@ -179,7 +179,7 @@ describe('useValidationAlert', () => {
     expect(a.alert.value).toBeNull()
   })
 
-  it('has Excel’s buttons by style and their answers, the default Retry, No and OK; the formula’s question Fix and Restore; the merge’s warning OK and Cancel', () => {
+  it("has Excel's buttons by style and their answers, with Retry, No and OK as defaults; Fix and Restore for the formula prompt; OK and Cancel for the merge warning", () => {
     expect(ALERT_BUTTONS.stop.map((b) => `${b.button}:${b.answer}`)).toEqual(['retry:retry', 'cancel:cancel'])
     expect(ALERT_BUTTONS.warning.map((b) => `${b.button}:${b.answer}`)).toEqual(['yes:accept', 'no:retry', 'cancel:cancel'])
     expect(ALERT_BUTTONS.information.map((b) => `${b.button}:${b.answer}`)).toEqual(['ok:accept', 'cancel:cancel'])

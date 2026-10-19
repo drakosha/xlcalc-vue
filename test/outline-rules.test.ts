@@ -39,7 +39,7 @@ class Rows implements AxisLines {
 const lvl = (r: string, level: number) => ({ rows: r, level })
 
 describe('groups as Excel draws them', () => {
-  it('a level is the longest runs of lines at it or deeper; outer before inner; collapsed once every line under its summary is hidden, by hand too', () => {
+  it('a level consists of the longest runs of rows at it or deeper; outer before inner; collapsed once every row under its summary is hidden, manually too', () => {
     const rows = new Rows({ 3: 1, 4: 1, 5: 2, 6: 2, 7: 2, 8: 1, 9: 1, 10: 1, 12: 1 })
     for (const r of [5, 6, 7, 12]) rows.hidden.add(r)
     rows.marks.add(8)
@@ -49,7 +49,7 @@ describe('groups as Excel draws them', () => {
       { first: 12, last: 12, level: 1, summary: 13, collapsed: true },
     ])
   })
-  it('a group whose summary line is hidden inside a hidden group is collapsed by the mark it kept, as Excel keeps it', () => {
+  it('a group whose summary row is hidden inside a hidden group is collapsed by the flag it kept, as Excel keeps it', () => {
     const hidden = (marked: boolean) => {
       const rows = new Rows({ 3: 1, 4: 1, 5: 2, 6: 2, 7: 2, 8: 1, 9: 1, 10: 1 })
       for (let r = 3; r <= 10; r++) rows.hidden.add(r)
@@ -63,7 +63,7 @@ describe('groups as Excel draws them', () => {
 })
 
 describe('Group and Ungroup', () => {
-  it('S1: each Group puts the lines a level deeper; the eighth is refused, the levels stay at 7', () => {
+  it('S1: each Group moves the rows a level deeper; the eighth is rejected, and the levels stay at 7', () => {
     const rows = new Rows()
     for (let i = 1; i <= 7; i++) expect(rows.run({ op: 'group', rows: '3:6' })).toBeNull()
     expect(rows.run({ op: 'group', rows: '3:6' })).toBe('the rows 3:6 are at the deepest outline level, 7, and are not grouped further')
@@ -73,7 +73,7 @@ describe('Group and Ungroup', () => {
     expect(rows.state(7)).toBe('1:0 2:1 3:7 4:7 5:7 6:7 7:0')
   })
 
-  it('S2: Ungroup of lines in no group is refused; over a mix it lowers the grouped ones; over a part of a group that part', () => {
+  it('S2: Ungroup of rows in no group is rejected; over a mix it lowers the grouped ones; over part of a group, that part', () => {
     const rows = new Rows()
     expect(rows.run({ op: 'ungroup', rows: '3:6' })).toBe('the rows 3:6 are in no group')
     rows.run({ op: 'group', rows: '4:5' })
@@ -84,7 +84,7 @@ describe('Group and Ungroup', () => {
     expect(rows.state(7)).toBe('1:0 2:0 3:0 4:1 5:0 6:0 7:0')
   })
 
-  it('S8, S9: Ungroup leaves hidden lines hidden and the summary line its mark', () => {
+  it('S8, S9: Ungroup leaves hidden rows hidden and the summary row its flag', () => {
     const rows = new Rows({ 3: 1, 4: 1, 5: 1, 6: 1 })
     rows.run({ op: 'collapse', ...lvl('3:6', 1) })
     rows.run({ op: 'ungroup', rows: '3:6' })
@@ -101,7 +101,7 @@ describe('Group and Ungroup', () => {
 describe('a group’s button', () => {
   const nested = () => new Rows({ 3: 1, 4: 1, 5: 2, 6: 2, 7: 2, 8: 1, 9: 1, 10: 1 })
 
-  it('S3: a group collapsed inside a collapsed one stays collapsed when the outer is expanded, by its mark', () => {
+  it('S3: a group collapsed inside a collapsed one stays collapsed when the outer one is expanded, by its flag', () => {
     const rows = nested()
     rows.run({ op: 'collapse', ...lvl('5:7', 2) })
     expect(rows.state(11)).toBe('1:0 2:0 3:1 4:1 5:2h 6:2h 7:2h 8:1 9:1 10:1 11:0')
@@ -121,7 +121,7 @@ describe('a group’s button', () => {
     expect(rows.state(11)).toBe('1:0 2:0 3:1 4:1 5:2 6:2 7:2 8:1 9:1 10:1 11:0')
   })
 
-  it('S4: groups that share their summary line open together', () => {
+  it('S4: groups that share their summary row expand together', () => {
     const rows = new Rows({ 3: 1, 4: 2, 5: 2, 6: 2 })
     rows.run({ op: 'collapse', ...lvl('3:6', 1) })
     expect(rows.collapsed).toEqual([7])
@@ -130,7 +130,7 @@ describe('a group’s button', () => {
     expect(rows.collapsed).toEqual([])
   })
 
-  it('S5, S6: Show Detail shows a line hidden by hand; a group hidden by hand is collapsed', () => {
+  it('S5, S6: Show Detail shows a manually hidden row; a manually hidden group is collapsed', () => {
     const rows = new Rows({ 3: 1, 4: 1, 5: 1, 6: 1 })
     rows.hidden.add(4)
     rows.run({ op: 'collapse', ...lvl('3:6', 1) })
@@ -142,7 +142,7 @@ describe('a group’s button', () => {
     expect(rows.state(7)).toBe('1:0 2:0 3:1 4:1 5:1 6:1 7:0')
   })
 
-  it('S10: with summaries above, the mark goes on the line before the group', () => {
+  it('S10: with summaries above, the flag goes on the row before the group', () => {
     const rows = new Rows({ 3: 1, 4: 1, 5: 1, 6: 1 })
     rows.run({ op: 'collapse', ...lvl('3:6', 1) }, false)
     expect([rows.state(7), rows.collapsed]).toEqual(['1:0 2:0 3:1h 4:1h 5:1h 6:1h 7:0', [2]])
@@ -150,14 +150,14 @@ describe('a group’s button', () => {
     expect([rows.state(7), rows.collapsed]).toEqual(['1:0 2:0 3:1 4:1 5:1 6:1 7:0', []])
   })
 
-  it('names the group by its lines and level; another is refused', () => {
+  it('identifies the group by its rows and level; another one is rejected', () => {
     expect(nested().run({ op: 'collapse', ...lvl('3:9', 1) })).toMatch(/No group of level 1/)
     expect(nested().run({ op: 'collapse', ...lvl('5:7', 1) })).toMatch(/No group of level 1/)
   })
 })
 
 describe('a level button', () => {
-  it('S7: level k hides the lines of level k and deeper, shows the others; lines outside groups stay; marks on the summaries left in view', () => {
+  it('S7: level k hides the rows at level k and deeper and shows the others; rows outside groups stay; flags on the summaries left visible', () => {
     const rows = new Rows({ 3: 1, 4: 1, 5: 2, 6: 2, 7: 2, 8: 1, 9: 1, 10: 1 })
     rows.hidden.add(9)
     rows.hidden.add(13)
@@ -172,7 +172,7 @@ describe('a level button', () => {
     expect(rows.state()).toBe('1:0 2:0 3:1 4:1 5:2 6:2 7:2 8:1 9:1 10:1 11:0 12:0 13:0h')
   })
 
-  it('S11: columns go by the same rules', () => {
+  it('S11: columns follow the same rules', () => {
     const cols = new Rows({ 3: 1, 4: 2, 5: 1 })
     const run = (op: 'collapse' | 'expand', columns: string, level: number) => cols.run({ op, columns, level })
     run('collapse', 'D', 2)
@@ -182,7 +182,7 @@ describe('a level button', () => {
   })
 })
 
-describe('memorySource: the commands as Excel and ./local give them', () => {
+describe('memorySource: the commands as Excel and ./local perform them', () => {
   /** An in-memory sheet with these row levels and options, its commands and what it shows. */
   function sheet(rows: Record<string, number>, opts: { heights?: Record<string, number>; summaryBelow?: boolean } = {}) {
     const src = memorySource({ sheets: [{ name: 'S', cells: { A1: 1 }, heights: opts.heights, outline: { rows, ...(opts.summaryBelow !== undefined ? { summaryBelow: opts.summaryBelow } : {}) } }] })
@@ -194,7 +194,7 @@ describe('memorySource: the commands as Excel and ./local give them', () => {
     }
   }
 
-  it('the button of a group sharing its summary row with the outer group acts on the whole detail of that row', async () => {
+  it('the button of a group that shares its summary row with the outer group acts on all the detail of that row', async () => {
     const s = sheet({ '3:4': 1, '5:7': 2 })
     expect(await s.run({ op: 'collapse', ...lvl('5:7', 2) })).toEqual({ ok: true, changes: [] })
     expect(await s.hidden()).toEqual([3, 4, 5, 6, 7])
@@ -206,7 +206,7 @@ describe('memorySource: the commands as Excel and ./local give them', () => {
     expect(await s.hidden()).toEqual([])
   })
 
-  it('a button is refused when its group already shows as asked', async () => {
+  it('a button is rejected when its group is already as requested', async () => {
     const s = sheet({ '3:4': 1, '5:7': 2, '8:10': 1 })
     expect(await s.run({ op: 'expand', ...lvl('5:7', 2) })).toEqual({ ok: false, reason: 'refused', message: 'the detail of row 8 is shown already' })
     await s.run({ op: 'collapse', ...lvl('5:7', 2) })
@@ -214,7 +214,7 @@ describe('memorySource: the commands as Excel and ./local give them', () => {
     expect(await s.hidden()).toEqual([5, 6, 7])
   })
 
-  it('a group at the sheet’s edge has no summary row, so no button: its command is refused, a level button hides it', async () => {
+  it('a group at the edge of the sheet has no summary row, so no button: its command is rejected, and a level button hides it', async () => {
     const s = sheet({ '1:3': 1 }, { summaryBelow: false })
     expect(await s.run({ op: 'collapse', ...lvl('1:3', 1) })).toEqual({ ok: false, reason: 'refused', message: "The group of rows 1:3 has no summary row within the sheet: Excel draws no button for it" })
     expect(await s.hidden()).toEqual([])
@@ -223,7 +223,7 @@ describe('memorySource: the commands as Excel and ./local give them', () => {
     expect(await s.groups()).toEqual([{ from: 1, to: 3, level: 1, collapsed: true }])
   })
 
-  it('a line hidden by a height of 0 is shown again at the default height; a level button past 8 fails', async () => {
+  it('a row hidden by a height of 0 is unhidden at the default height; a level button beyond 8 fails', async () => {
     const s = sheet({ '3:4': 1 }, { heights: { '3:4': 0, '6': 30 } })
     await s.run({ op: 'expand', ...lvl('3:4', 1) })
     expect(await s.heights()).toEqual({ 6: 30 })

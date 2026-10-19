@@ -13,8 +13,8 @@ afterEach(() => {
 const book = (): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 1, A2: 2, B1: { value: 3, formula: 'SUM(A1:A2)' }, C1: 'text' } }] })
 const editingBar = (w: VueWrapper) => w.find('.xs-bar').classes().includes('xs-bar-editing')
 
-describe('the formula bar field', () => {
-  it('holds the active cell’s text outside an edit and follows the cell, its changes and a cancel', async () => {
+describe('the formula bar input', () => {
+  it("contains the active cell's text outside editing and follows the cell, its changes and a cancel", async () => {
     const w = await mountSheet(memorySource(book()))
     expect(barField(w).value).toBe('1')
     await goTo(w, 'B1')
@@ -39,7 +39,7 @@ describe('the formula bar field', () => {
     expect(barField(w).value).toBe('new')
   })
 
-  it('is read-only on a sheet without edit: the text can be selected, no edit starts', async () => {
+  it('is read-only on a sheet without edit: the text can be selected, and no edit starts', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'B1')
     const el = barField(w)
@@ -55,7 +55,7 @@ describe('the formula bar field', () => {
     expect(w.find('.xs-editor:not(.xs-editor-idle)').exists()).toBe(false)
   })
 
-  it('a click starts the edit in the bar with the caret where it was put, not at the end', async () => {
+  it('a click starts editing in the formula bar with the caret where it was placed, not at the end', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B1')
     await pressBar(w, 5)
@@ -65,7 +65,7 @@ describe('the formula bar field', () => {
     expect([el.selectionStart, el.selectionEnd]).toEqual([5, 5])
   })
 
-  it('a drag starts the edit with the dragged text selected', async () => {
+  it('a drag starts editing with the dragged-over text selected', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B1')
     await pressBar(w, 5, 10)
@@ -74,7 +74,7 @@ describe('the formula bar field', () => {
     expect([el.selectionStart, el.selectionEnd]).toEqual([5, 10])
   })
 
-  it('a click on the bar moves a field open in the cell there with its draft, the caret where it was put', async () => {
+  it('a click on the formula bar moves an editor open in the cell there with its draft, the caret where it was placed', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'C1')
     await key(w, 'F2')
@@ -88,7 +88,7 @@ describe('the formula bar field', () => {
     expect([el.selectionStart, el.selectionEnd]).toEqual([2, 2])
   })
 
-  it('Enter after an edit in the bar writes the cell and moves down, as before', async () => {
+  it('Enter after editing in the formula bar writes the cell and moves down, as before', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'C1')
     await pressBar(w, 4)
@@ -102,7 +102,7 @@ describe('the formula bar field', () => {
     expect(barField(w).value).toBe('')
   })
 
-  it('a plain click on a reference puts the caret in it and starts the edit, as Excel', async () => {
+  it('a plain click on a reference places the caret in it and starts editing, as in Excel', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B1')
     await pressBar(w, 6)
@@ -111,7 +111,7 @@ describe('the formula bar field', () => {
     expect(address(w)).toBe('B1')
   })
 
-  it('Ctrl+click or Cmd+click on a reference outside an edit goes to its range; elsewhere it is a click', async () => {
+  it('Ctrl+click or Cmd+click on a reference outside editing goes to its range; elsewhere it is a click', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B1')
     expect(barField(w).title).toContain('+click a reference to go to it')
@@ -136,7 +136,7 @@ describe('the formula bar field', () => {
     expect(editingBar(w)).toBe(false)
   })
 
-  it('colours the references outside an edit, and while one is typed by the draft in the colours of its frames on the grid', async () => {
+  it('colors the references outside editing, and while one is typed those of the draft, in the colors of their range borders on the grid', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B1')
     const refs = () => w.findAll('.xs-fx-layer .xs-ref')
@@ -187,7 +187,7 @@ const touch = (w: VueWrapper, type: string, i: number, dx = 0) =>
   barField(w).dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true, clientX: i * 10 + 5 + dx, clientY: 10 }))
 
 describe('going to a reference from the formula bar', () => {
-  it('with Ctrl or Cmd held the reference under the mouse is underlined and the cursor a hand; a key pressed after the move does it too', async () => {
+  it('with Ctrl or Cmd held the reference under the pointer is underlined and the pointer becomes a hand; a key pressed after the move does so too', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B1')
     layoutLayer()
@@ -221,7 +221,7 @@ describe('going to a reference from the formula bar', () => {
     expect(underlined(w)).toEqual([])
   })
 
-  it('shows nothing while the bar edits', async () => {
+  it('shows nothing while the formula bar is being edited', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B1')
     await pressBar(w, 2)
@@ -233,7 +233,7 @@ describe('going to a reference from the formula bar', () => {
     expect(underlined(w)).toEqual([])
   })
 
-  it('a finger held on a reference outside an edit goes to its range, no edit starts and the browser’s menu is held back', async () => {
+  it("a long press on a reference outside editing goes to its range without starting an edit, and the browser's menu is suppressed", async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B1')
     layoutLayer()
@@ -254,7 +254,7 @@ describe('going to a reference from the formula bar', () => {
     expect(address(w)).toBe('A1:A2')
   })
 
-  it('a browser’s menu of a long press that comes first goes at once and is held back', async () => {
+  it('a browser menu from a long press that comes first is canceled at once and suppressed', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B1')
     layoutLayer()
@@ -271,7 +271,7 @@ describe('going to a reference from the formula bar', () => {
     expect(field(w).classes()).not.toContain('xs-fx-held')
   })
 
-  it('a finger that moves, a hold off the references and a tap do not go; a tap starts the edit as before', async () => {
+  it('a moving finger, a press away from the references and a tap do not navigate; a tap starts editing as before', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B1')
     layoutLayer()

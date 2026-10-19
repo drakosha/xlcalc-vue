@@ -20,7 +20,7 @@ function carrier(w: VueWrapper, r: number, c: number, text: string): HTMLElement
 }
 
 describe('text decoration', () => {
-  it('sits on the text in plain, overflow, centerContinuous, fill, link and merged cells', async () => {
+  it('is set on the text in plain, overflow, centerContinuous, fill, link and merged cells', async () => {
     const book: MemoryBook = {
       styles: [
         {},

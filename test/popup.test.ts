@@ -13,7 +13,7 @@ const FIELD = { top: 100, left: 50, width: 80, height: 20 }
 const VIEW = { top: 0, left: 0, width: 300, height: 200 }
 
 describe('placeBelowOrAbove', () => {
-  it('puts the box under the field, over it only where the view has no room below and room above', () => {
+  it('puts the box below the input, above it only where the viewport has no room below and has room above', () => {
     expect(placeBelowOrAbove(FIELD, 60, VIEW)).toBe(120)
     expect(placeBelowOrAbove(FIELD, 90, VIEW)).toBe(10)
     // no room either way: below it
@@ -22,21 +22,21 @@ describe('placeBelowOrAbove', () => {
     expect(placeBelowOrAbove(FIELD, 500, undefined)).toBe(120)
   })
 
-  it('keeps a gap from the field both ways', () => {
+  it('keeps a gap from the input in both directions', () => {
     expect(placeBelowOrAbove(FIELD, 60, VIEW, 4)).toBe(124)
     expect(placeBelowOrAbove(FIELD, 80, VIEW, 4)).toBe(16)
   })
 })
 
 describe('clampLeft and listHeight', () => {
-  it('moves a box left to the view’s right edge, not past its left one', () => {
+  it("moves a box left to the viewport's right edge, but not beyond its left edge", () => {
     expect(clampLeft(50, 100, VIEW)).toBe(50)
     expect(clampLeft(250, 100, VIEW)).toBe(200)
     expect(clampLeft(250, 400, VIEW)).toBe(0)
     expect(clampLeft(250, 400, undefined)).toBe(250)
   })
 
-  it('counts up to the rows shown, of 18 px or 44 under a finger, and the border', () => {
+  it('counts up to the displayed rows, of 18 px or 44 on a touch screen, plus the border', () => {
     expect([listHeight(3, 8, false), listHeight(20, 8, false), listHeight(3, 8, true)]).toEqual([56, 146, 134])
   })
 })
@@ -54,7 +54,7 @@ describe('scrollToItem', () => {
     return ul
   }
 
-  it('scrolls the list until the item is in view, by as little as it takes', () => {
+  it('scrolls the list until the item is in view, by as little as needed', () => {
     const ul = list()
     scrollToItem(ul, 5)
     expect(ul.scrollTop).toBe(80)
@@ -69,7 +69,7 @@ describe('scrollToItem', () => {
 })
 
 describe('useOutsidePress', () => {
-  it('calls back on a press outside the element while active, not inside it, not once inactive', async () => {
+  it('calls back on a press outside the element while active, not inside it, and not once inactive', async () => {
     const open = ref(true)
     let calls = 0
     const Box = defineComponent(() => {
@@ -93,7 +93,7 @@ describe('useOutsidePress', () => {
     expect(calls).toBe(1)
   })
 
-  it('takes a selector of what counts as inside', () => {
+  it('accepts a selector for what counts as inside', () => {
     let calls = 0
     const Box = defineComponent(() => {
       useOutsidePress('[data-mine]', () => calls++, () => true)

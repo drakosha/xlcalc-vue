@@ -36,7 +36,7 @@ describe('memorySource', () => {
     ])
   })
 
-  it('gives a window with every display field', async () => {
+  it('returns a window with every display field', async () => {
     const w = (await memorySource(book()).window({ sheet: 'S', row: 1, rows: 4, col: 1, cols: 4 })) as SheetWindow
     expect(w.text).toEqual([
       ['head', '', '', ''],
@@ -62,14 +62,14 @@ describe('memorySource', () => {
     expect(right.merges).toEqual(['E1:F2'])
   })
 
-  it('cuts a window to the cell limit and refuses an unknown sheet', async () => {
+  it('truncates a window to the cell limit and rejects an unknown sheet', async () => {
     const src = memorySource(book(), { maxCells: 10 })
     const w = (await src.window({ sheet: 'S', row: 1, rows: 100, col: 1, cols: 5 })) as SheetWindow
     expect(w.text).toHaveLength(2)
     await expect(src.window({ sheet: 'Nope', row: 1, rows: 1, col: 1, cols: 1 })).rejects.toThrow('No sheet Nope')
   })
 
-  it('edits without an engine: a formula stays a string, `1.5` is a number, the rest text', async () => {
+  it('edits without an engine: a formula stays a string, `1.5` is a number, the rest is text', async () => {
     const src = memorySource(book())
     const out = await src.edit!([
       { sheet: 'S', cell: 'a5', text: '=SUM(A1:A3)' },
@@ -94,7 +94,7 @@ describe('memorySource', () => {
     expect(w.text).toEqual([['']])
   })
 
-  it('answers the next edits with refusals set by failNext, then applies again', async () => {
+  it('responds to the next edits with the failures set by failNext, then applies edits again', async () => {
     const src = memorySource(book())
     src.failNext({ ok: false, reason: 'conflict', message: 'c' }, { ok: false, reason: 'invalid', message: 'i', at: 3 })
     expect(await src.edit!([{ sheet: 'S', cell: 'A9', text: '1' }])).toEqual({ ok: false, reason: 'conflict', message: 'c' })
@@ -103,7 +103,7 @@ describe('memorySource', () => {
     expect(await src.edit!([{ sheet: 'Nope', cell: 'A1', text: '1' }])).toMatchObject({ ok: false, reason: 'failed' })
   })
 
-  it('keeps widths and heights set by layout', async () => {
+  it('keeps widths and heights set through layout', async () => {
     const src = memorySource(book())
     expect(await src.layout!({ sheet: 'S', columns: 'A:B', width: 12 })).toEqual({ ok: true, changes: [] })
     await src.layout!({ sheet: 'S', rows: '7', height: 40 })
@@ -112,7 +112,7 @@ describe('memorySource', () => {
     expect(w.rowHeights).toEqual({ 7: 40 })
   })
 
-  it('takes a line as a span of one (`C:C`, `5:5`) in the book and in layout, as `C` and `5`', async () => {
+  it('accepts a single-row or single-column span (`C:C`, `5:5`) in the workbook and in layout, like `C` and `5`', async () => {
     const src = memorySource({ sheets: [{ name: 'S', cells: { A1: 1 }, widths: { 'C:C': 30 }, heights: { '5:5': 25 }, outline: { rows: { '3:3': 1 } } }] })
     await src.layout!({ sheet: 'S', columns: 'd:d', width: 9 })
     const w = (await src.window({ sheet: 'S', row: 1, rows: 5, col: 1, cols: 4 })) as SheetWindow
@@ -121,7 +121,7 @@ describe('memorySource', () => {
     expect((await src.sheets())[0]!.outline?.rows).toEqual([{ from: 3, to: 3, level: 1, collapsed: false }])
   })
 
-  it('sends events to subscribers; setCells changes and sends `changed`', async () => {
+  it('sends events to subscribers; setCells changes cells and sends `changed`', async () => {
     const src = memorySource(book())
     const got: SourceEvent[] = []
     const off = src.subscribe!((e) => got.push(e))
@@ -159,7 +159,7 @@ describe('memorySource', () => {
       ],
     })
 
-    it('visibleRows: the header first, conditions on values and substrings, Excel’s sort with empty cells last', async () => {
+    it("visibleRows: the header first, conditions on values and substrings, Excel's sort with empty cells last", async () => {
       const src = memorySource(table())
       expect(await src.visibleRows!('T', { head: 1 })).toEqual({ rows: null })
       expect((await src.visibleRows!('T', { head: 1, cols: { 1: { values: ['a', 'b'] } } })).rows).toEqual([1, 2, 3, 5, 6])
@@ -171,7 +171,7 @@ describe('memorySource', () => {
       expect((await src.visibleRows!('T', { head: 1.5, cols: { 3: { text: ' app ' } } })).rows).toEqual([1, 5, 6])
     })
 
-    it('sorts mixed values in Excel’s order: numbers, text in any case by en-US, FALSE, TRUE, errors, empty cells last either way', async () => {
+    it("sorts mixed values in Excel's order: numbers, text case-insensitively in en-US order, FALSE, TRUE, errors, empty cells last in either direction", async () => {
       const cells = { A1: 'h', A2: 'Item2', A3: 'Item10', A4: true, A5: false, A6: { error: 'DIV0' }, A7: 3, A9: -1, A10: 'Б', A11: 'b' }
       const src = memorySource({ sheets: [{ name: 'S', cells: cells as MemoryBook['sheets'][number]['cells'] }] })
       expect((await src.visibleRows!('S', { head: 1, sort: { col: 1, dir: 'asc' } })).rows).toEqual([1, 9, 7, 11, 3, 2, 10, 5, 4, 6, 8])
@@ -179,14 +179,14 @@ describe('memorySource', () => {
       expect((await src.columnValues!('S', 1, { head: 1 })).values.map((v) => v.text)).toEqual(['-1', '3', 'b', 'Item10', 'Item2', 'Б', 'FALSE', 'TRUE', '#DIV/0!', ''])
     })
 
-    it('keeps errors in their order either way, as Excel’s Sort command does (SORT orders them by ERROR.TYPE)', async () => {
+    it("keeps errors in their order in either direction, as Excel's Sort command does (SORT orders them by ERROR.TYPE)", async () => {
       const cells = { A1: 'h', A2: { error: 'NA' }, A3: { error: 'DIV0' }, A4: { error: 'REF' } }
       const src = memorySource({ sheets: [{ name: 'S', cells: cells as MemoryBook['sheets'][number]['cells'] }] })
       expect((await src.visibleRows!('S', { head: 1, sort: { col: 1, dir: 'asc' } })).rows).toEqual([1, 2, 3, 4])
       expect((await src.visibleRows!('S', { head: 1, sort: { col: 1, dir: 'desc' } })).rows).toEqual([1, 2, 3, 4])
     })
 
-    it('columnValues: counts over the rows the other columns leave, empty as ""', async () => {
+    it('columnValues: counts over the rows the other columns keep, empty as ""', async () => {
       const src = memorySource(table())
       expect(await src.columnValues!('T', 1, { head: 1 })).toEqual({
         values: [
@@ -204,7 +204,7 @@ describe('memorySource', () => {
       expect((await src.columnValues!('T', 3, { head: 1 })).values.map((v) => v.text)).toEqual(['Apple', 'apple pie', 'x', ''])
     })
 
-    it('find: a substring in any case, in row order, only shown rows under a filter', async () => {
+    it('find: a case-insensitive substring, in row order, only visible rows under a filter', async () => {
       const src = memorySource(table())
       expect(await src.find!({ sheet: 'T', query: 'APP' })).toEqual({
         hits: [
@@ -226,7 +226,7 @@ describe('memorySource', () => {
       ],
     })
 
-    it('find: Excel’s options, in formulas (the default) or in shown values, a range, by columns', async () => {
+    it("find: Excel's options, in formulas (the default) or in displayed values, a range, by columns", async () => {
       const src = memorySource(sums())
       const at = async (req: Partial<FindRequest>) => (await src.find!({ sheet: 'F', query: '', ...req })).hits.map((h) => `${h.row}:${h.col}`)
       expect(await at({ query: 'sum' })).toEqual(['1:2', '3:1', '3:2'])
@@ -241,7 +241,7 @@ describe('memorySource', () => {
       expect(await at({ query: '' })).toEqual([])
     })
 
-    it('replace: every hit in formulas whatever `lookIn` says, the texts read as typed, the changes and how many cells', async () => {
+    it('replace: every match in formulas whatever `lookIn` says, texts parsed as typed, the changes and the cell count', async () => {
       const src = memorySource(sums())
       const out = await src.replace!({ sheet: 'F', query: 'a2', lookIn: 'values' }, 'A1')
       expect(out).toEqual({ ok: true, changes: [{ sheet: 'F', cell: 'A3', text: '', value: null, formula: 'SUM(A1:A1)' }], replaced: 1 })
@@ -253,13 +253,13 @@ describe('memorySource', () => {
       expect(await src.replace!({ sheet: 'F', query: 'nothing' }, 'x')).toEqual({ ok: true, changes: [], replaced: 0 })
     })
 
-    it('stats: a rectangle’s totals, over shown rows under a filter', async () => {
+    it("stats: a range's totals, over visible rows under a filter", async () => {
       const src = memorySource(table())
       expect(await src.stats!('T', 'B2:B6', undefined)).toEqual({ cells: 4, numbers: 3, sum: 12, min: -1, max: 10 })
       expect(await src.stats!('T', 'B1:B6', { head: 1, cols: { 1: { values: ['a'] } } })).toEqual({ cells: 3, numbers: 2, sum: 9, min: -1, max: 10 })
     })
 
-    it('a window under a filter goes by display index; only one-row merges on shown rows come', async () => {
+    it('a window under a filter goes by display index; only one-row merges on visible rows are returned', async () => {
       const src = memorySource(table())
       const w = (await src.window({ sheet: 'T', row: 2, rows: 10, col: 1, cols: 4, filter: { head: 1, cols: { 3: { values: ['x'] } } } })) as SheetWindow
       expect(w.row).toBe(2)
@@ -268,7 +268,7 @@ describe('memorySource', () => {
       expect(w.merges).toEqual(['C2:D2'])
     })
 
-    it('recompute: windows answer pending until the time is up', async () => {
+    it('recompute: windows return pending until the time is up', async () => {
       vi.useFakeTimers({ toFake: ['Date'] })
       const src = memorySource(table())
       src.recompute(2000)
@@ -282,7 +282,7 @@ describe('memorySource', () => {
 })
 
 describe('memorySource under a display filter', () => {
-  it('reads windows by the list `visibleRows` last gave, so a row an edit took out stays where the sheet holds it until Reapply', async () => {
+  it('reads windows by the list `visibleRows` last returned, so a row that no longer matches after an edit stays where the sheet holds it until Reapply', async () => {
     const filter = { head: 1, cols: { 2: { values: ['a'] } } }
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 'Name', B1: 'Status', A2: 'n2', B2: 'a', A3: 'n3', B3: 'b', A4: 'n4', B4: 'a', A5: 'n5', B5: 'b', A6: 'n6', B6: 'a' } }] })
     const column = async () => ((await source.window({ sheet: 'S', row: 1, rows: 10, col: 1, cols: 1, filter })) as { text: string[][] }).text.map((r) => r[0])

@@ -22,7 +22,7 @@ const okButton = (w: VueWrapper) => w.find('[data-fmt-ok]')
 const value = (w: VueWrapper, sel: string) => (w.find(sel).element as HTMLInputElement | HTMLSelectElement).value
 
 describe('FormatDialog', () => {
-  it('opens at the active cell’s look: its number format, font, alignment and fill', async () => {
+  it("opens with the active cell's formatting: its number format, font, alignment and fill", async () => {
     const w = await open(at('B2', { numberFormat: '0.00%', style: { font: { bold: true, size: 14 }, alignment: { horizontal: 'right', indent: 2 }, fill: { color: '#ffff00' } } }))
     expect((w.find('[data-fmt-number="percentage"]').element as HTMLInputElement).checked).toBe(true)
     expect(value(w, '[data-fmt-code]')).toBe('0.00%')
@@ -33,7 +33,7 @@ describe('FormatDialog', () => {
     expect(w.find('[data-fmt-colour-of="font"] [data-fmt-colour-none]').attributes('aria-pressed')).toBe('true')
   })
 
-  it('OK emits what changed over the selection and closes; nothing changed, it only closes', async () => {
+  it('OK emits what changed over the selection and closes; with nothing changed it only closes', async () => {
     const w = await open(at('B2:C3', { style: { font: { bold: true } } }))
     await tab(w, 'font')
     await w.find('[data-fmt-font-style]').setValue('italic')
@@ -50,7 +50,7 @@ describe('FormatDialog', () => {
     expect(same.emitted('close')).toHaveLength(1)
   })
 
-  it('Cancel, Esc and the cross close without changes', async () => {
+  it('Cancel, Esc and the close button close without changes', async () => {
     const w = await open(at('A1'))
     await tab(w, 'font')
     await w.find('[data-fmt-strike]').setValue(true)
@@ -61,7 +61,7 @@ describe('FormatDialog', () => {
     expect(w.emitted('close')).toHaveLength(3)
   })
 
-  it('draws the Border tab’s line on the edges: a red medium outline of a range in one call', async () => {
+  it("draws the Border tab's line on the edges: a red medium outline of a range in one call", async () => {
     const w = await open(at('B2:C3'))
     await tab(w, 'border')
     await w.find('[data-fmt-line="medium"]').trigger('click')
@@ -81,7 +81,7 @@ describe('FormatDialog', () => {
     ])
   })
 
-  it('one cell has no inside lines, and its sides open as the cell has them', async () => {
+  it('a single cell has no inside lines, and its sides open as the cell has them', async () => {
     const w = await open(at('B2', { style: { border: { bottom: { style: 'thin' } } } }))
     await tab(w, 'border')
     expect(w.find('[data-fmt-edge="insideV"]').attributes('disabled')).toBeDefined()
@@ -92,7 +92,7 @@ describe('FormatDialog', () => {
     expect(w.emitted('apply')![0]![0]).toEqual([{ range: 'B2', style: { border: { bottom: null } } }])
   })
 
-  it('the Number tab is Excel’s list: an item puts its code in the field, a code typed is named by its category', async () => {
+  it("the Number tab is Excel's list: an item puts its code in the input, and a typed code is named by its category", async () => {
     const w = await open(at('A1'))
     expect(w.find('[data-fmt-category]').text()).toBe('Category: General')
     await w.find('[data-fmt-number="scientific"]').setValue(true)
@@ -104,13 +104,13 @@ describe('FormatDialog', () => {
     expect(w.emitted('apply')).toEqual([[[{ numberFormat: '0.000' }]]])
   })
 
-  it('names the list’s items in the book’s locale', async () => {
+  it("names the list's items in the workbook's locale", async () => {
     const w = await open(at('A1', { numberFormat: '0%' }), 'ru-RU')
     expect(w.findAll('.xs-fmt-choice').slice(0, 3).map((c) => c.text())).toEqual(['Общий', 'Числовой', 'Денежный'])
     expect(w.find('[data-fmt-category]').attributes('data-fmt-category-key')).toBe('percentage')
   })
 
-  it('holds OK back while a field is past Excel’s limits or a colour code is no colour', async () => {
+  it("blocks OK while an input is beyond Excel's limits or a color code is invalid", async () => {
     const w = await open(at('A1'))
     await tab(w, 'font')
     await w.find('[data-fmt-font-size]').setValue('500')
@@ -133,7 +133,7 @@ describe('FormatDialog', () => {
 
 describe('the toolbar’s Format Cells button', () => {
   const source = { sheets: async () => [], window: async () => ({ pending: { elapsedMs: 0 } }), format: vi.fn(async (_s: string, _p: FormatPatch[]): Promise<EditOutcome> => ({ ok: true, changes: [] })) } as SheetSource
-  it('is there when the host listens to `formatCells`, which it emits', async () => {
+  it('is present when the host listens to `formatCells`, which it emits', async () => {
     const onFormatCells = vi.fn()
     const w = mount(SheetToolbar, { props: { source, state: at('A1'), onFormatCells }, attachTo: document.body })
     await settle()
@@ -143,7 +143,7 @@ describe('the toolbar’s Format Cells button', () => {
     expect(plain.find('[data-tb="format-cells"]').exists()).toBe(false)
   })
 
-  it('opens the host’s dialog once the host listens, even when it began listening after the toolbar was made', async () => {
+  it("opens the host's dialog once the host listens, even when it started listening after the toolbar was created", async () => {
     const sheet = { formatCells: vi.fn() } as unknown as SheetViewApi
     const w = mount(SheetToolbar, { props: { source, state: at('A1'), sheet }, attachTo: document.body })
     await settle()

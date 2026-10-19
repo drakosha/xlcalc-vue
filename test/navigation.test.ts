@@ -27,8 +27,8 @@ async function goTo(w: VueWrapper, address: string): Promise<void> {
   await settle()
 }
 
-describe('address box and history', () => {
-  it('goes to a range on another sheet, flashes it, and back returns', async () => {
+describe('Name Box and Back history', () => {
+  it('goes to a range on another sheet, flashes it, and Back returns', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'B2')
     await goTo(w, "'Two sheet'!B2:C3")
@@ -43,7 +43,7 @@ describe('address box and history', () => {
     expect(active(w)).toBe('2:2')
   })
 
-  it('the flash stays on its sheet: another sheet shown while it lasts has none', async () => {
+  it('the flash stays on its sheet: another sheet displayed while it lasts has none', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'A1:B3')
     expect(w.findAll('.xs-flash').length).toBe(6)
@@ -53,7 +53,7 @@ describe('address box and history', () => {
     expect(w.findAll('.xs-flash').length).toBe(0)
   })
 
-  it('a sheet alone switches the tab; a bad address says so', async () => {
+  it('a sheet name alone switches the tab; an invalid address is reported', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true, messages: { addressBad: 'Bad address' } })
     await goTo(w, "'Two sheet'")
     expect(w.find('.xs-tab-on').text()).toBe('Two sheet')
@@ -63,7 +63,7 @@ describe('address box and history', () => {
     expect(w.find('.xs-message').text()).toBe('Bad address')
   })
 
-  it('takes `focus` given before the book loaded and every new focus after', async () => {
+  it('applies a `focus` given before the workbook loaded and every new focus after it', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true, focus: { ref: "'Two sheet'!D40" } })
     expect(w.find('.xs-tab-on').text()).toBe('Two sheet')
     expect(active(w)).toBe('40:4')
@@ -91,7 +91,7 @@ describe('address box and history', () => {
 })
 
 describe('formula bar', () => {
-  it('shows the formula with its references coloured; Ctrl+click on one selects the range, on another sheet too', async () => {
+  it('shows the formula with its references colored; Ctrl+click on one selects the range, on another sheet too', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await goTo(w, 'B1')
     expect(w.findAll('.xs-fx-layer .xs-ref').map((r) => r.text())).toEqual(['A1:A3'])
@@ -122,7 +122,7 @@ describe('selection', () => {
     expect(w.find('.xs-stats').text()).toBe('Count: 6 · Sum: 16 · Average: 3.2 · Min: 1 · Max: 6 · Numbers: 5')
   })
 
-  it('totals over frozen rows and the body: each window counts its rows; a range past them gives the count of cells', async () => {
+  it('totals over frozen rows and the body: each window counts its rows; a range beyond them gives the cell count', async () => {
     const f = fakeSource([{ name: 'S', maxRow: 5000, maxCol: 8, freeze: { rows: 2, cols: 0 } }], { cell: (_, r, c) => (c <= 2 ? String(r) : '') })
     delete (f.source as { stats?: unknown }).stats
     const w = await mountSheet(f.source, { readOnly: true })
@@ -132,7 +132,7 @@ describe('selection', () => {
     expect(w.find('.xs-stats').text()).toBe('Cells: 8,000')
   })
 
-  it('the address box writes a range over every row or column as Excel does: B:B, 2:2', async () => {
+  it('the Name Box writes a range over every row or column as Excel does: B:B, 2:2', async () => {
     const f = fakeSource([{ name: 'S', maxRow: 1_048_576, maxCol: 16_384 }])
     const w = await mountSheet(f.source, { readOnly: true })
     const address = () => (w.find('.xs-address').element as HTMLInputElement).value
@@ -142,7 +142,7 @@ describe('selection', () => {
     expect(address()).toBe('2:2')
   })
 
-  it('whole columns and rows of a small sheet stay whole, as Excel writes them: B:D, 2:5, the sheet, after the grid grows too', async () => {
+  it('entire columns and rows of a small sheet stay entire, as Excel writes them: B:D, 2:5, the sheet, after the grid grows too', async () => {
     const states: { ref: string }[] = []
     const f = fakeSource([{ name: 'S', maxRow: 10, maxCol: 5 }])
     const w = await mountSheet(f.source, { onState: (s: { ref: string } | null) => s && states.push(s) })
@@ -200,7 +200,7 @@ describe('selection', () => {
 })
 
 describe('keys on an editable sheet', () => {
-  it('Control and an arrow go where the source\'s end says, as Excel\'s Range.End; Shift extends there', async () => {
+  it("Ctrl+arrow goes where the source's end points, as Excel's Range.End; Shift extends there", async () => {
     const src = memorySource(book())
     const end = vi.fn(async (_sheet: string, cell: string, dir: string) => (dir === 'down' ? 'A40' : cell === 'A40' ? 'F40' : 'A1'))
     const w = await mountSheet({ ...src, end })
@@ -216,7 +216,7 @@ describe('keys on an editable sheet', () => {
     expect(addressOf(w)).toBe('A40:F40')
   })
 
-  it('Enter and Tab move the active cell inside a selection of several cells, which stays, round past its end, as Excel', async () => {
+  it('Enter and Tab move the active cell inside a multi-cell selection, which stays, wrapping around at its end, as in Excel', async () => {
     const w = await mountSheet(memorySource(book()))
     const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
     await goTo(w, 'B2:C3')
@@ -251,7 +251,7 @@ describe('keys on an editable sheet', () => {
     expect(sel(w)).toEqual(['2:3'])
   })
 
-  it('an arrow without Shift moves from the active cell, not from the selection\'s far corner, as Excel', async () => {
+  it("an arrow without Shift moves from the active cell, not from the selection's far corner, as in Excel", async () => {
     const w = await mountSheet(memorySource(book()))
     const key = (k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
     await goTo(w, 'B2')
@@ -294,7 +294,7 @@ describe('keys on an editable sheet', () => {
 })
 
 describe('a phone', () => {
-  it('the formula bar colours a formula\'s references, and a press with a key held does not go to them', async () => {
+  it("the formula bar colors a formula's references, and a press with a key held does not navigate to them", async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-scroller') ? 390 : 0
     })
@@ -309,7 +309,7 @@ describe('a phone', () => {
     expect(active(w)).toBe('1:2')
   })
 
-  it('a narrow frame narrows the numbers; a tap selects, a double tap and a tap on the bar open the field', async () => {
+  it('a narrow viewport narrows the row numbers; a tap selects, a double tap and a tap on the formula bar open the editor', async () => {
     const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-scroller') ? 390 : 0
     })

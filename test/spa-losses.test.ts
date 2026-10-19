@@ -33,7 +33,7 @@ describe('SpaLosses: what a file lost, in one line', () => {
     expect(w.find('[data-spa-lost-more]').attributes('aria-expanded')).toBe('false')
   })
 
-  it('shows the details on a click: messages with their counts, sheets, cells and names, the long lists cut', async () => {
+  it('shows the details on a click: messages with their counts, sheets, cells and names, with long lists truncated', async () => {
     const w = mountNotice()
     await w.find('[data-spa-lost-more]').trigger('click')
     const details = w.find('[data-spa-lost-details]')

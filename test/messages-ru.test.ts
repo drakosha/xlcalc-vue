@@ -16,7 +16,7 @@ function texts(): [string, string][] {
 }
 
 describe('Russian texts', () => {
-  it('say "столбец" for a column', () => {
+  it('use "столбец" for a column', () => {
     expect(texts().filter(([, t]) => /колон/i.test(t))).toEqual([])
     expect(ruMessages.menuColumnWidth).toBe('Ширина столбца…')
     expect(ruMessages.filterColumn('B')).toBe('Столбец B')

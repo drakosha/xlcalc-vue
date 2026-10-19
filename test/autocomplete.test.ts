@@ -26,9 +26,9 @@ async function typeFormula(w: VueWrapper, text: string): Promise<void> {
   await settle()
 }
 
-describe("nameAt of xlcalc/text: the name typed at the caret, in the book's locale", () => {
+describe("nameAt of xlcalc/text: the name typed at the caret, in the workbook's locale", () => {
   const ru = { locale: ruRU }
-  it('after =, an operator, (, the locale’s separator or a space', () => {
+  it("after =, an operator, (, the locale's separator or a space", () => {
     expect(nameAt('=СУ', 3, ru)).toEqual({ from: 1, to: 3, typed: 'СУ' })
     expect(nameAt('=1+ЕС', 5, ru)).toEqual({ from: 3, to: 5, typed: 'ЕС' })
     expect(nameAt('=СУММ(A1;СР', 11, ru)).toEqual({ from: 9, to: 11, typed: 'СР' })
@@ -37,16 +37,16 @@ describe("nameAt of xlcalc/text: the name typed at the caret, in the book's loca
     expect(nameAt('=(СТАНДОТКЛОН.', 14, ru)).toEqual({ from: 2, to: 14, typed: 'СТАНДОТКЛОН.' })
   })
 
-  it('the other locale’s separator is none: `;` in en-US, `,` (the decimal comma) in ru-RU', () => {
+  it("the other locale's separator does not count: `;` in en-US, `,` (the decimal comma) in ru-RU", () => {
     expect(nameAt('=СУММ(A1;СР', 11)).toBeNull()
     expect(nameAt('=SUM(A1,AV', 10, ru)).toBeNull()
   })
 
-  it('takes the rest of the name after the caret into its place', () => {
+  it('includes the rest of the name after the caret', () => {
     expect(nameAt('=СУММ(A1)', 3, ru)).toEqual({ from: 1, to: 5, typed: 'СУ' })
   })
 
-  it('none outside a formula, in a string, a quoted sheet, a table, after ! or $, or with nothing typed', () => {
+  it('none outside a formula, in a string, a quoted sheet name, a table, after ! or $, or with nothing typed', () => {
     expect(nameAt('СУ', 2, ru)).toBeNull()
     expect(nameAt('=', 1, ru)).toBeNull()
     expect(nameAt('=СУММ(', 6, ru)).toBeNull()
@@ -60,8 +60,8 @@ describe("nameAt of xlcalc/text: the name typed at the caret, in the book's loca
   })
 })
 
-describe('the list under the cell', () => {
-  it('shows the functions the typed name begins, in any case, the first highlighted; typing on narrows it, a character not of a name closes it', async () => {
+describe('the list below the cell', () => {
+  it('shows the functions that begin with the typed name, case-insensitively, the first highlighted; further typing narrows it, a character that cannot be part of a name closes it', async () => {
     const w = await mountSheet(memorySource(book()))
     await typeFormula(w, '=су')
     expect(shown()).toEqual(['СУММ', 'СУММЕСЛИ', 'СУММЕСЛИМН', 'СУММПРОИЗВ'])
@@ -81,7 +81,7 @@ describe('the list under the cell', () => {
     expect(editorOpen(w)).toBe(true)
   })
 
-  it("follows the book's locale: a name after ru-RU's `;`, none after its decimal comma", async () => {
+  it("follows the workbook's locale: a name after ru-RU's `;`, none after its decimal comma", async () => {
     const w = await mountSheet(memorySource(book()), { locale: 'ru-RU' })
     await typeFormula(w, '=СУММ(A1;Е')
     expect(shown()).toEqual(['ЕСЛИ'])
@@ -89,7 +89,7 @@ describe('the list under the cell', () => {
     expect(shown()).toEqual([])
   })
 
-  it('the arrows, Page keys, Home and End move the highlight; Tab enters the name with "(" and closes the list', async () => {
+  it('the arrows, Page Up and Page Down, Home and End move the highlight; Tab inserts the name with "(" and closes the list', async () => {
     const w = await mountSheet(memorySource(book()))
     await typeFormula(w, '=СУ')
     await editorKey(w, 'ArrowDown')
@@ -113,7 +113,7 @@ describe('the list under the cell', () => {
     expect(active(w)).toBe('1:1')
   })
 
-  it('Tab replaces the whole name and keeps a "(" that follows it', async () => {
+  it('Tab replaces the entire name and keeps a "(" that follows it', async () => {
     const w = await mountSheet(memorySource(book()))
     await key(w, '=')
     const el = field(w)
@@ -129,7 +129,7 @@ describe('the list under the cell', () => {
     expect(el.selectionStart).toBe(10)
   })
 
-  it('Esc closes the list and keeps the field; the second Esc cancels the edit', async () => {
+  it('Esc closes the list and keeps the editor open; a second Esc cancels the edit', async () => {
     const { source, edits } = recordedSource()
     const w = await mountSheet(source)
     await typeFormula(w, '=СУ')
@@ -143,7 +143,7 @@ describe('the list under the cell', () => {
     expect(edits).toEqual([])
   })
 
-  it('Enter with the list open commits the cell as typed and moves down, as Excel for Windows', async () => {
+  it('Enter with the list open commits the cell as typed and moves down, as in Excel for Windows', async () => {
     const { source, edits } = recordedSource()
     const w = await mountSheet(source)
     await typeFormula(w, '=СУ')
@@ -154,7 +154,7 @@ describe('the list under the cell', () => {
     expect(shown()).toEqual([])
   })
 
-  it('Alt+Enter breaks the line and closes the list', async () => {
+  it('Alt+Enter inserts a line break and closes the list', async () => {
     const w = await mountSheet(memorySource(book()))
     await typeFormula(w, '=СУ')
     await editorKey(w, 'Enter', { altKey: true })
@@ -163,7 +163,7 @@ describe('the list under the cell', () => {
     expect(field(w).value).toBe('=СУ\n')
   })
 
-  it('a click highlights an item, a double click enters it', async () => {
+  it('a click highlights an item, a double click inserts it', async () => {
     const w = await mountSheet(memorySource(book()))
     await typeFormula(w, '=СУ')
     await w.find('[data-xs-function="СУММПРОИЗВ"]').trigger('click')
@@ -175,7 +175,7 @@ describe('the list under the cell', () => {
     expect(shown()).toEqual([])
   })
 
-  it('Left and Right move the caret and the list follows the name before it', async () => {
+  it('Left and Right move the caret, and the list follows the name before it', async () => {
     const w = await mountSheet(memorySource(book()))
     await typeFormula(w, '=СУММ')
     expect(shown()).toHaveLength(4)
@@ -197,7 +197,7 @@ describe('the list under the cell', () => {
     expect(shown()).toEqual([])
   })
 
-  it('no list for text that is not a formula, nor in a string', async () => {
+  it('no list for text that is not a formula, nor inside a string', async () => {
     const w = await mountSheet(memorySource(book()))
     await key(w, 'С')
     await type(w, 'СУ')
@@ -209,8 +209,8 @@ describe('the list under the cell', () => {
   })
 })
 
-describe('the source’s names', () => {
-  it('asked once per source, when a field opens, with a signal; a new source is asked again', async () => {
+describe("the source's names", () => {
+  it('requested once per source, when an editor opens, with a signal; a new source is queried again', async () => {
     const one = memorySource(book())
     const asked = vi.spyOn(one, 'functionNames')
     const w = await mountSheet(one)
@@ -233,7 +233,7 @@ describe('the source’s names', () => {
     expect(shown()).toEqual(['SUM', 'SUMIF'])
   })
 
-  it('names that come after the typing open the list for what is typed then', async () => {
+  it('names that arrive after typing open the list for what is typed by then', async () => {
     let give: (names: string[]) => void = () => {}
     const fake = fakeSource([{ name: 'S', maxRow: 3, maxCol: 3 }])
     fake.source.functionNames = () => new Promise((resolve) => (give = resolve))
@@ -245,7 +245,7 @@ describe('the source’s names', () => {
     expect(shown()).toEqual(['СУММ'])
   })
 
-  it('a failed request is asked again with the next field', async () => {
+  it('a failed request is retried when the next editor opens', async () => {
     const fake = fakeSource([{ name: 'S', maxRow: 3, maxCol: 3 }])
     const names = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(['СУММ'])
     fake.source.functionNames = names
@@ -268,8 +268,8 @@ describe('the source’s names', () => {
   })
 })
 
-describe('the list under the formula bar', () => {
-  it('shows under the bar’s field; Tab enters the name there', async () => {
+describe('the list below the formula bar', () => {
+  it("appears below the formula bar's input; Tab inserts the name there", async () => {
     const w = await mountSheet(memorySource(book()))
     await pressBar(w, 0)
     const bar = w.find('.xs-fx-input')
@@ -289,7 +289,7 @@ describe('FunctionList', () => {
   const FIELD = { top: 100, left: 300, width: 80, height: 20 }
   const VIEW = { top: 0, left: 0, width: 360, height: 400 }
 
-  it('under the field, eight items high, kept inside the view; over the field where the view has no room below', () => {
+  it('below the editor, eight items tall, kept inside the viewport; above the editor where the viewport has no room below', () => {
     const items = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
     const w = mount(FunctionList, { props: { rect: FIELD, items, view: VIEW } })
     const style = (w.element as HTMLElement).style
@@ -298,7 +298,7 @@ describe('FunctionList', () => {
     expect((low.element as HTMLElement).style.top).toBe(`${350 - 8 * 18 - 2}px`)
   })
 
-  it('under a finger the items are 44 px and a tap enters one; with the mouse a click highlights', async () => {
+  it('on a touch screen the items are 44 px and a tap inserts one; with a mouse a click highlights', async () => {
     const w = mount(FunctionList, { props: { rect: FIELD, items: ['СУММ', 'СУММЕСЛИ'], touch: true, messages: { functionList: 'Функции' } } })
     expect(w.classes()).toContain('xs-fl-touch')
     expect((w.element as HTMLElement).style.maxHeight).toBe(`${2 * 44 + 2}px`)
@@ -311,7 +311,7 @@ describe('FunctionList', () => {
     expect(mouse.emitted('pick')).toBeUndefined()
   })
 
-  it('a press on the list keeps the field’s focus', async () => {
+  it("a press on the list keeps the editor's focus", async () => {
     const w = mount(FunctionList, { props: { rect: FIELD, items: ['СУММ'] }, attachTo: document.body })
     const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
     w.find('li').element.dispatchEvent(down)

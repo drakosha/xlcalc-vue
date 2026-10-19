@@ -47,7 +47,7 @@ async function menuOn(el: { trigger: (e: string, o?: object) => Promise<void> },
 }
 
 describe('the outline bars', () => {
-  it('draw brackets with a tick at the far end and a button on the summary line, − expanded and + collapsed', async () => {
+  it('draw brackets with a tick at the far end and a button on the summary row, − when expanded and + when collapsed', async () => {
     const w = await mountSheet(memorySource(book()))
     expect(numbers(w).slice(0, 7)).toEqual(['1', '2', '3', '4', '5', '10', '11'])
     const slots = (row: number) =>
@@ -66,7 +66,7 @@ describe('the outline bars', () => {
     expect(w.findAll('.xs-ol-levels-columns button').map((b) => b.text())).toEqual(['1', '2', '3'])
   })
 
-  it('take three slots of 16 px each way, the headers and numbers stick past them, frozen rows below both', async () => {
+  it('take three 16 px slots on each axis, with the headers and row numbers sticking beyond them and frozen rows below both', async () => {
     const w = await mountSheet(memorySource(book()))
     const table = w.find('.xs-table').element as HTMLElement
     expect([table.style.getPropertyValue('--xs-outline-w'), table.style.getPropertyValue('--xs-outline-h')]).toEqual(['48px', '48px'])
@@ -78,7 +78,7 @@ describe('the outline bars', () => {
     expect((plain.find('.xs-table').element as HTMLElement).style.getPropertyValue('--xs-outline-w')).toBe('0px')
   })
 
-  it('leave out the rows’ bar under a display filter, the columns’ stays', async () => {
+  it('omit the row bar under a display filter, while the column bar stays', async () => {
     localStorage.setItem('k:filter:S', JSON.stringify({ cols: { 1: { values: ['a'] } }, sort: null }))
     const w = await mountSheet(memorySource(book()), { storageKey: 'k' })
     expect(w.find('[data-xs-filter-status]').exists()).toBe(true)
@@ -89,7 +89,7 @@ describe('the outline bars', () => {
 })
 
 describe('the buttons', () => {
-  it('a group’s button collapses or expands it through the source, and the sheet shows the result', async () => {
+  it("a group's button collapses or expands it through the source, and the sheet shows the result", async () => {
     const { source, outline } = watched()
     const w = await mountSheet(source)
     await button(w, 'rows', '6:9:2').trigger('click')
@@ -108,7 +108,7 @@ describe('the buttons', () => {
     expect(w.findAll('.xs-head').map((h) => h.text()).slice(0, 3)).toEqual(['A', 'E', 'F'])
   })
 
-  it('a level button shows that level: 1 the summaries alone, 3 everything', async () => {
+  it('a level button shows that level: 1 only the summaries, 3 everything', async () => {
     const { source, outline } = watched()
     const w = await mountSheet(source)
     await level(w, 'rows', 1).trigger('click')
@@ -125,7 +125,7 @@ describe('the buttons', () => {
     ])
   })
 
-  it('read the sheet again after a source that does not tell; a refusal shows its message', async () => {
+  it('reload the sheet after a source that reports nothing; a rejection displays its message', async () => {
     const source = memorySource(book())
     const sheets = vi.spyOn(source, 'sheets')
     source.outline = vi.fn(async (): Promise<EditOutcome> => ({ ok: false, reason: 'refused', message: 'Нельзя' }))
@@ -141,7 +141,7 @@ describe('the buttons', () => {
     expect(sheets.mock.calls.length).toBe(before + 1)
   })
 
-  it('are drawn but do not press without the source’s outline, or on a read-only sheet', async () => {
+  it("are drawn but do nothing without the source's outline, or on a read-only sheet", async () => {
     const plain = memorySource(book())
     delete (plain as { outline?: unknown }).outline
     const w = await mountSheet(plain)
@@ -154,7 +154,7 @@ describe('the buttons', () => {
     expect(outline).not.toHaveBeenCalled()
   })
 
-  it('SheetView exposes outline, as the buttons go; null without the source’s method', async () => {
+  it("SheetView exposes outline, as the buttons use it; null without the source's method", async () => {
     const { source, outline } = watched()
     const w = await mountSheet(source)
     expect(await (w.vm as unknown as SheetViewApi).outline({ op: 'expand', sheet: 'S', rows: '6:9', level: 2 })).toEqual(OK)
@@ -171,7 +171,7 @@ describe('Group and Ungroup', () => {
   const num = (w: VueWrapper, row: number) => w.findAll('.xs-num').find((n) => n.text() === String(row))!
   const head = (w: VueWrapper, col: number) => w.findAll('.xs-head')[col - 1]!
 
-  it('from the menu on numbers and letters, over the selected lines', async () => {
+  it('from the menu on row numbers and column letters, over the selected rows or columns', async () => {
     const { source, outline } = watched()
     const w = await mountSheet(source, { messages: ruMessages })
     await num(w, 2).trigger('click')
@@ -190,7 +190,7 @@ describe('Group and Ungroup', () => {
     expect(w.findAll('.xs-ol-levels-rows button')).toHaveLength(4)
   })
 
-  it('says what Excel refuses without sending it: Ungroup of lines in no group, Group past seven levels', async () => {
+  it('reports what Excel rejects without sending it: Ungroup of rows or columns in no group, Group beyond seven levels', async () => {
     const deep = book()
     deep.sheets[0]!.outline = { rows: { 3: 7 } }
     const source = memorySource(deep)
@@ -208,7 +208,7 @@ describe('Group and Ungroup', () => {
     expect(sent(outline)).toEqual([{ op: 'group', sheet: 'S', rows: '2:3' }])
   })
 
-  it('by Excel’s keys over whole lines: Shift+Alt+→ and ←, Cmd+Shift+K and J (any layout)', async () => {
+  it("by Excel's keys over entire rows or columns: Shift+Alt+→ and ←, Cmd+Shift+K and J (any layout)", async () => {
     const { source, outline } = watched()
     const w = await mountSheet(source)
     await num(w, 11).trigger('click')
@@ -233,7 +233,7 @@ describe('Group and Ungroup', () => {
     expect(address(w)).toBe('2:2')
   })
 
-  it('over cells the box asks rows or columns, rows first, as Excel’s does; Cancel sends nothing', async () => {
+  it("over a cell range the dialog asks for rows or columns, rows first, as Excel's does; Cancel sends nothing", async () => {
     const { source, outline } = watched()
     const w = await mountSheet(source, { messages: ruMessages })
     await goTo(w, 'B2:C3')
@@ -256,7 +256,7 @@ describe('Group and Ungroup', () => {
     expect(sent(outline)).toEqual([{ op: 'group', sheet: 'S', columns: 'B:C' }])
   })
 
-  it('without the source’s outline Shift+Alt+→ extends the selection as before and the menu has no items for it', async () => {
+  it("without the source's outline Shift+Alt+→ extends the selection as before, and the menu has no items for it", async () => {
     const plain = memorySource(book())
     delete (plain as { outline?: unknown }).outline
     const w = await mountSheet(plain)

@@ -44,15 +44,15 @@ function pasteUnread(w: VueWrapper): void {
 const ants = (w: VueWrapper) => w.find('[data-xs-ants]').exists()
 const ops = (structure: ReturnType<typeof withStructure>['structure']) => structure.mock.calls.map((c) => c[0])
 
-describe('the clipboard’s plain text, as Excel copies it (xlcalc’s formatClipboard)', () => {
-  it('rows end with CRLF, a field with a tab or a line break goes in quotes, a hidden column is left out', async () => {
+describe("the clipboard's plain text, as Excel copies it (xlcalc's formatClipboard)", () => {
+  it('rows end with CRLF, a field with a tab or a line break is quoted, a hidden column is omitted', async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 'a\tb', B1: 'hidden', C1: 'say "hi"', A2: 'x\ny', C2: 3 }, widths: { B: 0 } }] })
     const w = await mountSheet(source)
     await goTo(w, 'A1:C2')
     expect(clipboard(w, 'copy')).toBe('"a\tb"\tsay "hi"\r\n"x\ny"\t3\r\n')
   })
 
-  it('on a Mac the text has no CRLF at the end, as Excel for Mac copies', async () => {
+  it('on a Mac the text has no final CRLF, as Excel for Mac copies', async () => {
     vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel')
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'A1:A2')
@@ -60,8 +60,8 @@ describe('the clipboard’s plain text, as Excel copies it (xlcalc’s formatCli
   })
 })
 
-describe('Control+C and Control+V inside the book', () => {
-  it('a copy marks the range; a paste of its text copies the range from the top-left cell and selects what it pasted; the mark stays', async () => {
+describe('Ctrl+C and Ctrl+V within the workbook', () => {
+  it('a copy marks the range; pasting its text copies the range from the top-left cell and selects the pasted range; the mark stays', async () => {
     const { source, structure, edit } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'A1:B2')
@@ -79,7 +79,7 @@ describe('Control+C and Control+V inside the book', () => {
     expect(ants(w)).toBe(true)
   })
 
-  it('tiles a selection the copy’s size divides; another selection gets one copy from its top-left cell', async () => {
+  it('tiles a selection whose size is a multiple of the copy; another selection gets one copy from its top-left cell', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'A1:B1')
@@ -98,7 +98,7 @@ describe('Control+C and Control+V inside the book', () => {
     ])
   })
 
-  it('pastes on another sheet, and a clipboard the browser does not give pastes the copy', async () => {
+  it('pastes on another sheet, and a clipboard the browser does not provide pastes the copy', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'B1')
@@ -115,7 +115,7 @@ describe('Control+C and Control+V inside the book', () => {
     expect(ants(w)).toBe(true)
   })
 
-  it('a cut moves the range to the selection’s top-left cell, its mark goes, and its text is not pasted again', async () => {
+  it("a cut moves the range to the selection's top-left cell, its mark disappears, and pasting its text again does nothing", async () => {
     const { source, structure, edit } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'A1:A2')
@@ -134,7 +134,7 @@ describe('Control+C and Control+V inside the book', () => {
     expect(edit).not.toHaveBeenCalled()
   })
 
-  it('other text pastes as text: the clipboard is another’s now, the copy mode ends', async () => {
+  it('other text pastes as text: the clipboard now holds something else, and copy mode ends', async () => {
     const { source, structure, edit } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'A1:B2')
@@ -147,7 +147,7 @@ describe('Control+C and Control+V inside the book', () => {
     expect(ants(w)).toBe(false)
   })
 
-  it('Esc and a field opened end the copy mode, and a paste of its text does nothing then, as in Excel; a change of cells ends it too', async () => {
+  it('Esc and opening an editor end copy mode, and pasting its text then does nothing, as in Excel; a change of cells ends it too', async () => {
     const { source, structure, edit } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'A1')
@@ -176,7 +176,7 @@ describe('Control+C and Control+V inside the book', () => {
     expect(ants(w)).toBe(false)
   })
 
-  it('formatting leaves the copy mode on', async () => {
+  it('formatting leaves copy mode on', async () => {
     const { source } = withStructure()
     source.format = vi.fn(async () => OK)
     const w = await mountSheet(source)
@@ -188,7 +188,7 @@ describe('Control+C and Control+V inside the book', () => {
     expect(ants(w)).toBe(true)
   })
 
-  it('a refusal shows the source’s message and leaves the selection; a locked target is not sent', async () => {
+  it("a rejection displays the source's message and keeps the selection; a locked target is not sent", async () => {
     const { source, structure } = withStructure(() => ({ ok: false, reason: 'refused', message: 'The copy does not fit' }))
     const w = await mountSheet(source)
     await goTo(w, 'A1:A2')
@@ -205,7 +205,7 @@ describe('Control+C and Control+V inside the book', () => {
     expect(w.find('.xs-message').text()).toContain('script')
   })
 
-  it('without structure the copy pastes as its text; a read-only sheet copies, and cuts and pastes nothing', async () => {
+  it('without structure the copy pastes as text; a read-only sheet copies, and cuts and pastes nothing', async () => {
     const plain = memorySource(book())
     const edit = vi.spyOn(plain, 'edit')
     const w = await mountSheet(plain)
@@ -230,7 +230,7 @@ describe('Control+C and Control+V inside the book', () => {
     expect(structure).not.toHaveBeenCalled()
   })
 
-  it('under the display filter a copy is the shown rows’ text alone, without a mark, after the filter too', async () => {
+  it('under the display filter a copy is the text of the visible rows only, without a mark, after the filter is cleared too', async () => {
     const { source, structure, edit } = withStructure()
     const w = await mountSheet(source)
     await w.findAll('.xs-head')[0]!.find('.xs-funnel').trigger('click')
@@ -254,7 +254,7 @@ describe('Control+C and Control+V inside the book', () => {
   })
 })
 
-describe('the cells’ menu', () => {
+describe('the cell menu', () => {
   const items = () => [...document.querySelectorAll<HTMLElement>('[data-xs-menu]')].map((b) => b.dataset.xsMenu)
   const disabled = (id: string) => document.querySelector<HTMLButtonElement>(`[data-xs-menu="${id}"]`)!.disabled
   const pick = async (id: string) => {
@@ -272,7 +272,7 @@ describe('the cells’ menu', () => {
     return { api, store }
   }
 
-  it('a right click opens Cut, Copy and Paste over the selection, then the freeze and the precedents; a cell outside it is selected first', async () => {
+  it('a right click opens Cut, Copy and Paste for the selection, then freezing and the precedents; a cell outside it is selected first', async () => {
     const { source } = withStructure()
     const w = await mountSheet(source, { messages: ruMessages })
     await goTo(w, 'A1:B2')
@@ -287,7 +287,7 @@ describe('the cells’ menu', () => {
     expect(address(w)).toBe('C4')
   })
 
-  it('Copy writes the text through the clipboard API; Paste reads it back and pastes the range; Cut and Paste move it', async () => {
+  it('Copy writes the text through the Clipboard API; Paste reads it back and pastes the range; Cut and Paste move it', async () => {
     const { source, structure } = withStructure()
     const { api, store } = clipboardApi(async () => store.text)
     const w = await mountSheet(source)
@@ -314,7 +314,7 @@ describe('the cells’ menu', () => {
     expect(cellText(w, 9, 1)).toBe('outside')
   })
 
-  it('a browser that will not give the clipboard: Paste pastes only our copy, and without one says how to paste', async () => {
+  it('a browser that does not provide the clipboard: Paste pastes only our copy, and without one says how to paste', async () => {
     const { source, structure } = withStructure()
     clipboardApi(async () => Promise.reject(new DOMException('denied', 'NotAllowedError')))
     const w = await mountSheet(source)
@@ -329,7 +329,7 @@ describe('the cells’ menu', () => {
     expect(ops(structure)).toEqual([{ op: 'copyRange', from: { sheet: 'S', range: 'A2' }, to: { sheet: 'S', range: 'E5' } }])
   })
 
-  it('a read-only sheet’s menu only copies and traces; without the clipboard API Paste waits for a copy', async () => {
+  it("a read-only sheet's menu only copies and traces precedents; without the Clipboard API Paste waits for a copy", async () => {
     const ro = await mountSheet(withStructure().source, { readOnly: true })
     await context(ro, '1:1')
     expect(items()).toEqual(['copy', 'precedents'])
@@ -343,7 +343,7 @@ describe('the cells’ menu', () => {
     expect(disabled('paste')).toBe(false)
   })
 
-  it('a finger held on a cell opens it, and the lift keeps the selection', async () => {
+  it('a long press on a cell opens the menu, and the release keeps the selection', async () => {
     const w = await mountSheet(withStructure().source)
     await goTo(w, 'A1:B2')
     const touch = { pointerType: 'touch', isPrimary: true, button: 0, clientX: 90, clientY: 50 }
@@ -360,7 +360,7 @@ describe('the cells’ menu', () => {
 })
 
 describe('with the local source', () => {
-  it('a formula copied and pasted moves its references, a cut one keeps them, Control+Z takes each back', async () => {
+  it('a copied and pasted formula has its references adjusted, a cut one keeps them, and Ctrl+Z undoes each', async () => {
     const source = localSource({ locale: 'en-US', sheets: [{ name: 'S', cells: { A1: { value: 1 }, A2: { value: 2 }, B1: { formula: 'A1*10' } } }] }, { calc: 'inline' })
     const states: { formula?: string }[] = []
     const w = await mountSheet(source, { onState: (st: { formula?: string } | null) => st && states.push(st) })
@@ -392,14 +392,14 @@ describe('with the local source', () => {
   })
 })
 
-describe('the source’s copy text (SheetSource.copyText)', () => {
+describe("the source's copy text (SheetSource.copyText)", () => {
   function writable() {
     const api = { writeText: vi.fn(async (_t: string) => {}), readText: vi.fn(async () => '') }
     Object.defineProperty(navigator, 'clipboard', { value: api, configurable: true })
     return api
   }
 
-  it('the copy event takes the shown text at once, the source’s text then goes through the clipboard API; a paste of either is the book’s copy', async () => {
+  it("the copy event writes the displayed text at once, then the source's text through the Clipboard API; pasting either is the workbook's copy", async () => {
     const { source, structure } = withStructure()
     const copyText = vi.fn(async () => 'EXACT\r\n')
     source.copyText = copyText
@@ -422,7 +422,7 @@ describe('the source’s copy text (SheetSource.copyText)', () => {
     ])
   })
 
-  it('the same text or a refusal writes nothing more; a Mac asks without the last CRLF', async () => {
+  it('the same text or a rejection writes nothing more; a Mac requests no final CRLF', async () => {
     vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel')
     const { source } = withStructure()
     const copyText = vi.fn(async () => '1\t10')

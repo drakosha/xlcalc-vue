@@ -56,8 +56,8 @@ const protectedFile = () =>
     'xl/worksheets/sheet1.xml': '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData/><sheetProtection sheet="1"/></worksheet>',
   })
 
-describe('xlsx in and out', () => {
-  it('writes the book and reads it back with the same values, styles, notes and frozen panes', async () => {
+describe('xlsx reading and writing', () => {
+  it('writes the workbook and reads it back with the same values, styles, notes and frozen panes', async () => {
     const s = source()
     await s.edit([{ sheet: 'Лист1', cell: 'A1', text: '1,5' }])
     const { data, issues } = await saveXlsx(s)
@@ -75,7 +75,7 @@ describe('xlsx in and out', () => {
     expect((await win(t, 'Таблица', 2, 1, 3, 1)).formulas.C2).toBe('[@Сумма]*2')
   })
 
-  it('keeps every value through a file: opened, edited, saved, the file\'s stored values are the session\'s', async () => {
+  it("keeps every value through a file: opened, edited and saved, the file's stored values are the session's", async () => {
     const { book } = synthBook({ seed: 3, rows: 40 })
     const first = await openXlsx((await writeXlsx({ book, result: compute(book) })).data)
     const s = source(first.book)
@@ -103,7 +103,7 @@ describe('xlsx in and out', () => {
     expect(constants).toBeGreaterThan(500)
   })
 
-  it('opens a circular reference holding the values its file stores, with the session\'s `cached`, as Excel opens the file', async () => {
+  it("opens a circular reference with the values its file stores kept, through the session's `cached`, as Excel opens the file", async () => {
     const cells = { A1: { formula: 'B1/2+1' }, B1: { formula: 'A1' }, C1: { formula: 'A1*10' }, D1: { value: 5 }, E1: { formula: 'D1*2' } }
     const stored = { sheets: [{ name: 'S', cells: { A1: { value: 2 }, B1: { value: 2 }, C1: { value: 20 }, E1: { value: 10 } } }] }
     const read = await openXlsx((await writeXlsx({ book: { sheets: [{ name: 'S', cells }] }, result: stored })).data)
@@ -118,14 +118,14 @@ describe('xlsx in and out', () => {
     expect(back.cached.sheets[0]!.cells).toMatchObject({ A1: { value: 2 }, B1: { value: 2 }, C1: { value: 20 }, E1: { value: 14 } })
   })
 
-  it('opens a Blob as a file input gives it', async () => {
+  it('opens a Blob as a file input provides it', async () => {
     const { data } = await saveXlsx(source())
     const back = await openXlsx(new Blob([data as BlobPart]))
     expect(back.book.sheets.map((x) => x.name)).toEqual(['Лист1', 'Таблица', 'Список'])
     expect(back.issues).toEqual([])
   })
 
-  it('gives the reader\'s and the writer\'s issues in the language of the locale asked for, en-US without one', async () => {
+  it("returns the reader's and the writer's issues in the language of the requested locale, en-US without one", async () => {
     const file = protectedFile()
     expect((await openXlsx(file)).issues).toEqual([{ code: 'protection', sheet: 'S', message: expect.stringMatching(/^sheet protection/) }])
     expect((await openXlsx(file, { locale: 'ru-RU' })).issues).toEqual([{ code: 'protection', sheet: 'S', message: expect.stringMatching(/^Защита листа/) }])
@@ -134,11 +134,11 @@ describe('xlsx in and out', () => {
     expect((await saveXlsx(s, { locale: 'ru-RU', mode: 'values' })).issues).toEqual([{ code: 'meta', sheet: 'S', cells: ['A1'], message: expect.stringMatching(/^Поле meta/) }])
   })
 
-  it('fails a locale xlcalc has no module for, with the library message', async () => {
+  it("fails for a locale xlcalc has no module for, with the library's message", async () => {
     await expect(openXlsx(protectedFile(), { locale: 'de-DE' })).rejects.toThrow(/unknown locale "de-DE"/)
   })
 
-  it('groups what the reader left out by kind, for a notice', () => {
+  it('groups what the reader omitted by kind, for a notice', () => {
     expect(
       groupIssues([
         { code: 'drawing', message: 'a chart', sheet: 'A' },

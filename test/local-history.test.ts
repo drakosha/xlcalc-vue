@@ -19,17 +19,17 @@ const sheet = (): BookInput => ({
 })
 
 describe('localSource: paste', () => {
-  it("keeps the apostrophe of '007 in the text, as Excel pastes it, and selects what it filled", async () => {
+  it("keeps the apostrophe of '007 in the text, as Excel pastes it, and selects the filled range", async () => {
     const got = await source(sheet()).paste!('S', 'B1', "'007")
     expect(got).toEqual({ ok: true, select: { sheet: 'S', range: 'B1' }, changes: [{ sheet: 'S', cell: 'B1', text: "'007", value: "'007", formula: null, editText: "''007", numberFormat: null }] })
   })
 
-  it('pastes 5 into a percent cell as 5, shown 500 %: a paste has no percent editor', async () => {
+  it('pastes 5 into a percentage cell as 5, displayed as 500 %: a paste has no automatic percentage entry', async () => {
     const s = source(sheet())
     expect(await s.paste!('S', 'C1', '5')).toMatchObject({ ok: true, changes: [{ cell: 'C1', value: 5, text: '500%', editText: '500%' }] })
   })
 
-  it('fills a rectangle from the cell, empty fields clearing theirs, the formulas in the locale', async () => {
+  it('fills a range from the cell, with empty fields clearing their cells and formulas in the locale', async () => {
     const s = source(sheet())
     const got = await s.paste!('S', 'A2', '=СУММ(A1;1,5)\t1 234,5\r\n\tx')
     expect(got).toMatchObject({ ok: true, select: { sheet: 'S', range: 'A2:B3' } })
@@ -41,13 +41,13 @@ describe('localSource: paste', () => {
     expect(by.B3).toMatchObject({ value: 'x' })
   })
 
-  it('refuses a rectangle past the sheet', async () => {
+  it('rejects a range extending beyond the sheet', async () => {
     expect(await source(sheet()).paste!('S', 'XFD1', 'a\tb')).toMatchObject({ ok: false, reason: 'refused' })
   })
 })
 
-describe('localSource: Control+Return', () => {
-  it('enters =A1*2 into B1:B3 as =A2*2 and =A3*2 below, as a copy moves it', async () => {
+describe('localSource: Ctrl+Enter', () => {
+  it('enters =A1*2 into B1:B3 as =A2*2 and =A3*2 below, adjusted as a copy is', async () => {
     const got = await source(sheet()).fill!('S', 'B1:B3', '=A1*2', 'B1')
     expect(got).toMatchObject({ ok: true, select: { sheet: 'S', range: 'B1:B3' } })
     if (!got.ok) return
@@ -57,16 +57,16 @@ describe('localSource: Control+Return', () => {
     expect(by.B3).toMatchObject({ formula: 'A3*2', value: 8 })
   })
 
-  it('gives invalid at the place of a formula that does not read, with the active cell', async () => {
+  it('returns invalid at the position of a formula that cannot be parsed, with the active cell', async () => {
     const got = await source(sheet()).fill!('S', 'B1:B3', '=СУММ(A1;))', 'B2')
     expect(got).toMatchObject({ ok: false, reason: 'invalid', at: 10 })
   })
 
-  it('gives the formula Excel offers for a typo as `correction`, as typing does', async () => {
+  it('returns the formula Excel suggests for a typo as `correction`, as typing does', async () => {
     expect(await source(sheet()).fill!('S', 'B1:B3', '=(1+2', 'B2')).toMatchObject({ ok: false, reason: 'invalid', correction: '=(1+2)' })
   })
 
-  it('refuses every cell when the active cell\'s stop rule does not take the value', async () => {
+  it("rejects every cell when the active cell's stop rule rejects the value", async () => {
     const s = source(sheet())
     expect(await s.fill!('S', 'D1:D2', '-1', 'D1')).toEqual({
       ok: false,
@@ -78,7 +78,7 @@ describe('localSource: Control+Return', () => {
     expect(s.history).toEqual({ undo: 0, redo: 0 })
   })
 
-  it('refuses a value a warning or an information rule does not take with its alert, and enters it after Yes or OK (`accept`)', async () => {
+  it('rejects a value that violates a warning or information rule with its alert, and enters it after Yes or OK (`accept`)', async () => {
     const s = source({
       sheets: [{
         name: 'S',
@@ -100,7 +100,7 @@ describe('localSource: Control+Return', () => {
 })
 
 describe('localSource: undo and redo', () => {
-  it('takes a paste of several cells back in one undo and does it again in one redo', async () => {
+  it('undoes a paste of several cells in one undo and redoes it in one redo', async () => {
     const s = source(sheet())
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))
@@ -115,7 +115,7 @@ describe('localSource: undo and redo', () => {
     expect(events.map((e) => e.kind)).toEqual(['changed', 'changed', 'changed'])
   })
 
-  it('gives the edited cells their formula and edit text back', async () => {
+  it("restores the edited cells' formula and edit text", async () => {
     const s = source(sheet())
     await s.edit([{ sheet: 'S', cell: 'B1', text: '=A1*10' }])
     await s.edit([{ sheet: 'S', cell: 'B1', text: '15.03.2026' }])
@@ -123,7 +123,7 @@ describe('localSource: undo and redo', () => {
     expect(back).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: 20, formula: 'A1*10', editText: '=A1*10' }] })
   })
 
-  it('keeps the values the display filter read through an undo and a redo of an edit, which list their cells', async () => {
+  it("keeps the display filter's cached values through an undo and a redo of an edit, which list their cells", async () => {
     const { s, count } = watched()
     const filter = { head: 1, cols: { 1: { values: ['б'] } } }
     expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4])
@@ -136,7 +136,7 @@ describe('localSource: undo and redo', () => {
     expect(count('getCells')).toBe(1)
   })
 
-  it('undoes a structure operation by a reload', async () => {
+  it('undoes a structure operation with a reload', async () => {
     const s = source(sheet())
     await s.structure({ op: 'insertRows', sheet: 'S', row: 1 })
     const events: SourceEvent[] = []
@@ -147,13 +147,13 @@ describe('localSource: undo and redo', () => {
     expect(await s.find({ sheet: 'S', query: '4' })).toMatchObject({ hits: [{ row: 3, col: 1 }] })
   })
 
-  it('answers ok with no changes when there is nothing to undo or redo', async () => {
+  it('returns ok with no changes when there is nothing to undo or redo', async () => {
     const s = source(sheet())
     expect(await s.undo!()).toEqual({ ok: true, changes: [] })
     expect(await s.redo!()).toEqual({ ok: true, changes: [] })
   })
 
-  it('leaves the history as it was after a value a stop rule refused, as Excel never took it', async () => {
+  it('leaves the history unchanged after a value a stop rule rejected, since Excel never accepted it', async () => {
     const s = source(sheet())
     const events: SourceEvent[] = []
     s.subscribe((e) => events.push(e))

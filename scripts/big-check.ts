@@ -500,8 +500,8 @@ async function check(browser: Browser, base: string, plan: Plan, n: number): Pro
   const back = (await readXlsx(new Uint8Array(readFileSync(file)))).book
   await download.delete()
   const savedFormulas = back.sheets.reduce((n, s) => n + Object.values(s.cells).filter((c) => c.formula !== undefined).length, 0)
-  if (back.sheets.map((s) => s.name).join('\n') !== plan.sheets.join('\n')) failures.push('the saved file has other sheets than the book')
-  if (savedFormulas !== plan.formulas) failures.push(`the saved file has ${savedFormulas} formulas, the book ${plan.formulas}`)
+  if (back.sheets.map((s) => s.name).join('\n') !== plan.sheets.join('\n')) failures.push('the saved file has different sheets from the workbook')
+  if (savedFormulas !== plan.formulas) failures.push(`the saved file has ${savedFormulas} formulas, the workbook ${plan.formulas}`)
   await ready(page)
   const after = await page.evaluate(() => (window as unknown as { __spa: { timings: () => Record<string, number> } }).__spa.timings())
   const savePause = await pauseOf(page, saveFrom, saveTo)
@@ -517,7 +517,7 @@ async function check(browser: Browser, base: string, plan: Plan, n: number): Pro
   await ready(page)
   const relocale = (await page.evaluate((sheet) => __big.until(() => __big.drawn(sheet)), sheetBefore)) - relocaleFrom
   const relocaled = await page.evaluate(() => __big.tab())
-  if (relocaled !== sheetBefore) failures.push(`the book in en-US opened on ${relocaled}, it stood on ${sheetBefore}`)
+  if (relocaled !== sheetBefore) failures.push(`the workbook in en-US opened on ${relocaled}, it was on ${sheetBefore}`)
   await shot('en-US')
   await browserCdp.detach()
   await context.close()
@@ -561,7 +561,7 @@ function print(rows: Row[]): void {
     ['', ...rows.map((r) => r.label)],
     ['file, MB', ...rows.map((r) => r.mb.toFixed(1))],
     ['cells / formulas', ...rows.map((r) => `${r.cells} / ${r.formulas}`)],
-    ['book locale', ...rows.map((r) => r.locale)],
+    ['workbook locale', ...rows.map((r) => r.locale)],
     ['sheet opened', ...rows.map((r) => r.sheet)],
     ['first drawn', ...rows.map((r) => sec(r.drawn))],
     ['Ready', ...rows.map((r) => sec(r.ready))],
@@ -590,7 +590,7 @@ function print(rows: Row[]): void {
 const paths = (process.env.BIG_XLSX ?? '').split(':').filter(Boolean)
 /** A published app to measure instead of the built one (`BIG_URL=https://xlcalc.pridelab.dev/demo/`): nothing is built or served. */
 const live = process.env.BIG_URL
-if (live && paths.length) throw new Error('BIG_URL takes the synthetic book only: books from files are not opened in a published app')
+if (live && paths.length) throw new Error('BIG_URL accepts the synthetic workbook only: workbooks from files are not opened in a published app')
 if (!live) await build({ configFile: config, logLevel: 'error' })
 const server = live ? null : await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error' })
 const base = live ? live.replace(/\/?$/, '/') : server!.resolvedUrls!.local[0]!

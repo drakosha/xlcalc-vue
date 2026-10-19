@@ -33,28 +33,28 @@ const dynamicImports = (code: string) => [...code.matchAll(/import\(\s*["']([^"'
 const code = (text: string) => text.replace(/^\/\/#(?:end)?region.*$/gm, '')
 
 describe('dist/index.js', () => {
-  it('imports vue alone, and the ru-RU and xlcalc/entry chunks on demand', () => {
+  it('imports only vue, and the ru-RU and xlcalc/entry chunks on demand', () => {
     expect(new Set(staticImports(js))).toEqual(new Set(['vue']))
     expect(chunks.sort()).toEqual([expect.stringMatching(/^ru-RU-[\w-]+\.js$/), expect.stringMatching(/^typed-entry-[\w-]+\.js$/)])
     expect(new Set(dynamicImports(js))).toEqual(new Set([`./${chunk('ru-RU')}`, `./${chunk('typed-entry')}`]))
   })
-  it('carries no engine: xlcalc/a1 and xlcalc/text are a few dozen kilobytes', () => {
+  it('includes no engine: xlcalc/a1 and xlcalc/text are a few dozen kilobytes', () => {
     expect(js.length).toBeGreaterThan(10_000)
     // the component with its dialogs and bars is about 330 KB unminified; the engine would be megabytes
     expect(js.length).toBeLessThan(400_000)
     expect(js).toContain('//#region node_modules/xlcalc/dist/a1.js')
     expect(js).toContain('//#region node_modules/xlcalc/dist/scan.js')
   })
-  it('has no string xlcalc in its code, which a host may look for as the engine\'s sign', () => {
+  it('has no string xlcalc in its code, which a host may look for as a sign of the engine', () => {
     expect(code(js)).not.toMatch(/xlcalc/)
   })
-  it('comes with its style sheet', () => {
+  it('ships with its stylesheet', () => {
     expect(readFileSync(join(out, 'style.css'), 'utf8')).toContain('.xs-sheet')
   })
 })
 
 describe('the ru-RU chunk', () => {
-  it("is ru-RU's formula text alone, without an import or the string xlcalc in its code", () => {
+  it("contains only ru-RU's formula text, with no import and no string xlcalc in its code", () => {
     const ru = readFileSync(join(out, chunk('ru-RU')), 'utf8')
     expect(ru).toContain('СУММ')
     expect(js).not.toContain('СУММ')
@@ -67,7 +67,7 @@ describe('the ru-RU chunk', () => {
 })
 
 describe('the xlcalc/entry chunk', () => {
-  it('is bundled apart, whole: no import, so the main entry loads nothing more for it, and no string xlcalc in its code', () => {
+  it('is bundled separately and in full: no import, so the main entry point loads nothing more for it, and no string xlcalc in its code', () => {
     const entry = readFileSync(join(out, chunk('typed-entry')), 'utf8')
     expect(entry).toMatch(/export \{[^}]*\bentryText\b[^}]*\}/)
     expect(staticImports(entry)).toEqual([])

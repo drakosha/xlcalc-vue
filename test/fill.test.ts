@@ -50,13 +50,13 @@ const ops = (structure: ReturnType<typeof withStructure>['structure']) => struct
 const fill = (range: string, to: string, type?: 'series'): SheetOp => ({ op: 'fillRange', sheet: 'S', range, to, ...(type ? { type } : {}) })
 
 describe('the fill handle', () => {
-  it('sits at the selection’s bottom-right corner', async () => {
+  it("is at the selection's bottom-right corner", async () => {
     const w = await mountSheet(withStructure().source)
     await goTo(w, 'B2:C3')
     expect(handle(w).attributes('style')).toContain(`top: ${24 + 3 * 20}px; left: ${56 + 3 * COL}px`)
   })
 
-  it('dragged down three rows from a formula fills the frame from it; the selection becomes the frame', async () => {
+  it('dragged three rows down from a formula, fills the outlined range from it; the selection becomes the outlined range', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'B1')
@@ -65,7 +65,7 @@ describe('the fill handle', () => {
     expect(address(w)).toBe('B1:B4')
   })
 
-  it('grows along the axis the pointer went furthest: right, up, left, and down on a diagonal', async () => {
+  it('extends along the axis in which the pointer moved farthest: right, up, left, and down on a diagonal', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'B2')
@@ -80,7 +80,7 @@ describe('the fill handle', () => {
     expect(address(w)).toBe('B2:B6')
   })
 
-  it('a selection of several rows or columns grows cell by cell, not by whole tiles of it, as in Excel', async () => {
+  it('a selection of several rows or columns extends cell by cell, not by whole copies of it, as in Excel', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'A1:A2')
@@ -100,7 +100,7 @@ describe('the fill handle', () => {
     expect(address(w)).toBe('B4:D5')
   })
 
-  it('released with Ctrl it fills a series (Excel’s drag with Ctrl), with Option too on a Mac', async () => {
+  it("released with Ctrl it fills a series (Excel's drag with Ctrl), with Option too on a Mac", async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'A1')
@@ -113,7 +113,7 @@ describe('the fill handle', () => {
     expect(ops(structure)).toEqual([fill('A1', 'A1:A4', 'series'), fill('A1', 'A1:A4'), fill('A1', 'A1:C1', 'series')])
   })
 
-  it('draws its frame while dragged; back on the selection there is none, and nothing is copied', async () => {
+  it('draws its outline during the drag; back over the selection there is none, and nothing is copied', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'B2')
@@ -130,7 +130,7 @@ describe('the fill handle', () => {
     expect(address(w)).toBe('B2')
   })
 
-  it('measures the frame once a move: the edge scroll and the cell under the pointer share it', async () => {
+  it('measures the viewport once per move: the edge scroll and the cell under the pointer share the measurement', async () => {
     const { source } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'B2')
@@ -143,7 +143,7 @@ describe('the fill handle', () => {
     await h.trigger('pointerup', { pointerId: 1, ...at(2, 2) })
   })
 
-  it('Esc while dragged cancels the drag, as in Excel: no frame, nothing copied on release, the selection and the copy mark stay; the next drag fills', async () => {
+  it('Esc during a drag cancels it, as in Excel: no outline, nothing copied on release, the selection and the copy mark stay; the next drag fills', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'A1')
@@ -182,7 +182,7 @@ describe('the fill handle', () => {
     expect(unkeys.mock.calls.filter((c) => c[0] === 'keydown')).toHaveLength(2)
   })
 
-  it('a finger’s tap on its wide target picks the cell under it', async () => {
+  it('a tap on its wide touch target selects the cell under it', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'B2')
@@ -194,7 +194,7 @@ describe('the fill handle', () => {
     expect(address(w)).toBe('C3')
   })
 
-  it('a double click fills down as far as the column left of it has data, else the one right of it, cell by cell', async () => {
+  it('a double click fills down as far as the column to its left has data, otherwise the column to its right, cell by cell', async () => {
     const { source, structure } = withStructure()
     const w = await mountSheet(source)
     await goTo(w, 'B1')
@@ -214,7 +214,7 @@ describe('the fill handle', () => {
     expect(address(w)).toBe('A4')
   })
 
-  it('a locked target is not sent; a refusal shows the source’s message', async () => {
+  it("a locked target is not sent; a rejection displays the source's message", async () => {
     const { source, structure } = withStructure(() => ({ ok: false, reason: 'refused', message: 'Cannot change part of a merged cell' }))
     const w = await mountSheet(source)
     await goTo(w, 'G1')
@@ -227,7 +227,7 @@ describe('the fill handle', () => {
     expect(address(w)).toBe('A1')
   })
 
-  it('is not there on a read-only sheet, without structure, over whole columns, while a field is open, under the display filter', async () => {
+  it('is absent on a read-only sheet, without structure, over entire columns, while an editor is open, under the display filter', async () => {
     const ro = await mountSheet(withStructure().source, { readOnly: true })
     expect(handle(ro).exists()).toBe(false)
     document.body.innerHTML = ''
@@ -254,7 +254,7 @@ describe('the fill handle', () => {
 })
 
 describe('with the local source', () => {
-  it('a formula dragged down three rows moves its references in each copy', async () => {
+  it('a formula dragged three rows down has its references adjusted in each copy', async () => {
     const source = localSource({ locale: 'en-US', sheets: [{ name: 'S', cells: { A1: { value: 1 }, A2: { value: 2 }, A3: { value: 3 }, A4: { value: 4 }, B1: { formula: 'A1*10' } } }] }, { calc: 'inline' })
     const states: { formula?: string }[] = []
     const w = await mountSheet(source, { onState: (st: { formula?: string } | null) => st && states.push(st) })
@@ -269,7 +269,7 @@ describe('with the local source', () => {
     await source.close()
   })
 
-  it('goes on with series as Excel: 1, 2 to A5 is 3, 4, 5; Item1 to B3 is Item2, Item3; a date by days; Control+Z takes it back', async () => {
+  it('continues series as Excel does: 1, 2 to A5 gives 3, 4, 5; Item1 to B3 gives Item2, Item3; a date by day; Ctrl+Z undoes it', async () => {
     const cells = { A1: { value: 1 }, A2: { value: 2 }, B1: { value: 'Товар1' }, C1: { value: 45688, numberFormat: 'm/d' } }
     const source = localSource({ locale: 'en-US', sheets: [{ name: 'S', cells }] }, { calc: 'inline' })
     const w = await mountSheet(source)
@@ -300,7 +300,7 @@ describe('with the local source', () => {
     await source.close()
   })
 
-  it('a single number dragged copies it, with Ctrl it goes on by 1', async () => {
+  it('dragging a single number copies it; with Ctrl it increases by 1', async () => {
     const source = localSource({ locale: 'en-US', sheets: [{ name: 'S', cells: { A1: { value: 7 }, B1: { value: 7 } } }] }, { calc: 'inline' })
     const w = await mountSheet(source)
     await settle(12)

@@ -21,8 +21,8 @@ const side = (w: VueWrapper, r: number, c: number, s: 'Right' | 'Bottom') => {
 /** The element that holds a cell's text. */
 const textEl = (w: VueWrapper, r: number, c: number) => td(w, r, c).find('.xs-in > span')
 
-describe('conditional formats: a rule style', () => {
-  it('lays a rule style over the cell own: a field the rule sets wins, the rest shows through', async () => {
+describe("conditional formats: a rule's style", () => {
+  it("applies a rule's style on top of the cell's own: a field the rule sets takes precedence, the rest shows through", async () => {
     const book: MemoryBook = {
       styles: [{}, { font: { bold: true, color: '#7030A0', underline: 'single' }, fill: { color: '#FFFF00' }, border: { bottom: { style: 'thin', color: '#BFBFBF' }, right: { style: 'thin', color: '#00FF00' } } }],
       sheets: [
@@ -80,7 +80,7 @@ describe('conditional formats: data bars', () => {
     expect(td(w, 1, 1).text()).toBe('10')
   })
 
-  it('draws a negative bar dark at its axis and the axis dashed across the cell', async () => {
+  it('draws a negative bar dark at its axis, with a dashed axis across the cell', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     const a2 = layers(w, 2)
     expect(a2.image).toContain('repeating-linear-gradient(to bottom, #000000 0px 3px, transparent 3px 4px)')
@@ -90,7 +90,7 @@ describe('conditional formats: data bars', () => {
     expect(a2.pos).toBe('calc(32% + 0.68px) 0px, left 1px top 1px')
   })
 
-  it('draws a solid bar of one colour and a bar from the right', async () => {
+  it('draws a solid bar in one color and a bar from the right', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     expect(layers(w, 3).image).toBe('linear-gradient(to right, transparent 0%, #FFB628 0%, #FFB628 100%, transparent 100%)')
     expect(layers(w, 4).image).toBe('linear-gradient(to left, transparent 25%, #D6007B 25%, color-mix(in srgb, #D6007B 18%, white) 40%, transparent 40%)')
@@ -98,7 +98,7 @@ describe('conditional formats: data bars', () => {
 })
 
 describe('conditional formats: icons and hidden values', () => {
-  it('draws the icon of its set and number at the left of the cell, the value after it', async () => {
+  it('draws the icon of its set and number at the left of the cell, with the value after it', async () => {
     const book: MemoryBook = {
       sheets: [
         {
@@ -122,7 +122,7 @@ describe('conditional formats: icons and hidden values', () => {
     expect(td(w, 1, 1).text()).toBe('97')
   })
 
-  it('hides the value where a rule says so: the bar or the icon alone, placed by the alignment', async () => {
+  it('hides the value where a rule says so: only the bar or the icon, positioned by the alignment', async () => {
     const book: MemoryBook = {
       styles: [{}, { alignment: { horizontal: 'center' } }],
       sheets: [
@@ -159,7 +159,7 @@ describe('conditional formats: the local source', () => {
     ],
   })
 
-  it('gives the appearance in its windows', async () => {
+  it('returns the appearance in its windows', async () => {
     const s = localSource(book(), { calc: 'inline' })
     const got = await s.window({ sheet: 'S', row: 1, rows: 3, col: 1, cols: 1 })
     if ('pending' in got) throw new Error('pending')
@@ -209,7 +209,7 @@ describe('conditional formats: the local source', () => {
     }
   })
 
-  it('reads the colours again after an edit that recolours another cell', async () => {
+  it('reads the colors again after an edit that recolors another cell', async () => {
     const s = localSource(book(), { calc: 'inline' })
     const w = await mountSheet(s)
     expect(css(w, 2, 1).backgroundColor).toBe('#AE9373')

@@ -26,8 +26,8 @@ function formatted() {
 }
 const last = (states: (SheetViewState | null)[]) => states[states.length - 1]
 
-describe('state: the active cell look', () => {
-  it('gives the style the active cell shows and its number format code', async () => {
+describe("state: the active cell's formatting", () => {
+  it("returns the active cell's displayed style and its number format code", async () => {
     const w = await mountSheet(formatted())
     const states = () => w.emitted('state')!.map((e) => e[0] as SheetViewState | null)
     await goTo(w, 'A1')
@@ -39,7 +39,7 @@ describe('state: the active cell look', () => {
     expect(last(states())!.numberFormat).toBeUndefined()
   })
 
-  it('takes the number format an edited cell shows from the outcome', async () => {
+  it("takes an edited cell's number format from the outcome", async () => {
     const source = formatted()
     source.edit = async (entries) => ({ ok: true, changes: entries.map((e) => ({ sheet: e.sheet, cell: e.cell, text: '15.03.2026', value: 46096, formula: null, numberFormat: 'dd.mm.yyyy' })) })
     const w = await mountSheet(source)

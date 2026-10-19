@@ -10,7 +10,7 @@ import { readXlsx } from 'xlcalc/xlsx'
 
 registerLocale(ruRU)
 const paths = (process.env.XLSX ?? '').split(':').filter(Boolean)
-if (!paths.length) throw new Error('XLSX: the path of a book, several by ":"')
+if (!paths.length) throw new Error('XLSX: the path of a workbook, several separated by ":"')
 const SHOWN = Number(process.env.SHOWN ?? 5)
 
 const isError = (v: CellValue | undefined): boolean => !!v && typeof v === 'object' && 'error' in v
@@ -52,7 +52,7 @@ for (const path of paths) {
     }
   })
   differ += errors + other
-  console.log(`${path.split('/').pop()}: read ${((read - started) / 1000).toFixed(1)} s, computed ${((computed - read) / 1000).toFixed(1)} s; ${compared} formulas (${skipped} volatile left out), ${errors + other} differ (${errors} an error where Excel has a value, ${other} other)`)
+  console.log(`${path.split('/').pop()}: read ${((read - started) / 1000).toFixed(1)} s, calculated ${((computed - read) / 1000).toFixed(1)} s; ${compared} formulas (${skipped} volatile left out), ${errors + other} differ (${errors} an error where Excel has a value, ${other} other)`)
   for (const line of shown) console.log(line)
 }
 if (differ) process.exit(1)

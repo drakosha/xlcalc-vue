@@ -46,7 +46,7 @@ describe('SheetToolbar: formatting through the source', () => {
     ])
   })
 
-  it('gives all borders, the bottom border and none over the selection', async () => {
+  it('applies All Borders, Bottom Border and No Border over the selection', async () => {
     const src = source()
     const w = mountBar(src, at('B2:C3'))
     for (const kind of ['all', 'bottom', 'none']) {
@@ -61,7 +61,7 @@ describe('SheetToolbar: formatting through the source', () => {
     ])
   })
 
-  it('makes the selection bold, or not bold when the active cell is', async () => {
+  it('makes the selection bold, or removes bold when the active cell is bold', async () => {
     const src = source()
     const w = mountBar(src, at('A1:B2'))
     await w.find('[data-tb="bold"]').trigger('click')
@@ -74,7 +74,7 @@ describe('SheetToolbar: formatting through the source', () => {
     ])
   })
 
-  it('sets italic, underline, a horizontal alignment and wrapping as toggles of the active cell', async () => {
+  it('sets italic, underline, a horizontal alignment and wrapping as toggles based on the active cell', async () => {
     const src = source()
     const w = mountBar(src, at('C3', { style: { font: { underline: 'double' }, alignment: { horizontal: 'center', wrap: true } } }))
     for (const b of ['italic', 'underline', 'align-center', 'align-right', 'wrap']) await w.find(`[data-tb="${b}"]`).trigger('click')
@@ -88,7 +88,7 @@ describe('SheetToolbar: formatting through the source', () => {
     ])
   })
 
-  it('colours the text and the fill from the palette, the automatic colour and no fill remove them', async () => {
+  it('colors the text and the fill from the palette; Automatic and No Fill remove them', async () => {
     const src = source()
     const w = mountBar(src, at('A1'))
     await w.find('[data-tb="font-palette"]').trigger('click')
@@ -110,7 +110,7 @@ describe('SheetToolbar: formatting through the source', () => {
     ])
   })
 
-  it('sets a number format from Excel’s list, as xlcalc gives it: a built-in format by its number, a code as written', async () => {
+  it("sets a number format from Excel's list, as xlcalc returns it: a built-in format by its number, a code as written", async () => {
     const src = source()
     const w = mountBar(src, at('A1:A3'))
     await settle()
@@ -128,15 +128,15 @@ describe('SheetToolbar: formatting through the source', () => {
   })
 })
 
-describe('SheetToolbar: what the active cell shows', () => {
-  it('presses bold, italic, underline, the alignment and wrapping the active cell has', async () => {
+describe("SheetToolbar: the active cell's formatting", () => {
+  it('shows as pressed the bold, italic, underline, alignment and wrapping the active cell has', async () => {
     const w = mountBar(source(), at('A1', { style: { font: { bold: true, underline: 'single' }, alignment: { horizontal: 'right', wrap: true } } }))
     await settle()
     const pressed = (b: string) => w.find(`[data-tb="${b}"]`).attributes('aria-pressed')
     expect(['bold', 'italic', 'underline', 'align-left', 'align-center', 'align-right', 'wrap'].map(pressed)).toEqual(['true', 'false', 'true', 'false', 'false', 'true', 'true'])
   })
 
-  it('names the category of the active cell’s format as Excel’s box, by xlcalc’s rules', async () => {
+  it("names the category of the active cell's format as Excel's box does, by xlcalc's rules", async () => {
     const w = mountBar(source(), at('A1', { numberFormat: '0.00%' }), { messages: undefined })
     await settle()
     const shown = () => [w.find('[data-tb="number"]').attributes('data-tb-category'), w.find<HTMLSelectElement>('[data-tb="number"]').element.selectedOptions[0]!.textContent]
@@ -152,7 +152,7 @@ describe('SheetToolbar: what the active cell shows', () => {
     expect(w.findAll('[data-tb="number"] option').map((o) => o.attributes('value')).slice(1)).toEqual(['general', 'number', 'currency', 'accounting', 'shortDate', 'longDate', 'time', 'percentage', 'fraction', 'scientific', 'text'])
   })
 
-  it('names the list’s items and the categories in the book’s locale', async () => {
+  it("names the list's items and the categories in the workbook's locale", async () => {
     const w = mountBar(source(), at('A1', { numberFormat: '0%' }), { locale: 'ru-RU' })
     // the locale's module arrives as a separate chunk
     await vi.dynamicImportSettled()
@@ -164,7 +164,7 @@ describe('SheetToolbar: what the active cell shows', () => {
     expect(select().selectedOptions[0]!.textContent).toBe('Текстовый')
   })
 
-  it('marks the colours the active cell has in the palettes, the automatic colour and no fill where it has none', async () => {
+  it("marks the active cell's colors in the palettes, and Automatic and No Fill where it has none", async () => {
     const w = mountBar(source(), at('A1', { style: { font: { color: '#ff0000' }, fill: { color: '#92D050' } } }))
     await w.find('[data-tb="font-palette"]').trigger('click')
     const marked = () => w.findAll('[aria-pressed="true"][data-xs-colour], [aria-pressed="true"][data-tb^="colour-"], [aria-pressed="true"][data-tb^="fill-"]').map((b) => b.attributes('data-xs-colour') ?? b.attributes('data-tb'))
@@ -175,7 +175,7 @@ describe('SheetToolbar: what the active cell shows', () => {
     expect(marked()).toEqual(['fill-none'])
   })
 
-  it('has nothing to press without a selection', async () => {
+  it('has nothing enabled without a selection', async () => {
     const w = mountBar(source(), null)
     await settle()
     expect(w.find('[data-tb="bold"]').attributes('disabled')).toBeDefined()
@@ -183,8 +183,8 @@ describe('SheetToolbar: what the active cell shows', () => {
   })
 })
 
-describe('SheetToolbar: when it shows', () => {
-  it('is not there without the source’s format', async () => {
+describe('SheetToolbar: when it is shown', () => {
+  it("is absent without the source's format", async () => {
     const src = source()
     const { format: _, ...rest } = src
     const w = mountBar(rest as SheetSource, at('A1'))
@@ -193,7 +193,7 @@ describe('SheetToolbar: when it shows', () => {
     expect(w.find('[data-tb="bold"]').exists()).toBe(false)
   })
 
-  it('has no undo without the source’s undo', async () => {
+  it("has no Undo without the source's undo", async () => {
     const { undo: _u, ...rest } = source()
     const w = mountBar(rest as SheetSource, at('A1'))
     await settle()
@@ -204,7 +204,7 @@ describe('SheetToolbar: when it shows', () => {
 })
 
 describe('SheetToolbar: undo and redo', () => {
-  it('calls the source’s undo and redo, and passes on where the selection goes', async () => {
+  it("calls the source's undo and redo, and passes on where the selection goes", async () => {
     const src = source({ undo: vi.fn(async () => ({ ok: true, changes: [], select: { sheet: 'Лист1', range: 'B2:D5' } })) })
     const w = mountBar(src, at('A1'))
     await w.find('[data-tb="undo"]').trigger('click')
@@ -216,7 +216,7 @@ describe('SheetToolbar: undo and redo', () => {
     expect(w.emitted('select')).toEqual([[{ sheet: 'Лист1', range: 'B2:D5' }]])
   })
 
-  it('is off where the source’s history has no step, on where it has one or gives no history', async () => {
+  it("is disabled where the source's history has no steps, enabled where it has one or returns no history", async () => {
     const history = { undo: 0, redo: 1 }
     // the format's step is in the history once the call completes, as with the local source
     const src = source({ format: vi.fn(async () => ((history.undo = 1), OK)) })
@@ -233,7 +233,7 @@ describe('SheetToolbar: undo and redo', () => {
     expect(plain.find('[data-tb="undo"]').attributes('disabled')).toBeUndefined()
   })
 
-  it('reports a refusal of the source', async () => {
+  it("reports the source's rejection", async () => {
     const src = source({ format: vi.fn(async () => ({ ok: false, reason: 'refused', message: 'Лист защищён' })) })
     const w = mountBar(src, at('A1'))
     await w.find('[data-tb="italic"]').trigger('click')
@@ -243,7 +243,7 @@ describe('SheetToolbar: undo and redo', () => {
 })
 
 describe('SheetToolbar through the sheet', () => {
-  it('formats, undoes and redoes through the sheet it is given: the sheet sets the selection and reads itself again', async () => {
+  it('formats, undoes and redoes through the given sheet: the sheet sets the selection and reloads', async () => {
     const f = fakeSource([{ name: 'Лист1', maxRow: 10, maxCol: 5 }])
     delete (f.source as { subscribe?: unknown }).subscribe
     const src = Object.assign(f.source, source({ undo: vi.fn(async (): Promise<EditOutcome> => ({ ok: true, changes: [], select: { sheet: 'Лист1', range: 'C3' } })) }), { sheets: f.source.sheets, window: f.source.window })
@@ -265,7 +265,7 @@ describe('SheetToolbar through the sheet', () => {
     expect(bar.emitted('select')).toBeUndefined()
   })
 
-  it('leaves a refusal to the sheet’s message line', async () => {
+  it("leaves a rejection to the sheet's message line", async () => {
     const src = source({ sheets: async () => [{ name: 'Лист1', maxRow: 3, maxCol: 3 }], window: fakeSource([{ name: 'Лист1', maxRow: 3, maxCol: 3 }]).source.window, edit: async () => OK })
     src.format = vi.fn(async (): Promise<EditOutcome> => ({ ok: false, reason: 'refused', message: 'Лист защищён' }))
     const sheet = mount(SheetView, { props: { source: src }, attachTo: document.body })

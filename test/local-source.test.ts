@@ -20,12 +20,12 @@ describe('localSource: sheets and windows', () => {
     expect(list[1]!.freeze).toBeUndefined()
   })
 
-  it('takes in the extent the cells an array spilled into', async () => {
+  it('includes in the extent the cells an array spilled into', async () => {
     const s = source({ sheets: [{ name: 'S', cells: { A1: { formula: 'SEQUENCE(5,2)' } } }] })
     expect((await s.sheets())[0]).toMatchObject({ maxRow: 5, maxCol: 2 })
   })
 
-  it('gives text, values and formulas in the book locale', async () => {
+  it("returns text, values and formulas in the workbook's locale", async () => {
     const w = await win(source(), 'Лист1', 1, 5, 1, 7)
     expect(w.text[2]![0]).toBe('3')
     expect(w.values[0]![0]).toBe(1)
@@ -33,7 +33,7 @@ describe('localSource: sheets and windows', () => {
     expect(w.text[0]![1]).toBe('с примечанием')
   })
 
-  it('drops the table name in a cell of its own table, as Excel shows it', async () => {
+  it('omits the table name in a cell of its own table, as Excel displays it', async () => {
     const w = await win(source(), 'Таблица', 1, 3, 1, 5)
     expect(w.formulas.C2).toBe('[@Сумма]*2')
     expect(w.formulas.E1).toBe('СУММ(Продажи[Сумма])')
@@ -41,7 +41,7 @@ describe('localSource: sheets and windows', () => {
     expect(w.tables).toEqual([{ name: 'Продажи', range: 'A1:C3', headerRow: 1 }])
   })
 
-  it('resolves styles: the cell own, else its row, else its column', async () => {
+  it("resolves styles: the cell's own, otherwise its row's, otherwise its column's", async () => {
     const w = await win(source(), 'Лист1', 1, 5, 1, 7)
     expect(styleOf(w, 'C1')).toEqual(BOLD)
     expect(styleOf(w, 'D1')).toEqual(COL_FILL)
@@ -50,7 +50,7 @@ describe('localSource: sheets and windows', () => {
     expect(styleOf(w, 'A1')).toBeUndefined()
   })
 
-  it('gives notes, links, widths, heights and merges', async () => {
+  it('returns notes, hyperlinks, widths, heights and merges', async () => {
     const w = await win(source(), 'Лист1', 1, 5, 1, 7)
     expect(w.notes).toEqual({ B1: { author: 'Аня', text: 'Проверить' } })
     // a location with an address is a location in what the address points to, not in this workbook
@@ -61,7 +61,7 @@ describe('localSource: sheets and windows', () => {
     expect(w.merges).toEqual(['F1:G2'])
   })
 
-  it('gives the text each cell opens with, as Excel\'s formula bar shows it', async () => {
+  it("returns the text each cell opens with, as Excel's formula bar displays it", async () => {
     const s = source({
       locale: 'ru-RU',
       sheets: [{ name: 'S', cells: { A1: { value: { date: '2026-03-15' }, numberFormat: 14 }, A2: { value: 0.05, numberFormat: '0%' }, A3: { value: '007' }, A4: { formula: 'SUM(A1:A2)' } }, columns: { B: { style: 0 } } }],
@@ -72,7 +72,7 @@ describe('localSource: sheets and windows', () => {
     expect(w.editText).toEqual({ A1: '15.03.2026', A2: '5%', A3: "'007", A4: '=СУММ(A1:A2)' })
   })
 
-  it('gives the number format each cell shows by, as a code, its row\'s and column\'s on an empty cell too', async () => {
+  it("returns the number format code each cell is displayed with, including its row's and column's on an empty cell", async () => {
     const s = source({
       locale: 'ru-RU',
       sheets: [{ name: 'S', cells: { A1: { value: 46096, numberFormat: 14 }, A2: { value: 0.05, numberFormat: '0%' }, A3: { value: 5 }, B1: { value: 2 } }, columns: { B: { numberFormat: '0.00' } }, rows: { '4': { numberFormat: '0%' } } }],
@@ -91,7 +91,7 @@ describe('localSource: sheets and windows', () => {
 })
 
 describe('localSource: search, display filter, totals', () => {
-  it('finds shown text without regard to case, in row order', async () => {
+  it('finds displayed text case-insensitively, in row order', async () => {
     const s = source()
     expect(await s.find({ sheet: 'Лист1', query: 'С', lookIn: 'values' })).toEqual({
       hits: [
@@ -106,7 +106,7 @@ describe('localSource: search, display filter, totals', () => {
     expect(await s.find({ sheet: 'Лист1', query: '  ' })).toEqual({ hits: [], total: 0 })
   })
 
-  it('filters and sorts the display, the head stays on top', async () => {
+  it('filters and sorts the display, with the header kept at the top', async () => {
     const s = source()
     expect(await s.visibleRows('Список', { head: 1 })).toEqual({ rows: null })
     expect(await s.visibleRows('Список', { head: 1, cols: { 1: { values: ['б'] } } })).toEqual({ rows: [1, 2, 4] })
@@ -116,21 +116,21 @@ describe('localSource: search, display filter, totals', () => {
     expect(await s.visibleRows('Список', { head: 1, sort: { col: 1, dir: 'desc' } })).toEqual({ rows: [1, 6, 2, 4, 3, 5] })
   })
 
-  it('sorts mixed values in Excel’s order, as memorySource: numbers, text in any case by en-US, FALSE, TRUE, errors, empty cells last either way', async () => {
+  it("sorts mixed values in Excel's order, as memorySource does: numbers, text case-insensitively in en-US order, FALSE, TRUE, errors, empty cells last in either direction", async () => {
     const cells = { A1: { value: 'k' }, A2: { value: 'b' }, A3: { value: 2 }, A4: { value: true }, A5: { formula: '1/0' }, A7: { value: 1 }, A8: { value: 'a' }, A9: { value: 'Item10' }, A10: { value: 'Item2' }, A11: { value: false } }
     const s = source({ sheets: [{ name: 'S', cells }] })
     expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'asc' } })).rows).toEqual([1, 7, 3, 8, 2, 9, 10, 11, 4, 5, 6])
     expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'desc' } })).rows).toEqual([1, 5, 4, 11, 10, 9, 2, 8, 3, 7, 6])
   })
 
-  it('sorts text in the book’s locale: ru-RU’s order is en-US’s, Latin before Cyrillic, as Excel for Windows sorts', async () => {
+  it("sorts text in the workbook's locale: the ru-RU order is the en-US one, Latin before Cyrillic, as Excel for Windows sorts", async () => {
     const cells = { A1: { value: 'h' }, A2: { value: 'б' }, A3: { value: 'b' }, A4: { value: 'А' }, A5: { value: 'a' } }
     const s = source({ locale: 'ru-RU', sheets: [{ name: 'S', cells }] })
     expect((await s.visibleRows('S', { head: 1, sort: { col: 1, dir: 'asc' } })).rows).toEqual([1, 5, 3, 4, 2])
     expect((await s.columnValues('S', 1, { head: 1 })).values.map((v) => v.text)).toEqual(['a', 'b', 'А', 'б'])
   })
 
-  it('reads only the columns a filter, a sort or a funnel asks for, once, and keeps them up to date with edits', async () => {
+  it('reads only the columns a filter, a sort or a funnel requests, once, and keeps them up to date with edits', async () => {
     const { s, calls, count } = watched()
     const reads = () => calls.filter((c) => c.method === 'getCells').map((c) => c.args[1])
     const filter: SheetFilter = { head: 1, cols: { 1: { values: ['б'] } } }
@@ -149,7 +149,7 @@ describe('localSource: search, display filter, totals', () => {
     expect(count('getUsedRange')).toBe(1)
   })
 
-  it('keeps a change that comes while its column is being read, and each kind of value', async () => {
+  it('keeps a change that arrives while its column is being read, and each kind of value', async () => {
     let release: (cells: Record<string, CellView>) => void = () => {}
     const v = new SheetValues(4, () => new Promise((resolve) => (release = resolve)))
     const loading = v.load([1])
@@ -163,7 +163,7 @@ describe('localSource: search, display filter, totals', () => {
     expect([v.maxRow, v.textAt(7, 1), v.valueAt(7, 1)]).toEqual([7, '1,5', 1.5])
   })
 
-  it('stops a column read with the signal of the request it is for; one stopped for one request is read again for another', async () => {
+  it('stops a column read with the signal of the request it belongs to; a read stopped for one request is repeated for another', async () => {
     const reads: { signal?: AbortSignal; release: (cells: Record<string, CellView>) => void }[] = []
     const v = new SheetValues(2, (_ranges, signal) => new Promise((resolve, reject) => {
       reads.push({ signal, release: resolve })
@@ -182,7 +182,7 @@ describe('localSource: search, display filter, totals', () => {
     expect(v.textAt(1, 1)).toBe('h')
   })
 
-  it('passes a request’s signal to the session’s getCells, and an aborted one rejects as an abort', async () => {
+  it("passes a request's signal to the session's getCells, and an aborted one rejects as an abort", async () => {
     const { s, calls } = watched()
     const ctrl = new AbortController()
     await s.columnValues('Список', 1, { head: 1 }, ctrl.signal)
@@ -191,7 +191,7 @@ describe('localSource: search, display filter, totals', () => {
     await expect(s.columnValues('Список', 2, { head: 1 }, ctrl.signal)).rejects.toMatchObject({ name: 'AbortError' })
   })
 
-  it('gives a filtered window by display index', async () => {
+  it('returns a filtered window by display index', async () => {
     const s = source()
     const filter: SheetFilter = { head: 1, cols: { 1: { values: ['б'] } } }
     await s.visibleRows('Список', filter)
@@ -200,7 +200,7 @@ describe('localSource: search, display filter, totals', () => {
     expect(w.text).toEqual([['б', '5'], ['б', 'нет']])
   })
 
-  it('gives a sorted window in display order', async () => {
+  it('returns a sorted window in display order', async () => {
     const s = source()
     const filter: SheetFilter = { head: 1, sort: { col: 1, dir: 'desc' } }
     expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 6, 2, 4, 3, 5])
@@ -208,7 +208,7 @@ describe('localSource: search, display filter, totals', () => {
     expect(w.text).toEqual([['в', '1,5'], ['б', '5'], ['б', 'нет']])
   })
 
-  it('gives under a filter the merged areas of one row among the rows shown, as Excel shows them', async () => {
+  it('under a filter returns only one-row merged ranges among the visible rows, as Excel displays them', async () => {
     const s = source({
       sheets: [{ name: 'S', cells: { A1: { value: 'k' }, A2: { value: 'x' }, A3: { value: 'y' }, A4: { value: 'x' } }, merges: ['C2:D2', 'C3:D4', 'E3:F3', 'B4:B5'] }],
     })
@@ -219,7 +219,7 @@ describe('localSource: search, display filter, totals', () => {
     expect((await win(s, 'S', 1, 5, 1, 6)).merges.sort()).toEqual(['B4:B5', 'C2:D2', 'C3:D4', 'E3:F3'])
   })
 
-  it('lists a column values under the other columns conditions', async () => {
+  it("lists a column's values under the other columns' conditions", async () => {
     const s = source()
     expect(await s.columnValues('Список', 1, { head: 1 })).toEqual({
       values: [{ text: 'а', count: 1 }, { text: 'б', count: 2 }, { text: 'в', count: 1 }, { text: '', count: 1 }],
@@ -249,7 +249,7 @@ describe('localSource: search, display filter, totals', () => {
     expect(calls.filter((c) => c.method === 'summarizeRanges').map((c) => (c.args[1] as { rows?: number[] }).rows)).toEqual([[1, 2, 4]])
   })
 
-  it('totals as the grid counts its windows: a value its format hides counts, a formula giving "" does not', async () => {
+  it('totals as the grid counts its windows: a value hidden by its format counts, a formula returning "" does not', async () => {
     const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'k' }, A2: { value: 5, numberFormat: ';;;' }, A3: { value: 3 }, A4: { formula: '""' }, A5: { formula: '1/0' } } }] })
     const want = { cells: 3, numbers: 2, sum: 8, min: 3, max: 5 }
     expect(await s.stats('S', 'A2:A5')).toEqual(want)
@@ -270,7 +270,7 @@ describe('localSource: search, display filter, totals', () => {
     await expect(s.stats('Список', 'A2:B6', undefined, ctrl.signal)).rejects.toMatchObject({ name: 'AbortError' })
   })
 
-  it('searches after an edit with the new text', async () => {
+  it('searches with the new text after an edit', async () => {
     const s = source()
     await s.edit([{ sheet: 'Список', cell: 'A5', text: 'бета' }])
     expect((await s.find({ sheet: 'Список', query: 'бет' })).hits).toEqual([{ row: 5, col: 1 }])
@@ -284,7 +284,7 @@ describe('localSource: explain, events, closing', () => {
     expect(text).toContain('СУММ')
   })
 
-  it('applies edits one after another: the second reads the cell as the first left it', async () => {
+  it('applies edits in sequence: the second sees the cell as the first left it', async () => {
     const s = source()
     const [a, b] = await Promise.all([s.format('Лист1', [{ range: 'A1', style: BOLD }]), s.edit([{ sheet: 'Лист1', cell: 'A1', text: '9' }])])
     expect(a.ok && b.ok).toBe(true)
@@ -293,7 +293,7 @@ describe('localSource: explain, events, closing', () => {
     expect(styleOf(w, 'A1')).toEqual(BOLD)
   })
 
-  it('tells subscribers of edits made through it', async () => {
+  it('notifies subscribers of edits made through it', async () => {
     const s = source()
     const events: SourceEvent[] = []
     const off = s.subscribe((e) => events.push(e))
@@ -304,20 +304,20 @@ describe('localSource: explain, events, closing', () => {
     expect(events[0]).toMatchObject({ kind: 'changed', changes: [{ cell: 'A2', value: 5 }, { cell: 'A3', value: 6 }] })
   })
 
-  it('fails the opening of a book in a locale xlcalc has no module for, with the library message', async () => {
+  it("fails to open a workbook in a locale xlcalc has no module for, with the library's message", async () => {
     const s = source({ locale: 'de-DE', sheets: [{ name: 'S', cells: {} }] })
     await expect(s.ready).rejects.toThrow(/^book\.locale: unknown locale "de-DE" \(loaded: .*; the package's: en-US, ru-RU\)$/)
   })
 
-  it('rejects every call when the book cannot be opened', async () => {
+  it('rejects every call when the workbook cannot be opened', async () => {
     const s = source({ sheets: [{ name: 'a/b', cells: {} }] })
     await expect(s.ready).rejects.toThrow()
     await expect(s.sheets()).rejects.toThrow()
   })
 })
 
-describe('localSource: Control and an arrow', () => {
-  it('goes where Excel\'s Range.End goes, by the session\'s getEnd', async () => {
+describe('localSource: Ctrl+arrow', () => {
+  it("goes where Excel's Range.End goes, by the session's getEnd", async () => {
     const cells: Record<string, { value: number }> = {}
     for (let r = 1; r <= 10; r++) cells[`A${r}`] = { value: r }
     for (let r = 1; r <= 500; r++) cells[`B${r}`] = { value: r }
@@ -329,7 +329,7 @@ describe('localSource: Control and an arrow', () => {
 })
 
 describe('localSource: the clipboard text (xlcalc 0.34 copyText)', () => {
-  it('copies values by their formats without the column’s clipping, CRLF rows, none at the end for a Mac', async () => {
+  it('copies values formatted by their number formats without clipping to the column width, rows ending with CRLF, no final one on a Mac', async () => {
     const s = source({
       locale: 'ru-RU',
       sheets: [{ name: 'S', cells: { A1: { value: { date: '2026-03-15' }, numberFormat: 'dd.mm.yyyy' }, B1: { value: 'a\tb' }, A2: { value: 2 } }, columns: { A: { width: 2 } } }],

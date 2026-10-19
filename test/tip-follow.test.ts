@@ -16,7 +16,7 @@ vi.mock('xlcalc/text', async (load) => {
 
 const contextOf = (w: VueWrapper) => (w.vm.$ as unknown as { provides: Record<symbol, SheetContext> }).provides[sheetContextKey as symbol]!
 
-it('a typed character reads the call at the caret once and sets the list once', async () => {
+it('a typed character finds the call at the caret once and sets the list once', async () => {
   const source = memorySource({ sheets: [{ name: 'S', cells: { A1: 1 } }], functions: ['SUM', 'SUMIF', 'SUMIFS'] })
   source.functionSignature = async (name) => functionSignature(name)
   const w = await mountSheet(source)

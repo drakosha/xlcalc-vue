@@ -41,7 +41,7 @@ const book = (over: Partial<MemoryBook['sheets'][number]> = {}): MemoryBook => (
 })
 
 describe('sortable titles', () => {
-  it('a click on a sortable title asks the host to sort, ascending first and descending on the column already ascending', async () => {
+  it('a click on a sortable title asks the host to sort, ascending first and descending on a column already sorted ascending', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     expect(head(w, 2).classes()).toContain('xs-sortable')
     expect(head(w, 2).find('.xs-sorthint').exists()).toBe(true)
@@ -56,7 +56,7 @@ describe('sortable titles', () => {
     expect(head(w, 2).find('.xs-list-sort').text()).toBe('↓')
   })
 
-  it('a title that is not sortable selects its column as before, and the titles take their alignment', async () => {
+  it('a title that is not sortable selects its column as before, and the titles get their alignment', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await head(w, 3).trigger('click')
     expect(w.emitted('sort')).toBeUndefined()
@@ -80,7 +80,7 @@ describe('drill-down and rows', () => {
     expect(w.emitted('rowOpen')).toBeUndefined()
   })
 
-  it('with openRows the first column opens its row by a click, Enter on any other cell too; the header row does not', async () => {
+  it('with openRows the first column opens its row on a click, and so does Enter on any other cell; the header row does not', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true, openRows: true })
     expect(td(w, 2, 1).classes()).toContain('xs-rowlink')
     expect(td(w, 2, 1).attributes('title')).toBe('Open the row')
@@ -96,7 +96,7 @@ describe('drill-down and rows', () => {
     expect(w.emitted('rowOpen')).toHaveLength(2)
   })
 
-  it('without openRows a click on the first column only selects, and Enter moves down as in a sheet', async () => {
+  it('without openRows a click on the first column only selects, and Enter moves down as on a regular sheet', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     expect(td(w, 2, 1).classes()).not.toContain('xs-rowlink')
     await td(w, 2, 1).trigger('pointerdown', { button: 0 })
@@ -106,7 +106,7 @@ describe('drill-down and rows', () => {
     expect(active(w)).toBe('3:1')
   })
 
-  it('Shift and a click on a drill-down cell extend the selection and open nothing', async () => {
+  it('Shift+click on a drill-down cell extends the selection and opens nothing', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     await td(w, 2, 2).trigger('click', { shiftKey: true })
     expect(w.emitted('cellDrill')).toBeUndefined()
@@ -114,7 +114,7 @@ describe('drill-down and rows', () => {
 })
 
 describe('the totals row', () => {
-  it('shows the totals by column at the bottom, aligned as the titles, and nothing without them', async () => {
+  it('shows the totals by column at the bottom, aligned like the titles, and nothing without them', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })
     const cells = w.findAll('td.xs-total')
     expect(cells.map((c) => c.text()).slice(0, 3)).toEqual(['Total', '60', ''])
@@ -126,7 +126,7 @@ describe('the totals row', () => {
   })
 })
 
-describe('the host sorts', () => {
+describe("the host's sort", () => {
   it('reload after the host changed its order reads the windows again in the new order', async () => {
     const names = ['b', 'c', 'a']
     let order = names.slice()

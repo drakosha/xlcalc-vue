@@ -48,7 +48,7 @@ async function pick(w: VueWrapper, item: string): Promise<void> {
 const alertOf = (w: VueWrapper) => w.find('[data-xs-alert="merge"]')
 
 describe('Merge & Center on the toolbar', () => {
-  it('each command calls the source’s structure over the selection: Merge & Center, Merge Across, Merge Cells, Unmerge Cells', async () => {
+  it("each command calls the source's structure over the selection: Merge & Center, Merge Across, Merge Cells, Unmerge Cells", async () => {
     const { source, structure } = withStructure()
     const w = await mountBoth(source)
     await goTo(w, 'B2:C3')
@@ -64,7 +64,7 @@ describe('Merge & Center on the toolbar', () => {
     ])
   })
 
-  it('is pressed on a merged cell, and pressed then it unmerges, as Excel’s', async () => {
+  it("shows as pressed on a merged cell, and clicking it then unmerges, as Excel's does", async () => {
     const { source, structure } = withStructure({ A1: 'x' }, { merges: ['A1:B2'] })
     const w = await mountBoth(source)
     await goTo(w, 'D4')
@@ -76,7 +76,7 @@ describe('Merge & Center on the toolbar', () => {
     expect(ops(structure)).toEqual([{ op: 'unmergeCells', sheet: 'S', range: 'A1' }])
   })
 
-  it('does nothing on one cell outside a merged area, as Excel', async () => {
+  it('does nothing on a single cell outside a merged range, as in Excel', async () => {
     const { source, structure } = withStructure({ C5: 1 })
     const w = await mountBoth(source)
     await goTo(w, 'C5')
@@ -86,7 +86,7 @@ describe('Merge & Center on the toolbar', () => {
     expect(structure).not.toHaveBeenCalled()
   })
 
-  it('warns before merging two cells that hold values: Cancel and Esc leave them, OK merges', async () => {
+  it('warns before merging two cells that contain values: Cancel and Esc leave them, OK merges', async () => {
     const { source, structure } = withStructure({ A1: 1, B1: { value: 2, formula: '1+1' } })
     const w = await mountBoth(source, { messages: ruMessages })
     await goTo(w, 'A1:B1')
@@ -112,7 +112,7 @@ describe('Merge & Center on the toolbar', () => {
     expect(ops(structure)).toEqual([{ op: 'mergeCells', sheet: 'S', range: 'A1:B1', center: true }])
   })
 
-  it('merges without a warning when one cell holds a value, and Merge Across when each row holds one', async () => {
+  it('merges without a warning when one cell contains a value, and Merge Across when each row contains one', async () => {
     const { source, structure } = withStructure({ A1: 1, A2: 2 })
     const w = await mountBoth(source)
     await goTo(w, 'A1:B1')
@@ -129,7 +129,7 @@ describe('Merge & Center on the toolbar', () => {
     expect(alertOf(w).exists()).toBe(true)
   })
 
-  it('counts the values of the merged areas the selection meets, and of those they meet in turn, as the library merges them', async () => {
+  it('counts the values of the merged ranges the selection overlaps, and of those they overlap in turn, as the library merges them', async () => {
     // C1:C2 overlaps B1:C1; extended to B1:C2, it overlaps A2:B2: the merge covers A1:C2, where A2 and C2 contain values.
     const { source } = withStructure({ A2: 'a', C2: 'c' }, { merges: ['B1:C1', 'A2:B2'] })
     const w = await mountBoth(source)
@@ -138,7 +138,7 @@ describe('Merge & Center on the toolbar', () => {
     expect(alertOf(w).exists()).toBe(true)
   })
 
-  it('counts the cells past the loaded windows through the source’s windows', async () => {
+  it("counts cells beyond the loaded windows through the source's windows", async () => {
     const { source, structure } = withStructure({ A1: 1, A4000: 2 })
     const w = await mountBoth(source)
     await goTo(w, 'A1:A5000')
@@ -149,7 +149,7 @@ describe('Merge & Center on the toolbar', () => {
     expect(ops(structure)).toEqual([{ op: 'mergeCells', sheet: 'S', range: 'A1:A5000' }])
   })
 
-  it('shows the source’s refusal in the sheet’s message line', async () => {
+  it("shows the source's rejection in the sheet's message line", async () => {
     const { source } = withStructure({}, {}, () => ({ ok: false, reason: 'refused', message: 'A table’s cells are not merged' }))
     const w = await mountBoth(source)
     await goTo(w, 'A1:B1')
@@ -158,7 +158,7 @@ describe('Merge & Center on the toolbar', () => {
     expect(w.find('.xs-message').text()).toBe('A table’s cells are not merged')
   })
 
-  it('is not there without the source’s structure, and off on a read-only sheet', async () => {
+  it("is absent without the source's structure, and disabled on a read-only sheet", async () => {
     const format = vi.fn(async (): Promise<EditOutcome> => OK)
     const plain = await mountBoth({ ...memorySource({ sheets: [{ name: 'S', cells: { A1: 1 } }] }), format })
     expect(plain.find('[data-tb="bold"]').exists()).toBe(true)
@@ -175,7 +175,7 @@ describe('Merge & Center on the toolbar', () => {
 })
 
 describe('Merge Cells through the local source', () => {
-  it('A1:B2 merged is drawn as one cell at once, and Control+Z splits it again', async () => {
+  it('A1:B2, once merged, is drawn as one cell at once, and Ctrl+Z splits it again', async () => {
     const source = localSource({ locale: 'en-US', sheets: [{ name: 'S', cells: { A1: { value: 1 } } }] }, { calc: 'inline' })
     const w = await mountBoth(source)
     await settle(12)
@@ -195,7 +195,7 @@ describe('Merge Cells through the local source', () => {
   })
 })
 
-describe('the field over a merged cell, by frozen rows', () => {
+describe('the editor over a merged cell, with frozen rows', () => {
   /** Rows 1 and 2 frozen; A1:B2 merged within them, D2:E3 across their edge (drawn as plain cells), A5:B6 in the body. */
   const book = (): MemoryBook => ({ sheets: [{ name: 'S', cells: { A1: 'a', D2: 'd', A5: 'b' }, merges: ['A1:B2', 'D2:E3', 'A5:B6'], freeze: { rows: 2, cols: 0 } }] })
   const box = (w: VueWrapper) => {
@@ -203,7 +203,7 @@ describe('the field over a merged cell, by frozen rows', () => {
     return { top: parseFloat(st.top), height: parseFloat(st.height), width: parseFloat(st.width) }
   }
 
-  it('spans the merge and follows the scroll in frozen rows; a merge across their edge is its own cell', async () => {
+  it('spans the merged range and follows the scroll in frozen rows; a merge across their edge is drawn as separate cells', async () => {
     const w = await mountSheet(memorySource(book()))
     const scroller = w.find('.xs-scroller')
     scroller.element.scrollTop = 100
