@@ -2,7 +2,7 @@
 // localSource paste, Control+Return, undo and redo: text read as Excel reads it there, one step of the undo per call.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BookInput } from 'xlcalc'
-import type { SourceEvent } from '../src/source'
+import type { SourceEvent } from '../src/contract/source'
 import { closeAll, source, watched, win } from './local-fixture'
 
 afterEach(closeAll)

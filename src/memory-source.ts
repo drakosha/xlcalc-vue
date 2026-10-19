@@ -5,7 +5,7 @@ import { cellAddress, outlineGroups, parseCell, parseRange, quoteSheetIfNeeded, 
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
 import { loadEntry, type Entry } from './entry'
-import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './source'
+import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './contract/source'
 import { columnList, findHits, rangeStats, replaceTexts, visibleList, type MemorySheetQuery } from './memory-query'
 import { axisOf, lineSpan, type LineAxis } from './lines'
 import { outlineCommand, outlineOf, outlineSheet, type AxisLines } from './memory-outline'
@@ -14,82 +14,8 @@ import { filterKey } from './filter-key'
 import { failedOutcome } from './failure'
 import { isGridRef } from './grid-ref'
 import { DEFAULT_MAX_CELLS, rowsFor } from './window-size'
-import { MemoryRules, memoryRefusal, PLAIN_NUMBER, type MemoryValidation } from './memory-validation'
-
-/** A cell of the in-memory workbook; a bare value is a cell with that value. */
-export interface MemoryCell {
-  value?: CellValue
-  /** Displayed text; by default the value as plain text. */
-  text?: string
-  /** The formula as displayed, without `=`; with no engine its value is whatever `value` specifies. */
-  formula?: string
-  /** A style from the workbook's `styles`, by index. */
-  style?: number
-  /** The color from the number format's section. */
-  color?: string
-  /** The number format code the cell is displayed with, as xlsx stores it (`0.0%`, `dd.mm.yyyy`); General without it. The text the cell opens with for editing follows it. */
-  numberFormat?: string
-  link?: { href?: string; location?: string; tooltip?: string; target?: string }
-  note?: { author?: string; text: string }
-  /** List mode: the cell is a drill-down (`SheetWindow.drill`). */
-  drill?: true
-  /** The cell's conditional formatting, as xlcalc calculates it (`ConditionalAppearance`); the in-memory workbook keeps it as given. */
-  appearance?: ConditionalAppearance
-}
-
-/**
- * Excel's outline of an in-memory sheet: outline levels (1 to 7) of rows and columns by row, column or span, keyed as in
- * `widths` and `heights` (`'3:9': 1`, `'C:E': 2`), the summary rows and columns marked collapsed (`'10'`, `'F'`; a group
- * inside a collapsed one stays collapsed when the outer one is expanded), and where the summaries are (below and to the
- * right by default). A group's rows or columns are hidden by a size of 0.
- */
-export interface MemoryOutline {
-  rows?: Record<string, number>
-  columns?: Record<string, number>
-  collapsed?: string[]
-  summaryBelow?: boolean
-  summaryRight?: boolean
-}
-
-export interface MemorySheet extends Omit<SheetInfo, 'maxRow' | 'maxCol' | 'outline'> {
-  /** Cells by A1 address. */
-  cells: Record<string, MemoryCell | CellValue>
-  /** Column widths by letters (`B`) or a span (`B:D`), in xlsx units; 0 hides. */
-  widths?: Record<string, number>
-  /** Row heights by row (`5`) or a span (`5:9`), in points; 0 hides. */
-  heights?: Record<string, number>
-  defaultRowHeight?: number
-  merges?: string[]
-  tables?: { name: string; range: string; headerRow: number }[]
-  notice?: string
-  outline?: MemoryOutline
-  /** Data validation rules: a cell's dropdown and input message, and the alert for a typed value that violates a rule. */
-  validations?: MemoryValidation[]
-}
-
-export interface MemoryBook {
-  sheets: MemorySheet[]
-  styles?: CellStyle[]
-  /** The functions for Formula AutoComplete, by their names as typed in the workbook's formulas, in the order its list displays them; without them the source has no `functionNames`. */
-  functions?: string[]
-}
-
-export interface MemorySourceOptions {
-  /** Milliseconds every response takes, to see the component waiting; 0 by default. */
-  delay?: number
-  maxCells?: number
-}
-
-export interface MemorySource extends SheetSource {
-  /** Responds to the next edits with these failed outcomes instead of applying them (for tests and the example). */
-  failNext(...outcomes: Extract<EditOutcome, { ok: false }>[]): void
-  /** Sends an event to the subscribers, as another tab would. */
-  emit(event: SourceEvent): void
-  /** Changes cells as another tab would: the changes are applied and sent to the subscribers as `changed`. */
-  setCells(sheet: string, entries: Record<string, string | null>): CellUpdate[]
-  /** Simulates a workbook recalculating for `ms`: windows return `pending` until then. */
-  recompute(ms: number): void
-}
+import { MemoryRules, memoryRefusal, PLAIN_NUMBER } from './memory-validation'
+import type { MemoryBook, MemoryCell, MemorySheet, MemorySource, MemorySourceOptions, MemoryValidation } from './contract/memory'
 
 const ERROR_TEXT: Record<string, string> = {
   DIV0: '#DIV/0!',

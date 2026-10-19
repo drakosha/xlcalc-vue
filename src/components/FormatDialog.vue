@@ -4,8 +4,7 @@
 // (xlcalc's list and categories). It opens at the active cell's look; OK emits the patches of `SheetView.format` for what
 // changed (one call, one step of undo) and closes, Cancel closes. Full screen on a phone.
 import { computed, reactive, ref, shallowRef, toRaw, watch } from 'vue'
-import type { SheetViewState } from '../core/sheet'
-import type { SheetFormatPatch } from '../core/commands'
+import type { SheetFormatPatch, SheetViewState } from '../contract/view'
 import {
   draftErrors,
   FONT_NAMES,
@@ -25,7 +24,8 @@ import {
   type FormatStart,
   type FormatTab,
 } from '../format-cells'
-import { useMessages, type SheetMessages } from '../messages'
+import { useMessages } from '../messages'
+import type { SheetMessages } from '../contract/messages'
 import { useNumberFormats } from '../number-formats'
 import FormatBorders from './FormatBorders.vue'
 import FormatColour from './FormatColour.vue'

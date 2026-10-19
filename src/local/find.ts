@@ -4,7 +4,7 @@
 import type { AsyncSession, FindCellsOptions, ReplaceResult } from 'xlcalc'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
 import { cellRect, unionRect } from '../rect'
-import type { FindRequest, FindResult } from '../source'
+import type { FindRequest, FindResult } from '../contract/source'
 import type { CellsBox } from './outcome'
 
 /** Hits of a search in one answer; the total counts them all. */

@@ -1,7 +1,7 @@
 // The local source's tests share these: a small ru-RU book, sources closed after each test, a window and a cell's style.
 import { createInlineCalc, type AsyncSession, type BookInput, type Calc } from 'xlcalc'
 import { localSource, type LocalSource, type LocalSourceOptions } from '../src/local'
-import type { SheetFilter, SheetWindow } from '../src/source'
+import type { SheetFilter, SheetWindow } from '../src/contract/source'
 
 export const BOLD = { font: { bold: true } }
 export const ROW_FILL = { fill: { color: '#ffeeaa' } }

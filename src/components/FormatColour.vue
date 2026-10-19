@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // A colour of the Format Cells dialog: Automatic or No Color, Excel's palette as on the toolbar, and a #RRGGBB field.
 import { ref, watch } from 'vue'
-import type { SheetMessages } from '../messages'
+import type { SheetMessages } from '../contract/messages'
 import ColourSwatches from './ColourSwatches.vue'
 
 const props = defineProps<{

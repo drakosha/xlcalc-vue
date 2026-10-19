@@ -1,6 +1,6 @@
 // Totals of cells as Excel's status bar gives them, by the rule of what counts that ./local's session keeps, and what a blank cell is.
 import type { CellValue } from 'xlcalc/contract'
-import type { RangeStats } from './source'
+import type { RangeStats } from './contract/source'
 
 /** Totals of no cells. */
 export const noStats = (): RangeStats => ({ cells: 0, numbers: 0, sum: 0, min: null, max: null })

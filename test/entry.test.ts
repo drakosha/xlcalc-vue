@@ -3,7 +3,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
-import type { CellUpdate, EditOutcome } from '../src/source'
+import type { CellUpdate, EditOutcome } from '../src/contract/source'
 import { active, address, barField, cellText, editorKey, editorOpen, goTo, key, mountSheet, paste, pressBar, settle, type } from './helpers'
 
 afterEach(() => {

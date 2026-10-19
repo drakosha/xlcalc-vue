@@ -3,7 +3,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
-import type { LayoutChange } from '../src/source'
+import type { LayoutChange } from '../src/contract/source'
 import { goTo, mountSheet, settle } from './helpers'
 
 afterEach(() => {

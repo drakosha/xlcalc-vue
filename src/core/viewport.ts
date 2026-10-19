@@ -3,7 +3,7 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { NARROW_PX, useCoarsePointer } from '../frame'
 import { clamp } from '../rect'
-import type { OutlineGroup, SheetInfo } from '../source'
+import type { OutlineGroup, SheetInfo } from '../contract/source'
 import type { Geometry } from './geometry'
 import type { Memory } from './storage'
 

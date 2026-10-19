@@ -3,7 +3,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
-import type { SheetPending, SheetSource, SheetWindow, WindowRequest } from '../src/source'
+import type { SheetPending, SheetSource, SheetWindow, WindowRequest } from '../src/contract/source'
 import { gridWindow, mountSheet, settle } from './helpers'
 
 afterEach(() => {

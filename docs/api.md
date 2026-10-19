@@ -1,6 +1,6 @@
 # API reference
 
-Everything the package exports, with signatures. How the sheet uses each part, key by key, is described in the other files of `docs/`; this page covers what to pass and what is returned. The types are declared in `src/source.ts` (the source contract), `src/core/*.ts` (the sheet's state, events and methods), `src/messages.ts`, `src/memory-source.ts` and `src/local/`.
+Everything the package exports, with signatures. How the sheet uses each part, key by key, is described in the other files of `docs/`; this page covers what to pass and what is returned. The types are declared in `src/contract/`, behind `src/contract.ts`: `source.ts` (the source contract), `view.ts` (the sheet's props, state, events and methods), `memory.ts` (`memorySource`) and `messages.ts` (the interface texts' keys); those of `@xlcalc/vue/local` are in `src/local/types.ts`.
 
 ## Entry points
 
@@ -351,7 +351,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 
 ## Interface texts: `SheetMessages`
 
-`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/messages.ts`.
+`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`.
 
 ```ts
 import { ruMessages } from '@xlcalc/vue'
@@ -365,7 +365,8 @@ const messages = { ...ruMessages, loading: 'Загружаю…' }
 | Type | Shape |
 | --- | --- |
 | `MemoryBook` | `{ sheets: MemorySheet[]; styles?: CellStyle[]; functions?: string[] }`; `functions` enables `functionNames`. |
-| `MemorySheet` | `SheetInfo` without `maxRow`, `maxCol` and `outline`, plus `cells: Record<string, MemoryCell \| CellValue>`, `widths?` (keyed by `B`, `B:D` or `C:C`, in xlsx units, 0 hides), `heights?` (keyed by `5`, `5:9` or `5:5`, in points, 0 hides), `defaultRowHeight?`, `merges?`, `tables?`, `notice?`, `outline?` (levels by row, column or span, `collapsed`, `summaryBelow`, `summaryRight`), `validations?: MemoryValidation[]`. |
+| `MemorySheet` | `SheetInfo` without `maxRow`, `maxCol` and `outline`, plus `cells: Record<string, MemoryCell \| CellValue>`, `widths?` (keyed by `B`, `B:D` or `C:C`, in xlsx units, 0 hides), `heights?` (keyed by `5`, `5:9` or `5:5`, in points, 0 hides), `defaultRowHeight?`, `merges?`, `tables?`, `notice?`, `outline?: MemoryOutline`, `validations?: MemoryValidation[]`. |
+| `MemoryOutline` | `{ rows?: Record<string, number>; columns?: Record<string, number>; collapsed?: string[]; summaryBelow?: boolean; summaryRight?: boolean }`: outline levels (1 to 7) by row, column or span, keyed as in `widths` and `heights` (`'3:9': 1`, `'C:E': 2`), the summary rows and columns marked collapsed (`'10'`, `'F'`), and where the summaries are (below and to the right by default). |
 | `MemoryCell` | `{ value?, text?, formula?, style?, color?, numberFormat?, link?, note?, appearance?, drill? }`; `numberFormat` is the code the cell is displayed with (`0.0%`, `dd.mm.yyyy`), which the windows return as `numberFormats`, so a percentage or a date opens for editing as in Excel. |
 | `MemoryValidation` | `{ range; list?: string[]; whole?: { min?; max? }; prompt?: { title?; text }; alert?: { severity?; title?; message? } }` |
 | `MemorySourceOptions` | `{ delay?: number; maxCells?: number }`; `delay` makes every response take that many milliseconds. |

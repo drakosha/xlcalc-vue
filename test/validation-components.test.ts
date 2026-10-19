@@ -6,7 +6,7 @@ import ValidationAlert from '../src/components/ValidationAlert.vue'
 import ValidationDropdown from '../src/components/ValidationDropdown.vue'
 import ValidationPrompt from '../src/components/ValidationPrompt.vue'
 import { ruMessages } from '../src'
-import type { SheetValidationAlert } from '../src/source'
+import type { SheetValidationAlert } from '../src/contract/source'
 import { settle } from './helpers'
 
 afterEach(() => {

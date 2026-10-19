@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import { MAX_OUTLINE } from 'xlcalc/text'
-import type { OutlineGroup } from '../source'
+import type { OutlineGroup } from '../contract/source'
 import { linesOn } from '../lines'
 import type { Commands } from './commands'
 import { shortcutLetter } from './keys'

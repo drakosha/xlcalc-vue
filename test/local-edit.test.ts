@@ -1,7 +1,7 @@
 // @vitest-environment node
 // localSource edits: typed text read in the book's locale, refusals, what the edited cells show after.
 import { afterEach, describe, expect, it } from 'vitest'
-import type { SourceEvent } from '../src/source'
+import type { SourceEvent } from '../src/contract/source'
 import { BOLD, closeAll, source, styleOf, win } from './local-fixture'
 
 afterEach(closeAll)

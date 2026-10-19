@@ -4,7 +4,7 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { memorySource, SheetToolbar, SheetView, type MemoryBook, type SheetViewApi, type SheetViewState } from '../src'
-import type { EditOutcome, FormatPatch, SheetSource } from '../src/source'
+import type { EditOutcome, FormatPatch, SheetSource } from '../src/contract/source'
 import { goTo, key, mountSheet, settle } from './helpers'
 
 afterEach(() => {

@@ -5,14 +5,13 @@
 // Format Cells for a host that shows the dialog. On a narrow frame what does not fit
 // goes into a menu; on a finger every target is 44 × 44 px.
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import type { SheetViewApi } from '../core/commands'
-import type { MergeCommand } from '../core/merge'
-import type { SheetViewState } from '../core/sheet'
+import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarSource } from '../contract/view'
 import { failedOutcome } from '../failure'
 import { NARROW_PX, useCoarsePointer } from '../frame'
-import { useMessages, type SheetMessages } from '../messages'
+import { useMessages } from '../messages'
+import type { SheetMessages } from '../contract/messages'
 import { useNumberFormats } from '../number-formats'
-import type { EditOutcome, FormatPatch } from '../source'
+import type { EditOutcome, FormatPatch } from '../contract/source'
 import {
   alignToggle,
   borderPatches,
@@ -25,7 +24,6 @@ import {
   type BorderKind,
   type FontToggle,
   type HorizontalAlign,
-  type ToolbarSource,
 } from '../toolbar'
 import ColourSwatches from './ColourSwatches.vue'
 import { hasListener } from './dom'

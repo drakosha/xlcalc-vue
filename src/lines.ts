@@ -1,6 +1,6 @@
 // A sheet's lines as the component and a book name them, and an outline command's axis.
 import { parseLines, parseRange } from 'xlcalc/a1'
-import type { OutlineChange } from './source'
+import type { OutlineChange } from './contract/source'
 
 /** Rows or columns of a sheet. */
 export type LineAxis = 'rows' | 'columns'

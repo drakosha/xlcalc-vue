@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { memorySource } from '../src'
 import type { SheetViewState } from '../src'
-import type { SheetWindow, WindowRequest } from '../src/source'
+import type { SheetWindow, WindowRequest } from '../src/contract/source'
 import { editorKey, goTo, key, mountSheet, settle, type } from './helpers'
 
 afterEach(() => {

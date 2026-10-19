@@ -3,7 +3,8 @@
 // functions at a time; the keys are the field's (`useAutocomplete.onKey`) and a press keeps the field's focus.
 import { computed, ref } from 'vue'
 import { FUNCTION_ROWS } from '../core/autocomplete'
-import { useMessages, type SheetMessages } from '../messages'
+import { useMessages } from '../messages'
+import type { SheetMessages } from '../contract/messages'
 import { clampLeft, keepActiveInView, listHeight, placeBelowOrAbove, type PopupRect } from './popup'
 import '../popup.css'
 

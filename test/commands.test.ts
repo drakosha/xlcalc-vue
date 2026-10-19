@@ -5,7 +5,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { toRaw } from 'vue'
 import type { SheetViewApi } from '../src'
-import type { EditOutcome, SheetInfo, SheetOp, SheetSource } from '../src/source'
+import type { EditOutcome, SheetInfo, SheetOp, SheetSource } from '../src/contract/source'
 import { active, address, fakeSource, goTo, key, mountSheet, settle } from './helpers'
 
 afterEach(() => {

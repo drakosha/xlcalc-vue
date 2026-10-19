@@ -3,7 +3,7 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SheetToolbar, SheetView, ruMessages, type SheetViewState } from '../src'
-import type { EditOutcome, FormatPatch, SheetSource } from '../src/source'
+import type { EditOutcome, FormatPatch, SheetSource } from '../src/contract/source'
 import { fakeSource, settle } from './helpers'
 
 afterEach(() => {

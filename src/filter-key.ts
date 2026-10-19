@@ -1,5 +1,5 @@
 // A display filter's stable key, shared by memorySource and ./local: free of the engine, as the main entry needs.
-import type { SheetFilter } from './source'
+import type { SheetFilter } from './contract/source'
 
 /** A stable key of a filter, for remembering its list of rows. */
 export const filterKey = (f: SheetFilter): string =>

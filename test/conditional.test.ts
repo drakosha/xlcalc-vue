@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createInlineCalc, type AsyncSession, type BookInput, type Calc } from 'xlcalc'
 import { memorySource, type MemoryBook } from '../src'
 import { localSource } from '../src/local'
-import type { SourceEvent } from '../src/source'
+import type { SourceEvent } from '../src/contract/source'
 import { editorKey, goTo, key, mountSheet, settle, type } from './helpers'
 
 afterEach(() => {

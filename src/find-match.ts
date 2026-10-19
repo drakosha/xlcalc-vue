@@ -3,7 +3,7 @@
 // filter's rows and the order by rows or by columns from a cell. `./local` finds and replaces by the session.
 import { parseCell, parseRange } from 'xlcalc/a1'
 import { findMatcher, findReplacer } from 'xlcalc/text'
-import type { FindRequest, FindResult } from './source'
+import type { FindRequest, FindResult } from './contract/source'
 
 /** Visits every cell a search reads with its text (what it opens with, or what it shows), in any order. */
 export type EachCell = (visit: (row: number, col: number, text: string) => void) => void

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { memorySource, ruMessages, SheetToolbar, SheetView, type MemoryBook, type SheetViewApi, type SheetViewState } from '../src'
 import { localSource } from '../src/local'
-import type { EditOutcome, SheetOp, SheetSource } from '../src/source'
+import type { EditOutcome, SheetOp, SheetSource } from '../src/contract/source'
 import { goTo, key, mountSheet, settle } from './helpers'
 
 afterEach(() => {

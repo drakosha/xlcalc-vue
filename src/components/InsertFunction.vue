@@ -3,7 +3,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { FUNCTION_CATEGORIES } from 'xlcalc/text'
 import { stepIndex } from '../core/list-keys'
-import type { SheetFunctionSignature } from '../source'
+import type { SheetFunctionSignature } from '../contract/source'
 import { useSheetContext } from './context'
 import DialogShell from './DialogShell.vue'
 import { keepActiveInView } from './popup'

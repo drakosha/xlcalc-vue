@@ -1,10 +1,8 @@
 <script setup lang="ts">
 // A book's sheet over a SheetSource: the formula bar, the grid with windows, styles and editing, the precedents' panel, the tabs, and messages.
 import { getCurrentInstance, provide } from 'vue'
-import type { SheetViewApi } from '../core/commands'
-import type { ListSort } from '../core/list'
-import { useSheet, type SheetEmit, type SheetLinkEvent, type SheetViewState } from '../core/sheet'
-import type { SheetFailure, SheetViewProps } from '../core/state'
+import type { ListSort, SheetFailure, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState } from '../contract/view'
+import { useSheet, type SheetEmit } from '../core/sheet'
 import { sheetContextKey } from './context'
 import { hasListener } from './dom'
 import ExplainPanel from './ExplainPanel.vue'

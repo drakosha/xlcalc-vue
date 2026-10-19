@@ -5,7 +5,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages, type MemoryBook } from '../src'
 import { localSource } from '../src/local'
-import type { EditOutcome, SheetOp } from '../src/source'
+import type { EditOutcome, SheetOp } from '../src/contract/source'
 import { active, cellText, editorOpen, mountSheet, settle, until } from './helpers'
 
 afterEach(() => {

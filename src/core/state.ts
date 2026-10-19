@@ -4,43 +4,12 @@ import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
 import { DEFAULT_ROW_HEIGHT } from 'xlcalc/text'
 import { errorText } from '../failure'
-import { useMessages, type SheetMessages } from '../messages'
-import type { SheetFilter, SheetInfo, SheetSource } from '../source'
+import { useMessages } from '../messages'
+import type { SheetMessages } from '../contract/messages'
+import type { SheetFilter, SheetInfo, SheetSource } from '../contract/source'
 import { colPx, rowPx } from './geometry'
-import type { ListSort } from './list'
+import type { ListSort, SheetFailure, SheetViewProps } from '../contract/view'
 import { createMemory } from './storage'
-
-/** Properties of `SheetView`. */
-export interface SheetViewProps {
-  source: SheetSource
-  /** Interface texts; a partial set overrides the English defaults. */
-  messages?: Partial<SheetMessages>
-  /** Key in the browser's storage for the frozen panes display choice and column widths; without it they last as long as the component. */
-  storageKey?: string
-  /** A location to show: `Sheet!B12:D15`, `B7`, `Sheet`; each new object is a new jump. */
-  focus?: { ref: string } | null
-  /** The host page's address for a location; without it there is no "Link to the cell" button. */
-  cellUrl?: (ref: string) => string
-  readOnly?: boolean
-  /** Shows the formula bar above the grid; on by default. */
-  formulaBar?: boolean
-  /** The workbook's locale for texts the component produces itself: a cell's edit text without `editText`, and selection totals. */
-  locale?: string
-  /** Hides the tabs of a workbook with a single sheet, for hosts that want it; Excel always shows them, which is the default. */
-  hideLoneTab?: boolean
-  /** Double-clicking a column edge restores the workbook's width, for hosts that want it; by default it fits the columns to their contents, as Excel does. */
-  edgeRestoresWidth?: boolean
-  /** List mode: the order the host sorted the list in, shown as an arrow on the column's title; null for none. */
-  sort?: ListSort | null
-  /** List mode: the first column opens its row (`rowOpen`), and so does Enter on a cell that is not a drill-down. */
-  openRows?: boolean
-}
-
-/** Why the workbook cannot be displayed: the source's error and its text. */
-export interface SheetFailure {
-  error: unknown
-  text: string
-}
 
 /** Rows and columns past the data an editable sheet shows, as Excel's grid goes on. */
 const SPARE_ROWS = 50

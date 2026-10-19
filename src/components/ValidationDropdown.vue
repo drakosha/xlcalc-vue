@@ -3,7 +3,8 @@
 // view has no room below), eight at a time; the keys are the sheet's (`useValidation.onKey`): a press keeps the grid's focus.
 import { computed, ref } from 'vue'
 import { LIST_ROWS } from '../core/validation'
-import { useMessages, type SheetMessages } from '../messages'
+import { useMessages } from '../messages'
+import type { SheetMessages } from '../contract/messages'
 import { keepActiveInView, listHeight, placeBelowOrAbove, TOUCH_PX, useOutsidePress, type PopupRect } from './popup'
 import '../popup.css'
 

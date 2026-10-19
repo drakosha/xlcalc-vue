@@ -1,7 +1,7 @@
 // @vitest-environment node
 // localSource over a ru-RU book in the same thread: sheets, windows, search, the display filter, totals, events.
 import { afterEach, describe, expect, it } from 'vitest'
-import type { SheetFilter, SourceEvent } from '../src/source'
+import type { SheetFilter, SourceEvent } from '../src/contract/source'
 import type { CellView } from 'xlcalc'
 import { SheetValues } from '../src/local/query'
 import { BOLD, book, closeAll, COL_FILL, ROW_FILL, source, styleOf, watched, win } from './local-fixture'

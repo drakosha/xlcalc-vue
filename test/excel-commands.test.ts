@@ -7,7 +7,7 @@ import { ruRU } from 'xlcalc/locales/ru-RU'
 import { memorySource, ruMessages, type MemoryBook, type SheetViewApi } from '../src'
 import { EXPLAIN_DELAY_MS, explainLines } from '../src/core/explain'
 import { localSource } from '../src/local'
-import type { EditOutcome } from '../src/source'
+import type { EditOutcome } from '../src/contract/source'
 import { active, address, goTo, key, mountSheet, settle, until } from './helpers'
 
 afterEach(() => {
