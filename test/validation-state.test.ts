@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 import { ALERT_BUTTONS, ALERT_DEFAULT, useValidation, useValidationAlert, VALIDATION_DELAY_MS } from '../src/core/validation'
-import type { SheetSource, SheetValidation, SheetValidationAlert } from '../src/source'
+import type { SheetSource, SheetValidation, SheetValidationAlert } from '../src/contract/source'
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())

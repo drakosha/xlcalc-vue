@@ -3,10 +3,11 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, triggerRef, watch 
 import { cellAddress, linesKey, parseCell, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import { errorText } from '../failure'
-import type { SheetInfo, SheetWindow } from '../source'
+import type { SheetInfo, SheetWindow } from '../contract/source'
 import { useCellView } from './cell-view'
 import { useClip } from './clip'
-import { useCommands, type SheetTarget, type SheetViewApi } from './commands'
+import { useCommands, type SheetTarget } from './commands'
+import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState } from '../contract/view'
 import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
 import { useFill } from './fill'
@@ -20,32 +21,13 @@ import { useNavigation } from './navigation'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
 import { useValidation, useValidationAlert, VALIDATION_DELAY_MS } from './validation'
-import { createState, type SheetViewProps } from './state'
+import { createState } from './state'
 import { useFilter } from './filter'
 import { useFind } from './find'
-import { useList, type ListSort } from './list'
+import { useList } from './list'
 import { useTotals } from './totals'
 import { useViewport } from './viewport'
 import { useWindows } from './windows'
-
-/** What `state` reports: the sheet, the selection, and the active cell's formula and displayed value. */
-export interface SheetViewState {
-  sheet: string
-  ref: string
-  formula?: string
-  value?: string
-  /** The active cell's style, for a toolbar; absent while its window is not loaded or when it has none. */
-  style?: CellStyle
-  /** The active cell's number format code, from a source whose windows include them; absent for General. */
-  numberFormat?: string
-  /** The merged range containing the active cell (`A1:B2`), from the loaded windows: Excel's Merge & Center shows as pressed on it. */
-  merged?: string
-  /** The merge commands are available (`SheetViewApi.merge`): the source has `structure`, the sheet is editable, and no display filter is on. */
-  canMerge?: true
-}
-
-/** A hyperlink the component does not open itself, with the cell it belongs to. */
-export type SheetLinkEvent = NonNullable<SheetWindow['links']>[string] & { sheet: string; cell: string }
 
 export interface SheetEmit {
   (e: 'state', state: SheetViewState | null): void

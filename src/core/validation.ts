@@ -2,7 +2,7 @@
 // list, open or not, with its item, and its input message), and the alert of a refused value with the person's answer.
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
-import type { SheetSource, SheetValidation, SheetValidationAlert } from '../source'
+import type { SheetSource, SheetValidation, SheetValidationAlert } from '../contract/source'
 import { listStep, stepIndex } from './list-keys'
 
 /** How long the active cell stays before its rule is asked: arrows held over a column ask once, at the end. */

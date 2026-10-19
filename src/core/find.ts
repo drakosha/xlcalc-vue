@@ -6,7 +6,7 @@ import { cellAddress } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
 import { isAbort } from '../abort'
 import { cellOrder } from '../find-match'
-import type { EditOutcome, FindRequest, ReplaceOutcome } from '../source'
+import type { EditOutcome, FindRequest, ReplaceOutcome } from '../contract/source'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 

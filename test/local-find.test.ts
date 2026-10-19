@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BookInput, CellInput } from 'xlcalc'
 import { cellAddress } from 'xlcalc/a1'
-import type { FindRequest, SourceEvent } from '../src/source'
+import type { FindRequest, SourceEvent } from '../src/contract/source'
 import { closeAll, source, win } from './local-fixture'
 
 afterEach(closeAll)

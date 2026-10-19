@@ -4,7 +4,7 @@
 import type { OutlineEditOp, OutlineGroup as BookGroup, OutlineSettings, RowInput, SheetInput } from 'xlcalc/contract'
 import { colLetters, linesKey, outlineEdit, outlineGroups } from 'xlcalc/a1'
 import { axisOf, lineSpan, type LineAxis } from './lines'
-import type { OutlineChange, SheetOutline } from './source'
+import type { OutlineChange, SheetOutline } from './contract/source'
 
 /** One axis's lines as `memorySource` keeps them, line by line: outline levels, collapsed marks and hidden lines. */
 export interface AxisLines {

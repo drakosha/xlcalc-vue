@@ -2,7 +2,7 @@
 // localSource changes of the book's shape and look: structure operations, widths and heights, formats, frozen panes.
 import { afterEach, describe, expect, it } from 'vitest'
 import type { LocalSource } from '../src/local'
-import type { SheetOp, SourceEvent } from '../src/source'
+import type { SheetOp, SourceEvent } from '../src/contract/source'
 import { BOLD, closeAll, ROW_FILL, source, styleOf, watched, win } from './local-fixture'
 
 afterEach(closeAll)

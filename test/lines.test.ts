@@ -2,7 +2,7 @@
 // and a source that cuts its windows at the data's edge does not make it ask again and again.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cellAddress } from 'xlcalc/a1'
-import type { SheetSource, WindowRequest } from '../src/source'
+import type { SheetSource, WindowRequest } from '../src/contract/source'
 import { gridWindow, mountSheet, settle } from './helpers'
 
 afterEach(() => {

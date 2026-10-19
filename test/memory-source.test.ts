@@ -1,7 +1,7 @@
 // memorySource: the window's fields, edits without an engine, layout, refusals for tests, events, and the cell limit.
 import { describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
-import type { FindRequest, SheetWindow, SourceEvent } from '../src/source'
+import type { FindRequest, SheetWindow, SourceEvent } from '../src/contract/source'
 
 const book = (): MemoryBook => ({
   styles: [{}, { font: { bold: true } }],

@@ -3,7 +3,7 @@
 import { computed, getCurrentScope, onScopeDispose, shallowRef, watch, type Ref } from 'vue'
 import type { ScanOptions } from 'xlcalc/contract'
 import { callAt } from 'xlcalc/text'
-import type { SheetFunctionSignature, SheetSource } from '../source'
+import type { SheetFunctionSignature, SheetSource } from '../contract/source'
 import { askSource } from './ask'
 import type { EditorState } from './editing'
 

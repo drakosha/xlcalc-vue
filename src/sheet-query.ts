@@ -3,7 +3,7 @@
 // of `xlcalc/text`, the Sort command's: errors equal, text in the book's locale's order) with empty cells last either way.
 import type { CellValue } from 'xlcalc/contract'
 import { valueComparator } from 'xlcalc/text'
-import type { SheetFilter } from './source'
+import type { SheetFilter } from './contract/source'
 
 /** What the display filter reads of a sheet: where its rows end, a cell's shown text ('' when empty) and its value. */
 export interface QuerySheet {

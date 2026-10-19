@@ -7,7 +7,7 @@ import { outlineGroups } from 'xlcalc/a1'
 import { describe, expect, it } from 'vitest'
 import { memorySource } from '../src'
 import { outlineCommand, outlineSheet, type AxisLines } from '../src/memory-outline'
-import type { OutlineChange, SheetWindow } from '../src/source'
+import type { OutlineChange, SheetWindow } from '../src/contract/source'
 
 /** A command without its sheet, each kind of `OutlineChange` kept apart. */
 type Change = OutlineChange extends infer C ? (C extends unknown ? Omit<C, 'sheet'> : never) : never

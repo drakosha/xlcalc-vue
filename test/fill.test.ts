@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import { colPx } from '../src/core/geometry'
 import { localSource } from '../src/local'
-import type { EditOutcome, SheetOp } from '../src/source'
+import type { EditOutcome, SheetOp } from '../src/contract/source'
 import { address, cellText, goTo, key, mountSheet, settle } from './helpers'
 
 afterEach(() => {

@@ -1,7 +1,7 @@
 // Data validation of the local source: what Excel shows on a cell with a rule (its dropdown's items, its input message)
 // from the session's rule, and a value a rule does not take as a refusal with the alert Excel shows for it.
 import type { CellValidation, CellValidationRefusal } from 'xlcalc'
-import type { EditOutcome, SheetValidation } from '../source'
+import type { EditOutcome, SheetValidation } from '../contract/source'
 
 /** A cell's rule as the component shows it: a list's items when it shows its dropdown (a formula's error gives none), the input message unless it is off; null without a rule. */
 export function validationOf(got: CellValidation | null): SheetValidation | null {

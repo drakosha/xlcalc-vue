@@ -2,10 +2,7 @@
 // the active cell shows, and the borders the toolbar and the Format Cells dialog draw.
 import type { BorderLine, CellRect, CellStyle, StylePatch } from 'xlcalc/contract'
 import { parseRange, rangeAddress } from 'xlcalc/a1'
-import type { FormatPatch, SheetSource } from './source'
-
-/** The source the toolbar formats through: a `SheetSource`, whose `history` tells whether Undo and Redo have a step. */
-export type ToolbarSource = SheetSource
+import type { FormatPatch, SheetSource } from './contract/source'
 
 export type FontToggle = 'bold' | 'italic' | 'underline'
 export type HorizontalAlign = 'left' | 'center' | 'right'

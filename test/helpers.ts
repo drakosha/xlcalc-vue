@@ -4,7 +4,7 @@ import { nextTick } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { CellValue } from 'xlcalc/contract'
 import { SheetView } from '../src'
-import type { CellEntry, EditOutcome, SheetInfo, SheetSource, SheetWindow, SourceEvent, WindowRequest } from '../src/source'
+import type { CellEntry, EditOutcome, SheetInfo, SheetSource, SheetWindow, SourceEvent, WindowRequest } from '../src/contract/source'
 
 /** Let promises, watchers and renders run out. */
 export async function settle(rounds = 6): Promise<void> {

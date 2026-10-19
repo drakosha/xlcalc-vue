@@ -1,6 +1,6 @@
 // The selection's totals for the status line: the source's `stats` when it has them, else the loaded windows.
 import { computed, onScopeDispose, shallowRef, watch } from 'vue'
-import type { RangeStats } from '../source'
+import type { RangeStats } from '../contract/source'
 import { addCell, noStats } from '../stats'
 import type { Selection } from './selection'
 import type { SheetState } from './state'

@@ -5,12 +5,7 @@ import { cellAddress } from 'xlcalc/a1'
 import type { SheetEmit } from './sheet'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
-
-/** The order a list is sorted in, by a column of the sheet (1-based): the host sorts, and the sheet shows the arrow. */
-export interface ListSort {
-  col: number
-  dir: 'asc' | 'desc'
-}
+import type { ListSort } from '../contract/view'
 
 export function useList(s: SheetState, w: Windows, emit: SheetEmit, props: { sort?: ListSort | null; openRows?: boolean }) {
   const columnOf = (c: number) => s.sheet.value?.columns?.[c - 1]

@@ -2,7 +2,7 @@
 import type { CellRect } from 'xlcalc/contract'
 import { findCells, replaceCells, type CellText, type EachCell } from './find-match'
 import { columnList as listOf, filterActive, visibleList as listUnder, type QuerySheet } from './sheet-query'
-import type { FindRequest, FindResult, RangeStats, SheetFilter } from './source'
+import type { FindRequest, FindResult, RangeStats, SheetFilter } from './contract/source'
 import { addCell, noStats } from './stats'
 
 /** What the queries read of a sheet: the display filter's reading, and for search where its columns end and what each cell opens with. */

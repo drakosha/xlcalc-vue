@@ -2,8 +2,7 @@
 // do to them, and the patches of `SheetView.format` that OK sends, only for what the person changed.
 import type { AlignmentStyle, BorderLine, CellStyle, FontStyle, FormatChoice, NumberFormat } from 'xlcalc/contract'
 import { parseRange } from 'xlcalc/a1'
-import type { SheetFormatPatch } from './core/commands'
-import type { SheetViewState } from './core/sheet'
+import type { SheetFormatPatch, SheetViewState } from './contract/view'
 import { BORDER_EDGES, edgePatches, edgesOf, sameLine, upperColour, type BorderEdge, type EdgeLines } from './toolbar'
 
 export type FormatTab = 'number' | 'alignment' | 'font' | 'border' | 'fill'

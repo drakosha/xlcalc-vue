@@ -3,7 +3,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages } from '../src'
-import type { EditOutcome, SheetInfo, SheetOp } from '../src/source'
+import type { EditOutcome, SheetInfo, SheetOp } from '../src/contract/source'
 import { fakeSource, mountSheet, settle } from './helpers'
 
 afterEach(() => {

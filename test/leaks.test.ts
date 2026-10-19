@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import { sheetContextKey } from '../src/components/context'
 import type { SheetContext } from '../src/core/sheet'
-import type { EditOutcome, SheetOp, SheetSource, WindowRequest } from '../src/source'
+import type { EditOutcome, SheetOp, SheetSource, WindowRequest } from '../src/contract/source'
 import { fakeSource, goTo, key, mountSheet, settle } from './helpers'
 
 afterEach(() => {

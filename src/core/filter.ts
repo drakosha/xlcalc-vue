@@ -4,7 +4,7 @@ import { colLetters } from 'xlcalc/a1'
 import { isAbort } from '../abort'
 import { filterKey } from '../filter-key'
 import { clamp } from '../rect'
-import type { SheetFilter } from '../source'
+import type { SheetFilter } from '../contract/source'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
 

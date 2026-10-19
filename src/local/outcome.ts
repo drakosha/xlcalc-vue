@@ -3,7 +3,7 @@
 import type { CellRect, CellRef, CellTextsRefusal, EditResult, PasteTextRefusal, ViewportCell } from 'xlcalc'
 import { cellAddress, nameKey, parseCell } from 'xlcalc/a1'
 import { cellRect, unionRect } from '../rect'
-import type { CellUpdate, EditOutcome } from '../source'
+import type { CellUpdate, EditOutcome } from '../contract/source'
 import { alertRefusalOf } from './validation'
 
 export const failed = (message: string): EditOutcome => ({ ok: false, reason: 'failed', message })

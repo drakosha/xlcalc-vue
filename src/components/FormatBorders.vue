@@ -5,7 +5,7 @@ import { computed, h, type FunctionalComponent } from 'vue'
 import type { BorderLine } from 'xlcalc/contract'
 import { borderCss, setSide } from '../core/cell-style'
 import { edgesIn, LINE_STYLES, pressEdge, pressPreset, shownEdge, type FormatDraft, type FormatStart } from '../format-cells'
-import type { SheetMessages } from '../messages'
+import type { SheetMessages } from '../contract/messages'
 import { upperColour, type BorderEdge } from '../toolbar'
 import FormatColour from './FormatColour.vue'
 

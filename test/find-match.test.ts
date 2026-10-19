@@ -3,7 +3,7 @@
 // cell, a range, the display filter's rows, the order by rows or columns, and Replace All's new texts.
 import { describe, expect, it } from 'vitest'
 import { findCells, replaceCells, type EachCell } from '../src/find-match'
-import type { FindRequest } from '../src/source'
+import type { FindRequest } from '../src/contract/source'
 
 /** Cells by address with their texts, as a source visits them (in no particular order). */
 function cells(texts: Record<string, string>): EachCell {

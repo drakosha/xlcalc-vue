@@ -5,7 +5,7 @@
 import type { CellStyle, Viewport } from 'xlcalc'
 import { cellAddress, parseRange } from 'xlcalc/a1'
 import { DEFAULT_ROW_HEIGHT } from 'xlcalc/text'
-import type { SheetWindow } from '../source'
+import type { SheetWindow } from '../contract/source'
 
 interface WindowShape {
   /** The window's first row as asked: a sheet row, or a display index under a filter. */

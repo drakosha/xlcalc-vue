@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 import { cellAddress, mergedArea, rangeAddress, rectContains, rectsMeet } from 'xlcalc/a1'
 import type { CellRect, CellValue } from 'xlcalc/contract'
-import type { EditOutcome, SheetOp } from '../source'
+import type { EditOutcome, SheetOp } from '../contract/source'
 import { cellRect } from '../rect'
 import { isBlank } from '../stats'
 import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
@@ -12,9 +12,7 @@ import type { Selection } from './selection'
 import { useSheetReads, type SheetState } from './state'
 import type { AlertAnswer, SheetAlert } from './validation'
 import type { Windows } from './windows'
-
-/** Excel's merge commands: Merge & Center on the button, and Merge Across, Merge Cells and Unmerge Cells in its dropdown. */
-export type MergeCommand = 'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'
+import type { MergeCommand } from '../contract/view'
 
 interface MergeDeps {
   /** Show an alert and wait for the answer. */

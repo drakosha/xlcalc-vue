@@ -4,7 +4,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
-import type { FindRequest, SheetSource } from '../src/source'
+import type { FindRequest, SheetSource } from '../src/contract/source'
 import { active, cellText, goTo, key, mountSheet, settle } from './helpers'
 
 afterEach(() => {

@@ -6,7 +6,7 @@ import type { BookInput } from 'xlcalc'
 import { cellAddress } from 'xlcalc/a1'
 import { memorySource, type MemoryBook } from '../src'
 import { localSource } from '../src/local'
-import type { SheetInfo, SourceEvent, WindowRequest } from '../src/source'
+import type { SheetInfo, SourceEvent, WindowRequest } from '../src/contract/source'
 import { cellText, editorKey, fakeSource, gridWindow, goTo, key, mountSheet, settle, type } from './helpers'
 
 afterEach(() => {

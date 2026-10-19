@@ -1,7 +1,7 @@
 // Editing: Excel's keys, typing over a cell, Delete over the selection, pasting TSV, locked cells, and the source's outcomes.
 import { afterEach, describe, expect, it } from 'vitest'
 import { memorySource, ruMessages, type MemoryBook } from '../src'
-import type { EditOutcome } from '../src/source'
+import type { EditOutcome } from '../src/contract/source'
 import { active, cellText, editorKey, editorOpen, goTo, key, mountSheet, paste, settle, type } from './helpers'
 
 afterEach(() => {

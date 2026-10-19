@@ -1,6 +1,6 @@
 // Public types of the local source: its options and what it offers beyond `SheetSource`.
 import type { AsyncSessionOptions, BookInput, BookSnapshot, Calc, CalcPoolOptions, SessionHistory } from 'xlcalc'
-import type { SheetSource } from '../source'
+import type { SheetSource } from '../contract/source'
 
 export interface LocalSourceOptions {
   /**

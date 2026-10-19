@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BookInput } from 'xlcalc'
 import { openXlsx, saveXlsx, type LocalSource } from '../src/local'
-import type { OutlineChange, SourceEvent } from '../src/source'
+import type { OutlineChange, SourceEvent } from '../src/contract/source'
 import { closeAll, source, win } from './local-fixture'
 
 afterEach(closeAll)

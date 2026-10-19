@@ -5,7 +5,7 @@
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
 import { SheetView, ruMessages, type SheetViewState } from '../src'
 import { groupIssues, localSource, openXlsx, saveXlsx, type IssueGroup, type LocalSource } from '../src/local'
-import type { CellEntry, EditOptions } from '../src/source'
+import type { CellEntry, EditOptions } from '../src/contract/source'
 import { localBook } from './local-book'
 
 const params = new URLSearchParams(location.search)
