@@ -11,7 +11,8 @@ The checks build the example app ([example-app.md](example-app.md)) or the local
 3. the fill handle and cut, copy and paste: a formula dragged three rows down by its handle, a range with a formula copied and pasted, a formula cut and pasted, each undone; Ctrl+C, Ctrl+X and Ctrl+V on the desktop, the cell context menu on the phone;
 4. Formula AutoComplete: `=СУ` in a cell on the desktop and in the formula bar on the phone, СУММ chosen from the list by Tab or a tap, and the sum checked;
 5. Insert Function: fx, СУММ found with its syntax and description, the logical functions by category, OK, `1;2` and the formula bar's ✓ prompting about the unclosed parenthesis, Fix, `)` and ✓ giving 3 with A1 still active, and СУММ first among the recently used;
-6. a file with a circular reference opened from the file picker, which keeps its stored values through an edit elsewhere.
+6. a file with a circular reference opened from the file picker, which keeps its stored values through an edit elsewhere;
+7. a file opened on the sheet it saved as active, Save as after a move to another sheet recording that sheet, and a file without a saved active sheet opened on its first visible one.
 
 `DEMO=1 npm run check:spa` runs the whole check on the demo build (`npm run build:demo`) served under `/demo/`, and also checks that `/demo/` opens the app and that the build contains no source maps.
 

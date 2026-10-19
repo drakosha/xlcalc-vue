@@ -16,7 +16,8 @@
 // phone) inserts `СУММ(`, and `A1:A3)` with Enter sums the column.
 // Then the argument tooltip: `=СУММ(1;` shows `СУММ(число1;[число2];...)` with число2 in bold, and Esc removes it.
 // Then, on the desktop, a file with a circular reference opened from the file picker keeps its stored values, as Excel
-// opens it, through an edit elsewhere; Ctrl+Down goes to the end of a block (Range.End); and a cell copied over an
+// opens it, through an edit elsewhere; a file opens on its saved active sheet and Save as records the sheet on screen;
+// Ctrl+Down goes to the end of a block (Range.End); and a cell copied over an
 // entire column is rejected at once by the app's limit on cells one change writes, leaving the workbook unchanged.
 // Then Excel's typo dialog: `=(1+2` with Enter offers `=(1+2)`, Yes writes 3; No says a parenthesis is missing and reopens the editor.
 // Then, on the desktop, Merge & Center over A1:B1 with two values: Excel's warning, Enter for OK, one centered cell, Ctrl+Z.
@@ -33,7 +34,7 @@ import type { BookInput, CellStyle } from 'xlcalc'
 import { parseCell, parseRange } from 'xlcalc/a1'
 import { ruRU } from 'xlcalc/locales/ru-RU'
 import { numberFormatCategory } from 'xlcalc/text'
-import { writeXlsx } from 'xlcalc/xlsx'
+import { readXlsx, writeXlsx } from 'xlcalc/xlsx'
 import { longPress } from './touch.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -1221,6 +1222,52 @@ async function mergeScenario(browser: Browser, base: string, size: Size): Promis
 
 const demo = process.env.DEMO === '1'
 const mode = demo ? { mode: 'demo' } : {}
+/**
+ * The sheet a file opens on, as in Excel: the one saved as active (`Notes`), and after a move to `Data` Save as records
+ * `Data`; a file without a saved active sheet opens on its first visible sheet, the empty `Intro` too.
+ */
+async function activeSheetScenario(browser: Browser, base: string, size: Size): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  const at = (what: string) => `[${size.name} active sheet] ${what}`
+  const activeTab = async () => (await page.locator('.xs-tab.xs-tab-on').textContent())?.trim()
+  const values: { name: string; cells: Record<string, { value: number | string }> }[] = [{ name: 'Intro', cells: {} }, { name: 'Data', cells: { A1: { value: 1 } } }, { name: 'Notes', cells: { A1: { value: 'n' } } }]
+  const sheets: BookInput['sheets'] = values
+  const open = async (name: string, activeSheet?: string) => {
+    const { data } = await writeXlsx({ book: { sheets, ...(activeSheet ? { activeSheet } : {}) }, result: { sheets: values } })
+    const [picker] = await Promise.all([page.waitForEvent('filechooser'), press(page, size, '[data-spa="open"]')])
+    await picker.setFiles({ name, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(data) })
+    await ready(page)
+  }
+
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  await open('Активный.xlsx', 'Notes')
+  await shows(page, '1:1', 'n')
+  expect(at('opened on'), await activeTab(), 'Notes')
+
+  // the sheet on screen when saving is the one the file records as active
+  await page.locator('.xs-tab', { hasText: 'Data' }).click()
+  await shows(page, '1:1', '1')
+  const [download] = await Promise.all([page.waitForEvent('download'), press(page, size, '[data-spa="save"]')])
+  const saved = resolve(out, `spa-${size.name}-active.xlsx`)
+  await download.saveAs(saved)
+  await ready(page)
+  expect(at('saved active sheet'), (await readXlsx(await readFile(saved))).book.activeSheet, 'Data')
+
+  // no saved active sheet: Excel opens the first visible one, an empty divider too
+  await open('Первый.xlsx')
+  await page.waitForFunction(() => document.querySelector('.xs-tab.xs-tab-on')?.textContent?.trim() === 'Intro')
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-c02-active.png`) })
+  console.log(`${at('ok')}: a file opened on its saved active sheet Notes, Save as after a move to Data recorded Data, a file without one opened on Intro`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
 /** A cell copied over an entire column: the app's write limit rejects it at once, as a source's rejection, and nothing changes. */
 async function limitScenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height } })
@@ -1287,6 +1334,7 @@ try {
   await insertScenario(browser, base, desktop)
   await insertScenario(browser, base, phone)
   await cycleScenario(browser, base, desktop)
+  await activeSheetScenario(browser, base, desktop)
   await limitScenario(browser, base, desktop)
   await formulaRowScenario(browser, base, desktop)
   await typoScenario(browser, base, desktop)
