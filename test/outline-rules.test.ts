@@ -21,7 +21,7 @@ class Rows implements AxisLines {
     for (const [r, l] of Object.entries(levels)) this.levels.set(Number(r), l)
   }
   /** Applies a command as memorySource does; returns its rejection message, or null. */
-  run(change: Change, after = true): string | null {
+  run(change: Change, after = true): ReturnType<typeof outlineCommand> {
     return outlineCommand(this, { summaryBelow: after, summaryRight: after }, { sheet: 'S', ...change } as OutlineChange)
   }
   /** The groups xlcalc draws from the rows, with summaries below. */
@@ -66,7 +66,7 @@ describe('Group and Ungroup', () => {
   it('S1: each Group moves the rows a level deeper; the eighth is rejected, and the levels stay at 7', () => {
     const rows = new Rows()
     for (let i = 1; i <= 7; i++) expect(rows.run({ op: 'group', rows: '3:6' })).toBeNull()
-    expect(rows.run({ op: 'group', rows: '3:6' })).toBe('the rows 3:6 are already at the deepest outline level, 7, and cannot be grouped further')
+    expect(rows.run({ op: 'group', rows: '3:6' })).toEqual({ code: 'outline_deep', message: expect.any(String) })
     expect(rows.state(7)).toBe('1:0 2:0 3:7 4:7 5:7 6:7 7:0')
     // over rows at level 7 and others, Excel deepens the others and leaves those at 7 (xlcalc's docs/outline.md)
     expect(rows.run({ op: 'group', rows: '2:6' })).toBeNull()
@@ -75,7 +75,7 @@ describe('Group and Ungroup', () => {
 
   it('S2: Ungroup of rows in no group is rejected; over a mix it lowers the grouped ones; over part of a group, that part', () => {
     const rows = new Rows()
-    expect(rows.run({ op: 'ungroup', rows: '3:6' })).toBe('the rows 3:6 are not in a group')
+    expect(rows.run({ op: 'ungroup', rows: '3:6' })).toEqual({ code: 'not_grouped', message: expect.any(String) })
     rows.run({ op: 'group', rows: '4:5' })
     expect(rows.run({ op: 'ungroup', rows: '3:6' })).toBeNull()
     expect(rows.state(7)).toBe('1:0 2:0 3:0 4:0 5:0 6:0 7:0')
@@ -151,8 +151,8 @@ describe('a group’s button', () => {
   })
 
   it('identifies the group by its rows and level; another one is rejected', () => {
-    expect(nested().run({ op: 'collapse', ...lvl('3:9', 1) })).toMatch(/No group of level 1/)
-    expect(nested().run({ op: 'collapse', ...lvl('5:7', 1) })).toMatch(/No group of level 1/)
+    expect(nested().run({ op: 'collapse', ...lvl('3:9', 1) })?.message).toMatch(/No group of level 1/)
+    expect(nested().run({ op: 'collapse', ...lvl('5:7', 1) })?.message).toMatch(/No group of level 1/)
   })
 })
 
@@ -208,9 +208,9 @@ describe('memorySource: the commands as Excel and ./local perform them', () => {
 
   it('a button is rejected when its group is already as requested', async () => {
     const s = sheet({ '3:4': 1, '5:7': 2, '8:10': 1 })
-    expect(await s.run({ op: 'expand', ...lvl('5:7', 2) })).toEqual({ ok: false, reason: 'refused', message: 'the detail of row 8 is already shown' })
+    expect(await s.run({ op: 'expand', ...lvl('5:7', 2) })).toEqual({ ok: false, reason: 'refused', code: 'detail', message: expect.any(String) })
     await s.run({ op: 'collapse', ...lvl('5:7', 2) })
-    expect(await s.run({ op: 'collapse', ...lvl('5:7', 2) })).toEqual({ ok: false, reason: 'refused', message: 'the detail of row 8 is already hidden' })
+    expect(await s.run({ op: 'collapse', ...lvl('5:7', 2) })).toEqual({ ok: false, reason: 'refused', code: 'detail', message: expect.any(String) })
     expect(await s.hidden()).toEqual([5, 6, 7])
   })
 

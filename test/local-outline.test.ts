@@ -124,7 +124,7 @@ describe('localSource: outline commands', () => {
     expect(Object.values(await rowsOf(s)).some((r) => r.collapsed)).toBe(false)
   })
 
-  it("Group and Ungroup over columns; a level button over rows; a rejection is the library's message", async () => {
+  it("Group and Ungroup over columns; a level button over rows; a rejection carries the library's code", async () => {
     const { s, run } = await opened()
     expect(await run({ op: 'group', columns: 'C:C' })).toMatchObject({ ok: true })
     expect((await outlineOf(s))!.columns).toEqual([
@@ -133,7 +133,7 @@ describe('localSource: outline commands', () => {
     ])
     await run({ op: 'ungroup', columns: 'B:D' })
     expect((await outlineOf(s))!.columns).toEqual([{ from: 3, to: 3, level: 1, collapsed: false }])
-    expect(await run({ op: 'ungroup', columns: 'F:G' })).toEqual({ ok: false, reason: 'refused', message: 'the columns F:G are not in a group' })
+    expect(await run({ op: 'ungroup', columns: 'F:G' })).toEqual({ ok: false, reason: 'refused', code: 'not_grouped', message: expect.any(String) })
     await run({ op: 'showLevel', axis: 'rows', level: 3 })
     expect(await hiddenRows(s)).toEqual([])
     expect(await run({ op: 'collapse', rows: '3:4', level: 2 })).toEqual({ ok: false, reason: 'refused', message: 'No group of level 2 over the rows 3:4' })
@@ -142,8 +142,8 @@ describe('localSource: outline commands', () => {
   it("Group beyond the seventh level and Ungroup of rows in no group are rejected in the workbook's language; Group next to the seventh level deepens the rest", async () => {
     const { s, run } = await opened(book({ rows: {}, columns: {} }, 'ru-RU'))
     for (let i = 0; i < 7; i++) expect(await run({ op: 'group', rows: '3:6' })).toMatchObject({ ok: true })
-    expect(await run({ op: 'group', rows: '3:6' })).toEqual({ ok: false, reason: 'refused', message: 'Нельзя сгруппировать строки 3:6: они уже на самом глубоком уровне структуры, 7' })
-    expect(await run({ op: 'ungroup', rows: '8:9' })).toEqual({ ok: false, reason: 'refused', message: 'Строки 8:9 не входят ни в одну группу' })
+    expect(await run({ op: 'group', rows: '3:6' })).toEqual({ ok: false, reason: 'refused', code: 'outline_deep', message: 'Нельзя сгруппировать строки 3:6: они уже на самом глубоком уровне структуры, 7' })
+    expect(await run({ op: 'ungroup', rows: '8:9' })).toEqual({ ok: false, reason: 'refused', code: 'not_grouped', message: 'Строки 8:9 не входят ни в одну группу' })
     expect(await run({ op: 'group', rows: '2:6' })).toMatchObject({ ok: true })
     expect(await rowsOf(s)).toEqual({ '2': { outlineLevel: 1 }, '3:6': { outlineLevel: 7 } })
   })

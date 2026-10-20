@@ -313,7 +313,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
 
   async function structure(s: AsyncSession, op: SheetOp): Promise<EditOutcome> {
     const got = await s.editStructure(op)
-    return got.ok ? reloaded(got.changes) : { ok: false, reason: 'refused', message: got.message }
+    return got.ok ? reloaded(got.changes) : { ok: false, reason: 'refused', code: got.code, message: got.message }
   }
 
   async function setLayout(s: AsyncSession, change: LayoutChange): Promise<EditOutcome> {

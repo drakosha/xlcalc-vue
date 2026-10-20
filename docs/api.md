@@ -326,7 +326,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 `EditOutcome` is one of:
 
 - `{ ok: true; changes: CellUpdate[]; select?: { sheet; range } }`: `select` is where the selection goes after `paste`, `fill`, `undo` or `redo`.
-- `{ ok: false; reason; message; at?; correction?; alert? }`, where `reason` is `'conflict'` (the workbook changed elsewhere), `'refused'` (the cell is locked or the operation is not allowed), `'invalid'` (the formula does not parse; `at` is the position in the typed text, and `correction` is the formula Excel suggests instead in its "We found a typo" dialog, which the sheet offers to accept) or `'failed'` (anything else). `alert` (`SheetValidationAlert`) makes the sheet display Excel's validation alert.
+- `{ ok: false; reason; message; code?; at?; correction?; alert? }`, where `reason` is `'conflict'` (the workbook changed elsewhere), `'refused'` (the cell is locked or the operation is not allowed), `'invalid'` (the formula does not parse; `at` is the position in the typed text, and `correction` is the formula Excel suggests instead in its "We found a typo" dialog, which the sheet offers to accept) or `'failed'` (anything else). `code` is the source's code for the reason, for a host that reacts to it rather than to the text: `memorySource` and `@xlcalc/vue/local` give xlcalc's codes of an outline command's refusal (`outline_deep`, `not_grouped`, `detail`), and `./local` the code of any structure operation xlcalc refuses. `alert` (`SheetValidationAlert`) makes the sheet display Excel's validation alert.
 
 `CellUpdate` is `{ sheet, cell, text, value, color?, formula?, editText?, numberFormat? }`; `formula`, `editText` and `numberFormat` are present only for edited cells.
 

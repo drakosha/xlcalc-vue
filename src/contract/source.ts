@@ -314,6 +314,12 @@ export type EditOutcome =
        */
       reason: 'conflict' | 'refused' | 'invalid' | 'failed'
       message: string
+      /**
+       * The source's code for the reason, for a host that reacts to it rather than to the text. `memorySource` and
+       * `@xlcalc/vue/local` give xlcalc's codes: an outline command's `outline_deep`, `not_grouped` or `detail`, and in
+       * `./local` the code of any structure operation xlcalc refuses.
+       */
+      code?: string
       at?: number
       /**
        * For `invalid`: the formula Excel suggests instead in its "We found a typo in your formula" dialog, in the source's

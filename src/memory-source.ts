@@ -376,13 +376,13 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         if (!store) return { ok: false, reason: 'failed', message: `No sheet ${change.sheet}` }
         const axis = axisOf(change)
         const lines = axisLines(store, axis)
-        let refused: string | null
+        let refused: { code?: string; message: string } | null
         try {
           refused = outlineCommand(lines, store.sheet.outline, change)
         } catch (e) {
           return failedOutcome(e)
         }
-        if (refused !== null) return { ok: false, reason: 'refused', message: refused }
+        if (refused !== null) return { ok: false, reason: 'refused', ...refused }
         const sizes = axis === 'rows' ? store.heights : store.widths
         for (const i of lines.hidden) sizes.set(i, 0)
         for (const [i, size] of sizes) if (size === 0 && !lines.hidden.has(i)) sizes.delete(i)

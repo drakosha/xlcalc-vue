@@ -64,17 +64,17 @@ export function outlineOp(change: OutlineChange, groups: (axis: LineAxis) => rea
 
 /**
  * Runs an outline command on the rows or columns of its axis as xlcalc's `outlineEdit` does, changing them in place; returns
- * Excel's rejection in English, or null. A command xlcalc cannot parse (a level button beyond 8) throws its `InputError`.
+ * Excel's rejection in English with xlcalc's code, or null. A command xlcalc cannot parse (a level button beyond 8) throws its `InputError`.
  */
-export function outlineCommand(lines: AxisLines, settings: OutlineSettings | null | undefined, change: OutlineChange): string | null {
+export function outlineCommand(lines: AxisLines, settings: OutlineSettings | null | undefined, change: OutlineChange): { code?: string; message: string } | null {
   const axis = axisOf(change)
   const input = inputOf(lines, axis)
   const outline = outlineSettings(settings)
   const sheet = axis === 'rows' ? { rows: input, outline } : { columns: input, outline }
   const op = outlineOp(change, () => outlineGroups(sheet)[axis])
-  if ('refused' in op) return op.refused
+  if ('refused' in op) return { message: op.refused }
   const got = outlineEdit(sheet, op)
-  if (!got.ok) return got.message
+  if (!got.ok) return { code: got.code, message: got.message }
   lines.levels.clear()
   lines.marks.clear()
   lines.hidden.clear()
