@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.21.0 (2026-10-20)
+## 0.21.1 (2026-10-20)
 
 The first public release. Earlier versions were internal builds and were not published to npm; their changes are folded into this entry, and the README and `docs/` describe the package as it is now. The internal builds were named `xlcalc-sheet`: a host built on them imports `@xlcalc/vue`, `@xlcalc/vue/local` and `@xlcalc/vue/style.css` instead (breaking for that host).
 
