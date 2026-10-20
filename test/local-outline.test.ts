@@ -133,7 +133,7 @@ describe('localSource: outline commands', () => {
     ])
     await run({ op: 'ungroup', columns: 'B:D' })
     expect((await outlineOf(s))!.columns).toEqual([{ from: 3, to: 3, level: 1, collapsed: false }])
-    expect(await run({ op: 'ungroup', columns: 'F:G' })).toEqual({ ok: false, reason: 'refused', message: 'the columns F:G are in no group' })
+    expect(await run({ op: 'ungroup', columns: 'F:G' })).toEqual({ ok: false, reason: 'refused', message: 'the columns F:G are not in a group' })
     await run({ op: 'showLevel', axis: 'rows', level: 3 })
     expect(await hiddenRows(s)).toEqual([])
     expect(await run({ op: 'collapse', rows: '3:4', level: 2 })).toEqual({ ok: false, reason: 'refused', message: 'No group of level 2 over the rows 3:4' })

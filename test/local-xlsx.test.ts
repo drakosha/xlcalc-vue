@@ -130,7 +130,7 @@ describe('xlsx reading and writing', () => {
     expect((await openXlsx(file)).issues).toEqual([{ code: 'protection', sheet: 'S', message: expect.stringMatching(/^sheet protection/) }])
     expect((await openXlsx(file, { locale: 'ru-RU' })).issues).toEqual([{ code: 'protection', sheet: 'S', message: expect.stringMatching(/^Защита листа/) }])
     const s = source({ locale: 'ru-RU', sheets: [{ name: 'S', cells: { A1: { value: 1, meta: { id: 7 } } } }] })
-    expect((await saveXlsx(s)).issues).toEqual([{ code: 'meta', sheet: 'S', cells: ['A1'], message: expect.stringMatching(/^cell meta/) }])
+    expect((await saveXlsx(s)).issues).toEqual([{ code: 'meta', sheet: 'S', cells: ['A1'], message: expect.stringMatching(/^a cell's meta/) }])
     expect((await saveXlsx(s, { locale: 'ru-RU', mode: 'values' })).issues).toEqual([{ code: 'meta', sheet: 'S', cells: ['A1'], message: expect.stringMatching(/^Поле meta/) }])
   })
 
