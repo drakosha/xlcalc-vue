@@ -84,6 +84,10 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const map = pending.value
     return map.size ? map.get(pendingKey(s.sheetName.value, cellAddress(row, col)))?.text : undefined
   }
+  /** A new workbook: the previous one's pending marks go with it (its calls drop their answers in `run`). */
+  function forget(): void {
+    if (pending.value.size) pending.value = new Map()
+  }
 
   /** The sheet's locked ranges with their reasons. */
   const locks = computed(() =>
@@ -272,6 +276,8 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
    */
   async function run(call: (opts?: EditOptions) => Promise<EditOutcome>, marks: CellEntry[], draft: EditorState | null, extent: CellPosition | null, endsCopy = true, retype?: (text: string) => Promise<EditOutcome | undefined>): Promise<EditOutcome> {
     const mine = ++seq
+    // An answer that comes after the workbook was replaced or the sheet unmounted changes nothing and sends nothing more.
+    const outdated = s.outdated()
     if (endsCopy) s.hooks.changing()
     if (marks.length) {
       const next = new Map(pending.value)
@@ -285,6 +291,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     } catch (e) {
       outcome = failedOutcome(e)
     }
+    if (outdated()) return outcome
     let answer: AlertAnswer | null = null
     if (!outcome.ok && outcome.alert && deps.alert) {
       // Excel keeps the edited cell active while its alert is open.
@@ -293,7 +300,9 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
         s.extent.value = extent
       }
       answer = await deps.alert(outcome.alert)
+      if (outdated()) return outcome
       if (answer === 'accept') outcome = await call({ accept: true }).catch(failedOutcome)
+      if (outdated()) return outcome
       if (answer !== 'retry') s.focusGrid()
     }
     if (marks.length) {
@@ -318,7 +327,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (outcome.reason === 'conflict') {
       deps.notify(m.conflict)
       await deps.reload()
-      if (draft) reopen(draft, null, extent)
+      if (draft && !outdated()) reopen(draft, null, extent)
     } else if (outcome.reason === 'invalid' && draft && deps.alert && draft.sheet === s.sheetName.value) {
       // The edited cell is active while the prompt is open; where the edit moved the selection is kept for Excel's correction.
       const moved = { selected: s.selected.value, extent: s.extent.value }
@@ -328,6 +337,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       if (outcome.correction !== undefined && retype) {
         // Excel's correction of an unclosed formula: Yes enters it as the same key would, No (Esc) says what is missing and reopens the editor.
         const said = await deps.alert({ severity: 'typo', message: m.typoFound(outcome.correction), ...place })
+        if (outdated()) return outcome
         if (said === 'accept') {
           s.selected.value = moved.selected
           s.extent.value = moved.extent
@@ -335,11 +345,12 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
           return (await retype(outcome.correction)) ?? outcome
         }
         await deps.alert({ severity: 'parenthesis', message: m.missingParenthesis, ...place })
-        reopen(draft, outcome.at ?? null, extent)
+        if (!outdated()) reopen(draft, outcome.at ?? null, extent)
         return outcome
       }
       // A formula that cannot be parsed: Fix reopens it, Restore leaves the cell unchanged.
       const said = await deps.alert({ severity: 'formula', message: outcome.message || m.editFailed, ...place })
+      if (outdated()) return outcome
       if (said === 'retry') reopen(draft, outcome.at ?? null, extent)
       else s.focusGrid()
     } else if (outcome.reason === 'invalid') {
@@ -522,7 +533,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pendingAt, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pendingAt, forget, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

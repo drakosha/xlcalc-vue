@@ -185,6 +185,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   /** Reads the workbook from the start: sheets, the first visible sheet, and a pending focus. */
   async function init(): Promise<void> {
     const mine = ++initSeq
+    const outdated = s.outdated()
+    reloadSeq++
     clip.clear()
     w.reset()
     s.failure.value = null
@@ -193,14 +195,14 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     s.loading.value = true
     try {
       const list = await s.source().sheets()
-      if (mine !== initSeq) return
+      if (mine !== initSeq || outdated()) return
       s.sheets.value = list
       const first = list.findIndex((x) => !x.hidden)
       activate(first >= 0 ? first : 0)
       const focus = nav.takePendingFocus()
       if (focus) await nav.goPlace(focus)
     } catch (e) {
-      if (mine !== initSeq) return
+      if (mine !== initSeq || outdated()) return
       s.loading.value = false
       s.failure.value = s.failureOf(e)
     }
@@ -208,20 +210,27 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   let reloads = 0
   let repaints = 0
   let target: SheetTarget | null = null
+  /** The latest reload: an earlier one answered later drops its list, as does one of a replaced workbook. */
+  let reloadSeq = 0
   /** Reads the sheets and windows again, keeping the sheet, selection and scroll (a reload event or a conflict); a deleted or hidden sheet gives way to its neighbor. */
   async function reload(): Promise<void> {
     reloads++
+    const mine = ++reloadSeq
+    const outdated = s.outdated()
     const name = s.sheetName.value
     const at = s.active.value
     const asked = target
-    target = null
     try {
       const list = await s.source().sheets()
+      if (mine !== reloadSeq || outdated()) return
+      if (target === asked) target = null
       s.sheets.value = list
       const next = sheetAfter(list, name, at, asked)
       if (!next.keep) return activate(next.index)
       s.active.value = next.index
     } catch (e) {
+      if (mine !== reloadSeq || outdated()) return
+      if (target === asked) target = null
       s.failure.value = s.failureOf(e)
       return
     }
@@ -472,6 +481,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   watch(
     () => props.source,
     () => {
+      // A new workbook: the previous one's pending calls, marks and open alert end with it.
+      s.endWorkbook()
+      ed.forget()
+      alerts.answer('cancel')
       subscribe()
       void init()
     },
@@ -494,6 +507,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   })
   watch(viewState, (state) => emit('state', state), { immediate: true })
   onBeforeUnmount(() => {
+    s.endWorkbook()
     observer?.disconnect()
     unsubscribe?.()
     if (messageTimer) clearTimeout(messageTimer)

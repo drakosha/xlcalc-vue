@@ -52,8 +52,10 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
    */
   async function change(call: () => Promise<EditOutcome>, target: SheetTarget | null = null, endsCopy = true, looks = false): Promise<EditOutcome> {
     const before = { reloads: deps.reloads(), repaints: deps.repaints() }
+    const outdated = s.outdated()
     deps.target(target)
     const out = await ed.run(call, [], null, null, endsCopy)
+    if (outdated()) return out
     if (!out.ok) deps.target(null)
     else if (deps.reloads() === before.reloads && !(looks && deps.repaints() !== before.repaints)) await deps.reload()
     return out

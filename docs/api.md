@@ -63,7 +63,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 
 | Prop | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `source` | `SheetSource` | required | The sheet's data source. A new source means a new workbook. |
+| `source` | `SheetSource` | required | The sheet's data source. A new source means a new workbook: what the previous source answers afterwards (its sheets, an edit's outcome, a correction) is ignored, even from a source that ignores the abort signal, and its open alert closes. |
 | `messages` | `Partial<SheetMessages>` | English | Interface texts; a partial set overrides the English defaults. |
 | `storageKey` | `string` | none | Key in the browser's storage for the frozen panes display choice, column widths and Insert Function's recently used functions; without it they last as long as the component. |
 | `focus` | `{ ref: string } \| null` | `null` | A location to show: `Sheet!B12:D15`, `B7`, `Sheet`. Each new object is a new jump. |

@@ -28,6 +28,14 @@ export function createState(props: SheetViewProps) {
     const fn = src[name] as ((...args: unknown[]) => unknown) | undefined
     return typeof fn === 'function' ? (fn.bind(src) as NonNullable<SheetSource[K]>) : null
   }
+  let generation = 0
+  /** A check for a call's late answer: true once a new source or the sheet's unmount has replaced the workbook the call was made in. */
+  function outdated(): () => boolean {
+    const at = generation
+    return () => at !== generation
+  }
+  /** A new source or the unmount: the calls made so far drop their answers. */
+  const endWorkbook = () => void generation++
   const messages = useMessages(() => props.messages)
   const locale = computed(() => props.locale ?? 'en-US')
   const memory = createMemory(() => props.storageKey)
@@ -113,6 +121,8 @@ export function createState(props: SheetViewProps) {
     props,
     source,
     sourceMethod,
+    outdated,
+    endWorkbook,
     messages,
     locale,
     memory,
