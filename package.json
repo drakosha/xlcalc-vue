@@ -2,9 +2,32 @@
   "name": "@xlcalc/vue",
   "version": "0.20.0",
   "description": "Vue 3 sheet component for xlcalc workbooks: a windowed grid with styles, formulas and editing over a pluggable sheet source",
+  "keywords": [
+    "vue",
+    "vue3",
+    "spreadsheet",
+    "excel",
+    "xlsx",
+    "workbook",
+    "sheet",
+    "grid",
+    "formula",
+    "xlcalc"
+  ],
   "license": "MIT",
   "author": "Mikhail Kostryukov",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drakosha/xlcalc-vue.git"
+  },
+  "homepage": "https://xlcalc.pridelab.dev/vue",
+  "bugs": {
+    "url": "https://github.com/drakosha/xlcalc-vue/issues"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
   "sideEffects": [
     "**/*.css"
   ],
@@ -30,10 +53,11 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && vite build --config vite.local.config.ts && vue-tsc -p tsconfig.build.json",
+    "build": "vite build && vite build --config vite.local.config.ts && vue-tsc -p tsconfig.build.json && node scripts/dts-paths.ts",
     "test": "vitest run",
     "typecheck": "vue-tsc --noEmit",
-    "pack:release": "npm run build && npm pack --pack-destination release",
+    "pack:release": "npm run build && node -e \"require('fs').mkdirSync('release',{recursive:true})\" && npm pack --pack-destination release",
+    "check:package": "npm run build && publint --strict && attw --pack . --profile esm-only --exclude-entrypoints ./style.css",
     "dev:example": "vite --config vite.example.config.ts",
     "build:example": "vite build --config vite.example.config.ts",
     "build:demo": "vite build --config vite.example.config.ts --mode demo",
@@ -54,10 +78,12 @@
     }
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vue/test-utils": "^2.4.6",
     "happy-dom": "^20.0.0",
     "playwright": "1.63.0",
+    "publint": "^0.3.25",
     "typescript": "^6.0.3",
     "vite": "^8.1.0",
     "vitest": "^4.1.10",
