@@ -8,10 +8,10 @@ The component accesses its data only through a `SheetSource`. Two sources are in
 
 ```sh
 npm install @xlcalc/vue vue
-npm install xlcalc        # only for @xlcalc/vue/local, 0.46.0 or later
+npm install xlcalc        # for @xlcalc/vue/local, 0.46.0 or later
 ```
 
-At runtime the main entry point depends only on `vue` and does not include the calculation engine.
+At runtime the main entry point depends only on `vue` and does not include the calculation engine. Its types use `xlcalc/contract`, so a TypeScript project that uses only the main entry point installs `xlcalc` as a dev dependency: `npm install -D xlcalc`.
 
 ## Quick start
 
@@ -64,6 +64,7 @@ npm install
 npm test               # unit tests
 npm run typecheck
 npm run build          # dist/
+npm run check:package  # publint and attw over the packed package
 npm run dev:example    # the example app at http://localhost:5181/spa.html
 ```
 
