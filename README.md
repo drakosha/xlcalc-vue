@@ -42,8 +42,11 @@ Excel's formatting toolbar (`SheetToolbar`) and Format Cells dialog (`FormatDial
 
 Apart from the two required methods that read sheets and cells, every feature is an optional method of the source: without `edit` the sheet is read-only, without `find` there is no search, and so on. The interface is in English by default and in Russian with `ruMessages`. Colors and sizes are set by `--xs-*` CSS variables.
 
+More of these, from a table the page already has to a workbook on your server, are in the [quick start](docs/quick-start.md).
+
 ## Documentation
 
+- [Quick start](docs/quick-start.md): common uses, each with a component that works as written.
 - [API reference](docs/api.md): components, the sheet's methods, the `SheetSource` contract, `memorySource`, `@xlcalc/vue/local`, CSS variables.
 - [Cell editing and keyboard shortcuts](docs/editing.md): Excel's keyboard shortcuts, Point mode, and the features each optional source method enables.
 - [Rows, columns and sheets](docs/sheets.md): row, column and sheet tab context menus, sizes, outline.
