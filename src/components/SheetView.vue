@@ -28,6 +28,7 @@ const props = withDefaults(defineProps<SheetViewProps>(), {
   edgeRestoresWidth: false,
   sort: null,
   openRows: false,
+  hostLinks: false,
 })
 const emit = defineEmits<{
   state: [state: SheetViewState | null]
@@ -45,9 +46,9 @@ defineSlots<{
 }>()
 
 const instance = getCurrentInstance()
-/** Whether the host listens to `openLink`: without a listener a web link opens as an ordinary link. */
-const hostLinks = () => hasListener(instance, 'onOpenLink')
-const ctx = useSheet(props, emit as SheetEmit, hostLinks)
+/** Whether the host opens links (`openLink`): otherwise a web link opens as an ordinary link. */
+const linksToHost = () => props.hostLinks || hasListener(instance, 'onOpenLink')
+const ctx = useSheet(props, emit as SheetEmit, linksToHost)
 provide(sheetContextKey, ctx)
 defineExpose<SheetViewApi>(ctx.api)
 const m = ctx.messages

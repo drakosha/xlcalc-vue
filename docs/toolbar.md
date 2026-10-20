@@ -43,7 +43,7 @@ The Number Format box works as Excel's does, as measured by xlcalc (`numberForma
 
 Colors come from Excel's palette, as on the toolbar, or can be any `#RRGGBB`. The dialog opens with the active cell's formatting; for a single cell the edges show its own borders, and for a range they show as unknown, grayed out as in Excel. OK emits `apply` with patches for `SheetView.format` covering only what changed: the font, the alignment, the fill and the number format over the selection, and each border edge on its row or column, or on the cells on both sides of an inside line (a single patch over every cell when all edges use the same line), all in one call and therefore a single undo step; then it emits `close`, as Cancel, Esc and a click outside the dialog do. Tab and Shift+Tab stay inside it. An input beyond Excel's limits (a size of 1 to 409 points, an indent of 0 to 250) or an invalid color code blocks OK. On a phone the dialog takes the full screen with 44 px targets.
 
-A host with its own dialog listens to the toolbar's `formatCells` event, which the button then emits instead:
+A host with its own dialog listens to the toolbar's `formatCells` event, which the button then emits instead (a host whose listener the toolbar cannot see, such as a custom element, also sets `hostDialog`):
 
 ```vue
 <script setup lang="ts">

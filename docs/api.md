@@ -75,13 +75,14 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `edgeRestoresWidth` | `boolean` | `false` | Double-clicking a column edge restores the workbook's width instead of fitting the column. |
 | `sort` | `ListSort \| null` | `null` | List mode: the order the host sorted the list in, shown as an arrow on that column's title. |
 | `openRows` | `boolean` | `false` | List mode: the first column opens its row, and so does Enter on a cell that is not a drill-down. |
+| `hostLinks` | `boolean` | `false` | The host opens links itself through `openLink`, as when it listens: for a host whose listener the sheet cannot see, such as a custom element's. |
 
 ### Events
 
 | Event | Payload | When |
 | --- | --- | --- |
 | `state` | `SheetViewState \| null` | The selection, the active cell or its formatting changed; `null` while there is no sheet. A toolbar and `FormatDialog` take it as their `state`. |
-| `openLink` | `SheetLinkEvent` | A cell's hyperlink that does not point into the workbook was clicked, and the host listens: the host opens it (its `href`, or a `target` of its own). Without a listener a web link opens as an ordinary link. The sheet follows links into the workbook (`location`) itself. |
+| `openLink` | `SheetLinkEvent` | A cell's hyperlink that does not point into the workbook was clicked, and the host listens or sets `hostLinks`: the host opens it (its `href`, or a `target` of its own). Without either, a web link opens as an ordinary link. The sheet follows links into the workbook (`location`) itself. |
 | `sort` | `ListSort` | List mode: a sortable column's title was clicked. The host sorts the list, sets `sort` and sends `reload`. |
 | `cellDrill` | `{ sheet: string; cell: string }` | List mode: a drill-down cell (`SheetWindow.drill`) was clicked or Enter was pressed on it. |
 | `rowOpen` | `{ sheet: string; row: number }` | List mode, with `openRows`: a row was opened from its first column or by Enter. |
@@ -176,13 +177,14 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `messages` | `Partial<SheetMessages>` | Interface texts. |
 | `locale` | `string` | The workbook's locale, in which the Number Format box names its categories and items; en-US without it. |
 | `sheet` | `SheetViewApi \| null` | The sheet's template ref. With it the toolbar formats, undoes, redoes and merges through the sheet; without it, through the source, and it emits `select` and `error`. |
+| `hostDialog` | `boolean` | The host opens its own dialog on `formatCells`, as when it listens: for a host whose listener the toolbar cannot see, such as a custom element's. |
 
 | Event | Payload | When |
 | --- | --- | --- |
 | `select` | `{ sheet: string; range: string }` | Where the selection goes after an undo or a redo, for the sheet's `focus`; not emitted with `sheet`. |
 | `error` | `string` | The source rejected a call or the call failed; not emitted with `sheet`. |
 | `done` | none | A call has completed: the host may return focus to the grid. |
-| `formatCells` | none | Format Cells… was clicked. With a listener, the button opens the host's dialog; without one, it opens the sheet's dialog (through `sheet`), and without either there is no button. |
+| `formatCells` | none | Format Cells… was clicked. With a listener or `hostDialog`, the button opens the host's dialog; without one, it opens the sheet's dialog (through `sheet`), and without either there is no button. |
 
 ## `FormatDialog`
 

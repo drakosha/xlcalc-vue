@@ -27,6 +27,8 @@ export interface SheetViewProps {
   sort?: ListSort | null
   /** List mode: the first column opens its row (`rowOpen`), and so does Enter on a cell that is not a drill-down. */
   openRows?: boolean
+  /** The host opens links itself through `openLink`: for a host whose listener the component cannot see, such as a custom element's. */
+  hostLinks?: boolean
 }
 
 /** Why the workbook cannot be displayed: the source's error and its text. */

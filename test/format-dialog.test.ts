@@ -143,6 +143,16 @@ describe('the toolbar’s Format Cells button', () => {
     expect(plain.find('[data-tb="format-cells"]').exists()).toBe(false)
   })
 
+  it("asks the host through `hostDialog`, for a listener the vnode does not show (a custom element's)", async () => {
+    const sheet = { formatCells: vi.fn() } as unknown as SheetViewApi
+    const w = mount(SheetToolbar, { props: { source, state: at('A1'), sheet, hostDialog: true }, attachTo: document.body })
+    await settle()
+    await w.find('[data-tb="format-cells"]').trigger('click')
+    expect([w.emitted('formatCells')?.length, vi.mocked(sheet.formatCells).mock.calls.length]).toEqual([1, 0])
+    const alone = mount(SheetToolbar, { props: { source, state: at('A1'), hostDialog: true }, attachTo: document.body })
+    expect(alone.find('[data-tb="format-cells"]').exists()).toBe(true)
+  })
+
   it("opens the host's dialog once the host listens, even when it started listening after the toolbar was created", async () => {
     const sheet = { formatCells: vi.fn() } as unknown as SheetViewApi
     const w = mount(SheetToolbar, { props: { source, state: at('A1'), sheet }, attachTo: document.body })
