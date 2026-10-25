@@ -270,6 +270,19 @@ export function serverSource(base: string): SheetSource {
 | `outline(change: OutlineChange)` | The outline buttons, Group and Ungroup. | The bars are drawn, but their buttons do nothing. | [sheets.md](sheets.md) |
 | `visibleRows(sheet, filter, signal?) => Promise<{ rows: number[] \| null }>` | The display filter and sort. | No filter. | [view.md](view.md) |
 | `columnValues(sheet, col, filter, signal?) => Promise<{ values: { text; count }[]; more }>` | The filter funnel's list of values. | No list in the funnel. | |
+| `clear(sheet, ranges: string[], what: ClearKind)` | Excel's Clear Formats (`'formats'`: styles, number formats and the conditional formats over the cells) and Clear All (`'all'`: also contents, hyperlinks, notes and data validation rules), as a single undo step. Delete clears contents through `edit`. | Neither is offered. | |
+| `link(sheet, range, link: SheetLink \| null)` | Excel's Insert Link over a range, the cells' contents kept; null is Remove Hyperlinks. | Links can be followed but not edited. | |
+| `note(sheet, cell, note: SheetNote \| null)` | Excel's New Note and Edit Note; null is Delete Note. | Notes are shown but not edited. | |
+| `names(signal?) => Promise<SheetName[]>` | The workbook's defined names for the Name Box, Go To, Formula AutoComplete and the Name Manager. | No names. | |
+| `setNames(names: SheetName[])` | Replaces the workbook's names (the Name Manager, Define Name), as a single undo step. | The names cannot be edited. | |
+| `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | |
+| `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs. | The rules are applied but not shown for editing. | |
+| `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | |
+| `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | |
+| `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | |
+| `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | |
+
+After `link`, `note`, `clear` and `setRules` succeed, the sheet re-reads the windows over what they changed: their outcome's `changes` carry values, not hyperlinks, notes or formatting. A source need not send a `repaint` for its own sheet, but `./local` does, for other sheets over the same source.
 
 | Property | Type | Meaning |
 | --- | --- | --- |
@@ -318,6 +331,8 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `rowNumbers` | `boolean?` | Row numbers on the left, shown by default. |
 | `totals` | `(string \| null)[]?` | List mode: a totals row pinned to the bottom of the viewport, the displayed text for each of the sheet's columns. |
 | `outline` | `SheetOutline?` | Excel's outline: `rows` and `columns` as `OutlineGroup[]` (`{ from, to, level, collapsed }`), `summaryBelow`, `summaryRight`. |
+| `font` | `{ name; size }?` | The workbook's default font (its Normal style), in which a cell without a font of its own is drawn; `--xs-font` without it. |
+| `zoom` | `number?` | The sheet's saved zoom in percent (xlsx `zoomScale`), with which it opens; 100 without it. |
 
 ### Edits and outcomes
 
@@ -336,7 +351,24 @@ A window is a rectangular block of cells that the sheet reads from the source as
 - `{ kind: 'reload'; message? }`: the sheets and windows are read again.
 - `{ kind: 'repaint'; ranges: { sheet; range }[] }`: the windows that overlap the ranges are re-read in place.
 
-`FormatPatch` is `{ range, style?: StylePatch | null, numberFormat?: NumberFormat | null }`; `style: null` removes the cells' own style. `LayoutChange` is `{ sheet, columns, width?, hidden?, fit? }` or `{ sheet, rows, height?, hidden?, fit? }`. `SheetOp` is xlcalc's `StructureOp` without its table operations. `OutlineChange` is `{ op: 'group' | 'ungroup', sheet, rows | columns }`, `{ op: 'collapse' | 'expand', sheet, rows | columns, level }` or `{ op: 'showLevel', sheet, axis, level }`.
+`FormatPatch` is `{ range, style?: StylePatch | null, numberFormat?: NumberFormat | null }`; `style: null` removes the cells' own style. `LayoutChange` is `{ sheet, columns, width?, hidden?, fit? }` or `{ sheet, rows, height?, hidden?, fit? }`. `SheetOp` is xlcalc's `StructureOp` without its table operations, which go to `table`. `OutlineChange` is `{ op: 'group' | 'ungroup', sheet, rows | columns }`, `{ op: 'collapse' | 'expand', sheet, rows | columns, level }` or `{ op: 'showLevel', sheet, axis, level }`.
+
+### Beside cell values: links, notes, names, rules, tables, spelling
+
+Formulas in these types are written as the source displays formulas: in its locale, without `=`.
+
+| Type | Shape |
+| --- | --- |
+| `ClearKind` | `'formats' \| 'all'` |
+| `SheetLink` | `{ href?; location?; tooltip? }`: an address outside the workbook, a place in it (`'Sheet 2'!B12`, a defined name), or both, and the ScreenTip. |
+| `SheetNote` | `{ author?; text }` |
+| `SheetName` | `{ name; ref; scope? }`: what the name refers to as a formula, and the sheet it is visible on (the workbook without `scope`). |
+| `SheetDependent`, `SheetDependents` | `{ sheet; cell }`; `{ cells: SheetDependent[]; more: boolean }`, `more` when the source left some out. |
+| `SheetRules` | `{ conditionalFormats: ConditionalFormat[]; validations: DataValidation[] }`, xlcalc's types, conditional formats in priority order. |
+| `TableOp` | xlcalc's table operations of `StructureOp`: `addTable`, `renameTable`, `deleteTable`, `convertTable`. |
+| `SpellingRequest` | `{ sheet; range?; after?; from?; ignore? }`: from the active cell `after` (at position `from` of its text, after Ignore Once on a word of it) on, by rows, wrapping around, within `range` or the entire sheet, skipping the words of Ignore All. Formulas, words in uppercase and words with digits are not checked, as Excel's defaults. |
+| `SpellingHit` | `{ cell; word; at; suggestions }`: the word, its position in the cell's text, and corrections, best first. |
+| `SpellChecker` | `{ check(word): boolean; suggest(word): string[]; add?(word): void }`: the host's dictionary (hunspell's, for example) and the user's own words, which `memorySource` and `./local` take as `spelling`. |
 
 ### Find, filter, validation
 
@@ -366,12 +398,14 @@ const messages = { ...ruMessages, loading: 'Загружаю…' }
 
 | Type | Shape |
 | --- | --- |
-| `MemoryBook` | `{ sheets: MemorySheet[]; styles?: CellStyle[]; functions?: string[] }`; `functions` enables `functionNames`. |
+| `MemoryBook` | `{ sheets: MemorySheet[]; styles?: CellStyle[]; functions?: string[]; names?: SheetName[] }`; `functions` enables `functionNames`; `names` are kept as text (there is no engine to calculate them). |
 | `MemorySheet` | `SheetInfo` without `maxRow`, `maxCol` and `outline`, plus `cells: Record<string, MemoryCell \| CellValue>`, `widths?` (keyed by `B`, `B:D` or `C:C`, in xlsx units, 0 hides), `heights?` (keyed by `5`, `5:9` or `5:5`, in points, 0 hides), `defaultRowHeight?`, `merges?`, `tables?`, `notice?`, `outline?: MemoryOutline`, `validations?: MemoryValidation[]`. |
 | `MemoryOutline` | `{ rows?: Record<string, number>; columns?: Record<string, number>; collapsed?: string[]; summaryBelow?: boolean; summaryRight?: boolean }`: outline levels (1 to 7) by row, column or span, keyed as in `widths` and `heights` (`'3:9': 1`, `'C:E': 2`), the summary rows and columns marked collapsed (`'10'`, `'F'`), and where the summaries are (below and to the right by default). |
 | `MemoryCell` | `{ value?, text?, formula?, style?, color?, numberFormat?, link?, note?, appearance?, drill? }`; `numberFormat` is the code the cell is displayed with (`0.0%`, `dd.mm.yyyy`), which the windows return as `numberFormats`, so a percentage or a date opens for editing as in Excel. |
 | `MemoryValidation` | `{ range; list?: string[]; whole?: { min?; max? }; prompt?: { title?; text }; alert?: { severity?; title?; message? } }` |
-| `MemorySourceOptions` | `{ delay?: number; maxCells?: number }`; `delay` makes every response take that many milliseconds. |
+| `MemorySourceOptions` | `{ delay?: number; maxCells?: number; spelling?: SpellChecker }`; `delay` makes every response take that many milliseconds; `spelling` enables `spelling` and `learnWord`. |
+
+`memorySource` also has `clear`, `link`, `note`, `names` and `setNames` (a name is checked as Excel checks one); without an engine it has no `dependents`, `rules`, `setRules` or `table`.
 
 `MemorySource` is a `SheetSource` with four extra methods for tests and examples: `failNext(...outcomes)` makes the next edits fail with these outcomes, `emit(event)` sends an event to the subscribers, `setCells(sheet, entries)` changes cells as another tab would, and `recompute(ms)` makes windows return `pending` for that long.
 
@@ -434,6 +468,7 @@ The options, `LocalSourceOptions`:
 | `session` | `AsyncSessionOptions` | Options for the workbook's session; `{ cached }` from `openXlsx` keeps a file's stored values. |
 | `maxCells` | `number` | The maximum number of cells in one window, 20,000 by default. |
 | `notice` | `string` | A notice included in every window. |
+| `spelling` | `SpellChecker` | The host's word checker; enables `spelling` and `learnWord`. |
 
 ```ts
 import { localSource } from '@xlcalc/vue/local'
@@ -447,7 +482,7 @@ console.log(source.locale, await source.book())
 await source.close() // when the sheet is removed, as in onUnmounted
 ```
 
-`LocalSource` has every method of `SheetSource` (the type marks `copyText` as optional, but the source always has it), plus:
+`LocalSource` has every method of `SheetSource` (the type marks `copyText` as optional, but the source always has it; `spelling` and `learnWord` only with the `spelling` option), plus:
 
 | Member | Type | Meaning |
 | --- | --- | --- |

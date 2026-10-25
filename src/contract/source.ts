@@ -5,6 +5,7 @@
  * is read-only, without `find` there is no search, and so on.
  */
 import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, StructureOp, StylePatch } from 'xlcalc/contract'
+import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
 export interface SheetSource {
@@ -80,6 +81,28 @@ export interface SheetSource {
   visibleRows?(sheet: string, filter: SheetFilter, signal?: AbortSignal): Promise<{ rows: number[] | null }>
   /** A column's values for the filter funnel, over the rows visible under the other columns' conditions. */
   columnValues?(sheet: string, col: number, filter: SheetFilter, signal?: AbortSignal): Promise<{ values: { text: string; count: number }[]; more: number }>
+  /** Excel's Clear Formats and Clear All over ranges, as a single undo step; Delete clears contents through `edit`. Without it neither is offered. */
+  clear?(sheet: string, ranges: string[], what: ClearKind): Promise<EditOutcome>
+  /** Excel's Insert Link over a range (null: Remove Hyperlinks), the cells' contents kept; a single undo step. Without it links can be followed but not edited. */
+  link?(sheet: string, range: string, link: SheetLink | null): Promise<EditOutcome>
+  /** Excel's New Note and Edit Note on a cell (null: Delete Note); a single undo step. Without it notes are shown but not edited. */
+  note?(sheet: string, cell: string, note: SheetNote | null): Promise<EditOutcome>
+  /** The workbook's defined names, for the Name Box, Go To, Formula AutoComplete and the Name Manager. */
+  names?(signal?: AbortSignal): Promise<SheetName[]>
+  /** Replaces the workbook's defined names (Excel's Name Manager and Define Name), as a single undo step; a name Excel rejects is refused with its message. */
+  setNames?(names: SheetName[]): Promise<EditOutcome>
+  /** The cells whose formulas refer directly to a range, for Excel's Trace Dependents. Without it there are no arrows. */
+  dependents?(sheet: string, range: string, signal?: AbortSignal): Promise<SheetDependents>
+  /** A sheet's conditional formatting and data validation rules, for their dialogs. */
+  rules?(sheet: string, signal?: AbortSignal): Promise<SheetRules>
+  /** Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. Without it the rules are applied but not edited. */
+  setRules?(sheet: string, rules: Partial<SheetRules>): Promise<EditOutcome>
+  /** Excel's table commands. Without it there is no Format as Table. */
+  table?(op: TableOp): Promise<EditOutcome>
+  /** Excel's Spelling: the next misspelt word from `req.after` on, wrapping around once, or null when there is none. Without it there is no Spelling. */
+  spelling?(req: SpellingRequest, signal?: AbortSignal): Promise<SpellingHit | null>
+  /** Excel's Add to Dictionary in the Spelling dialog: the word is the user's own from now on. */
+  learnWord?(word: string): Promise<void>
   /** The maximum number of cells in one window, 20,000 by default. */
   readonly maxCells?: number
   /** The number of steps `undo` and `redo` can take, as of the last completed call: a toolbar enables its buttons by them. */
@@ -129,6 +152,10 @@ export interface SheetInfo {
   totals?: (string | null)[]
   /** Excel's outline (Data > Group): the sheet's groups of rows and columns; a sheet without groups has none. */
   outline?: SheetOutline
+  /** The workbook's default font (its Normal style), in which a cell without a font of its own is drawn; the component's `--xs-font` without it. */
+  font?: { name: string; size: number }
+  /** The sheet's saved zoom in percent (xlsx `zoomScale`), with which the sheet opens; 100 without it. */
+  zoom?: number
 }
 
 /** A sheet's groups as Excel draws them in the bars next to the row numbers and above the column letters. */

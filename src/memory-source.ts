@@ -1,5 +1,5 @@
 // A source over an in-memory workbook, for tests and examples: values, displayed text, formulas as strings and every display field; no engine.
-// It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, a precedent
+// It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, clearing, links, notes, names, spelling, a precedent
 // tree from the formulas as given, and can simulate a workbook being recalculated.
 import { cellAddress, outlineGroups, parseCell, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
@@ -16,6 +16,8 @@ import { isGridRef } from './grid-ref'
 import { DEFAULT_MAX_CELLS, rowsFor } from './window-size'
 import { MemoryRules, memoryRefusal, PLAIN_NUMBER } from './memory-validation'
 import type { MemoryBook, MemoryCell, MemorySheet, MemorySource, MemorySourceOptions, MemoryValidation } from './contract/memory'
+import type { SpellingRequest } from './contract/workbook'
+import { memoryWorkbook } from './memory-workbook'
 
 const ERROR_TEXT: Record<string, string> = {
   DIV0: '#DIV/0!',
@@ -181,9 +183,9 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   }
 
   function info(store: Store): SheetInfo {
-    const { name, hidden, locked, columns, rowNumbers, totals } = store.sheet
+    const { name, hidden, locked, columns, rowNumbers, totals, font, zoom } = store.sheet
     const outline = outlineOf(outlineGroups(outlineSheet({ rows: axisLines(store, 'rows'), columns: axisLines(store, 'columns') }, store.sheet.outline)), store.sheet.outline)
-    return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze: store.freeze, hidden, locked, columns, rowNumbers, totals, ...(outline ? { outline } : {}) }
+    return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze: store.freeze, hidden, locked, columns, rowNumbers, totals, ...(outline ? { outline } : {}), ...(font ? { font } : {}), ...(zoom ? { zoom } : {}) }
   }
 
   /**
@@ -328,6 +330,10 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
     return changes
   }
 
+  const extras = memoryWorkbook(storeOf, (store) => measure(store as Store), book.names ?? [], options.spelling)
+  /** A change that may fail as the next edit fails (`failNext`), made by `run` on the in-memory workbook. */
+  const change = <A extends unknown[]>(run: (...args: A) => EditOutcome) => (...args: A): Promise<EditOutcome> => wait(() => failures.shift() ?? run(...args))
+
   const source: MemorySource = {
     maxCells,
     sheets: (signal) => wait(() => stores.map(info), signal),
@@ -412,6 +418,12 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
         if (!rect) throw new Error(`Not a range: ${range}`)
         return rangeStats(query(storeOrThrow(sheet)), rect, filter)
       }, signal),
+    clear: change(extras.clear),
+    link: change(extras.link),
+    note: change(extras.note),
+    names: (signal) => wait(extras.names, signal),
+    setNames: change(extras.setNames),
+    ...(options.spelling ? { spelling: (req: SpellingRequest, signal?: AbortSignal) => wait(() => extras.spelling(req), signal), learnWord: (word: string) => wait(() => extras.learnWord(word)) } : {}),
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
