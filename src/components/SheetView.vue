@@ -15,6 +15,7 @@ import LinkDialog from './LinkDialog.vue'
 import ValidationAlert from './ValidationAlert.vue'
 import WatchWindow from './WatchWindow.vue'
 import ZoomDialog from './ZoomDialog.vue'
+import ValidationDialog from './ValidationDialog.vue'
 import FormulaBar from './FormulaBar.vue'
 import NameDialogs from './NameDialogs.vue'
 import SheetGrid from './SheetGrid.vue'
@@ -122,6 +123,7 @@ const wait = ctx.w.wait
       <TableDialog />
       <SpellingDialog />
       <LinkDialog />
+      <ValidationDialog />
       <ValidationAlert :alert="ctx.alerts.alert.value" :messages="m" @answer="ctx.alerts.answer" />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>

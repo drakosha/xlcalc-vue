@@ -150,6 +150,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `checkSpelling()` | `boolean` | Excel's Spelling (F7) through the source's `spelling`: the dialog from the active cell, within a selection of more than one cell; `false` without `spelling`. See [editing.md](editing.md#spelling). |
 | `clear(what: ClearKind)` | `Promise<EditOutcome \| null>` | Excel's Home > Clear > Clear Formats (`'formats'`) or Clear All (`'all'`) over the selection through the source's `clear`, as a single undo step; under a display filter, over its visible rows. `null` also over a locked cell. See [links-notes.md](links-notes.md#clear-formats-and-clear-all). |
 | `insertLink()` | `boolean` | Opens Excel's Insert Hyperlink dialog (Ctrl+K) for the selection, as Edit Hyperlink when the active cell has a link; OK writes the link through the source's `link`. `false` without `link`, on a read-only sheet or over a locked cell. See [links-notes.md](links-notes.md#hyperlinks). |
+| `dataValidation()` | `boolean` | Opens Excel's Data Validation dialog for the selection over the source's `rules` and `setRules`, after Excel's question where the selection holds rules of more than one kind or cells without the rule; `false` when the sheet is read-only or the source lacks either method. See [validation.md](validation.md#the-data-validation-dialog). |
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 
@@ -311,6 +312,12 @@ export function serverSource(base: string): SheetSource {
 | `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | [tables.md](tables.md) |
 | `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | [editing.md](editing.md#spelling) |
 | `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | [editing.md](editing.md#spelling) |
+| `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | |
+| `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs; with `setRules`, the Data Validation dialog. | The rules are applied but not shown for editing. | [validation.md](validation.md#the-data-validation-dialog) |
+| `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | [validation.md](validation.md#the-data-validation-dialog) |
+| `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | |
+| `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | |
+| `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | |
 
 After `link`, `note`, `clear` and `setRules` succeed, the sheet re-reads the windows over what they changed: their outcome's `changes` carry values, not hyperlinks, notes or formatting. A source need not send a `repaint` for its own sheet, but `./local` does, for other sheets over the same source.
 

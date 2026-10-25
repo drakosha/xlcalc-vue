@@ -198,8 +198,16 @@ export interface NoticeAlert {
   title?: undefined
   message: string
 }
-/** What the alert displays: a rule's rejection, the prompt for a formula, Excel's correction of one and what is missing, the warning before a merge, or a dialog's message. */
-export type SheetAlert = SheetValidationAlert | FormulaAlert | TypoAlert | ParenthesisAlert | MergeAlert | NoticeAlert
+/** Excel's questions before Data Validation opens: rules of more than one kind in the selection (OK erases them, Cancel), or cells without the rule (Yes extends it, No starts afresh, Cancel). */
+export interface RulesAlert {
+  severity: 'rulesMany' | 'rulesExtend'
+  title?: undefined
+  message: string
+  sheet: string
+  cell: string
+}
+/** What the alert displays: a rule's rejection, the prompt for a formula, Excel's correction of one and what is missing, the warning before a merge, a dialog's message, or Data Validation's questions. */
+export type SheetAlert = SheetValidationAlert | FormulaAlert | TypoAlert | ParenthesisAlert | MergeAlert | NoticeAlert | RulesAlert
 
 /** What the user's answer to an alert does with the rejected edit: send it again with `accept`, reopen the editor with the text, or leave the cell unchanged. */
 export type AlertAnswer = 'accept' | 'retry' | 'cancel'
@@ -234,9 +242,18 @@ export const ALERT_BUTTONS: Record<SheetAlert['severity'], { button: AlertButton
     { button: 'ok', answer: 'accept' },
     { button: 'cancel', answer: 'cancel' },
   ],
+  rulesMany: [
+    { button: 'ok', answer: 'accept' },
+    { button: 'cancel', answer: 'cancel' },
+  ],
+  rulesExtend: [
+    { button: 'yes', answer: 'accept' },
+    { button: 'no', answer: 'retry' },
+    { button: 'cancel', answer: 'cancel' },
+  ],
 }
-/** The button an alert opens with, which Enter presses: Retry, No (a warning keeps a value only on a click on Yes), OK; Yes for Excel's correction. */
-export const ALERT_DEFAULT: Record<SheetAlert['severity'], AlertButton> = { stop: 'retry', warning: 'no', information: 'ok', formula: 'fix', typo: 'yes', parenthesis: 'ok', notice: 'ok', merge: 'ok' }
+/** The button an alert opens with, which Enter presses: Retry, No (a warning keeps a value only on a click on Yes), OK; Yes for Excel's correction and for extending a rule. */
+export const ALERT_DEFAULT: Record<SheetAlert['severity'], AlertButton> = { stop: 'retry', warning: 'no', information: 'ok', formula: 'fix', typo: 'yes', parenthesis: 'ok', notice: 'ok', merge: 'ok', rulesMany: 'ok', rulesExtend: 'yes' }
 
 /** The alert for a rejected value: shown until the user answers; one at a time, and a new one answers the old one with Cancel. */
 export function useValidationAlert() {

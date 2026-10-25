@@ -174,6 +174,12 @@ export interface SheetViewApi {
    * writes the link through the source's `link`. false when links cannot be edited: no `link`, a read-only sheet, a locked cell.
    */
   insertLink(): boolean
+  /**
+   * Opens Excel's Data Validation dialog (Data > Data Validation) for the selection over the source's `rules` and `setRules`,
+   * after Excel's question when the selection holds rules of more than one kind or cells without the rule; false when the
+   * sheet is read-only or the source lacks either method.
+   */
+  dataValidation(): boolean
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

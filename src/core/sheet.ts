@@ -31,6 +31,7 @@ import { useSpellCheck } from './spell-check'
 import { useTables } from './tables'
 import { useTrace } from './trace'
 import { useValidation, useValidationAlert, VALIDATION_DELAY_MS } from './validation'
+import { useValidationDialog } from './validation-dialog'
 import { createState } from './state'
 import { useFilter } from './filter'
 import { useFind } from './find'
@@ -183,6 +184,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const trace = useTrace(s, v, w, notify)
   const tables = useTables(s, w, sel, cmd)
   const spell = useSpellCheck(s, sel, ed, notify)
+  const rules = useValidationDialog(s, sel, w, { scan: f.scanOptions, ask: alerts.ask, notify, changed: () => validation.refresh() })
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
@@ -213,6 +215,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     checkSpelling: spell.check,
     clear: extras.clear,
     insertLink: links.open,
+    dataValidation: rules.open,
   }
 
   // ── sheets ──
@@ -571,6 +574,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       goto.places.value = []
       links.draft.value = null
       notes.draft.value = null
+      rules.state.value = null
       subscribe()
       void init()
     },
@@ -633,6 +637,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     formulaView,
     viewState,
     validation,
+    rules,
     alerts,
     outline,
     menu,
