@@ -99,7 +99,11 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       return rect ? [{ rect, reason: l.reason }] : []
     }),
   )
-  const lockIn = (rect: CellRect): string | null => locks.value.find((l) => rectsMeet(l.rect, rect))?.reason ?? null
+  /** The reason of a locked range `rect` meets; a paste's rectangle past the sheet's edge is clipped to it (xlcalc checks rectangles strictly). */
+  function lockIn(rect: CellRect): string | null {
+    const r = { ...rect, bottom: Math.min(MAX_ROWS, rect.bottom), right: Math.min(MAX_COLS, rect.right) }
+    return locks.value.find((l) => rectsMeet(l.rect, r))?.reason ?? null
+  }
   const lockAt = (row: number, col: number): string | null => (locks.value.length ? lockIn(cellRect(row, col)) : null)
 
   /** xlcalc's typed-entry module for a source without `editText`, requested by the first edit text that needs it; null until it loads. */
