@@ -71,9 +71,11 @@ describe('localSource: defined names', () => {
     expect(got.ok && got.changes.find((c) => c.cell === 'H1')?.value).toBe(3.5)
   })
 
-  it('refuses a formula that does not parse in the workbook locale, keeping the names', async () => {
+  it('refuses a formula that does not parse in the workbook locale and a name the library rejects, keeping the names', async () => {
     const s = source()
     expect(await s.setNames([{ name: 'Плохое', ref: 'СУММ(' }])).toMatchObject({ ok: false, reason: 'refused' })
+    for (const name of ['1abc', 'Q1', 'ИСТИНА']) expect(await s.setNames([{ name, ref: '1' }])).toMatchObject({ ok: false, reason: 'refused' })
+    expect(await s.setNames([{ name: 'X', ref: '1' }, { name: 'x', ref: '2' }])).toMatchObject({ ok: false, reason: 'refused' })
     expect(await s.names()).toEqual([])
   })
 })
