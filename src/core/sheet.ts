@@ -14,9 +14,11 @@ import { useFill } from './fill'
 import { useFormula } from './formula'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
-import { isShortcut, shortcutLetter } from './keys'
+import { isShortcut, onMac, shortcutLetter } from './keys'
 import { useMenu } from './menu'
 import { useMerge } from './merge'
+import { useNameDialogs } from './name-dialogs'
+import { useNames } from './names'
 import { useNavigation } from './navigation'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
@@ -78,7 +80,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   const dismiss = () => (message.value = null)
 
-  const nav = useNavigation(s, sel, f, { pickSheet, notify })
+  // The workbook's defined names, read once per source and again after a change; the Name Box, Formula AutoComplete and the names' dialogs use them.
+  const names = useNames(s, { reload, reloads: () => reloads, apply: (changes) => w.applyChanges(changes) })
+  const nav = useNavigation(s, sel, f, { pickSheet, notify, names })
   const cellInput = ref<HTMLTextAreaElement | null>(null)
   const barInput = ref<HTMLTextAreaElement | null>(null)
   /** Excel's formula bar expanded to several lines; it stays so until toggled, whatever the cell. */
@@ -92,7 +96,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     return true
   }
   const alerts = useValidationAlert()
-  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask })
+  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare })
   const point = usePoint(s, sel, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, scan: f.scanOptions, commit: ed.commit })
   // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, otherwise in as typed, past the rule.
   const validation = useValidation({
@@ -134,8 +138,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
   const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
-  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() } })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
+  const nameDialogs = useNameDialogs(s, sel, names, { editing: () => editor.value !== null })
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
@@ -149,6 +154,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     reapplyFilter: filter.reapply,
     explain: explain.show,
     merge: merge.run,
+    defineName: nameDialogs.define,
+    nameManager: nameDialogs.openManager,
   }
 
   // ── sheets ──
@@ -187,6 +194,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     const mine = ++initSeq
     const outdated = s.outdated()
     reloadSeq++
+    names.read()
     clip.clear()
     w.reset()
     s.failure.value = null
@@ -220,6 +228,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     const name = s.sheetName.value
     const at = s.active.value
     const asked = target
+    names.read()
     try {
       const list = await s.source().sheets()
       if (mine !== reloadSeq || outdated()) return
@@ -388,6 +397,15 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       find.openReplace()
       return
     }
+    // Excel's Name Manager, Ctrl+F3 (on a Mac too), and Define Name, Ctrl+L in Excel for Mac (on Windows Ctrl+L is Create Table).
+    if (e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && e.key === 'F3' && nameDialogs.openManager()) {
+      e.preventDefault()
+      return
+    }
+    if (onMac() && e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && shortcutLetter(e) === 'l' && nameDialogs.define()) {
+      e.preventDefault()
+      return
+    }
     // Ctrl+1 on a Mac too: the browser reserves Cmd+1 for its first tab.
     if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.key === '1' || e.code === 'Digit1') && cmd.openFormat()) {
       e.preventDefault()
@@ -540,6 +558,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     alerts,
     outline,
     menu,
+    names,
+    nameDialogs,
     editor,
     message,
     notify,

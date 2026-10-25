@@ -124,6 +124,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
+| `defineName()` | `boolean` | Opens Excel's New Name dialog (Define Name) for the selection; `false` when names cannot be defined (no `names` or `setNames`, a read-only sheet) or a cell is being edited. See [names.md](names.md). |
+| `nameManager()` | `boolean` | Opens Excel's Name Manager (Ctrl+F3); `false` without the source's `names` or while a cell is being edited. Without `setNames` or on a read-only sheet it only lists the names. |
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 
@@ -273,8 +275,8 @@ export function serverSource(base: string): SheetSource {
 | `clear(sheet, ranges: string[], what: ClearKind)` | Excel's Clear Formats (`'formats'`: styles, number formats and the conditional formats over the cells) and Clear All (`'all'`: also contents, hyperlinks, notes and data validation rules), as a single undo step. Delete clears contents through `edit`. | Neither is offered. | |
 | `link(sheet, range, link: SheetLink \| null)` | Excel's Insert Link over a range, the cells' contents kept; null is Remove Hyperlinks. | Links can be followed but not edited. | |
 | `note(sheet, cell, note: SheetNote \| null)` | Excel's New Note and Edit Note; null is Delete Note. | Notes are shown but not edited. | |
-| `names(signal?) => Promise<SheetName[]>` | The workbook's defined names for the Name Box, Go To, Formula AutoComplete and the Name Manager. | No names. | |
-| `setNames(names: SheetName[])` | Replaces the workbook's names (the Name Manager, Define Name), as a single undo step. | The names cannot be edited. | |
+| `names(signal?) => Promise<SheetName[]>` | The workbook's defined names for the Name Box, Go To, Formula AutoComplete and the Name Manager. | No names. | [names.md](names.md) |
+| `setNames(names: SheetName[])` | Replaces the workbook's names (the Name Manager, Define Name, a name typed into the Name Box), as a single undo step. | The names are shown but cannot be changed. | [names.md](names.md) |
 | `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | |
 | `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs. | The rules are applied but not shown for editing. | |
 | `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | |

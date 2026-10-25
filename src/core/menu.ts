@@ -63,6 +63,8 @@ export interface MenuDeps {
   explain: Explain
   /** Whether the workbook freezes panes on the displayed sheet: the first freeze item is then Unfreeze Panes, as in Excel. */
   frozen: () => boolean
+  /** Excel's Define Name in the cell menu: offered where names can be defined. */
+  defineName?: { available: () => boolean; run: () => void }
 }
 
 export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: MenuDeps) {
@@ -106,7 +108,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     if (o.kind === 'cells') return cellItems()
     return o.kind === 'sheet' ? sheetItems(o.first) : lineItems(o.kind, o.first, o.last)
   })
-  /** Cut, Copy and Paste within the workbook (a read-only sheet only copies), Reapply under a display filter, Freeze Panes with the source's `freeze`, Trace Precedents with its `explain`. */
+  /** Cut, Copy and Paste within the workbook (a read-only sheet only copies), Reapply under a display filter, Freeze Panes with the source's `freeze`, Trace Precedents with its `explain`, Define Name with its `setNames`. */
   function cellItems(): MenuItem[] {
     const clip = deps.clip
     const copy: MenuItem = { id: 'copy', label: m().menuCopy, run: () => clip.copy(false) }
@@ -128,6 +130,8 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
       )
     }
     if (deps.explain.available.value) out.push({ id: 'precedents', label: m().menuPrecedents, run: () => deps.explain.show(), group: true })
+    const define = deps.defineName
+    if (define?.available()) out.push({ id: 'defineName', label: m().menuDefineName, run: define.run, group: true })
     return out
   }
   function lineItems(axis: 'rows' | 'columns', first: number, last: number): MenuItem[] {

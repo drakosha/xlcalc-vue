@@ -93,8 +93,8 @@ export function createState(props: SheetViewProps) {
   /** The selection's corner opposite `extent` once Enter or Tab moved the active cell inside it; null: the active cell is that corner. */
   const anchor = ref<CellPosition | null>(null)
 
-  /** Hooks into modules created later: clearing the filter when a jump needs a row it hides; a change of cells coming from the sheet (Excel's copy mode ends). */
-  const hooks = { unfilter: (_row: number): void => {}, changing: (): void => {} }
+  /** Hooks into modules created later: clearing the filter when a jump needs a row it hides; a change of cells coming from the sheet (Excel's copy mode ends); an undo or a redo done (the names are read again). */
+  const hooks = { unfilter: (_row: number): void => {}, changing: (): void => {}, stepped: (): void => {} }
 
   /** The grid takes focus back without scrolling the page: after an editor, a popover, a dialog or a command. */
   const focusGrid = (): void => scroller.value?.focus({ preventScroll: true })

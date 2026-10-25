@@ -55,6 +55,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Find and Replace](docs/find-replace.md)
 - [Data validation](docs/validation.md)
 - [Formula AutoComplete](docs/autocomplete.md)
+- [Defined names](docs/names.md): the Name Box, Define Name, the Name Manager.
 - [The formatting toolbar and Format Cells](docs/toolbar.md)
 - [In-browser calculation](docs/local.md): how `@xlcalc/vue/local` works, xlsx files.
 - [List mode](docs/list-mode.md): the host's list (a view or a report) displayed on the sheet, sorted by the host, with drill-down and a totals row.

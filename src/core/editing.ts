@@ -72,6 +72,9 @@ export interface EditingDeps {
   point?: (e: KeyboardEvent) => boolean
   /** Excel's alert of a data validation rule for a rejected value, or the prompt for a formula that cannot be parsed, and the user's answer; without it the rejection goes to the message line. */
   alert?: (alert: SheetAlert) => Promise<AlertAnswer>
+  /** The defined names visible on the sheet, in alphabetical order, and their order, for Formula AutoComplete; none without it. */
+  names?: () => readonly string[]
+  nameOrder?: (a: string, b: string) => number
 }
 
 export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula, editor: Ref<EditorState | null>, deps: EditingDeps) {
@@ -179,7 +182,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     focusEditor()
   }
   /** Excel's Formula AutoComplete over the draft: the function list below the editor. */
-  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor, scan: f.scanOptions })
+  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor, scan: f.scanOptions, names: deps.names, nameOrder: deps.nameOrder })
   /** Excel's argument tooltip for the function the caret is in, below the editor; the list takes precedence. */
   const tip = useFunctionTip({ source: s.source, editor, input: inputOf, scan: f.scanOptions, listOpen: () => ac.open.value })
   function onEditorInput(e: Event): void {
@@ -379,7 +382,9 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (!call || stepping || !s.editable.value) return null
     stepping = true
     try {
-      return await run(() => call(), [], null, null)
+      const out = await run(() => call(), [], null, null)
+      if (out.ok) s.hooks.stepped()
+      return out
     } finally {
       stepping = false
     }
