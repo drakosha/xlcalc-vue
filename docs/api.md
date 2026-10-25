@@ -124,6 +124,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
+| `dataValidation()` | `boolean` | Opens Excel's Data Validation dialog for the selection over the source's `rules` and `setRules`, after Excel's question where the selection holds rules of more than one kind or cells without the rule; `false` when the sheet is read-only or the source lacks either method. See [validation.md](validation.md#the-data-validation-dialog). |
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 
@@ -276,8 +277,8 @@ export function serverSource(base: string): SheetSource {
 | `names(signal?) => Promise<SheetName[]>` | The workbook's defined names for the Name Box, Go To, Formula AutoComplete and the Name Manager. | No names. | |
 | `setNames(names: SheetName[])` | Replaces the workbook's names (the Name Manager, Define Name), as a single undo step. | The names cannot be edited. | |
 | `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | |
-| `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs. | The rules are applied but not shown for editing. | |
-| `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | |
+| `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs; with `setRules`, the Data Validation dialog. | The rules are applied but not shown for editing. | [validation.md](validation.md#the-data-validation-dialog) |
+| `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | [validation.md](validation.md#the-data-validation-dialog) |
 | `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | |
 | `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | |
 | `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | |

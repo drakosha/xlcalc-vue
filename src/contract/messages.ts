@@ -256,4 +256,31 @@ export interface SheetMessages {
   mergeCells: string
   unmergeCells: string
   mergeWarning: string
+  /** Excel's Data Validation dialog: its title and tabs, the Settings tab's boxes by the rule's type and comparison, the Input Message and Error Alert tabs (the styles are `validationStyle`), Clear All, Excel's questions before it opens and its checks before OK. */
+  dataValidation: string
+  dvTab: (tab: 'settings' | 'input' | 'error') => string
+  dvCriteria: string
+  dvAllow: string
+  dvType: (type: 'any' | 'whole' | 'decimal' | 'list' | 'date' | 'time' | 'textLength' | 'custom') => string
+  dvData: string
+  dvOperator: (op: 'between' | 'notBetween' | 'equal' | 'notEqual' | 'greaterThan' | 'lessThan' | 'greaterThanOrEqual' | 'lessThanOrEqual') => string
+  dvBox: (box: 'min' | 'max' | 'value' | 'length' | 'start' | 'end' | 'date' | 'startTime' | 'endTime' | 'time' | 'source' | 'formula') => string
+  dvIgnoreBlank: string
+  dvDropdown: string
+  dvApplyAll: string
+  dvShowPrompt: string
+  dvPromptLead: string
+  dvFieldTitle: string
+  dvPromptText: string
+  dvShowError: string
+  dvErrorLead: string
+  dvStyle: string
+  dvErrorText: string
+  dvClearAll: string
+  dvMany: string
+  dvExtend: string
+  /** OK refused: an empty box, a box whose value is not one, a maximum below the minimum; with the boxes' names from `dvBox`. */
+  dvEmpty: (box: string) => string
+  dvInvalid: (box: string) => string
+  dvOrder: (min: string, max: string) => string
 }

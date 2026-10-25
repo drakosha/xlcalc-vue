@@ -21,6 +21,7 @@ import { useNavigation } from './navigation'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
 import { useValidation, useValidationAlert, VALIDATION_DELAY_MS } from './validation'
+import { useValidationDialog } from './validation-dialog'
 import { createState } from './state'
 import { useFilter } from './filter'
 import { useFind } from './find'
@@ -136,6 +137,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
   const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
+  const rules = useValidationDialog(s, sel, w, { scan: f.scanOptions, ask: alerts.ask, notify, changed: () => validation.refresh() })
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
@@ -149,6 +151,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     reapplyFilter: filter.reapply,
     explain: explain.show,
     merge: merge.run,
+    dataValidation: rules.open,
   }
 
   // ── sheets ──
@@ -485,6 +488,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       s.endWorkbook()
       ed.forget()
       alerts.answer('cancel')
+      rules.state.value = null
       subscribe()
       void init()
     },
@@ -537,6 +541,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     fill,
     viewState,
     validation,
+    rules,
     alerts,
     outline,
     menu,

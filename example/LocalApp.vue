@@ -3,7 +3,7 @@
 // Worker (`?calc=inline` on the page's thread); timings of the opening and of each edit are shown and stored in `window.__xs`
 // for the browser check, and the workbook saves back to xlsx under its file's name.
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
-import { SheetView, ruMessages, type SheetViewState } from '../src'
+import { SheetView, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import { groupIssues, localSource, openXlsx, saveXlsx, type IssueGroup, type LocalSource } from '../src/local'
 import type { CellEntry, EditOptions } from '../src/contract/source'
 import { localBook } from './local-book'
@@ -16,6 +16,8 @@ const timings = ref({ built: performance.now() - t0, ready: 0, edit: 0, changes:
 const failed = ref('')
 const focus = shallowRef(params.get('sheet') ? { ref: params.get('sheet')! } : null)
 const state = ref<SheetViewState | null>(null)
+/** The sheet's methods, for the host's own Data Validation button. */
+const sheet = shallowRef<SheetViewApi | null>(null)
 const local = shallowRef<LocalSource>(start(localSource(book, { calc }), t0))
 const fileName = ref('synthetic.xlsx')
 /** What the opened file contained that the workbook cannot keep, by kind. */
@@ -96,6 +98,7 @@ const ms = (n: number) => `${Math.round(n)} мс`
       <span v-if="failed" class="error">{{ failed }}</span>
       <label class="file">Открыть xlsx <input type="file" accept=".xlsx" data-open @change="openFile" /></label>
       <button type="button" @click="save">Сохранить xlsx</button>
+      <button type="button" data-validation @click="sheet?.dataValidation()">Проверка данных…</button>
       <span class="state" data-file>{{ fileName }}</span>
       <span class="state">{{ state ? `${state.sheet}!${state.ref}${state.formula ? ' =' + state.formula : ''}` : '' }}</span>
     </header>
@@ -103,7 +106,7 @@ const ms = (n: number) => `${Math.round(n)} мс`
       Из файла не перенесено:
       <span v-for="g in lost" :key="g.code">{{ g.message }}<template v-if="g.count > 1"> (и ещё {{ g.count - 1 }})</template><template v-if="g.sheets.length">, листы {{ g.sheets.join(', ') }}</template>. </span>
     </div>
-    <SheetView :key="fileName" class="sheet" :source="source" :messages="ruMessages" :locale="local.locale" :focus="focus" storage-key="xs-local" @state="state = $event" />
+    <SheetView :key="fileName" :ref="(el) => (sheet = el as SheetViewApi | null)" class="sheet" :source="source" :messages="ruMessages" :locale="local.locale" :focus="focus" storage-key="xs-local" @state="state = $event" />
   </div>
 </template>
 
@@ -146,7 +149,7 @@ const ms = (n: number) => `${Math.round(n)} мс`
 }
 @media (max-width: 600px) {
   .top .state:last-of-type,
-  .top button,
+  .top button:not([data-validation]),
   .top .file {
     display: none;
   }
