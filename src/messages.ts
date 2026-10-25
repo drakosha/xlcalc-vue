@@ -1,6 +1,7 @@
 // The component's interface texts: English by default, with a Russian set in the package; a host passes its own set or part of one.
 import { computed, type ComputedRef } from 'vue'
 import type { SheetMessages } from './contract/messages'
+import { enConditional, ruConditional } from './messages-conditional'
 
 /** `n` and its English noun, singular for one. */
 const countEn = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -468,6 +469,7 @@ export const enMessages: SheetMessages = {
   dvEmpty: (box) => `You must enter a value in the ${box} box.`,
   dvInvalid: (box) => `The ${box} you entered is not valid.`,
   dvOrder: (min, max) => `The ${max} must be greater than or equal to the ${min}.`,
+  ...enConditional,
 }
 
 /** Russian plural: one, few, many. */
@@ -955,6 +957,7 @@ export const ruMessages: SheetMessages = {
   dvEmpty: (box) => `Необходимо ввести значение в поле «${box}».`,
   dvInvalid: (box) => `Значение в поле «${box}» недопустимо.`,
   dvOrder: (min, max) => `Значение в поле «${max}» должно быть больше или равно значению в поле «${min}».`,
+  ...ruConditional,
 }
 
 /** A component's texts: the English set overridden by the part a host passed. */

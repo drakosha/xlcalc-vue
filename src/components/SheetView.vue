@@ -5,6 +5,7 @@ import type { ListSort, SheetFailure, SheetLinkEvent, SheetViewApi, SheetViewPro
 import { useSheet, type SheetEmit } from '../core/sheet'
 import { sheetContextKey } from './context'
 import { hasListener } from './dom'
+import CfDialogs from './CfDialogs.vue'
 import ExplainPanel from './ExplainPanel.vue'
 import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
@@ -124,6 +125,7 @@ const wait = ctx.w.wait
       <SpellingDialog />
       <LinkDialog />
       <ValidationDialog />
+      <CfDialogs />
       <ValidationAlert :alert="ctx.alerts.alert.value" :messages="m" @answer="ctx.alerts.answer" />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>

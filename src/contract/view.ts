@@ -1,5 +1,6 @@
 // The sheet's public types: SheetView's props, state, events and methods, the toolbar's source, list mode's sort.
-import type { CellStyle } from 'xlcalc/contract'
+import type { CellStyle, IconSetName } from 'xlcalc/contract'
+import type { ClearRulesFrom, ColorScalePreset, DataBarColor, QuickRule } from './conditional'
 import type { SheetMessages } from './messages'
 import type { EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
 import type { ClearKind } from './workbook'
@@ -180,6 +181,21 @@ export interface SheetViewApi {
    * sheet is read-only or the source lacks either method.
    */
   dataValidation(): boolean
+  // Excel's Conditional Formatting menu: each needs the source's `rules` and `setRules` and an editable sheet (false or null otherwise)
+  /** Opens a quick rule's dialog (Highlight Cells Rules, Top/Bottom Rules) for the selection; OK adds the rule first in priority. */
+  quickRule(kind: QuickRule): boolean
+  /** Adds Excel's data bar of that color over the selection, with a gradient fill (the default) or a solid one. */
+  dataBars(color: DataBarColor, fill?: 'gradient' | 'solid'): Promise<EditOutcome | null>
+  /** Adds the color scale of Excel's gallery over the selection. */
+  colorScale(preset: ColorScalePreset): Promise<EditOutcome | null>
+  /** Adds the icon set over the selection, with Excel's default thresholds: equal shares in percent. */
+  iconSet(icons: IconSetName): Promise<EditOutcome | null>
+  /** Excel's Clear Rules from Selected Cells (a rule keeps the rest of its cells) or from Entire Sheet; null when there is nothing to clear. */
+  clearRules(from: ClearRulesFrom): Promise<EditOutcome | null>
+  /** Opens Excel's New Formatting Rule dialog for the selection. */
+  newRule(): boolean
+  /** Opens Excel's Conditional Formatting Rules Manager. */
+  manageRules(): boolean
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

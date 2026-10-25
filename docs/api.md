@@ -151,6 +151,15 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `clear(what: ClearKind)` | `Promise<EditOutcome \| null>` | Excel's Home > Clear > Clear Formats (`'formats'`) or Clear All (`'all'`) over the selection through the source's `clear`, as a single undo step; under a display filter, over its visible rows. `null` also over a locked cell. See [links-notes.md](links-notes.md#clear-formats-and-clear-all). |
 | `insertLink()` | `boolean` | Opens Excel's Insert Hyperlink dialog (Ctrl+K) for the selection, as Edit Hyperlink when the active cell has a link; OK writes the link through the source's `link`. `false` without `link`, on a read-only sheet or over a locked cell. See [links-notes.md](links-notes.md#hyperlinks). |
 | `dataValidation()` | `boolean` | Opens Excel's Data Validation dialog for the selection over the source's `rules` and `setRules`, after Excel's question where the selection holds rules of more than one kind or cells without the rule; `false` when the sheet is read-only or the source lacks either method. See [validation.md](validation.md#the-data-validation-dialog). |
+| `quickRule(kind: QuickRule)` | `boolean` | Opens the dialog of a quick rule from Excel's Highlight Cells Rules or Top/Bottom Rules for the selection; OK adds the rule first in priority. `false` without the source's `rules` and `setRules` or on a read-only sheet, as for the methods below. See [conditional-formatting.md](conditional-formatting.md). |
+| `dataBars(color: DataBarColor, fill?: 'gradient' \| 'solid')` | `Promise<EditOutcome \| null>` | Adds Excel's data bar of that color over the selection. |
+| `colorScale(preset: ColorScalePreset)` | `Promise<EditOutcome \| null>` | Adds a color scale of Excel's gallery over the selection. |
+| `iconSet(icons: IconSetName)` | `Promise<EditOutcome \| null>` | Adds an icon set over the selection, with Excel's thresholds in percent. |
+| `clearRules(from: ClearRulesFrom)` | `Promise<EditOutcome \| null>` | Excel's Clear Rules from Selected Cells (`'selection'`: a rule keeps the rest of its cells) or from Entire Sheet (`'sheet'`); `null` when no rule is there to clear. |
+| `newRule()` | `boolean` | Opens Excel's New Formatting Rule dialog for the selection. |
+| `manageRules()` | `boolean` | Opens Excel's Conditional Formatting Rules Manager. |
+
+`QuickRule` is `'greaterThan' | 'lessThan' | 'between' | 'equalTo' | 'textContains' | 'dateOccurring' | 'duplicateValues' | 'top10' | 'top10Percent' | 'bottom10' | 'bottom10Percent' | 'aboveAverage' | 'belowAverage'`, `DataBarColor` is `'blue' | 'green' | 'red' | 'orange' | 'lightBlue' | 'purple'`, `ColorScalePreset` names a color scale of Excel's gallery from the highest numbers' color to the lowest's (`'greenYellowRed'`, `'redYellowGreen'`, `'greenWhiteRed'`, `'redWhiteGreen'`, `'blueWhiteRed'`, `'redWhiteBlue'`, `'whiteRed'`, `'redWhite'`, `'greenWhite'`, `'whiteGreen'`, `'greenYellow'`, `'yellowGreen'`), and `ClearRulesFrom` is `'selection' | 'sheet'`; `IconSetName` is xlcalc's.
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 
@@ -422,7 +431,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 
 ## Interface texts: `SheetMessages`
 
-`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`.
+`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`, those of the conditional formatting dialogs (`cf…`) in its `ConditionalMessages`, which `SheetMessages` extends.
 
 ```ts
 import { ruMessages } from '@xlcalc/vue'

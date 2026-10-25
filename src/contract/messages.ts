@@ -1,6 +1,8 @@
 // The interface texts' keys and their arguments; the English and Russian sets are in src/messages.ts.
+import type { ConditionalFormat, IconSetName } from 'xlcalc/contract'
+import type { QuickRule } from './conditional'
 
-export interface SheetMessages {
+export interface SheetMessages extends ConditionalMessages {
   back: string
   backEmpty: string
   address: string
@@ -459,3 +461,101 @@ export type SymbolSpecial =
   | 'doubleClosingQuote'
   | 'noWidthOptionalBreak'
   | 'noWidthNonBreak'
+type CfOperator = Extract<ConditionalFormat, { type: 'cellIs' }>['operator']
+type CfTextType = 'containsText' | 'notContainsText' | 'beginsWith' | 'endsWith'
+type CfPeriod = Extract<ConditionalFormat, { type: 'timePeriod' }>['period']
+type CfValueType = 'min' | 'max' | 'num' | 'percent' | 'formula' | 'percentile' | 'autoMin' | 'autoMax'
+
+/** Excel's conditional formatting dialogs: the quick rules' dialogs, the Rules Manager, New and Edit Formatting Rule, a rule's Format Cells. */
+export interface ConditionalMessages {
+  /** A quick rule's dialog: its title, the label above its box, and the "with" box's formats, Custom Format last. */
+  cfQuickTitle: (kind: QuickRule) => string
+  cfQuickLabel: (kind: QuickRule) => string
+  cfWith: string
+  cfAnd: string
+  cfValuesWith: string
+  cfForRange: string
+  cfPreset: (preset: 'lightRedDarkRed' | 'yellowDarkYellow' | 'greenDarkGreen' | 'lightRed' | 'redText' | 'redBorder') => string
+  cfCustomFormat: string
+  cfPeriod: (period: CfPeriod) => string
+  cfDuplicate: (unique: boolean) => string
+  /** Why OK does not write the rule. */
+  cfValueMissing: string
+  cfRankRange: (max: number) => string
+  cfPercentRange: string
+  cfRelative: string
+  cfAppliesBad: string
+  /** The Rules Manager: its list's choice, buttons, columns and the rules' descriptions. */
+  cfManager: string
+  cfShowFor: string
+  cfShowSelection: string
+  cfShowSheet: string
+  cfNewRule: string
+  cfEditRule: string
+  cfDeleteRule: string
+  cfDuplicateRule: string
+  cfMoveUp: string
+  cfMoveDown: string
+  cfColRule: string
+  cfColFormat: string
+  cfColApplies: string
+  cfColStop: string
+  cfApply: string
+  cfLoading: string
+  cfNoFormat: string
+  cfSample: string
+  cfDescCell: (operator: CfOperator, a: string, b?: string) => string
+  cfDescFormula: (formula: string) => string
+  cfDescText: (type: CfTextType, text: string) => string
+  cfDescBlanks: (type: 'containsBlanks' | 'notContainsBlanks' | 'containsErrors' | 'notContainsErrors') => string
+  cfDescTop: (rank: number, percent: boolean, bottom: boolean) => string
+  cfDescAverage: (below: boolean, equal: boolean, stdDev?: number) => string
+  cfDescDuplicate: (unique: boolean) => string
+  cfDescScale: string
+  cfDescBar: string
+  cfDescIcons: string
+  /** New Formatting Rule and Edit Formatting Rule: the rule types and each one's inputs. */
+  cfNewTitle: string
+  cfEditTitle: string
+  cfSelectType: string
+  cfType: (kind: 'values' | 'contain' | 'rank' | 'average' | 'unique' | 'formula') => string
+  cfEditDescription: string
+  cfFormatStyle: string
+  cfStyleKind: (style: 'scale2' | 'scale3' | 'dataBar' | 'iconSet') => string
+  cfPoint: (which: 'min' | 'mid' | 'max') => string
+  cfTypeLabel: string
+  cfValueLabel: string
+  cfColorLabel: string
+  cfValueType: (type: CfValueType) => string
+  cfBarAppearance: string
+  cfBarFill: (gradient: boolean) => string
+  cfBarBorder: (on: boolean) => string
+  cfShowBarOnly: string
+  cfDirection: string
+  cfDirectionKind: (d: 'context' | 'leftToRight' | 'rightToLeft') => string
+  cfIconStyle: string
+  cfIconSet: (set: IconSetName) => string
+  cfReverse: string
+  cfShowIconOnly: string
+  cfIconRules: string
+  cfWhenValue: string
+  cfIconLast: string
+  cfFormatOnly: string
+  cfContain: (kind: 'cellValue' | 'text' | 'dates' | 'blanks' | 'noBlanks' | 'errors' | 'noErrors') => string
+  cfOperator: (operator: CfOperator) => string
+  cfTextOp: (type: CfTextType) => string
+  cfRankLabel: string
+  cfTopBottom: (top: boolean) => string
+  cfPercentOf: string
+  cfAverageLabel: string
+  cfAverageKind: (kind: 'above' | 'below' | 'equalAbove' | 'equalBelow' | 'std1Above' | 'std2Above' | 'std3Above' | 'std1Below' | 'std2Below' | 'std3Below') => string
+  cfAverageOf: string
+  cfUniqueLabel: string
+  cfInRange: string
+  cfFormulaLabel: string
+  cfPreview: string
+  cfFormatButton: string
+  /** A rule's Format Cells: no choice in a list, and Clear. */
+  cfNotSet: string
+  cfClear: string
+}

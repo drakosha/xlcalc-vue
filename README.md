@@ -57,6 +57,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Find and Replace](docs/find-replace.md)
 - [Go To and Symbol](docs/go-to-and-symbol.md)
 - [Data validation](docs/validation.md)
+- [Conditional formatting](docs/conditional-formatting.md): Excel's quick rules, galleries, Clear Rules, New Rule and the Rules Manager as the sheet's methods.
 - [Formula AutoComplete](docs/autocomplete.md)
 - [Defined names](docs/names.md): the Name Box, Define Name, the Name Manager.
 - [The formatting toolbar and Format Cells](docs/toolbar.md)

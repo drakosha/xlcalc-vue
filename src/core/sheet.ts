@@ -5,6 +5,7 @@ import type { CellStyle } from 'xlcalc/contract'
 import { errorText } from '../failure'
 import type { SheetInfo, SheetWindow } from '../contract/source'
 import { useCellView } from './cell-view'
+import { useConditional } from './cf-commands'
 import { useClip } from './clip'
 import { useCommands, type SheetTarget } from './commands'
 import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
@@ -185,6 +186,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const tables = useTables(s, w, sel, cmd)
   const spell = useSpellCheck(s, sel, ed, notify)
   const rules = useValidationDialog(s, sel, w, { scan: f.scanOptions, ask: alerts.ask, notify, changed: () => validation.refresh() })
+  const cf = useConditional(s, sel, w, ed, { notify, scan: f.scanOptions })
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
@@ -216,6 +218,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     clear: extras.clear,
     insertLink: links.open,
     dataValidation: rules.open,
+    ...cf.api,
   }
 
   // ── sheets ──
@@ -575,6 +578,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       links.draft.value = null
       notes.draft.value = null
       rules.state.value = null
+      cf.closeAll()
       subscribe()
       void init()
     },
@@ -648,6 +652,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     nameDialogs,
     zoomer: zoom,
     watches,
+    cf,
     editor,
     message,
     notify,
