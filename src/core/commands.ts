@@ -3,7 +3,7 @@
 import { computed, ref } from 'vue'
 import type { CellStyle } from 'xlcalc/contract'
 import type { EditOutcome, FormatPatch, LayoutChange, OutlineChange, SheetOp } from '../contract/source'
-import { fontToggle, type FontToggle } from '../toolbar'
+import { fontToggle, PERCENT_STYLE, type FontToggle } from '../toolbar'
 import type { Editing } from './editing'
 import { isMod, shortcutLetter } from './keys'
 import type { FreezeMode, MergeCommand, SheetFormatPatch } from '../contract/view'
@@ -114,9 +114,18 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     return out
   }
 
-  /** Ctrl+B, Ctrl+I and Ctrl+U (Cmd on a Mac, with any layout): toggle the font over the selection according to the active cell; true when handled. */
-  function fontKey(e: KeyboardEvent): boolean {
-    if (!isMod(e) || e.altKey || e.shiftKey || !can('format')) return false
+  /**
+   * Ctrl+B, Ctrl+I and Ctrl+U (Cmd on a Mac, with any layout) toggle the font over the selection according to the active
+   * cell; Ctrl+Shift+% (Control on a Mac too, as in Excel for Mac; Shift+5 on any layout) applies Percent Style. True when handled.
+   */
+  function formatKey(e: KeyboardEvent): boolean {
+    if (!can('format')) return false
+    if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey && (e.key === '%' || e.code === 'Digit5')) {
+      e.preventDefault()
+      void format([{ numberFormat: PERCENT_STYLE }])
+      return true
+    }
+    if (!isMod(e) || e.altKey || e.shiftKey) return false
     const what = FONT_KEYS[shortcutLetter(e)]
     if (!what) return false
     e.preventDefault()
@@ -136,7 +145,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     s.focusGrid()
   }
 
-  return { can, canRanges, format, structure, layout, outline, freeze, fontKey, formatOpen, openFormat, closeFormat }
+  return { can, canRanges, format, structure, layout, outline, freeze, formatKey, formatOpen, openFormat, closeFormat }
 }
 
 export type Commands = ReturnType<typeof useCommands>
