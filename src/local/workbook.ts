@@ -1,6 +1,6 @@
 // The local source's dialogs over the workbook beside cell values: clearing, hyperlinks, notes, defined names, rules, tables,
 // dependents and spelling, each a session call with its formulas translated between the stored form and the workbook's locale.
-import { toLocal, validateLocalFormula, validateNames, type AsyncSession, type BookLayout, type NameInput, type CellChange, type ConditionalFormat, type DataValidation, type EditResult } from 'xlcalc'
+import { toLocal, validateLocalFormula, validateNames, type AsyncSession, type CellChange, type ConditionalFormat, type DataValidation, type EditResult } from 'xlcalc'
 import { cellAddress, parseCell } from 'xlcalc/a1'
 import type { EditOutcome } from '../contract/source'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellChecker, SpellingHit, SpellingRequest, TableOp } from '../contract/workbook'
@@ -33,9 +33,6 @@ function mapFormulas<T>(rule: T, f: (formula: string) => string): T {
   }
   return walk(rule) as T
 }
-
-/** A workbook's defined names as stored; `hidden` (xlsx's hidden names) is read by xlcalc 0.57 and later. */
-const storedNames = (layout: BookLayout): (NameInput & { hidden?: boolean })[] => layout.names ?? []
 
 /** A typed formula that does not parse, which refuses the change it is part of. */
 class Unparsed extends Error {}
@@ -83,9 +80,9 @@ export function workbookMethods(locale: string, done: Completion, checker?: Spel
     return done.repainted(await s.patchCells([{ sheet, cell: addr, set: { note } }]), [{ sheet, range: addr }])
   }
 
-  /** The names the Name Manager lists: a hidden name (xlsx `hidden`, which xlcalc 0.57 reads) is not shown, as in Excel. */
+  /** The names the Name Manager lists: a hidden name (xlsx `hidden`, read by xlcalc 0.57 and later) is not shown, as in Excel. */
   async function names(s: AsyncSession): Promise<SheetName[]> {
-    return storedNames(await s.getLayout())
+    return ((await s.getLayout()).names ?? [])
       .filter((n) => !n.hidden)
       .map((n) => ({ name: n.name, ref: local(n.ref), ...(n.scope ? { scope: n.scope } : {}) }))
   }
@@ -99,7 +96,7 @@ export function workbookMethods(locale: string, done: Completion, checker?: Spel
   async function setNames(s: AsyncSession, list: SheetName[]): Promise<EditOutcome> {
     return parsed(async () => {
       const layout = await s.getLayout()
-      const hidden = storedNames(layout).filter((n) => n.hidden)
+      const hidden = (layout.names ?? []).filter((n) => n.hidden)
       const input = [...list.map((n) => ({ name: n.name, ref: stored(n.ref), ...(n.scope ? { scope: n.scope } : {}) })), ...hidden]
       const tables = layout.sheets.flatMap((sh) => (sh.tables ?? []).map((t) => ({ name: t.name, columns: t.columns.map((c) => c.name) })))
       const dropped = validateNames(input, { sheets: layout.sheets.map((sh) => sh.name), tables, locale }).find((i) => i.dropped)

@@ -71,6 +71,17 @@ describe('localSource: defined names', () => {
     expect(got.ok && got.changes.find((c) => c.cell === 'H1')?.value).toBe(3.5)
   })
 
+  it("does not list a hidden name, as Excel's Name Manager does not, and keeps it when the list is replaced", async () => {
+    const s = source({ ...book(), names: [{ name: 'Seen', ref: "'Лист1'!$A$1" }, { name: '_Hidden', ref: "'Лист1'!$A$2", hidden: true }] })
+    expect((await s.names()).map((n) => n.name)).toEqual(['Seen'])
+    expect(await s.setNames([{ name: 'Other', ref: 'Лист1!$A$3' }])).toMatchObject({ ok: true })
+    expect((await s.names()).map((n) => n.name)).toEqual(['Other'])
+    expect((await s.book()).names).toEqual([
+      { name: 'Other', ref: "'Лист1'!$A$3" },
+      { name: '_Hidden', ref: "'Лист1'!$A$2", hidden: true },
+    ])
+  })
+
   it('refuses a formula that does not parse in the workbook locale and a name the library rejects, keeping the names', async () => {
     const s = source()
     expect(await s.setNames([{ name: 'Плохое', ref: 'СУММ(' }])).toMatchObject({ ok: false, reason: 'refused' })
