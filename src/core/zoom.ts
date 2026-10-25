@@ -43,11 +43,11 @@ export function useZoom(s: SheetState, v: Viewport, sel: Selection, deps: ZoomDe
   /** The zoom last reported for each sheet, so a gesture reports its end once. */
   const reported = new Map<string, number>()
 
-  /** The zoom a sheet opens with: the host's for it, otherwise 100%. The workbook's stored zoom (xlsx's `sheetView` `zoomScale`) plugs in here, under the host's, once `SheetInfo` carries it. */
+  /** The zoom a sheet opens with: the host's for it, otherwise the workbook's stored one (`SheetInfo.zoom`, xlsx's `zoomScale`), otherwise 100%. */
   function initialZoom(sheet: SheetInfo): number {
     const given = deps.given()
     const name = given && Object.keys(given).find((k) => sameName(k, sheet.name))
-    return clampZoom(name !== undefined ? given![name]! : 100)
+    return clampZoom(name !== undefined ? given![name]! : (sheet.zoom ?? 100))
   }
   const zoomOf = (sheet: SheetInfo): number => chosen.get(sheet.name) ?? initialZoom(sheet)
 

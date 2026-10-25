@@ -76,7 +76,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `sort` | `ListSort \| null` | `null` | List mode: the order the host sorted the list in, shown as an arrow on that column's title. |
 | `openRows` | `boolean` | `false` | List mode: the first column opens its row, and so does Enter on a cell that is not a drill-down. |
 | `hostLinks` | `boolean` | `false` | The host opens links itself through `openLink`, as when it listens: for a host whose listener the sheet cannot see, such as a custom element's. |
-| `zoom` | `Record<string, number>` | none | Excel's zoom by sheet name, in percent (10 to 400), as the host kept it from the `zoom` event; a sheet without one opens at 100%. A new object applies its changed entries, to the active sheet at once. See [view.md](view.md#zoom). |
+| `zoom` | `Record<string, number>` | none | Excel's zoom by sheet name, in percent (10 to 400), as the host kept it from the `zoom` event; a sheet without one opens at the workbook's saved zoom (`SheetInfo.zoom`), otherwise 100%. A new object applies its changed entries, to the active sheet at once. See [view.md](view.md#zoom). |
 | `watches` | `SheetWatch[]` | none | The Watch Window's list, as the host kept it from the `watches` event; a new array replaces the list. See [view.md](view.md#watch-window). |
 
 ### Events

@@ -59,7 +59,7 @@ The zoom changes by:
 - The status bar, at the right end of the bottom bar on a desktop: Zoom Out (−) and Zoom In (+) go to the next multiple of 10%; the slider covers 10% to 100% on its left half and 100% to 400% on its right, with 100% at the middle; the percentage opens Excel's Zoom dialog.
 - The Zoom dialog: 200%, 100%, 75%, 50%, 25%, Fit selection and Custom (10 to 400). Fit selection is Excel's Zoom to Selection: the zoom at which the selection fills the viewport, with the selection scrolled to its top left corner.
 
-The wheel, the slider and the dialog keep the top left cell in place; a pinch keeps the cell under it. A host sets a sheet's zoom with `setZoom(percent)`, or Zoom to Selection with `setZoom('selection')`, and opens a sheet at its zoom with the `zoom` prop, keyed by sheet name. The `zoom` event reports what the user changes (a pinch once it ends), so the host can keep it and pass it back; `state.zoom` is the displayed sheet's zoom, absent at 100%.
+The wheel, the slider and the dialog keep the top left cell in place; a pinch keeps the cell under it. A host sets a sheet's zoom with `setZoom(percent)`, or Zoom to Selection with `setZoom('selection')`, and opens a sheet at its zoom with the `zoom` prop, keyed by sheet name; a sheet the prop does not name opens at the workbook's saved zoom (`SheetInfo.zoom`, which `./local` reads from the xlsx sheet view), otherwise at 100%. The `zoom` event reports what the user changes (a pinch once it ends), so the host can keep it and pass it back; `state.zoom` is the displayed sheet's zoom, absent at 100%.
 
 ```vue
 <script setup lang="ts">

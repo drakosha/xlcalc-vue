@@ -170,6 +170,18 @@ describe('zoom: per sheet, the host and the controls', () => {
     expect(lastState(w)?.zoom).toBe(75)
   })
 
+  it("a sheet without the host's zoom opens at the workbook's saved zoom (SheetInfo.zoom), and the host's wins over it", async () => {
+    const saved = book()
+    saved.sheets[0]!.zoom = 125
+    saved.sheets[1]!.zoom = 60
+    const w = await mountSheet(memorySource(saved), { zoom: { Two: 200 } })
+    expect(lastState(w)?.zoom).toBe(125)
+    await w.findAll('.xs-tab')[1]!.trigger('click')
+    await settle()
+    expect(lastState(w)?.zoom).toBe(200)
+    expect(zooms(w)).toEqual([])
+  })
+
   it('the status bar: − and + go to the next multiple of 10%, the slider maps its halves to 10–100% and 100–400%', async () => {
     expect([stepZoom(100, 1), stepZoom(115, 1), stepZoom(115, -1), stepZoom(10, -1), stepZoom(400, 1)]).toEqual([110, 120, 110, 10, 400])
     expect([zoomOfSlider(0), zoomOfSlider(50), zoomOfSlider(100), zoomOfSlider(25), zoomOfSlider(75)]).toEqual([10, 100, 400, 55, 250])

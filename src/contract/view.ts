@@ -31,7 +31,7 @@ export interface SheetViewProps {
   hostLinks?: boolean
   /**
    * Excel's zoom by sheet name, in percent (10 to 400), as the host kept it from the `zoom` event; a sheet without one opens
-   * at 100%. A new object applies its changed entries, to the active sheet at once.
+   * at the workbook's saved zoom (`SheetInfo.zoom`), otherwise 100%. A new object applies its changed entries, to the active sheet at once.
    */
   zoom?: Record<string, number>
   /** Excel's Watch Window list, as the host kept it from the `watches` event; a new array replaces the list. */
