@@ -1,6 +1,6 @@
 // The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the viewport's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, triggerRef, watch } from 'vue'
-import { cellAddress, linesKey, parseCell, rangeAddress, sameName } from 'xlcalc/a1'
+import { linesKey, parseCell, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import { errorText } from '../failure'
 import type { SheetInfo, SheetWindow } from '../contract/source'
@@ -431,14 +431,6 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   // ── hyperlinks in cells ──
   /** A hyperlink clicked in a cell: a location in the workbook is handled by the component, anything else goes to the host if it listens, otherwise to the browser. */
   function onLink(e: MouseEvent, link: NonNullable<SheetWindow['links']>[string], row: number, col: number): void {
-    if (link.location) {
-      e.preventDefault()
-      void goto.jump(link.location.replace(/^#/, ''))
-      return
-    }
-    if (!hostLinks()) return
-    e.preventDefault()
-    emit('openLink', { ...link, sheet: s.sheetName.value, cell: cellAddress(row, col) })
     if (links.openLink(link, row, col, true)) e.preventDefault()
   }
 
