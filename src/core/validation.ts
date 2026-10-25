@@ -192,8 +192,14 @@ export interface ParenthesisAlert {
   sheet: string
   cell: string
 }
-/** What the alert displays: a rule's rejection, the prompt for a formula, Excel's correction of one and what is missing, or the warning before a merge. */
-export type SheetAlert = SheetValidationAlert | FormulaAlert | TypoAlert | ParenthesisAlert | MergeAlert
+/** Excel's message with OK alone over a dialog, such as Go To's for a bad reference. */
+export interface NoticeAlert {
+  severity: 'notice'
+  title?: undefined
+  message: string
+}
+/** What the alert displays: a rule's rejection, the prompt for a formula, Excel's correction of one and what is missing, the warning before a merge, or a dialog's message. */
+export type SheetAlert = SheetValidationAlert | FormulaAlert | TypoAlert | ParenthesisAlert | MergeAlert | NoticeAlert
 
 /** What the user's answer to an alert does with the rejected edit: send it again with `accept`, reopen the editor with the text, or leave the cell unchanged. */
 export type AlertAnswer = 'accept' | 'retry' | 'cancel'
@@ -223,13 +229,14 @@ export const ALERT_BUTTONS: Record<SheetAlert['severity'], { button: AlertButton
     { button: 'no', answer: 'retry' },
   ],
   parenthesis: [{ button: 'ok', answer: 'accept' }],
+  notice: [{ button: 'ok', answer: 'accept' }],
   merge: [
     { button: 'ok', answer: 'accept' },
     { button: 'cancel', answer: 'cancel' },
   ],
 }
 /** The button an alert opens with, which Enter presses: Retry, No (a warning keeps a value only on a click on Yes), OK; Yes for Excel's correction. */
-export const ALERT_DEFAULT: Record<SheetAlert['severity'], AlertButton> = { stop: 'retry', warning: 'no', information: 'ok', formula: 'fix', typo: 'yes', parenthesis: 'ok', merge: 'ok' }
+export const ALERT_DEFAULT: Record<SheetAlert['severity'], AlertButton> = { stop: 'retry', warning: 'no', information: 'ok', formula: 'fix', typo: 'yes', parenthesis: 'ok', notice: 'ok', merge: 'ok' }
 
 /** The alert for a rejected value: shown until the user answers; one at a time, and a new one answers the old one with Cancel. */
 export function useValidationAlert() {

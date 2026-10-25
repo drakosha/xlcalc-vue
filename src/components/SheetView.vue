@@ -9,6 +9,8 @@ import ExplainPanel from './ExplainPanel.vue'
 import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
 import FormatDialog from './FormatDialog.vue'
+import GoToDialog from './GoToDialog.vue'
+import SymbolDialog from './SymbolDialog.vue'
 import ValidationAlert from './ValidationAlert.vue'
 import FormulaBar from './FormulaBar.vue'
 import SheetGrid from './SheetGrid.vue'
@@ -99,6 +101,8 @@ const wait = ctx.w.wait
         @apply="(patches) => void ctx.cmd.format(patches)"
         @close="ctx.cmd.closeFormat()"
       />
+      <GoToDialog v-if="ctx.goto.open.value" />
+      <SymbolDialog v-if="ctx.symbolOpen.value" />
       <ValidationAlert :alert="ctx.alerts.alert.value" :messages="m" @answer="ctx.alerts.answer" />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>

@@ -91,6 +91,13 @@ export interface SheetViewApi {
    * in the warning.
    */
   merge(command: MergeCommand): Promise<EditOutcome | null>
+  /** Opens Excel's Go To dialog (F5, Ctrl+G) with the locations its jumps have left; false while no sheet is displayed. */
+  goTo(): boolean
+  /**
+   * Opens Excel's Symbol dialog (Insert > Symbol): Insert puts the character at the caret of an open edit, otherwise starts
+   * editing the active cell with it, as typing does; false on a read-only sheet or without an active cell.
+   */
+  insertSymbol(): boolean
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

@@ -8,6 +8,7 @@ Editing uses Excel's keys:
 - Ctrl+Shift+U (or the arrow at the right end of the formula bar) expands the formula bar to five lines and collapses it back to one, as in Excel; while it is collapsed, a multi-line cell shows its first line and the grid does not move;
 - Delete and Backspace clear the selection;
 - Ctrl+Page Down and Ctrl+Page Up go to the next and the previous visible sheet;
+- F5 and Ctrl+G (Control+G on a Mac as well) open Excel's Go To dialog ([go-to-and-symbol.md](go-to-and-symbol.md));
 - Ctrl+arrow goes where the source's `end(sheet, cell, direction)` points, as Excel's Range.End, and Shift+Ctrl+arrow extends the selection there. Without `end`, or under a display filter, it goes to the edge of the data known to the sheet.
 
 Without `edit` the sheet is read-only.
