@@ -1,4 +1,4 @@
-# Freeze Panes, Reapply and Trace Precedents
+# Freeze Panes, zoom, Watch Window, Reapply and Trace Precedents
 
 ## Reapply
 
@@ -40,6 +40,71 @@ const sheet = ref<SheetViewApi | null>(null)
   <button @click="sheet?.freezePanes('unfreeze')">Unfreeze</button>
   <button @click="sheet?.explain()">Trace precedents</button>
   <SheetView ref="sheet" :source="source" style="height: 360px" />
+</template>
+```
+
+## Zoom
+
+The sheet is drawn at Excel's zoom, from 10% to 400%, and each sheet keeps its own, as each of Excel's sheet views does. Everything in the grid scales together: cells, fonts, borders, row numbers and column letters, frozen panes, the selection, the editor and the boxes over cells (a validation list, its input message). The Formula AutoComplete list and the argument tooltip keep their size, as in Excel, and so does the fill handle, so it can still be grabbed zoomed out. Gridlines and thin borders stay one screen pixel wide when zoomed out. Zoom changes only the view: column widths and row heights stay as the workbook has them, and nothing is sent to the source.
+
+The zoom changes by:
+
+- Ctrl+wheel over the grid (on a Mac too): each notch zooms in or out by 15%. A trackpad's pinch, which the browser sends as Ctrl+wheel (Safari as its gesture events), zooms in proportion to the gesture about the pointer.
+- Two fingers on a touch screen: the sheet zooms about their middle, and the page itself does not.
+- The status bar, at the right end of the bottom bar on a desktop: Zoom Out (−) and Zoom In (+) go to the next multiple of 10%; the slider covers 10% to 100% on its left half and 100% to 400% on its right, with 100% at the middle; the percentage opens Excel's Zoom dialog.
+- The Zoom dialog: 200%, 100%, 75%, 50%, 25%, Fit selection and Custom (10 to 400). Fit selection is Excel's Zoom to Selection: the zoom at which the selection fills the viewport, with the selection scrolled to its top left corner.
+
+The wheel, the slider and the dialog keep the top left cell in place; a pinch keeps the cell under it. A host sets a sheet's zoom with `setZoom(percent)`, or Zoom to Selection with `setZoom('selection')`, and opens a sheet at its zoom with the `zoom` prop, keyed by sheet name. The `zoom` event reports what the user changes (a pinch once it ends), so the host can keep it and pass it back; `state.zoom` is the displayed sheet's zoom, absent at 100%.
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue'
+import { SheetView, memorySource, type SheetViewApi, type SheetZoomEvent } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
+
+const source = memorySource({ sheets: [{ name: 'Budget', cells: { A1: 'Item', B1: 'Price', A2: 'Desks', B2: 250 } }] })
+const sheet = ref<SheetViewApi | null>(null)
+// The zoom by sheet as the user left it, to open the sheets at it again
+const zooms = ref<Record<string, number>>({ Budget: 150 })
+const onZoom = (e: SheetZoomEvent) => (zooms.value = { ...zooms.value, [e.sheet]: e.zoom })
+</script>
+
+<template>
+  <button @click="sheet?.setZoom(100)">100%</button>
+  <button @click="sheet?.setZoom('selection')">Zoom to selection</button>
+  <SheetView ref="sheet" :source="source" :zoom="zooms" style="height: 360px" @zoom="onZoom" />
+</template>
+```
+
+The grid's content is drawn under CSS `zoom`, which current Chrome, Safari and Firefox support as standardized: its geometry stays in the workbook's pixels, and the pointer's page coordinates are divided by the zoom where the sheet finds the cell under the pointer itself (a drag of the fill handle, a range pointed at in a formula, a column edge).
+
+## Watch Window
+
+Excel's Watch Window lists cells whose values stay in view whatever sheet is displayed. The host opens it with `watchWindow()` (and closes it with `watchWindow(false)`); it floats over the sheet within the component's box, at its top right corner (over the lower part of the grid on a phone), is moved by its title bar, resized by its corner, and closed by its close button.
+
+Add Watch adds each cell of the selection, by rows, that is not watched yet, since Excel has one watch per cell; at most 1,000 cells are watched. The list has Excel's columns: Book, Sheet, Name, Cell, Value (the displayed value) and Formula (with `=`, in the source's locale). Book and Name stay empty: the sheet knows neither the workbook's name nor defined names. A click chooses a row, Ctrl+click (Cmd+click on a Mac) adds a row to the chosen ones or takes it out, Shift+click chooses the rows from the last one clicked, and the arrow keys move the choice. Delete Watch, or Delete, removes the chosen rows. A double click on a row, or Enter, goes to its cell, on its sheet.
+
+The values are read through the source's `window`, one window over each sheet's watched cells (a window per cell when that would exceed `maxCells`), only while the window is open. They are read again when cells change (an edit's outcome, a `changed` event), when the sheets are read again (a `reload` event, a structure change) and when the list changes; a workbook being recalculated is asked again a second later. The `watches` event reports the list after each Add Watch or Delete Watch, and the `watches` prop replaces it, so the host keeps the list as view state.
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue'
+import { SheetView, memorySource, type SheetViewApi, type SheetWatch } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
+
+const source = memorySource({
+  sheets: [
+    { name: 'Summary', cells: { A1: 'Total', B1: { value: 60, formula: 'SUM(Data!B1:B3)' } } },
+    { name: 'Data', cells: { B1: 10, B2: 20, B3: 30 } },
+  ],
+})
+const sheet = ref<SheetViewApi | null>(null)
+const watches = ref<SheetWatch[]>([{ sheet: 'Summary', cell: 'B1' }])
+</script>
+
+<template>
+  <button @click="sheet?.watchWindow()">Watch Window</button>
+  <SheetView ref="sheet" :source="source" :watches="watches" style="height: 360px" @watches="watches = $event" />
 </template>
 ```
 

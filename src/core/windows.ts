@@ -270,7 +270,9 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const lastRow = Math.max(1, Math.min(s.rowCount.value, edgeRows()))
     const col = kind === 'left' ? 1 : Math.max(1, Math.min(need.c1, lastCol) - FETCH_COLS)
     const cols = kind === 'left' ? Math.min(need.c2, lastCol) : Math.min(MAX_COLS, Math.min(need.c2 + FETCH_COLS, lastCol) - col + 1)
-    const row = kind === 'top' ? 1 : Math.max(1, Math.min(need.r1, lastRow) - FETCH_ROWS)
+    // The margin above shrinks when the cell limit leaves little room beyond what is drawn (a sheet zoomed out), so the window still covers it.
+    const spare = Math.max(0, Math.floor(maxCells / Math.max(1, cols)) - (need.r2 - need.r1 + 1))
+    const row = kind === 'top' ? 1 : Math.max(1, Math.min(need.r1, lastRow) - Math.min(FETCH_ROWS, Math.floor(spare / 2)))
     const rows = kind === 'top' ? Math.min(need.r2, lastRow) : Math.max(1, rowsFor(maxCells, Math.min(need.r2 + FETCH_ROWS, lastRow) - row + 1, cols))
     const filter = s.visible.value
     const req: WindowRequest = { sheet: s.sheetName.value, row, rows, col, cols, ...(filter ? { filter: filter.spec } : {}) }
@@ -404,7 +406,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       const top = Math.max(0, s.scrollTop.value + after - before)
       s.scrollTop.value = top
       void nextTick(() => {
-        if (s.scrollTop.value === top) el.scrollTop = top
+        if (s.scrollTop.value === top) el.scrollTop = top * s.zoom.value
       })
     }
   }
@@ -474,6 +476,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
 
   /** Writes new cell states into the loaded windows and over the responses of pending requests; the rest are dropped, since an unloaded window arrives fresh anyway. */
   function applyChanges(changes: CellUpdate[]): void {
+    if (changes.length) s.hooks.changed()
     let changed = false
     const rows = new Set<number>()
     const view = viewKey()

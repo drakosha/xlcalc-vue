@@ -256,4 +256,24 @@ export interface SheetMessages {
   mergeCells: string
   unmergeCells: string
   mergeWarning: string
+  /** Excel's zoom on the status bar (Zoom Out, the slider, Zoom In, the percentage that opens the Zoom dialog), and the dialog's title, choices and limits. */
+  zoomOut: string
+  zoomIn: string
+  zoomSlider: string
+  zoomLevel: string
+  zoomTitle: string
+  zoomFit: string
+  zoomCustom: string
+  zoomRange: string
+  /** Excel's Watch Window: its title, Add Watch and Delete Watch, its columns, and the cap on the cells watched. */
+  watchTitle: string
+  watchAdd: string
+  watchDelete: string
+  watchBook: string
+  watchSheet: string
+  watchName: string
+  watchCell: string
+  watchValue: string
+  watchFormula: string
+  watchTooMany: (max: number) => string
 }

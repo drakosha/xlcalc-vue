@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The example page: the sheet over the "all formatting" workbook, a language switch and the next edit's outcome for trying rejections.
 import { ref, shallowRef } from 'vue'
-import { SheetView, enMessages, memorySource, ruMessages, type ListSort, type SheetLinkEvent, type SheetViewState } from '../src'
+import { SheetView, enMessages, memorySource, ruMessages, type ListSort, type SheetLinkEvent, type SheetViewApi, type SheetViewState, type SheetWatch, type SheetZoomEvent } from '../src'
 import { allFormattingBook } from './book'
 import { LIST_SHEET, sortList } from './list-book'
 
@@ -43,6 +43,12 @@ function onSort(sort: ListSort): void {
 const onDrill = (at: { sheet: string; cell: string }) => (lastLink.value = `cellDrill ${at.sheet}!${at.cell}`)
 const onRowOpen = (at: { sheet: string; row: number }) => (lastLink.value = `rowOpen ${at.sheet} ${at.row}`)
 const cellUrl = (place: string) => `${location.origin}${location.pathname}?sheet=${encodeURIComponent(place)}`
+/** The zoom and the Watch Window's list as a host keeps them: `?zoom=200` opens the sheet of `?sheet=` (or the first one) zoomed. */
+const sheet = ref<SheetViewApi | null>(null)
+const zoomSheet = (params.get('sheet') ?? 'Оформление').split('!')[0]!.replace(/^'|'$/g, '')
+const zooms = ref<Record<string, number>>(params.get('zoom') ? { [zoomSheet]: Number(params.get('zoom')) } : {})
+const onZoom = (z: SheetZoomEvent) => (zooms.value = { ...zooms.value, [z.sheet]: z.zoom })
+const watches = ref<SheetWatch[]>([])
 </script>
 
 <template>
@@ -64,10 +70,12 @@ const cellUrl = (place: string) => `${location.origin}${location.pathname}?sheet
       </label>
       <button type="button" @click="recompute()">{{ lang === 'ru' ? 'Пересчёт 4 с' : 'Recompute 4 s' }}</button>
       <button type="button" @click="remoteEdit">{{ lang === 'ru' ? 'Правка из другой вкладки' : 'Edit from another tab' }}</button>
+      <button type="button" data-watch-window @click="sheet?.watchWindow()">{{ lang === 'ru' ? 'Окно контрольного значения' : 'Watch Window' }}</button>
       <span class="state" data-state>{{ state ? `${state.sheet}!${state.ref}${state.formula ? ' =' + state.formula : ''}` : '' }}</span>
       <span v-if="lastLink" class="state">{{ lastLink }}</span>
     </header>
     <SheetView
+      ref="sheet"
       class="sheet"
       :source="source"
       :messages="lang === 'ru' ? ruMessages : enMessages"
@@ -77,11 +85,15 @@ const cellUrl = (place: string) => `${location.origin}${location.pathname}?sheet
       :cell-url="cellUrl"
       :sort="listSort"
       :open-rows="state?.sheet === LIST_SHEET"
+      :zoom="zooms"
+      :watches="watches"
       @state="state = $event"
       @open-link="onLink"
       @sort="onSort"
       @cell-drill="onDrill"
       @row-open="onRowOpen"
+      @zoom="onZoom"
+      @watches="watches = $event"
     />
   </div>
 </template>

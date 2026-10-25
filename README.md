@@ -51,7 +51,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Cell editing and keyboard shortcuts](docs/editing.md): Excel's keyboard shortcuts, Point mode, and the features each optional source method enables.
 - [Rows, columns and sheets](docs/sheets.md): row, column and sheet tab context menus, sizes, outline.
 - [Clipboard and fill handle](docs/clipboard.md)
-- [Freeze Panes, Reapply and Trace Precedents](docs/view.md)
+- [Freeze Panes, zoom, Watch Window, Reapply and Trace Precedents](docs/view.md)
 - [Find and Replace](docs/find-replace.md)
 - [Data validation](docs/validation.md)
 - [Formula AutoComplete](docs/autocomplete.md)

@@ -16,7 +16,7 @@ Cell and style types come from `xlcalc/contract` (`CellValue`, `CellStyle`, `Sty
 
 ## `SheetView`
 
-The sheet: a virtualized grid with the formula bar, sheet tabs, context menus, Find, the Trace Precedents panel and the dialogs. It reads its data only through `source`.
+The sheet: a virtualized grid with the formula bar, sheet tabs, context menus, Find, the Trace Precedents panel, the Watch Window, the zoom and the dialogs. It reads its data only through `source`.
 
 ```vue
 <script setup lang="ts">
@@ -76,6 +76,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `sort` | `ListSort \| null` | `null` | List mode: the order the host sorted the list in, shown as an arrow on that column's title. |
 | `openRows` | `boolean` | `false` | List mode: the first column opens its row, and so does Enter on a cell that is not a drill-down. |
 | `hostLinks` | `boolean` | `false` | The host opens links itself through `openLink`, as when it listens: for a host whose listener the sheet cannot see, such as a custom element's. |
+| `zoom` | `Record<string, number>` | none | Excel's zoom by sheet name, in percent (10 to 400), as the host kept it from the `zoom` event; a sheet without one opens at 100%. A new object applies its changed entries, to the active sheet at once. See [view.md](view.md#zoom). |
+| `watches` | `SheetWatch[]` | none | The Watch Window's list, as the host kept it from the `watches` event; a new array replaces the list. See [view.md](view.md#watch-window). |
 
 ### Events
 
@@ -86,6 +88,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `sort` | `ListSort` | List mode: a sortable column's title was clicked. The host sorts the list, sets `sort` and sends `reload`. |
 | `cellDrill` | `{ sheet: string; cell: string }` | List mode: a drill-down cell (`SheetWindow.drill`) was clicked or Enter was pressed on it. |
 | `rowOpen` | `{ sheet: string; row: number }` | List mode, with `openRows`: a row was opened from its first column or by Enter. |
+| `zoom` | `SheetZoomEvent` | The user changed a sheet's zoom: Ctrl+wheel, a pinch (once it ends), the status bar, the Zoom dialog. `SheetZoomEvent` is `{ sheet: string; zoom: number }`, in percent. `setZoom` and the `zoom` prop are not reported. |
+| `watches` | `SheetWatch[]` | The user added or deleted watches in the Watch Window: the whole list. `SheetWatch` is `{ sheet: string; cell: string }`. |
 
 ### Slot
 
@@ -105,6 +109,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `numberFormat` | `string?` | The active cell's number format code; absent for General. |
 | `merged` | `string?` | The merged range containing the active cell. |
 | `canMerge` | `true?` | The merge commands are available: the source has `structure`, the sheet is editable, and no display filter is on. |
+| `zoom` | `number?` | The sheet's zoom in percent; absent at 100%. |
 
 `SheetLinkEvent` is a window's hyperlink (`href`, `location`, `tooltip`, `target`) with the `sheet` and `cell` it belongs to. `SheetFailure` is `{ error: unknown; text: string }`.
 
@@ -124,6 +129,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
+| `setZoom(zoom: number \| 'selection')` | `number` | Excel's zoom of the active sheet: a percentage, rounded and kept within 10 to 400, or `'selection'` for Zoom to Selection. Returns the zoom set; it is not reported by the `zoom` event. |
+| `watchWindow(open?: boolean)` | `boolean` | Opens the Watch Window (`true`, the default) or closes it (`false`); returns whether it is open. |
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 
@@ -515,6 +522,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | `--xs-outline-button`, `--xs-outline-tick` | `13px`, `5px` | The outline button size and the bracket tick length. |
 | `--xs-outline-button-bg`, `--xs-outline-button-fg`, `--xs-outline-button-border` | `var(--xs-bg)`, `#3c4043`, `#9aa0a6` | The outline buttons. |
 | `--xs-explain-w`, `--xs-explain-h` | `340px`, `45%` | The Trace Precedents panel: its width, and its height on a phone. |
+| `--xs-watch-w`, `--xs-watch-h` | `560px`, `200px` | The Watch Window's size when it opens (within the sheet's box); on a phone its height is at most 45 %. |
 | `--xs-prompt-bg`, `--xs-prompt-fg`, `--xs-prompt-line` | `#ffffe1`, `#1f2328`, `#767676` | The data validation input message. |
 | `--xs-alert-stop`, `--xs-alert-warning`, `--xs-alert-information` | `#d13438`, `#ffb900`, `#0f6cbd` | The validation alert's icons. |
 | `--xs-fl-line` | `#7a7a7a` | The border of lists under a cell: Formula AutoComplete and validation lists. |

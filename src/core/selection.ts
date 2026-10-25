@@ -136,8 +136,9 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     const bottom = off[d] ?? top + s.defaultRowPx.value
     const left = geo.offsets.value[col - 1] ?? 0
     const right = geo.offsets.value[col] ?? left + colPx(null)
-    let y = el.scrollTop
-    let x = el.scrollLeft
+    const z = s.zoom.value
+    let y = el.scrollTop / z
+    let x = el.scrollLeft / z
     // Frozen rows and columns are always in the viewport.
     if (d > v.frozenRows.value) {
       if (top - v.frozenH.value < y) y = top - v.frozenH.value - REVEAL_PAD
@@ -147,16 +148,16 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
       if (left - v.frozenW.value < x) x = left - v.frozenW.value - REVEAL_PAD
       else if (right > x + s.viewW.value - v.leadW.value) x = right - s.viewW.value + v.leadW.value + REVEAL_PAD
     }
-    if (y !== el.scrollTop || x !== el.scrollLeft) {
+    if (y !== el.scrollTop / z || x !== el.scrollLeft / z) {
       s.scrollGridTo(Math.max(0, y), Math.max(0, x))
     }
   }
-  /** The viewport's size, measured again where it matters: a scrollbar may have appeared since the last measurement. */
+  /** The viewport's size in the grid's unzoomed pixels, measured again where it matters: a scrollbar may have appeared since the last measurement. */
   function measure(): void {
     const el = s.scroller.value
     if (!el) return
-    s.viewH.value = el.clientHeight || 600
-    s.viewW.value = el.clientWidth || 800
+    s.viewH.value = (el.clientHeight || 600) / s.zoom.value
+    s.viewW.value = (el.clientWidth || 800) / s.zoom.value
   }
 
   /**

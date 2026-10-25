@@ -138,6 +138,8 @@ function pickLine(kind: 'rows' | 'columns', line: number, extend: boolean): void
   else sel.pickColumn(line, extend)
 }
 const setScroller = refInto(ctx.scroller)
+/** The zoom, and zoomed out the gridline's width that draws as one screen pixel (`--xs-line`). */
+const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom.value), ...(ctx.zoom.value < 1 ? { '--xs-line': `${v.line.value}px` } : {}) } : undefined))
 </script>
 
 <template>
@@ -158,124 +160,135 @@ const setScroller = refInto(ctx.scroller)
     @pointermove="onMove"
     @pointerup="onUp"
     @pointercancel="onUp"
+    @wheel="ctx.zoomer.onWheel"
+    @touchstart="ctx.zoomer.onTouchStart"
+    @touchmove="ctx.zoomer.onTouchMove"
+    @touchend="ctx.zoomer.onTouchEnd"
+    @touchcancel="ctx.zoomer.onTouchEnd"
+    @gesturestart="ctx.zoomer.onGesture"
+    @gesturechange="ctx.zoomer.onGesture"
+    @gestureend="ctx.zoomer.onGesture"
   >
     <p v-if="empty && ctx.sheet.value" class="xs-empty">{{ m.empty }}</p>
-    <table v-else-if="ctx.sheet.value" class="xs-table" :style="barVars">
-      <colgroup>
-        <col v-if="v.barW.value" :style="{ width: v.barW.value + 'px' }" />
-        <col v-if="v.showNums.value" :style="{ width: v.numW.value + 'px' }" />
-        <col v-for="k in cols" :key="k.key" :style="{ width: k.w + 'px' }" />
-      </colgroup>
-      <thead>
-        <tr v-if="v.barH.value" class="xs-ol-head" :style="{ height: v.barH.value + 'px' }">
-          <th v-if="v.barW.value && v.showNums.value" class="xs-ol-corner"></th>
-          <OutlineLevels v-if="v.barW.value || v.showNums.value" axis="columns" :class="v.showNums.value ? 'xs-ol-over-nums' : ''" />
-          <template v-for="k in cols" :key="k.key">
-            <th v-if="k.c === 0" class="xs-ol xs-ol-columns"></th>
-            <OutlineCell
-              v-else
-              axis="columns"
-              :line="k.c"
-              :class="k.c <= v.frozenCols.value ? 'xs-ol-fz' : ''"
-              :style="k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : undefined"
-            />
-          </template>
-        </tr>
-        <tr>
-          <OutlineLevels v-if="v.barW.value" axis="rows" />
-          <th v-if="v.showNums.value" class="xs-corner" :title="m.selectAll" @click="sel.selectAll()"></th>
-          <template v-for="k in cols" :key="k.key">
-            <th v-if="k.c === 0" class="xs-head"></th>
-            <th
-              v-else
-              :class="[
-                'xs-head',
-                k.c <= v.frozenCols.value ? 'xs-fz-col' : '',
-                colOn(k.c) ? 'xs-on' : '',
-                k.c === freezeCols ? 'xs-fz-edge-r' : '',
-                filtered(k.c) ? 'xs-filtered' : '',
-                list.sortable(k.c) ? 'xs-sortable' : '',
-              ]"
-              :style="k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : undefined"
-              :title="list.sortable(k.c) ? m.sortColumn : m.selectColumn"
-              :aria-sort="list.sortOf(k.c) === 'asc' ? 'ascending' : list.sortOf(k.c) === 'desc' ? 'descending' : undefined"
-              :data-col="k.c"
-              @click="pickLine('columns', k.c, $event.shiftKey)"
-            >
-              <span class="xs-head-label" :style="list.alignOf(k.c) ? { textAlign: list.alignOf(k.c) } : undefined"
-                >{{ headLabel(k.c) }}<span v-if="ctx.filter.sort.value?.col === k.c" class="xs-sortmark">{{ ctx.filter.sort.value.dir === 'asc' ? '↑' : '↓' }}</span
-                ><span v-else-if="list.sortOf(k.c)" class="xs-sortmark xs-list-sort">{{ list.sortOf(k.c) === 'asc' ? '↑' : '↓' }}</span
-                ><span v-else-if="list.sortable(k.c)" class="xs-sortmark xs-sorthint" aria-hidden="true">↕</span></span
-              >
-              <button
-                v-if="funnels"
-                type="button"
-                :class="['xs-funnel', ctx.filter.cols.value[k.c] ? 'xs-on' : '', ctx.filter.open.value === k.c ? 'xs-open' : '']"
-                :title="ctx.filter.cols.value[k.c] ? m.filterOn : m.filter"
-                @click.stop="openFunnel($event, k.c)"
-              >
-                <IconFilter />
-              </button>
-              <span
-                class="xs-grip"
-                :title="ctx.fitsOnEdge.value ? m.resizeFit : m.resize"
-                @pointerdown="ctx.startResize($event, k.c)"
-                @pointermove="ctx.onResizeMove"
-                @pointerup="ctx.endResize"
-                @pointercancel="ctx.endResize"
-                @click.stop
-                @dblclick.stop="ctx.onEdgeDouble(k.c)"
-              ></span>
-            </th>
-          </template>
-        </tr>
-      </thead>
-      <tbody>
-        <template v-for="row in rows" :key="row.key">
-          <tr v-if="row.pad" class="xs-spacer" :style="{ height: row.pad + 'px' }">
-            <td :colspan="span"></td>
+    <!-- Excel's zoom: the content is drawn under CSS zoom in its unzoomed pixels; the page's pixels (pointers, rectangles) are zoomed ones. -->
+    <div class="xs-zoom" :style="zoomStyle">
+      <table v-if="ctx.sheet.value && !empty" class="xs-table" :style="barVars">
+        <colgroup>
+          <col v-if="v.barW.value" :style="{ width: v.barW.value + 'px' }" />
+          <col v-if="v.showNums.value" :style="{ width: v.numW.value + 'px' }" />
+          <col v-for="k in cols" :key="k.key" :style="{ width: k.w + 'px' }" />
+        </colgroup>
+        <thead>
+          <tr v-if="v.barH.value" class="xs-ol-head" :style="{ height: v.barH.value + 'px' }">
+            <th v-if="v.barW.value && v.showNums.value" class="xs-ol-corner"></th>
+            <OutlineLevels v-if="v.barW.value || v.showNums.value" axis="columns" :class="v.showNums.value ? 'xs-ol-over-nums' : ''" />
+            <template v-for="k in cols" :key="k.key">
+              <th v-if="k.c === 0" class="xs-ol xs-ol-columns"></th>
+              <OutlineCell
+                v-else
+                axis="columns"
+                :line="k.c"
+                :class="k.c <= v.frozenCols.value ? 'xs-ol-fz' : ''"
+                :style="k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : undefined"
+              />
+            </template>
           </tr>
-          <SheetRow v-else :d="row.d" :r="row.r" :frozen="row.frozen" :cols="rowCols" @pick="(r, extend) => pickLine('rows', r, extend)" />
-        </template>
-      </tbody>
-      <tfoot v-if="list.totals.value">
-        <tr>
-          <th v-if="v.barW.value" class="xs-total xs-total-bar"></th>
-          <th v-if="v.showNums.value" class="xs-total xs-total-num"></th>
-          <template v-for="k in cols" :key="k.key">
-            <td v-if="k.c === 0" class="xs-total"></td>
-            <td
-              v-else
-              :class="['xs-total', k.c <= v.frozenCols.value ? 'xs-fz-col' : '', k.c === freezeCols ? 'xs-fz-edge-r' : '']"
-              :style="{ ...(k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : {}), ...(list.alignOf(k.c) ? { textAlign: list.alignOf(k.c) } : {}) }"
-              :data-col="k.c"
-              :title="list.totals.value[k.c - 1] ?? ''"
-            >
-              {{ list.totals.value[k.c - 1] ?? '' }}
-            </td>
+          <tr>
+            <OutlineLevels v-if="v.barW.value" axis="rows" />
+            <th v-if="v.showNums.value" class="xs-corner" :title="m.selectAll" @click="sel.selectAll()"></th>
+            <template v-for="k in cols" :key="k.key">
+              <th v-if="k.c === 0" class="xs-head"></th>
+              <th
+                v-else
+                :class="[
+                  'xs-head',
+                  k.c <= v.frozenCols.value ? 'xs-fz-col' : '',
+                  colOn(k.c) ? 'xs-on' : '',
+                  k.c === freezeCols ? 'xs-fz-edge-r' : '',
+                  filtered(k.c) ? 'xs-filtered' : '',
+                  list.sortable(k.c) ? 'xs-sortable' : '',
+                ]"
+                :style="k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : undefined"
+                :title="list.sortable(k.c) ? m.sortColumn : m.selectColumn"
+                :aria-sort="list.sortOf(k.c) === 'asc' ? 'ascending' : list.sortOf(k.c) === 'desc' ? 'descending' : undefined"
+                :data-col="k.c"
+                @click="pickLine('columns', k.c, $event.shiftKey)"
+              >
+                <span class="xs-head-label" :style="list.alignOf(k.c) ? { textAlign: list.alignOf(k.c) } : undefined"
+                  >{{ headLabel(k.c) }}<span v-if="ctx.filter.sort.value?.col === k.c" class="xs-sortmark">{{ ctx.filter.sort.value.dir === 'asc' ? '↑' : '↓' }}</span
+                  ><span v-else-if="list.sortOf(k.c)" class="xs-sortmark xs-list-sort">{{ list.sortOf(k.c) === 'asc' ? '↑' : '↓' }}</span
+                  ><span v-else-if="list.sortable(k.c)" class="xs-sortmark xs-sorthint" aria-hidden="true">↕</span></span
+                >
+                <button
+                  v-if="funnels"
+                  type="button"
+                  :class="['xs-funnel', ctx.filter.cols.value[k.c] ? 'xs-on' : '', ctx.filter.open.value === k.c ? 'xs-open' : '']"
+                  :title="ctx.filter.cols.value[k.c] ? m.filterOn : m.filter"
+                  @click.stop="openFunnel($event, k.c)"
+                >
+                  <IconFilter />
+                </button>
+                <span
+                  class="xs-grip"
+                  :title="ctx.fitsOnEdge.value ? m.resizeFit : m.resize"
+                  @pointerdown="ctx.startResize($event, k.c)"
+                  @pointermove="ctx.onResizeMove"
+                  @pointerup="ctx.endResize"
+                  @pointercancel="ctx.endResize"
+                  @click.stop
+                  @dblclick.stop="ctx.onEdgeDouble(k.c)"
+                ></span>
+              </th>
+            </template>
+          </tr>
+        </thead>
+        <tbody>
+          <template v-for="row in rows" :key="row.key">
+            <tr v-if="row.pad" class="xs-spacer" :style="{ height: row.pad + 'px' }">
+              <td :colspan="span"></td>
+            </tr>
+            <SheetRow v-else :d="row.d" :r="row.r" :frozen="row.frozen" :cols="rowCols" @pick="(r, extend) => pickLine('rows', r, extend)" />
           </template>
-        </tr>
-      </tfoot>
-    </table>
-    <SheetMarks v-if="ctx.sheet.value && !empty" />
+        </tbody>
+        <tfoot v-if="list.totals.value">
+          <tr>
+            <th v-if="v.barW.value" class="xs-total xs-total-bar"></th>
+            <th v-if="v.showNums.value" class="xs-total xs-total-num"></th>
+            <template v-for="k in cols" :key="k.key">
+              <td v-if="k.c === 0" class="xs-total"></td>
+              <td
+                v-else
+                :class="['xs-total', k.c <= v.frozenCols.value ? 'xs-fz-col' : '', k.c === freezeCols ? 'xs-fz-edge-r' : '']"
+                :style="{ ...(k.c <= v.frozenCols.value ? { left: v.stickyLeft(k.c) } : {}), ...(list.alignOf(k.c) ? { textAlign: list.alignOf(k.c) } : {}) }"
+                :data-col="k.c"
+                :title="list.totals.value[k.c - 1] ?? ''"
+              >
+                {{ list.totals.value[k.c - 1] ?? '' }}
+              </td>
+            </template>
+          </tr>
+        </tfoot>
+      </table>
+      <SheetMarks v-if="ctx.sheet.value && !empty" />
+      <template v-if="activeBox && !ctx.editor.value">
+        <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="v.viewBox.value" />
+        <ValidationDropdown
+          v-if="vd.list.value && ctx.editable.value"
+          :rect="activeBox"
+          :items="vd.list.value"
+          :open="vd.open.value"
+          :active="vd.index.value"
+          :view="v.viewBox.value"
+          :touch="v.touch.value"
+          :messages="m"
+          @toggle="vd.toggle()"
+          @pick="(i) => vd.choose(i)"
+          @hover="(i) => (vd.index.value = i)"
+          @close="vd.close()"
+        />
+      </template>
+    </div>
     <CellEditor v-if="ctx.editable.value" />
-    <template v-if="activeBox && !ctx.editor.value">
-      <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="v.viewBox.value" />
-      <ValidationDropdown
-        v-if="vd.list.value && ctx.editable.value"
-        :rect="activeBox"
-        :items="vd.list.value"
-        :open="vd.open.value"
-        :active="vd.index.value"
-        :view="v.viewBox.value"
-        :touch="v.touch.value"
-        :messages="m"
-        @toggle="vd.toggle()"
-        @pick="(i) => vd.choose(i)"
-        @hover="(i) => (vd.index.value = i)"
-        @close="vd.close()"
-      />
-    </template>
     <div v-if="ctx.loading.value" class="xs-loading">
       <IconSpinner class="xs-spin" />
       {{ m.loading }}

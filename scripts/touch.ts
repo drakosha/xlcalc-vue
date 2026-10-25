@@ -20,3 +20,19 @@ export async function longPressAt(page: Page, x: number, y: number): Promise<voi
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
   await cdp.detach()
 }
+
+/** Two fingers around a point of the page, spread from `from` to `to` px apart in steps, as a pinch zoom. */
+export async function pinch(page: Page, x: number, y: number, from: number, to: number, steps = 8): Promise<void> {
+  const cdp = await page.context().newCDPSession(page)
+  const at = (d: number) => [
+    { x: x - d / 2, y, id: 1 },
+    { x: x + d / 2, y, id: 2 },
+  ]
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(from) })
+  for (let i = 1; i <= steps; i++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(from + ((to - from) * i) / steps) })
+    await page.waitForTimeout(16)
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+}

@@ -129,7 +129,7 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
   function move(e: PointerEvent): void {
     const box = dragging && run ? s.scroller.value?.getBoundingClientRect() : null
     if (!box || !run) return
-    const p = v.cellAt(e.clientX - box.left, e.clientY - box.top)
+    const p = v.cellAtPoint(e.clientX, e.clientY, box)
     const [, far] = corners(run.kind, s.rowOf(p.d), p.col)
     if (far.row !== run.far.row || far.col !== run.far.col) write(far)
   }

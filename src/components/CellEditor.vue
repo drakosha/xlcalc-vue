@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // The in-cell editor over its cell, with its function list and argument tooltip: a separate component, so a typed
-// character redraws the editor and not the grid.
+// character redraws the editor and not the grid. The editor is drawn at the sheet's zoom; the list and the tooltip are not, as in Excel.
 import { computed } from 'vue'
 import { useSheetContext } from './context'
 import { refInto } from './dom'
@@ -29,8 +29,16 @@ const editorRect = computed(() => {
 })
 const editorBox = computed(() => {
   const r = editorRect.value
-  return r && { top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: r.frozen ? '7' : '1' }
+  const z = ctx.zoom.value
+  return r && { top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: r.frozen ? '7' : '1', ...(z !== 1 ? { zoom: String(z) } : {}) }
 })
+/** A box in the grid's unzoomed pixels on the scroller's zoomed content, for the popups drawn at their own size. */
+const zoomed = <T extends { top: number; left: number; width: number; height: number }>(b: T): T => {
+  const z = ctx.zoom.value
+  return z === 1 ? b : { ...b, top: b.top * z, left: b.left * z, width: b.width * z, height: b.height * z }
+}
+const popupRect = computed(() => editorRect.value && zoomed(editorRect.value))
+const popupView = computed(() => zoomed(v.viewBox.value))
 const setCellInput = refInto(ctx.cellInput)
 </script>
 
@@ -52,15 +60,15 @@ const setCellInput = refInto(ctx.cellInput)
     @blur="ed.onEditorBlur($event, 'cell')"
   ></textarea>
   <FunctionList
-    v-if="editorRect && ed.ac.open.value"
-    :rect="editorRect"
+    v-if="popupRect && ed.ac.open.value"
+    :rect="popupRect"
     :items="ed.ac.items.value"
     :active="ed.ac.index.value"
-    :view="v.viewBox.value"
+    :view="popupView"
     :touch="v.touch.value"
     :messages="m"
     @highlight="(i) => (ed.ac.index.value = i)"
     @pick="(i) => ed.ac.accept(i)"
   />
-  <FunctionTip v-if="editorRect && ed.tip.parts.value" :rect="editorRect" :parts="ed.tip.parts.value" :view="v.viewBox.value" />
+  <FunctionTip v-if="popupRect && ed.tip.parts.value" :rect="popupRect" :parts="ed.tip.parts.value" :view="popupView" />
 </template>

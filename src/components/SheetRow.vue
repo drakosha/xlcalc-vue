@@ -71,7 +71,7 @@ const spacer = computed(() => (props.frozen ? { class: 'xs-fz-row', style: { top
       :data-row="r"
       @click="emit('pick', r, $event.shiftKey)"
     >
-      <div class="xs-in xs-top" :style="{ height: Math.max(0, state.height - 3) + 'px' }">
+      <div class="xs-in xs-top" :style="{ height: Math.max(0, state.height - 2 - v.line.value) + 'px' }">
         <span>{{ r }}</span>
       </div>
       <span

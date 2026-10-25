@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// A workbook sheet over a SheetSource: the formula bar, the grid with windows, styles and editing, the Trace Precedents panel, the tabs, and messages.
+// A workbook sheet over a SheetSource: the formula bar, the grid with windows, styles, editing and zoom, the Trace Precedents panel, the Watch Window, the tabs, and messages.
 import { getCurrentInstance, provide } from 'vue'
-import type { ListSort, SheetFailure, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState } from '../contract/view'
+import type { ListSort, SheetFailure, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
 import { useSheet, type SheetEmit } from '../core/sheet'
 import { sheetContextKey } from './context'
 import { hasListener } from './dom'
@@ -10,6 +10,8 @@ import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
 import FormatDialog from './FormatDialog.vue'
 import ValidationAlert from './ValidationAlert.vue'
+import WatchWindow from './WatchWindow.vue'
+import ZoomDialog from './ZoomDialog.vue'
 import FormulaBar from './FormulaBar.vue'
 import SheetGrid from './SheetGrid.vue'
 import SheetMenu from './SheetMenu.vue'
@@ -29,6 +31,8 @@ const props = withDefaults(defineProps<SheetViewProps>(), {
   sort: null,
   openRows: false,
   hostLinks: false,
+  zoom: undefined,
+  watches: undefined,
 })
 const emit = defineEmits<{
   state: [state: SheetViewState | null]
@@ -39,6 +43,10 @@ const emit = defineEmits<{
   cellDrill: [cell: { sheet: string; cell: string }]
   /** List mode (`openRows`): a row was opened from its first column or by Enter. */
   rowOpen: [row: { sheet: string; row: number }]
+  /** The user changed a sheet's zoom; the host keeps it (the `zoom` prop) to open the sheet at it again. */
+  zoom: [change: SheetZoomEvent]
+  /** The user added or deleted watches in the Watch Window: the whole list, which the host keeps (the `watches` prop). */
+  watches: [list: SheetWatch[]]
 }>()
 defineSlots<{
   /** The workbook cannot be displayed: the source's error and a retry function. */
@@ -89,6 +97,7 @@ const wait = ctx.w.wait
         <ExplainPanel v-if="ctx.explain.open.value" />
       </div>
       <SheetTabs />
+      <WatchWindow v-if="ctx.watches.open.value" />
       <FilterPopover />
       <SheetMenu />
       <FormatDialog
@@ -99,6 +108,7 @@ const wait = ctx.w.wait
         @apply="(patches) => void ctx.cmd.format(patches)"
         @close="ctx.cmd.closeFormat()"
       />
+      <ZoomDialog v-if="ctx.zoomer.dialogOpen.value" />
       <ValidationAlert :alert="ctx.alerts.alert.value" :messages="m" @answer="ctx.alerts.answer" />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>

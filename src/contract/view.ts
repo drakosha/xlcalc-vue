@@ -29,6 +29,19 @@ export interface SheetViewProps {
   openRows?: boolean
   /** The host opens links itself through `openLink`: for a host whose listener the component cannot see, such as a custom element's. */
   hostLinks?: boolean
+  /**
+   * Excel's zoom by sheet name, in percent (10 to 400), as the host kept it from the `zoom` event; a sheet without one opens
+   * at 100%. A new object applies its changed entries, to the active sheet at once.
+   */
+  zoom?: Record<string, number>
+  /** Excel's Watch Window list, as the host kept it from the `watches` event; a new array replaces the list. */
+  watches?: SheetWatch[]
+}
+
+/** A cell in Excel's Watch Window: its sheet and address (`B12`). */
+export interface SheetWatch {
+  sheet: string
+  cell: string
 }
 
 /** Why the workbook cannot be displayed: the source's error and its text. */
@@ -51,6 +64,14 @@ export interface SheetViewState {
   merged?: string
   /** The merge commands are available (`SheetViewApi.merge`): the source has `structure`, the sheet is editable, and no display filter is on. */
   canMerge?: true
+  /** The sheet's zoom in percent; absent at 100%. */
+  zoom?: number
+}
+
+/** The `zoom` event: the user changed a sheet's zoom (Ctrl+wheel, a pinch, the status bar, the Zoom dialog), in percent. */
+export interface SheetZoomEvent {
+  sheet: string
+  zoom: number
 }
 
 /** A hyperlink the component does not open itself, with the cell it belongs to. */
@@ -91,6 +112,14 @@ export interface SheetViewApi {
    * in the warning.
    */
   merge(command: MergeCommand): Promise<EditOutcome | null>
+  /**
+   * Excel's zoom of the active sheet: a percentage (rounded and kept within 10 to 400), or `selection` for Zoom to Selection,
+   * which fits the selection into the viewport and scrolls it to the top-left corner. Returns the zoom set; it is not
+   * reported by the `zoom` event, which reports the user's changes.
+   */
+  setZoom(zoom: number | 'selection'): number
+  /** Opens Excel's Watch Window over the sheet (`true`, the default), or closes it (`false`); returns whether it is open. */
+  watchWindow(open?: boolean): boolean
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */
