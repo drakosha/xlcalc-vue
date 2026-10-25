@@ -1,4 +1,4 @@
-// Storage for the frozen panes display choice and column widths: the browser's storage under the host's key, otherwise for the component's lifetime.
+// Storage for the frozen panes display choice, Show Formulas and column widths: the browser's storage under the host's key, otherwise for the component's lifetime.
 
 export interface Memory {
   recall<T>(name: string): T | null

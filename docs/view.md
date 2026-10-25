@@ -1,4 +1,4 @@
-# Freeze Panes, Reapply and Trace Precedents
+# Freeze Panes, Reapply, Show Formulas and Trace Precedents
 
 ## Reapply
 
@@ -42,6 +42,12 @@ const sheet = ref<SheetViewApi | null>(null)
   <SheetView ref="sheet" :source="source" style="height: 360px" />
 </template>
 ```
+
+## Show Formulas
+
+Ctrl+` (Control+` on a Mac too, as in Excel for Mac; the key left of 1, with any keyboard layout) is Excel's Show Formulas, and pressing it again shows the values. The sheet's methods do the same for a host's button: `showFormulas()` toggles it, `showFormulas(true)` and `showFormulas(false)` set it, and the `state` event's `showFormulas` tells whether it is on, so the button can stay pressed. While it is on, every cell with a formula shows its formula as the window gives it, in the source's locale, with `=` (`=SUM(B2:B9)`, `=СУММ(B2:B9)`), aligned as text (left unless the cell's own alignment says otherwise) and overflowing into empty neighbors as text does. A constant is shown without its number format: a number as the formula bar writes it in General, in the workbook's locale (a date as its serial number, `45688`; `1234.5` for `1,234.50`), through `entryText` of `xlcalc/entry`, a separate chunk that loads when the view is first turned on; text as stored; a boolean or an error as displayed. The number format's color is not applied. Columns are drawn twice as wide, as Excel draws them in this view, while the workbook's widths stay as they are: a width dragged with the mouse meanwhile is stored as half the drawn one, and with the view off the column is drawn at that stored width.
+
+As in Excel, it is a setting of each sheet: another sheet shows its values until it gets its own, and a sheet displayed again keeps its setting. The source has no place for it, so the sheet keeps it as it keeps the frozen panes choice, in the browser's storage under `storageKey` (otherwise for the component's lifetime). Editing works as before: F2 opens the cell's own text, and an entry shows as its formula once it is in. The selection's formula ranges are highlighted on the grid in this view as in the other.
 
 ## Trace Precedents
 

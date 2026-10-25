@@ -86,6 +86,8 @@ export function createState(props: SheetViewProps) {
   const userWidths = shallowRef<Record<number, number>>({})
   const heights = shallowRef(new Map<number, number>())
   const defaultRowPx = ref(rowPx(DEFAULT_ROW_HEIGHT))
+  /** Excel's Show Formulas on the displayed sheet: cells show their formulas, and columns are drawn twice as wide. */
+  const formulaView = ref(false)
 
   /** The active cell and the selection's other corner. */
   const selected = ref<CellPosition | null>(null)
@@ -155,6 +157,7 @@ export function createState(props: SheetViewProps) {
     userWidths,
     heights,
     defaultRowPx,
+    formulaView,
     selected,
     extent,
     anchor,
