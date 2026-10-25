@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // The grid: a real <table> with sticky column letters and row numbers, Excel's outline bars next to them, frozen panes,
-// spacers for what is off screen, the marks over the cells (the copy border, the fill handle) and the in-cell editor.
+// spacers for what is off screen, the marks over the cells (the copy border, the fill handle, the tracer arrows) and the in-cell editor.
 import { computed } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import CellEditor from './CellEditor.vue'
@@ -12,6 +12,7 @@ import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
 import SheetMarks from './SheetMarks.vue'
 import SheetRow from './SheetRow.vue'
+import TraceArrows from './TraceArrows.vue'
 import ValidationDropdown from './ValidationDropdown.vue'
 import ValidationPrompt from './ValidationPrompt.vue'
 
@@ -270,6 +271,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
         </tfoot>
       </table>
       <SheetMarks v-if="ctx.sheet.value && !empty" />
+      <TraceArrows v-if="ctx.sheet.value && !empty" />
       <template v-if="activeBox && !ctx.editor.value">
         <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="v.viewBox.value" />
         <ValidationDropdown

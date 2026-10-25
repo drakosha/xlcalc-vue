@@ -143,6 +143,21 @@ export interface SheetViewApi {
   setZoom(zoom: number | 'selection'): number
   /** Opens Excel's Watch Window over the sheet (`true`, the default), or closes it (`false`); returns whether it is open. */
   watchWindow(open?: boolean): boolean
+  /**
+   * Excel's Trace Dependents through the source's `dependents`: arrows from the active cell to the cells whose formulas refer
+   * to it, and with each further call the next level; false when nothing was added (no `dependents`, no further level).
+   */
+  traceDependents(): Promise<boolean>
+  /** Excel's Remove Arrows: every tracer arrow; false when there were none. */
+  removeArrows(): boolean
+  /** Excel's Insert Table and Format as Table (Ctrl+T, Ctrl+L): the Create Table dialog for the selection or the data around the active cell; false without the source's `table`, or on a read-only sheet. */
+  insertTable(): Promise<boolean>
+  /** Excel's Convert to Range on the table at the active cell, after Excel's question; null when nothing was sent (no table there, no `table`, No). */
+  convertToRange(): Promise<EditOutcome | null>
+  /** Delete Table: the table at the active cell with its cells; null when nothing was sent. */
+  deleteTable(): Promise<EditOutcome | null>
+  /** Excel's Spelling (F7) through the source's `spelling`: the dialog from the active cell, within a selection of several cells; false without `spelling`. */
+  checkSpelling(): boolean
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

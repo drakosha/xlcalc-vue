@@ -28,6 +28,10 @@
   --xs-message-fg: #ffffff;
   --xs-copy-line: #1a73e8;
   --xs-fill-frame: #5f6368;
+  /* Trace Dependents: arrows to dependents, from a cell with an error, to another sheet */
+  --xs-trace: #1d4ed8;
+  --xs-trace-error: #d92d20;
+  --xs-trace-sheet: #1f2328;
   --xs-on-accent: #ffffff;
   --xs-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --xs-font-size: 12.5px;

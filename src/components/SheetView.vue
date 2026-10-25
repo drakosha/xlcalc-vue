@@ -19,6 +19,8 @@ import NameDialogs from './NameDialogs.vue'
 import SheetGrid from './SheetGrid.vue'
 import SheetMenu from './SheetMenu.vue'
 import SheetTabs from './SheetTabs.vue'
+import SpellingDialog from './SpellingDialog.vue'
+import TableDialog from './TableDialog.vue'
 import { IconClose, IconRetry, IconSpinner } from './icons'
 
 const props = withDefaults(defineProps<SheetViewProps>(), {
@@ -115,6 +117,8 @@ const wait = ctx.w.wait
       <SymbolDialog v-if="ctx.symbolOpen.value" />
       <NameDialogs v-if="ctx.names.available.value" />
       <ZoomDialog v-if="ctx.zoomer.dialogOpen.value" />
+      <TableDialog />
+      <SpellingDialog />
       <ValidationAlert :alert="ctx.alerts.alert.value" :messages="m" @answer="ctx.alerts.answer" />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>

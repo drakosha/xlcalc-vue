@@ -24,6 +24,9 @@ import { useNames } from './names'
 import { useNavigation } from './navigation'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
+import { useSpellCheck } from './spell-check'
+import { useTables } from './tables'
+import { useTrace } from './trace'
 import { useValidation, useValidationAlert, VALIDATION_DELAY_MS } from './validation'
 import { createState } from './state'
 import { useFilter } from './filter'
@@ -163,6 +166,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     else s.focusGrid()
   }
   const nameDialogs = useNameDialogs(s, sel, names, { editing: () => editor.value !== null })
+  // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
+  const trace = useTrace(s, v, w, notify)
+  const tables = useTables(s, w, sel, cmd)
+  const spell = useSpellCheck(s, sel, ed, notify)
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
@@ -185,6 +192,12 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     nameManager: nameDialogs.openManager,
     setZoom: (z) => (z === 'selection' ? zoom.fitSelection() : zoom.apply(z)),
     watchWindow: (open) => watches.setOpen(open),
+    traceDependents: trace.traceDependents,
+    removeArrows: trace.removeArrows,
+    insertTable: tables.openCreate,
+    convertToRange: tables.convert,
+    deleteTable: tables.remove,
+    checkSpelling: spell.check,
   }
 
   // ── sheets ──
@@ -418,6 +431,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
     if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e) || goto.key(e) || fill.key(e) || formulaView.key(e))) return
+    // Excel's Create Table (Ctrl+T, Ctrl+L) and Spelling (F7)
+    if (!e.isComposing && (tables.key(e) || spell.key(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -582,6 +597,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     filter,
     find,
     explain,
+    trace,
+    tables,
+    spell,
     views,
     list,
     cmd,

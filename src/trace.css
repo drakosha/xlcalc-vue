@@ -1,0 +1,33 @@
+/* Excel's tracer arrows: blue, red from a cell with an error, a dashed black line to the worksheet icon for other sheets. */
+.xs-trace {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.xs-trace line {
+  stroke-width: 1.5;
+}
+.xs-trace-cell {
+  stroke: var(--xs-trace);
+  fill: var(--xs-trace);
+}
+.xs-trace-error {
+  stroke: var(--xs-trace-error);
+  fill: var(--xs-trace-error);
+}
+.xs-trace-sheet {
+  stroke: var(--xs-trace-sheet);
+  fill: var(--xs-trace-sheet);
+}
+.xs-trace-sheet line {
+  stroke-dasharray: 4 3;
+}
+.xs-trace-icon rect {
+  fill: var(--xs-bg);
+}
+.xs-trace-icon path {
+  fill: none;
+  stroke-width: 1;
+}
