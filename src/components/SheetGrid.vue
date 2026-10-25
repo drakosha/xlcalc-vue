@@ -7,6 +7,7 @@ import CellEditor from './CellEditor.vue'
 import { cellOfData } from '../core/selection'
 import { useSheetContext } from './context'
 import { refInto } from './dom'
+import NoteBox from './NoteBox.vue'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
@@ -44,8 +45,8 @@ const rows = computed(() => {
   return out
 })
 const span = computed(() => (v.barW.value ? 1 : 0) + (v.showNums.value ? 1 : 0) + cols.value.length)
-/** The outline bars' sizes for the sticky headers and numbers: left of the row numbers, above the column letters. */
-const barVars = computed(() => ({ width: v.tableWidth.value + 'px', '--xs-outline-w': v.barW.value + 'px', '--xs-outline-h': v.barH.value + 'px' }))
+/** The outline bars' sizes for the sticky headers and numbers (left of the row numbers, above the column letters), and the workbook's default font, which cells without a font of their own inherit. */
+const tableStyle = computed(() => ({ width: v.tableWidth.value + 'px', '--xs-outline-w': v.barW.value + 'px', '--xs-outline-h': v.barH.value + 'px', ...ctx.defaultFontStyle.value }))
 const empty = computed(() => ctx.rowCount.value === 0 || ctx.colCount.value === 0)
 const freezeCols = computed(() => ctx.sheet.value?.freeze?.cols ?? 0)
 const headLabel = (c: number) => ctx.sheet.value?.columns?.[c - 1]?.title ?? colLetters(c)
@@ -100,8 +101,8 @@ function cellUnder(e: Event): { row: number; col: number } | null {
   const td = (e.target as HTMLElement).closest?.<HTMLElement>('td[data-cell]')
   return td ? cellOfData(td.dataset.cell) : null
 }
-/** The same, but not a web link in it (the browser's menu has its own items for a link). */
-const cellOf = (e: Event) => ((e.target as HTMLElement).closest?.('a[href]') ? null : cellUnder(e))
+/** The same, but not a web link in it (the browser's menu has its own items for a link), unless the cell menu has Excel's hyperlink items. */
+const cellOf = (e: Event) => ((e.target as HTMLElement).closest?.('a[href]') && !ctx.links.available.value ? null : cellUnder(e))
 function onContext(e: MouseEvent): void {
   const h = headerOf(e)
   const cell = h ? null : cellOf(e)
@@ -173,7 +174,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
     <p v-if="empty && ctx.sheet.value" class="xs-empty">{{ m.empty }}</p>
     <!-- Excel's zoom: the content is drawn under CSS zoom in its unzoomed pixels; the page's pixels (pointers, rectangles) are zoomed ones. -->
     <div class="xs-zoom" :style="zoomStyle">
-      <table v-if="ctx.sheet.value && !empty" class="xs-table" :style="barVars">
+      <table v-if="ctx.sheet.value && !empty" class="xs-table" :style="tableStyle">
         <colgroup>
           <col v-if="v.barW.value" :style="{ width: v.barW.value + 'px' }" />
           <col v-if="v.showNums.value" :style="{ width: v.numW.value + 'px' }" />
@@ -272,7 +273,8 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
       </table>
       <SheetMarks v-if="ctx.sheet.value && !empty" />
       <TraceArrows v-if="ctx.sheet.value && !empty" />
-      <template v-if="activeBox && !ctx.editor.value">
+      <NoteBox v-if="ctx.notes.draft.value" />
+      <template v-if="activeBox && !ctx.editor.value && !ctx.notes.draft.value">
         <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="v.viewBox.value" />
         <ValidationDropdown
           v-if="vd.list.value && ctx.editable.value"

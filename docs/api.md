@@ -79,6 +79,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `hostLinks` | `boolean` | `false` | The host opens links itself through `openLink`, as when it listens: for a host whose listener the sheet cannot see, such as a custom element's. |
 | `zoom` | `Record<string, number>` | none | Excel's zoom by sheet name, in percent (10 to 400), as the host kept it from the `zoom` event; a sheet without one opens at the workbook's saved zoom (`SheetInfo.zoom`), otherwise 100%. A new object applies its changed entries, to the active sheet at once. See [view.md](view.md#zoom). |
 | `watches` | `SheetWatch[]` | none | The Watch Window's list, as the host kept it from the `watches` event; a new array replaces the list. See [view.md](view.md#watch-window). |
+| `noteAuthor` | `string` | none | The author's name for a new note, shown in bold on its first line, as Excel takes the user name from its Options; without it a new note has no author. |
 
 ### Events
 
@@ -146,6 +147,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `convertToRange()` | `Promise<EditOutcome \| null>` | Excel's Convert to Range on the table at the active cell, after Excel's question. |
 | `deleteTable()` | `Promise<EditOutcome \| null>` | Delete Table: the table at the active cell with its cells. |
 | `checkSpelling()` | `boolean` | Excel's Spelling (F7) through the source's `spelling`: the dialog from the active cell, within a selection of more than one cell; `false` without `spelling`. See [editing.md](editing.md#spelling). |
+| `clear(what: ClearKind)` | `Promise<EditOutcome \| null>` | Excel's Home > Clear > Clear Formats (`'formats'`) or Clear All (`'all'`) over the selection through the source's `clear`, as a single undo step; under a display filter, over its visible rows. `null` also over a locked cell. See [links-notes.md](links-notes.md#clear-formats-and-clear-all). |
+| `insertLink()` | `boolean` | Opens Excel's Insert Hyperlink dialog (Ctrl+K) for the selection, as Edit Hyperlink when the active cell has a link; OK writes the link through the source's `link`. `false` without `link`, on a read-only sheet or over a locked cell. See [links-notes.md](links-notes.md#hyperlinks). |
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 

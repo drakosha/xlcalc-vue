@@ -10,10 +10,12 @@ import { useCommands, type SheetTarget } from './commands'
 import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
 import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
+import { useExtras } from './extras'
 import { useFill } from './fill'
 import { useFormula } from './formula'
 import { useFormulaView } from './formula-view'
 import { useGoTo } from './goto'
+import { useLinks } from './links'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
 import { isShortcut, onMac, shortcutLetter } from './keys'
@@ -22,6 +24,7 @@ import { useMerge } from './merge'
 import { useNameDialogs } from './name-dialogs'
 import { useNames } from './names'
 import { useNavigation } from './navigation'
+import { useNotes } from './notes'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
 import { useSpellCheck } from './spell-check'
@@ -127,6 +130,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       else void ed.send(entry, null, { accept: true })
     },
   })
+  const extras = useExtras(s, sel, w, ed, { notify, changed: () => validation.refresh() })
   const totals = useTotals(s, w, sel)
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
@@ -150,7 +154,16 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
   const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
-  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() } })
+  const links = useLinks(s, sel, w, f, ed, extras, {
+    notify,
+    single: () => !!merge.area.value && !!sel.fullRect.value && rangeAddress(merge.area.value) === rangeAddress(sel.fullRect.value),
+    goPlace: (text) => goto.jump(text),
+    names: () => names.boxNames.value.map((n) => n.name),
+    hostLinks,
+    openLink: (link) => emit('openLink', link),
+  })
+  const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items() })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
   /** Excel's Symbol dialog: open over an editable sheet with an active cell; it inserts into the edit it keeps open. */
@@ -198,6 +211,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     convertToRange: tables.convert,
     deleteTable: tables.remove,
     checkSpelling: spell.check,
+    clear: extras.clear,
+    insertLink: links.open,
   }
 
   // ── sheets ──
@@ -414,7 +429,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
 
   // ── hyperlinks in cells ──
-  /** A hyperlink clicked in a cell: a location in the workbook is handled by the component, anything else goes to the host if it listens. */
+  /** A hyperlink clicked in a cell: a location in the workbook is handled by the component, anything else goes to the host if it listens, otherwise to the browser. */
   function onLink(e: MouseEvent, link: NonNullable<SheetWindow['links']>[string], row: number, col: number): void {
     if (link.location) {
       e.preventDefault()
@@ -424,6 +439,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (!hostLinks()) return
     e.preventDefault()
     emit('openLink', { ...link, sheet: s.sheetName.value, cell: cellAddress(row, col) })
+    if (links.openLink(link, row, col, true)) e.preventDefault()
   }
 
   // ── keys on the grid: search and Esc first (a popover, the Find bar, copy mode, the precedents), then formatting shortcuts, editing and navigation ──
@@ -458,6 +474,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       e.preventDefault()
       return
     }
+    // Excel's Ctrl+K (Cmd+K on a Mac): Insert Link, or Edit Hyperlink on a cell with a link.
+    if (isShortcut(e) && !e.shiftKey && shortcutLetter(e) === 'k' && links.open()) {
+      e.preventDefault()
+      return
+    }
     if (e.key === 'Escape' && (filter.open.value !== null || find.isOpen.value)) {
       e.preventDefault()
       if (filter.open.value !== null) filter.close()
@@ -486,6 +507,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey && shortcutLetter(e) === 'l' && filter.active.value) {
       e.preventDefault()
       void filter.reapply()
+      return
+    }
+    // Excel's Shift+F2: New Note, or Edit Note on a cell with one.
+    if (e.key === 'F2' && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && notes.open()) {
+      e.preventDefault()
       return
     }
     // In list mode Enter opens the active cell's drill-down or row instead of moving.
@@ -551,6 +577,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ed.forget()
       alerts.answer('cancel')
       goto.places.value = []
+      links.draft.value = null
+      notes.draft.value = null
       subscribe()
       void init()
     },
@@ -603,6 +631,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     views,
     list,
     cmd,
+    extras,
+    links,
+    notes,
     api,
     clip,
     fill,

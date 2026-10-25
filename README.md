@@ -53,6 +53,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Clipboard and fill handle](docs/clipboard.md)
 - [Freeze Panes, zoom, Watch Window, Reapply, Show Formulas, Trace Precedents and Trace Dependents](docs/view.md)
 - [Tables](docs/tables.md): Create Table, Convert to Range, Delete Table.
+- [Hyperlinks, notes, Clear and the default font](docs/links-notes.md)
 - [Find and Replace](docs/find-replace.md)
 - [Go To and Symbol](docs/go-to-and-symbol.md)
 - [Data validation](docs/validation.md)

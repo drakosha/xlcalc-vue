@@ -2,6 +2,7 @@
 import type { CellStyle } from 'xlcalc/contract'
 import type { SheetMessages } from './messages'
 import type { EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
+import type { ClearKind } from './workbook'
 
 /** Properties of `SheetView`. */
 export interface SheetViewProps {
@@ -36,6 +37,8 @@ export interface SheetViewProps {
   zoom?: Record<string, number>
   /** Excel's Watch Window list, as the host kept it from the `watches` event; a new array replaces the list. */
   watches?: SheetWatch[]
+  /** The author's name for a new note, which Excel writes in bold on its first line (Excel takes the user name from its Options); without it a new note has no author. */
+  noteAuthor?: string
 }
 
 /** A cell in Excel's Watch Window: its sheet and address (`B12`). */
@@ -158,6 +161,17 @@ export interface SheetViewApi {
   deleteTable(): Promise<EditOutcome | null>
   /** Excel's Spelling (F7) through the source's `spelling`: the dialog from the active cell, within a selection of several cells; false without `spelling`. */
   checkSpelling(): boolean
+  /**
+   * Excel's Home > Clear > Clear Formats (`formats`) or Clear All (`all`) over the selection through the source's `clear`, as a
+   * single undo step (under a display filter, over its visible rows), after which the windows over it are read again. null when
+   * nothing was sent: no `clear`, a read-only sheet, or a locked cell in the selection.
+   */
+  clear(what: ClearKind): Promise<EditOutcome | null>
+  /**
+   * Excel's Insert Link (Ctrl+K) over the selection: opens its dialog, as Edit Hyperlink when the active cell has a link; OK
+   * writes the link through the source's `link`. false when links cannot be edited: no `link`, a read-only sheet, a locked cell.
+   */
+  insertLink(): boolean
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

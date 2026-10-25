@@ -349,6 +349,32 @@ export interface SheetMessages {
   spellChangeAll: string
   spellDone: string
   spellFailed: string
+  /** Excel's hyperlink items in the cell menu and its Insert Hyperlink dialog (Edit Hyperlink on a cell with a link), with Excel's names. */
+  menuLink: string
+  menuEditLink: string
+  menuOpenLink: string
+  menuRemoveLink: string
+  linkInsertTitle: string
+  linkEditTitle: string
+  linkTo: string
+  linkToFile: string
+  linkToPlace: string
+  linkText: string
+  /** Text to Display over several cells or a formula, which the link does not change. */
+  linkSelection: string
+  linkTip: string
+  linkAddress: string
+  linkRef: string
+  linkPlaces: string
+  linkCellReference: string
+  linkDefinedNames: string
+  linkRemove: string
+  linkBadRef: string
+  /** Excel's note items in the cell menu (New Note, Edit Note, Delete Note) and the note box's label. */
+  menuNewNote: string
+  menuEditNote: string
+  menuDeleteNote: string
+  noteEditor: string
 }
 
 /** The Symbol dialog's Subset list: Unicode blocks by Excel's names (`basicLatin` is Basic Latin, `latin1` Latin-1 Supplement). */

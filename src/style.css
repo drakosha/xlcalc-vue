@@ -293,11 +293,13 @@
   padding: 0 5px;
   line-height: calc(24px - var(--xs-line, 1px));
 }
+/* Headers keep the interface font: the workbook's default font on the table is for its cells. */
 .xs-head,
 .xs-num,
 .xs-corner {
   background: var(--xs-head-bg);
   color: var(--xs-head-fg);
+  font-family: var(--xs-font);
   font-weight: 500;
   font-size: 11.5px;
   text-align: center;

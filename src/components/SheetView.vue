@@ -11,6 +11,7 @@ import FindBar from './FindBar.vue'
 import FormatDialog from './FormatDialog.vue'
 import GoToDialog from './GoToDialog.vue'
 import SymbolDialog from './SymbolDialog.vue'
+import LinkDialog from './LinkDialog.vue'
 import ValidationAlert from './ValidationAlert.vue'
 import WatchWindow from './WatchWindow.vue'
 import ZoomDialog from './ZoomDialog.vue'
@@ -38,6 +39,7 @@ const props = withDefaults(defineProps<SheetViewProps>(), {
   hostLinks: false,
   zoom: undefined,
   watches: undefined,
+  noteAuthor: undefined,
 })
 const emit = defineEmits<{
   state: [state: SheetViewState | null]
@@ -119,6 +121,7 @@ const wait = ctx.w.wait
       <ZoomDialog v-if="ctx.zoomer.dialogOpen.value" />
       <TableDialog />
       <SpellingDialog />
+      <LinkDialog />
       <ValidationAlert :alert="ctx.alerts.alert.value" :messages="m" @answer="ctx.alerts.answer" />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>
