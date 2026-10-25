@@ -40,8 +40,8 @@ describe('dist/index.js', () => {
   })
   it('includes no engine: xlcalc/a1 and xlcalc/text are a few dozen kilobytes', () => {
     expect(js.length).toBeGreaterThan(10_000)
-    // the component with its dialogs and bars is about 330 KB unminified; the engine would be megabytes
-    expect(js.length).toBeLessThan(400_000)
+    // the component with its dialogs and bars is about 480 KB unminified; the engine would be megabytes
+    expect(js.length).toBeLessThan(600_000)
     expect(js).toContain('//#region node_modules/xlcalc/dist/a1.js')
     expect(js).toContain('//#region node_modules/xlcalc/dist/scan.js')
   })

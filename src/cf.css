@@ -1,0 +1,223 @@
+/* The conditional formatting dialogs (CfQuickDialog, CfRuleDialog, CfManager, CfPreview) in the sheet's --xs-* variables, in DialogShell boxes (modal.css); the rule's Format Cells uses format-dialog.css. */
+.xs-cf-quick {
+  width: min(560px, 100%);
+}
+.xs-cf-rule {
+  width: min(640px, 100%);
+}
+.xs-cf-manager {
+  width: min(820px, 100%);
+}
+.xs-cf-head {
+  padding: 10px 14px 4px;
+  font-size: 14px;
+}
+.xs-cf-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 8px 14px 12px;
+  overflow: auto;
+}
+.xs-cf-row,
+.xs-cf-line,
+.xs-cf-tools,
+.xs-cf-grid,
+.xs-cf-icon-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.xs-cf-line > span {
+  color: var(--xs-muted);
+}
+.xs-field.xs-cf-box,
+.xs-field.xs-cf-formula {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.xs-field.xs-cf-formula {
+  width: 100%;
+}
+.xs-field.xs-cf-rank {
+  width: 80px;
+}
+.xs-field.xs-cf-with {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.xs-cf-error {
+  margin: 0;
+  color: var(--xs-error);
+  font-size: 12px;
+}
+.xs-cf-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--xs-grid);
+}
+.xs-button.xs-cf-btn {
+  min-width: 84px;
+}
+/* The rule's Format Cells: Clear on the left, as in Excel. */
+.xs-button.xs-cf-clear {
+  margin-right: auto;
+}
+
+/* ── New and Edit Formatting Rule ── */
+.xs-cf-types {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border: 1px solid var(--xs-grid);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.xs-cf-type {
+  padding: 5px 10px;
+  border: 0;
+  background: none;
+  color: var(--xs-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.xs-cf-type:hover {
+  background: var(--xs-head-bg);
+}
+.xs-cf-type[aria-selected='true'] {
+  background: var(--xs-head-on-bg);
+  color: var(--xs-head-on-fg);
+}
+.xs-cf-desc,
+.xs-cf-values {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 6px;
+}
+.xs-cf-values {
+  padding: 0;
+  border: 0;
+}
+.xs-cf-points {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.xs-cf-point {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.xs-cf-point .xs-field {
+  width: 100%;
+}
+.xs-cf-colour {
+  width: 48px;
+  height: 26px;
+  padding: 1px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  cursor: pointer;
+}
+.xs-cf-caption {
+  color: var(--xs-muted);
+}
+.xs-field.xs-cf-icon-value {
+  width: 90px;
+}
+.xs-cf-preview-row {
+  padding-top: 4px;
+}
+
+/* ── the Rules Manager ── */
+.xs-cf-table {
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+  max-height: 340px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 6px;
+  overflow: auto;
+}
+.xs-cf-tr {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) minmax(120px, 1fr) minmax(140px, 1.4fr) 90px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--xs-grid);
+  cursor: default;
+}
+.xs-cf-th {
+  position: sticky;
+  top: 0;
+  background: var(--xs-head-bg);
+  color: var(--xs-head-fg);
+}
+.xs-cf-tr[aria-selected='true'] {
+  background: var(--xs-head-on-bg);
+}
+.xs-cf-desc-text {
+  overflow-wrap: anywhere;
+}
+.xs-field.xs-cf-applies {
+  width: 100%;
+  min-width: 0;
+}
+.xs-field.xs-cf-applies[aria-invalid='true'] {
+  border-color: var(--xs-error);
+}
+.xs-cf-empty {
+  padding: 8px;
+}
+.xs-narrow .xs-cf-tr {
+  grid-template-columns: 1fr 1fr;
+}
+/* On a phone the list takes the full-screen box's height. */
+.xs-narrow .xs-cf-table {
+  flex: 1 1 auto;
+  max-height: none;
+}
+
+/* ── a rule's preview ── */
+.xs-cf-preview {
+  display: inline-flex;
+  min-width: 110px;
+}
+.xs-cf-sample {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 20px;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+}
+.xs-cf-icons .xs-cf-icon,
+.xs-cf-icon-row .xs-cf-icon {
+  width: 16px;
+  height: 16px;
+}
+.xs-cf-band {
+  width: 100px;
+  padding: 0;
+}
+.xs-cf-band > span {
+  display: block;
+  width: 100%;
+  height: 16px;
+}
+.xs-cf-band > .xs-cf-bar {
+  width: 70%;
+}

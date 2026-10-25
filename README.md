@@ -54,6 +54,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Freeze Panes, Reapply and Trace Precedents](docs/view.md)
 - [Find and Replace](docs/find-replace.md)
 - [Data validation](docs/validation.md)
+- [Conditional formatting](docs/conditional-formatting.md): Excel's quick rules, galleries, Clear Rules, New Rule and the Rules Manager as the sheet's methods.
 - [Formula AutoComplete](docs/autocomplete.md)
 - [The formatting toolbar and Format Cells](docs/toolbar.md)
 - [In-browser calculation](docs/local.md): how `@xlcalc/vue/local` works, xlsx files.

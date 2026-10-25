@@ -1,6 +1,7 @@
 // The component's interface texts: English by default, with a Russian set in the package; a host passes its own set or part of one.
 import { computed, type ComputedRef } from 'vue'
 import type { SheetMessages } from './contract/messages'
+import { enConditional, ruConditional } from './messages-conditional'
 
 /** `n` and its English noun, singular for one. */
 const countEn = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -260,6 +261,7 @@ export const enMessages: SheetMessages = {
   mergeCells: 'Merge Cells',
   unmergeCells: 'Unmerge Cells',
   mergeWarning: 'Merging cells only keeps the upper-left value and discards other values.',
+  ...enConditional,
 }
 
 /** Russian plural: one, few, many. */
@@ -539,6 +541,7 @@ export const ruMessages: SheetMessages = {
   mergeCells: 'Объединить ячейки',
   unmergeCells: 'Отменить объединение ячеек',
   mergeWarning: 'При объединении ячеек сохраняется только значение из верхней левой ячейки, а значения из остальных ячеек удаляются.',
+  ...ruConditional,
 }
 
 /** A component's texts: the English set overridden by the part a host passed. */

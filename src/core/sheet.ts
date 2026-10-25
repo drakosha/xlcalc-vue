@@ -5,6 +5,7 @@ import type { CellStyle } from 'xlcalc/contract'
 import { errorText } from '../failure'
 import type { SheetInfo, SheetWindow } from '../contract/source'
 import { useCellView } from './cell-view'
+import { useConditional } from './cf-commands'
 import { useClip } from './clip'
 import { useCommands, type SheetTarget } from './commands'
 import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState } from '../contract/view'
@@ -136,6 +137,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
   const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
+  const cf = useConditional(s, sel, w, ed, { notify, scan: f.scanOptions })
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
@@ -149,6 +151,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     reapplyFilter: filter.reapply,
     explain: explain.show,
     merge: merge.run,
+    ...cf.api,
   }
 
   // ── sheets ──
@@ -485,6 +488,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       s.endWorkbook()
       ed.forget()
       alerts.answer('cancel')
+      cf.closeAll()
       subscribe()
       void init()
     },
@@ -540,6 +544,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     alerts,
     outline,
     menu,
+    cf,
     editor,
     message,
     notify,
