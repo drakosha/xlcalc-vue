@@ -1,0 +1,83 @@
+/* Excel's Spelling dialog: the boxes on the left, the buttons on the right; on a phone the buttons go below. */
+.xs-spell {
+  gap: 10px;
+  width: min(520px, calc(100vw - 32px));
+  padding: 14px;
+}
+.xs-spell-body {
+  display: flex;
+  gap: 12px;
+}
+.xs-spell-boxes {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.xs-spell-label {
+  color: var(--xs-muted);
+  font-size: 12px;
+}
+.xs-spell-text {
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  min-height: 48px;
+  max-height: 96px;
+  overflow: auto;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.xs-spell-word {
+  background: none;
+  color: var(--xs-note);
+  font-weight: 600;
+  text-decoration: underline wavy var(--xs-note);
+}
+.xs-spell-list {
+  margin: 0;
+  height: 120px;
+  overflow: auto;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+}
+.xs-spell-list:focus-visible {
+  outline: 2px solid var(--xs-accent);
+  outline-offset: -1px;
+}
+.xs-spell-option {
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.xs-spell-option.xs-on {
+  background: var(--xs-accent);
+  color: var(--xs-on-accent);
+}
+.xs-spell-none {
+  padding: 3px 8px;
+  color: var(--xs-muted);
+}
+.xs-spell-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 20px;
+}
+.xs-spell-gap {
+  margin-top: 10px;
+}
+.xs-narrow .xs-spell-body,
+.xs-touch .xs-spell-body {
+  flex-direction: column;
+}
+.xs-narrow .xs-spell-buttons,
+.xs-touch .xs-spell-buttons {
+  flex-flow: row wrap;
+  padding-top: 0;
+}
+.xs-narrow .xs-spell-gap,
+.xs-touch .xs-spell-gap {
+  margin-top: 0;
+}

@@ -14,6 +14,8 @@ import FormulaBar from './FormulaBar.vue'
 import SheetGrid from './SheetGrid.vue'
 import SheetMenu from './SheetMenu.vue'
 import SheetTabs from './SheetTabs.vue'
+import SpellingDialog from './SpellingDialog.vue'
+import TableDialog from './TableDialog.vue'
 import { IconClose, IconRetry, IconSpinner } from './icons'
 
 const props = withDefaults(defineProps<SheetViewProps>(), {
@@ -99,6 +101,8 @@ const wait = ctx.w.wait
         @apply="(patches) => void ctx.cmd.format(patches)"
         @close="ctx.cmd.closeFormat()"
       />
+      <TableDialog />
+      <SpellingDialog />
       <ValidationAlert :alert="ctx.alerts.alert.value" :messages="m" @answer="ctx.alerts.answer" />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>

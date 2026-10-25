@@ -8,6 +8,7 @@ Editing uses Excel's keys:
 - Ctrl+Shift+U (or the arrow at the right end of the formula bar) expands the formula bar to five lines and collapses it back to one, as in Excel; while it is collapsed, a multi-line cell shows its first line and the grid does not move;
 - Delete and Backspace clear the selection;
 - Ctrl+Page Down and Ctrl+Page Up go to the next and the previous visible sheet;
+- F7 opens Spelling when the source has `spelling` ([Spelling](#spelling)), and Ctrl+T or Ctrl+L opens Create Table when it has `table` ([tables.md](tables.md));
 - Ctrl+arrow goes where the source's `end(sheet, cell, direction)` points, as Excel's Range.End, and Shift+Ctrl+arrow extends the selection there. Without `end`, or under a display filter, it goes to the edge of the data known to the sheet.
 
 Without `edit` the sheet is read-only.
@@ -92,6 +93,45 @@ const refuseNext = () => source.failNext({ ok: false, reason: 'refused', message
 <template>
   <button @click="remoteEdit">Edit B1 elsewhere</button>
   <button @click="refuseNext">Refuse the next edit</button>
+  <SheetView :source="source" style="height: 300px" />
+</template>
+```
+
+## Spelling
+
+If the source has `spelling(req)`, F7 (also on a Mac, where Excel uses it too) and the sheet's `checkSpelling()` method open Excel's Spelling dialog. The check starts at the active cell, goes by rows through the entire sheet, or only through the selection when more than one cell is selected, and wraps around to the cells before the active cell; formulas, words in uppercase and words with digits are not checked, as Excel's defaults. For each misspelt word the sheet selects its cell, and the dialog shows the cell's text with the word marked under Not in Dictionary and the source's corrections under Suggestions, the first one chosen (Up and Down choose another, a double click is Change):
+
+- Ignore Once goes on to the next word, in the same cell first (`after` is the cell, `from` the position after the word);
+- Ignore All skips the word for the rest of this check (`ignore`);
+- Add to Dictionary, present when the source has `learnWord`, makes the word the user's own and goes on;
+- Change writes the cell's text with the word replaced by the chosen suggestion through `edit`, as typed text (a text that opened with an apostrophe keeps it), and goes on after the new word;
+- Change All does the same, and replaces the word in each cell it is found in afterwards without stopping there, as Excel goes on;
+- Cancel or Esc ends the check.
+
+When the check comes back to where it started, or there is nothing to correct, Excel's message says that the check is complete. On a read-only sheet Change and Change All are disabled; a locked cell is not changed. The editor keeps `spellcheck="false"`: Excel does not check spelling as you type. `memorySource` and `./local` check spelling with the host's `SpellChecker` (a dictionary such as hunspell's), given as their `spelling` option.
+
+```vue
+<script setup lang="ts">
+import { SheetView, memorySource } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
+
+// A tiny word list for the example; a host passes a real dictionary
+const words = new Set(['the', 'quick', 'brown', 'fox', 'jumps', 'over', 'lazy', 'dog'])
+const own = new Set<string>()
+const source = memorySource(
+  { sheets: [{ name: 'Notes', cells: { A1: 'teh quick brown fox', A2: 'jumps ovr the lazy dog', A3: 'teh end' } }] },
+  {
+    spelling: {
+      check: (w) => words.has(w.toLowerCase()) || own.has(w.toLowerCase()),
+      suggest: (w) => ({ teh: ['the', 'ten'], ovr: ['over'] })[w.toLowerCase()] ?? [],
+      add: (w) => void own.add(w.toLowerCase()),
+    },
+  },
+)
+</script>
+
+<template>
+  <!-- click the grid and press F7 -->
   <SheetView :source="source" style="height: 300px" />
 </template>
 ```

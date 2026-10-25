@@ -256,4 +256,27 @@ export interface SheetMessages {
   mergeCells: string
   unmergeCells: string
   mergeWarning: string
+  /** Excel's Trace Dependents: the message when no formula refers to the active cell, and when the source could not be asked. */
+  traceNone: string
+  traceFailed: string
+  /** Excel's Create Table dialog, the range it refuses, the words a new table's and an unnamed column's names start with (`Table1`, `Column1`), and Convert to Range's question. */
+  tableCreate: string
+  tableWhere: string
+  tableHeaders: string
+  tableRangeBad: string
+  tableNamePrefix: string
+  tableColumnPrefix: string
+  tableConvert: string
+  /** Excel's Spelling dialog: its title, boxes and buttons (Cancel is `cancel`), the message when the check is complete, and the one when it fails. */
+  spelling: string
+  spellNotInDictionary: string
+  spellSuggestions: string
+  spellNoSuggestions: string
+  spellIgnoreOnce: string
+  spellIgnoreAll: string
+  spellAdd: string
+  spellChange: string
+  spellChangeAll: string
+  spellDone: string
+  spellFailed: string
 }

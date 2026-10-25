@@ -16,7 +16,7 @@ Cell and style types come from `xlcalc/contract` (`CellValue`, `CellStyle`, `Sty
 
 ## `SheetView`
 
-The sheet: a virtualized grid with the formula bar, sheet tabs, context menus, Find, the Trace Precedents panel and the dialogs. It reads its data only through `source`.
+The sheet: a virtualized grid with the formula bar, sheet tabs, context menus, Find, the Trace Precedents panel, tracer arrows and the dialogs (Create Table, Spelling and others). It reads its data only through `source`.
 
 ```vue
 <script setup lang="ts">
@@ -110,7 +110,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 
 ### `SheetViewApi`
 
-`SheetView` exposes these methods through a template ref (`ref="sheet"`, `const sheet = ref<SheetViewApi | null>(null)`). Each call goes through the source just as the sheet's own keyboard commands do: the outcome is applied, its selection is set without the flash and the Back history entry that `focus` creates, a rejection is displayed in the sheet's message line, and after `format`, `structure`, `outline` or `freezePanes` the sheet reloads unless the source has sent `reload` (after `format`, also unless it has sent `repaint`, which re-reads the windows over its ranges). A method that returns a promise of `EditOutcome | null` resolves to the source's outcome, or to `null` when nothing was sent (the source lacks the method, the sheet is read-only, or an undo is still pending).
+`SheetView` exposes these methods through a template ref (`ref="sheet"`, `const sheet = ref<SheetViewApi | null>(null)`). Each call goes through the source just as the sheet's own keyboard commands do: the outcome is applied, its selection is set without the flash and the Back history entry that `focus` creates, a rejection is displayed in the sheet's message line, and after `format`, `structure`, `outline`, `freezePanes` or a table command the sheet reloads unless the source has sent `reload` (after `format`, also unless it has sent `repaint`, which re-reads the windows over its ranges). A method that returns a promise of `EditOutcome | null` resolves to the source's outcome, or to `null` when nothing was sent (the source lacks the method, the sheet is read-only, or an undo is still pending).
 
 | Method | Returns | Meaning |
 | --- | --- | --- |
@@ -124,6 +124,12 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
+| `traceDependents()` | `Promise<boolean>` | Excel's Trace Dependents through the source's `dependents`: arrows from the active cell to its direct dependents, and the next level with each further call; `false` when nothing was added. See [view.md](view.md#trace-dependents). |
+| `removeArrows()` | `boolean` | Excel's Remove Arrows: every tracer arrow; `false` when there were none. |
+| `insertTable()` | `Promise<boolean>` | Excel's Insert Table and Format as Table (Ctrl+T, Ctrl+L): the Create Table dialog for the selection or the active cell's current region; `false` without the source's `table` or on a read-only sheet. See [tables.md](tables.md). |
+| `convertToRange()` | `Promise<EditOutcome \| null>` | Excel's Convert to Range on the table at the active cell, after Excel's question. |
+| `deleteTable()` | `Promise<EditOutcome \| null>` | Delete Table: the table at the active cell with its cells. |
+| `checkSpelling()` | `boolean` | Excel's Spelling (F7) through the source's `spelling`: the dialog from the active cell, within a selection of more than one cell; `false` without `spelling`. See [editing.md](editing.md#spelling). |
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 
@@ -275,12 +281,12 @@ export function serverSource(base: string): SheetSource {
 | `note(sheet, cell, note: SheetNote \| null)` | Excel's New Note and Edit Note; null is Delete Note. | Notes are shown but not edited. | |
 | `names(signal?) => Promise<SheetName[]>` | The workbook's defined names for the Name Box, Go To, Formula AutoComplete and the Name Manager. | No names. | |
 | `setNames(names: SheetName[])` | Replaces the workbook's names (the Name Manager, Define Name), as a single undo step. | The names cannot be edited. | |
-| `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | |
+| `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | [view.md](view.md#trace-dependents) |
 | `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs. | The rules are applied but not shown for editing. | |
 | `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | |
-| `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | |
-| `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | |
-| `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | |
+| `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | [tables.md](tables.md) |
+| `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | [editing.md](editing.md#spelling) |
+| `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | [editing.md](editing.md#spelling) |
 
 After `link`, `note`, `clear` and `setRules` succeed, the sheet re-reads the windows over what they changed: their outcome's `changes` carry values, not hyperlinks, notes or formatting. A source need not send a `repaint` for its own sheet, but `./local` does, for other sheets over the same source.
 
@@ -543,6 +549,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | `--xs-bar-bg` | `#fafafa` | The formula bar, the toolbar and the Trace Precedents panel. |
 | `--xs-message-bg`, `--xs-message-fg` | `#1f2328`, `#ffffff` | The message line. |
 | `--xs-copy-line`, `--xs-fill-frame` | `#1a73e8`, `#5f6368` | The moving border of a copy, the fill handle's outline. |
+| `--xs-trace`, `--xs-trace-error`, `--xs-trace-sheet` | `#1d4ed8`, `#d92d20`, `#1f2328` | Trace Dependents: arrows to dependents, from a cell with an error, to another sheet's icon. |
 | `--xs-shadow-pop`, `--xs-shadow-menu`, `--xs-shadow-modal` | `0 2px 6px rgb(0 0 0 / 0.2)`, `0 6px 20px rgb(0 0 0 / 0.18)`, `0 10px 30px rgb(0 0 0 / 0.25)` | Shadows of a list, a tooltip or a box under a cell; of a menu, the filter funnel's list and the message line; of a dialog or an alert. |
 | `--xs-backdrop` | `rgb(0 0 0 / 0.25)` | The dimmed page under a dialog or an alert. |
 | `--xs-z-menu`, `--xs-z-modal`, `--xs-z-alert` | `40`, `50`, `55` | Stacking layers above the page: a menu or the filter funnel's list, a dialog, an alert (above a dialog). |
