@@ -179,7 +179,7 @@ describe('useValidationAlert', () => {
     expect(a.alert.value).toBeNull()
   })
 
-  it("has Excel's buttons by style and their answers, with Retry, No and OK as defaults; Fix and Restore for the formula prompt; OK and Cancel for the merge warning", () => {
+  it("has Excel's buttons by style and their answers, with Retry, No and OK as defaults; Fix and Restore for the formula prompt; OK and Cancel for the merge warning; OK alone for a dialog's message", () => {
     expect(ALERT_BUTTONS.stop.map((b) => `${b.button}:${b.answer}`)).toEqual(['retry:retry', 'cancel:cancel'])
     expect(ALERT_BUTTONS.warning.map((b) => `${b.button}:${b.answer}`)).toEqual(['yes:accept', 'no:retry', 'cancel:cancel'])
     expect(ALERT_BUTTONS.information.map((b) => `${b.button}:${b.answer}`)).toEqual(['ok:accept', 'cancel:cancel'])
@@ -187,6 +187,7 @@ describe('useValidationAlert', () => {
     expect(ALERT_BUTTONS.typo.map((b) => `${b.button}:${b.answer}`)).toEqual(['yes:accept', 'no:retry'])
     expect(ALERT_BUTTONS.parenthesis.map((b) => `${b.button}:${b.answer}`)).toEqual(['ok:accept'])
     expect(ALERT_BUTTONS.merge.map((b) => `${b.button}:${b.answer}`)).toEqual(['ok:accept', 'cancel:cancel'])
-    expect(ALERT_DEFAULT).toEqual({ stop: 'retry', warning: 'no', information: 'ok', formula: 'fix', typo: 'yes', parenthesis: 'ok', merge: 'ok' })
+    expect(ALERT_BUTTONS.notice.map((b) => `${b.button}:${b.answer}`)).toEqual(['ok:accept'])
+    expect(ALERT_DEFAULT).toEqual({ stop: 'retry', warning: 'no', information: 'ok', formula: 'fix', typo: 'yes', parenthesis: 'ok', notice: 'ok', merge: 'ok' })
   })
 })

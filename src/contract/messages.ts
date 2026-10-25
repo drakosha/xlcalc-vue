@@ -268,4 +268,76 @@ export interface SheetMessages {
   mergeCells: string
   unmergeCells: string
   mergeWarning: string
+  /** Excel's Go To dialog (F5, Ctrl+G): its title, the list's label, the Reference box, and its message for text that is not a reference. */
+  goToTitle: string
+  goToList: string
+  goToReference: string
+  goToBad: string
+  /** Excel's Symbol dialog: its title and tabs, the Subset box and its blocks, the recently used row, the Character code box, the Special Characters tab's names, Insert. */
+  symbolTitle: string
+  symbolTab: (tab: 'symbols' | 'special') => string
+  symbolSubsetLabel: string
+  symbolSubset: (subset: SymbolSubset) => string
+  symbolRecent: string
+  symbolCode: string
+  symbolCodeFrom: string
+  symbolCharacter: string
+  symbolSpecial: (character: SymbolSpecial) => string
+  symbolInsert: string
 }
+
+/** The Symbol dialog's Subset list: Unicode blocks by Excel's names (`basicLatin` is Basic Latin, `latin1` Latin-1 Supplement). */
+export type SymbolSubset =
+  | 'basicLatin'
+  | 'latin1'
+  | 'latinExtA'
+  | 'latinExtB'
+  | 'ipa'
+  | 'spacingModifiers'
+  | 'combiningMarks'
+  | 'greek'
+  | 'cyrillic'
+  | 'cyrillicSupplement'
+  | 'phoneticExt'
+  | 'latinExtAdditional'
+  | 'greekExt'
+  | 'punctuation'
+  | 'superSub'
+  | 'currency'
+  | 'letterlike'
+  | 'numberForms'
+  | 'arrows'
+  | 'math'
+  | 'technical'
+  | 'enclosed'
+  | 'boxDrawing'
+  | 'blocks'
+  | 'geometric'
+  | 'miscSymbols'
+  | 'dingbats'
+  | 'latinExtC'
+  | 'presentationForms'
+  | 'specials'
+
+/** The characters of the Symbol dialog's Special Characters tab, in Excel's order. */
+export type SymbolSpecial =
+  | 'emDash'
+  | 'enDash'
+  | 'nonBreakingHyphen'
+  | 'optionalHyphen'
+  | 'emSpace'
+  | 'enSpace'
+  | 'quarterEmSpace'
+  | 'nonBreakingSpace'
+  | 'copyright'
+  | 'registered'
+  | 'trademark'
+  | 'section'
+  | 'paragraph'
+  | 'ellipsis'
+  | 'singleOpeningQuote'
+  | 'singleClosingQuote'
+  | 'doubleOpeningQuote'
+  | 'doubleClosingQuote'
+  | 'noWidthOptionalBreak'
+  | 'noWidthNonBreak'

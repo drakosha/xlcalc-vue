@@ -1,0 +1,197 @@
+/* Excel's Go To (GoToDialog.vue) and Symbol (SymbolDialog.vue) dialogs in the sheet's --xs-* variables: DialogShell boxes (modal.css), full screen on a phone, 44 px targets on a touch screen. */
+.xs-goto,
+.xs-sym {
+  gap: 8px;
+  padding: 14px;
+}
+/* Only the lists shrink when the box is short. */
+.xs-goto > *,
+.xs-sym > *,
+.xs-sym-panel > * {
+  flex-shrink: 0;
+}
+
+/* ── Go To ── */
+.xs-goto {
+  width: min(320px, 100%);
+}
+.xs-goto .xs-goto-list {
+  flex: 0 1 auto;
+  height: calc(8 * 24px + 2px);
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+}
+.xs-goto-item {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+.xs-goto-on,
+.xs-sym-item.xs-sym-on,
+.xs-sym-cell.xs-sym-on {
+  background: var(--xs-accent);
+  color: var(--xs-on-accent);
+}
+.xs-goto-field,
+.xs-sym-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Symbol ── */
+.xs-sym {
+  width: min(560px, 100%);
+}
+.xs-sym-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--xs-grid);
+}
+.xs-sym-tab {
+  padding: 6px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--xs-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.xs-sym-tab[aria-selected='true'] {
+  border-bottom-color: var(--xs-accent);
+  color: var(--xs-fg);
+}
+.xs-sym-panel {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+/* The grid: eight rows tall, scrolling through the subsets; its rows are drawn only in view, so they are placed absolutely. */
+.xs-sym .xs-sym-grid {
+  flex: 0 1 auto;
+  height: calc(8 * 30px + 2px);
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+}
+.xs-sym-grid:focus-visible,
+.xs-sym-special:focus-visible {
+  outline: 2px solid var(--xs-accent);
+  outline-offset: 1px;
+}
+.xs-sym-rows {
+  position: relative;
+}
+.xs-sym-row {
+  position: absolute;
+  right: 0;
+  left: 0;
+  display: grid;
+}
+.xs-sym-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid var(--xs-grid);
+  border-bottom: 1px solid var(--xs-grid);
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: default;
+  user-select: none;
+}
+.xs-sym-recent {
+  display: flex;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--xs-grid);
+  border-left: 1px solid var(--xs-grid);
+}
+.xs-sym-recent .xs-sym-cell {
+  width: 30px;
+  height: 30px;
+}
+.xs-sym-recent .xs-sym-cell[aria-pressed='true'] {
+  background: var(--xs-accent);
+  color: var(--xs-on-accent);
+}
+.xs-sym-code {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.xs-sym-from {
+  color: var(--xs-muted);
+}
+.xs-sym-head {
+  color: var(--xs-muted);
+}
+.xs-sym .xs-sym-special {
+  flex: 0 1 auto;
+  height: calc(10 * 26px + 2px);
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+}
+.xs-sym-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 8px;
+  cursor: default;
+  user-select: none;
+}
+/* The character before its name, centered in a column of its own: spaces and hyphens show as gaps, as in Excel. */
+.xs-sym-char {
+  width: 24px;
+  font-size: 15px;
+  text-align: center;
+}
+
+/* ── a phone: full screen (DialogShell's `full`), the lists take the remaining space ── */
+.xs-narrow .xs-goto .xs-goto-list,
+.xs-narrow .xs-sym .xs-sym-panel,
+.xs-narrow .xs-sym .xs-sym-grid,
+.xs-narrow .xs-sym .xs-sym-special {
+  flex: 1 1 0;
+  height: auto;
+}
+
+/* ── touch ── */
+.xs-touch .xs-goto,
+.xs-touch .xs-sym {
+  font-size: 15px;
+}
+.xs-touch .xs-goto-item,
+.xs-touch .xs-sym-item {
+  height: var(--xs-touch-target);
+  padding: 0 12px;
+}
+.xs-touch .xs-sym-tab {
+  flex: 1 1 auto;
+  min-height: var(--xs-touch-target);
+}
+.xs-touch .xs-sym .xs-sym-grid {
+  height: calc(5 * 44px + 2px);
+}
+.xs-touch .xs-sym-cell {
+  font-size: 20px;
+}
+.xs-touch .xs-sym-recent .xs-sym-cell {
+  width: var(--xs-touch-target);
+  height: var(--xs-touch-target);
+}

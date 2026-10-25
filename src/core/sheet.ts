@@ -12,6 +12,7 @@ import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
 import { useFill } from './fill'
 import { useFormula } from './formula'
+import { useGoTo } from './goto'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
 import { isShortcut, shortcutLetter } from './keys'
@@ -136,6 +137,19 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
   const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
+  const goto = useGoTo(s, sel, nav, { ask: alerts.ask })
+  /** Excel's Symbol dialog: open over an editable sheet with an active cell; it inserts into the edit it keeps open. */
+  const symbolOpen = ref(false)
+  function openSymbol(): boolean {
+    if (!s.editable.value || !s.selected.value) return false
+    symbolOpen.value = true
+    return true
+  }
+  function closeSymbol(): void {
+    symbolOpen.value = false
+    if (editor.value) ed.focusEditor()
+    else s.focusGrid()
+  }
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
@@ -149,6 +163,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     reapplyFilter: filter.reapply,
     explain: explain.show,
     merge: merge.run,
+    goTo: goto.openGoTo,
+    insertSymbol: openSymbol,
   }
 
   // ── sheets ──
@@ -364,7 +380,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onLink(e: MouseEvent, link: NonNullable<SheetWindow['links']>[string], row: number, col: number): void {
     if (link.location) {
       e.preventDefault()
-      void nav.goPlace(link.location.replace(/^#/, ''))
+      void goto.jump(link.location.replace(/^#/, ''))
       return
     }
     if (!hostLinks()) return
@@ -376,7 +392,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
-    if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e))) return
+    if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e) || goto.key(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -485,6 +501,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       s.endWorkbook()
       ed.forget()
       alerts.answer('cancel')
+      goto.places.value = []
       subscribe()
       void init()
     },
@@ -540,6 +557,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     alerts,
     outline,
     menu,
+    goto,
+    symbolOpen,
+    closeSymbol,
     editor,
     message,
     notify,

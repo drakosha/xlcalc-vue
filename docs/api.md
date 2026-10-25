@@ -65,7 +65,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | --- | --- | --- | --- |
 | `source` | `SheetSource` | required | The sheet's data source. A new source means a new workbook: what the previous source answers afterwards (its sheets, an edit's outcome, a correction) is ignored, even from a source that ignores the abort signal, and its open alert closes. |
 | `messages` | `Partial<SheetMessages>` | English | Interface texts; a partial set overrides the English defaults. |
-| `storageKey` | `string` | none | Key in the browser's storage for the frozen panes display choice, column widths and Insert Function's recently used functions; without it they last as long as the component. |
+| `storageKey` | `string` | none | Key in the browser's storage for the frozen panes display choice, column widths, Insert Function's recently used functions and the Symbol dialog's recently used symbols; without it they last as long as the component. |
 | `focus` | `{ ref: string } \| null` | `null` | A location to show: `Sheet!B12:D15`, `B7`, `Sheet`. Each new object is a new jump. |
 | `cellUrl` | `(ref: string) => string` | none | The host page's address for a location; without it there is no "Link to the cell" button. |
 | `readOnly` | `boolean` | `false` | Disables editing regardless of what the source supports. A source without `edit` is read-only anyway. |
@@ -124,6 +124,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
+| `goTo()` | `boolean` | Opens Excel's Go To dialog (F5, Ctrl+G); `false` while no sheet is displayed ([go-to-and-symbol.md](go-to-and-symbol.md#go-to)). |
+| `insertSymbol()` | `boolean` | Opens Excel's Symbol dialog: Insert puts the character at the caret of an open edit, otherwise starts editing the active cell with it; `false` on a read-only sheet or without an active cell ([go-to-and-symbol.md](go-to-and-symbol.md#symbol)). A host button that calls it during an edit keeps the edit open only if it does not take focus (`@mousedown.prevent`). |
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 
@@ -392,6 +394,8 @@ Formulas in these types are written as the source displays formulas: in its loca
 import { ruMessages } from '@xlcalc/vue'
 const messages = { ...ruMessages, loading: 'Загружаю…' }
 ```
+
+Two types name the arguments of the Symbol dialog's texts: `SymbolSubset`, the Subset list's Unicode blocks (`'basicLatin'`, `'latin1'`, `'cyrillic'`, `'currency'` and so on, as `symbolSubset` names them), and `SymbolSpecial`, the Special Characters tab's characters (`'emDash'`, `'copyright'` and so on, as `symbolSpecial` names them).
 
 ## `memorySource`
 
