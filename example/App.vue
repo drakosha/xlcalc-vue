@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The example page: the sheet over the "all formatting" workbook, a language switch and the next edit's outcome for trying rejections.
 import { ref, shallowRef } from 'vue'
-import { SheetView, enMessages, memorySource, ruMessages, type ListSort, type SheetLinkEvent, type SheetViewState } from '../src'
+import { SheetView, enMessages, memorySource, ruMessages, type ListSort, type SheetLinkEvent, type SheetViewApi, type SheetViewState } from '../src'
 import { allFormattingBook } from './book'
 import { LIST_SHEET, sortList } from './list-book'
 
@@ -10,6 +10,7 @@ const lang = ref(params.get('lang') === 'en' ? 'en' : 'ru')
 const source = memorySource(allFormattingBook(Number(params.get('rows') ?? 34_000)), { delay: Number(params.get('delay') ?? 150) })
 const focus = shallowRef(params.get('sheet') ? { ref: params.get('sheet')! } : null)
 const state = ref<SheetViewState | null>(null)
+const sheet = shallowRef<SheetViewApi | null>(null)
 const lastLink = ref('')
 const next = ref('')
 
@@ -64,10 +65,13 @@ const cellUrl = (place: string) => `${location.origin}${location.pathname}?sheet
       </label>
       <button type="button" @click="recompute()">{{ lang === 'ru' ? 'Пересчёт 4 с' : 'Recompute 4 s' }}</button>
       <button type="button" @click="remoteEdit">{{ lang === 'ru' ? 'Правка из другой вкладки' : 'Edit from another tab' }}</button>
+      <!-- Excel's Insert > Symbol; mousedown.prevent keeps an open edit open, so the symbol goes at its caret -->
+      <button type="button" class="symbol" :title="lang === 'ru' ? 'Символ' : 'Symbol'" data-symbol @mousedown.prevent @click="sheet?.insertSymbol()">Ω</button>
       <span class="state" data-state>{{ state ? `${state.sheet}!${state.ref}${state.formula ? ' =' + state.formula : ''}` : '' }}</span>
       <span v-if="lastLink" class="state">{{ lastLink }}</span>
     </header>
     <SheetView
+      :ref="(el) => (sheet = el as SheetViewApi | null)"
       class="sheet"
       :source="source"
       :messages="lang === 'ru' ? ruMessages : enMessages"
@@ -114,7 +118,7 @@ const cellUrl = (place: string) => `${location.origin}${location.pathname}?sheet
 @media (max-width: 600px) {
   .top .state,
   .top label,
-  .top button {
+  .top button:not(.symbol) {
     display: none;
   }
 }
