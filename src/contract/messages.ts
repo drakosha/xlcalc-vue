@@ -186,6 +186,11 @@ export interface SheetMessages {
   italic: string
   underline: string
   fontColor: string
+  /** The Font and Font Size boxes, and Increase and Decrease Font Size. */
+  fontName: string
+  fontSize: string
+  fontSizeUp: string
+  fontSizeDown: string
   fillColor: string
   pickColor: string
   colorAuto: string
@@ -198,8 +203,15 @@ export interface SheetMessages {
   alignLeft: string
   alignCenter: string
   alignRight: string
+  alignTop: string
+  alignMiddle: string
+  alignBottom: string
+  indentDecrease: string
+  indentIncrease: string
   wrapText: string
   numberFormat: string
+  /** Excel's Percent Style button, with its key. */
+  percentStyle: string
   /** Excel's Format Cells dialog (`FormatDialog`): its tabs, inputs and the names of their options. */
   formatCells: string
   formatCellsOpen: string
