@@ -32,3 +32,15 @@ export const IconMore = icon(['M5 12h.01', 'M12 12h.01', 'M19 12h.01'], { 'strok
 export const IconFormatCells = icon(['M3 4h18v16H3z', 'M3 10h18', 'M9 10v10', 'M13 14h5', 'M13 17h3'])
 /** Merge & Center: a cell's box over the cells it covers, with a two-way arrow. */
 export const IconMerge = icon(['M3 5h18v14H3z', 'M7 12h10', 'm9 9.5-2.5 2.5L9 14.5', 'm15 9.5 2.5 2.5-2.5 2.5'])
+/** Increase and Decrease Font Size: a letter A with a caret up or down beside it, as Excel's buttons draw them. */
+export const IconFontUp = icon(['m3 20 5.5-14 5.5 14', 'M5.2 15h6.6', 'm16 9 2.5-3 2.5 3'])
+export const IconFontDown = icon(['m3 20 5.5-14 5.5 14', 'M5.2 15h6.6', 'm16 6 2.5 3 2.5-3'])
+/** Top, Middle and Bottom Align: an arrow to a line at the top, to the middle from both sides, to a line at the bottom. */
+export const IconAlignTop = icon(['M4 4h16', 'M12 20V9', 'm8 13 4-4 4 4'])
+export const IconAlignMiddle = icon(['M4 12h16', 'M12 2v6', 'm9 5 3 3 3-3', 'M12 22v-6', 'm9 19 3-3 3 3'])
+export const IconAlignBottom = icon(['M4 20h16', 'M12 4v11', 'm8 11 4 4 4-4'])
+/** Decrease and Increase Indent: lines of text with an arrow to the left or to the right before the middle ones. */
+export const IconIndentDecrease = icon(['M3 5h18', 'M11 10h10', 'M11 14h10', 'M3 19h18', 'm7 9-3 3 3 3'])
+export const IconIndentIncrease = icon(['M3 5h18', 'M11 10h10', 'M11 14h10', 'M3 19h18', 'm4 9 3 3-3 3'])
+/** Percent Style: the percent sign. */
+export const IconPercent = icon(['M19 5 5 19', 'M6.5 4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5', 'M17.5 15a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5'])

@@ -372,11 +372,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     emit('openLink', { ...link, sheet: s.sheetName.value, cell: cellAddress(row, col) })
   }
 
-  // ── keys on the grid: search and Esc first (a popover, the Find bar, copy mode, the precedents), then font shortcuts, editing and navigation ──
+  // ── keys on the grid: search and Esc first (a popover, the Find bar, copy mode, the precedents), then formatting shortcuts, editing and navigation ──
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
-    if (!e.isComposing && (cmd.fontKey(e) || outline.key(e) || barKey(e))) return
+    if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()

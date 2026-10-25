@@ -178,12 +178,13 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `locale` | `string` | The workbook's locale, in which the Number Format box names its categories and items; en-US without it. |
 | `sheet` | `SheetViewApi \| null` | The sheet's template ref. With it the toolbar formats, undoes, redoes and merges through the sheet; without it, through the source, and it emits `select` and `error`. |
 | `hostDialog` | `boolean` | The host opens its own dialog on `formatCells`, as when it listens: for a host whose listener the toolbar cannot see, such as a custom element's. |
+| `fonts` | `readonly string[]` | The Font box's list, in place of Excel's common fonts (Aptos, Arial, Calibri and others): a browser does not tell which fonts are installed. |
 
 | Event | Payload | When |
 | --- | --- | --- |
 | `select` | `{ sheet: string; range: string }` | Where the selection goes after an undo or a redo, for the sheet's `focus`; not emitted with `sheet`. |
 | `error` | `string` | The source rejected a call or the call failed; not emitted with `sheet`. |
-| `done` | none | A call has completed: the host may return focus to the grid. |
+| `done` | none | A call has completed, or Esc left the Font or Font Size box: the host may return focus to the grid. |
 | `formatCells` | none | Format Cells… was clicked. With a listener or `hostDialog`, the button opens the host's dialog; without one, it opens the sheet's dialog (through `sheet`), and without either there is no button. |
 
 ## `FormatDialog`
@@ -255,7 +256,7 @@ export function serverSource(base: string): SheetSource {
 | `structure(op: SheetOp)` | Structure operations on sheets, rows and columns (insert, delete, rename, move, hide); copying and moving ranges; merging. | No structure menu, no fill handle, and a copy is pasted as text. | [sheets.md](sheets.md), [clipboard.md](clipboard.md) |
 | `layout(change: LayoutChange)` | Column widths and row heights, hiding and fitting rows and columns. | A changed width lasts until the page reloads. | [sheets.md](sheets.md) |
 | `copyText(sheet, range, opts?) => Promise<string>` | Excel's clipboard text for a range. | The sheet copies the displayed text of its windows. | [clipboard.md](clipboard.md) |
-| `format(sheet, patches: FormatPatch[])` | Formatting, the toolbar, Format Cells, Ctrl+B/I/U. | No toolbar. | [toolbar.md](toolbar.md) |
+| `format(sheet, patches: FormatPatch[])` | Formatting, the toolbar, Format Cells, Ctrl+B/I/U, Ctrl+Shift+%. | No toolbar. | [toolbar.md](toolbar.md) |
 | `subscribe(listener: (e: SourceEvent) => void) => () => void` | Changes made elsewhere. Returns the unsubscribe function. | The sheet sees only its own edits. | [editing.md](editing.md) |
 | `validation(sheet, cell, signal?) => Promise<SheetValidation \| null>` | Excel's validation dropdown and input message. | None. | [validation.md](validation.md) |
 | `pick(sheet, cell, item, text)` | A picked list item written as Excel writes it. | The item goes to `edit` with `accept`. | [validation.md](validation.md) |

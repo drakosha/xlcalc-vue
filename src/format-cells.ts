@@ -3,7 +3,7 @@
 import type { AlignmentStyle, BorderLine, CellStyle, FontStyle, FormatChoice, NumberFormat } from 'xlcalc/contract'
 import { parseRange } from 'xlcalc/a1'
 import type { SheetFormatPatch, SheetViewState } from './contract/view'
-import { BORDER_EDGES, edgePatches, edgesOf, sameLine, upperColour, type BorderEdge, type EdgeLines } from './toolbar'
+import { BORDER_EDGES, edgePatches, edgesOf, INDENTED, parseFontSize, sameLine, upperColour, type BorderEdge, type EdgeLines } from './toolbar'
 
 export type FormatTab = 'number' | 'alignment' | 'font' | 'border' | 'fill'
 export const FORMAT_TABS: readonly FormatTab[] = ['number', 'alignment', 'font', 'border', 'fill']
@@ -12,8 +12,6 @@ type Horizontal = NonNullable<AlignmentStyle['horizontal']>
 type Vertical = NonNullable<AlignmentStyle['vertical']>
 export const HORIZONTALS: readonly Horizontal[] = ['general', 'left', 'center', 'right', 'fill', 'justify', 'centerContinuous', 'distributed']
 export const VERTICALS: readonly Vertical[] = ['top', 'center', 'bottom', 'justify', 'distributed']
-/** Excel's indent applies with the left, right and distributed alignments. */
-export const INDENTED: ReadonlySet<string> = new Set<Horizontal>(['left', 'right', 'distributed'])
 /** The line styles Excel's Border tab offers, in the order of its list. */
 export const LINE_STYLES: readonly BorderLine['style'][] = ['hair', 'dotted', 'dashDotDot', 'dashDot', 'dashed', 'thin', 'mediumDashDotDot', 'slantDashDot', 'mediumDashDot', 'mediumDashed', 'medium', 'thick', 'double']
 type FontStyleKind = 'regular' | 'italic' | 'bold' | 'boldItalic'
@@ -21,10 +19,6 @@ type Underline = 'none' | NonNullable<FontStyle['underline']>
 /** The font styles and underlines in the order of Excel's lists. */
 export const FONT_STYLES: readonly FontStyleKind[] = ['regular', 'italic', 'bold', 'boldItalic']
 export const UNDERLINES: readonly Underline[] = ['none', 'single', 'double']
-/** Excel's font sizes in its list; any size from 1 to 409 may be typed. */
-export const FONT_SIZES: readonly number[] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72]
-/** Fonts offered in the font input's list; any name may be typed. */
-export const FONT_NAMES: readonly string[] = ['Aptos', 'Arial', 'Calibri', 'Cambria', 'Courier New', 'Georgia', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Verdana']
 
 /** The dialog's inputs; text inputs hold what is typed until OK parses them. */
 export interface FormatDraft {
@@ -65,11 +59,6 @@ const isBold = (k: FontStyleKind) => k === 'bold' || k === 'boldItalic'
 const isItalic = (k: FontStyleKind) => k === 'italic' || k === 'boldItalic'
 /** The typed indent: a whole number of characters, NaN for anything else. */
 const parseIndent = (text: string): number => (/^\d+$/.test(text.trim()) ? Number(text.trim()) : NaN)
-/** The typed font size, with a decimal point or comma: undefined for an empty input (the workbook's size), NaN for anything that is not a number. */
-function parseSize(text: string): number | undefined {
-  const t = text.trim().replace(',', '.')
-  return t ? Number(t) : undefined
-}
 
 /** The inputs as the active cell's formatting fills them: its style, its number format's code, and Excel's thin black line to draw with. */
 export function startOf(state: SheetViewState): FormatStart {
@@ -134,7 +123,7 @@ export function draftErrors(draft: FormatDraft): DraftErrors {
   const out: DraftErrors = {}
   if (!draft.numberCode.trim()) out.numberCode = true
   if (!(parseIndent(draft.indent) <= 250)) out.indent = true
-  const size = parseSize(draft.fontSize)
+  const size = parseFontSize(draft.fontSize)
   if (size !== undefined && !(size >= 1 && size <= 409)) out.fontSize = true
   return out
 }
@@ -152,7 +141,7 @@ export function typeNumber(draft: FormatDraft, code: string): void {
 
 /** The typed font size, rounded to Excel's half points; undefined for an empty input (the workbook's size). */
 function sizeOf(text: string): number | undefined {
-  const size = parseSize(text)
+  const size = parseFontSize(text)
   return size === undefined ? undefined : Math.round(size * 2) / 2
 }
 
