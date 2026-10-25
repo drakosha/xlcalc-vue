@@ -52,6 +52,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Rows, columns and sheets](docs/sheets.md): row, column and sheet tab context menus, sizes, outline.
 - [Clipboard and fill handle](docs/clipboard.md)
 - [Freeze Panes, Reapply and Trace Precedents](docs/view.md)
+- [Hyperlinks, notes, Clear and the default font](docs/links-notes.md)
 - [Find and Replace](docs/find-replace.md)
 - [Data validation](docs/validation.md)
 - [Formula AutoComplete](docs/autocomplete.md)

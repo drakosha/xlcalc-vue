@@ -7,6 +7,7 @@ import { errorText } from '../failure'
 import { useMessages } from '../messages'
 import type { SheetMessages } from '../contract/messages'
 import type { SheetFilter, SheetInfo, SheetSource } from '../contract/source'
+import { defaultFontCss } from './cell-style'
 import { colPx, rowPx } from './geometry'
 import type { ListSort, SheetFailure, SheetViewProps } from '../contract/view'
 import { createMemory } from './storage'
@@ -45,6 +46,12 @@ export function createState(props: SheetViewProps) {
   const active = ref(-1)
   const sheet = computed<SheetInfo | null>(() => sheets.value[active.value] ?? null)
   const sheetName = computed(() => sheet.value?.name ?? '')
+  /**
+   * The workbook's default font (Excel's Normal style, `SheetInfo.font`), in which a cell without a font of its own is drawn;
+   * null without one, when such cells take `--xs-font` and `--xs-font-size`. What the editor and the font boxes show for such a cell.
+   */
+  const defaultFont = computed(() => sheet.value?.font ?? null)
+  const defaultFontStyle = computed(() => (defaultFont.value ? defaultFontCss(defaultFont.value) : null))
   /** The data extent grown by edits since the sheets were read: the source's extent predates them. */
   const grown = ref({ rows: 0, cols: 0 })
   /** The extent reached by jumps and keys beyond the data on an editable sheet. */
@@ -131,6 +138,8 @@ export function createState(props: SheetViewProps) {
     active,
     sheet,
     sheetName,
+    defaultFont,
+    defaultFontStyle,
     grown,
     reach,
     dataRows,

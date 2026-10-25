@@ -43,8 +43,8 @@ const rows = computed(() => {
   return out
 })
 const span = computed(() => (v.barW.value ? 1 : 0) + (v.showNums.value ? 1 : 0) + cols.value.length)
-/** The outline bars' sizes for the sticky headers and numbers: left of the row numbers, above the column letters. */
-const barVars = computed(() => ({ width: v.tableWidth.value + 'px', '--xs-outline-w': v.barW.value + 'px', '--xs-outline-h': v.barH.value + 'px' }))
+/** The outline bars' sizes for the sticky headers and numbers (left of the row numbers, above the column letters), and the workbook's default font, which cells without a font of their own inherit. */
+const tableStyle = computed(() => ({ width: v.tableWidth.value + 'px', '--xs-outline-w': v.barW.value + 'px', '--xs-outline-h': v.barH.value + 'px', ...ctx.defaultFontStyle.value }))
 const empty = computed(() => ctx.rowCount.value === 0 || ctx.colCount.value === 0)
 const freezeCols = computed(() => ctx.sheet.value?.freeze?.cols ?? 0)
 const headLabel = (c: number) => ctx.sheet.value?.columns?.[c - 1]?.title ?? colLetters(c)
@@ -160,7 +160,7 @@ const setScroller = refInto(ctx.scroller)
     @pointercancel="onUp"
   >
     <p v-if="empty && ctx.sheet.value" class="xs-empty">{{ m.empty }}</p>
-    <table v-else-if="ctx.sheet.value" class="xs-table" :style="barVars">
+    <table v-else-if="ctx.sheet.value" class="xs-table" :style="tableStyle">
       <colgroup>
         <col v-if="v.barW.value" :style="{ width: v.barW.value + 'px' }" />
         <col v-if="v.showNums.value" :style="{ width: v.numW.value + 'px' }" />

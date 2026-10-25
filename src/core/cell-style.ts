@@ -87,11 +87,17 @@ export function setSide(css: Record<string, string>, side: 'Top' | 'Right' | 'Bo
   css[`border${side}Color`] = line.color
 }
 
+/** A workbook's font name as a CSS family, with the interface font behind it for a font the browser lacks. */
+const familyCss = (name: string): string => `"${name.replace(/["\\]/g, '')}", var(--xs-font)`
+
+/** The workbook's default font (`SheetInfo.font`) as CSS for the grid, which the cells without a font of their own inherit. */
+export const defaultFontCss = (font: { name: string; size: number }): Record<string, string> => ({ fontFamily: familyCss(font.name), fontSize: `${fontPx(font.size)}px` })
+
 /** A cell's font, color and fill; `section` is the color from the number format's section, which takes precedence over the font's. */
 export function fontCss(style: CellStyle | undefined, section: string | undefined): Record<string, string> {
   const css: Record<string, string> = {}
   const f = style?.font
-  if (f?.name) css.fontFamily = `"${f.name.replace(/["\\]/g, '')}", var(--xs-font)`
+  if (f?.name) css.fontFamily = familyCss(f.name)
   if (f?.size) css.fontSize = `${fontPx(f.size)}px`
   if (f?.bold) css.fontWeight = '700'
   if (f?.italic) css.fontStyle = 'italic'
