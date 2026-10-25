@@ -5,6 +5,14 @@
 .xs-fl-item {
   padding: 0 6px;
 }
+/* The kind of an item, as Excel's list shows it: fx for a function, a tag for a defined name. */
+.xs-fl-icon {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -2px;
+  opacity: 0.7;
+}
 /* Excel's argument tooltip (FunctionTip) below the editor, with the current argument in bold; wrapped inside a narrow viewport. */
 .xs-ft {
   position: absolute;

@@ -110,6 +110,10 @@ export interface SheetViewApi {
   fillRight(): Promise<EditOutcome | null>
   /** Excel's Show Formulas (Ctrl+`) on the displayed sheet, toggled without `on`: a view setting kept as the frozen panes choice is, the workbook unchanged; whether it is on afterwards. */
   showFormulas(on?: boolean): boolean
+  /** Excel's Define Name: the New Name dialog for the selection; false when names cannot be defined (no `names` or `setNames`, a read-only sheet) or a cell is being edited. */
+  defineName(): boolean
+  /** Excel's Name Manager (Ctrl+F3); false when the source has no `names` or a cell is being edited. Without `setNames` or on a read-only sheet it only lists the names. */
+  nameManager(): boolean
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

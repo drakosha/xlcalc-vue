@@ -13,6 +13,7 @@ import GoToDialog from './GoToDialog.vue'
 import SymbolDialog from './SymbolDialog.vue'
 import ValidationAlert from './ValidationAlert.vue'
 import FormulaBar from './FormulaBar.vue'
+import NameDialogs from './NameDialogs.vue'
 import SheetGrid from './SheetGrid.vue'
 import SheetMenu from './SheetMenu.vue'
 import SheetTabs from './SheetTabs.vue'
@@ -103,6 +104,7 @@ const wait = ctx.w.wait
       />
       <GoToDialog v-if="ctx.goto.open.value" />
       <SymbolDialog v-if="ctx.symbolOpen.value" />
+      <NameDialogs v-if="ctx.names.available.value" />
       <ValidationAlert :alert="ctx.alerts.alert.value" :messages="m" @answer="ctx.alerts.answer" />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>

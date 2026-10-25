@@ -284,6 +284,28 @@ export interface SheetMessages {
   symbolCharacter: string
   symbolSpecial: (character: SymbolSpecial) => string
   symbolInsert: string
+  /** Defined names: the Name Box's list button, its messages for a typed name, the cell menu's Define Name, and a name in Formula AutoComplete. */
+  nameBoxList: string
+  nameBoxBad: string
+  nameNotRange: string
+  menuDefineName: string
+  nameItem: (name: string) => string
+  /** Excel's New Name and Edit Name dialog and its fields; the scope that is not a sheet. */
+  nameNewTitle: string
+  nameEditTitle: string
+  nameLabel: string
+  nameScope: string
+  nameRefersTo: string
+  nameWorkbook: string
+  /** Excel's Name Manager: its title, buttons, the list's columns, Commit beside Refers to, and its questions before a deletion and before closing with an edited reference. */
+  nameManager: string
+  nameNew: string
+  nameEdit: string
+  nameDelete: string
+  nameColumn: (column: 'name' | 'refersTo' | 'scope') => string
+  nameCommit: string
+  nameDeleteAsk: (name: string) => string
+  nameSaveAsk: string
 }
 
 /** The Symbol dialog's Subset list: Unicode blocks by Excel's names (`basicLatin` is Basic Latin, `latin1` Latin-1 Supplement). */

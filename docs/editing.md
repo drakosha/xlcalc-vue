@@ -10,6 +10,7 @@ Editing uses Excel's keys:
 - Ctrl+` shows the formulas instead of the values, as Excel's Show Formulas does ([view.md](view.md#show-formulas));
 - Ctrl+Page Down and Ctrl+Page Up go to the next and the previous visible sheet;
 - F5 and Ctrl+G (Control+G on a Mac as well) open Excel's Go To dialog ([go-to-and-symbol.md](go-to-and-symbol.md));
+- Ctrl+F3 opens the Name Manager, and Ctrl+L on a Mac Define Name, with a source that has defined names ([names.md](names.md));
 - Ctrl+arrow goes where the source's `end(sheet, cell, direction)` points, as Excel's Range.End, and Shift+Ctrl+arrow extends the selection there. Without `end`, or under a display filter, it goes to the edge of the data known to the sheet.
 
 Without `edit` the sheet is read-only.

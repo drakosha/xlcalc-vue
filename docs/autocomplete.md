@@ -1,15 +1,15 @@
 # Formula AutoComplete
 
-A source with `functionNames(signal)` returns the functions a formula can call, by their names as typed in the source's locale (`СУММ` in ru-RU), in the order the list displays them. While a formula is being typed in the cell editor or the formula bar and the caret is right after the beginning of a name (as `nameAt` from `xlcalc/text` finds it: letters, digits, `.` and `_` after the formula's `=`, an operator, `(`, the workbook's list separator (`,` in en-US and `;` in ru-RU), a space or a line break; not inside a string, a quoted sheet name or a table's brackets, nor after a sheet's `!` or a `$`), Excel's list opens below the editor: the functions whose names begin with what was typed, case-insensitively, eight at a time with a scroll bar, the first one highlighted. Typing further narrows it, and a character that cannot be part of a name, or a name no function begins with, closes it.
+A source with `functionNames(signal)` returns the functions a formula can call, by their names as typed in the source's locale (`СУММ` in ru-RU), in the order the list displays them. While a formula is being typed in the cell editor or the formula bar and the caret is right after the beginning of a name (as `nameAt` from `xlcalc/text` finds it: letters, digits, `.` and `_` after the formula's `=`, an operator, `(`, the workbook's list separator (`,` in en-US and `;` in ru-RU), a space or a line break; not inside a string, a quoted sheet name or a table's brackets, nor after a sheet's `!` or a `$`), Excel's list opens below the editor: the functions whose names begin with what was typed, case-insensitively, eight at a time with a scroll bar, the first one highlighted, each with Excel's fx icon; a source with `names` adds the defined names visible on the sheet among them, with a tag icon ([names.md](names.md)). Typing further narrows it, and a character that cannot be part of a name, or a name nothing begins with, closes it.
 
 - The arrow keys, Page Up and Page Down, Home and End move the highlight.
-- Tab or a double click replaces the typed name with the function and its `(` (keeping a `(` already after the name) and closes the list.
+- Tab or a double click replaces the typed name with the function and its `(` (keeping a `(` already after the name), or with the defined name alone, and closes the list.
 - Esc closes the list and keeps the editor open, and a second Esc cancels the edit as usual.
 - Enter commits the cell as typed, as Excel for Windows does; Excel for Mac also enters the highlighted item on Return.
 - Left and Right move the caret, and the list follows the name before it.
 - On a touch screen the items are 44 px, and a tap enters one.
 
-The sheet requests the names once per source, when an editor first opens, and again for a new source; a failed request is retried when the next editor opens, and without `functionNames` there is no list.
+The sheet requests the function names once per source, when an editor first opens, and again for a new source; a failed request is retried when the next editor opens, and without `functionNames` (and without defined names) there is no list.
 
 `memorySource` takes the list from its workbook's `functions`: type `=SU` into a cell.
 

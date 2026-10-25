@@ -286,11 +286,13 @@ describe('the list below the formula bar', () => {
 })
 
 describe('FunctionList', () => {
+  /** Function items, as the list shows them. */
+  const fns = (...names: string[]) => names.map((text) => ({ text, kind: 'function' as const }))
   const FIELD = { top: 100, left: 300, width: 80, height: 20 }
   const VIEW = { top: 0, left: 0, width: 360, height: 400 }
 
   it('below the editor, eight items tall, kept inside the viewport; above the editor where the viewport has no room below', () => {
-    const items = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+    const items = fns('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J')
     const w = mount(FunctionList, { props: { rect: FIELD, items, view: VIEW } })
     const style = (w.element as HTMLElement).style
     expect([style.top, style.left, style.width, style.maxHeight]).toEqual(['120px', '140px', '220px', `${8 * 18 + 2}px`])
@@ -299,20 +301,20 @@ describe('FunctionList', () => {
   })
 
   it('on a touch screen the items are 44 px and a tap inserts one; with a mouse a click highlights', async () => {
-    const w = mount(FunctionList, { props: { rect: FIELD, items: ['СУММ', 'СУММЕСЛИ'], touch: true, messages: { functionList: 'Функции' } } })
+    const w = mount(FunctionList, { props: { rect: FIELD, items: fns('СУММ', 'СУММЕСЛИ'), touch: true, messages: { functionList: 'Функции' } } })
     expect(w.classes()).toContain('xs-fl-touch')
     expect((w.element as HTMLElement).style.maxHeight).toBe(`${2 * 44 + 2}px`)
     expect(w.attributes('aria-label')).toBe('Функции')
     await w.find('[data-xs-function="СУММЕСЛИ"]').trigger('click')
     expect(w.emitted('pick')).toEqual([[1]])
-    const mouse = mount(FunctionList, { props: { rect: FIELD, items: ['СУММ', 'СУММЕСЛИ'] } })
+    const mouse = mount(FunctionList, { props: { rect: FIELD, items: fns('СУММ', 'СУММЕСЛИ') } })
     await mouse.find('[data-xs-function="СУММЕСЛИ"]').trigger('click')
     expect(mouse.emitted('highlight')).toEqual([[1]])
     expect(mouse.emitted('pick')).toBeUndefined()
   })
 
   it("a press on the list keeps the editor's focus", async () => {
-    const w = mount(FunctionList, { props: { rect: FIELD, items: ['СУММ'] }, attachTo: document.body })
+    const w = mount(FunctionList, { props: { rect: FIELD, items: fns('СУММ') }, attachTo: document.body })
     const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
     w.find('li').element.dispatchEvent(down)
     expect(down.defaultPrevented).toBe(true)
