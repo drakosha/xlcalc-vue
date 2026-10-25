@@ -56,6 +56,17 @@ describe('Go To', () => {
     expect(dialog(w).exists()).toBe(true)
   })
 
+  it('lists the defined names that refer to ranges after the locations, and OK on a name goes to its range', async () => {
+    const w = await mountSheet(memorySource({ ...book(), names: [{ name: 'Target', ref: "'Sheet 2'!$B$2" }, { name: 'Rate', ref: '0.2' }] }))
+    await open(w)
+    expect(items(w)).toEqual(['Target'])
+    await ok(w, 'target')
+    expect(tab(w)).toBe('Sheet 2')
+    expect(active(w)).toBe('2:2')
+    await open(w)
+    expect(items(w)).toEqual(['S!$A$1', 'Target'])
+  })
+
   it('OK goes to the reference as the Name Box does, and the next time offers the location it left, so F5 and Enter go back', async () => {
     const w = await mountSheet(memorySource(book()))
     await goTo(w, 'B3')

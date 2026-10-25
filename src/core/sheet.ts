@@ -149,7 +149,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
   const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() } })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
-  const goto = useGoTo(s, sel, nav, { ask: alerts.ask })
+  const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
   /** Excel's Symbol dialog: open over an editable sheet with an active cell; it inserts into the edit it keeps open. */
   const symbolOpen = ref(false)
   function openSymbol(): boolean {

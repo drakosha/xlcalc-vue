@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { quoteSheetIfNeeded } from 'xlcalc/a1'
 import { shortcutLetter } from './keys'
 import type { AlertAnswer, SheetAlert } from './validation'
+import type { Names } from './names'
 import type { Navigation } from './navigation'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -20,25 +21,26 @@ export function absoluteRef(ref: string): string {
 
 export interface GoToDeps {
   ask: (alert: SheetAlert) => Promise<AlertAnswer>
+  names: Names
 }
 
 export function useGoTo(s: SheetState, sel: Selection, nav: Navigation, deps: GoToDeps) {
   const open = ref(false)
   /** The locations jumps from Go To and from hyperlinks left, newest first: the first one fills the Reference box, so F5 and Enter go back. */
   const places = ref<string[]>([])
-  /** The workbook's defined names, which the list shows after the locations, alphabetically; none until the source lists them. */
-  const names = computed<string[]>(() => [])
-  const items = computed(() => [...places.value, ...[...names.value].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))])
+  /** The defined names that refer to ranges, as the Name Box lists them (alphabetically), after the locations. */
+  const items = computed(() => [...places.value, ...deps.names.boxNames.value.map((n) => n.name)])
 
   /** The selection as a location to come back to: `Sheet1!$B$2:$D$5`. */
   function here(): string | null {
     const ref = sel.selectionRef.value
     return s.sheet.value && ref ? `${quoteSheetIfNeeded(s.sheetName.value)}!${absoluteRef(ref)}` : null
   }
-  /** Goes to a location as the Name Box does and, when it went there, records the location it left; false for text that is not one. */
+  /** Goes to a defined name's range or a location, as the Name Box does, and, when it went there, records the location it left; false for text that is neither. */
   async function jump(text: string): Promise<boolean> {
     const from = here()
-    if (!(await nav.goPlace(text))) return false
+    const named = deps.names.find(text.trim(), s.sheetName.value)
+    if (!(named ? await nav.goName(named) : await nav.goPlace(text))) return false
     if (from) places.value = [from, ...places.value.filter((p) => p.toUpperCase() !== from.toUpperCase())].slice(0, GOTO_PLACES)
     return true
   }
