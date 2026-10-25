@@ -76,6 +76,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `sort` | `ListSort \| null` | `null` | List mode: the order the host sorted the list in, shown as an arrow on that column's title. |
 | `openRows` | `boolean` | `false` | List mode: the first column opens its row, and so does Enter on a cell that is not a drill-down. |
 | `hostLinks` | `boolean` | `false` | The host opens links itself through `openLink`, as when it listens: for a host whose listener the sheet cannot see, such as a custom element's. |
+| `noteAuthor` | `string` | none | The author's name for a new note, shown in bold on its first line, as Excel takes the user name from its Options; without it a new note has no author. |
 
 ### Events
 
@@ -125,6 +126,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
 | `clear(what: ClearKind)` | `Promise<EditOutcome \| null>` | Excel's Home > Clear > Clear Formats (`'formats'`) or Clear All (`'all'`) over the selection through the source's `clear`, as a single undo step; under a display filter, over its visible rows. `null` also over a locked cell. See [links-notes.md](links-notes.md#clear-formats-and-clear-all). |
+| `insertLink()` | `boolean` | Opens Excel's Insert Hyperlink dialog (Ctrl+K) for the selection, as Edit Hyperlink when the active cell has a link; OK writes the link through the source's `link`. `false` without `link`, on a read-only sheet or over a locked cell. See [links-notes.md](links-notes.md#hyperlinks). |
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 

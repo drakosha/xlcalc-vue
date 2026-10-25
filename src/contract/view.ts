@@ -30,6 +30,8 @@ export interface SheetViewProps {
   openRows?: boolean
   /** The host opens links itself through `openLink`: for a host whose listener the component cannot see, such as a custom element's. */
   hostLinks?: boolean
+  /** The author's name for a new note, which Excel writes in bold on its first line (Excel takes the user name from its Options); without it a new note has no author. */
+  noteAuthor?: string
 }
 
 /** Why the workbook cannot be displayed: the source's error and its text. */
@@ -98,6 +100,11 @@ export interface SheetViewApi {
    * nothing was sent: no `clear`, a read-only sheet, or a locked cell in the selection.
    */
   clear(what: ClearKind): Promise<EditOutcome | null>
+  /**
+   * Excel's Insert Link (Ctrl+K) over the selection: opens its dialog, as Edit Hyperlink when the active cell has a link; OK
+   * writes the link through the source's `link`. false when links cannot be edited: no `link`, a read-only sheet, a locked cell.
+   */
+  insertLink(): boolean
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

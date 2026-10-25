@@ -96,7 +96,7 @@ describe('Reapply for the display filter', () => {
     const { source, visibleRows, w } = await filtered()
     await context(w, '2:1')
     // no Freeze Panes under the filter: its rows on screen are not the sheet's
-    expect(items()).toEqual(['cut', 'copy', 'paste', 'reapply', 'precedents'])
+    expect(items()).toEqual(['cut', 'copy', 'paste', 'reapply', 'precedents', 'newNote', 'link'])
     source.setCells('S', { B2: 'b' })
     await pick('reapply')
     expect(numbers(w)).toEqual(['1', '4', '6'])
@@ -222,7 +222,7 @@ describe('Freeze Panes', () => {
     delete (none as { freeze?: unknown }).freeze
     const bare = await mountSheet(none)
     await context(bare, '3:3')
-    expect(items()).toEqual(['cut', 'copy', 'paste', 'precedents'])
+    expect(items()).toEqual(['cut', 'copy', 'paste', 'precedents', 'newNote', 'link'])
     expect(await api(bare).freezePanes('topRow')).toBeNull()
   })
 

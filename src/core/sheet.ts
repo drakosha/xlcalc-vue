@@ -1,6 +1,6 @@
 // The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the viewport's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, triggerRef, watch } from 'vue'
-import { cellAddress, linesKey, parseCell, rangeAddress, sameName } from 'xlcalc/a1'
+import { linesKey, parseCell, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import { errorText } from '../failure'
 import type { SheetInfo, SheetWindow } from '../contract/source'
@@ -13,12 +13,14 @@ import { useExplain } from './explain'
 import { useExtras } from './extras'
 import { useFill } from './fill'
 import { useFormula } from './formula'
+import { useLinks } from './links'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
 import { isShortcut, shortcutLetter } from './keys'
 import { useMenu } from './menu'
 import { useMerge } from './merge'
 import { useNavigation } from './navigation'
+import { useNotes } from './notes'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
 import { useValidation, useValidationAlert, VALIDATION_DELAY_MS } from './validation'
@@ -136,7 +138,15 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
   const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
-  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
+  const links = useLinks(s, sel, w, f, ed, extras, {
+    notify,
+    single: () => !!merge.area.value && !!sel.fullRect.value && rangeAddress(merge.area.value) === rangeAddress(sel.fullRect.value),
+    goPlace: nav.goPlace,
+    hostLinks,
+    openLink: (link) => emit('openLink', link),
+  })
+  const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, cellExtras: () => [...notes.items(), ...links.items()] })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
@@ -152,6 +162,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     explain: explain.show,
     merge: merge.run,
     clear: extras.clear,
+    insertLink: links.open,
   }
 
   // ── sheets ──
@@ -363,16 +374,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
 
   // ── hyperlinks in cells ──
-  /** A hyperlink clicked in a cell: a location in the workbook is handled by the component, anything else goes to the host if it listens. */
+  /** A hyperlink clicked in a cell: a location in the workbook is handled by the component, anything else goes to the host if it listens, otherwise to the browser. */
   function onLink(e: MouseEvent, link: NonNullable<SheetWindow['links']>[string], row: number, col: number): void {
-    if (link.location) {
-      e.preventDefault()
-      void nav.goPlace(link.location.replace(/^#/, ''))
-      return
-    }
-    if (!hostLinks()) return
-    e.preventDefault()
-    emit('openLink', { ...link, sheet: s.sheetName.value, cell: cellAddress(row, col) })
+    if (links.openLink(link, row, col, true)) e.preventDefault()
   }
 
   // ── keys on the grid: search and Esc first (a popover, the Find bar, copy mode, the precedents), then font shortcuts, editing and navigation ──
@@ -393,6 +397,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     }
     // Ctrl+1 on a Mac too: the browser reserves Cmd+1 for its first tab.
     if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.key === '1' || e.code === 'Digit1') && cmd.openFormat()) {
+      e.preventDefault()
+      return
+    }
+    // Excel's Ctrl+K (Cmd+K on a Mac): Insert Link, or Edit Hyperlink on a cell with a link.
+    if (isShortcut(e) && !e.shiftKey && shortcutLetter(e) === 'k' && links.open()) {
       e.preventDefault()
       return
     }
@@ -424,6 +433,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey && shortcutLetter(e) === 'l' && filter.active.value) {
       e.preventDefault()
       void filter.reapply()
+      return
+    }
+    // Excel's Shift+F2: New Note, or Edit Note on a cell with one.
+    if (e.key === 'F2' && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && notes.open()) {
+      e.preventDefault()
       return
     }
     // In list mode Enter opens the active cell's drill-down or row instead of moving.
@@ -488,6 +502,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       s.endWorkbook()
       ed.forget()
       alerts.answer('cancel')
+      links.draft.value = null
+      notes.draft.value = null
       subscribe()
       void init()
     },
@@ -536,6 +552,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     list,
     cmd,
     extras,
+    links,
+    notes,
     api,
     clip,
     fill,

@@ -10,7 +10,7 @@ export function emptyBook(locale: BookLocale): BookInput {
 }
 
 /** Methods that change the workbook: the status bar shows a recalculation while one is pending. */
-const CHANGES = ['edit', 'paste', 'fill', 'pick', 'undo', 'redo', 'structure', 'layout', 'format', 'replace', 'outline', 'freeze'] as const
+const CHANGES = ['edit', 'paste', 'fill', 'pick', 'undo', 'redo', 'structure', 'layout', 'format', 'replace', 'outline', 'freeze', 'clear', 'link', 'note'] as const
 
 /** The source with its changes timed: `begin` when one is sent, `end` with its milliseconds when it returns. */
 export function timed(source: LocalSource, begin: () => void, end: (ms: number) => void): LocalSource {

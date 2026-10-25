@@ -7,6 +7,7 @@ import CellEditor from './CellEditor.vue'
 import { cellOfData } from '../core/selection'
 import { useSheetContext } from './context'
 import { refInto } from './dom'
+import NoteBox from './NoteBox.vue'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
@@ -99,8 +100,8 @@ function cellUnder(e: Event): { row: number; col: number } | null {
   const td = (e.target as HTMLElement).closest?.<HTMLElement>('td[data-cell]')
   return td ? cellOfData(td.dataset.cell) : null
 }
-/** The same, but not a web link in it (the browser's menu has its own items for a link). */
-const cellOf = (e: Event) => ((e.target as HTMLElement).closest?.('a[href]') ? null : cellUnder(e))
+/** The same, but not a web link in it (the browser's menu has its own items for a link), unless the cell menu has Excel's hyperlink items. */
+const cellOf = (e: Event) => ((e.target as HTMLElement).closest?.('a[href]') && !ctx.links.available.value ? null : cellUnder(e))
 function onContext(e: MouseEvent): void {
   const h = headerOf(e)
   const cell = h ? null : cellOf(e)
@@ -259,7 +260,8 @@ const setScroller = refInto(ctx.scroller)
     </table>
     <SheetMarks v-if="ctx.sheet.value && !empty" />
     <CellEditor v-if="ctx.editable.value" />
-    <template v-if="activeBox && !ctx.editor.value">
+    <NoteBox v-if="ctx.notes.draft.value" />
+    <template v-if="activeBox && !ctx.editor.value && !ctx.notes.draft.value">
       <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="v.viewBox.value" />
       <ValidationDropdown
         v-if="vd.list.value && ctx.editable.value"

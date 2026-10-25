@@ -9,6 +9,7 @@ import ExplainPanel from './ExplainPanel.vue'
 import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
 import FormatDialog from './FormatDialog.vue'
+import LinkDialog from './LinkDialog.vue'
 import ValidationAlert from './ValidationAlert.vue'
 import FormulaBar from './FormulaBar.vue'
 import SheetGrid from './SheetGrid.vue'
@@ -29,6 +30,7 @@ const props = withDefaults(defineProps<SheetViewProps>(), {
   sort: null,
   openRows: false,
   hostLinks: false,
+  noteAuthor: undefined,
 })
 const emit = defineEmits<{
   state: [state: SheetViewState | null]
@@ -99,6 +101,7 @@ const wait = ctx.w.wait
         @apply="(patches) => void ctx.cmd.format(patches)"
         @close="ctx.cmd.closeFormat()"
       />
+      <LinkDialog />
       <ValidationAlert :alert="ctx.alerts.alert.value" :messages="m" @answer="ctx.alerts.answer" />
       <div v-if="message" class="xs-message" role="status" aria-live="polite">
         <span>{{ message }}</span>

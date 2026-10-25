@@ -1,6 +1,6 @@
 // Excel's context menus: on row numbers and column letters (insert, delete, sizes, hide, unhide, group, ungroup), on the
 // sheet tabs (insert, delete, rename, move, hide, unhide) and the "+" after them, on cells (cut, copy, paste, the display
-// filter's Reapply, Freeze Panes and its variants, Trace Precedents); a right click
+// filter's Reapply, Freeze Panes and its variants, Trace Precedents, then the notes' and hyperlinks' items); a right click
 // opens one, and so does a long press on a touch screen. Its small dialogs ask for a size, confirm a sheet's deletion,
 // list hidden sheets, and ask whether to group rows or columns.
 import { computed, nextTick, onScopeDispose, ref, shallowRef } from 'vue'
@@ -63,6 +63,8 @@ export interface MenuDeps {
   explain: Explain
   /** Whether the workbook freezes panes on the displayed sheet: the first freeze item is then Unfreeze Panes, as in Excel. */
   frozen: () => boolean
+  /** The cell menu's items for what a cell holds beside its value (notes, hyperlinks), in Excel's order at the menu's end. */
+  cellExtras: () => MenuItem[]
 }
 
 export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: MenuDeps) {
@@ -128,6 +130,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
       )
     }
     if (deps.explain.available.value) out.push({ id: 'precedents', label: m().menuPrecedents, run: () => deps.explain.show(), group: true })
+    out.push(...deps.cellExtras())
     return out
   }
   function lineItems(axis: 'rows' | 'columns', first: number, last: number): MenuItem[] {

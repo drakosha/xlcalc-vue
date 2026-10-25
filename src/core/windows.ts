@@ -197,6 +197,9 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const c = cellOfRow(r, col)
     return !!c?.win.drill?.[cellAddress(r, col)] && (c.win.text[c.i]?.[c.j] ?? '') !== ''
   }
+  /** A cell's hyperlink and note by sheet row, from its loaded window; undefined when it has none or no window holds it. */
+  const linkOfRow = (r: number, col: number): CellData['link'] => cellOfRow(r, col)?.win.links?.[cellAddress(r, col)]
+  const noteOfRow = (r: number, col: number): CellData['note'] => cellOfRow(r, col)?.win.notes?.[cellAddress(r, col)]
   /** A cell's displayed style and its number format code (none: General), from its loaded window; null when no window holds it. */
   const lookOfRow = (r: number, col: number): { style?: CellStyle; numberFormat?: string } | null => {
     const w = cellOfRow(r, col)?.win
@@ -593,6 +596,8 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     emptyAtRow,
     editTextOfRow,
     lookOfRow,
+    linkOfRow,
+    noteOfRow,
     merges,
     tables,
     notice,

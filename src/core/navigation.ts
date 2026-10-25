@@ -22,7 +22,7 @@ const HISTORY_MAX = 50
 const FLASH_MS = 2000
 
 /** A location from the Name Box, a hyperlink or `focus`: a range with its sheet (`B12`, `'Sheet 2'!C7:D9`, `B:B`) or a sheet alone; null for anything else (`B12+C1`). */
-function parsePlace(text: string): { sheet?: string; range?: CellRect } | null {
+export function parsePlace(text: string): { sheet?: string; range?: CellRect } | null {
   const raw = text.trim()
   if (!raw) return null
   const whole = (refs: FormulaReference[], end: number): GridReference | null => {
