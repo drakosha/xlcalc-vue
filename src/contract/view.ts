@@ -71,6 +71,8 @@ export interface SheetViewState {
   showFormulas?: true
   /** The sheet's zoom in percent; absent at 100%. */
   zoom?: number
+  /** The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays: a toolbar's Font and Font Size boxes show it for such a cell. */
+  font?: { name: string; size: number }
 }
 
 /** The `zoom` event: the user changed a sheet's zoom (Ctrl+wheel, a pinch, the status bar, the Zoom dialog), in percent. */

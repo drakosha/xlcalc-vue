@@ -591,6 +591,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(merge.available.value ? { canMerge: true as const } : {}),
       ...(s.formulaView.value ? { showFormulas: true as const } : {}),
       ...(zoom.percent.value !== 100 ? { zoom: zoom.percent.value } : {}),
+      ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
     }
   })
   watch(viewState, (state) => emit('state', state), { immediate: true })

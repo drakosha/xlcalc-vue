@@ -78,6 +78,15 @@ describe('the Font and Font Size boxes', () => {
     expect([field(w, 'font-name').element.value, field(w, 'font-size').element.value]).toEqual(['', ''])
   })
 
+  it("show the workbook's default font for a cell without its own, and step its size from it", async () => {
+    const { w, styles } = mountBar(at('A1', { font: { name: 'Calibri', size: 11 }, style: { font: { bold: true } } }))
+    expect([field(w, 'font-name').element.value, field(w, 'font-size').element.value]).toEqual(['Calibri', '11'])
+    await w.setProps({ state: at('A1', { font: { name: 'Arial', size: 10 } }) })
+    await w.find('[data-tb="font-up"]').trigger('click')
+    await settle()
+    expect(styles().map((p) => p?.style)).toEqual([{ font: { size: 11 } }])
+  })
+
   it('apply a typed font on Enter, an item picked from the list, and restore on Esc without a call', async () => {
     const { w, styles } = mountBar(at('B2:C3', { style: { font: { name: 'Arial' } } }))
     await typeInto(w, 'font-name', 'times new roman')

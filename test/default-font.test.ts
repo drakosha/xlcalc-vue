@@ -23,6 +23,9 @@ describe('the default font', () => {
     const own = w.find('[data-cell="1:2"]').element as HTMLElement
     expect(own.style.fontFamily).toContain('Arial')
     expect(own.style.fontSize).toBe('10.2px')
+    // the state carries it, for a toolbar's Font and Font Size boxes
+    const states = w.emitted('state') as [{ font?: unknown } | null][]
+    expect(states.at(-1)![0]?.font).toEqual({ name: 'Calibri', size: 14 })
   })
 
   it('without one the grid sets no font, and cells take --xs-font as before', async () => {

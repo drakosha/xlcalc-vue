@@ -30,8 +30,8 @@ export interface BookFont {
   size?: number
 }
 /**
- * The font the Font and Font Size boxes show for the active cell: its own, otherwise the workbook's (`book`). The source
- * does not report the workbook's font yet, so without `book` a cell without its own font shows empty boxes.
+ * The font the Font and Font Size boxes show for the active cell: its own, otherwise the workbook's (`book`, the sheet
+ * state's `font`); without either the boxes are empty.
  */
 export function shownFont(style: CellStyle | undefined, book: BookFont = {}): { name: string; size: number | undefined } {
   return { name: style?.font?.name ?? book.name ?? '', size: style?.font?.size ?? book.size }

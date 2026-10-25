@@ -152,7 +152,8 @@ const text = (key: keyof SheetMessages) => m.value[key] as string
 const numbers = useNumberFormats(() => props.locale)
 const category = computed(() => (props.state ? numbers.categoryOf(props.state.numberFormat) : null))
 /** The workbook's default font, for a cell without its own: the source does not report it yet, so it plugs in here when it does. */
-const book = (): BookFont => ({})
+/** The workbook's default font, which a cell without its own font name or size displays. */
+const book = (): BookFont => props.state?.font ?? {}
 const font = computed(() => shownFont(style.value, book()))
 const sizes = FONT_SIZES.map(String)
 const fontColour = computed(() => upperColour(style.value?.font?.color))
