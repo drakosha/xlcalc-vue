@@ -8,7 +8,7 @@ export interface SheetViewProps {
   source: SheetSource
   /** Interface texts; a partial set overrides the English defaults. */
   messages?: Partial<SheetMessages>
-  /** Key in the browser's storage for the frozen panes display choice and column widths; without it they last as long as the component. */
+  /** Key in the browser's storage for the frozen panes display choice, Show Formulas and column widths; without it they last as long as the component. */
   storageKey?: string
   /** A location to show: `Sheet!B12:D15`, `B7`, `Sheet`; each new object is a new jump. */
   focus?: { ref: string } | null
@@ -51,6 +51,8 @@ export interface SheetViewState {
   merged?: string
   /** The merge commands are available (`SheetViewApi.merge`): the source has `structure`, the sheet is editable, and no display filter is on. */
   canMerge?: true
+  /** Excel's Show Formulas is on for the displayed sheet (Ctrl+` or `SheetViewApi.showFormulas`): a ribbon shows its button pressed. */
+  showFormulas?: true
 }
 
 /** A hyperlink the component does not open itself, with the cell it belongs to. */
@@ -99,6 +101,8 @@ export interface SheetViewApi {
   fillDown(): Promise<EditOutcome | null>
   /** Excel's Fill Right (Ctrl+R): `fillDown` along the columns, from the selection's left column or the column to its left. */
   fillRight(): Promise<EditOutcome | null>
+  /** Excel's Show Formulas (Ctrl+`) on the displayed sheet, toggled without `on`: a view setting kept as the frozen panes choice is, the workbook unchanged; whether it is on afterwards. */
+  showFormulas(on?: boolean): boolean
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

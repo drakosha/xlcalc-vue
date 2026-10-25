@@ -12,6 +12,7 @@ import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
 import { useFill } from './fill'
 import { useFormula } from './formula'
+import { useFormulaView } from './formula-view'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
 import { isShortcut, shortcutLetter } from './keys'
@@ -116,7 +117,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
   const explain = useExplain(s, f)
-  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows })
+  const formulaView = useFormulaView(s, f)
+  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows, formulaText: formulaView.textOf })
   const list = useList(s, w, emit, props)
   /** The active cell's formatting, from its loaded window: the `state` event and the font shortcuts use it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
@@ -151,6 +153,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     merge: merge.run,
     fillDown: () => fill.fillFrom('down'),
     fillRight: () => fill.fillFrom('right'),
+    showFormulas: formulaView.show,
   }
 
   // ── sheets ──
@@ -173,6 +176,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     s.userWidths.value = hasLayout() ? {} : (s.memory.recall<Record<number, number>>(`widths:${s.sheetName.value}`) ?? {})
     originalWidths.clear()
     v.readFreeze()
+    formulaView.read()
     filter.restore()
     s.scrollGridTo(0, 0)
     w.ensure()
@@ -260,14 +264,14 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   let drag: { col: number; startX: number; startW: number } | null = null
   function startResize(e: PointerEvent, col: number): void {
     drag = { col, startX: e.clientX, startW: geo.widthOf(col) }
-    if (!originalWidths.has(col)) originalWidths.set(col, s.bookWidths.value.has(col) ? colPx(s.bookWidths.value.get(col)) : geo.widthOf(col))
+    if (!originalWidths.has(col)) originalWidths.set(col, s.bookWidths.value.has(col) ? colPx(s.bookWidths.value.get(col)) : geo.baseWidthOf(col))
     holdPointer(e)
   }
   function onResizeMove(e: PointerEvent): void {
     if (!drag) return
     const px = Math.min(MAX_COL_PX, Math.max(MIN_COL_PX, drag.startW + e.clientX - drag.startX))
-    // In place: a drag sets one width many times a second.
-    s.userWidths.value[drag.col] = px
+    // In place: a drag sets one width many times a second; under Show Formulas the stored width is the drawn one halved.
+    s.userWidths.value[drag.col] = Math.round(px / geo.widthScale())
     triggerRef(s.userWidths)
   }
   function endResize(): void {
@@ -378,7 +382,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
-    if (!e.isComposing && (cmd.fontKey(e) || outline.key(e) || barKey(e) || fill.key(e))) return
+    if (!e.isComposing && (cmd.fontKey(e) || outline.key(e) || barKey(e) || fill.key(e) || formulaView.key(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -505,6 +509,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(look?.numberFormat !== undefined ? { numberFormat: look.numberFormat } : {}),
       ...(merge.area.value ? { merged: rangeAddress(merge.area.value) } : {}),
       ...(merge.available.value ? { canMerge: true as const } : {}),
+      ...(s.formulaView.value ? { showFormulas: true as const } : {}),
     }
   })
   watch(viewState, (state) => emit('state', state), { immediate: true })
@@ -537,6 +542,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     api,
     clip,
     fill,
+    formulaView,
     viewState,
     validation,
     alerts,

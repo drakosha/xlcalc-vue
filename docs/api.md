@@ -65,7 +65,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | --- | --- | --- | --- |
 | `source` | `SheetSource` | required | The sheet's data source. A new source means a new workbook: what the previous source answers afterwards (its sheets, an edit's outcome, a correction) is ignored, even from a source that ignores the abort signal, and its open alert closes. |
 | `messages` | `Partial<SheetMessages>` | English | Interface texts; a partial set overrides the English defaults. |
-| `storageKey` | `string` | none | Key in the browser's storage for the frozen panes display choice, column widths and Insert Function's recently used functions; without it they last as long as the component. |
+| `storageKey` | `string` | none | Key in the browser's storage for the frozen panes display choice, Show Formulas on each sheet, column widths and Insert Function's recently used functions; without it they last as long as the component. |
 | `focus` | `{ ref: string } \| null` | `null` | A location to show: `Sheet!B12:D15`, `B7`, `Sheet`. Each new object is a new jump. |
 | `cellUrl` | `(ref: string) => string` | none | The host page's address for a location; without it there is no "Link to the cell" button. |
 | `readOnly` | `boolean` | `false` | Disables editing regardless of what the source supports. A source without `edit` is read-only anyway. |
@@ -105,6 +105,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `numberFormat` | `string?` | The active cell's number format code; absent for General. |
 | `merged` | `string?` | The merged range containing the active cell. |
 | `canMerge` | `true?` | The merge commands are available: the source has `structure`, the sheet is editable, and no display filter is on. |
+| `showFormulas` | `true?` | Excel's Show Formulas is on for the displayed sheet, so a ribbon shows its button pressed ([view.md](view.md#show-formulas)). |
 
 `SheetLinkEvent` is a window's hyperlink (`href`, `location`, `tooltip`, `target`) with the `sheet` and `cell` it belongs to. `SheetFailure` is `{ error: unknown; text: string }`.
 
@@ -123,6 +124,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `merge(command: MergeCommand)` | `Promise<EditOutcome \| null>` | `'mergeCenter'`, `'mergeAcross'`, `'mergeCells'` or `'unmergeCells'` over the selection through `structure`, with Excel's warning first when values would be lost. `null` also for a single cell outside a merged range, under a display filter, and on Cancel in the warning. |
 | `fillDown()` | `Promise<EditOutcome \| null>` | Excel's Fill Down (Ctrl+D) through `structure`: the selection's top row copied over its other rows, or the row above into a selection one row tall ([editing.md](editing.md)). `null` also under a display filter, for row 1 alone, and when a filled cell is locked. |
 | `fillRight()` | `Promise<EditOutcome \| null>` | Excel's Fill Right (Ctrl+R): the same along the columns, from the selection's left column or the column to its left. |
+| `showFormulas(on?: boolean)` | `boolean` | Turns Excel's Show Formulas on or off on the displayed sheet, or toggles it without `on`, as Ctrl+` does; whether it is on afterwards. A view setting: nothing goes to the source. |
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
