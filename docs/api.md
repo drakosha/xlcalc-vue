@@ -121,6 +121,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `outline(change: OutlineChange)` | `Promise<EditOutcome \| null>` | Group, Ungroup, a group's button, a level button. |
 | `freezePanes(mode?: FreezeMode)` | `Promise<EditOutcome \| null>` | Excel's Freeze Panes through the source's `freeze`: `'panes'` (the default, at the active cell), `'unfreeze'`, `'topRow'`, `'firstColumn'`. Nothing is sent when there is nothing to freeze or unfreeze. |
 | `merge(command: MergeCommand)` | `Promise<EditOutcome \| null>` | `'mergeCenter'`, `'mergeAcross'`, `'mergeCells'` or `'unmergeCells'` over the selection through `structure`, with Excel's warning first when values would be lost. `null` also for a single cell outside a merged range, under a display filter, and on Cancel in the warning. |
+| `fillDown()` | `Promise<EditOutcome \| null>` | Excel's Fill Down (Ctrl+D) through `structure`: the selection's top row copied over its other rows, or the row above into a selection one row tall ([editing.md](editing.md)). `null` also under a display filter, for row 1 alone, and when a filled cell is locked. |
+| `fillRight()` | `Promise<EditOutcome \| null>` | Excel's Fill Right (Ctrl+R): the same along the columns, from the selection's left column or the column to its left. |
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |

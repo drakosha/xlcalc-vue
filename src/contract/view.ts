@@ -91,6 +91,14 @@ export interface SheetViewApi {
    * in the warning.
    */
   merge(command: MergeCommand): Promise<EditOutcome | null>
+  /**
+   * Excel's Fill Down (Ctrl+D): the selection's top row copied over its other rows through the source's `structure`
+   * (`copyRange`, relative references shifted), or the row above it into a selection one row tall, as a single undo step.
+   * null when nothing was sent: no `structure`, a read-only sheet, a display filter, row 1 alone, or a locked cell.
+   */
+  fillDown(): Promise<EditOutcome | null>
+  /** Excel's Fill Right (Ctrl+R): `fillDown` along the columns, from the selection's left column or the column to its left. */
+  fillRight(): Promise<EditOutcome | null>
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

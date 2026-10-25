@@ -2,16 +2,18 @@
 // cell along the axis in which the pointer moved farthest, and the release fills the outlined range from the selection
 // through the source's `structure` (`fillRange`, Excel's AutoFill: series continue, other values are copied; Ctrl makes a
 // single number continue as a series); a double click fills down as far as the data of the adjacent column extends.
+// Excel's Fill Down (Ctrl+D) and Fill Right (Ctrl+R) copy the selection's first row or column over the rest of it (`copyRange`).
 import { computed, getCurrentScope, onScopeDispose, shallowRef, type Ref } from 'vue'
 import { cellAddress, MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellRect, FillType } from 'xlcalc/contract'
+import type { EditOutcome } from '../contract/source'
 import { unionRect } from '../rect'
 import { isBlank } from '../stats'
 import { DEFAULT_MAX_CELLS } from '../window-size'
 import type { Commands } from './commands'
 import type { Editing, EditorState } from './editing'
 import type { Geometry } from './geometry'
-import { onMac } from './keys'
+import { isShortcut, onMac, shortcutLetter } from './keys'
 import type { Selection } from './selection'
 import { useSheetReads, type SheetState } from './state'
 import type { Viewport } from './viewport'
@@ -163,6 +165,42 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     if (out?.ok && sheet === s.sheetName.value && s.selected.value === before.selected && s.extent.value === before.extent) sel.selectRect(frame)
   }
 
+  /**
+   * Excel's Fill Down and Fill Right: the selection's top row (left column) copied over its other rows (columns) through
+   * the source's `structure` (`copyRange`: relative references shift as Excel's fill shifts them, and on a sheet filtered
+   * in the workbook only the visible rows are filled, as Excel's Fill Down fills them); a selection one row tall (one
+   * column wide) takes the row above it (the column to its left). One undo step; the selection stays. Null when nothing
+   * was sent: nothing above row 1 or left of column A, no `structure`, a display filter, an open editor, a locked cell.
+   */
+  async function fillFrom(direction: 'down' | 'right'): Promise<EditOutcome | null> {
+    const r = sel.fullRect.value
+    if (!r || !s.sheet.value || !cmd.canRanges.value || deps.editor.value) return null
+    const down = direction === 'down'
+    const first = down ? r.top : r.left
+    const single = first === (down ? r.bottom : r.right)
+    if (single && first === 1) return null
+    const line = single ? first - 1 : first
+    const from = down ? { ...r, top: line, bottom: line } : { ...r, left: line, right: line }
+    const to = single ? r : down ? { ...r, top: r.top + 1 } : { ...r, left: r.left + 1 }
+    const lock = ed.lockIn(to)
+    if (lock !== null) {
+      deps.notify(s.messages.value.locked(lock))
+      return null
+    }
+    const sheet = s.sheetName.value
+    return cmd.structure({ op: 'copyRange', from: { sheet, range: rangeAddress(from) }, to: { sheet, range: rangeAddress(to) } })
+  }
+  /** Ctrl+D and Ctrl+R on an editable sheet (Cmd or Control on a Mac, as Excel for Mac takes either), with any layout; true when handled. */
+  function key(e: KeyboardEvent): boolean {
+    if (!isShortcut(e) || e.shiftKey || e.altKey || !s.editable.value) return false
+    const letter = shortcutLetter(e)
+    if (letter !== 'd' && letter !== 'r') return false
+    // the browser's bookmark and reload keys stay with the sheet even where it cannot fill, as Excel keeps them
+    e.preventDefault()
+    void fillFrom(letter === 'd' ? 'down' : 'right')
+    return true
+  }
+
   /** Excel's double click on the handle: down to the last data row of the column to the left of the selection, otherwise to its right; displaying another sheet meanwhile stops it. */
   async function autofill(): Promise<void> {
     const from = source.value
@@ -198,7 +236,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     return last
   }
 
-  return { source, drag, handle, frame, onDown, onMove, onUp, onCancel, autofill }
+  return { source, drag, handle, frame, onDown, onMove, onUp, onCancel, autofill, fillFrom, key }
 }
 
 export type Fill = ReturnType<typeof useFill>

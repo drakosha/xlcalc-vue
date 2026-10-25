@@ -149,6 +149,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     reapplyFilter: filter.reapply,
     explain: explain.show,
     merge: merge.run,
+    fillDown: () => fill.fillFrom('down'),
+    fillRight: () => fill.fillFrom('right'),
   }
 
   // ── sheets ──
@@ -376,7 +378,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
-    if (!e.isComposing && (cmd.fontKey(e) || outline.key(e) || barKey(e))) return
+    if (!e.isComposing && (cmd.fontKey(e) || outline.key(e) || barKey(e) || fill.key(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
