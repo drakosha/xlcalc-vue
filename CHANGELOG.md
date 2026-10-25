@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `SheetSource`: optional methods for what a workbook holds beside its cells' values, in Excel's terms: `clear` (Clear Formats, Clear All), `link` (Insert Link, Remove Hyperlinks), `note` (New Note, Edit Note, Delete Note), `names` and `setNames` (the Name Manager), `dependents` (Trace Dependents), `rules` and `setRules` (conditional formatting and data validation rules), `table` (Format as Table, Convert to Range) and `spelling` with `learnWord` (Spelling, Add to Dictionary). Their types are in `src/contract/workbook.ts`; formulas in them are in the source's locale. `SheetInfo` has `font`, the workbook's default font, and `zoom`, the sheet's saved zoom. `memorySource` has `clear`, `link`, `note`, `names` and `setNames`, and both it and `./local` check spelling with the host's `SpellChecker` (`spelling` option); `./local` has every new method.
+
 ## 0.21.2 (2026-10-20)
 
 The first public release. Earlier versions were internal builds and were not published to npm; their changes are folded into this entry, and the README and `docs/` describe the package as it is now. The internal builds were named `xlcalc-sheet`: a host built on them imports `@xlcalc/vue`, `@xlcalc/vue/local` and `@xlcalc/vue/style.css` instead (breaking for that host).
