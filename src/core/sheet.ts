@@ -7,7 +7,7 @@ import type { SheetInfo, SheetWindow } from '../contract/source'
 import { useCellView } from './cell-view'
 import { useClip } from './clip'
 import { useCommands, type SheetTarget } from './commands'
-import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState } from '../contract/view'
+import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
 import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
 import { useFill } from './fill'
@@ -31,7 +31,9 @@ import { useFind } from './find'
 import { useList } from './list'
 import { useTotals } from './totals'
 import { useViewport } from './viewport'
+import { useWatch } from './watch'
 import { useWindows } from './windows'
+import { useZoom } from './zoom'
 
 export interface SheetEmit {
   (e: 'state', state: SheetViewState | null): void
@@ -39,6 +41,8 @@ export interface SheetEmit {
   (e: 'sort', sort: ListSort): void
   (e: 'cellDrill', cell: { sheet: string; cell: string }): void
   (e: 'rowOpen', row: { sheet: string; row: number }): void
+  (e: 'zoom', change: SheetZoomEvent): void
+  (e: 'watches', list: SheetWatch[]): void
 }
 
 /** How long a message stays. */
@@ -69,6 +73,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const v = useViewport(s, geo)
   const w = useWindows(s, v, geo)
   const sel = useSelection(s, geo, v)
+  const zoom = useZoom(s, v, sel, { given: () => props.zoom, changed: (sheet, pct) => emit('zoom', { sheet, zoom: pct }) })
   const editor = ref<EditorState | null>(null)
   const f = useFormula(s, w, sel, computed(() => editor.value?.text ?? null))
 
@@ -85,6 +90,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   // The workbook's defined names, read once per source and again after a change; the Name Box, Formula AutoComplete and the names' dialogs use them.
   const names = useNames(s, { reload, reloads: () => reloads, apply: (changes) => w.applyChanges(changes) })
   const nav = useNavigation(s, sel, f, { pickSheet, notify, names })
+  const watches = useWatch(s, sel, nav, { given: () => props.watches, changed: (list) => emit('watches', list), notify })
   const cellInput = ref<HTMLTextAreaElement | null>(null)
   const barInput = ref<HTMLTextAreaElement | null>(null)
   /** Excel's formula bar expanded to several lines; it stays so until toggled, whatever the cell. */
@@ -177,6 +183,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     showFormulas: formulaView.show,
     defineName: nameDialogs.define,
     nameManager: nameDialogs.openManager,
+    setZoom: (z) => (z === 'selection' ? zoom.fitSelection() : zoom.apply(z)),
+    watchWindow: (open) => watches.setOpen(open),
   }
 
   // ── sheets ──
@@ -201,6 +209,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     v.readFreeze()
     formulaView.read()
     filter.restore()
+    zoom.enter()
     s.scrollGridTo(0, 0)
     w.ensure()
   }
@@ -294,7 +303,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   function onResizeMove(e: PointerEvent): void {
     if (!drag) return
-    const px = Math.min(MAX_COL_PX, Math.max(MIN_COL_PX, drag.startW + e.clientX - drag.startX))
+    // The pointer moves in zoomed pixels; the drawn width is the workbook's pixels.
+    const px = Math.min(MAX_COL_PX, Math.max(MIN_COL_PX, drag.startW + (e.clientX - drag.startX) / s.zoom.value))
     // In place: a drag sets one width many times a second; under Show Formulas the stored width is the drawn one halved.
     s.userWidths.value[drag.col] = Math.round(px / geo.widthScale())
     triggerRef(s.userWidths)
@@ -371,7 +381,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   function onRowResizeMove(e: PointerEvent): void {
     if (!rowDrag) return
-    rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + e.clientY - rowDrag.startY)))
+    rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + (e.clientY - rowDrag.startY) / s.zoom.value)))
     geo.setHeights([[rowDrag.row, rowDrag.px]])
   }
   /** A double click on a row number's edge fits the row, and every selected entire row when it is one of them, as Excel's AutoFit does. */
@@ -472,8 +482,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onScroll(): void {
     const el = s.scroller.value
     if (!el) return
-    s.scrollTop.value = el.scrollTop
-    s.scrollLeft.value = el.scrollLeft
+    s.scrollTop.value = el.scrollTop / s.zoom.value
+    s.scrollLeft.value = el.scrollLeft / s.zoom.value
     w.ensure()
   }
   // The scroller comes and goes with the fallback: whichever is mounted is measured and observed.
@@ -545,6 +555,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(merge.area.value ? { merged: rangeAddress(merge.area.value) } : {}),
       ...(merge.available.value ? { canMerge: true as const } : {}),
       ...(s.formulaView.value ? { showFormulas: true as const } : {}),
+      ...(zoom.percent.value !== 100 ? { zoom: zoom.percent.value } : {}),
     }
   })
   watch(viewState, (state) => emit('state', state), { immediate: true })
@@ -588,6 +599,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     closeSymbol,
     names,
     nameDialogs,
+    zoomer: zoom,
+    watches,
     editor,
     message,
     notify,

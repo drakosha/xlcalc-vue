@@ -44,8 +44,8 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
         sheet: s.active.value,
         selected: s.selected.value,
         extent: s.extent.value,
-        scrollTop: s.scroller.value?.scrollTop ?? 0,
-        scrollLeft: s.scroller.value?.scrollLeft ?? 0,
+        scrollTop: (s.scroller.value?.scrollTop ?? 0) / s.zoom.value,
+        scrollLeft: (s.scroller.value?.scrollLeft ?? 0) / s.zoom.value,
       },
     ]
   }

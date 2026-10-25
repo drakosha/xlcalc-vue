@@ -249,6 +249,8 @@
   overflow: auto;
   outline: none;
   overscroll-behavior: contain;
+  /* two fingers zoom the sheet (Excel's pinch), not the page */
+  touch-action: pan-x pan-y;
 }
 .xs-empty {
   margin: 0;
@@ -268,8 +270,8 @@
 .xs-table th,
 .xs-table td {
   padding: 1px 5px;
-  border-right: 1px solid var(--xs-grid);
-  border-bottom: 1px solid var(--xs-grid);
+  border-right: var(--xs-line, 1px) solid var(--xs-grid);
+  border-bottom: var(--xs-line, 1px) solid var(--xs-grid);
   white-space: nowrap;
   vertical-align: top;
 }
@@ -285,7 +287,7 @@
 .xs-table th.xs-head,
 .xs-table th.xs-corner {
   padding: 0 5px;
-  line-height: 23px;
+  line-height: calc(24px - var(--xs-line, 1px));
 }
 .xs-head,
 .xs-num,
@@ -559,8 +561,8 @@
   z-index: 4;
   height: 24px;
   padding: 0 5px;
-  line-height: 23px;
-  border-top: 1px solid var(--xs-freeze-line);
+  line-height: calc(24px - var(--xs-line, 1px));
+  border-top: var(--xs-line, 1px) solid var(--xs-freeze-line);
   background: var(--xs-head-bg);
   color: var(--xs-fg);
   font-weight: 600;

@@ -206,8 +206,14 @@ export function useCellView(
   /** A side's line: the cell's own, otherwise the neighbor's facing side (one line in Excel); otherwise a fill hides the gridline. */
   function edge(own: BorderLine | undefined, other: BorderLine | undefined, fill: string | undefined): { css?: CssLine; width: number } {
     const line = own ?? other
-    if (line) return { css: borderCss(line), width: borderWidth(line) }
-    return { css: fill ? { width: '1px', style: 'solid', color: fill } : undefined, width: 1 }
+    if (line) return lineCss(line)
+    const width = v.lineOf(1)
+    return { css: fill ? { width: `${width}px`, style: 'solid', color: fill } : undefined, width }
+  }
+  /** A border line and its width, widened zoomed out to draw at least one screen pixel (`Viewport.lineOf`). */
+  function lineCss(line: BorderLine): { css: CssLine; width: number } {
+    const width = v.lineOf(borderWidth(line))
+    return { css: { ...borderCss(line)!, width: `${width}px` }, width }
   }
 
   /** Whether a neighbor may take this cell's overflowing text: loaded, empty, not merged, not being edited. */
@@ -297,10 +303,11 @@ export function useCellView(
     if (bottom.css) setSide(css, 'Bottom', bottom.css)
     let topWidth = 0
     if (st?.border?.top && !geo.hasRow(d, -1)) {
-      setSide(css, 'Top', borderCss(st.border.top)!)
-      topWidth = borderWidth(st.border.top)
+      const top = lineCss(st.border.top)
+      setSide(css, 'Top', top.css)
+      topWidth = top.width
     }
-    if (st?.border?.left && !geo.hasCol(c, -1)) setSide(css, 'Left', borderCss(st.border.left)!)
+    if (st?.border?.left && !geo.hasCol(c, -1)) setSide(css, 'Left', lineCss(st.border.left).css)
 
     // Insets: formula ranges, the selection's border and table borders; tints and bars as background layers.
     const shadows: string[] = []

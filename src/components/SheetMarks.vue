@@ -17,9 +17,12 @@ const place = (b: { top: number; left: number; width: number; height: number; fr
 })
 const ants = computed(() => (clip.ants.value ? place(clip.ants.value) : null))
 const frame = computed(() => (fill.frame.value ? place(fill.frame.value) : null))
+/** The fill handle keeps its size at any zoom, so it can still be grabbed zoomed out: its own zoom undoes the sheet's, and its place is in the resulting pixels. */
 const handle = computed(() => {
   const h = fill.handle.value
-  return h ? { top: `${h.y}px`, left: `${h.x}px`, zIndex: h.frozen ? '7' : '1' } : null
+  const z = ctx.zoom.value
+  if (!h) return null
+  return { top: `${h.y * z}px`, left: `${h.x * z}px`, zIndex: h.frozen ? '7' : '1', ...(z !== 1 ? { zoom: String(1 / z) } : {}) }
 })
 </script>
 

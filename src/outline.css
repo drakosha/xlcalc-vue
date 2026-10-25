@@ -31,7 +31,7 @@
   top: 0;
   z-index: 4;
   border-right: 0;
-  border-bottom: 1px solid var(--xs-grid);
+  border-bottom: var(--xs-line, 1px) solid var(--xs-grid);
 }
 .xs-ol-rows.xs-ol-fz,
 .xs-ol-columns.xs-ol-fz {
@@ -43,7 +43,7 @@
   top: 0;
   left: 0;
   z-index: 6;
-  border-bottom: 1px solid var(--xs-grid);
+  border-bottom: var(--xs-line, 1px) solid var(--xs-grid);
 }
 .xs-table th.xs-ol-levels-rows {
   top: var(--xs-outline-h);

@@ -6,6 +6,7 @@ import { chromium, type Page } from 'playwright'
 import { createServer } from 'vite'
 import { quoteSheetIfNeeded } from 'xlcalc/a1'
 import { longPress, longPressAt } from './touch.ts'
+import { zoomScreens } from './zoom-screens.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'test-results/screens')
@@ -750,6 +751,7 @@ for (const size of SIZES) {
   await typoScreens(page, size)
   await tipScreens(page, size)
   await dialogScreens(page, size)
+  await zoomScreens(page, base, size, out)
 
   // Editing in the cell: typing over a cell, then the pending edit.
   await open(page, 'Формулы!C2')

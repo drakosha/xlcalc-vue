@@ -62,7 +62,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
 
   /** The cells a drag adds with the pointer at a point of the page (`box` is the viewport's): along the axis in which it moved farthest from the selection, up to the pointer's cell. */
   function targetAt(from: CellRect, box: DOMRect, clientX: number, clientY: number): CellRect | null {
-    const p = v.cellAt(clientX - box.left, clientY - box.top)
+    const p = v.cellAtPoint(clientX, clientY, box)
     const rows = geo.rowOffsets.value
     const cols = geo.offsets.value
     const top = rows[from.top - 1] ?? 0
@@ -87,16 +87,17 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     const start = Math.max(p.col, 1)
     return start < from.left ? { ...from, left: start, right: from.left - 1 } : null
   }
-  /** Scrolls the grid while the pointer is at or beyond the viewport's edge (`box`), so a drag reaches cells off screen. */
+  /** Scrolls the grid while the pointer is at or beyond the viewport's edge (`box`), so a drag reaches cells off screen; the page's pixels are the grid's zoomed ones. */
   function edgeScroll(el: HTMLElement, box: DOMRect, clientX: number, clientY: number): void {
     if (!box.height) return
+    const z = s.zoom.value
     const step = (past: number) => Math.min(EDGE_STEP_PX, Math.max(0, past))
-    const dy = step(clientY - (box.bottom - EDGE_PX)) - step(box.top + v.headH.value + EDGE_PX - clientY)
-    const dx = step(clientX - (box.right - EDGE_PX)) - step(box.left + v.leadW.value + EDGE_PX - clientX)
+    const dy = step(clientY - (box.bottom - EDGE_PX)) - step(box.top + v.headH.value * z + EDGE_PX - clientY)
+    const dx = step(clientX - (box.right - EDGE_PX)) - step(box.left + v.leadW.value * z + EDGE_PX - clientX)
     if (dy) el.scrollTop += dy
     if (dx) el.scrollLeft += dx
-    s.scrollTop.value = el.scrollTop
-    s.scrollLeft.value = el.scrollLeft
+    s.scrollTop.value = el.scrollTop / z
+    s.scrollLeft.value = el.scrollLeft / z
   }
 
   function onDown(e: PointerEvent): void {
@@ -130,7 +131,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     if (d.touch) {
       const box = s.scroller.value?.getBoundingClientRect()
       if (!box) return
-      const p = v.cellAt(e.clientX - box.left, e.clientY - box.top)
+      const p = v.cellAtPoint(e.clientX, e.clientY, box)
       sel.pickCell(s.rowOf(p.d), p.col)
     }
   }

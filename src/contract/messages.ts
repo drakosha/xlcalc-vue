@@ -306,6 +306,26 @@ export interface SheetMessages {
   nameCommit: string
   nameDeleteAsk: (name: string) => string
   nameSaveAsk: string
+  /** Excel's zoom on the status bar (Zoom Out, the slider, Zoom In, the percentage that opens the Zoom dialog), and the dialog's title, choices and limits. */
+  zoomOut: string
+  zoomIn: string
+  zoomSlider: string
+  zoomLevel: string
+  zoomTitle: string
+  zoomFit: string
+  zoomCustom: string
+  zoomRange: string
+  /** Excel's Watch Window: its title, Add Watch and Delete Watch, its columns, and the cap on the cells watched. */
+  watchTitle: string
+  watchAdd: string
+  watchDelete: string
+  watchBook: string
+  watchSheet: string
+  watchName: string
+  watchCell: string
+  watchValue: string
+  watchFormula: string
+  watchTooMany: (max: number) => string
 }
 
 /** The Symbol dialog's Subset list: Unicode blocks by Excel's names (`basicLatin` is Basic Latin, `latin1` Latin-1 Supplement). */

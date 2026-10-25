@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// The bottom bar, as in Excel: sheet tabs (scrolling horizontally on a phone), the filter's status with Reapply and Clear, and the selection's totals.
+// The bottom bar, as in Excel: sheet tabs (scrolling horizontally on a phone), the filter's status with Reapply and Clear, the selection's totals and the zoom.
 import { computed } from 'vue'
 import { useSheetContext } from './context'
 import { refInto } from './dom'
 import { IconFilterOff, IconPlus, IconRetry } from './icons'
+import ZoomBar from './ZoomBar.vue'
 
 const ctx = useSheetContext()
 const m = ctx.messages
@@ -22,10 +23,12 @@ function onClick(i: number): void {
   if (!press.after()) void ctx.pickSheet(i)
 }
 const setRenameInput = refInto(menu.renameInput)
+/** Excel's zoom slider, not on a touch screen, where two fingers zoom. */
+const zoomBar = computed(() => !!ctx.sheet.value && !ctx.v.touch.value)
 </script>
 
 <template>
-  <div v-if="ctx.showTabs.value || ctx.totals.statsText.value || ctx.filter.status.value" class="xs-bottom">
+  <div v-if="ctx.showTabs.value || ctx.totals.statsText.value || ctx.filter.status.value || zoomBar" class="xs-bottom">
     <div v-if="ctx.showTabs.value" class="xs-tabs" role="tablist">
       <template v-for="{ sheet, i } in ctx.tabs.value" :key="sheet.name + i">
         <input
@@ -73,5 +76,6 @@ const setRenameInput = refInto(menu.renameInput)
       </button>
     </span>
     <span v-if="ctx.totals.statsText.value" class="xs-stats" :title="ctx.totals.statsText.value">{{ ctx.totals.statsText.value }}</span>
+    <ZoomBar v-if="zoomBar" />
   </div>
 </template>
