@@ -10,6 +10,7 @@ import { useCommands, type SheetTarget } from './commands'
 import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState } from '../contract/view'
 import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
+import { useExtras } from './extras'
 import { useFill } from './fill'
 import { useFormula } from './formula'
 import { usePoint } from './point'
@@ -112,6 +113,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       else void ed.send(entry, null, { accept: true })
     },
   })
+  const extras = useExtras(s, sel, w, ed, { notify, changed: () => validation.refresh() })
   const totals = useTotals(s, w, sel)
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
@@ -149,6 +151,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     reapplyFilter: filter.reapply,
     explain: explain.show,
     merge: merge.run,
+    clear: extras.clear,
   }
 
   // ── sheets ──
@@ -532,6 +535,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     views,
     list,
     cmd,
+    extras,
     api,
     clip,
     fill,

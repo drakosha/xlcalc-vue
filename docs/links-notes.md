@@ -1,5 +1,9 @@
 # Hyperlinks, notes, Clear and the default font
 
+## Clear Formats and Clear All
+
+Excel has Clear Formats and Clear All under Home > Clear, not in the cell context menu, so the sheet has them as its method `clear(what)` for a host's own ribbon or buttons ([api.md](api.md#sheetviewapi)). With the source's `clear` and an editable sheet, `clear('formats')` removes the styles, number formats and conditional formats over the selection, and `clear('all')` also its contents, hyperlinks, notes and data validation rules, each as a single call to the source and so a single undo step. The selection goes as Excel writes it (`B2:D5`, `B:D`, `2:5`); under a display filter only its visible rows are cleared, as Excel clears only the visible cells of a filtered range, so the call carries the runs of visible rows (`A1:A2`, `A4`). A locked cell in the selection displays its reason and nothing is sent. Since the outcome carries the cells' values and not their formatting, the sheet reads the windows over the cleared ranges again in place, as on a `repaint`, whether or not the source sends one. Delete clears contents only, through `edit`, as before.
+
 ## The workbook's default font
 
 A sheet whose `SheetInfo` has `font` (`{ name, size }`, the workbook's Normal style) draws every cell without a font of its own in that font, as Excel draws it: the grid's table takes the font's name and its size in the grid's pixels (11 pt is 12.5 px, the rest in proportion), and the cells inherit it. A cell's own font name or size takes precedence. The row numbers and column letters keep the interface font, `--xs-font`. Without `font` nothing changes: cells are drawn in `--xs-font` and `--xs-font-size`. The row heights are the source's either way (`rowHeights`, `defaultRowHeight`), and overflow into empty neighbors goes by the column widths, so neither depends on the font.

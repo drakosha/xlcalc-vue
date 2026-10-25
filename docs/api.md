@@ -124,6 +124,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
+| `clear(what: ClearKind)` | `Promise<EditOutcome \| null>` | Excel's Home > Clear > Clear Formats (`'formats'`) or Clear All (`'all'`) over the selection through the source's `clear`, as a single undo step; under a display filter, over its visible rows. `null` also over a locked cell. See [links-notes.md](links-notes.md#clear-formats-and-clear-all). |
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 

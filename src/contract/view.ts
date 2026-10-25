@@ -2,6 +2,7 @@
 import type { CellStyle } from 'xlcalc/contract'
 import type { SheetMessages } from './messages'
 import type { EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
+import type { ClearKind } from './workbook'
 
 /** Properties of `SheetView`. */
 export interface SheetViewProps {
@@ -91,6 +92,12 @@ export interface SheetViewApi {
    * in the warning.
    */
   merge(command: MergeCommand): Promise<EditOutcome | null>
+  /**
+   * Excel's Home > Clear > Clear Formats (`formats`) or Clear All (`all`) over the selection through the source's `clear`, as a
+   * single undo step (under a display filter, over its visible rows), after which the windows over it are read again. null when
+   * nothing was sent: no `clear`, a read-only sheet, or a locked cell in the selection.
+   */
+  clear(what: ClearKind): Promise<EditOutcome | null>
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */
