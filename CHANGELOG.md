@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.23.0 (2026-10-26)
+
+Over xlcalc 0.59.0, the parts of the app's list that waited for the library. Nothing breaks for a host; `./local` works with xlcalc 0.46.0 and later, its AutoSum and the workbook's font with 0.59.0.
+
+- `SheetToolbar`: Accounting Number Format and Comma Style (Excel's built-in formats 44 and 43, in the workbook's locale), Increase Decimal and Decrease Decimal through xlcalc's `stepDecimals`, from the active cell's format, value and column width, over the selection. `SheetViewState` has `cellValue` and `columnWidth` for them.
+- AutoSum: the source's optional `autoSum` (`SheetAutoSum`), Alt+= and `SheetViewApi.autoSum()` open the active cell's edit with `=SUM(range)` and the range selected; `./local` gives xlcalc's `getAutoSum`.
+- `./local`: `SheetInfo.font` is the workbook's default font, Calibri 11 without one, the font in which xlcalc measures widths and `####`, so cells are drawn as measured rather than in the page's font (`docs/links-notes.md` says how a host serves Carlito under Calibri's name). The Name Manager's names are refused by xlcalc's own `setNames`. A font that fits rows to it (xlcalc's `fitted`) reads the sheets and windows again.
+
 ## 0.22.0 (2026-10-26)
 
 Excel's commands from the Home, Insert, Formulas, Data, Review and View tabs that the sheet lacked. Nothing breaks for a host: every new source method, prop, event and method is optional. Built against xlcalc 0.58.0; `./local` works with xlcalc 0.46.0 and later.

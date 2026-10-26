@@ -1,5 +1,5 @@
 // The sheet's public types: SheetView's props, state, events and methods, the toolbar's source, list mode's sort.
-import type { CellStyle, IconSetName } from 'xlcalc/contract'
+import type { CellStyle, CellValue, IconSetName } from 'xlcalc/contract'
 import type { ClearRulesFrom, ColorScalePreset, DataBarColor, QuickRule } from './conditional'
 import type { SheetMessages } from './messages'
 import type { EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
@@ -64,6 +64,10 @@ export interface SheetViewState {
   style?: CellStyle
   /** The active cell's number format code, from a source whose windows include them; absent for General. */
   numberFormat?: string
+  /** The active cell's value from the loaded window (absent for an empty cell), for a toolbar's Increase and Decrease Decimal. */
+  cellValue?: CellValue
+  /** The width of the active cell's column as the workbook stores it (xlcalc's `ColumnInput.width`), absent for the default: Increase Decimal on General depends on it. */
+  columnWidth?: number
   /** The merged range containing the active cell (`A1:B2`), from the loaded windows: Excel's Merge & Center shows as pressed on it. */
   merged?: string
   /** The merge commands are available (`SheetViewApi.merge`): the source has `structure`, the sheet is editable, and no display filter is on. */
@@ -164,6 +168,12 @@ export interface SheetViewApi {
   deleteTable(): Promise<EditOutcome | null>
   /** Excel's Spelling (F7) through the source's `spelling`: the dialog from the active cell, within a selection of several cells; false without `spelling`. */
   checkSpelling(): boolean
+  /**
+   * Excel's AutoSum (Alt+=) through the source's `autoSum`: the active cell's edit opens with `=SUM(range)`, the range
+   * selected, so Enter enters it and typing or the arrows replace it; false without `autoSum`, on a read-only sheet,
+   * while a cell is being edited or when the source guesses nothing.
+   */
+  autoSum(): Promise<boolean>
   /**
    * Excel's Home > Clear > Clear Formats (`formats`) or Clear All (`all`) over the selection through the source's `clear`, as a
    * single undo step (under a display filter, over its visible rows), after which the windows over it are read again. null when

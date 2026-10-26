@@ -39,6 +39,18 @@ describe("state: the active cell's formatting", () => {
     expect(last(states())!.numberFormat).toBeUndefined()
   })
 
+  it("returns the active cell's value and its column's stored width, for Increase and Decrease Decimal", async () => {
+    const w = await mountSheet(memorySource({ sheets: [{ name: 'S', widths: { B: 20 }, cells: { A1: 1.5, B1: 'x' } }] }))
+    const states = () => w.emitted('state')!.map((e) => e[0] as SheetViewState | null)
+    await goTo(w, 'A1')
+    expect(last(states())).toMatchObject({ ref: 'A1', cellValue: 1.5 })
+    expect(last(states())!.columnWidth).toBeUndefined()
+    await goTo(w, 'B1')
+    expect(last(states())).toMatchObject({ cellValue: 'x', columnWidth: 20 })
+    await goTo(w, 'C1')
+    expect(last(states())!.cellValue).toBeUndefined()
+  })
+
   it("takes an edited cell's number format from the outcome", async () => {
     const source = formatted()
     source.edit = async (entries) => ({ ok: true, changes: entries.map((e) => ({ sheet: e.sheet, cell: e.cell, text: '15.03.2026', value: 46096, formula: null, numberFormat: 'dd.mm.yyyy' })) })

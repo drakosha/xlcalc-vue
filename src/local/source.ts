@@ -34,8 +34,11 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
   return createCalcPool({ threads: 1, ...opts.pool })
 }
 
-/** A sheet of the workbook's layout with where its cells end, as the component lists it. */
-function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
+/** The workbook's default font when it has none of its own: Calibri 11, in which xlcalc measures widths and `####`. */
+const CALIBRI_11 = { name: 'Calibri', size: 11 }
+
+/** A sheet of the workbook's layout with where its cells end and the workbook's default font, as the component lists it. */
+function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size: number }): SheetInfo {
   const f = sheet.frozen
   const outline = outlineOf(outlineGroups(sheet), sheet.outline)
   return {
@@ -46,7 +49,7 @@ function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
     ...(sheet.hidden ? { hidden: sheet.hidden } : {}),
     ...(outline ? { outline } : {}),
     ...(sheet.view?.zoom ? { zoom: sheet.view.zoom } : {}),
-    // TODO(xlcalc): the workbook's default font (`SheetInfo.font`) once the library gives its Normal style's font
+    font,
   }
 }
 
@@ -352,9 +355,18 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     if (!cells.length) return { ok: true, changes: [] }
     const got = await s.patchCells(cells)
     // A number format changes how cells are displayed and what they open with, which windows carry: the sheet is read again.
-    // A style alone changes no text or size, so the windows over the ranges are re-read in place and the filter's cached values stay.
-    if (cells.some((c) => c.set.numberFormat !== undefined)) return reloaded(got.changes)
     const changes = take(got.changes)
+    if (cells.some((c) => c.set.numberFormat !== undefined)) {
+      reload()
+      return { ok: true, changes }
+    }
+    // A font that fits rows to it (xlcalc 0.59's `fitted`) changes row heights: the sheets and windows are read again, and the
+    // filter's cached values stay, as a style changes no value.
+    if (got.fitted?.length) {
+      emit({ kind: 'reload' })
+      return { ok: true, changes }
+    }
+    // A style alone changes no text or size, so the windows over the ranges are re-read in place.
     emit({ kind: 'repaint', ranges: [...patches.filter((p) => p.style !== undefined).map((p) => ({ sheet, range: p.range })), ...(got.repaint ?? []).map((x) => ({ sheet: x.sheet, range: x.range }))] })
     return { ok: true, changes }
   }
@@ -404,10 +416,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     ready,
     async sheets(signal) {
       const s = await open()
-      const { sheets } = await s.getLayout()
-      const used = await Promise.all(sheets.map((x) => s.getUsedRange(x.name)))
+      const layout = await s.getLayout()
+      const used = await Promise.all(layout.sheets.map((x) => s.getUsedRange(x.name)))
       throwIfAborted(signal)
-      return sheets.map((x, i) => info(x, used[i]!))
+      // xlcalc 0.59 gives the workbook's default font; an older one, or a workbook without it, is Calibri 11
+      const font = layout.font ?? CALIBRI_11
+      return layout.sheets.map((x, i) => info(x, used[i]!, font))
     },
     async window(req: WindowRequest, signal) {
       const s = await open()
@@ -448,6 +462,15 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     setRules: mutation(book.setRules, refusedBy),
     table: mutation(book.table, failedBy),
     ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
+    /** Excel's AutoSum as the session guesses it (xlcalc 0.59), its formula in the workbook's locale; null with an older library. */
+    async autoSum(sheet, cell, signal) {
+      const s = await open()
+      throwIfAborted(signal)
+      if (typeof s.getAutoSum !== 'function') return null
+      const got = await s.getAutoSum(sheet, cell)
+      throwIfAborted(signal)
+      return { range: got.range, formula: got.formulaLocal }
+    },
     get history() {
       return session?.history ?? { undo: 0, redo: 0 }
     },

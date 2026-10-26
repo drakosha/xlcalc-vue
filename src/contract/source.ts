@@ -103,10 +103,22 @@ export interface SheetSource {
   spelling?(req: SpellingRequest, signal?: AbortSignal): Promise<SpellingHit | null>
   /** Excel's Add to Dictionary in the Spelling dialog: the word is the user's own from now on. */
   learnWord?(word: string): Promise<void>
+  /** Excel's AutoSum (Alt+=) at a cell: the range it offers and its `SUM`; null when the source cannot guess one. Without it there is no AutoSum. */
+  autoSum?(sheet: string, cell: string, signal?: AbortSignal): Promise<SheetAutoSum | null>
   /** The maximum number of cells in one window, 20,000 by default. */
   readonly maxCells?: number
   /** The number of steps `undo` and `redo` can take, as of the last completed call: a toolbar enables its buttons by them. */
   readonly history?: { readonly undo: number; readonly redo: number }
+}
+
+/**
+ * Excel's AutoSum at a cell: the range it offers to sum (the run of numbers above the cell, else to its left, up to a
+ * subtotal; the subtotals alone when the nearest is one), null without numbers, and the formula it enters, as the source
+ * displays formulas, without `=` (`SUM(B2:B9)`, `СУММ(B2:B9)` in ru-RU, `SUM()` without a range).
+ */
+export interface SheetAutoSum {
+  range: string | null
+  formula: string
 }
 
 /** A function's signature as returned by a source, with what Excel's Insert Function displays under the syntax: a one-line description of the function, in the source's locale. */

@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { LocalSource } from '../src/local'
 import type { SheetOp, SourceEvent } from '../src/contract/source'
-import { BOLD, closeAll, ROW_FILL, source, styleOf, watched, win } from './local-fixture'
+import { BOLD, book, closeAll, ROW_FILL, source, styleOf, watched, win } from './local-fixture'
 
 afterEach(closeAll)
 
@@ -286,6 +286,20 @@ describe('localSource: widths, heights, formats, frozen panes', () => {
     expect(styleOf(await win(s, 'Список', 1, 1, 1, 1), 'A1')).toEqual(BOLD)
     expect((await s.visibleRows('Список', filter)).rows).toEqual([1, 2, 4])
     expect(count('getCells')).toBe(1)
+  })
+
+  it("gives the workbook's default font, Calibri 11 without one, as xlcalc measures", async () => {
+    expect((await source().sheets())[0]!.font).toEqual({ name: 'Calibri', size: 11 })
+    expect((await source({ ...book(), font: { name: 'Arial', size: 10 } }).sheets())[0]!.font).toEqual({ name: 'Arial', size: 10 })
+  })
+
+  it('a larger font fits its row to it (xlcalc 0.59): the sheets and windows are read again', async () => {
+    const s = source()
+    const events: SourceEvent[] = []
+    s.subscribe((e) => events.push(e))
+    await s.format('Список', [{ range: 'A3', style: { font: { size: 24 } } }])
+    expect(events.at(-1)).toEqual({ kind: 'reload' })
+    expect((await win(s, 'Список', 3, 1, 1, 1)).rowHeights[3]).toBeGreaterThan(20)
   })
 
   it("freezes panes in the workbook, keeping the filter's cached values", async () => {

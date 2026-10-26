@@ -43,7 +43,8 @@ describe('dist/index.js', () => {
     // the component with its dialogs, bars and panels is about 630 KB unminified (176 KB gzip); the engine would be megabytes
     expect(js.length).toBeLessThan(800_000)
     expect(js).toContain('//#region node_modules/xlcalc/dist/a1.js')
-    expect(js).toContain('//#region node_modules/xlcalc/dist/scan.js')
+    // xlcalc/text's modules, here the one of stepDecimals (Increase and Decrease Decimal)
+    expect(js).toContain('//#region node_modules/xlcalc/dist/numfmt/decimals.js')
   })
   it('has no string xlcalc in its code, which a host may look for as a sign of the engine', () => {
     expect(code(js)).not.toMatch(/xlcalc/)
