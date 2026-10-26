@@ -1,8 +1,9 @@
 // The sheet's public types: SheetView's props, state, events and methods, the toolbar's source, list mode's sort.
+import type { Component } from 'vue'
 import type { CellStyle, CellValue, IconSetName } from 'xlcalc/contract'
 import type { ClearRulesFrom, ColorScalePreset, DataBarColor, QuickRule } from './conditional'
 import type { SheetMessages } from './messages'
-import type { EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
+import type { AutoSumFunction, EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
 import type { ClearKind } from './workbook'
 
 /** Properties of `SheetView`. */
@@ -72,6 +73,8 @@ export interface SheetViewState {
   merged?: string
   /** The merge commands are available (`SheetViewApi.merge`): the source has `structure`, the sheet is editable, and no display filter is on. */
   canMerge?: true
+  /** AutoSum is available (`SheetViewApi.autoSum`): the source has `autoSum` and the sheet is editable. */
+  canAutoSum?: true
   /** Excel's Show Formulas is on for the displayed sheet (Ctrl+` or `SheetViewApi.showFormulas`): a ribbon shows its button pressed. */
   showFormulas?: true
   /** The sheet's zoom in percent; absent at 100%. */
@@ -170,10 +173,13 @@ export interface SheetViewApi {
   checkSpelling(): boolean
   /**
    * Excel's AutoSum (Alt+=) through the source's `autoSum`: the active cell's edit opens with `=SUM(range)`, the range
-   * selected, so Enter enters it and typing or the arrows replace it; false without `autoSum`, on a read-only sheet,
-   * while a cell is being edited or when the source guesses nothing.
+   * selected, so Enter enters it and typing or the arrows replace it; with `fn`, the function of Excel's AutoSum list
+   * (`=AVERAGE(range)` and so on). false without `autoSum`, with a function the source does not list in `autoSumFunctions`,
+   * on a read-only sheet, while a cell is being edited or when the source guesses nothing.
    */
-  autoSum(): Promise<boolean>
+  autoSum(fn?: AutoSumFunction): Promise<boolean>
+  /** Opens Excel's Insert Function dialog (the formula bar's fx, AutoSum's More Functions…); false on a read-only sheet or without the source's `functionNames`. */
+  insertFunction(): boolean
   /**
    * Excel's Home > Clear > Clear Formats (`formats`) or Clear All (`all`) over the selection through the source's `clear`, as a
    * single undo step (under a display filter, over its visible rows), after which the windows over it are read again. null when
@@ -225,3 +231,28 @@ export interface ListSort {
 
 /** The source the toolbar formats through: a `SheetSource`, whose `history` tells whether Undo and Redo have a step. */
 export type ToolbarSource = SheetSource
+
+/**
+ * A group of `SheetToolbar`'s buttons, as `items` names it: Undo and Redo, Bold, Italic and Underline (`fontStyle`), the
+ * Font and Font Size boxes with Increase and Decrease Font Size (`font`), the Number Format box with its buttons (`number`),
+ * font and fill color, borders, Top, Middle and Bottom Align, horizontal alignment with indent and Wrap Text (`align`),
+ * Merge & Center, Format Cells, and AutoSum.
+ */
+export type ToolbarGroup = 'undo' | 'fontStyle' | 'font' | 'number' | 'colors' | 'borders' | 'verticalAlign' | 'align' | 'merge' | 'formatCells' | 'autoSum'
+
+/** A host's button on `SheetToolbar`, drawn as the toolbar's own and moved into its menu in a narrow viewport. */
+export interface ToolbarButton {
+  /** Unique among the host's buttons; the button's hook is `data-tb-host="<id>"`. */
+  id: string
+  /** The tooltip and accessible name, and the button's text without an icon. */
+  label: string
+  /** A Vue component (it gets the toolbar's icon class) or SVG markup, drawn at the toolbar's icon size. */
+  icon?: Component | string
+  run: () => void
+  disabled?: boolean
+  /** Shown as pressed (`aria-pressed`), as a toggle. */
+  pressed?: boolean
+}
+
+/** An item of `SheetToolbar`'s `items`: one of its groups, or a host's button. */
+export type ToolbarItem = ToolbarGroup | ToolbarButton

@@ -4,7 +4,10 @@ import type { BorderLine, CellRect, CellStyle, NumberFormat, StylePatch } from '
 import { parseRange, rangeAddress } from 'xlcalc/a1'
 import { stepDecimals } from 'xlcalc/text'
 import type { FormatPatch, SheetSource } from './contract/source'
-import type { SheetViewState } from './contract/view'
+import type { SheetViewState, ToolbarGroup } from './contract/view'
+
+/** The toolbar's groups in their default order, as `SheetToolbar`'s `items` takes them: a host spreads it to add its buttons. */
+export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = ['undo', 'fontStyle', 'font', 'number', 'colors', 'borders', 'verticalAlign', 'align', 'merge', 'formatCells', 'autoSum']
 
 export type FontToggle = 'bold' | 'italic' | 'underline'
 export type HorizontalAlign = 'left' | 'center' | 'right'

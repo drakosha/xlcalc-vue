@@ -275,6 +275,15 @@ export interface SheetMessages extends ConditionalMessages {
   mergeCells: string
   unmergeCells: string
   mergeWarning: string
+  /** Excel's AutoSum on the toolbar: the button (Sum), its dropdown button, and the list's items. */
+  autoSum: string
+  autoSumMenu: string
+  autoSumSum: string
+  autoSumAverage: string
+  autoSumCount: string
+  autoSumMax: string
+  autoSumMin: string
+  autoSumMore: string
   /** Excel's Go To dialog (F5, Ctrl+G): its title, the list's label, the Reference box, and its message for text that is not a reference. */
   goToTitle: string
   goToList: string

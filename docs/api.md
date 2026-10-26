@@ -6,7 +6,7 @@ Everything the package exports, with signatures. How the sheet uses each part, k
 
 | Import | Exports | Runtime dependencies |
 | --- | --- | --- |
-| `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages` and the types below | `vue` |
+| `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages`, `TOOLBAR_GROUPS` and the types below | `vue` |
 | `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.46.0 or later (optional peer) |
 | `@xlcalc/vue/style.css` | Styles of the sheet, the toolbar and the dialog | |
 
@@ -113,6 +113,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `columnWidth` | `number?` | The active cell's column width as the workbook stores it (xlcalc's units), absent for the default. |
 | `merged` | `string?` | The merged range containing the active cell. |
 | `canMerge` | `true?` | The merge commands are available: the source has `structure`, the sheet is editable, and no display filter is on. |
+| `canAutoSum` | `true?` | AutoSum is available (`autoSum()`): the source has `autoSum` and the sheet is editable. |
 | `showFormulas` | `true?` | Excel's Show Formulas is on for the displayed sheet, so a ribbon shows its button pressed ([view.md](view.md#show-formulas)). |
 | `zoom` | `number?` | The sheet's zoom in percent; absent at 100%. |
 | `font` | `{ name; size }?` | The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays; the toolbar's Font and Font Size boxes show it for such a cell. |
@@ -150,7 +151,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `convertToRange()` | `Promise<EditOutcome \| null>` | Excel's Convert to Range on the table at the active cell, after Excel's question. |
 | `deleteTable()` | `Promise<EditOutcome \| null>` | Delete Table: the table at the active cell with its cells. |
 | `checkSpelling()` | `boolean` | Excel's Spelling (F7) through the source's `spelling`: the dialog from the active cell, within a selection of more than one cell; `false` without `spelling`. See [editing.md](editing.md#spelling). |
-| `autoSum()` | `Promise<boolean>` | Excel's AutoSum (Alt+=) through the source's `autoSum`: the active cell's edit opens with `=SUM(range)`, the range selected, so Enter enters it and typing or the arrows replace it; `false` without `autoSum`, on a read-only sheet, while a cell is being edited or when the source guesses nothing. See [editing.md](editing.md#autosum). |
+| `autoSum(fn?: AutoSumFunction)` | `Promise<boolean>` | Excel's AutoSum (Alt+=) through the source's `autoSum`: the active cell's edit opens with `=SUM(range)`, the range selected, so Enter enters it and typing or the arrows replace it; with `fn` (`'average'`, `'count'`, `'max'`, `'min'`), that function of Excel's AutoSum list. `false` without `autoSum`, with a function the source does not list in `autoSumFunctions`, on a read-only sheet, while a cell is being edited or when the source guesses nothing. See [editing.md](editing.md#autosum). |
+| `insertFunction()` | `boolean` | Opens Excel's Insert Function dialog, as the formula bar's fx and AutoSum's More Functions… do; `false` on a read-only sheet or without the source's `functionNames`. See [autocomplete.md](autocomplete.md#insert-function). |
 | `clear(what: ClearKind)` | `Promise<EditOutcome \| null>` | Excel's Home > Clear > Clear Formats (`'formats'`) or Clear All (`'all'`) over the selection through the source's `clear`, as a single undo step; under a display filter, over its visible rows. `null` also over a locked cell. See [links-notes.md](links-notes.md#clear-formats-and-clear-all). |
 | `insertLink()` | `boolean` | Opens Excel's Insert Hyperlink dialog (Ctrl+K) for the selection, as Edit Hyperlink when the active cell has a link; OK writes the link through the source's `link`. `false` without `link`, on a read-only sheet or over a locked cell. See [links-notes.md](links-notes.md#hyperlinks). |
 | `dataValidation()` | `boolean` | Opens Excel's Data Validation dialog for the selection over the source's `rules` and `setRules`, after Excel's question where the selection holds rules of more than one kind or cells without the rule; `false` when the sheet is read-only or the source lacks either method. See [validation.md](validation.md#the-data-validation-dialog). |
@@ -218,6 +220,7 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `sheet` | `SheetViewApi \| null` | The sheet's template ref. With it the toolbar formats, undoes, redoes and merges through the sheet; without it, through the source, and it emits `select` and `error`. |
 | `hostDialog` | `boolean` | The host opens its own dialog on `formatCells`, as when it listens: for a host whose listener the toolbar cannot see, such as a custom element's. |
 | `fonts` | `readonly string[]` | The Font box's list, in place of Excel's common fonts (Aptos, Arial, Calibri and others): a browser does not tell which fonts are installed. |
+| `items` | `readonly ToolbarItem[]` | The groups to draw, in order, and the host's buttons among them; without it every group in the default order, `TOOLBAR_GROUPS`. An unknown or repeated group is skipped. See [toolbar.md](toolbar.md#choosing-the-buttons). |
 
 | Event | Payload | When |
 | --- | --- | --- |
@@ -225,6 +228,13 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `error` | `string` | The source rejected a call or the call failed; not emitted with `sheet`. |
 | `done` | none | A call has completed, or Esc left the Font or Font Size box: the host may return focus to the grid. |
 | `formatCells` | none | Format Cells… was clicked. With a listener or `hostDialog`, the button opens the host's dialog; without one, it opens the sheet's dialog (through `sheet`), and without either there is no button. |
+
+| Type or value | Meaning |
+| --- | --- |
+| `ToolbarGroup` | `'undo' \| 'fontStyle' \| 'font' \| 'number' \| 'colors' \| 'borders' \| 'verticalAlign' \| 'align' \| 'merge' \| 'formatCells' \| 'autoSum'`: Undo and Redo; Bold, Italic and Underline; the Font and Font Size boxes with Increase and Decrease Font Size; the Number Format box with Accounting Number Format, Percent Style, Comma Style and Increase and Decrease Decimal; font and fill color; borders; Top, Middle and Bottom Align; horizontal alignment with Decrease and Increase Indent and Wrap Text; Merge & Center; Format Cells; AutoSum. |
+| `ToolbarButton` | `{ id: string; label: string; icon?: Component \| string; run: () => void; disabled?: boolean; pressed?: boolean }`: a host's button. `label` is its tooltip and accessible name, and its text without `icon`; `icon` is a Vue component (it gets the class `xs-icon`) or SVG markup, drawn at the toolbar's icon size; `pressed` shows it pressed, with `aria-pressed`. Its hook is `data-tb-host="<id>"`. |
+| `ToolbarItem` | `ToolbarGroup \| ToolbarButton`. |
+| `TOOLBAR_GROUPS` | `readonly ToolbarGroup[]`: every group in the default order, for a host that adds its buttons (`[...TOOLBAR_GROUPS, button]`). |
 
 ## `FormatDialog`
 
@@ -321,7 +331,7 @@ export function serverSource(base: string): SheetSource {
 | `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | [tables.md](tables.md) |
 | `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | [editing.md](editing.md#spelling) |
 | `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | [editing.md](editing.md#spelling) |
-| `autoSum(sheet, cell, signal?) => Promise<SheetAutoSum \| null>` | Excel's AutoSum (Alt+=): the range it offers at the cell and its `SUM`; null when the source guesses nothing. | No AutoSum. | [editing.md](editing.md#autosum) |
+| `autoSum(sheet, cell, signal?, fn?: AutoSumFunction) => Promise<SheetAutoSum \| null>` | Excel's AutoSum (Alt+=): the range it offers at the cell and its `SUM`, or with `fn` (one of `autoSumFunctions`) the same range under that function; null when the source guesses nothing. The sheet passes `fn` only for a function other than Sum. | No AutoSum. | [editing.md](editing.md#autosum) |
 
 After `link`, `note`, `clear` and `setRules` succeed, the sheet re-reads the windows over what they changed: their outcome's `changes` carry values, not hyperlinks, notes or formatting. A source need not send a `repaint` for its own sheet, but `./local` does, for other sheets over the same source.
 
@@ -329,6 +339,7 @@ After `link`, `note`, `clear` and `setRules` succeed, the sheet re-reads the win
 | --- | --- | --- |
 | `maxCells` | `number` | The maximum number of cells in one window, 20,000 by default. |
 | `history` | `{ undo: number; redo: number }` | The number of steps `undo` and `redo` can take, for the toolbar buttons. |
+| `autoSumFunctions` | `readonly AutoSumFunction[]` | The functions of Excel's AutoSum list that `autoSum` builds besides Sum; without it the toolbar's list offers Sum and More Functions… only. `./local` builds all four. |
 
 ### Windows and sheets
 
@@ -421,6 +432,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 | `SheetFilter` | `{ head: number; cols?: Record<number, { values?: string[]; text?: string }>; sort?: { col; dir: 'asc' \| 'desc' } }` |
 | `RangeStats` | `{ cells, numbers, sum, min, max }` |
 | `SheetAutoSum` | `{ range: string \| null; formula: string }`: the range AutoSum offers (the run of numbers above the cell, else to its left, up to a subtotal), null without numbers, and its formula as the source displays formulas, without `=` (`SUM(B2:B9)`, `СУММ(B2:B9)` in ru-RU, `SUM()` without a range). `./local` gives xlcalc's `getAutoSum` (xlcalc 0.59 and later), null with an older one. |
+| `AutoSumFunction` | `'sum' \| 'average' \| 'count' \| 'max' \| 'min'`: the functions of Excel's AutoSum list, Count Numbers being `COUNT`. |
 | `SheetFunctionSignature` | xlcalc's `FunctionSignature` with `description?`, a one-line description of the function in the source's locale, for Insert Function. |
 | `SheetValidation` | `{ list?: string[]; prompt?: { title?; text } }` |
 | `SheetValidationAlert` | `{ severity: 'stop' \| 'warning' \| 'information'; title?; message; sheet; cell }` |

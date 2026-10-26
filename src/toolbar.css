@@ -61,6 +61,19 @@
   width: 10px;
   height: 10px;
 }
+/* A host's button: its SVG markup at the icon's size, or its label as text. */
+.xs-tb-svg {
+  display: inline-flex;
+}
+.xs-tb-svg > svg {
+  width: 100%;
+  height: 100%;
+}
+.xs-tool.xs-tb-text {
+  padding: 0 6px;
+  font: 12px var(--xs-font);
+  white-space: nowrap;
+}
 .xs-tb-select {
   max-width: 140px;
   font-size: 12px;
