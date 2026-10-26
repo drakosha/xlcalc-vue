@@ -377,7 +377,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `rowNumbers` | `boolean?` | Row numbers on the left, shown by default. |
 | `totals` | `(string \| null)[]?` | List mode: a totals row pinned to the bottom of the viewport, the displayed text for each of the sheet's columns. |
 | `outline` | `SheetOutline?` | Excel's outline: `rows` and `columns` as `OutlineGroup[]` (`{ from, to, level, collapsed }`), `summaryBelow`, `summaryRight`. |
-| `font` | `{ name; size }?` | The workbook's default font (its Normal style), in which a cell without a font of its own is drawn; `--xs-font` without it. |
+| `font` | `{ name; size }?` | The workbook's default font (its Normal style), in which a cell without a font of its own is drawn; `--xs-font` without it. `./local` gives xlcalc's `BookInput.font`, Calibri 11 without one, the font in which xlcalc measures widths and `####`. |
 | `zoom` | `number?` | The sheet's saved zoom in percent (xlsx `zoomScale`), with which it opens; 100 without it. |
 
 ### Edits and outcomes

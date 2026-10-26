@@ -25,3 +25,12 @@ Excel has Clear Formats and Clear All under Home > Clear, not in the cell contex
 ## The workbook's default font
 
 A sheet whose `SheetInfo` has `font` (`{ name, size }`, the workbook's Normal style) draws every cell without a font of its own in that font, as Excel draws it: the grid's table takes the font's name and its size in the grid's pixels (11 pt is 12.5 px, the rest in proportion), and the cells inherit it. A cell's own font name or size takes precedence. The row numbers and column letters keep the interface font, `--xs-font`. Without `font` nothing changes: cells are drawn in `--xs-font` and `--xs-font-size`. The row heights are the source's either way (`rowHeights`, `defaultRowHeight`), and overflow into empty neighbors goes by the column widths, so neither depends on the font.
+
+`@xlcalc/vue/local` gives the workbook's font, and Calibri 11 for a workbook without one, since xlcalc measures column widths and `####` in Calibri 11 whatever the font. A browser without Calibri (most outside Windows and Office) draws the cells in a fallback font, whose widths differ, so a value can overflow where xlcalc says it fits. Calibri itself may not be served from a web page, but Carlito, under the SIL Open Font License, has Calibri's widths; a host serves it under Calibri's name, and an installed Calibri still takes precedence:
+
+```css
+@font-face {
+  font-family: Calibri;
+  src: local('Calibri'), url('/fonts/Carlito-Regular.woff2') format('woff2');
+}
+```

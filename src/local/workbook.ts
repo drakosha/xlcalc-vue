@@ -1,6 +1,6 @@
 // The local source's dialogs over the workbook beside cell values: clearing, hyperlinks, notes, defined names, rules, tables,
 // dependents and spelling, each a session call with its formulas translated between the stored form and the workbook's locale.
-import { toLocal, validateLocalFormula, validateNames, type AsyncSession, type CellChange, type ConditionalFormat, type DataValidation, type EditResult } from 'xlcalc'
+import { toLocal, validateLocalFormula, type AsyncSession, type CellChange, type ConditionalFormat, type DataValidation, type EditResult } from 'xlcalc'
 import { cellAddress, parseCell } from 'xlcalc/a1'
 import type { EditOutcome } from '../contract/source'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellChecker, SpellingHit, SpellingRequest, TableOp } from '../contract/workbook'
@@ -88,19 +88,14 @@ export function workbookMethods(locale: string, done: Completion, checker?: Spel
   }
 
   /**
-   * The names as the Name Manager leaves them, their formulas parsed in the workbook's locale and the list checked by the
-   * library's `validateNames` (a name Excel rejects, a duplicate, an unknown scope), since `setNames` itself does not check
-   * names yet; the hidden names, which the list does not show, are kept as they are. Names change values anywhere, so the
-   * sheet is read again.
+   * The names as the Name Manager leaves them, their formulas parsed in the workbook's locale; the hidden names, which the
+   * list does not show, go back as they are. `setNames` refuses a name Excel rejects (xlcalc 0.59). Names change values
+   * anywhere, so the sheet is read again.
    */
   async function setNames(s: AsyncSession, list: SheetName[]): Promise<EditOutcome> {
     return parsed(async () => {
-      const layout = await s.getLayout()
-      const hidden = (layout.names ?? []).filter((n) => n.hidden)
+      const hidden = ((await s.getLayout()).names ?? []).filter((n) => n.hidden)
       const input = [...list.map((n) => ({ name: n.name, ref: stored(n.ref), ...(n.scope ? { scope: n.scope } : {}) })), ...hidden]
-      const tables = layout.sheets.flatMap((sh) => (sh.tables ?? []).map((t) => ({ name: t.name, columns: t.columns.map((c) => c.name) })))
-      const dropped = validateNames(input, { sheets: layout.sheets.map((sh) => sh.name), tables, locale }).find((i) => i.dropped)
-      if (dropped) return { ok: false, reason: 'refused', message: dropped.reason }
       return done.reloaded((await s.setNames(input)).changes)
     })
   }
