@@ -310,27 +310,18 @@ export function serverSource(base: string): SheetSource {
 | `outline(change: OutlineChange)` | The outline buttons, Group and Ungroup. | The bars are drawn, but their buttons do nothing. | [sheets.md](sheets.md) |
 | `visibleRows(sheet, filter, signal?) => Promise<{ rows: number[] \| null }>` | The display filter and sort. | No filter. | [view.md](view.md) |
 | `columnValues(sheet, col, filter, signal?) => Promise<{ values: { text; count }[]; more }>` | The filter funnel's list of values. | No list in the funnel. | |
-| `clear(sheet, ranges: string[], what: ClearKind)` | Excel's Clear Formats (`'formats'`: styles, number formats and the conditional formats over the cells) and Clear All (`'all'`: also contents, hyperlinks, notes and data validation rules), as a single undo step. Delete clears contents through `edit`. | Neither is offered. | |
-| `link(sheet, range, link: SheetLink \| null)` | Excel's Insert Link over a range, the cells' contents kept; null is Remove Hyperlinks. | Links can be followed but not edited. | |
-| `note(sheet, cell, note: SheetNote \| null)` | Excel's New Note and Edit Note; null is Delete Note. | Notes are shown but not edited. | |
+| `clear(sheet, ranges: string[], what: ClearKind)` | Excel's Clear Formats (`'formats'`: styles, number formats and the conditional formats over the cells) and Clear All (`'all'`: also contents, hyperlinks, notes and data validation rules), as a single undo step. Delete clears contents through `edit`. | Neither is offered. | [links-notes.md](links-notes.md) |
+| `link(sheet, range, link: SheetLink \| null)` | Excel's Insert Link over a range, the cells' contents kept; null is Remove Hyperlinks. | Links can be followed but not edited. | [links-notes.md](links-notes.md) |
+| `note(sheet, cell, note: SheetNote \| null)` | Excel's New Note and Edit Note; null is Delete Note. | Notes are shown but not edited. | [links-notes.md](links-notes.md) |
 | `names(signal?) => Promise<SheetName[]>` | The workbook's defined names for the Name Box, Go To, Formula AutoComplete and the Name Manager. | No names. | [names.md](names.md) |
 | `setNames(names: SheetName[])` | Replaces the workbook's names (the Name Manager, Define Name, a name typed into the Name Box), as a single undo step. | The names are shown but cannot be changed. | [names.md](names.md) |
-| `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | |
-| `names(signal?) => Promise<SheetName[]>` | The workbook's defined names for the Name Box, Go To, Formula AutoComplete and the Name Manager. | No names. | |
-| `setNames(names: SheetName[])` | Replaces the workbook's names (the Name Manager, Define Name), as a single undo step. | The names cannot be edited. | |
 | `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | [view.md](view.md#trace-dependents) |
-| `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs. | The rules are applied but not shown for editing. | |
-| `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | |
+| `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs; with `setRules`, the Data Validation dialog. | The rules are applied but not shown for editing. | [conditional-formatting.md](conditional-formatting.md), [validation.md](validation.md#the-data-validation-dialog) |
+| `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | [conditional-formatting.md](conditional-formatting.md), [validation.md](validation.md#the-data-validation-dialog) |
 | `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | [tables.md](tables.md) |
 | `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | [editing.md](editing.md#spelling) |
 | `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | [editing.md](editing.md#spelling) |
-| `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | |
-| `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs; with `setRules`, the Data Validation dialog. | The rules are applied but not shown for editing. | [validation.md](validation.md#the-data-validation-dialog) |
-| `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | [validation.md](validation.md#the-data-validation-dialog) |
-| `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | |
-| `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | |
-| `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | |
-| `autoSum(sheet, cell, signal?) => Promise<SheetAutoSum \| null>` | Excel's AutoSum (Alt+=): the range it offers at the cell and its `SUM`; null when the source guesses nothing. | No AutoSum. | [editing.md](editing.md) |
+| `autoSum(sheet, cell, signal?) => Promise<SheetAutoSum \| null>` | Excel's AutoSum (Alt+=): the range it offers at the cell and its `SUM`; null when the source guesses nothing. | No AutoSum. | [editing.md](editing.md#autosum) |
 
 After `link`, `note`, `clear` and `setRules` succeed, the sheet re-reads the windows over what they changed: their outcome's `changes` carry values, not hyperlinks, notes or formatting. A source need not send a `repaint` for its own sheet, but `./local` does, for other sheets over the same source.
 

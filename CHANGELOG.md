@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.1 (2026-10-26)
+
+Documentation only.
+
+- `docs/api.md` lists each of the source's new methods once, with its page; `docs/links-notes.md` and `docs/view.md` say what Insert Link and the Watch Window do with defined names; `docs/local.md` says which methods need xlcalc 0.59.0.
+
 ## 0.23.0 (2026-10-26)
 
 Over xlcalc 0.59.0, the parts of the app's list that waited for the library. Nothing breaks for a host; `./local` works with xlcalc 0.46.0 and later, its AutoSum and the workbook's font with 0.59.0.
