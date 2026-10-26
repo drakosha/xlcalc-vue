@@ -169,6 +169,12 @@ export interface SheetViewApi {
   /** Excel's Spelling (F7) through the source's `spelling`: the dialog from the active cell, within a selection of several cells; false without `spelling`. */
   checkSpelling(): boolean
   /**
+   * Excel's AutoSum (Alt+=) through the source's `autoSum`: the active cell's edit opens with `=SUM(range)`, the range
+   * selected, so Enter enters it and typing or the arrows replace it; false without `autoSum`, on a read-only sheet,
+   * while a cell is being edited or when the source guesses nothing.
+   */
+  autoSum(): Promise<boolean>
+  /**
    * Excel's Home > Clear > Clear Formats (`formats`) or Clear All (`all`) over the selection through the source's `clear`, as a
    * single undo step (under a display filter, over its visible rows), after which the windows over it are read again. null when
    * nothing was sent: no `clear`, a read-only sheet, or a locked cell in the selection.

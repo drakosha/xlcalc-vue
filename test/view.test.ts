@@ -126,7 +126,7 @@ describe('sheet structure', () => {
     const w = await mountSheet(memorySource(book), { readOnly: true, onState: (s: unknown) => states.push(s) })
     expect(w.findAll('.xs-tab').map((t) => t.text())).toEqual(['One', 'Two'])
     expect(td(w, 1, 1).text()).toBe('one')
-    expect(states.at(-1)).toEqual({ sheet: 'One', ref: 'A1', value: 'one' })
+    expect(states.at(-1)).toEqual({ sheet: 'One', ref: 'A1', value: 'one', cellValue: 'one' })
   })
 
   it('uses column titles and no row numbers from SheetInfo (the basis for list mode)', async () => {

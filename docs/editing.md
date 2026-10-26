@@ -139,3 +139,8 @@ const source = memorySource(
   <SheetView :source="source" style="height: 300px" />
 </template>
 ```
+
+## AutoSum
+
+With a source that has `autoSum`, Alt+= (Option+= on a Mac, by the key's position on any layout) is Excel's AutoSum, and so is the sheet's `autoSum()` method, which a host's ribbon button calls. The source guesses the range as Excel does (`./local` through xlcalc's `getAutoSum`: the run of numbers above the cell, else to its left, up to a subtotal), and the active cell's edit opens with `=SUM(range)` in the source's locale and the range selected: Enter enters it, typing replaces the range and the arrows point at another, as in Point mode. Without numbers the edit opens with `=SUM()` and the caret between the parentheses. Excel's AutoSum over a selection of several cells, which enters the sums at once, is not offered: the sheet sums at the active cell. Excel also gives the sum the number format of what it sums (a sum of percentages shows as a percentage); xlcalc does not yet.
+

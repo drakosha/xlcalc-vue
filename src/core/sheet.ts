@@ -28,6 +28,7 @@ import { useNavigation } from './navigation'
 import { useNotes } from './notes'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
+import { useAutoSum } from './autosum'
 import { useSpellCheck } from './spell-check'
 import { useTables } from './tables'
 import { useTrace } from './trace'
@@ -184,6 +185,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
   const trace = useTrace(s, v, w, notify)
   const tables = useTables(s, w, sel, cmd)
+  const autoSum = useAutoSum(s, ed, { editing: () => editor.value !== null })
   const spell = useSpellCheck(s, sel, ed, notify)
   const rules = useValidationDialog(s, sel, w, { scan: f.scanOptions, ask: alerts.ask, notify, changed: () => validation.refresh() })
   const cf = useConditional(s, sel, w, ed, { notify, scan: f.scanOptions })
@@ -215,6 +217,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     convertToRange: tables.convert,
     deleteTable: tables.remove,
     checkSpelling: spell.check,
+    autoSum: autoSum.run,
     clear: extras.clear,
     insertLink: links.open,
     dataValidation: rules.open,
@@ -446,7 +449,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (validation.onKey(e)) return
     if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e) || goto.key(e) || fill.key(e) || formulaView.key(e))) return
     // Excel's Create Table (Ctrl+T, Ctrl+L) and Spelling (F7)
-    if (!e.isComposing && (tables.key(e) || spell.key(e))) return
+    if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()

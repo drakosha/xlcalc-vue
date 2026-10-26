@@ -462,6 +462,15 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     setRules: mutation(book.setRules, refusedBy),
     table: mutation(book.table, failedBy),
     ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
+    /** Excel's AutoSum as the session guesses it (xlcalc 0.59), its formula in the workbook's locale; null with an older library. */
+    async autoSum(sheet, cell, signal) {
+      const s = await open()
+      throwIfAborted(signal)
+      if (typeof s.getAutoSum !== 'function') return null
+      const got = await s.getAutoSum(sheet, cell)
+      throwIfAborted(signal)
+      return { range: got.range, formula: got.formulaLocal }
+    },
     get history() {
       return session?.history ?? { undo: 0, redo: 0 }
     },
