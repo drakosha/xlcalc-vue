@@ -6,6 +6,7 @@ import { chromium, type Page } from 'playwright'
 import { createServer } from 'vite'
 import { quoteSheetIfNeeded } from 'xlcalc/a1'
 import { longPress, longPressAt } from './touch.ts'
+import { zoomScreens } from './zoom-screens.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'test-results/screens')
@@ -582,6 +583,59 @@ async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   await page.waitForSelector('[data-xs-insert-function]', { state: 'detached' })
 }
 
+/** Excel's Go To (F5) after a jump, with its alert for a bad reference, and the Symbol dialog (the example's Ω button): a subset, Insert into a new edit, the Special Characters tab into the same edit. */
+async function dialogScreens(page: Page, size: (typeof SIZES)[number]): Promise<void> {
+  const flat = async (what: string) => {
+    if (await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)) throw new Error(`${what} ${size.name}: the page scrolls horizontally`)
+  }
+  const draft = () => page.evaluate(() => (document.querySelector('.xs-editor') as HTMLTextAreaElement).value)
+  await open(page, 'Оформление!B2')
+  await page.locator('.xs-scroller').focus()
+  await page.keyboard.press('F5')
+  await page.locator('[data-xs-goto-ref]').fill('C5')
+  await page.keyboard.press('Enter')
+  await page.waitForSelector('[data-xs-goto]', { state: 'detached' })
+  await page.keyboard.press('F5')
+  await page.waitForSelector('[data-xs-goto-item]')
+  const offered = await page.locator('[data-xs-goto-ref]').inputValue()
+  if (offered !== 'Оформление!$B$2') throw new Error(`goto ${size.name}: the Reference box offers ${offered}, want Оформление!$B$2`)
+  await shot(page, size.name, '70-goto')
+  if (size.mobile) await checkTargets(page, true, '.xs-goto')
+  await flat('goto')
+  await page.locator('[data-xs-goto-ref]').fill('B2+C1')
+  await page.keyboard.press('Enter')
+  await page.waitForSelector('[data-xs-alert="notice"]')
+  await shot(page, size.name, '71-goto-bad')
+  await page.keyboard.press('Enter')
+  await page.waitForSelector('[data-xs-alert]', { state: 'detached' })
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[data-xs-goto]', { state: 'detached' })
+
+  await page.locator('[data-symbol]').click()
+  await page.waitForSelector('[data-xs-symbol] [data-xs-sym-code]')
+  const cols = await page.evaluate(() => document.querySelector('.xs-sym-row')!.children.length)
+  if (!size.mobile && cols !== 16) throw new Error(`symbol ${size.name}: ${cols} characters a row, want 16`)
+  await shot(page, size.name, '72-symbol')
+  if (size.mobile) await checkTargets(page, true, '.xs-sym')
+  await flat('symbol')
+  await page.locator('[data-xs-sym-subset]').selectOption('cyrillic')
+  await page.locator('[data-xs-sym-code="0416"]').click()
+  await page.locator('[data-xs-sym-insert]').click()
+  await shot(page, size.name, '73-symbol-cyrillic')
+  await page.locator('[data-xs-sym-tab="special"]').click()
+  await page.locator('[data-xs-sym-special="emDash"]').dblclick()
+  await shot(page, size.name, '74-symbol-special')
+  if (size.mobile) await checkTargets(page, true, '.xs-sym')
+  const typed = await draft()
+  if (typed !== 'Ж—') throw new Error(`symbol ${size.name}: the edit holds ${typed}, want Ж—`)
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[data-xs-symbol]', { state: 'detached' })
+  const focused = await page.evaluate(() => document.activeElement?.classList.contains('xs-editor'))
+  if (!focused) throw new Error(`symbol ${size.name}: the edit lost focus after Close`)
+  await page.keyboard.press('Escape')
+  console.log(`dialogs ${size.name}: Go To offered ${offered} after a jump and alerted on B2+C1; Symbol ${cols} a row, Ж and — inserted into one edit, focus back in it`)
+}
+
 for (const size of SIZES) {
   const context = await browser.newContext({
     viewport: { width: size.width, height: size.height },
@@ -696,6 +750,8 @@ for (const size of SIZES) {
   await mergeScreens(page, size)
   await typoScreens(page, size)
   await tipScreens(page, size)
+  await dialogScreens(page, size)
+  await zoomScreens(page, base, size, out)
 
   // Editing in the cell: typing over a cell, then the pending edit.
   await open(page, 'Формулы!C2')

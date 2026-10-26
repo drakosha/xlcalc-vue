@@ -6,7 +6,86 @@ import type { FormatPatch, SheetSource } from './contract/source'
 
 export type FontToggle = 'bold' | 'italic' | 'underline'
 export type HorizontalAlign = 'left' | 'center' | 'right'
+export type VerticalAlign = 'top' | 'center' | 'bottom'
 export type BorderKind = 'all' | 'outside' | 'bottom' | 'none'
+
+/** Excel's font sizes in its list; any size from 1 to 409 may be typed. */
+export const FONT_SIZES: readonly number[] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72]
+/** Fonts offered in the lists of the font inputs, Excel's common ones (a browser does not tell which are installed); any name may be typed. */
+export const FONT_NAMES: readonly string[] = ['Aptos', 'Aptos Narrow', 'Arial', 'Calibri', 'Cambria', 'Consolas', 'Courier New', 'Georgia', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Verdana']
+/** Excel's font size limits, in points. */
+const MIN_SIZE = 1
+const MAX_SIZE = 409
+/** The size the grid draws a cell without its own size at (11 pt, Excel's default), from which the size buttons step. */
+const GRID_SIZE = 11
+/** Excel's indent applies with the left, right and distributed alignments; its levels go up to 250. */
+export const INDENTED: ReadonlySet<string> = new Set(['left', 'right', 'distributed'])
+const MAX_INDENT = 250
+/** Excel's Percent Style and its Ctrl+Shift+%: the built-in format 9, `0%`. */
+export const PERCENT_STYLE = 9
+
+/** The workbook's default font, which a cell without its own font name or size displays. */
+export interface BookFont {
+  name?: string
+  size?: number
+}
+/**
+ * The font the Font and Font Size boxes show for the active cell: its own, otherwise the workbook's (`book`, the sheet
+ * state's `font`); without either the boxes are empty.
+ */
+export function shownFont(style: CellStyle | undefined, book: BookFont = {}): { name: string; size: number | undefined } {
+  return { name: style?.font?.name ?? book.name ?? '', size: style?.font?.size ?? book.size }
+}
+
+/** A typed font size, with a decimal point or comma: undefined for an empty input, NaN for anything that is not a number. */
+export function parseFontSize(text: string): number | undefined {
+  const t = text.trim().replace(',', '.')
+  return t ? Number(t) : undefined
+}
+/** A typed font size as Excel takes it: rounded to half points, null outside 1 to 409 or for anything that is not a number. */
+export function fontSizeOf(text: string): number | null {
+  const size = parseFontSize(text)
+  return size !== undefined && size >= MIN_SIZE && size <= MAX_SIZE ? Math.round(size * 2) / 2 : null
+}
+
+/**
+ * Excel's Increase and Decrease Font Size from a size: the next size of its list, beyond 72 in steps of 10 up to 409, and
+ * below 8 a point at a time down to 1, as Office's Grow Font and Shrink Font step; the same size at either limit.
+ */
+export function stepFontSize(size: number, up: boolean): number {
+  const top = FONT_SIZES[FONT_SIZES.length - 1]!
+  const bottom = FONT_SIZES[0]!
+  if (up) return FONT_SIZES.find((s) => s > size) ?? Math.min(MAX_SIZE, Math.floor(size / 10) * 10 + 10)
+  if (size > top) return Math.max(top, Math.ceil(size / 10) * 10 - 10)
+  return [...FONT_SIZES].reverse().find((s) => s < size) ?? Math.max(MIN_SIZE, Math.min(bottom, Math.ceil(size)) - 1)
+}
+/** The size buttons over the selection: one step from the active cell's size; nothing at the limit. */
+export function fontSizeStep(style: CellStyle | undefined, up: boolean, book: BookFont = {}): StylePatch | null {
+  const size = shownFont(style, book).size ?? GRID_SIZE
+  const next = stepFontSize(size, up)
+  return next === size ? null : { font: { size: next } }
+}
+
+/** Whether the active cell is aligned so vertically, as Excel shows Top, Middle and Bottom Align pressed: bottom without an alignment of its own. */
+export function verticalOn(style: CellStyle | undefined, v: VerticalAlign): boolean {
+  return (style?.alignment?.vertical ?? 'bottom') === v
+}
+/** A vertical alignment over the selection; clicked again on a cell already aligned so, it returns to Bottom, Excel's default, which a cell does not store. */
+export function verticalToggle(style: CellStyle | undefined, v: VerticalAlign): StylePatch {
+  return { alignment: { vertical: v === 'bottom' || verticalOn(style, v) ? null : v } }
+}
+
+/**
+ * Excel's Increase and Decrease Indent over the selection, a level from the active cell's: Increase keeps the left, right
+ * and distributed alignments and turns any other into Left, which has an indent; Decrease takes a level off without changing
+ * the alignment and does nothing at 0 or with an alignment that has no indent. Nothing at either limit.
+ */
+export function indentStep(style: CellStyle | undefined, up: boolean): StylePatch | null {
+  const h = style?.alignment?.horizontal ?? 'general'
+  const level = INDENTED.has(h) ? (style?.alignment?.indent ?? 0) : 0
+  if (up) return level >= MAX_INDENT ? null : { alignment: INDENTED.has(h) ? { indent: level + 1 } : { horizontal: 'left', indent: level + 1 } }
+  return level > 0 ? { alignment: { indent: level - 1 || null } } : null
+}
 
 /** Excel's palette: the Office theme colors, then the standard ones. */
 export const PALETTE = [

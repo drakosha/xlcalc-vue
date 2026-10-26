@@ -1,6 +1,8 @@
 // The interface texts' keys and their arguments; the English and Russian sets are in src/messages.ts.
+import type { ConditionalFormat, IconSetName } from 'xlcalc/contract'
+import type { QuickRule } from './conditional'
 
-export interface SheetMessages {
+export interface SheetMessages extends ConditionalMessages {
   back: string
   backEmpty: string
   address: string
@@ -186,6 +188,11 @@ export interface SheetMessages {
   italic: string
   underline: string
   fontColor: string
+  /** The Font and Font Size boxes, and Increase and Decrease Font Size. */
+  fontName: string
+  fontSize: string
+  fontSizeUp: string
+  fontSizeDown: string
   fillColor: string
   pickColor: string
   colorAuto: string
@@ -198,8 +205,15 @@ export interface SheetMessages {
   alignLeft: string
   alignCenter: string
   alignRight: string
+  alignTop: string
+  alignMiddle: string
+  alignBottom: string
+  indentDecrease: string
+  indentIncrease: string
   wrapText: string
   numberFormat: string
+  /** Excel's Percent Style button, with its key. */
+  percentStyle: string
   /** Excel's Format Cells dialog (`FormatDialog`): its tabs, inputs and the names of their options. */
   formatCells: string
   formatCellsOpen: string
@@ -256,4 +270,292 @@ export interface SheetMessages {
   mergeCells: string
   unmergeCells: string
   mergeWarning: string
+  /** Excel's Go To dialog (F5, Ctrl+G): its title, the list's label, the Reference box, and its message for text that is not a reference. */
+  goToTitle: string
+  goToList: string
+  goToReference: string
+  goToBad: string
+  /** Excel's Symbol dialog: its title and tabs, the Subset box and its blocks, the recently used row, the Character code box, the Special Characters tab's names, Insert. */
+  symbolTitle: string
+  symbolTab: (tab: 'symbols' | 'special') => string
+  symbolSubsetLabel: string
+  symbolSubset: (subset: SymbolSubset) => string
+  symbolRecent: string
+  symbolCode: string
+  symbolCodeFrom: string
+  symbolCharacter: string
+  symbolSpecial: (character: SymbolSpecial) => string
+  symbolInsert: string
+  /** Defined names: the Name Box's list button, its messages for a typed name, the cell menu's Define Name, and a name in Formula AutoComplete. */
+  nameBoxList: string
+  nameBoxBad: string
+  nameNotRange: string
+  menuDefineName: string
+  nameItem: (name: string) => string
+  /** Excel's New Name and Edit Name dialog and its fields; the scope that is not a sheet. */
+  nameNewTitle: string
+  nameEditTitle: string
+  nameLabel: string
+  nameScope: string
+  nameRefersTo: string
+  nameWorkbook: string
+  /** Excel's Name Manager: its title, buttons, the list's columns, Commit beside Refers to, and its questions before a deletion and before closing with an edited reference. */
+  nameManager: string
+  nameNew: string
+  nameEdit: string
+  nameDelete: string
+  nameColumn: (column: 'name' | 'refersTo' | 'scope') => string
+  nameCommit: string
+  nameDeleteAsk: (name: string) => string
+  nameSaveAsk: string
+  /** Excel's zoom on the status bar (Zoom Out, the slider, Zoom In, the percentage that opens the Zoom dialog), and the dialog's title, choices and limits. */
+  zoomOut: string
+  zoomIn: string
+  zoomSlider: string
+  zoomLevel: string
+  zoomTitle: string
+  zoomFit: string
+  zoomCustom: string
+  zoomRange: string
+  /** Excel's Watch Window: its title, Add Watch and Delete Watch, its columns, and the cap on the cells watched. */
+  watchTitle: string
+  watchAdd: string
+  watchDelete: string
+  watchBook: string
+  watchSheet: string
+  watchName: string
+  watchCell: string
+  watchValue: string
+  watchFormula: string
+  watchTooMany: (max: number) => string
+  /** Excel's Trace Dependents: the message when no formula refers to the active cell, and when the source could not be asked. */
+  traceNone: string
+  traceFailed: string
+  /** Excel's Create Table dialog, the range it refuses, the words a new table's and an unnamed column's names start with (`Table1`, `Column1`), and Convert to Range's question. */
+  tableCreate: string
+  tableWhere: string
+  tableHeaders: string
+  tableRangeBad: string
+  tableNamePrefix: string
+  tableColumnPrefix: string
+  tableConvert: string
+  /** Excel's Spelling dialog: its title, boxes and buttons (Cancel is `cancel`), the message when the check is complete, and the one when it fails. */
+  spelling: string
+  spellNotInDictionary: string
+  spellSuggestions: string
+  spellNoSuggestions: string
+  spellIgnoreOnce: string
+  spellIgnoreAll: string
+  spellAdd: string
+  spellChange: string
+  spellChangeAll: string
+  spellDone: string
+  spellFailed: string
+  /** Excel's hyperlink items in the cell menu and its Insert Hyperlink dialog (Edit Hyperlink on a cell with a link), with Excel's names. */
+  menuLink: string
+  menuEditLink: string
+  menuOpenLink: string
+  menuRemoveLink: string
+  linkInsertTitle: string
+  linkEditTitle: string
+  linkTo: string
+  linkToFile: string
+  linkToPlace: string
+  linkText: string
+  /** Text to Display over several cells or a formula, which the link does not change. */
+  linkSelection: string
+  linkTip: string
+  linkAddress: string
+  linkRef: string
+  linkPlaces: string
+  linkCellReference: string
+  linkDefinedNames: string
+  linkRemove: string
+  linkBadRef: string
+  /** Excel's note items in the cell menu (New Note, Edit Note, Delete Note) and the note box's label. */
+  menuNewNote: string
+  menuEditNote: string
+  menuDeleteNote: string
+  noteEditor: string
+  /** Excel's Data Validation dialog: its title and tabs, the Settings tab's boxes by the rule's type and comparison, the Input Message and Error Alert tabs (the styles are `validationStyle`), Clear All, Excel's questions before it opens and its checks before OK. */
+  dataValidation: string
+  dvTab: (tab: 'settings' | 'input' | 'error') => string
+  dvCriteria: string
+  dvAllow: string
+  dvType: (type: 'any' | 'whole' | 'decimal' | 'list' | 'date' | 'time' | 'textLength' | 'custom') => string
+  dvData: string
+  dvOperator: (op: 'between' | 'notBetween' | 'equal' | 'notEqual' | 'greaterThan' | 'lessThan' | 'greaterThanOrEqual' | 'lessThanOrEqual') => string
+  dvBox: (box: 'min' | 'max' | 'value' | 'length' | 'start' | 'end' | 'date' | 'startTime' | 'endTime' | 'time' | 'source' | 'formula') => string
+  dvIgnoreBlank: string
+  dvDropdown: string
+  dvApplyAll: string
+  dvShowPrompt: string
+  dvPromptLead: string
+  dvFieldTitle: string
+  dvPromptText: string
+  dvShowError: string
+  dvErrorLead: string
+  dvStyle: string
+  dvErrorText: string
+  dvClearAll: string
+  dvMany: string
+  dvExtend: string
+  /** OK refused: an empty box, a box whose value is not one, a maximum below the minimum; with the boxes' names from `dvBox`. */
+  dvEmpty: (box: string) => string
+  dvInvalid: (box: string) => string
+  dvOrder: (min: string, max: string) => string
+}
+
+/** The Symbol dialog's Subset list: Unicode blocks by Excel's names (`basicLatin` is Basic Latin, `latin1` Latin-1 Supplement). */
+export type SymbolSubset =
+  | 'basicLatin'
+  | 'latin1'
+  | 'latinExtA'
+  | 'latinExtB'
+  | 'ipa'
+  | 'spacingModifiers'
+  | 'combiningMarks'
+  | 'greek'
+  | 'cyrillic'
+  | 'cyrillicSupplement'
+  | 'phoneticExt'
+  | 'latinExtAdditional'
+  | 'greekExt'
+  | 'punctuation'
+  | 'superSub'
+  | 'currency'
+  | 'letterlike'
+  | 'numberForms'
+  | 'arrows'
+  | 'math'
+  | 'technical'
+  | 'enclosed'
+  | 'boxDrawing'
+  | 'blocks'
+  | 'geometric'
+  | 'miscSymbols'
+  | 'dingbats'
+  | 'latinExtC'
+  | 'presentationForms'
+  | 'specials'
+
+/** The characters of the Symbol dialog's Special Characters tab, in Excel's order. */
+export type SymbolSpecial =
+  | 'emDash'
+  | 'enDash'
+  | 'nonBreakingHyphen'
+  | 'optionalHyphen'
+  | 'emSpace'
+  | 'enSpace'
+  | 'quarterEmSpace'
+  | 'nonBreakingSpace'
+  | 'copyright'
+  | 'registered'
+  | 'trademark'
+  | 'section'
+  | 'paragraph'
+  | 'ellipsis'
+  | 'singleOpeningQuote'
+  | 'singleClosingQuote'
+  | 'doubleOpeningQuote'
+  | 'doubleClosingQuote'
+  | 'noWidthOptionalBreak'
+  | 'noWidthNonBreak'
+type CfOperator = Extract<ConditionalFormat, { type: 'cellIs' }>['operator']
+type CfTextType = 'containsText' | 'notContainsText' | 'beginsWith' | 'endsWith'
+type CfPeriod = Extract<ConditionalFormat, { type: 'timePeriod' }>['period']
+type CfValueType = 'min' | 'max' | 'num' | 'percent' | 'formula' | 'percentile' | 'autoMin' | 'autoMax'
+
+/** Excel's conditional formatting dialogs: the quick rules' dialogs, the Rules Manager, New and Edit Formatting Rule, a rule's Format Cells. */
+export interface ConditionalMessages {
+  /** A quick rule's dialog: its title, the label above its box, and the "with" box's formats, Custom Format last. */
+  cfQuickTitle: (kind: QuickRule) => string
+  cfQuickLabel: (kind: QuickRule) => string
+  cfWith: string
+  cfAnd: string
+  cfValuesWith: string
+  cfForRange: string
+  cfPreset: (preset: 'lightRedDarkRed' | 'yellowDarkYellow' | 'greenDarkGreen' | 'lightRed' | 'redText' | 'redBorder') => string
+  cfCustomFormat: string
+  cfPeriod: (period: CfPeriod) => string
+  cfDuplicate: (unique: boolean) => string
+  /** Why OK does not write the rule. */
+  cfValueMissing: string
+  cfRankRange: (max: number) => string
+  cfPercentRange: string
+  cfRelative: string
+  cfAppliesBad: string
+  /** The Rules Manager: its list's choice, buttons, columns and the rules' descriptions. */
+  cfManager: string
+  cfShowFor: string
+  cfShowSelection: string
+  cfShowSheet: string
+  cfNewRule: string
+  cfEditRule: string
+  cfDeleteRule: string
+  cfDuplicateRule: string
+  cfMoveUp: string
+  cfMoveDown: string
+  cfColRule: string
+  cfColFormat: string
+  cfColApplies: string
+  cfColStop: string
+  cfApply: string
+  cfLoading: string
+  cfNoFormat: string
+  cfSample: string
+  cfDescCell: (operator: CfOperator, a: string, b?: string) => string
+  cfDescFormula: (formula: string) => string
+  cfDescText: (type: CfTextType, text: string) => string
+  cfDescBlanks: (type: 'containsBlanks' | 'notContainsBlanks' | 'containsErrors' | 'notContainsErrors') => string
+  cfDescTop: (rank: number, percent: boolean, bottom: boolean) => string
+  cfDescAverage: (below: boolean, equal: boolean, stdDev?: number) => string
+  cfDescDuplicate: (unique: boolean) => string
+  cfDescScale: string
+  cfDescBar: string
+  cfDescIcons: string
+  /** New Formatting Rule and Edit Formatting Rule: the rule types and each one's inputs. */
+  cfNewTitle: string
+  cfEditTitle: string
+  cfSelectType: string
+  cfType: (kind: 'values' | 'contain' | 'rank' | 'average' | 'unique' | 'formula') => string
+  cfEditDescription: string
+  cfFormatStyle: string
+  cfStyleKind: (style: 'scale2' | 'scale3' | 'dataBar' | 'iconSet') => string
+  cfPoint: (which: 'min' | 'mid' | 'max') => string
+  cfTypeLabel: string
+  cfValueLabel: string
+  cfColorLabel: string
+  cfValueType: (type: CfValueType) => string
+  cfBarAppearance: string
+  cfBarFill: (gradient: boolean) => string
+  cfBarBorder: (on: boolean) => string
+  cfShowBarOnly: string
+  cfDirection: string
+  cfDirectionKind: (d: 'context' | 'leftToRight' | 'rightToLeft') => string
+  cfIconStyle: string
+  cfIconSet: (set: IconSetName) => string
+  cfReverse: string
+  cfShowIconOnly: string
+  cfIconRules: string
+  cfWhenValue: string
+  cfIconLast: string
+  cfFormatOnly: string
+  cfContain: (kind: 'cellValue' | 'text' | 'dates' | 'blanks' | 'noBlanks' | 'errors' | 'noErrors') => string
+  cfOperator: (operator: CfOperator) => string
+  cfTextOp: (type: CfTextType) => string
+  cfRankLabel: string
+  cfTopBottom: (top: boolean) => string
+  cfPercentOf: string
+  cfAverageLabel: string
+  cfAverageKind: (kind: 'above' | 'below' | 'equalAbove' | 'equalBelow' | 'std1Above' | 'std2Above' | 'std3Above' | 'std1Below' | 'std2Below' | 'std3Below') => string
+  cfAverageOf: string
+  cfUniqueLabel: string
+  cfInRange: string
+  cfFormulaLabel: string
+  cfPreview: string
+  cfFormatButton: string
+  /** A rule's Format Cells: no choice in a list, and Clear. */
+  cfNotSet: string
+  cfClear: string
 }

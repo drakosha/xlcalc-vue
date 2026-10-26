@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The bar above the grid, as in Excel: Back, the Name Box, the formula input (with colored references, the function list and the argument tooltip), one line high or expanded, the link and the lock.
+// The bar above the grid, as in Excel: Back, the Name Box (NameBox.vue), the formula input (with colored references, the function list and the argument tooltip), one line high or expanded, the link and the lock.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { GridReference } from 'xlcalc/contract'
@@ -13,6 +13,7 @@ import { refInto } from './dom'
 import FunctionList from './FunctionList.vue'
 import FunctionTip from './FunctionTip.vue'
 import InsertFunction from './InsertFunction.vue'
+import NameBox from './NameBox.vue'
 import { IconBack, IconCheck, IconClose, IconDown, IconFilter, IconFx, IconLink, IconLock, IconLockOpen, IconSearch, IconUp } from './icons'
 
 const ctx = useSheetContext()
@@ -257,24 +258,6 @@ watch(
   },
   { flush: 'post' },
 )
-
-function onAddressFocus(e: FocusEvent): void {
-  nav.addressFocused.value = true
-  ;(e.target as HTMLInputElement).select()
-}
-function onAddressBlur(): void {
-  nav.addressFocused.value = false
-  nav.addressDraft.value = sel.selectionRef.value
-}
-async function onAddressEnter(e: KeyboardEvent): Promise<void> {
-  const input = e.target as HTMLInputElement
-  await nav.goAddress()
-  input.blur()
-}
-function onAddressEsc(e: KeyboardEvent): void {
-  nav.addressDraft.value = sel.selectionRef.value
-  ;(e.target as HTMLInputElement).blur()
-}
 </script>
 
 <template>
@@ -288,18 +271,7 @@ function onAddressEsc(e: KeyboardEvent): void {
     >
       <IconBack />
     </button>
-    <input
-      v-model="nav.addressDraft.value"
-      class="xs-address"
-      type="text"
-      spellcheck="false"
-      placeholder="A1"
-      :title="m.address"
-      @focus="onAddressFocus"
-      @blur="onAddressBlur"
-      @keydown.enter.prevent="onAddressEnter"
-      @keydown.esc.prevent="onAddressEsc"
-    />
+    <NameBox />
     <div class="xs-fx-line">
       <!-- Excel's Cancel, Enter and Insert Function to the left of the input; a press keeps an open editor's focus until the button acts -->
       <button type="button" class="xs-tool" :disabled="!ctx.editor.value" :title="m.cancel" :aria-label="m.cancel" data-xs-bar-cancel @mousedown.prevent @click="ed.cancel()">

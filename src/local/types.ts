@@ -1,6 +1,7 @@
 // Public types of the local source: its options and what it offers beyond `SheetSource`.
 import type { AsyncSessionOptions, BookInput, BookSnapshot, Calc, CalcPoolOptions, SessionHistory } from 'xlcalc'
 import type { SheetSource } from '../contract/source'
+import type { SpellChecker } from '../contract/workbook'
 
 export interface LocalSourceOptions {
   /**
@@ -17,10 +18,12 @@ export interface LocalSourceOptions {
   maxCells?: number
   /** A notice included in every window (displayed above the grid), e.g. what the xlsx reader left out. */
   notice?: string
+  /** The host's word checker for Excel's Spelling; without it the source has no `spelling`. */
+  spelling?: SpellChecker
 }
 
 /** Methods of `SheetSource` that the local source always has. */
-type Given = 'edit' | 'paste' | 'fill' | 'pick' | 'end' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'freeze' | 'subscribe' | 'validation' | 'functionNames' | 'functionSignature' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues'
+type Given = 'edit' | 'paste' | 'fill' | 'pick' | 'end' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'freeze' | 'subscribe' | 'validation' | 'functionNames' | 'functionSignature' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues' | 'clear' | 'link' | 'note' | 'names' | 'setNames' | 'dependents' | 'rules' | 'setRules' | 'table'
 
 /** A sheet source over an xlcalc workbook: every method of `SheetSource`, plus the host's handles on the workbook. */
 export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Required<Pick<SheetSource, Given>> {

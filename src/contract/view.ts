@@ -1,14 +1,16 @@
 // The sheet's public types: SheetView's props, state, events and methods, the toolbar's source, list mode's sort.
-import type { CellStyle } from 'xlcalc/contract'
+import type { CellStyle, IconSetName } from 'xlcalc/contract'
+import type { ClearRulesFrom, ColorScalePreset, DataBarColor, QuickRule } from './conditional'
 import type { SheetMessages } from './messages'
 import type { EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
+import type { ClearKind } from './workbook'
 
 /** Properties of `SheetView`. */
 export interface SheetViewProps {
   source: SheetSource
   /** Interface texts; a partial set overrides the English defaults. */
   messages?: Partial<SheetMessages>
-  /** Key in the browser's storage for the frozen panes display choice and column widths; without it they last as long as the component. */
+  /** Key in the browser's storage for the frozen panes display choice, Show Formulas and column widths; without it they last as long as the component. */
   storageKey?: string
   /** A location to show: `Sheet!B12:D15`, `B7`, `Sheet`; each new object is a new jump. */
   focus?: { ref: string } | null
@@ -29,6 +31,21 @@ export interface SheetViewProps {
   openRows?: boolean
   /** The host opens links itself through `openLink`: for a host whose listener the component cannot see, such as a custom element's. */
   hostLinks?: boolean
+  /**
+   * Excel's zoom by sheet name, in percent (10 to 400), as the host kept it from the `zoom` event; a sheet without one opens
+   * at the workbook's saved zoom (`SheetInfo.zoom`), otherwise 100%. A new object applies its changed entries, to the active sheet at once.
+   */
+  zoom?: Record<string, number>
+  /** Excel's Watch Window list, as the host kept it from the `watches` event; a new array replaces the list. */
+  watches?: SheetWatch[]
+  /** The author's name for a new note, which Excel writes in bold on its first line (Excel takes the user name from its Options); without it a new note has no author. */
+  noteAuthor?: string
+}
+
+/** A cell in Excel's Watch Window: its sheet and address (`B12`). */
+export interface SheetWatch {
+  sheet: string
+  cell: string
 }
 
 /** Why the workbook cannot be displayed: the source's error and its text. */
@@ -51,6 +68,18 @@ export interface SheetViewState {
   merged?: string
   /** The merge commands are available (`SheetViewApi.merge`): the source has `structure`, the sheet is editable, and no display filter is on. */
   canMerge?: true
+  /** Excel's Show Formulas is on for the displayed sheet (Ctrl+` or `SheetViewApi.showFormulas`): a ribbon shows its button pressed. */
+  showFormulas?: true
+  /** The sheet's zoom in percent; absent at 100%. */
+  zoom?: number
+  /** The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays: a toolbar's Font and Font Size boxes show it for such a cell. */
+  font?: { name: string; size: number }
+}
+
+/** The `zoom` event: the user changed a sheet's zoom (Ctrl+wheel, a pinch, the status bar, the Zoom dialog), in percent. */
+export interface SheetZoomEvent {
+  sheet: string
+  zoom: number
 }
 
 /** A hyperlink the component does not open itself, with the cell it belongs to. */
@@ -91,6 +120,82 @@ export interface SheetViewApi {
    * in the warning.
    */
   merge(command: MergeCommand): Promise<EditOutcome | null>
+  /** Opens Excel's Go To dialog (F5, Ctrl+G) with the locations its jumps have left; false while no sheet is displayed. */
+  goTo(): boolean
+  /**
+   * Opens Excel's Symbol dialog (Insert > Symbol): Insert puts the character at the caret of an open edit, otherwise starts
+   * editing the active cell with it, as typing does; false on a read-only sheet or without an active cell.
+   */
+  insertSymbol(): boolean
+  /**
+   * Excel's Fill Down (Ctrl+D): the selection's top row copied over its other rows through the source's `structure`
+   * (`copyRange`, relative references shifted), or the row above it into a selection one row tall, as a single undo step.
+   * null when nothing was sent: no `structure`, a read-only sheet, a display filter, row 1 alone, or a locked cell.
+   */
+  fillDown(): Promise<EditOutcome | null>
+  /** Excel's Fill Right (Ctrl+R): `fillDown` along the columns, from the selection's left column or the column to its left. */
+  fillRight(): Promise<EditOutcome | null>
+  /** Excel's Show Formulas (Ctrl+`) on the displayed sheet, toggled without `on`: a view setting kept as the frozen panes choice is, the workbook unchanged; whether it is on afterwards. */
+  showFormulas(on?: boolean): boolean
+  /** Excel's Define Name: the New Name dialog for the selection; false when names cannot be defined (no `names` or `setNames`, a read-only sheet) or a cell is being edited. */
+  defineName(): boolean
+  /** Excel's Name Manager (Ctrl+F3); false when the source has no `names` or a cell is being edited. Without `setNames` or on a read-only sheet it only lists the names. */
+  nameManager(): boolean
+  /**
+   * Excel's zoom of the active sheet: a percentage (rounded and kept within 10 to 400), or `selection` for Zoom to Selection,
+   * which fits the selection into the viewport and scrolls it to the top-left corner. Returns the zoom set; it is not
+   * reported by the `zoom` event, which reports the user's changes.
+   */
+  setZoom(zoom: number | 'selection'): number
+  /** Opens Excel's Watch Window over the sheet (`true`, the default), or closes it (`false`); returns whether it is open. */
+  watchWindow(open?: boolean): boolean
+  /**
+   * Excel's Trace Dependents through the source's `dependents`: arrows from the active cell to the cells whose formulas refer
+   * to it, and with each further call the next level; false when nothing was added (no `dependents`, no further level).
+   */
+  traceDependents(): Promise<boolean>
+  /** Excel's Remove Arrows: every tracer arrow; false when there were none. */
+  removeArrows(): boolean
+  /** Excel's Insert Table and Format as Table (Ctrl+T, Ctrl+L): the Create Table dialog for the selection or the data around the active cell; false without the source's `table`, or on a read-only sheet. */
+  insertTable(): Promise<boolean>
+  /** Excel's Convert to Range on the table at the active cell, after Excel's question; null when nothing was sent (no table there, no `table`, No). */
+  convertToRange(): Promise<EditOutcome | null>
+  /** Delete Table: the table at the active cell with its cells; null when nothing was sent. */
+  deleteTable(): Promise<EditOutcome | null>
+  /** Excel's Spelling (F7) through the source's `spelling`: the dialog from the active cell, within a selection of several cells; false without `spelling`. */
+  checkSpelling(): boolean
+  /**
+   * Excel's Home > Clear > Clear Formats (`formats`) or Clear All (`all`) over the selection through the source's `clear`, as a
+   * single undo step (under a display filter, over its visible rows), after which the windows over it are read again. null when
+   * nothing was sent: no `clear`, a read-only sheet, or a locked cell in the selection.
+   */
+  clear(what: ClearKind): Promise<EditOutcome | null>
+  /**
+   * Excel's Insert Link (Ctrl+K) over the selection: opens its dialog, as Edit Hyperlink when the active cell has a link; OK
+   * writes the link through the source's `link`. false when links cannot be edited: no `link`, a read-only sheet, a locked cell.
+   */
+  insertLink(): boolean
+  /**
+   * Opens Excel's Data Validation dialog (Data > Data Validation) for the selection over the source's `rules` and `setRules`,
+   * after Excel's question when the selection holds rules of more than one kind or cells without the rule; false when the
+   * sheet is read-only or the source lacks either method.
+   */
+  dataValidation(): boolean
+  // Excel's Conditional Formatting menu: each needs the source's `rules` and `setRules` and an editable sheet (false or null otherwise)
+  /** Opens a quick rule's dialog (Highlight Cells Rules, Top/Bottom Rules) for the selection; OK adds the rule first in priority. */
+  quickRule(kind: QuickRule): boolean
+  /** Adds Excel's data bar of that color over the selection, with a gradient fill (the default) or a solid one. */
+  dataBars(color: DataBarColor, fill?: 'gradient' | 'solid'): Promise<EditOutcome | null>
+  /** Adds the color scale of Excel's gallery over the selection. */
+  colorScale(preset: ColorScalePreset): Promise<EditOutcome | null>
+  /** Adds the icon set over the selection, with Excel's default thresholds: equal shares in percent. */
+  iconSet(icons: IconSetName): Promise<EditOutcome | null>
+  /** Excel's Clear Rules from Selected Cells (a rule keeps the rest of its cells) or from Entire Sheet; null when there is nothing to clear. */
+  clearRules(from: ClearRulesFrom): Promise<EditOutcome | null>
+  /** Opens Excel's New Formatting Rule dialog for the selection. */
+  newRule(): boolean
+  /** Opens Excel's Conditional Formatting Rules Manager. */
+  manageRules(): boolean
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

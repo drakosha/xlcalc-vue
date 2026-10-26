@@ -16,7 +16,8 @@ Cell and style types come from `xlcalc/contract` (`CellValue`, `CellStyle`, `Sty
 
 ## `SheetView`
 
-The sheet: a virtualized grid with the formula bar, sheet tabs, context menus, Find, the Trace Precedents panel and the dialogs. It reads its data only through `source`.
+The sheet: a virtualized grid with the formula bar, sheet tabs, context menus, Find, the Trace Precedents panel, the Watch Window, the zoom and the dialogs. It reads its data only through `source`.
+The sheet: a virtualized grid with the formula bar, sheet tabs, context menus, Find, the Trace Precedents panel, tracer arrows and the dialogs (Create Table, Spelling and others). It reads its data only through `source`.
 
 ```vue
 <script setup lang="ts">
@@ -65,7 +66,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | --- | --- | --- | --- |
 | `source` | `SheetSource` | required | The sheet's data source. A new source means a new workbook: what the previous source answers afterwards (its sheets, an edit's outcome, a correction) is ignored, even from a source that ignores the abort signal, and its open alert closes. |
 | `messages` | `Partial<SheetMessages>` | English | Interface texts; a partial set overrides the English defaults. |
-| `storageKey` | `string` | none | Key in the browser's storage for the frozen panes display choice, column widths and Insert Function's recently used functions; without it they last as long as the component. |
+| `storageKey` | `string` | none | Key in the browser's storage for the frozen panes display choice, Show Formulas on each sheet, column widths, Insert Function's recently used functions and the Symbol dialog's recently used symbols; without it they last as long as the component. |
 | `focus` | `{ ref: string } \| null` | `null` | A location to show: `Sheet!B12:D15`, `B7`, `Sheet`. Each new object is a new jump. |
 | `cellUrl` | `(ref: string) => string` | none | The host page's address for a location; without it there is no "Link to the cell" button. |
 | `readOnly` | `boolean` | `false` | Disables editing regardless of what the source supports. A source without `edit` is read-only anyway. |
@@ -76,6 +77,9 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `sort` | `ListSort \| null` | `null` | List mode: the order the host sorted the list in, shown as an arrow on that column's title. |
 | `openRows` | `boolean` | `false` | List mode: the first column opens its row, and so does Enter on a cell that is not a drill-down. |
 | `hostLinks` | `boolean` | `false` | The host opens links itself through `openLink`, as when it listens: for a host whose listener the sheet cannot see, such as a custom element's. |
+| `zoom` | `Record<string, number>` | none | Excel's zoom by sheet name, in percent (10 to 400), as the host kept it from the `zoom` event; a sheet without one opens at the workbook's saved zoom (`SheetInfo.zoom`), otherwise 100%. A new object applies its changed entries, to the active sheet at once. See [view.md](view.md#zoom). |
+| `watches` | `SheetWatch[]` | none | The Watch Window's list, as the host kept it from the `watches` event; a new array replaces the list. See [view.md](view.md#watch-window). |
+| `noteAuthor` | `string` | none | The author's name for a new note, shown in bold on its first line, as Excel takes the user name from its Options; without it a new note has no author. |
 
 ### Events
 
@@ -86,6 +90,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `sort` | `ListSort` | List mode: a sortable column's title was clicked. The host sorts the list, sets `sort` and sends `reload`. |
 | `cellDrill` | `{ sheet: string; cell: string }` | List mode: a drill-down cell (`SheetWindow.drill`) was clicked or Enter was pressed on it. |
 | `rowOpen` | `{ sheet: string; row: number }` | List mode, with `openRows`: a row was opened from its first column or by Enter. |
+| `zoom` | `SheetZoomEvent` | The user changed a sheet's zoom: Ctrl+wheel, a pinch (once it ends), the status bar, the Zoom dialog. `SheetZoomEvent` is `{ sheet: string; zoom: number }`, in percent. `setZoom` and the `zoom` prop are not reported. |
+| `watches` | `SheetWatch[]` | The user added or deleted watches in the Watch Window: the whole list. `SheetWatch` is `{ sheet: string; cell: string }`. |
 
 ### Slot
 
@@ -105,12 +111,15 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `numberFormat` | `string?` | The active cell's number format code; absent for General. |
 | `merged` | `string?` | The merged range containing the active cell. |
 | `canMerge` | `true?` | The merge commands are available: the source has `structure`, the sheet is editable, and no display filter is on. |
+| `showFormulas` | `true?` | Excel's Show Formulas is on for the displayed sheet, so a ribbon shows its button pressed ([view.md](view.md#show-formulas)). |
+| `zoom` | `number?` | The sheet's zoom in percent; absent at 100%. |
+| `font` | `{ name; size }?` | The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays; the toolbar's Font and Font Size boxes show it for such a cell. |
 
 `SheetLinkEvent` is a window's hyperlink (`href`, `location`, `tooltip`, `target`) with the `sheet` and `cell` it belongs to. `SheetFailure` is `{ error: unknown; text: string }`.
 
 ### `SheetViewApi`
 
-`SheetView` exposes these methods through a template ref (`ref="sheet"`, `const sheet = ref<SheetViewApi | null>(null)`). Each call goes through the source just as the sheet's own keyboard commands do: the outcome is applied, its selection is set without the flash and the Back history entry that `focus` creates, a rejection is displayed in the sheet's message line, and after `format`, `structure`, `outline` or `freezePanes` the sheet reloads unless the source has sent `reload` (after `format`, also unless it has sent `repaint`, which re-reads the windows over its ranges). A method that returns a promise of `EditOutcome | null` resolves to the source's outcome, or to `null` when nothing was sent (the source lacks the method, the sheet is read-only, or an undo is still pending).
+`SheetView` exposes these methods through a template ref (`ref="sheet"`, `const sheet = ref<SheetViewApi | null>(null)`). Each call goes through the source just as the sheet's own keyboard commands do: the outcome is applied, its selection is set without the flash and the Back history entry that `focus` creates, a rejection is displayed in the sheet's message line, and after `format`, `structure`, `outline`, `freezePanes` or a table command the sheet reloads unless the source has sent `reload` (after `format`, also unless it has sent `repaint`, which re-reads the windows over its ranges). A method that returns a promise of `EditOutcome | null` resolves to the source's outcome, or to `null` when nothing was sent (the source lacks the method, the sheet is read-only, or an undo is still pending).
 
 | Method | Returns | Meaning |
 | --- | --- | --- |
@@ -121,9 +130,36 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `outline(change: OutlineChange)` | `Promise<EditOutcome \| null>` | Group, Ungroup, a group's button, a level button. |
 | `freezePanes(mode?: FreezeMode)` | `Promise<EditOutcome \| null>` | Excel's Freeze Panes through the source's `freeze`: `'panes'` (the default, at the active cell), `'unfreeze'`, `'topRow'`, `'firstColumn'`. Nothing is sent when there is nothing to freeze or unfreeze. |
 | `merge(command: MergeCommand)` | `Promise<EditOutcome \| null>` | `'mergeCenter'`, `'mergeAcross'`, `'mergeCells'` or `'unmergeCells'` over the selection through `structure`, with Excel's warning first when values would be lost. `null` also for a single cell outside a merged range, under a display filter, and on Cancel in the warning. |
+| `fillDown()` | `Promise<EditOutcome \| null>` | Excel's Fill Down (Ctrl+D) through `structure`: the selection's top row copied over its other rows, or the row above into a selection one row tall ([editing.md](editing.md)). `null` also under a display filter, for row 1 alone, and when a filled cell is locked. |
+| `fillRight()` | `Promise<EditOutcome \| null>` | Excel's Fill Right (Ctrl+R): the same along the columns, from the selection's left column or the column to its left. |
+| `showFormulas(on?: boolean)` | `boolean` | Turns Excel's Show Formulas on or off on the displayed sheet, or toggles it without `on`, as Ctrl+` does; whether it is on afterwards. A view setting: nothing goes to the source. |
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
+| `goTo()` | `boolean` | Opens Excel's Go To dialog (F5, Ctrl+G); `false` while no sheet is displayed ([go-to-and-symbol.md](go-to-and-symbol.md#go-to)). |
+| `insertSymbol()` | `boolean` | Opens Excel's Symbol dialog: Insert puts the character at the caret of an open edit, otherwise starts editing the active cell with it; `false` on a read-only sheet or without an active cell ([go-to-and-symbol.md](go-to-and-symbol.md#symbol)). A host button that calls it during an edit keeps the edit open only if it does not take focus (`@mousedown.prevent`). |
+| `defineName()` | `boolean` | Opens Excel's New Name dialog (Define Name) for the selection; `false` when names cannot be defined (no `names` or `setNames`, a read-only sheet) or a cell is being edited. See [names.md](names.md). |
+| `nameManager()` | `boolean` | Opens Excel's Name Manager (Ctrl+F3); `false` without the source's `names` or while a cell is being edited. Without `setNames` or on a read-only sheet it only lists the names. |
+| `setZoom(zoom: number \| 'selection')` | `number` | Excel's zoom of the active sheet: a percentage, rounded and kept within 10 to 400, or `'selection'` for Zoom to Selection. Returns the zoom set; it is not reported by the `zoom` event. |
+| `watchWindow(open?: boolean)` | `boolean` | Opens the Watch Window (`true`, the default) or closes it (`false`); returns whether it is open. |
+| `traceDependents()` | `Promise<boolean>` | Excel's Trace Dependents through the source's `dependents`: arrows from the active cell to its direct dependents, and the next level with each further call; `false` when nothing was added. See [view.md](view.md#trace-dependents). |
+| `removeArrows()` | `boolean` | Excel's Remove Arrows: every tracer arrow; `false` when there were none. |
+| `insertTable()` | `Promise<boolean>` | Excel's Insert Table and Format as Table (Ctrl+T, Ctrl+L): the Create Table dialog for the selection or the active cell's current region; `false` without the source's `table` or on a read-only sheet. See [tables.md](tables.md). |
+| `convertToRange()` | `Promise<EditOutcome \| null>` | Excel's Convert to Range on the table at the active cell, after Excel's question. |
+| `deleteTable()` | `Promise<EditOutcome \| null>` | Delete Table: the table at the active cell with its cells. |
+| `checkSpelling()` | `boolean` | Excel's Spelling (F7) through the source's `spelling`: the dialog from the active cell, within a selection of more than one cell; `false` without `spelling`. See [editing.md](editing.md#spelling). |
+| `clear(what: ClearKind)` | `Promise<EditOutcome \| null>` | Excel's Home > Clear > Clear Formats (`'formats'`) or Clear All (`'all'`) over the selection through the source's `clear`, as a single undo step; under a display filter, over its visible rows. `null` also over a locked cell. See [links-notes.md](links-notes.md#clear-formats-and-clear-all). |
+| `insertLink()` | `boolean` | Opens Excel's Insert Hyperlink dialog (Ctrl+K) for the selection, as Edit Hyperlink when the active cell has a link; OK writes the link through the source's `link`. `false` without `link`, on a read-only sheet or over a locked cell. See [links-notes.md](links-notes.md#hyperlinks). |
+| `dataValidation()` | `boolean` | Opens Excel's Data Validation dialog for the selection over the source's `rules` and `setRules`, after Excel's question where the selection holds rules of more than one kind or cells without the rule; `false` when the sheet is read-only or the source lacks either method. See [validation.md](validation.md#the-data-validation-dialog). |
+| `quickRule(kind: QuickRule)` | `boolean` | Opens the dialog of a quick rule from Excel's Highlight Cells Rules or Top/Bottom Rules for the selection; OK adds the rule first in priority. `false` without the source's `rules` and `setRules` or on a read-only sheet, as for the methods below. See [conditional-formatting.md](conditional-formatting.md). |
+| `dataBars(color: DataBarColor, fill?: 'gradient' \| 'solid')` | `Promise<EditOutcome \| null>` | Adds Excel's data bar of that color over the selection. |
+| `colorScale(preset: ColorScalePreset)` | `Promise<EditOutcome \| null>` | Adds a color scale of Excel's gallery over the selection. |
+| `iconSet(icons: IconSetName)` | `Promise<EditOutcome \| null>` | Adds an icon set over the selection, with Excel's thresholds in percent. |
+| `clearRules(from: ClearRulesFrom)` | `Promise<EditOutcome \| null>` | Excel's Clear Rules from Selected Cells (`'selection'`: a rule keeps the rest of its cells) or from Entire Sheet (`'sheet'`); `null` when no rule is there to clear. |
+| `newRule()` | `boolean` | Opens Excel's New Formatting Rule dialog for the selection. |
+| `manageRules()` | `boolean` | Opens Excel's Conditional Formatting Rules Manager. |
+
+`QuickRule` is `'greaterThan' | 'lessThan' | 'between' | 'equalTo' | 'textContains' | 'dateOccurring' | 'duplicateValues' | 'top10' | 'top10Percent' | 'bottom10' | 'bottom10Percent' | 'aboveAverage' | 'belowAverage'`, `DataBarColor` is `'blue' | 'green' | 'red' | 'orange' | 'lightBlue' | 'purple'`, `ColorScalePreset` names a color scale of Excel's gallery from the highest numbers' color to the lowest's (`'greenYellowRed'`, `'redYellowGreen'`, `'greenWhiteRed'`, `'redWhiteGreen'`, `'blueWhiteRed'`, `'redWhiteBlue'`, `'whiteRed'`, `'redWhite'`, `'greenWhite'`, `'whiteGreen'`, `'greenYellow'`, `'yellowGreen'`), and `ClearRulesFrom` is `'selection' | 'sheet'`; `IconSetName` is xlcalc's.
 
 `SheetFormatPatch` is a `FormatPatch` whose `range` is optional. `FreezeMode` is `'panes' | 'unfreeze' | 'topRow' | 'firstColumn'`, `MergeCommand` is `'mergeCenter' | 'mergeAcross' | 'mergeCells' | 'unmergeCells'`. `ListSort` is `{ col: number; dir: 'asc' | 'desc' }`, with a 1-based column.
 
@@ -178,12 +214,13 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `locale` | `string` | The workbook's locale, in which the Number Format box names its categories and items; en-US without it. |
 | `sheet` | `SheetViewApi \| null` | The sheet's template ref. With it the toolbar formats, undoes, redoes and merges through the sheet; without it, through the source, and it emits `select` and `error`. |
 | `hostDialog` | `boolean` | The host opens its own dialog on `formatCells`, as when it listens: for a host whose listener the toolbar cannot see, such as a custom element's. |
+| `fonts` | `readonly string[]` | The Font box's list, in place of Excel's common fonts (Aptos, Arial, Calibri and others): a browser does not tell which fonts are installed. |
 
 | Event | Payload | When |
 | --- | --- | --- |
 | `select` | `{ sheet: string; range: string }` | Where the selection goes after an undo or a redo, for the sheet's `focus`; not emitted with `sheet`. |
 | `error` | `string` | The source rejected a call or the call failed; not emitted with `sheet`. |
-| `done` | none | A call has completed: the host may return focus to the grid. |
+| `done` | none | A call has completed, or Esc left the Font or Font Size box: the host may return focus to the grid. |
 | `formatCells` | none | Format Cells… was clicked. With a listener or `hostDialog`, the button opens the host's dialog; without one, it opens the sheet's dialog (through `sheet`), and without either there is no button. |
 
 ## `FormatDialog`
@@ -255,7 +292,7 @@ export function serverSource(base: string): SheetSource {
 | `structure(op: SheetOp)` | Structure operations on sheets, rows and columns (insert, delete, rename, move, hide); copying and moving ranges; merging. | No structure menu, no fill handle, and a copy is pasted as text. | [sheets.md](sheets.md), [clipboard.md](clipboard.md) |
 | `layout(change: LayoutChange)` | Column widths and row heights, hiding and fitting rows and columns. | A changed width lasts until the page reloads. | [sheets.md](sheets.md) |
 | `copyText(sheet, range, opts?) => Promise<string>` | Excel's clipboard text for a range. | The sheet copies the displayed text of its windows. | [clipboard.md](clipboard.md) |
-| `format(sheet, patches: FormatPatch[])` | Formatting, the toolbar, Format Cells, Ctrl+B/I/U. | No toolbar. | [toolbar.md](toolbar.md) |
+| `format(sheet, patches: FormatPatch[])` | Formatting, the toolbar, Format Cells, Ctrl+B/I/U, Ctrl+Shift+%. | No toolbar. | [toolbar.md](toolbar.md) |
 | `subscribe(listener: (e: SourceEvent) => void) => () => void` | Changes made elsewhere. Returns the unsubscribe function. | The sheet sees only its own edits. | [editing.md](editing.md) |
 | `validation(sheet, cell, signal?) => Promise<SheetValidation \| null>` | Excel's validation dropdown and input message. | None. | [validation.md](validation.md) |
 | `pick(sheet, cell, item, text)` | A picked list item written as Excel writes it. | The item goes to `edit` with `accept`. | [validation.md](validation.md) |
@@ -270,6 +307,28 @@ export function serverSource(base: string): SheetSource {
 | `outline(change: OutlineChange)` | The outline buttons, Group and Ungroup. | The bars are drawn, but their buttons do nothing. | [sheets.md](sheets.md) |
 | `visibleRows(sheet, filter, signal?) => Promise<{ rows: number[] \| null }>` | The display filter and sort. | No filter. | [view.md](view.md) |
 | `columnValues(sheet, col, filter, signal?) => Promise<{ values: { text; count }[]; more }>` | The filter funnel's list of values. | No list in the funnel. | |
+| `clear(sheet, ranges: string[], what: ClearKind)` | Excel's Clear Formats (`'formats'`: styles, number formats and the conditional formats over the cells) and Clear All (`'all'`: also contents, hyperlinks, notes and data validation rules), as a single undo step. Delete clears contents through `edit`. | Neither is offered. | |
+| `link(sheet, range, link: SheetLink \| null)` | Excel's Insert Link over a range, the cells' contents kept; null is Remove Hyperlinks. | Links can be followed but not edited. | |
+| `note(sheet, cell, note: SheetNote \| null)` | Excel's New Note and Edit Note; null is Delete Note. | Notes are shown but not edited. | |
+| `names(signal?) => Promise<SheetName[]>` | The workbook's defined names for the Name Box, Go To, Formula AutoComplete and the Name Manager. | No names. | [names.md](names.md) |
+| `setNames(names: SheetName[])` | Replaces the workbook's names (the Name Manager, Define Name, a name typed into the Name Box), as a single undo step. | The names are shown but cannot be changed. | [names.md](names.md) |
+| `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | |
+| `names(signal?) => Promise<SheetName[]>` | The workbook's defined names for the Name Box, Go To, Formula AutoComplete and the Name Manager. | No names. | |
+| `setNames(names: SheetName[])` | Replaces the workbook's names (the Name Manager, Define Name), as a single undo step. | The names cannot be edited. | |
+| `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | [view.md](view.md#trace-dependents) |
+| `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs. | The rules are applied but not shown for editing. | |
+| `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | |
+| `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | [tables.md](tables.md) |
+| `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | [editing.md](editing.md#spelling) |
+| `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | [editing.md](editing.md#spelling) |
+| `dependents(sheet, range, signal?) => Promise<SheetDependents>` | Excel's Trace Dependents: the cells whose formulas refer directly to the range. | No arrows. | |
+| `rules(sheet, signal?) => Promise<SheetRules>` | A sheet's conditional formatting and data validation rules, for their dialogs; with `setRules`, the Data Validation dialog. | The rules are applied but not shown for editing. | [validation.md](validation.md#the-data-validation-dialog) |
+| `setRules(sheet, rules: Partial<SheetRules>)` | Replaces a sheet's conditional formatting rules, its data validation rules, or both, as a single undo step. | The rules cannot be edited. | [validation.md](validation.md#the-data-validation-dialog) |
+| `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | |
+| `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | |
+| `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | |
+
+After `link`, `note`, `clear` and `setRules` succeed, the sheet re-reads the windows over what they changed: their outcome's `changes` carry values, not hyperlinks, notes or formatting. A source need not send a `repaint` for its own sheet, but `./local` does, for other sheets over the same source.
 
 | Property | Type | Meaning |
 | --- | --- | --- |
@@ -318,6 +377,8 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `rowNumbers` | `boolean?` | Row numbers on the left, shown by default. |
 | `totals` | `(string \| null)[]?` | List mode: a totals row pinned to the bottom of the viewport, the displayed text for each of the sheet's columns. |
 | `outline` | `SheetOutline?` | Excel's outline: `rows` and `columns` as `OutlineGroup[]` (`{ from, to, level, collapsed }`), `summaryBelow`, `summaryRight`. |
+| `font` | `{ name; size }?` | The workbook's default font (its Normal style), in which a cell without a font of its own is drawn; `--xs-font` without it. |
+| `zoom` | `number?` | The sheet's saved zoom in percent (xlsx `zoomScale`), with which it opens; 100 without it. |
 
 ### Edits and outcomes
 
@@ -336,7 +397,24 @@ A window is a rectangular block of cells that the sheet reads from the source as
 - `{ kind: 'reload'; message? }`: the sheets and windows are read again.
 - `{ kind: 'repaint'; ranges: { sheet; range }[] }`: the windows that overlap the ranges are re-read in place.
 
-`FormatPatch` is `{ range, style?: StylePatch | null, numberFormat?: NumberFormat | null }`; `style: null` removes the cells' own style. `LayoutChange` is `{ sheet, columns, width?, hidden?, fit? }` or `{ sheet, rows, height?, hidden?, fit? }`. `SheetOp` is xlcalc's `StructureOp` without its table operations. `OutlineChange` is `{ op: 'group' | 'ungroup', sheet, rows | columns }`, `{ op: 'collapse' | 'expand', sheet, rows | columns, level }` or `{ op: 'showLevel', sheet, axis, level }`.
+`FormatPatch` is `{ range, style?: StylePatch | null, numberFormat?: NumberFormat | null }`; `style: null` removes the cells' own style. `LayoutChange` is `{ sheet, columns, width?, hidden?, fit? }` or `{ sheet, rows, height?, hidden?, fit? }`. `SheetOp` is xlcalc's `StructureOp` without its table operations, which go to `table`. `OutlineChange` is `{ op: 'group' | 'ungroup', sheet, rows | columns }`, `{ op: 'collapse' | 'expand', sheet, rows | columns, level }` or `{ op: 'showLevel', sheet, axis, level }`.
+
+### Beside cell values: links, notes, names, rules, tables, spelling
+
+Formulas in these types are written as the source displays formulas: in its locale, without `=`.
+
+| Type | Shape |
+| --- | --- |
+| `ClearKind` | `'formats' \| 'all'` |
+| `SheetLink` | `{ href?; location?; tooltip? }`: an address outside the workbook, a place in it (`'Sheet 2'!B12`, a defined name), or both, and the ScreenTip. |
+| `SheetNote` | `{ author?; text }` |
+| `SheetName` | `{ name; ref; scope? }`: what the name refers to as a formula, and the sheet it is visible on (the workbook without `scope`). |
+| `SheetDependent`, `SheetDependents` | `{ sheet; cell }`; `{ cells: SheetDependent[]; more: boolean }`, `more` when the source left some out. |
+| `SheetRules` | `{ conditionalFormats: ConditionalFormat[]; validations: DataValidation[] }`, xlcalc's types, conditional formats in priority order. |
+| `TableOp` | xlcalc's table operations of `StructureOp`: `addTable`, `renameTable`, `deleteTable`, `convertTable`. |
+| `SpellingRequest` | `{ sheet; range?; after?; from?; ignore? }`: from the active cell `after` (at position `from` of its text, after Ignore Once on a word of it) on, by rows, wrapping around, within `range` or the entire sheet, skipping the words of Ignore All. Formulas, words in uppercase and words with digits are not checked, as Excel's defaults. |
+| `SpellingHit` | `{ cell; word; at; suggestions }`: the word, its position in the cell's text, and corrections, best first. |
+| `SpellChecker` | `{ check(word): boolean; suggest(word): string[]; add?(word): void }`: the host's dictionary (hunspell's, for example) and the user's own words, which `memorySource` and `./local` take as `spelling`. |
 
 ### Find, filter, validation
 
@@ -353,12 +431,14 @@ A window is a rectangular block of cells that the sheet reads from the source as
 
 ## Interface texts: `SheetMessages`
 
-`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`.
+`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`, those of the conditional formatting dialogs (`cf…`) in its `ConditionalMessages`, which `SheetMessages` extends.
 
 ```ts
 import { ruMessages } from '@xlcalc/vue'
 const messages = { ...ruMessages, loading: 'Загружаю…' }
 ```
+
+Two types name the arguments of the Symbol dialog's texts: `SymbolSubset`, the Subset list's Unicode blocks (`'basicLatin'`, `'latin1'`, `'cyrillic'`, `'currency'` and so on, as `symbolSubset` names them), and `SymbolSpecial`, the Special Characters tab's characters (`'emDash'`, `'copyright'` and so on, as `symbolSpecial` names them).
 
 ## `memorySource`
 
@@ -366,12 +446,14 @@ const messages = { ...ruMessages, loading: 'Загружаю…' }
 
 | Type | Shape |
 | --- | --- |
-| `MemoryBook` | `{ sheets: MemorySheet[]; styles?: CellStyle[]; functions?: string[] }`; `functions` enables `functionNames`. |
+| `MemoryBook` | `{ sheets: MemorySheet[]; styles?: CellStyle[]; functions?: string[]; names?: SheetName[] }`; `functions` enables `functionNames`; `names` are kept as text (there is no engine to calculate them). |
 | `MemorySheet` | `SheetInfo` without `maxRow`, `maxCol` and `outline`, plus `cells: Record<string, MemoryCell \| CellValue>`, `widths?` (keyed by `B`, `B:D` or `C:C`, in xlsx units, 0 hides), `heights?` (keyed by `5`, `5:9` or `5:5`, in points, 0 hides), `defaultRowHeight?`, `merges?`, `tables?`, `notice?`, `outline?: MemoryOutline`, `validations?: MemoryValidation[]`. |
 | `MemoryOutline` | `{ rows?: Record<string, number>; columns?: Record<string, number>; collapsed?: string[]; summaryBelow?: boolean; summaryRight?: boolean }`: outline levels (1 to 7) by row, column or span, keyed as in `widths` and `heights` (`'3:9': 1`, `'C:E': 2`), the summary rows and columns marked collapsed (`'10'`, `'F'`), and where the summaries are (below and to the right by default). |
 | `MemoryCell` | `{ value?, text?, formula?, style?, color?, numberFormat?, link?, note?, appearance?, drill? }`; `numberFormat` is the code the cell is displayed with (`0.0%`, `dd.mm.yyyy`), which the windows return as `numberFormats`, so a percentage or a date opens for editing as in Excel. |
 | `MemoryValidation` | `{ range; list?: string[]; whole?: { min?; max? }; prompt?: { title?; text }; alert?: { severity?; title?; message? } }` |
-| `MemorySourceOptions` | `{ delay?: number; maxCells?: number }`; `delay` makes every response take that many milliseconds. |
+| `MemorySourceOptions` | `{ delay?: number; maxCells?: number; spelling?: SpellChecker }`; `delay` makes every response take that many milliseconds; `spelling` enables `spelling` and `learnWord`. |
+
+`memorySource` also has `clear`, `link`, `note`, `names` and `setNames` (a name is checked as Excel checks one); without an engine it has no `dependents`, `rules`, `setRules` or `table`.
 
 `MemorySource` is a `SheetSource` with four extra methods for tests and examples: `failNext(...outcomes)` makes the next edits fail with these outcomes, `emit(event)` sends an event to the subscribers, `setCells(sheet, entries)` changes cells as another tab would, and `recompute(ms)` makes windows return `pending` for that long.
 
@@ -434,6 +516,7 @@ The options, `LocalSourceOptions`:
 | `session` | `AsyncSessionOptions` | Options for the workbook's session; `{ cached }` from `openXlsx` keeps a file's stored values. |
 | `maxCells` | `number` | The maximum number of cells in one window, 20,000 by default. |
 | `notice` | `string` | A notice included in every window. |
+| `spelling` | `SpellChecker` | The host's word checker; enables `spelling` and `learnWord`. |
 
 ```ts
 import { localSource } from '@xlcalc/vue/local'
@@ -447,7 +530,7 @@ console.log(source.locale, await source.book())
 await source.close() // when the sheet is removed, as in onUnmounted
 ```
 
-`LocalSource` has every method of `SheetSource` (the type marks `copyText` as optional, but the source always has it), plus:
+`LocalSource` has every method of `SheetSource` (the type marks `copyText` as optional, but the source always has it; `spelling` and `learnWord` only with the `spelling` option), plus:
 
 | Member | Type | Meaning |
 | --- | --- | --- |
@@ -508,6 +591,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | `--xs-bar-bg` | `#fafafa` | The formula bar, the toolbar and the Trace Precedents panel. |
 | `--xs-message-bg`, `--xs-message-fg` | `#1f2328`, `#ffffff` | The message line. |
 | `--xs-copy-line`, `--xs-fill-frame` | `#1a73e8`, `#5f6368` | The moving border of a copy, the fill handle's outline. |
+| `--xs-trace`, `--xs-trace-error`, `--xs-trace-sheet` | `#1d4ed8`, `#d92d20`, `#1f2328` | Trace Dependents: arrows to dependents, from a cell with an error, to another sheet's icon. |
 | `--xs-shadow-pop`, `--xs-shadow-menu`, `--xs-shadow-modal` | `0 2px 6px rgb(0 0 0 / 0.2)`, `0 6px 20px rgb(0 0 0 / 0.18)`, `0 10px 30px rgb(0 0 0 / 0.25)` | Shadows of a list, a tooltip or a box under a cell; of a menu, the filter funnel's list and the message line; of a dialog or an alert. |
 | `--xs-backdrop` | `rgb(0 0 0 / 0.25)` | The dimmed page under a dialog or an alert. |
 | `--xs-z-menu`, `--xs-z-modal`, `--xs-z-alert` | `40`, `50`, `55` | Stacking layers above the page: a menu or the filter funnel's list, a dialog, an alert (above a dialog). |
@@ -515,6 +599,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | `--xs-outline-button`, `--xs-outline-tick` | `13px`, `5px` | The outline button size and the bracket tick length. |
 | `--xs-outline-button-bg`, `--xs-outline-button-fg`, `--xs-outline-button-border` | `var(--xs-bg)`, `#3c4043`, `#9aa0a6` | The outline buttons. |
 | `--xs-explain-w`, `--xs-explain-h` | `340px`, `45%` | The Trace Precedents panel: its width, and its height on a phone. |
+| `--xs-watch-w`, `--xs-watch-h` | `560px`, `200px` | The Watch Window's size when it opens (within the sheet's box); on a phone its height is at most 45 %. |
 | `--xs-prompt-bg`, `--xs-prompt-fg`, `--xs-prompt-line` | `#ffffe1`, `#1f2328`, `#767676` | The data validation input message. |
 | `--xs-alert-stop`, `--xs-alert-warning`, `--xs-alert-information` | `#d13438`, `#ffb900`, `#0f6cbd` | The validation alert's icons. |
 | `--xs-fl-line` | `#7a7a7a` | The border of lists under a cell: Formula AutoComplete and validation lists. |

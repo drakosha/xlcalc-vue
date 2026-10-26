@@ -65,6 +65,39 @@
   max-width: 140px;
   font-size: 12px;
 }
+/* The Font and Font Size boxes: an input joined to the button that opens its list, as Excel draws them. */
+.xs-tb-input {
+  border-radius: 4px 0 0 4px;
+  font-size: 12px;
+}
+.xs-tb-font {
+  width: 120px;
+}
+.xs-tb-size {
+  width: 40px;
+}
+.xs-tb-box > .xs-tb-caret {
+  height: 22px;
+  border: 1px solid var(--xs-grid);
+  border-left: 0;
+  border-radius: 0 4px 4px 0;
+}
+/* Controls that wrap together on a narrow toolbar: the two boxes, the two size buttons. */
+.xs-tb-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.xs-tb-list {
+  gap: 0;
+  min-width: 100%;
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.xs-tb-list > .xs-tb-item[aria-selected='true'] {
+  background: var(--xs-head-bg);
+}
 
 /* ── a menu below a button: palettes and borders ── */
 .xs-tb-pop {
@@ -139,10 +172,25 @@
   left: 8px;
   right: 8px;
 }
+.xs-tb-narrow .xs-tb-list {
+  min-width: 0;
+}
 
 /* ── touch: every target at least 44 × 44 px ── */
 .xs-touch .xs-tb-select {
   max-width: none;
+}
+.xs-touch .xs-tb-font {
+  width: 150px;
+}
+.xs-touch .xs-tb-size {
+  width: 64px;
+}
+.xs-touch .xs-tb-box > .xs-tb-caret {
+  height: var(--xs-touch-target);
+}
+.xs-touch .xs-tb-list {
+  max-height: 60vh;
 }
 .xs-touch .xs-tb-item {
   min-height: var(--xs-touch-target);

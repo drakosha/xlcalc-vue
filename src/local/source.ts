@@ -17,6 +17,7 @@ import { SheetValues } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
 import { validationOf } from './validation'
 import { windowOf } from './window'
+import { workbookMethods } from './workbook'
 
 /** A display filter's rows as `visibleRows` last returned them and where the sheet's rows ended then; ascending (for search and totals) once requested. */
 interface RowList {
@@ -44,6 +45,8 @@ function info(sheet: SheetLayout, used: SheetExtent): SheetInfo {
     ...(f ? { freeze: { rows: f.rows ?? 0, cols: f.columns ?? 0 } } : {}),
     ...(sheet.hidden ? { hidden: sheet.hidden } : {}),
     ...(outline ? { outline } : {}),
+    ...(sheet.view?.zoom ? { zoom: sheet.view.zoom } : {}),
+    // TODO(xlcalc): the workbook's default font (`SheetInfo.font`) once the library gives its Normal style's font
   }
 }
 
@@ -385,6 +388,16 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { ok: true, changes }
   }
 
+  /** A patch of cells that changes how they look but no text (a hyperlink, a note): the windows over them are re-read in place. */
+  function repainted(got: EditResult, ranges: { sheet: string; range: string }[]): EditOutcome {
+    const changes = take(got.changes)
+    if (changes.length) emit({ kind: 'changed', changes })
+    emit({ kind: 'repaint', ranges: [...ranges, ...(got.repaint ?? []).map((x) => ({ sheet: x.sheet, range: x.range }))] })
+    return { ok: true, changes }
+  }
+  const book = workbookMethods(locale, { repainted, reloaded }, opts.spelling)
+  const reading = <A extends unknown[], R>(run: (s: AsyncSession, ...args: A) => Promise<R>) => async (...args: A): Promise<R> => run(await open(), ...args)
+
   const source: LocalSource = {
     maxCells,
     locale,
@@ -425,6 +438,16 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     replace: mutation(replace, (e): ReplaceOutcome => ({ ...refusedBy(e), replaced: 0 })),
     outline: mutation(outline, failedBy),
     freeze: mutation(freeze, failedBy),
+    clear: mutation(book.clear, failedBy),
+    link: mutation(book.link, refusedBy),
+    note: mutation(book.note, refusedBy),
+    names: reading(book.names),
+    setNames: mutation(book.setNames, refusedBy),
+    dependents: reading(book.dependents),
+    rules: reading(book.rules),
+    setRules: mutation(book.setRules, refusedBy),
+    table: mutation(book.table, failedBy),
+    ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
     get history() {
       return session?.history ?? { undo: 0, redo: 0 }
     },

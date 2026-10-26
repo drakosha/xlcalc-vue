@@ -72,6 +72,9 @@ export interface EditingDeps {
   point?: (e: KeyboardEvent) => boolean
   /** Excel's alert of a data validation rule for a rejected value, or the prompt for a formula that cannot be parsed, and the user's answer; without it the rejection goes to the message line. */
   alert?: (alert: SheetAlert) => Promise<AlertAnswer>
+  /** The defined names visible on the sheet, in alphabetical order, and their order, for Formula AutoComplete; none without it. */
+  names?: () => readonly string[]
+  nameOrder?: (a: string, b: string) => number
 }
 
 export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula, editor: Ref<EditorState | null>, deps: EditingDeps) {
@@ -96,7 +99,11 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       return rect ? [{ rect, reason: l.reason }] : []
     }),
   )
-  const lockIn = (rect: CellRect): string | null => locks.value.find((l) => rectsMeet(l.rect, rect))?.reason ?? null
+  /** The reason of a locked range `rect` meets; a paste's rectangle past the sheet's edge is clipped to it (xlcalc checks rectangles strictly). */
+  function lockIn(rect: CellRect): string | null {
+    const r = { ...rect, bottom: Math.min(MAX_ROWS, rect.bottom), right: Math.min(MAX_COLS, rect.right) }
+    return locks.value.find((l) => rectsMeet(l.rect, r))?.reason ?? null
+  }
   const lockAt = (row: number, col: number): string | null => (locks.value.length ? lockIn(cellRect(row, col)) : null)
 
   /** xlcalc's typed-entry module for a source without `editText`, requested by the first edit text that needs it; null until it loads. */
@@ -132,7 +139,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   }
 
   /** Opens the editor on the active cell; for a locked cell, explains why instead. False when nothing opened. */
-  function startEdit(opts: { text?: string; mode: 'enter' | 'edit'; place?: 'cell' | 'bar'; caret?: number; caretEnd?: number }): boolean {
+  function startEdit(opts: { text?: string; mode: 'enter' | 'edit'; place?: 'cell' | 'bar'; caret?: number; caretEnd?: number; focus?: boolean }): boolean {
     const a = s.selected.value
     if (!s.editable.value || !a) return false
     const lock = lockAt(a.row, a.col)
@@ -143,7 +150,8 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const initial = editText(a.row, a.col)
     const text = opts.text ?? initial
     editor.value = { sheet: s.sheetName.value, row: a.row, col: a.col, text, initial, mode: opts.mode, place: opts.place ?? 'cell', caret: opts.caret ?? text.length, caretEnd: opts.caretEnd, inPlace: opts.text === undefined }
-    focusEditor()
+    // A dialog that inserts into the draft (Symbol) keeps focus: the caret waits for the editor's focus.
+    if (opts.focus !== false) focusEditor()
     return true
   }
   const inputOf = () => (editor.value?.place === 'bar' ? deps.barInput.value : deps.cellInput.value)
@@ -171,15 +179,24 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (!ed) return void startEdit({ text: `=${name}(`, mode: 'edit', place: 'bar' })
     spliceDraft(ed, inputOf(), `${ed.text === '' ? '=' : ''}${name}(`)
   }
-  /** Inserts `piece` into the open draft in place of the editor's selection, with the caret after it. */
-  function spliceDraft(ed: EditorState, el: HTMLTextAreaElement | null, piece: string): void {
-    const from = el?.selectionStart ?? ed.text.length
-    ed.text = `${ed.text.slice(0, from)}${piece}${ed.text.slice(el?.selectionEnd ?? from)}`
+  /** Excel's Insert Symbol: the text at the open draft's caret, otherwise the active cell's edit started with it as typing starts one; focus stays where it is (the dialog). False when no edit could take it. */
+  function insertText(piece: string): boolean {
+    const ed = editor.value
+    if (!ed) return startEdit({ text: piece, mode: 'enter', focus: false })
+    spliceDraft(ed, inputOf(), piece, false)
+    return true
+  }
+  /** Inserts `piece` into the open draft in place of the editor's selection (a caret still waiting for focus when there is one), with the caret after it. */
+  function spliceDraft(ed: EditorState, el: HTMLTextAreaElement | null, piece: string, focus = true): void {
+    const from = ed.caret ?? el?.selectionStart ?? ed.text.length
+    const to = ed.caret !== null ? Math.max(from, ed.caretEnd ?? from) : (el?.selectionEnd ?? from)
+    ed.text = `${ed.text.slice(0, from)}${piece}${ed.text.slice(to)}`
     ed.caret = from + piece.length
-    focusEditor()
+    ed.caretEnd = undefined
+    if (focus) focusEditor()
   }
   /** Excel's Formula AutoComplete over the draft: the function list below the editor. */
-  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor, scan: f.scanOptions })
+  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor, scan: f.scanOptions, names: deps.names, nameOrder: deps.nameOrder })
   /** Excel's argument tooltip for the function the caret is in, below the editor; the list takes precedence. */
   const tip = useFunctionTip({ source: s.source, editor, input: inputOf, scan: f.scanOptions, listOpen: () => ac.open.value })
   function onEditorInput(e: Event): void {
@@ -379,7 +396,9 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (!call || stepping || !s.editable.value) return null
     stepping = true
     try {
-      return await run(() => call(), [], null, null)
+      const out = await run(() => call(), [], null, null)
+      if (out.ok) s.hooks.stepped()
+      return out
     } finally {
       stepping = false
     }
@@ -533,7 +552,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pendingAt, forget, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pendingAt, forget, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, insertText, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

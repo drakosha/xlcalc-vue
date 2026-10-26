@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.22.0 (2026-10-26)
+
+Excel's commands from the Home, Insert, Formulas, Data, Review and View tabs that the sheet lacked. Nothing breaks for a host: every new source method, prop, event and method is optional. Built against xlcalc 0.58.0; `./local` works with xlcalc 0.46.0 and later.
+
+- `SheetSource`: optional methods for what a workbook holds beside its cells' values, in Excel's terms: `clear` (Clear Formats, Clear All), `link` (Insert Link, Remove Hyperlinks), `note` (New Note, Edit Note, Delete Note), `names` and `setNames` (the Name Manager), `dependents` (Trace Dependents), `rules` and `setRules` (conditional formatting and data validation rules), `table` (Format as Table, Convert to Range) and `spelling` with `learnWord` (Spelling, Add to Dictionary). Their types are in `src/contract/workbook.ts`; formulas in them are in the source's locale. `SheetInfo` has `font`, the workbook's default font, and `zoom`, the sheet's saved zoom. `memorySource` has `clear`, `link`, `note`, `names` and `setNames`; both it and `./local` check spelling with the host's `SpellChecker` (the `spelling` option), and `./local` has every new method. `./local` checks the Name Manager's names with xlcalc's `validateNames`, does not list hidden names and keeps them.
+- `SheetToolbar`: the Font and Font Size boxes (the `fonts` prop replaces the font list), Increase and Decrease Font Size, Top, Middle and Bottom Align, Increase and Decrease Indent, and Percent Style with Ctrl+Shift+%.
+- Fill Down and Fill Right (Ctrl+D, Ctrl+R) through `structure`'s `copyRange`, as a single undo step; Show Formulas (Ctrl+`), a view setting of each sheet.
+- Go To (F5, Ctrl+G) with the last four locations and the defined names; the Symbol dialog with Unicode subsets, the character code, recently used symbols and Special Characters.
+- Zoom from 10% to 400%: Ctrl+wheel, a pinch, the status bar's slider and the Zoom dialog with Zoom to Selection; each sheet keeps its own, a sheet opens at the workbook's saved zoom unless the host's `zoom` prop names it, and the `zoom` event reports the user's changes. The Watch Window (the `watches` prop and event).
+- Defined names: the Name Box goes to a name, shows the name of the selected range and lists the names; a new name typed in it defines one; Define Name, the Name Manager (Ctrl+F3) and names in Formula AutoComplete.
+- Insert Hyperlink (Ctrl+K) and Edit Hyperlink, with Place in This Document and the defined names; Edit, Open and Remove Hyperlink in the cell menu; New, Edit and Delete Note in the cell menu and Shift+F2, with the `noteAuthor` prop; `clear` for Clear Formats and Clear All.
+- The workbook's default font: a cell without a font of its own is drawn in `SheetInfo.font`, and the toolbar's Font and Font Size boxes show it (`state.font`).
+- Trace Dependents and Remove Arrows; Create Table (Ctrl+T, Ctrl+L; Control+T on a Mac, where Control+L is Define Name) with Excel's names for the table and its columns, Convert to Range and Delete Table; Spelling (F7) over the host's dictionary.
+- Conditional formatting: Highlight Cells Rules and Top/Bottom Rules with Excel's presets and Custom Format, Data Bars, Color Scales and Icon Sets, Clear Rules from the selection or the sheet, New Formatting Rule and the Rules Manager.
+- Data Validation: Excel's dialog with Settings, Input Message and Error Alert, Clear All, and Excel's questions when the selection has several rules or cells without one.
+- A paste that extends past the sheet's edge is refused with Excel's reason under xlcalc 0.56 and later too, whose rectangle helpers check their arguments strictly.
+
 ## 0.21.2 (2026-10-20)
 
 The first public release. Earlier versions were internal builds and were not published to npm; their changes are folded into this entry, and the README and `docs/` describe the package as it is now. The internal builds were named `xlcalc-sheet`: a host built on them imports `@xlcalc/vue`, `@xlcalc/vue/local` and `@xlcalc/vue/style.css` instead (breaking for that host).

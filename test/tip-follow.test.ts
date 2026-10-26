@@ -36,5 +36,5 @@ it('a typed character finds the call at the caret once and sets the list once', 
   await settle()
   expect(scans.n).toBe(1)
   expect(lists).toBe(1)
-  expect(ctx.ed.ac.items.value).toEqual(['SUM', 'SUMIF', 'SUMIFS'])
+  expect(ctx.ed.ac.items.value.map((i) => i.text)).toEqual(['SUM', 'SUMIF', 'SUMIFS'])
 })

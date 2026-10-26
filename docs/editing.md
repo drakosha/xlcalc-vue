@@ -7,7 +7,11 @@ Editing uses Excel's keys:
 - Esc cancels the edit, and Alt+Enter inserts a line break;
 - Ctrl+Shift+U (or the arrow at the right end of the formula bar) expands the formula bar to five lines and collapses it back to one, as in Excel; while it is collapsed, a multi-line cell shows its first line and the grid does not move;
 - Delete and Backspace clear the selection;
+- Ctrl+` shows the formulas instead of the values, as Excel's Show Formulas does ([view.md](view.md#show-formulas));
 - Ctrl+Page Down and Ctrl+Page Up go to the next and the previous visible sheet;
+- F5 and Ctrl+G (Control+G on a Mac as well) open Excel's Go To dialog ([go-to-and-symbol.md](go-to-and-symbol.md));
+- Ctrl+F3 opens the Name Manager, and Ctrl+L on a Mac Define Name, with a source that has defined names ([names.md](names.md));
+- F7 opens Spelling when the source has `spelling` ([Spelling](#spelling)), and Ctrl+T or Ctrl+L (Control+T on a Mac) opens Create Table when it has `table` ([tables.md](tables.md));
 - Ctrl+arrow goes where the source's `end(sheet, cell, direction)` points, as Excel's Range.End, and Shift+Ctrl+arrow extends the selection there. Without `end`, or under a display filter, it goes to the edge of the data known to the sheet.
 
 Without `edit` the sheet is read-only.
@@ -67,6 +71,7 @@ When the outcome carries `correction`, the formula Excel suggests for an unclose
 The source's other optional methods enable the following:
 
 - Ctrl+Enter (Cmd+Return on a Mac), in the cell editor or the formula bar, enters the text into every cell of the selection through `fill(sheet, range, text, active)`, as Excel enters it from the active cell; the selection stays, and the text is sent even if it did not change. Without `fill`, or with a single cell, the text goes to the active cell through `edit` if it changed, as with Enter, and the active cell does not move.
+- Ctrl+D and Ctrl+R (Cmd or Control on a Mac, as Excel for Mac takes either; with any keyboard layout) are Excel's Fill Down and Fill Right through `structure`, as a single `copyRange`: the selection's top row is copied over its other rows (its left column over its other columns) with its values, formulas and formatting, relative references shifting as Excel's fill shifts them and absolute ones kept. A selection one row tall takes the row above it, one column wide the column to its left, and row 1 alone (column A alone) is left as it is. Entire columns copy their first row down the whole sheet, and entire rows their first column across it. On a sheet the workbook itself filters, xlcalc's `copyRange` fills only the visible rows, as Excel's Fill Down does. Under the sheet's display filter, whose hidden rows the source does not know, nothing is filled, as nothing is pasted there from the sheet's own copy; a locked cell among the filled ones is reported instead, as is what the source refuses (xlcalc refuses a copy that would split a merged area or part of an array, as Excel does). The selection stays as it was. On an editable sheet the keys do not reach the browser (its bookmark and reload), even where nothing can be filled; on a read-only sheet they do. A host's ribbon runs the same commands through `fillDown()` and `fillRight()` ([api.md](api.md#sheetviewapi)); Excel's cell context menu has no Fill commands, and neither does the sheet's.
 - A paste on the grid goes to `paste(sheet, cell, text)` as a single call at the selection's top-left cell, and the source parses the text as Excel pastes it. Without `paste`, the component splits the text as Excel pastes it (xlcalc's `parseClipboard`: a row at each line break, a field at each tab, and one more row of empty fields after a final line break) and sends the fields to `edit`; a range that would extend past the edge of the sheet is rejected. Pasting the sheet's own copy goes through `structure` instead ([clipboard.md](clipboard.md)).
 - Ctrl+Z and Ctrl+Y (Cmd on a Mac; Ctrl+Shift+Z also redoes; with any keyboard layout) on the grid call `undo()` and `redo()`, one call at a time. In an editor they undo the typing. Without these methods there is no undo.
 - A successful outcome's `select` sets where the selection goes after a paste, a fill, an undo or an edit; if it is on another sheet, the component switches to it as the Name Box does. If the selection was moved while the call was pending, it stays where it was moved.
@@ -74,7 +79,7 @@ The source's other optional methods enable the following:
 - Columns are drawn with xlcalc's geometry, the one it uses to lay out `####`, overflow and wrapped text (Excel for Mac's): a stored width is `columnWidthToPoints(width)` points, times 4/3 px rounded to a whole pixel, and a column whose width is `null` in a window is 53 points (71 px). A width dragged with the mouse is converted back through `columnWidthFromPoints`, in whole points, and the cells whose display changes with it come back in the `changes` of `layout`'s outcome and are redrawn, as an edit's are (a date that no longer shows `####`). The Column Width box counts characters of the stored width as Excel for Mac's does (`columnWidthToChars` and `columnWidthFromChars`): the default column is 8, and typing 8 gives the default back.
 - A window's `appearance` is the conditional formatting of its cells as xlcalc calculates it (`ConditionalAppearance`), and the grid draws it as Excel does: a rule's style over the cell's own (font color, bold, italic, underline, strikethrough, fill, borders; a fill hides gridlines as the cell's own fill does), a color scale's color as a fill, a data bar from its `start` to its `end` (from the right with `rightToLeft`; a gradient from the bar's color at its axis toward white, or a solid fill; a border; a dashed axis across the cell), an icon from any of the 20 icon sets at the left of the cell before its text, and with `hideValue` only the bar or the icon (an icon shown alone follows the cell's own alignment, left for General). The text and color produced by a rule's number format are the window's `text` and `colors`.
 - `subscribe(listener)` notifies the sheet of changes made elsewhere. `changed` patches the loaded windows; `reload` reads the sheets and windows again and reapplies a display filter; `repaint` with ranges re-reads in place only the windows of the displayed sheet that overlap the ranges: each window stays drawn until its response arrives, and the sizes, the scroll position and the display filter's rows stay as they are (a row that no longer matches the filter after an edit remains until the filter is reapplied, as Excel keeps it until Reapply). Repaints from one task are read together, and a repaint that arrives within 80 ms of the previous one aborts its request and reads once the burst ends; a `changed` that arrives while a window is being read is applied over its response, and a `changed` for cells off screen draws nothing. In the example after this list, `memorySource` simulates an edit from another tab and a rejection by a server.
-- Ctrl+B, Ctrl+I and Ctrl+U (Cmd on a Mac, with any keyboard layout) on the grid toggle bold, italic and underline over the selection according to the active cell's formatting, through `format`, as the toolbar buttons do. Without `format` the browser handles these keys.
+- Ctrl+B, Ctrl+I and Ctrl+U (Cmd on a Mac, with any keyboard layout) on the grid toggle bold, italic and underline over the selection according to the active cell's formatting, through `format`, as the toolbar buttons do. Ctrl+Shift+% (Control on a Mac too, as in Excel for Mac, since Cmd+Shift+5 is the system's screenshot key; the key of 5 on any layout) applies Percent Style, Excel's `0%` (the built-in format 9), as the toolbar's button does. Without `format` the browser handles these keys.
 - Clicking a column letter or a row number selects the entire column or row up to Excel's last row or column, so the `state` event and the Name Box report `B:D`, `2:5`, or `1:1048576` for the entire sheet, and formatting applies to entire rows or columns.
 
 ```vue
@@ -92,6 +97,45 @@ const refuseNext = () => source.failNext({ ok: false, reason: 'refused', message
 <template>
   <button @click="remoteEdit">Edit B1 elsewhere</button>
   <button @click="refuseNext">Refuse the next edit</button>
+  <SheetView :source="source" style="height: 300px" />
+</template>
+```
+
+## Spelling
+
+If the source has `spelling(req)`, F7 (also on a Mac, where Excel uses it too) and the sheet's `checkSpelling()` method open Excel's Spelling dialog. The check starts at the active cell, goes by rows through the entire sheet, or only through the selection when more than one cell is selected, and wraps around to the cells before the active cell; formulas, words in uppercase and words with digits are not checked, as Excel's defaults. For each misspelt word the sheet selects its cell, and the dialog shows the cell's text with the word marked under Not in Dictionary and the source's corrections under Suggestions, the first one chosen (Up and Down choose another, a double click is Change):
+
+- Ignore Once goes on to the next word, in the same cell first (`after` is the cell, `from` the position after the word);
+- Ignore All skips the word for the rest of this check (`ignore`);
+- Add to Dictionary, present when the source has `learnWord`, makes the word the user's own and goes on;
+- Change writes the cell's text with the word replaced by the chosen suggestion through `edit`, as typed text (a text that opened with an apostrophe keeps it), and goes on after the new word;
+- Change All does the same, and replaces the word in each cell it is found in afterwards without stopping there, as Excel goes on;
+- Cancel or Esc ends the check.
+
+When the check comes back to where it started, or there is nothing to correct, Excel's message says that the check is complete. On a read-only sheet Change and Change All are disabled; a locked cell is not changed. The editor keeps `spellcheck="false"`: Excel does not check spelling as you type. `memorySource` and `./local` check spelling with the host's `SpellChecker` (a dictionary such as hunspell's), given as their `spelling` option.
+
+```vue
+<script setup lang="ts">
+import { SheetView, memorySource } from '@xlcalc/vue'
+import '@xlcalc/vue/style.css'
+
+// A tiny word list for the example; a host passes a real dictionary
+const words = new Set(['the', 'quick', 'brown', 'fox', 'jumps', 'over', 'lazy', 'dog'])
+const own = new Set<string>()
+const source = memorySource(
+  { sheets: [{ name: 'Notes', cells: { A1: 'teh quick brown fox', A2: 'jumps ovr the lazy dog', A3: 'teh end' } }] },
+  {
+    spelling: {
+      check: (w) => words.has(w.toLowerCase()) || own.has(w.toLowerCase()),
+      suggest: (w) => ({ teh: ['the', 'ten'], ovr: ['over'] })[w.toLowerCase()] ?? [],
+      add: (w) => void own.add(w.toLowerCase()),
+    },
+  },
+)
+</script>
+
+<template>
+  <!-- click the grid and press F7 -->
   <SheetView :source="source" style="height: 300px" />
 </template>
 ```

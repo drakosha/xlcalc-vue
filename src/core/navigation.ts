@@ -1,10 +1,11 @@
-// Jumps: the Name Box, the formula's references, hyperlinks and `focus`; the Back history, and the flash after a jump.
-import { nextTick, onScopeDispose, ref, watch } from 'vue'
-import { MAX_COLS, MAX_ROWS, quoteSheetIfNeeded } from 'xlcalc/a1'
-import type { CellRect, FormulaReference, GridReference } from 'xlcalc/contract'
-import { scanReferences } from 'xlcalc/text'
-import { isGridRef } from '../grid-ref'
+// Jumps: the Name Box (addresses and defined names), the formula's references, hyperlinks and `focus`; the Back history, and the flash after a jump.
+import { computed, nextTick, onScopeDispose, ref, watch } from 'vue'
+import { MAX_COLS, MAX_ROWS, quoteSheetIfNeeded, rangeAddress } from 'xlcalc/a1'
+import type { CellRect, GridReference } from 'xlcalc/contract'
+import type { SheetName } from '../contract/workbook'
 import type { Formula } from './formula'
+import type { Names } from './names'
+import { parsePlace, rangeRef } from './place'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 
@@ -21,27 +22,11 @@ const HISTORY_MAX = 50
 /** How long the range just jumped to flashes, so the eye finds it. */
 const FLASH_MS = 2000
 
-/** A location from the Name Box, a hyperlink or `focus`: a range with its sheet (`B12`, `'Sheet 2'!C7:D9`, `B:B`) or a sheet alone; null for anything else (`B12+C1`). */
-function parsePlace(text: string): { sheet?: string; range?: CellRect } | null {
-  const raw = text.trim()
-  if (!raw) return null
-  const whole = (refs: FormulaReference[], end: number): GridReference | null => {
-    const r = refs.length === 1 ? refs[0]! : null
-    return r && isGridRef(r) && r.at === 0 && r.end === end && !r.spill ? r : null
-  }
-  const refs = scanReferences(raw)
-  if (refs.length) {
-    const r = whole(refs, raw.length)
-    return r && { sheet: r.sheet, range: r }
-  }
-  // A sheet alone is parsed as a reference to its first cell, with its quotes as a reference has them.
-  const sheet = whole(scanReferences(`${raw}!A1`), raw.length + 3)?.sheet
-  return sheet === undefined ? null : { sheet }
-}
-
 export interface NavigationDeps {
   pickSheet: (index: number) => Promise<void>
   notify: (text: string) => void
+  /** The workbook's defined names, which the Name Box goes to, lists, shows and defines. */
+  names: Names
 }
 
 export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: NavigationDeps) {
@@ -59,8 +44,8 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
         sheet: s.active.value,
         selected: s.selected.value,
         extent: s.extent.value,
-        scrollTop: s.scroller.value?.scrollTop ?? 0,
-        scrollLeft: s.scroller.value?.scrollLeft ?? 0,
+        scrollTop: (s.scroller.value?.scrollTop ?? 0) / s.zoom.value,
+        scrollLeft: (s.scroller.value?.scrollLeft ?? 0) / s.zoom.value,
       },
     ]
   }
@@ -130,16 +115,45 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
   }
 
   // ── the Name Box ──
+  const names = deps.names
+  /** What the Name Box shows: the name whose range is exactly the selection, as Excel's does, otherwise the selection's address. */
+  const boxText = computed(() => names.nameOf(sel.fullRect.value) ?? sel.selectionRef.value)
   const addressDraft = ref('')
   const addressFocused = ref(false)
-  watch(sel.selectionRef, (v) => {
+  watch(boxText, (v) => {
     if (!addressFocused.value) addressDraft.value = v
   })
+  /** Goes to a defined name's range, as Excel's Name Box and Go To do; false for a name that does not refer to a range. */
+  async function goName(name: SheetName): Promise<boolean> {
+    const r = names.rangeOf(name)
+    return !!r && goPlace(`${quoteSheetIfNeeded(r.sheet)}!${rangeAddress(r.rect)}`)
+  }
+  /**
+   * Enter in the Name Box, as in Excel: a defined name goes to its range, an address to its location, and a new name with a
+   * selection defines it over the selection (workbook scope) where names can be defined; otherwise the message line says why.
+   */
   async function goAddress(): Promise<boolean> {
-    const ok = await goPlace(addressDraft.value)
-    if (!ok) deps.notify(s.messages.value.addressBad)
-    addressDraft.value = sel.selectionRef.value
+    const ok = await enterAddress(addressDraft.value.trim())
+    addressDraft.value = boxText.value
     return ok
+  }
+  async function enterAddress(text: string): Promise<boolean> {
+    const m = s.messages.value
+    const named = text ? names.find(text, s.sheetName.value) : undefined
+    if (named) {
+      if (await goName(named)) return true
+      deps.notify(m.nameNotRange)
+      return false
+    }
+    if (await goPlace(text)) return true
+    const rect = sel.fullRect.value
+    if (!text || parsePlace(text)?.range || !names.editable.value || !rect) {
+      deps.notify(m.addressBad)
+      return false
+    }
+    const out = await names.save([...names.list.value, { name: text, ref: rangeRef(s.sheetName.value, rect) }])
+    if (out && !out.ok) deps.notify(out.reason === 'refused' || out.reason === 'invalid' ? m.nameBoxBad : out.message || m.editFailed)
+    return !!out?.ok
   }
 
   /** A location requested from outside before the workbook loaded; applied once the sheets have loaded. */
@@ -173,7 +187,7 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
     }
   }
 
-  return { history, flash, goBack, goPlace, goRef, addressDraft, addressFocused, goAddress, takePendingFocus, copyCellLink }
+  return { history, flash, goBack, goPlace, goRef, goName, boxText, addressDraft, addressFocused, goAddress, takePendingFocus, copyCellLink }
 }
 
 export type Navigation = ReturnType<typeof useNavigation>

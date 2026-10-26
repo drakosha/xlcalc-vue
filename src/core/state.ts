@@ -7,6 +7,7 @@ import { errorText } from '../failure'
 import { useMessages } from '../messages'
 import type { SheetMessages } from '../contract/messages'
 import type { SheetFilter, SheetInfo, SheetSource } from '../contract/source'
+import { defaultFontCss } from './cell-style'
 import { colPx, rowPx } from './geometry'
 import type { ListSort, SheetFailure, SheetViewProps } from '../contract/view'
 import { createMemory } from './storage'
@@ -45,6 +46,12 @@ export function createState(props: SheetViewProps) {
   const active = ref(-1)
   const sheet = computed<SheetInfo | null>(() => sheets.value[active.value] ?? null)
   const sheetName = computed(() => sheet.value?.name ?? '')
+  /**
+   * The workbook's default font (Excel's Normal style, `SheetInfo.font`), in which a cell without a font of its own is drawn;
+   * null without one, when such cells take `--xs-font` and `--xs-font-size`. What the editor and the font boxes show for such a cell.
+   */
+  const defaultFont = computed(() => sheet.value?.font ?? null)
+  const defaultFontStyle = computed(() => (defaultFont.value ? defaultFontCss(defaultFont.value) : null))
   /** The data extent grown by edits since the sheets were read: the source's extent predates them. */
   const grown = ref({ rows: 0, cols: 0 })
   /** The extent reached by jumps and keys beyond the data on an editable sheet. */
@@ -56,6 +63,8 @@ export function createState(props: SheetViewProps) {
   const failureOf = (error: unknown): SheetFailure => ({ error, text: errorText(error) || messages.value.loadFailed })
   const loading = ref(false)
   const scroller = ref<HTMLElement | null>(null)
+  /** The active sheet's zoom as a fraction (Excel's 10% to 400%): the grid's content is drawn under CSS zoom, so the scroll and the viewport below are in its unzoomed pixels. */
+  const zoom = ref(1)
   const scrollTop = ref(0)
   const scrollLeft = ref(0)
   const viewH = ref(600)
@@ -69,10 +78,16 @@ export function createState(props: SheetViewProps) {
   const indexOf = (r: number): number | undefined => (visible.value ? visible.value.index[r] || undefined : r)
   /** Rows with data in display order: the filter's list, otherwise the data rows. */
   const dataShown = computed(() => (visible.value ? visible.value.rows.length : dataRows.value))
-  /** Rows the grid displays: a filter's list as is; an editable sheet continues beyond the data, up to Excel's last row. */
+  /** Column widths as the workbook stores them (null: the default); the grid draws them in the library's geometry. */
+  const bookWidths = shallowRef(new Map<number, number | null>())
+  const userWidths = shallowRef<Record<number, number>>({})
+  const heights = shallowRef(new Map<number, number>())
+  const defaultRowPx = ref(rowPx(DEFAULT_ROW_HEIGHT))
+  /** Rows the grid displays: a filter's list as is; an editable sheet continues beyond the data and fills the viewport (zoomed out, it holds more rows), up to Excel's last row. */
   const rowCount = computed(() => {
     if (visible.value) return visible.value.rows.length
-    return editable.value ? Math.min(MAX_ROWS, Math.max(dataRows.value + SPARE_ROWS, MIN_ROWS, reach.value.rows)) : dataRows.value
+    const fill = defaultRowPx.value > 0 ? Math.ceil(viewH.value / defaultRowPx.value) + 1 : 0
+    return editable.value ? Math.min(MAX_ROWS, Math.max(dataRows.value + SPARE_ROWS, MIN_ROWS, reach.value.rows, fill)) : dataRows.value
   })
   /** The last sheet row a selection of entire columns reaches. */
   const lastRow = computed(() => (visible.value ? Math.max(1, dataRows.value) : Math.max(1, rowCount.value)))
@@ -81,11 +96,8 @@ export function createState(props: SheetViewProps) {
     editable.value ? Math.min(MAX_COLS, Math.max(dataCols.value + SPARE_COLS, MIN_COLS, reach.value.cols, Math.ceil(viewW.value / colPx(null)) + 1)) : dataCols.value,
   )
 
-  /** Column widths as the workbook stores them (null: the default); the grid draws them in the library's geometry. */
-  const bookWidths = shallowRef(new Map<number, number | null>())
-  const userWidths = shallowRef<Record<number, number>>({})
-  const heights = shallowRef(new Map<number, number>())
-  const defaultRowPx = ref(rowPx(DEFAULT_ROW_HEIGHT))
+  /** Excel's Show Formulas on the displayed sheet: cells show their formulas, and columns are drawn twice as wide. */
+  const formulaView = ref(false)
 
   /** The active cell and the selection's other corner. */
   const selected = ref<CellPosition | null>(null)
@@ -93,14 +105,18 @@ export function createState(props: SheetViewProps) {
   /** The selection's corner opposite `extent` once Enter or Tab moved the active cell inside it; null: the active cell is that corner. */
   const anchor = ref<CellPosition | null>(null)
 
-  /** Hooks into modules created later: clearing the filter when a jump needs a row it hides; a change of cells coming from the sheet (Excel's copy mode ends). */
-  const hooks = { unfilter: (_row: number): void => {}, changing: (): void => {} }
+  /**
+   * Hooks into modules created later: clearing the filter when a jump needs a row it hides; a change of cells coming from the
+   * sheet (Excel's copy mode ends); an undo or a redo done (the names are read again); cells changed on any sheet, by an
+   * edit's outcome or the source's event (the Watch Window reads its cells again).
+   */
+  const hooks = { unfilter: (_row: number): void => {}, changing: (): void => {}, stepped: (): void => {}, changed: (): void => {} }
 
   /** The grid takes focus back without scrolling the page: after an editor, a popover, a dialog or a command. */
   const focusGrid = (): void => scroller.value?.focus({ preventScroll: true })
-  /** Scrolls the viewport and records the scroll in the state at once: what is drawn follows without waiting for the scroll event. */
+  /** Scrolls the viewport and records the scroll in the state at once: what is drawn follows without waiting for the scroll event. The scroller's own scroll is in zoomed pixels. */
   function scrollGridTo(top: number, left: number): void {
-    scroller.value?.scrollTo({ top, left })
+    scroller.value?.scrollTo({ top: top * zoom.value, left: left * zoom.value })
     scrollTop.value = top
     scrollLeft.value = left
   }
@@ -131,6 +147,8 @@ export function createState(props: SheetViewProps) {
     active,
     sheet,
     sheetName,
+    defaultFont,
+    defaultFontStyle,
     grown,
     reach,
     dataRows,
@@ -147,6 +165,7 @@ export function createState(props: SheetViewProps) {
     failureOf,
     loading,
     scroller,
+    zoom,
     scrollTop,
     scrollLeft,
     viewH,
@@ -155,6 +174,7 @@ export function createState(props: SheetViewProps) {
     userWidths,
     heights,
     defaultRowPx,
+    formulaView,
     selected,
     extent,
     anchor,

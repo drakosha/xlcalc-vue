@@ -21,6 +21,9 @@ const MAX_COL_PT = 1535
 /** Pixels back to the stored width, in whole points as the library stores them. */
 export const widthFromPx = (px: number): number => Math.min(MAX_COL_WIDTH, columnWidthFromPoints(Math.min(MAX_COL_PT, Math.max(0, (px * 3) / 4))))
 
+/** How much wider Excel draws columns under Show Formulas. */
+export const FORMULA_VIEW_SCALE = 2
+
 /** Points to pixels at 96 dpi. */
 export const rowPx = (pt: number): number => (pt <= 0 ? 0 : Math.round((pt * 4) / 3))
 
@@ -65,6 +68,8 @@ interface GeometryInput {
   /** Row heights in pixels that differ from the default (0 hides a row): changed in place through `setHeights`, or replaced as a whole. */
   heights: ShallowRef<Map<number, number>>
   defaultRowPx: Ref<number>
+  /** Excel's Show Formulas: columns are drawn twice as wide, and the stored widths stay as they are. */
+  formulaView?: Readonly<Ref<boolean>>
   /** The display filter in effect: another one is another order of rows. */
   visible: Readonly<Ref<unknown>>
   /** The sheet row displayed at a display index (heights are the sheet rows') and back. */
@@ -74,7 +79,10 @@ interface GeometryInput {
 
 /** Offsets of columns and rows, and the item under an offset; rows are display indexes (`d`). */
 export function useGeometry(i: GeometryInput) {
-  const widthOf = (c: number): number => i.userWidths.value[c] ?? colPx(i.bookWidths.value.get(c))
+  /** A column's width in pixels as stored (the workbook's, or one set with the mouse), and as drawn. */
+  const baseWidthOf = (c: number): number => i.userWidths.value[c] ?? colPx(i.bookWidths.value.get(c))
+  const widthScale = (): number => (i.formulaView?.value ? FORMULA_VIEW_SCALE : 1)
+  const widthOf = (c: number): number => baseWidthOf(c) * widthScale()
   const heightOf = (d: number): number => i.heights.value.get(i.rowOf(d)) ?? i.defaultRowPx.value
   const offsets = computed(() => prefixSums(i.colCount.value, widthOf))
   /** Display rows whose heights `setHeights` changed since the offsets were summed, and what they were summed over. */
@@ -165,7 +173,7 @@ export function useGeometry(i: GeometryInput) {
     const off = offsets.value
     return (off[Math.min(c + cs - 1, i.colCount.value)] ?? 0) - (off[c - 1] ?? 0)
   }
-  return { widthOf, heightOf, offsets, setHeights, rowOffsets, colAt, rowAt, nextRow, nextCol, hasRow, hasCol, spanHeight, spanWidth }
+  return { widthOf, baseWidthOf, widthScale, heightOf, offsets, setHeights, rowOffsets, colAt, rowAt, nextRow, nextCol, hasRow, hasCol, spanHeight, spanWidth }
 }
 
 export type Geometry = ReturnType<typeof useGeometry>

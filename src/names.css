@@ -1,0 +1,86 @@
+/* Defined names: the Name Box with its arrow and list (NameBox.vue), and the New Name, Edit Name and Name Manager dialogs (NameDialogs.vue). */
+.xs-namebox {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+}
+.xs-namebox-arrow {
+  width: 16px;
+}
+.xs-namebox-list {
+  top: calc(100% + 1px);
+  left: 0;
+  z-index: var(--xs-z-menu);
+  min-width: 100%;
+  max-width: 320px;
+  width: max-content;
+}
+.xs-namebox-item {
+  padding: 0 6px;
+}
+
+/* The dialogs: fields in a column, the Name Manager wide enough for its three columns. */
+.xs-nd {
+  width: min(400px, 100%);
+}
+.xs-nd .xs-dialog-field > .xs-field {
+  width: 100%;
+}
+.xs-nm {
+  width: min(640px, 100%);
+}
+.xs-nm-tools {
+  display: flex;
+  gap: 6px;
+}
+.xs-nm-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 160px;
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  outline: none;
+}
+.xs-nm-list:focus-visible {
+  border-color: var(--xs-accent);
+}
+.xs-nm-row {
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 0.8fr);
+  gap: 8px;
+  padding: 2px 8px;
+  cursor: default;
+}
+.xs-nm-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xs-nm-head {
+  position: sticky;
+  top: 0;
+  border-bottom: 1px solid var(--xs-grid);
+  background: var(--xs-head-bg);
+  font-weight: 600;
+}
+.xs-nm-on {
+  background: var(--xs-accent);
+  color: var(--xs-on-accent);
+}
+.xs-nm-ref {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.xs-nm-ref > .xs-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.xs-touch .xs-nm-row {
+  min-height: var(--xs-touch-target);
+  align-items: center;
+}

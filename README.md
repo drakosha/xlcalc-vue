@@ -48,13 +48,18 @@ More of these, from a table the page already has to a workbook on your server, a
 
 - [Quick start](docs/quick-start.md): common uses, each with a component that works as written.
 - [API reference](docs/api.md): components, the sheet's methods, the `SheetSource` contract, `memorySource`, `@xlcalc/vue/local`, CSS variables.
-- [Cell editing and keyboard shortcuts](docs/editing.md): Excel's keyboard shortcuts, Point mode, and the features each optional source method enables.
+- [Cell editing and keyboard shortcuts](docs/editing.md): Excel's keyboard shortcuts, Point mode, Spelling, and the features each optional source method enables.
 - [Rows, columns and sheets](docs/sheets.md): row, column and sheet tab context menus, sizes, outline.
 - [Clipboard and fill handle](docs/clipboard.md)
-- [Freeze Panes, Reapply and Trace Precedents](docs/view.md)
+- [Freeze Panes, zoom, Watch Window, Reapply, Show Formulas, Trace Precedents and Trace Dependents](docs/view.md)
+- [Tables](docs/tables.md): Create Table, Convert to Range, Delete Table.
+- [Hyperlinks, notes, Clear and the default font](docs/links-notes.md)
 - [Find and Replace](docs/find-replace.md)
+- [Go To and Symbol](docs/go-to-and-symbol.md)
 - [Data validation](docs/validation.md)
+- [Conditional formatting](docs/conditional-formatting.md): Excel's quick rules, galleries, Clear Rules, New Rule and the Rules Manager as the sheet's methods.
 - [Formula AutoComplete](docs/autocomplete.md)
+- [Defined names](docs/names.md): the Name Box, Define Name, the Name Manager.
 - [The formatting toolbar and Format Cells](docs/toolbar.md)
 - [In-browser calculation](docs/local.md): how `@xlcalc/vue/local` works, xlsx files.
 - [List mode](docs/list-mode.md): the host's list (a view or a report) displayed on the sheet, sorted by the host, with drill-down and a totals row.

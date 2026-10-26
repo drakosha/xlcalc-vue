@@ -1,6 +1,7 @@
 // memorySource's public types: the in-memory workbook, its sheets, cells and validation rules, and the source's extras.
 import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
 import type { CellUpdate, EditOutcome, SheetInfo, SheetSource, SheetValidationAlert, SheetWindow, SourceEvent } from './source'
+import type { SheetName, SpellChecker } from './workbook'
 
 /** A cell of the in-memory workbook; a bare value is a cell with that value. */
 export interface MemoryCell {
@@ -58,12 +59,16 @@ export interface MemoryBook {
   styles?: CellStyle[]
   /** The functions for Formula AutoComplete, by their names as typed in the workbook's formulas, in the order its list displays them; without them the source has no `functionNames`. */
   functions?: string[]
+  /** The workbook's defined names, with their formulas as text (there is no engine to calculate them). */
+  names?: SheetName[]
 }
 
 export interface MemorySourceOptions {
   /** Milliseconds every response takes, to see the component waiting; 0 by default. */
   delay?: number
   maxCells?: number
+  /** The host's word checker for Excel's Spelling; without it the source has no `spelling`. */
+  spelling?: SpellChecker
 }
 
 export interface MemorySource extends SheetSource {

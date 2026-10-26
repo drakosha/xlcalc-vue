@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// Excel's formatting toolbar over a sheet source: undo and redo, bold, italic, underline, font and fill colors, borders,
-// horizontal alignment, wrapping, Merge & Center with its dropdown (through the sheet, with the source's `structure`) and
-// Excel's Number Format box (xlcalc's, in the workbook's locale), applied to the selection the sheet's `state` event
-// reports, and Format Cells for a host that displays the dialog. In a narrow viewport what does not fit
+// Excel's formatting toolbar over a sheet source: undo and redo, the font and its size, bold, italic, underline, font and
+// fill colors, borders, vertical and horizontal alignment, indent, wrapping, Merge & Center with its dropdown (through the
+// sheet, with the source's `structure`), Excel's Number Format box (xlcalc's, in the workbook's locale) and Percent Style,
+// applied to the selection the sheet's `state` event reports, and Format Cells for a host that displays the dialog. In a narrow viewport what does not fit
 // goes into a menu; on a touch screen every target is 44 × 44 px.
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarSource } from '../contract/view'
@@ -17,22 +17,38 @@ import {
   borderPatches,
   FIRST_FILL_COLOUR,
   FIRST_FONT_COLOUR,
+  FONT_NAMES,
+  FONT_SIZES,
   fontOn,
+  fontSizeOf,
+  fontSizeStep,
   fontToggle,
+  indentStep,
+  PERCENT_STYLE,
+  shownFont,
   upperColour,
+  verticalOn,
+  verticalToggle,
   wrapToggle,
+  type BookFont,
   type BorderKind,
   type FontToggle,
   type HorizontalAlign,
+  type VerticalAlign,
 } from '../toolbar'
+import type { StylePatch } from 'xlcalc/contract'
 import ColourSwatches from './ColourSwatches.vue'
+import ToolbarBox from './ToolbarBox.vue'
 import { hasListener } from './dom'
 import { IconDown } from './icons'
 import { useOutsidePress } from './popup'
 import {
+  IconAlignBottom,
   IconAlignCenter,
   IconAlignLeft,
+  IconAlignMiddle,
   IconAlignRight,
+  IconAlignTop,
   IconBold,
   IconBorderAll,
   IconBorderBottom,
@@ -40,10 +56,15 @@ import {
   IconBorderOutside,
   IconFillColour,
   IconFontColour,
+  IconFontDown,
+  IconFontUp,
   IconFormatCells,
+  IconIndentDecrease,
+  IconIndentIncrease,
   IconItalic,
   IconMerge,
   IconMore,
+  IconPercent,
   IconRedo,
   IconUnderline,
   IconUndo,
@@ -68,15 +89,17 @@ const props = withDefaults(
     sheet?: SheetViewApi | null
     /** The host opens its own dialog on `formatCells`: for a host whose listener the toolbar cannot see, such as a custom element's. */
     hostDialog?: boolean
+    /** The Font box's list, in place of Excel's common fonts: a browser does not tell which fonts are installed. */
+    fonts?: readonly string[]
   }>(),
-  { messages: undefined, locale: undefined, sheet: null, hostDialog: false },
+  { messages: undefined, locale: undefined, sheet: null, hostDialog: false, fonts: () => FONT_NAMES },
 )
 const emit = defineEmits<{
   /** Where the selection goes after an undo or a redo (`EditOutcome.select`), for the sheet's `focus`; not emitted with `sheet`. */
   select: [place: { sheet: string; range: string }]
   /** The source rejected a call or the call failed: its message; not emitted with `sheet`, which displays it itself. */
   error: [message: string]
-  /** A call has completed: the host may return focus to the grid. */
+  /** A call has completed, or Esc left the Font or Font Size box: the host may return focus to the grid. */
   done: []
   /** Format Cells… was clicked, for a host with its own `FormatDialog`; without a listener the button opens the sheet's dialog (through `sheet`), and without either there is no button. */
   formatCells: []
@@ -96,6 +119,11 @@ const FONT: { what: FontToggle; icon: typeof IconBold; title: keyof SheetMessage
   { what: 'bold', icon: IconBold, title: 'bold' },
   { what: 'italic', icon: IconItalic, title: 'italic' },
   { what: 'underline', icon: IconUnderline, title: 'underline' },
+]
+const VERTICAL: { v: VerticalAlign; icon: typeof IconBold; title: keyof SheetMessages }[] = [
+  { v: 'top', icon: IconAlignTop, title: 'alignTop' },
+  { v: 'center', icon: IconAlignMiddle, title: 'alignMiddle' },
+  { v: 'bottom', icon: IconAlignBottom, title: 'alignBottom' },
 ]
 const ALIGN: { h: HorizontalAlign; icon: typeof IconBold; title: keyof SheetMessages }[] = [
   { h: 'left', icon: IconAlignLeft, title: 'alignLeft' },
@@ -123,6 +151,11 @@ const text = (key: keyof SheetMessages) => m.value[key] as string
 /** Excel's box: the list's items, and the name of the category of the active cell's format (General without one). */
 const numbers = useNumberFormats(() => props.locale)
 const category = computed(() => (props.state ? numbers.categoryOf(props.state.numberFormat) : null))
+/** The workbook's default font, for a cell without its own: the source does not report it yet, so it plugs in here when it does. */
+/** The workbook's default font, which a cell without its own font name or size displays. */
+const book = (): BookFont => props.state?.font ?? {}
+const font = computed(() => shownFont(style.value, book()))
+const sizes = FONT_SIZES.map(String)
 const fontColour = computed(() => upperColour(style.value?.font?.color))
 const fillColour = computed(() => upperColour(style.value?.fill?.color))
 /** Bumped after the toolbar's calls and the source's events: `history` is a plain getter, read again (and copied) on them. */
@@ -150,17 +183,20 @@ watch(root, (el, old) => {
 })
 
 // ── menus: the color palettes, the borders, and the narrow layout's menu ──
-const open = ref<'font' | 'fill' | 'borders' | 'merge' | null>(null)
+type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'fontName' | 'fontSize'
+const open = ref<Menu | null>(null)
 const menu = ref(false)
-const toggle = (what: 'font' | 'fill' | 'borders' | 'merge') => (open.value = open.value === what ? null : what)
+const toggle = (what: Menu) => (open.value = open.value === what ? null : what)
+/** A box's list opens or closes, as the toolbar's other menus do. */
+const listOpen = (what: Menu, on: boolean) => (open.value = on ? what : open.value === what ? null : open.value)
 function closeAll(): void {
   open.value = null
   menu.value = false
 }
 useOutsidePress(root, closeAll, () => open.value !== null || menu.value)
-/** Buttons do not take focus from the grid, so its keys keep working; the number format list does take it. */
+/** Buttons do not take focus from the grid, so its keys keep working; the number format list and the font boxes do take it. */
 function keepFocus(e: MouseEvent): void {
-  if (!(e.target as HTMLElement).closest('select')) e.preventDefault()
+  if (!(e.target as HTMLElement).closest('select, input')) e.preventDefault()
 }
 
 let unsubscribe: (() => void) | null = null
@@ -199,6 +235,20 @@ function apply(patches: FormatPatch[]): void {
   void run(() => (sheet ? sheet.format(patches) : format.call(props.source, st.sheet, patches)))
 }
 const over = (p: Omit<FormatPatch, 'range'>): FormatPatch[] => (props.state ? [{ range: props.state.ref, ...p }] : [])
+/** A style patch over the selection; nothing for none (a step at its limit). */
+const restyle = (p: StylePatch | null) => p && apply(over({ style: p }))
+
+// The Font and Font Size boxes: a name as typed or picked; a size of 1 to 409, otherwise the box keeps it marked invalid.
+const checkSize = (text: string) => (fontSizeOf(text) === null ? m.value.fmtSizeRange : null)
+function setFont(name: string): void {
+  open.value = null
+  restyle({ font: { name } })
+}
+function setSize(text: string): void {
+  open.value = null
+  const size = fontSizeOf(text)
+  if (size !== null) restyle({ font: { size } })
+}
 
 /** Undo and redo one at a time: a second press while one is pending sends nothing. */
 let stepping = false
@@ -285,8 +335,49 @@ function pickNumber(e: Event): void {
       </button>
     </div>
     <div v-show="!narrow || menu" :class="narrow ? 'xs-tb-menu' : 'xs-tb-row'" data-tb-menu>
-      <span v-if="numbers.choices.value.length" class="xs-tb-group">
+      <span class="xs-tb-group">
+        <span class="xs-tb-pair">
+          <ToolbarBox
+            :value="font.name"
+            :items="fonts"
+            :label="m.fontName"
+            hook="font-name"
+            field-class="xs-tb-font"
+            preview
+            complete
+            :open="open === 'fontName'"
+            :disabled="!state"
+            @update:open="listOpen('fontName', $event)"
+            @apply="setFont"
+            @leave="emit('done')"
+          />
+          <ToolbarBox
+            :value="font.size === undefined ? '' : String(font.size)"
+            :items="sizes"
+            :label="m.fontSize"
+            hook="font-size"
+            field-class="xs-tb-size"
+            inputmode="decimal"
+            :check="checkSize"
+            :open="open === 'fontSize'"
+            :disabled="!state"
+            @update:open="listOpen('fontSize', $event)"
+            @apply="setSize"
+            @leave="emit('done')"
+          />
+        </span>
+        <span class="xs-tb-pair">
+          <button type="button" class="xs-tool" data-tb="font-up" :title="m.fontSizeUp" :aria-label="m.fontSizeUp" :disabled="!state" @click="restyle(fontSizeStep(style, true, book()))">
+            <IconFontUp />
+          </button>
+          <button type="button" class="xs-tool" data-tb="font-down" :title="m.fontSizeDown" :aria-label="m.fontSizeDown" :disabled="!state" @click="restyle(fontSizeStep(style, false, book()))">
+            <IconFontDown />
+          </button>
+        </span>
+      </span>
+      <span class="xs-tb-group">
         <select
+          v-if="numbers.choices.value.length"
           class="xs-field xs-field-s xs-tb-select"
           data-tb="number"
           :data-tb-category="category?.category"
@@ -299,6 +390,9 @@ function pickNumber(e: Event): void {
           <option value="" hidden>{{ category?.name ?? '' }}</option>
           <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
         </select>
+        <button type="button" class="xs-tool" data-tb="percent" :title="m.percentStyle" :aria-label="m.percentStyle" :disabled="!state" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
+          <IconPercent />
+        </button>
       </span>
       <span class="xs-tb-group">
         <span v-for="c in COLOURS" :key="c.what" class="xs-tb-split">
@@ -339,6 +433,22 @@ function pickNumber(e: Event): void {
       </span>
       <span class="xs-tb-group">
         <button
+          v-for="a in VERTICAL"
+          :key="a.v"
+          type="button"
+          :class="['xs-tool', { 'xs-tool-on': verticalOn(style, a.v) }]"
+          :data-tb="`align-${a.v === 'center' ? 'middle' : a.v}`"
+          :title="text(a.title)"
+          :aria-label="text(a.title)"
+          :aria-pressed="verticalOn(style, a.v)"
+          :disabled="!state"
+          @click="restyle(verticalToggle(style, a.v))"
+        >
+          <component :is="a.icon" />
+        </button>
+      </span>
+      <span class="xs-tb-group">
+        <button
           v-for="a in ALIGN"
           :key="a.h"
           type="button"
@@ -351,6 +461,12 @@ function pickNumber(e: Event): void {
           @click="apply(over({ style: alignToggle(style, a.h) }))"
         >
           <component :is="a.icon" />
+        </button>
+        <button type="button" class="xs-tool" data-tb="indent-down" :title="m.indentDecrease" :aria-label="m.indentDecrease" :disabled="!state" @click="restyle(indentStep(style, false))">
+          <IconIndentDecrease />
+        </button>
+        <button type="button" class="xs-tool" data-tb="indent-up" :title="m.indentIncrease" :aria-label="m.indentIncrease" :disabled="!state" @click="restyle(indentStep(style, true))">
+          <IconIndentIncrease />
         </button>
         <button
           type="button"

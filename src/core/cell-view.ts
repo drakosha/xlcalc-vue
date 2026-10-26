@@ -101,6 +101,8 @@ interface CellViewDeps {
   hostLinks: () => boolean
   /** List mode's `openRows`: the first column's cells open their rows. */
   openRows: () => boolean
+  /** What a cell shows under Excel's Show Formulas. */
+  formulaText: (data: CellData) => string
 }
 
 export function useCellView(
@@ -204,14 +206,21 @@ export function useCellView(
   /** A side's line: the cell's own, otherwise the neighbor's facing side (one line in Excel); otherwise a fill hides the gridline. */
   function edge(own: BorderLine | undefined, other: BorderLine | undefined, fill: string | undefined): { css?: CssLine; width: number } {
     const line = own ?? other
-    if (line) return { css: borderCss(line), width: borderWidth(line) }
-    return { css: fill ? { width: '1px', style: 'solid', color: fill } : undefined, width: 1 }
+    if (line) return lineCss(line)
+    const width = v.lineOf(1)
+    return { css: fill ? { width: `${width}px`, style: 'solid', color: fill } : undefined, width }
+  }
+  /** A border line and its width, widened zoomed out to draw at least one screen pixel (`Viewport.lineOf`). */
+  function lineCss(line: BorderLine): { css: CssLine; width: number } {
+    const width = v.lineOf(borderWidth(line))
+    return { css: { ...borderCss(line)!, width: `${width}px` }, width }
   }
 
   /** Whether a neighbor may take this cell's overflowing text: loaded, empty, not merged, not being edited. */
   function free(d: number, c: number, row: RowState): boolean {
     const r = s.rowOf(d)
     if (!w.emptyAt(d, c) || spanOf(r, c) !== undefined || ed.pendingAt(r, c) !== undefined) return false
+    if (s.formulaView.value && w.formulaOfRow(r, c) !== undefined) return false
     return row.editor?.col !== c
   }
   /** Text overflow as Excel draws it: left-aligned text runs right over empty cells, right-aligned text left, centered text both ways. */
@@ -271,10 +280,13 @@ export function useCellView(
     const look = data.look
     // A rule that hides the value leaves only the bar or the icon; the tooltip still has the value.
     const barDraft = pendingText === undefined && !!row.editor && row.editor.bar && row.editor.col === c
-    const shownText = pendingText !== undefined ? (pendingText ?? '') : barDraft || look?.hideValue ? '' : data.text
+    // Show Formulas: the formula or the unformatted constant, without the number format's color; a formula aligns and overflows as text
+    const formulas = s.formulaView.value
+    const shownText = pendingText !== undefined ? (pendingText ?? '') : barDraft ? '' : formulas ? deps.formulaText(data) : look?.hideValue ? '' : data.text
+    const value = formulas && data.formula !== undefined ? shownText : data.value
     const hasText = barDraft ? !draftBlank.value : shownText !== ''
 
-    const css: Record<string, string> = fontCss(st, data.color)
+    const css: Record<string, string> = fontCss(st, formulas ? undefined : data.color)
     if (frozen) css.top = v.stickyTop(d)
     if (c <= v.frozenCols.value) css.left = v.stickyLeft(c)
 
@@ -291,10 +303,11 @@ export function useCellView(
     if (bottom.css) setSide(css, 'Bottom', bottom.css)
     let topWidth = 0
     if (st?.border?.top && !geo.hasRow(d, -1)) {
-      setSide(css, 'Top', borderCss(st.border.top)!)
-      topWidth = borderWidth(st.border.top)
+      const top = lineCss(st.border.top)
+      setSide(css, 'Top', top.css)
+      topWidth = top.width
     }
-    if (st?.border?.left && !geo.hasCol(c, -1)) setSide(css, 'Left', borderCss(st.border.left)!)
+    if (st?.border?.left && !geo.hasCol(c, -1)) setSide(css, 'Left', lineCss(st.border.left).css)
 
     // Insets: formula ranges, the selection's border and table borders; tints and bars as background layers.
     const shadows: string[] = []
@@ -358,7 +371,7 @@ export function useCellView(
     if (pendingText !== undefined) titleParts.push(m.pending)
 
     // The content box: exactly the row's height (a <tr> height is a minimum), with text clipped as in Excel.
-    const h = horizontalOf(st, data.value)
+    const h = horizontalOf(st, value)
     const wraps = wrapsOf(st)
     const vAlign = verticalOf(st)
     const boxH = Math.max(0, (span ? geo.spanHeight(d, span.rs) : row.height) - CELL_PAD_V * 2 - bottom.width - topWidth)
@@ -401,7 +414,7 @@ export function useCellView(
       view.kind = 'fill'
       if (view.draft) view.draft.fill = geo.spanWidth(c, span?.cs ?? 1)
       else view.text = fillText(shownText, geo.spanWidth(c, span?.cs ?? 1))
-    } else if (!span && !wraps && hasText && (overflows(data.value) || h === 'centerContinuous')) {
+    } else if (!span && !wraps && hasText && (overflows(value) || h === 'centerContinuous')) {
       const ov = overflowOf(d, c, h, st?.fill?.color ?? 'var(--xs-bg)', row)
       if (ov) {
         view.kind = 'overflow'

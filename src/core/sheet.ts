@@ -1,33 +1,47 @@
 // The component's wiring: state, geometry, windows, selection, editing, copy and fill, jumps, the source's events and the viewport's size.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, triggerRef, watch } from 'vue'
-import { cellAddress, linesKey, parseCell, rangeAddress, sameName } from 'xlcalc/a1'
+import { linesKey, parseCell, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellStyle } from 'xlcalc/contract'
 import { errorText } from '../failure'
 import type { SheetInfo, SheetWindow } from '../contract/source'
 import { useCellView } from './cell-view'
+import { useConditional } from './cf-commands'
 import { useClip } from './clip'
 import { useCommands, type SheetTarget } from './commands'
-import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState } from '../contract/view'
+import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
 import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
+import { useExtras } from './extras'
 import { useFill } from './fill'
 import { useFormula } from './formula'
+import { useFormulaView } from './formula-view'
+import { useGoTo } from './goto'
+import { useLinks } from './links'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
-import { isShortcut, shortcutLetter } from './keys'
+import { isShortcut, onMac, shortcutLetter } from './keys'
 import { useMenu } from './menu'
 import { useMerge } from './merge'
+import { useNameDialogs } from './name-dialogs'
+import { useNames } from './names'
 import { useNavigation } from './navigation'
+import { useNotes } from './notes'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
+import { useSpellCheck } from './spell-check'
+import { useTables } from './tables'
+import { useTrace } from './trace'
 import { useValidation, useValidationAlert, VALIDATION_DELAY_MS } from './validation'
+import { useValidationDialog } from './validation-dialog'
 import { createState } from './state'
 import { useFilter } from './filter'
 import { useFind } from './find'
 import { useList } from './list'
 import { useTotals } from './totals'
 import { useViewport } from './viewport'
+import { useWatch } from './watch'
 import { useWindows } from './windows'
+import { useZoom } from './zoom'
 
 export interface SheetEmit {
   (e: 'state', state: SheetViewState | null): void
@@ -35,6 +49,8 @@ export interface SheetEmit {
   (e: 'sort', sort: ListSort): void
   (e: 'cellDrill', cell: { sheet: string; cell: string }): void
   (e: 'rowOpen', row: { sheet: string; row: number }): void
+  (e: 'zoom', change: SheetZoomEvent): void
+  (e: 'watches', list: SheetWatch[]): void
 }
 
 /** How long a message stays. */
@@ -65,6 +81,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const v = useViewport(s, geo)
   const w = useWindows(s, v, geo)
   const sel = useSelection(s, geo, v)
+  const zoom = useZoom(s, v, sel, { given: () => props.zoom, changed: (sheet, pct) => emit('zoom', { sheet, zoom: pct }) })
   const editor = ref<EditorState | null>(null)
   const f = useFormula(s, w, sel, computed(() => editor.value?.text ?? null))
 
@@ -78,7 +95,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   const dismiss = () => (message.value = null)
 
-  const nav = useNavigation(s, sel, f, { pickSheet, notify })
+  // The workbook's defined names, read once per source and again after a change; the Name Box, Formula AutoComplete and the names' dialogs use them.
+  const names = useNames(s, { reload, reloads: () => reloads, apply: (changes) => w.applyChanges(changes) })
+  const nav = useNavigation(s, sel, f, { pickSheet, notify, names })
+  const watches = useWatch(s, sel, nav, { given: () => props.watches, changed: (list) => emit('watches', list), notify })
   const cellInput = ref<HTMLTextAreaElement | null>(null)
   const barInput = ref<HTMLTextAreaElement | null>(null)
   /** Excel's formula bar expanded to several lines; it stays so until toggled, whatever the cell. */
@@ -92,7 +112,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     return true
   }
   const alerts = useValidationAlert()
-  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask })
+  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare })
   const point = usePoint(s, sel, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, scan: f.scanOptions, commit: ed.commit })
   // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, otherwise in as typed, past the rule.
   const validation = useValidation({
@@ -112,11 +132,13 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       else void ed.send(entry, null, { accept: true })
     },
   })
+  const extras = useExtras(s, sel, w, ed, { notify, changed: () => validation.refresh() })
   const totals = useTotals(s, w, sel)
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
   const explain = useExplain(s, f)
-  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows })
+  const formulaView = useFormulaView(s, f)
+  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows, formulaText: formulaView.textOf })
   const list = useList(s, w, emit, props)
   /** The active cell's formatting, from its loaded window: the `state` event and the font shortcuts use it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
@@ -134,8 +156,37 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
   const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
-  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value })
+  const links = useLinks(s, sel, w, f, ed, extras, {
+    notify,
+    single: () => !!merge.area.value && !!sel.fullRect.value && rangeAddress(merge.area.value) === rangeAddress(sel.fullRect.value),
+    goPlace: (text) => goto.jump(text),
+    names: () => names.boxNames.value.map((n) => n.name),
+    hostLinks,
+    openLink: (link) => emit('openLink', link),
+  })
+  const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items() })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
+  const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
+  /** Excel's Symbol dialog: open over an editable sheet with an active cell; it inserts into the edit it keeps open. */
+  const symbolOpen = ref(false)
+  function openSymbol(): boolean {
+    if (!s.editable.value || !s.selected.value) return false
+    symbolOpen.value = true
+    return true
+  }
+  function closeSymbol(): void {
+    symbolOpen.value = false
+    if (editor.value) ed.focusEditor()
+    else s.focusGrid()
+  }
+  const nameDialogs = useNameDialogs(s, sel, names, { editing: () => editor.value !== null })
+  // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
+  const trace = useTrace(s, v, w, notify)
+  const tables = useTables(s, w, sel, cmd)
+  const spell = useSpellCheck(s, sel, ed, notify)
+  const rules = useValidationDialog(s, sel, w, { scan: f.scanOptions, ask: alerts.ask, notify, changed: () => validation.refresh() })
+  const cf = useConditional(s, sel, w, ed, { notify, scan: f.scanOptions })
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
@@ -149,6 +200,25 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     reapplyFilter: filter.reapply,
     explain: explain.show,
     merge: merge.run,
+    goTo: goto.openGoTo,
+    insertSymbol: openSymbol,
+    fillDown: () => fill.fillFrom('down'),
+    fillRight: () => fill.fillFrom('right'),
+    showFormulas: formulaView.show,
+    defineName: nameDialogs.define,
+    nameManager: nameDialogs.openManager,
+    setZoom: (z) => (z === 'selection' ? zoom.fitSelection() : zoom.apply(z)),
+    watchWindow: (open) => watches.setOpen(open),
+    traceDependents: trace.traceDependents,
+    removeArrows: trace.removeArrows,
+    insertTable: tables.openCreate,
+    convertToRange: tables.convert,
+    deleteTable: tables.remove,
+    checkSpelling: spell.check,
+    clear: extras.clear,
+    insertLink: links.open,
+    dataValidation: rules.open,
+    ...cf.api,
   }
 
   // ── sheets ──
@@ -171,7 +241,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     s.userWidths.value = hasLayout() ? {} : (s.memory.recall<Record<number, number>>(`widths:${s.sheetName.value}`) ?? {})
     originalWidths.clear()
     v.readFreeze()
+    formulaView.read()
     filter.restore()
+    zoom.enter()
     s.scrollGridTo(0, 0)
     w.ensure()
   }
@@ -187,6 +259,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     const mine = ++initSeq
     const outdated = s.outdated()
     reloadSeq++
+    names.read()
     clip.clear()
     w.reset()
     s.failure.value = null
@@ -220,6 +293,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     const name = s.sheetName.value
     const at = s.active.value
     const asked = target
+    names.read()
     try {
       const list = await s.source().sheets()
       if (mine !== reloadSeq || outdated()) return
@@ -258,14 +332,15 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   let drag: { col: number; startX: number; startW: number } | null = null
   function startResize(e: PointerEvent, col: number): void {
     drag = { col, startX: e.clientX, startW: geo.widthOf(col) }
-    if (!originalWidths.has(col)) originalWidths.set(col, s.bookWidths.value.has(col) ? colPx(s.bookWidths.value.get(col)) : geo.widthOf(col))
+    if (!originalWidths.has(col)) originalWidths.set(col, s.bookWidths.value.has(col) ? colPx(s.bookWidths.value.get(col)) : geo.baseWidthOf(col))
     holdPointer(e)
   }
   function onResizeMove(e: PointerEvent): void {
     if (!drag) return
-    const px = Math.min(MAX_COL_PX, Math.max(MIN_COL_PX, drag.startW + e.clientX - drag.startX))
-    // In place: a drag sets one width many times a second.
-    s.userWidths.value[drag.col] = px
+    // The pointer moves in zoomed pixels; the drawn width is the workbook's pixels.
+    const px = Math.min(MAX_COL_PX, Math.max(MIN_COL_PX, drag.startW + (e.clientX - drag.startX) / s.zoom.value))
+    // In place: a drag sets one width many times a second; under Show Formulas the stored width is the drawn one halved.
+    s.userWidths.value[drag.col] = Math.round(px / geo.widthScale())
     triggerRef(s.userWidths)
   }
   function endResize(): void {
@@ -340,7 +415,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   function onRowResizeMove(e: PointerEvent): void {
     if (!rowDrag) return
-    rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + e.clientY - rowDrag.startY)))
+    rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + (e.clientY - rowDrag.startY) / s.zoom.value)))
     geo.setHeights([[rowDrag.row, rowDrag.px]])
   }
   /** A double click on a row number's edge fits the row, and every selected entire row when it is one of them, as Excel's AutoFit does. */
@@ -360,23 +435,18 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
 
   // ── hyperlinks in cells ──
-  /** A hyperlink clicked in a cell: a location in the workbook is handled by the component, anything else goes to the host if it listens. */
+  /** A hyperlink clicked in a cell: a location in the workbook is handled by the component, anything else goes to the host if it listens, otherwise to the browser. */
   function onLink(e: MouseEvent, link: NonNullable<SheetWindow['links']>[string], row: number, col: number): void {
-    if (link.location) {
-      e.preventDefault()
-      void nav.goPlace(link.location.replace(/^#/, ''))
-      return
-    }
-    if (!hostLinks()) return
-    e.preventDefault()
-    emit('openLink', { ...link, sheet: s.sheetName.value, cell: cellAddress(row, col) })
+    if (links.openLink(link, row, col, true)) e.preventDefault()
   }
 
-  // ── keys on the grid: search and Esc first (a popover, the Find bar, copy mode, the precedents), then font shortcuts, editing and navigation ──
+  // ── keys on the grid: search and Esc first (a popover, the Find bar, copy mode, the precedents), then formatting shortcuts, editing and navigation ──
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
-    if (!e.isComposing && (cmd.fontKey(e) || outline.key(e) || barKey(e))) return
+    if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e) || goto.key(e) || fill.key(e) || formulaView.key(e))) return
+    // Excel's Create Table (Ctrl+T, Ctrl+L) and Spelling (F7)
+    if (!e.isComposing && (tables.key(e) || spell.key(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -388,8 +458,22 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       find.openReplace()
       return
     }
+    // Excel's Name Manager, Ctrl+F3 (on a Mac too), and Define Name, Ctrl+L in Excel for Mac (on Windows Ctrl+L is Create Table).
+    if (e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && e.key === 'F3' && nameDialogs.openManager()) {
+      e.preventDefault()
+      return
+    }
+    if (onMac() && e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && shortcutLetter(e) === 'l' && nameDialogs.define()) {
+      e.preventDefault()
+      return
+    }
     // Ctrl+1 on a Mac too: the browser reserves Cmd+1 for its first tab.
     if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.key === '1' || e.code === 'Digit1') && cmd.openFormat()) {
+      e.preventDefault()
+      return
+    }
+    // Excel's Ctrl+K (Cmd+K on a Mac): Insert Link, or Edit Hyperlink on a cell with a link.
+    if (isShortcut(e) && !e.shiftKey && shortcutLetter(e) === 'k' && links.open()) {
       e.preventDefault()
       return
     }
@@ -423,6 +507,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       void filter.reapply()
       return
     }
+    // Excel's Shift+F2: New Note, or Edit Note on a cell with one.
+    if (e.key === 'F2' && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && notes.open()) {
+      e.preventDefault()
+      return
+    }
     // In list mode Enter opens the active cell's drill-down or row instead of moving.
     if (list.key(e)) return
     ed.onGridKey(e)
@@ -432,8 +521,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   function onScroll(): void {
     const el = s.scroller.value
     if (!el) return
-    s.scrollTop.value = el.scrollTop
-    s.scrollLeft.value = el.scrollLeft
+    s.scrollTop.value = el.scrollTop / s.zoom.value
+    s.scrollLeft.value = el.scrollLeft / s.zoom.value
     w.ensure()
   }
   // The scroller comes and goes with the fallback: whichever is mounted is measured and observed.
@@ -485,6 +574,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       s.endWorkbook()
       ed.forget()
       alerts.answer('cancel')
+      goto.places.value = []
+      links.draft.value = null
+      notes.draft.value = null
+      rules.state.value = null
+      cf.closeAll()
       subscribe()
       void init()
     },
@@ -503,6 +597,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(look?.numberFormat !== undefined ? { numberFormat: look.numberFormat } : {}),
       ...(merge.area.value ? { merged: rangeAddress(merge.area.value) } : {}),
       ...(merge.available.value ? { canMerge: true as const } : {}),
+      ...(s.formulaView.value ? { showFormulas: true as const } : {}),
+      ...(zoom.percent.value !== 100 ? { zoom: zoom.percent.value } : {}),
+      ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
     }
   })
   watch(viewState, (state) => emit('state', state), { immediate: true })
@@ -529,17 +626,33 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     filter,
     find,
     explain,
+    trace,
+    tables,
+    spell,
     views,
     list,
     cmd,
+    extras,
+    links,
+    notes,
     api,
     clip,
     fill,
+    formulaView,
     viewState,
     validation,
+    rules,
     alerts,
     outline,
     menu,
+    goto,
+    symbolOpen,
+    closeSymbol,
+    names,
+    nameDialogs,
+    zoomer: zoom,
+    watches,
+    cf,
     editor,
     message,
     notify,

@@ -1,5 +1,5 @@
-// Excel's Formula AutoComplete in the editor: the functions whose names begin with the name typed at the caret, with the
-// source's names requested once per source; Tab or a double click inserts one with its "(", Esc closes the list.
+// Excel's Formula AutoComplete in the editor: the functions and defined names that begin with the name typed at the caret, with
+// the source's function names requested once per source; Tab or a double click inserts one (a function with its "("), Esc closes the list.
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
 import type { ScanOptions } from 'xlcalc/contract'
 import { nameAt } from 'xlcalc/text'
@@ -11,8 +11,14 @@ import { listStep, stepIndex } from './list-keys'
 /** Items the list displays at once; Page Up and Page Down move by them. */
 export const FUNCTION_ROWS = 8
 
-/** A source's names (with their uppercase forms, for matching), requested once; `list` is null while they load. */
-interface Names {
+/** An item of the list: a function, or a defined name, which Excel lists with its own icon and inserts without a parenthesis. */
+export interface CompletionItem {
+  text: string
+  kind: 'function' | 'name'
+}
+
+/** A source's function names (with their uppercase forms, for matching), requested once; `list` is null while they load. */
+interface Functions {
   src: SheetSource
   list: { name: string; key: string }[] | null
   ctrl: AbortController
@@ -27,12 +33,27 @@ export interface AutocompleteDeps {
   show: () => void
   /** How the workbook's formula text is parsed (its list separator); null while its locale loads. */
   scan: () => ScanOptions | null
+  /** The defined names visible on the sheet in alphabetical order, and that order, in which they join the functions; none without them. */
+  names?: () => readonly string[]
+  nameOrder?: (a: string, b: string) => number
+}
+
+/** The functions in their order with the names merged in among them alphabetically, as Excel's list shows them together. */
+function mergeNames(functions: CompletionItem[], names: CompletionItem[], order: (a: string, b: string) => number): CompletionItem[] {
+  if (!names.length) return functions
+  const out: CompletionItem[] = []
+  let i = 0
+  for (const f of functions) {
+    while (i < names.length && order(names[i]!.text, f.text) < 0) out.push(names[i++]!)
+    out.push(f)
+  }
+  return out.concat(names.slice(i))
 }
 
 /** The list's state over the editor's draft: what it displays, the highlighted item, the keys it handles, the name it inserts. */
 export function useAutocomplete(deps: AutocompleteDeps) {
-  /** The functions whose names begin with the typed name, in the source's order. */
-  const items = shallowRef<readonly string[]>([])
+  /** The functions and names that begin with the typed name: the functions in the source's order, the names among them. */
+  const items = shallowRef<readonly CompletionItem[]>([])
   /** The highlighted item, the first one when the list opens. */
   const index = ref(0)
   const open = computed(() => items.value.length > 0)
@@ -40,8 +61,8 @@ export function useAutocomplete(deps: AutocompleteDeps) {
   let span: { from: number; to: number } | null = null
   /** The draft and caret the list was last requested for: names that arrive later are matched against them. */
   let last: { text: string; caret: number } | null = null
-  /** The current source's names. */
-  let names: Names | null = null
+  /** The current source's function names. */
+  let functions: Functions | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
 
   function close(): void {
@@ -49,36 +70,39 @@ export function useAutocomplete(deps: AutocompleteDeps) {
     index.value = 0
     span = null
   }
-  /** Requests the current source's names unless they are loaded or loading; a failed request is retried when the next editor opens. */
+  /** Requests the current source's function names unless they are loaded or loading; a failed request is retried when the next editor opens. */
   function load(): void {
     const src = deps.source()
-    if (names?.src === src) return
-    names?.ctrl.abort()
-    names = null
+    if (functions?.src === src) return
+    functions?.ctrl.abort()
+    functions = null
     if (!src.functionNames) return
-    const entry: Names = {
+    const entry: Functions = {
       src,
       list: null,
       ctrl: askSource(
         (signal) => src.functionNames!(signal),
-        () => names === entry,
+        () => functions === entry,
         (list) => {
           entry.list = list.map((name) => ({ name, key: name.toUpperCase() }))
           if (last && deps.editor.value?.text === last.text) match(last.text, last.caret)
         },
-        () => (names = null),
+        () => (functions = null),
       ),
     }
-    names = entry
+    functions = entry
   }
-  /** The list for the name at `caret` in `text`: the functions that begin with it, the first highlighted; closed when there are none. */
+  /** The list for the name at `caret` in `text`: the functions and defined names that begin with it, the first highlighted; closed when there are none. */
   function match(text: string, caret: number): void {
-    const list = names?.src === deps.source() ? names.list : null
+    const list = functions?.src === deps.source() ? functions.list : null
+    const named = deps.names?.() ?? []
     const opts = deps.scan()
     // the library rejects a caret beyond the text, which an editor's stale caret may be
-    const at = list && opts && caret <= text.length ? nameAt(text, caret, opts) : null
+    const at = (list || named.length) && opts && caret <= text.length ? nameAt(text, caret, opts) : null
     const typed = at?.typed.toUpperCase()
-    const got = typed ? list!.filter((n) => n.key.startsWith(typed)).map((n) => n.name) : []
+    const fns = typed && list ? list.filter((n) => n.key.startsWith(typed)).map((n): CompletionItem => ({ text: n.name, kind: 'function' })) : []
+    const nms = typed ? named.filter((n) => n.toUpperCase().startsWith(typed)).map((n): CompletionItem => ({ text: n, kind: 'name' })) : []
+    const got = mergeNames(fns, nms, deps.nameOrder ?? ((a, b) => a.localeCompare(b)))
     if (!at || !got.length) return close()
     items.value = got
     index.value = 0
@@ -108,14 +132,15 @@ export function useAutocomplete(deps: AutocompleteDeps) {
     const n = items.value.length
     if (n) index.value = stepIndex(index.value, by, n)
   }
-  /** Inserts a function (the highlighted one by default) in place of the typed name, with its "(" unless one follows, and closes the list; false for none. */
+  /** Inserts an item (the highlighted one by default) in place of the typed name, a function with its "(" unless one follows, and closes the list; false for none. */
   function accept(i = index.value): boolean {
     const ed = deps.editor.value
-    const name = items.value[i]
-    if (!ed || !span || name === undefined) return false
+    const item = items.value[i]
+    if (!ed || !span || item === undefined) return false
     const rest = ed.text.slice(span.to)
-    ed.text = ed.text.slice(0, span.from) + name + (rest.startsWith('(') ? '' : '(') + rest
-    ed.caret = span.from + name.length + 1
+    const paren = item.kind === 'function' && !rest.startsWith('(') ? '(' : ''
+    ed.text = ed.text.slice(0, span.from) + item.text + paren + rest
+    ed.caret = span.from + item.text.length + (item.kind === 'function' ? 1 : 0)
     close()
     last = null
     deps.show()
@@ -150,7 +175,7 @@ export function useAutocomplete(deps: AutocompleteDeps) {
   })
   if (getCurrentScope())
     onScopeDispose(() => {
-      names?.ctrl.abort()
+      functions?.ctrl.abort()
       if (timer) clearTimeout(timer)
     })
 

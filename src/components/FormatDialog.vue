@@ -7,12 +7,9 @@ import { computed, reactive, ref, shallowRef, toRaw, watch } from 'vue'
 import type { SheetFormatPatch, SheetViewState } from '../contract/view'
 import {
   draftErrors,
-  FONT_NAMES,
-  FONT_SIZES,
   FONT_STYLES,
   FORMAT_TABS,
   HORIZONTALS,
-  INDENTED,
   patchesOf,
   pickNumber,
   setHorizontal,
@@ -24,6 +21,7 @@ import {
   type FormatStart,
   type FormatTab,
 } from '../format-cells'
+import { FONT_NAMES, FONT_SIZES, INDENTED } from '../toolbar'
 import { useMessages } from '../messages'
 import type { SheetMessages } from '../contract/messages'
 import { useNumberFormats } from '../number-formats'

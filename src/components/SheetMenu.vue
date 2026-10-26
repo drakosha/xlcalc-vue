@@ -4,6 +4,7 @@
 // Keys in a menu as in Excel: Down and Up cycle through its enabled items, Home and End, Enter or Space chooses, Esc and Tab close;
 // a press in the menu leaves focus where the keys put it.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+import type { MenuItem } from '../core/menu'
 import { useSheetContext } from './context'
 import DialogShell from './DialogShell.vue'
 import { useOutsidePress } from './popup'
@@ -62,6 +63,14 @@ function onMenuKey(e: KeyboardEvent): void {
   else menu.close()
 }
 
+/** Whether the pointer went down in the menu: a click without that is the release of the long press that opened the menu over the finger, not a choice. */
+let pressedIn = false
+function onItemClick(e: MouseEvent, item: MenuItem): void {
+  const chosen = e.detail === 0 || pressedIn
+  pressedIn = false
+  if (chosen) menu.choose(item)
+}
+
 const size = computed(() => (menu.dialog.value?.kind === 'size' ? menu.dialog.value : null))
 const doomed = computed(() => (menu.dialog.value?.kind === 'deleteSheet' ? menu.dialog.value.sheet : null))
 const hidden = computed(() => (menu.dialog.value?.kind === 'unhide' ? menu.dialog.value.sheets : null))
@@ -84,11 +93,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
 </script>
 
 <template>
-  <div v-if="menu.open.value" ref="box" class="xs-menu" role="menu" :aria-label="menu.open.value.kind === 'cells' ? m.cellMenu : m.menu" :style="pos" data-xs-menu-box @keydown="onMenuKey" @mousedown.prevent>
+  <div v-if="menu.open.value" ref="box" class="xs-menu" role="menu" :aria-label="menu.open.value.kind === 'cells' ? m.cellMenu : m.menu" :style="pos" data-xs-menu-box @keydown="onMenuKey" @mousedown.prevent @pointerdown="pressedIn = true">
     <div class="xs-menu-caption">{{ menu.caption.value }}</div>
     <template v-for="item in menu.items.value" :key="item.id">
       <div v-if="item.group" class="xs-menu-sep" role="separator"></div>
-      <button type="button" role="menuitem" tabindex="-1" class="xs-menu-item" :data-xs-menu="item.id" :disabled="item.disabled" @click="menu.choose(item)">{{ item.label }}</button>
+      <button type="button" role="menuitem" tabindex="-1" class="xs-menu-item" :data-xs-menu="item.id" :disabled="item.disabled" @click="onItemClick($event, item)">{{ item.label }}</button>
     </template>
   </div>
   <DialogShell v-if="menu.dialog.value" class="xs-dialog" :focus="dialogFocus" :aria-labelledby="titleId" data-xs-dialog @close="closeDialog">

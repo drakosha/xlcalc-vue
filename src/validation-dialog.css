@@ -1,0 +1,25 @@
+/* The Data Validation dialog (ValidationDialog.vue) over the Format Cells dialog's layout (format-dialog.css): a check box in
+   line with the boxes beside it, the tabs' lead lines, the message boxes, and Clear All at the left of the footer. */
+.xs-dv-check {
+  align-self: end;
+  min-height: 26px;
+}
+.xs-dv-lead {
+  color: var(--xs-muted);
+}
+.xs-field.xs-dv-text {
+  width: 100%;
+  height: auto;
+  min-height: 96px;
+  padding: 4px 6px;
+  resize: vertical;
+}
+.xs-dv-error {
+  margin-top: 12px;
+}
+.xs-button.xs-dv-clear {
+  margin-right: auto;
+}
+.xs-touch .xs-dv-check {
+  min-height: 44px;
+}

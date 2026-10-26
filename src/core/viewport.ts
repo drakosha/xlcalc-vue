@@ -29,6 +29,7 @@ interface ViewportInput {
   scrollLeft: Ref<number>
   viewH: Ref<number>
   viewW: Ref<number>
+  zoom: Ref<number>
   memory: Memory
 }
 
@@ -52,8 +53,14 @@ function drawnLines(first: number, last: number, spare: number, step: number): [
 
 export function useViewport(i: ViewportInput, geo: Geometry) {
   const showNums = computed(() => i.sheet.value?.rowNumbers !== false)
-  /** A phone-width viewport: a narrower row number column. */
-  const narrow = computed(() => i.viewW.value < NARROW_PX)
+  /**
+   * A gridline's width in unzoomed pixels: 1, and zoomed out what draws as one screen pixel, since browsers draw a thinner
+   * border one pixel wide and the rows would then outgrow the geometry. `lineOf` widens a border line the same way.
+   */
+  const line = computed(() => (i.zoom.value < 1 ? 1 / i.zoom.value : 1))
+  const lineOf = (px: number): number => (px > 0 ? Math.max(px, line.value) : 0)
+  /** A phone-width viewport, on screen whatever the zoom: a narrower row number column. */
+  const narrow = computed(() => i.viewW.value * i.zoom.value < NARROW_PX)
   /** A coarse pointer (touch): targets get touch size. */
   const coarse = useCoarsePointer()
   /** A phone-width viewport or touch input: buttons, inputs and tabs at least 44 × 44 px, the grid itself unchanged. */
@@ -166,9 +173,13 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     const x = cx < frozenW.value ? cx : cx + i.scrollLeft.value
     return { d: geo.rowAt(y), col: geo.colAt(x), x, y }
   }
+  /** The same under a point of the page (a pointer's `clientX` and `clientY`), with `box` the scroller's rectangle: the page's pixels are the grid's zoomed ones. */
+  const cellAtPoint = (clientX: number, clientY: number, box: { left: number; top: number }) => cellAt((clientX - box.left) / i.zoom.value, (clientY - box.top) / i.zoom.value)
 
   return {
     showNums,
+    line,
+    lineOf,
     narrow,
     touch,
     numW,
@@ -207,6 +218,7 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     boxOf,
     viewBox,
     cellAt,
+    cellAtPoint,
   }
 }
 

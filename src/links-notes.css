@@ -1,0 +1,117 @@
+/* Excel's Insert Hyperlink dialog (LinkDialog.vue), a DialogShell box (modal.css), and the note box anchored to its cell (NoteBox.vue). */
+.xs-link {
+  gap: 10px;
+  width: min(480px, 100%);
+  padding: 14px;
+}
+.xs-link-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.xs-link-field input:disabled {
+  color: var(--xs-muted);
+}
+.xs-link-to {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+}
+.xs-link-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  cursor: pointer;
+}
+.xs-link-places {
+  display: flex;
+  flex-direction: column;
+  height: 150px;
+  overflow-y: auto;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+}
+.xs-link-group {
+  padding: 4px 8px 2px;
+  color: var(--xs-muted);
+  font-weight: 600;
+}
+.xs-link-place {
+  padding: 3px 8px 3px 20px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.xs-link-place:hover {
+  background: var(--xs-sel-tint);
+}
+.xs-link-place.xs-on {
+  background: var(--xs-accent);
+  color: var(--xs-on-accent);
+}
+.xs-link-error {
+  color: var(--xs-error);
+}
+.xs-link-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+/* Remove Link stands apart from OK and Cancel, at the left as in Excel. */
+.xs-link-remove {
+  margin-right: auto;
+}
+.xs-narrow .xs-link-places {
+  flex: 1;
+  min-height: 120px;
+}
+.xs-touch .xs-link {
+  font-size: 15px;
+}
+.xs-touch .xs-link-choice,
+.xs-touch .xs-link-place {
+  min-height: var(--xs-touch-target);
+}
+
+/* A note being edited: Excel's pale yellow box to the right of its cell, the author's name in bold above the text. */
+.xs-note-box {
+  position: absolute;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  width: 180px;
+  height: 100px;
+  min-width: 100px;
+  min-height: 60px;
+  padding: 3px 5px;
+  border: 1px solid var(--xs-prompt-line);
+  background: var(--xs-prompt-bg);
+  color: var(--xs-prompt-fg);
+  box-shadow: var(--xs-shadow-pop);
+  resize: both;
+  overflow: hidden;
+  font: var(--xs-font-size) / 1.3 var(--xs-font);
+}
+.xs-note-author {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.xs-note-text {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: none;
+  outline: none;
+}
