@@ -1,5 +1,5 @@
-// The toolbar's Font and Font Size boxes, the size steps, vertical alignment, indent and Percent Style (with its key on the
-// grid): each a patch over the selection through the source's `format`, by Excel's rules, from the active cell's formatting.
+// The toolbar's Font and Font Size boxes, the size steps, vertical alignment, indent, Percent Style (with its key on the
+// grid), Accounting, Comma Style and Increase and Decrease Decimal: each a patch over the selection through the source's `format`, by Excel's rules, from the active cell's formatting.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SheetToolbar, type SheetViewState } from '../src'
@@ -204,6 +204,38 @@ describe('Percent Style', () => {
     expect(format.mock.calls).toEqual([
       ['S', [{ range: 'A1', numberFormat: 9 }]],
       ['S', [{ range: 'B2:C3', numberFormat: 9 }]],
+    ])
+  })
+})
+
+describe('Accounting, Comma Style, Increase and Decrease Decimal', () => {
+  it("set Excel's built-in Accounting (44) and Comma Style (43) over the selection", async () => {
+    const { w, styles } = mountBar(at('A1:B3'))
+    await w.find('[data-tb="accounting"]').trigger('click')
+    await w.find('[data-tb="comma"]').trigger('click')
+    await settle()
+    expect(styles()).toEqual([
+      { range: 'A1:B3', numberFormat: 44 },
+      { range: 'A1:B3', numberFormat: 43 },
+    ])
+  })
+
+  it("step the active cell's decimals by xlcalc's rule and put the result on the selection; nothing when the step changes nothing", async () => {
+    const { w, styles } = mountBar(at('A1:A4', { numberFormat: '0.00', cellValue: 1.5 }))
+    await w.find('[data-tb="decimal-up"]').trigger('click')
+    await w.find('[data-tb="decimal-down"]').trigger('click')
+    await w.setProps({ state: at('A1:A4', { cellValue: 1.5 }) })
+    await w.find('[data-tb="decimal-up"]').trigger('click')
+    // General without a number, and a format without a decimal to take away, change nothing
+    await w.setProps({ state: at('A1', { cellValue: 'text' }) })
+    await w.find('[data-tb="decimal-up"]').trigger('click')
+    await w.setProps({ state: at('A1', { numberFormat: '0', cellValue: 2 }) })
+    await w.find('[data-tb="decimal-down"]').trigger('click')
+    await settle()
+    expect(styles()).toEqual([
+      { range: 'A1:A4', numberFormat: '0.000' },
+      { range: 'A1:A4', numberFormat: '0.0' },
+      { range: 'A1:A4', numberFormat: '0.00' },
     ])
   })
 })

@@ -43,4 +43,9 @@ export const IconAlignBottom = icon(['M4 20h16', 'M12 4v11', 'm8 11 4 4 4-4'])
 export const IconIndentDecrease = icon(['M3 5h18', 'M11 10h10', 'M11 14h10', 'M3 19h18', 'm7 9-3 3 3 3'])
 export const IconIndentIncrease = icon(['M3 5h18', 'M11 10h10', 'M11 14h10', 'M3 19h18', 'm4 9 3 3-3 3'])
 /** Percent Style: the percent sign. */
+// Accounting: a banknote; Comma Style: a thousands comma; Increase and Decrease Decimal: a decimal point with an arrow toward more or fewer zeros.
+export const IconAccounting = icon(['M2 6h20v12H2z', 'M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5', 'M5.5 9v.01', 'M18.5 15v.01'])
+export const IconComma = icon(['M7 15.5v1.5a2 2 0 0 1-2 2', 'M12 15.5v1.5a2 2 0 0 1-2 2', 'M17 15.5v1.5a2 2 0 0 1-2 2'], { 'stroke-width': 2.4 })
+export const IconDecimalUp = icon(['M3 17v.01', 'M7.5 8a2.5 4.5 0 1 0 0 9 2.5 4.5 0 1 0 0-9', 'M14 10.5h7', 'm18 7.5 3 3-3 3'], { 'stroke-width': 1.8 })
+export const IconDecimalDown = icon(['M3 17v.01', 'M7.5 8a2.5 4.5 0 1 0 0 9 2.5 4.5 0 1 0 0-9', 'M21 10.5h-7', 'm17 7.5-3 3 3 3'], { 'stroke-width': 1.8 })
 export const IconPercent = icon(['M19 5 5 19', 'M6.5 4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5', 'M17.5 15a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5'])

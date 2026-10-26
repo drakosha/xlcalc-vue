@@ -24,6 +24,9 @@ import {
   fontSizeStep,
   fontToggle,
   indentStep,
+  ACCOUNTING_STYLE,
+  COMMA_STYLE,
+  decimalStep,
   PERCENT_STYLE,
   shownFont,
   upperColour,
@@ -64,6 +67,10 @@ import {
   IconItalic,
   IconMerge,
   IconMore,
+  IconAccounting,
+  IconComma,
+  IconDecimalDown,
+  IconDecimalUp,
   IconPercent,
   IconRedo,
   IconUnderline,
@@ -237,6 +244,11 @@ function apply(patches: FormatPatch[]): void {
 const over = (p: Omit<FormatPatch, 'range'>): FormatPatch[] => (props.state ? [{ range: props.state.ref, ...p }] : [])
 /** A style patch over the selection; nothing for none (a step at its limit). */
 const restyle = (p: StylePatch | null) => p && apply(over({ style: p }))
+/** Increase or Decrease Decimal: the active cell's next format over the selection; nothing when the step changes nothing. */
+function stepDecimal(up: boolean): void {
+  const next = props.state && decimalStep(props.state, up, props.locale)
+  if (next !== null && next !== undefined) apply(over({ numberFormat: next }))
+}
 
 // The Font and Font Size boxes: a name as typed or picked; a size of 1 to 409, otherwise the box keeps it marked invalid.
 const checkSize = (text: string) => (fontSizeOf(text) === null ? m.value.fmtSizeRange : null)
@@ -390,8 +402,20 @@ function pickNumber(e: Event): void {
           <option value="" hidden>{{ category?.name ?? '' }}</option>
           <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
         </select>
+        <button type="button" class="xs-tool" data-tb="accounting" :title="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!state" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
+          <IconAccounting />
+        </button>
         <button type="button" class="xs-tool" data-tb="percent" :title="m.percentStyle" :aria-label="m.percentStyle" :disabled="!state" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
           <IconPercent />
+        </button>
+        <button type="button" class="xs-tool" data-tb="comma" :title="m.commaStyle" :aria-label="m.commaStyle" :disabled="!state" @click="apply(over({ numberFormat: COMMA_STYLE }))">
+          <IconComma />
+        </button>
+        <button type="button" class="xs-tool" data-tb="decimal-up" :title="m.decimalIncrease" :aria-label="m.decimalIncrease" :disabled="!state" @click="stepDecimal(true)">
+          <IconDecimalUp />
+        </button>
+        <button type="button" class="xs-tool" data-tb="decimal-down" :title="m.decimalDecrease" :aria-label="m.decimalDecrease" :disabled="!state" @click="stepDecimal(false)">
+          <IconDecimalDown />
         </button>
       </span>
       <span class="xs-tb-group">

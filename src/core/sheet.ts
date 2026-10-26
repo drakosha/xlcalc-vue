@@ -588,6 +588,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const viewState = computed<SheetViewState | null>(() => {
     if (!s.sheet.value || !sel.selectionRef.value) return null
     const look = activeLook.value
+    const a = s.selected.value
+    const cellValue = a ? w.valueOfRow(a.row, a.col) : undefined
+    const columnWidth = a ? s.bookWidths.value.get(a.col) : undefined
     return {
       sheet: s.sheet.value.name,
       ref: sel.selectionRef.value,
@@ -595,6 +598,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(f.selectedValue.value ? { value: f.selectedValue.value } : {}),
       ...(look?.style ? { style: look.style } : {}),
       ...(look?.numberFormat !== undefined ? { numberFormat: look.numberFormat } : {}),
+      ...(cellValue !== undefined && cellValue !== null ? { cellValue } : {}),
+      ...(typeof columnWidth === 'number' ? { columnWidth } : {}),
       ...(merge.area.value ? { merged: rangeAddress(merge.area.value) } : {}),
       ...(merge.available.value ? { canMerge: true as const } : {}),
       ...(s.formulaView.value ? { showFormulas: true as const } : {}),

@@ -214,6 +214,11 @@ export interface SheetMessages extends ConditionalMessages {
   numberFormat: string
   /** Excel's Percent Style button, with its key. */
   percentStyle: string
+  /** Excel's Accounting Number Format, Comma Style, Increase Decimal and Decrease Decimal buttons. */
+  accountingStyle: string
+  commaStyle: string
+  decimalIncrease: string
+  decimalDecrease: string
   /** Excel's Format Cells dialog (`FormatDialog`): its tabs, inputs and the names of their options. */
   formatCells: string
   formatCellsOpen: string

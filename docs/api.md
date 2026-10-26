@@ -109,6 +109,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `value` | `string?` | The active cell's displayed text. |
 | `style` | `CellStyle?` | The active cell's style; absent while its window is not loaded. |
 | `numberFormat` | `string?` | The active cell's number format code; absent for General. |
+| `cellValue` | `CellValue?` | The active cell's value from the loaded window, absent for an empty cell; the toolbar's Increase and Decrease Decimal step from it. |
+| `columnWidth` | `number?` | The active cell's column width as the workbook stores it (xlcalc's units), absent for the default. |
 | `merged` | `string?` | The merged range containing the active cell. |
 | `canMerge` | `true?` | The merge commands are available: the source has `structure`, the sheet is editable, and no display filter is on. |
 | `showFormulas` | `true?` | Excel's Show Formulas is on for the displayed sheet, so a ribbon shows its button pressed ([view.md](view.md#show-formulas)). |

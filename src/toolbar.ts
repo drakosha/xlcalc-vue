@@ -1,8 +1,10 @@
 // The formatting toolbar's rules: Excel's buttons as `SheetSource.format` patches over the selection, toggled according to
 // the active cell's formatting, and the borders that the toolbar and the Format Cells dialog draw.
-import type { BorderLine, CellRect, CellStyle, StylePatch } from 'xlcalc/contract'
+import type { BorderLine, CellRect, CellStyle, NumberFormat, StylePatch } from 'xlcalc/contract'
 import { parseRange, rangeAddress } from 'xlcalc/a1'
+import { stepDecimals } from 'xlcalc/text'
 import type { FormatPatch, SheetSource } from './contract/source'
+import type { SheetViewState } from './contract/view'
 
 export type FontToggle = 'bold' | 'italic' | 'underline'
 export type HorizontalAlign = 'left' | 'center' | 'right'
@@ -23,6 +25,18 @@ export const INDENTED: ReadonlySet<string> = new Set(['left', 'right', 'distribu
 const MAX_INDENT = 250
 /** Excel's Percent Style and its Ctrl+Shift+%: the built-in format 9, `0%`. */
 export const PERCENT_STYLE = 9
+/** Excel's Accounting Number Format and Comma Style: the built-in formats 44 and 43, displayed in the workbook's locale (its currency for 44). */
+export const ACCOUNTING_STYLE = 44
+export const COMMA_STYLE = 43
+
+/**
+ * Excel's Increase Decimal and Decrease Decimal from the active cell, as xlcalc's `stepDecimals` gives them (its format,
+ * value and column width; Excel puts the result on the whole selection); null when the step changes nothing.
+ */
+export function decimalStep(state: Pick<SheetViewState, 'numberFormat' | 'cellValue' | 'columnWidth'>, up: boolean, locale: string | undefined): NumberFormat | null {
+  const got = stepDecimals(state.numberFormat, state.cellValue ?? null, up ? 1 : -1, { ...(locale ? { locale } : {}), ...(state.columnWidth !== undefined ? { width: state.columnWidth } : {}) })
+  return got === undefined || got === state.numberFormat ? null : got
+}
 
 /** The workbook's default font, which a cell without its own font name or size displays. */
 export interface BookFont {
