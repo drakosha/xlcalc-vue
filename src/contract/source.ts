@@ -103,8 +103,13 @@ export interface SheetSource {
   spelling?(req: SpellingRequest, signal?: AbortSignal): Promise<SpellingHit | null>
   /** Excel's Add to Dictionary in the Spelling dialog: the word is the user's own from now on. */
   learnWord?(word: string): Promise<void>
-  /** Excel's AutoSum (Alt+=) at a cell: the range it offers and its `SUM`; null when the source cannot guess one. Without it there is no AutoSum. */
-  autoSum?(sheet: string, cell: string, signal?: AbortSignal): Promise<SheetAutoSum | null>
+  /**
+   * Excel's AutoSum (Alt+=) at a cell: the range it offers and its `SUM`, or with `fn` (one of `autoSumFunctions`) the same
+   * range under that function, as Excel's AutoSum list enters it; null when the source cannot guess one. Without it there is no AutoSum.
+   */
+  autoSum?(sheet: string, cell: string, signal?: AbortSignal, fn?: AutoSumFunction): Promise<SheetAutoSum | null>
+  /** The functions of Excel's AutoSum list that `autoSum` builds besides Sum; without it the list offers Sum and More Functions… only. */
+  readonly autoSumFunctions?: readonly AutoSumFunction[]
   /** The maximum number of cells in one window, 20,000 by default. */
   readonly maxCells?: number
   /** The number of steps `undo` and `redo` can take, as of the last completed call: a toolbar enables its buttons by them. */
@@ -120,6 +125,9 @@ export interface SheetAutoSum {
   range: string | null
   formula: string
 }
+
+/** The functions of Excel's AutoSum list: Sum, Average, Count Numbers (`COUNT`), Max, Min. */
+export type AutoSumFunction = 'sum' | 'average' | 'count' | 'max' | 'min'
 
 /** A function's signature as returned by a source, with what Excel's Insert Function displays under the syntax: a one-line description of the function, in the source's locale. */
 export type SheetFunctionSignature = FunctionSignature & { description?: string }

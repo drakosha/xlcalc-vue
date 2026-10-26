@@ -12,7 +12,6 @@ import { useSheetContext } from './context'
 import { refInto } from './dom'
 import FunctionList from './FunctionList.vue'
 import FunctionTip from './FunctionTip.vue'
-import InsertFunction from './InsertFunction.vue'
 import NameBox from './NameBox.vue'
 import { IconBack, IconCheck, IconClose, IconDown, IconFilter, IconFx, IconLink, IconLock, IconLockOpen, IconSearch, IconUp } from './icons'
 
@@ -219,18 +218,6 @@ if (painting) {
   )
   onBeforeUnmount(() => (painted = paintRefs(null, [], painted)))
 }
-/** Excel's Insert Function: on an editable sheet whose source lists its functions; its dialog keeps an open edit open. */
-const canInsert = computed(() => ctx.editable.value && !!ctx.source().functionNames)
-const inserting = ref(false)
-function onInsertPick(name: string): void {
-  inserting.value = false
-  ed.insertFunction(name)
-}
-function onInsertClose(): void {
-  inserting.value = false
-  if (ctx.editor.value) ed.focusEditor()
-  else ctx.focusGrid()
-}
 /** Touch input gets no funnels on the column letters (too small to hit): one in the formula bar opens the active cell's column. */
 const barFunnel = computed(() => v.touch.value && ctx.filter.available.value && ctx.dataRows.value > 1)
 function openBarFunnel(e: MouseEvent): void {
@@ -280,7 +267,7 @@ watch(
       <button type="button" class="xs-tool" :disabled="!ctx.editor.value" :title="m.barEnter" :aria-label="m.barEnter" data-xs-bar-enter @mousedown.prevent @click="ed.commit(0, 0)">
         <IconCheck />
       </button>
-      <button type="button" class="xs-tool" :disabled="!canInsert" :title="m.insertFunction" :aria-label="m.insertFunction" data-xs-bar-fx @mousedown.prevent @click="inserting = true">
+      <button type="button" class="xs-tool" :disabled="!ctx.canInsertFunction.value" :title="m.insertFunction" :aria-label="m.insertFunction" data-xs-bar-fx @mousedown.prevent @click="ctx.openInsertFunction()">
         <IconFx />
       </button>
       <div class="xs-fx" :class="{ 'xs-fx-open': ctx.barOpen.value }">
@@ -342,7 +329,6 @@ watch(
         <IconDown v-else />
       </button>
     </div>
-    <InsertFunction v-if="inserting" @pick="onInsertPick" @close="onInsertClose" />
     <template v-if="activeLink && !editingBar">
       <a
         v-if="safeHref(activeLink.href)"

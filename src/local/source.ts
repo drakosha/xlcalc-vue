@@ -1,7 +1,7 @@
 // localSource: a sheet source over an xlcalc workbook whose session runs in a Web Worker pool or on the page's thread.
 // The session holds and calculates the workbook, finds as Excel's Find does and returns windows, sheets and edits as Excel
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
-import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../contract/source'
 import { boxesUnder, findHits, replaceAll } from './find'
@@ -462,15 +462,21 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     setRules: mutation(book.setRules, refusedBy),
     table: mutation(book.table, failedBy),
     ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
-    /** Excel's AutoSum as the session guesses it (xlcalc 0.59), its formula in the workbook's locale; null with an older library. */
-    async autoSum(sheet, cell, signal) {
+    /**
+     * Excel's AutoSum as the session guesses it (xlcalc 0.59), its formula in the workbook's locale; null with an older library.
+     * Excel guesses the same range for every function of its list, so the others are built here over the session's range.
+     */
+    async autoSum(sheet, cell, signal, fn = 'sum') {
       const s = await open()
       throwIfAborted(signal)
       if (typeof s.getAutoSum !== 'function') return null
       const got = await s.getAutoSum(sheet, cell)
       throwIfAborted(signal)
-      return { range: got.range, formula: got.formulaLocal }
+      if (fn === 'sum') return { range: got.range, formula: got.formulaLocal }
+      const local = toLocal(`${fn.toUpperCase()}(${got.range ?? ''})`, locale)
+      return local.ok ? { range: got.range, formula: local.formula } : null
     },
+    autoSumFunctions: ['average', 'count', 'max', 'min'],
     get history() {
       return session?.history ?? { undo: 0, redo: 0 }
     },

@@ -49,3 +49,4 @@ export const IconComma = icon(['M7 15.5v1.5a2 2 0 0 1-2 2', 'M12 15.5v1.5a2 2 0 
 export const IconDecimalUp = icon(['M3 17v.01', 'M7.5 8a2.5 4.5 0 1 0 0 9 2.5 4.5 0 1 0 0-9', 'M14 10.5h7', 'm18 7.5 3 3-3 3'], { 'stroke-width': 1.8 })
 export const IconDecimalDown = icon(['M3 17v.01', 'M7.5 8a2.5 4.5 0 1 0 0 9 2.5 4.5 0 1 0 0-9', 'M21 10.5h-7', 'm17 7.5-3 3 3 3'], { 'stroke-width': 1.8 })
 export const IconPercent = icon(['M19 5 5 19', 'M6.5 4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5', 'M17.5 15a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5'])
+export const IconAutoSum = icon(['M18 5V4H6l7 8-7 8h12v-1'])

@@ -181,6 +181,20 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (editor.value) ed.focusEditor()
     else s.focusGrid()
   }
+  /** Excel's Insert Function dialog: open over an editable sheet whose source lists its functions; it keeps an open edit open. */
+  const insertFunctionOpen = ref(false)
+  const canInsertFunction = computed(() => s.editable.value && !!s.sourceMethod('functionNames'))
+  function openInsertFunction(): boolean {
+    if (!canInsertFunction.value) return false
+    insertFunctionOpen.value = true
+    return true
+  }
+  function closeInsertFunction(name?: string): void {
+    insertFunctionOpen.value = false
+    if (name) ed.insertFunction(name)
+    else if (editor.value) ed.focusEditor()
+    else s.focusGrid()
+  }
   const nameDialogs = useNameDialogs(s, sel, names, { editing: () => editor.value !== null })
   // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
   const trace = useTrace(s, v, w, notify)
@@ -217,7 +231,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     convertToRange: tables.convert,
     deleteTable: tables.remove,
     checkSpelling: spell.check,
-    autoSum: autoSum.run,
+    autoSum: (fn) => autoSum.run(fn),
+    insertFunction: openInsertFunction,
     clear: extras.clear,
     insertLink: links.open,
     dataValidation: rules.open,
@@ -605,6 +620,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(typeof columnWidth === 'number' ? { columnWidth } : {}),
       ...(merge.area.value ? { merged: rangeAddress(merge.area.value) } : {}),
       ...(merge.available.value ? { canMerge: true as const } : {}),
+      ...(autoSum.available.value ? { canAutoSum: true as const } : {}),
       ...(s.formulaView.value ? { showFormulas: true as const } : {}),
       ...(zoom.percent.value !== 100 ? { zoom: zoom.percent.value } : {}),
       ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
@@ -656,6 +672,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     goto,
     symbolOpen,
     closeSymbol,
+    insertFunctionOpen,
+    canInsertFunction,
+    openInsertFunction,
+    closeInsertFunction,
     names,
     nameDialogs,
     zoomer: zoom,

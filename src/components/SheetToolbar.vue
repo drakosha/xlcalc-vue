@@ -2,7 +2,8 @@
 // Excel's formatting toolbar over a sheet source: undo and redo, the font and its size, bold, italic, underline, font and
 // fill colors, borders, vertical and horizontal alignment, indent, wrapping, Merge & Center with its dropdown (through the
 // sheet, with the source's `structure`), Excel's Number Format box (xlcalc's, in the workbook's locale) and Percent Style,
-// applied to the selection the sheet's `state` event reports, and Format Cells for a host that displays the dialog. In a narrow viewport what does not fit
+// applied to the selection the sheet's `state` event reports, Format Cells for a host that displays the dialog, and AutoSum
+// with its list (through the sheet, with the source's `autoSum`). In a narrow viewport what does not fit
 // goes into a menu; on a touch screen every target is 44 × 44 px.
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarSource } from '../contract/view'
@@ -11,7 +12,7 @@ import { NARROW_PX, useCoarsePointer } from '../frame'
 import { useMessages } from '../messages'
 import type { SheetMessages } from '../contract/messages'
 import { useNumberFormats } from '../number-formats'
-import type { EditOutcome, FormatPatch } from '../contract/source'
+import type { AutoSumFunction, EditOutcome, FormatPatch } from '../contract/source'
 import {
   alignToggle,
   borderPatches,
@@ -52,6 +53,7 @@ import {
   IconAlignMiddle,
   IconAlignRight,
   IconAlignTop,
+  IconAutoSum,
   IconBold,
   IconBorderAll,
   IconBorderBottom,
@@ -145,6 +147,14 @@ const BORDERS: { kind: BorderKind; icon: typeof IconBold; title: keyof SheetMess
 ]
 /** Excel's dropdown under Merge & Center: each item is named by its command's text, and its hook (`data-tb`) is the command in kebab case. */
 const MERGES: readonly MergeCommand[] = ['mergeCenter', 'mergeAcross', 'mergeCells', 'unmergeCells']
+/** Excel's AutoSum list in its order; the source's `autoSumFunctions` says which besides Sum it builds. */
+const AUTO_SUMS: { fn: AutoSumFunction; title: keyof SheetMessages }[] = [
+  { fn: 'sum', title: 'autoSumSum' },
+  { fn: 'average', title: 'autoSumAverage' },
+  { fn: 'count', title: 'autoSumCount' },
+  { fn: 'max', title: 'autoSumMax' },
+  { fn: 'min', title: 'autoSumMin' },
+]
 const kebab = (name: string) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
 /** Excel's split buttons for font and fill color: the button applies the last color, the menu offers the no-color choice and the palette. */
 type Colouring = 'font' | 'fill'
@@ -190,7 +200,7 @@ watch(root, (el, old) => {
 })
 
 // ── menus: the color palettes, the borders, and the narrow layout's menu ──
-type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'fontName' | 'fontSize'
+type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'autoSum' | 'fontName' | 'fontSize'
 const open = ref<Menu | null>(null)
 const menu = ref(false)
 const toggle = (what: Menu) => (open.value = open.value === what ? null : what)
@@ -297,6 +307,18 @@ function merge(command: MergeCommand): void {
   open.value = null
   const sheet = props.sheet
   if (sheet && props.state?.canMerge) void run(() => sheet.merge(command))
+}
+/** The AutoSum list: Sum and the functions the source builds besides it. */
+const autoSums = computed(() => AUTO_SUMS.filter((x) => x.fn === 'sum' || props.source.autoSumFunctions?.includes(x.fn)))
+/** AutoSum through the sheet, which opens the active cell's edit with the formula; the menus close, as the edit takes focus. */
+function autoSum(fn: AutoSumFunction): void {
+  closeAll()
+  if (props.state?.canAutoSum) void props.sheet?.autoSum(fn)
+}
+/** More Functions…: Excel's Insert Function dialog over the sheet. */
+function moreFunctions(): void {
+  closeAll()
+  props.sheet?.insertFunction()
 }
 /** An item of the list applies its format; the box goes back to naming the category, as Excel's does. */
 function pickNumber(e: Event): void {
@@ -533,6 +555,24 @@ function pickNumber(e: Event): void {
         <button type="button" class="xs-tool" data-tb="format-cells" :title="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="formatCells">
           <IconFormatCells />
         </button>
+      </span>
+      <span v-if="sheet" class="xs-tb-group">
+        <span class="xs-tb-split">
+          <button type="button" class="xs-tool" data-tb="auto-sum" :title="m.autoSum" :aria-label="m.autoSum" :disabled="!state?.canAutoSum" @click="autoSum('sum')">
+            <IconAutoSum />
+          </button>
+          <button type="button" class="xs-tool xs-tb-caret" data-tb="auto-sum-menu" :title="m.autoSumMenu" :aria-label="m.autoSumMenu" :aria-expanded="open === 'autoSum'" :disabled="!state?.canAutoSum" @click="toggle('autoSum')">
+            <IconDown />
+          </button>
+          <div v-if="open === 'autoSum'" class="xs-tb-pop" role="menu" :aria-label="m.autoSumMenu">
+            <button v-for="x in autoSums" :key="x.fn" type="button" class="xs-tb-item" role="menuitem" :data-tb="`auto-sum-${x.fn}`" @click="autoSum(x.fn)">
+              {{ text(x.title) }}
+            </button>
+            <button v-if="source.functionNames" type="button" class="xs-tb-item" role="menuitem" data-tb="auto-sum-more" @click="moreFunctions">
+              {{ m.autoSumMore }}
+            </button>
+          </div>
+        </span>
       </span>
     </div>
   </div>
