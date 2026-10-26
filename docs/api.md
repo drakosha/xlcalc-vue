@@ -6,7 +6,7 @@ Everything the package exports, with signatures. How the sheet uses each part, k
 
 | Import | Exports | Runtime dependencies |
 | --- | --- | --- |
-| `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages` and the types below | `vue` |
+| `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages`, `TOOLBAR_GROUPS` and the types below | `vue` |
 | `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.46.0 or later (optional peer) |
 | `@xlcalc/vue/style.css` | Styles of the sheet, the toolbar and the dialog | |
 
@@ -220,6 +220,7 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `sheet` | `SheetViewApi \| null` | The sheet's template ref. With it the toolbar formats, undoes, redoes and merges through the sheet; without it, through the source, and it emits `select` and `error`. |
 | `hostDialog` | `boolean` | The host opens its own dialog on `formatCells`, as when it listens: for a host whose listener the toolbar cannot see, such as a custom element's. |
 | `fonts` | `readonly string[]` | The Font box's list, in place of Excel's common fonts (Aptos, Arial, Calibri and others): a browser does not tell which fonts are installed. |
+| `items` | `readonly ToolbarItem[]` | The groups to draw, in order, and the host's buttons among them; without it every group in the default order, `TOOLBAR_GROUPS`. An unknown or repeated group is skipped. See [toolbar.md](toolbar.md#choosing-the-buttons). |
 
 | Event | Payload | When |
 | --- | --- | --- |
@@ -227,6 +228,13 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `error` | `string` | The source rejected a call or the call failed; not emitted with `sheet`. |
 | `done` | none | A call has completed, or Esc left the Font or Font Size box: the host may return focus to the grid. |
 | `formatCells` | none | Format Cells… was clicked. With a listener or `hostDialog`, the button opens the host's dialog; without one, it opens the sheet's dialog (through `sheet`), and without either there is no button. |
+
+| Type or value | Meaning |
+| --- | --- |
+| `ToolbarGroup` | `'undo' \| 'fontStyle' \| 'font' \| 'number' \| 'colors' \| 'borders' \| 'verticalAlign' \| 'align' \| 'merge' \| 'formatCells' \| 'autoSum'`: Undo and Redo; Bold, Italic and Underline; the Font and Font Size boxes with Increase and Decrease Font Size; the Number Format box with Accounting Number Format, Percent Style, Comma Style and Increase and Decrease Decimal; font and fill color; borders; Top, Middle and Bottom Align; horizontal alignment with Decrease and Increase Indent and Wrap Text; Merge & Center; Format Cells; AutoSum. |
+| `ToolbarButton` | `{ id: string; label: string; icon?: Component \| string; run: () => void; disabled?: boolean; pressed?: boolean }`: a host's button. `label` is its tooltip and accessible name, and its text without `icon`; `icon` is a Vue component (it gets the class `xs-icon`) or SVG markup, drawn at the toolbar's icon size; `pressed` shows it pressed, with `aria-pressed`. Its hook is `data-tb-host="<id>"`. |
+| `ToolbarItem` | `ToolbarGroup \| ToolbarButton`. |
+| `TOOLBAR_GROUPS` | `readonly ToolbarGroup[]`: every group in the default order, for a host that adds its buttons (`[...TOOLBAR_GROUPS, button]`). |
 
 ## `FormatDialog`
 

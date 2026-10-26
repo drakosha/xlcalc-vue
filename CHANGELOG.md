@@ -4,6 +4,7 @@
 
 - AutoSum's list: the source's optional `autoSumFunctions` names the functions `autoSum` builds besides Sum (`AutoSumFunction`), and `autoSum` takes the function as an optional fourth argument; `SheetViewApi.autoSum(fn?)` enters Average, Count Numbers, Max or Min over the same guess, and `./local` builds all four in the workbook's locale. `SheetViewApi.insertFunction()` opens Insert Function, with or without the formula bar. `SheetViewState.canAutoSum` says AutoSum is available. A source with the earlier `autoSum` works as before.
 - `SheetToolbar` has AutoSum with `sheet`: Σ enters Sum, its list Sum, the source's other functions and More Functions…. This changes the toolbar's default look: a host that passes `sheet` gets the new button.
+- `SheetToolbar`'s `items` picks its groups and their order (`ToolbarGroup`, `TOOLBAR_GROUPS` the default) and adds the host's buttons (`ToolbarButton`), drawn as the toolbar's own and moved into its menu below 600 px. Without it the toolbar is drawn as before, AutoSum aside. In a wide toolbar the groups now wrap as one row.
 
 ## 0.23.1 (2026-10-26)
 

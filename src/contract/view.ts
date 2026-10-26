@@ -1,4 +1,5 @@
 // The sheet's public types: SheetView's props, state, events and methods, the toolbar's source, list mode's sort.
+import type { Component } from 'vue'
 import type { CellStyle, CellValue, IconSetName } from 'xlcalc/contract'
 import type { ClearRulesFrom, ColorScalePreset, DataBarColor, QuickRule } from './conditional'
 import type { SheetMessages } from './messages'
@@ -230,3 +231,28 @@ export interface ListSort {
 
 /** The source the toolbar formats through: a `SheetSource`, whose `history` tells whether Undo and Redo have a step. */
 export type ToolbarSource = SheetSource
+
+/**
+ * A group of `SheetToolbar`'s buttons, as `items` names it: Undo and Redo, Bold, Italic and Underline (`fontStyle`), the
+ * Font and Font Size boxes with Increase and Decrease Font Size (`font`), the Number Format box with its buttons (`number`),
+ * font and fill color, borders, Top, Middle and Bottom Align, horizontal alignment with indent and Wrap Text (`align`),
+ * Merge & Center, Format Cells, and AutoSum.
+ */
+export type ToolbarGroup = 'undo' | 'fontStyle' | 'font' | 'number' | 'colors' | 'borders' | 'verticalAlign' | 'align' | 'merge' | 'formatCells' | 'autoSum'
+
+/** A host's button on `SheetToolbar`, drawn as the toolbar's own and moved into its menu in a narrow viewport. */
+export interface ToolbarButton {
+  /** Unique among the host's buttons; the button's hook is `data-tb-host="<id>"`. */
+  id: string
+  /** The tooltip and accessible name, and the button's text without an icon. */
+  label: string
+  /** A Vue component (it gets the toolbar's icon class) or SVG markup, drawn at the toolbar's icon size. */
+  icon?: Component | string
+  run: () => void
+  disabled?: boolean
+  /** Shown as pressed (`aria-pressed`), as a toggle. */
+  pressed?: boolean
+}
+
+/** An item of `SheetToolbar`'s `items`: one of its groups, or a host's button. */
+export type ToolbarItem = ToolbarGroup | ToolbarButton
