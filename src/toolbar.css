@@ -29,10 +29,16 @@
 }
 .xs-tb-row {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 2px 0;
   min-width: 0;
+}
+/* The row's groups keep their width and their buttons on one line, so the row measures what fits and moves the rest into More. */
+.xs-tb-row > .xs-tb-group {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
 }
 .xs-tb-group {
   display: inline-flex;
@@ -190,16 +196,7 @@
   gap: 3px;
 }
 
-/* ── a narrow viewport: the first buttons in a row, the rest in a menu below the toolbar ── */
-.xs-tb-narrow .xs-tb-row {
-  flex: 1 1 auto;
-  flex-wrap: nowrap;
-}
-/* The row's groups keep their width and their buttons on one line, so the row measures what fits and moves the rest into More. */
-.xs-tb-narrow .xs-tb-row > .xs-tb-group {
-  flex-shrink: 0;
-  flex-wrap: nowrap;
-}
+/* ── what does not fit in the row: a menu below the toolbar, under More (at any width) ── */
 .xs-tb-more {
   margin-left: auto;
 }

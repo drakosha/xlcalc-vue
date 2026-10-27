@@ -36,6 +36,7 @@ describe("SheetToolbar's items", () => {
 
   it('draws only the groups named, in their order; an unknown or repeated name is skipped', async () => {
     const w = mountBar(['borders', 'fontStyle', 'nothing' as never, 'borders', 'undo'])
+    await nextTick()
     expect(hooks(w)).toEqual(['borders', 'bold', 'italic', 'underline', 'undo', 'redo'])
     expect(w.findAll('.xs-tb-group')).toHaveLength(3)
   })
@@ -50,6 +51,7 @@ describe("SheetToolbar's items", () => {
       { id: 'save', label: 'Save', run, disabled: true },
       'undo',
     ])
+    await nextTick()
     expect(hooks(w)).toEqual(['bold', 'italic', 'underline', 'host:share', 'host:pin', 'host:save', 'undo', 'redo'])
     expect(w.findAll('.xs-tb-group')).toHaveLength(3)
     const share = w.find('[data-tb-host="share"]')
@@ -69,8 +71,8 @@ describe("SheetToolbar's items", () => {
   })
 
   /** A narrow toolbar whose row is `room` px wide, each block `block` px and the More button 44 px wide. */
-  function narrowLayout(room: number, block: (key: string) => number = () => 100): void {
-    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+  function narrowLayout(room: number, block: (key: string) => number = () => 100, viewport = 390): void {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(viewport)
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-tb-row') ? room : 0
     })
@@ -96,6 +98,16 @@ describe("SheetToolbar's items", () => {
     await w.find('[data-tb-host="share"]').trigger('click')
     expect(run).toHaveBeenCalledOnce()
     expect((menu.element as HTMLElement).style.display).toBe('none')
+  })
+
+  it('in a wide viewport too: what does not fit goes into More rather than onto a second line', async () => {
+    narrowLayout(1000, () => 300, 1440)
+    const w = mountBar(['undo', 'fontStyle', 'font', 'borders', 'align'])
+    await nextTick()
+    await nextTick()
+    expect(w.find('.xs-toolbar').classes()).not.toContain('xs-tb-narrow')
+    expect(hooks(w, '.xs-tb-row').at(-1)).toBe('more')
+    expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['borders', 'align'])
   })
 
   it('in a narrow viewport keeps every item in the row when all fit, with no More button', async () => {
