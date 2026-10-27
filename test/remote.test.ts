@@ -88,6 +88,20 @@ describe('remoteSource over serveSource', () => {
     expect('text' in w && w.text.map((r) => r[0])).toEqual(['2', '3', '5'])
   })
 
+  it('reloads a viewer whose stream opened after a change it may have missed, and only then', async () => {
+    const { url } = await served()
+    const late = await connect(url)
+    const quiet = await connect(url)
+    const other = await connect(url)
+    const quietEvents = events(quiet)
+    await new Promise((r) => setTimeout(r, 50))
+    // The change comes after `late` read the workbook and before its stream opens
+    expect((await other.edit!([{ sheet: 'Лист1', cell: 'A1', text: '7' }])).ok).toBe(true)
+    await quietEvents.next((e) => e.kind === 'changed')
+    expect(await events(late).next()).toEqual({ kind: 'reload' })
+    expect(quietEvents.got.map((e) => e.kind)).not.toContain('reload')
+  })
+
   it("returns a failure of a method that changes the workbook as an outcome, and rejects with the server's message otherwise", async () => {
     const broken: SheetSource = {
       sheets: async () => {
@@ -113,14 +127,19 @@ describe('remoteSource over serveSource', () => {
       window: async () => ({ pending: { elapsedMs: 0 } }),
       stats: async (...args) => (seen.push(args), { cells: 0, numbers: 0, sum: 0, min: null, max: null }),
       link: async (...args) => (seen.push(args), { ok: true, changes: [] }),
+      validation: async () => null,
     }
     const { url } = await served({ access: 'write' }, stub)
     const c = await connect(url)
     await c.stats!('S', 'A1:A3', undefined)
     await c.link!('S', 'A1', null)
+    await c.stats!('S', 'B1:B2')
+    expect(await c.validation!('S', 'A1')).toBeNull()
     expect(seen[0]!.slice(0, 3)).toEqual(['S', 'A1:A3', undefined])
     expect(seen[0]![3]).toBeInstanceOf(AbortSignal)
     expect(seen[1]).toEqual(['S', 'A1', null])
+    // A call shorter than its signal's place leaves no hole that would arrive as null
+    expect(seen[2]!.slice(0, 3)).toEqual(['S', 'B1:B2', undefined])
   })
 
   it("stops a call with the caller's signal", async () => {

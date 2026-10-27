@@ -67,6 +67,9 @@ export interface Manifest {
   autoSumFunctions?: SheetSource['autoSumFunctions']
   history?: { undo: number; redo: number }
   locale?: string
+  /** With events: this server's mark and the number of the source's events so far, to tell whether a stream missed some. */
+  epoch?: string
+  seq?: number
 }
 
 /** A call's body: the arguments, with the indexes of those that were `undefined`, which JSON would turn into null. */
@@ -76,13 +79,15 @@ export interface CallBody {
   undef?: number[]
 }
 
-/** A call's response: the result, and the history after it for a source that has one; or the error's message. */
-export type CallResponse = { result: unknown; history?: { undo: number; redo: number } } | { error: string }
+/** A call's response: the result (none for `undefined`), and the history after it for a source that has one; or the error's message. */
+export type CallResponse = { result?: unknown; history?: { undo: number; redo: number } } | { error: string }
 
-/** An event of the stream: the source's event and the history after it. */
+/** A message of the stream: the source's event with the history after it, or without one the count the stream starts from. */
 export interface StreamEvent {
-  event: SourceEvent
+  event?: SourceEvent
   history?: { undo: number; redo: number }
+  epoch: string
+  seq: number
 }
 
 /** The history as plain numbers, read from a live getter. */

@@ -17,6 +17,11 @@ export function serveSource(source: SheetSource, opts: ServeOptions = {}): Sourc
   /** The open event streams, ended by `close`. */
   const streams = new Set<{ send: (e: SourceEvent) => void; end: () => void }>()
   let closed: string | null = null
+  const gone = () => fail(410, closed || 'The workbook was closed')
+  /** The source's events so far, under this server's own mark: a client that sees another count missed some. */
+  const epoch = Math.random().toString(36).slice(2)
+  let seq = 0
+  const counting = source.subscribe?.call(source, () => seq++)
 
   function manifest(access: SourceAccess): Manifest {
     const methods: string[] = Object.keys(CALLS).filter((m) => isCall(m) && typeof source[m] === 'function' && (access === 'write' || !CALLS[m].write))
@@ -30,28 +35,30 @@ export function serveSource(source: SheetSource, opts: ServeOptions = {}): Sourc
       ...(source.autoSumFunctions ? { autoSumFunctions: source.autoSumFunctions } : {}),
       ...(source.history ? { history: historyOf(source) } : {}),
       ...(typeof locale === 'string' ? { locale } : {}),
+      ...(source.subscribe ? { epoch, seq } : {}),
     }
   }
 
   async function call(req: Request, access: SourceAccess): Promise<Response> {
-    let body: CallBody
+    let body: Partial<CallBody> | null
     try {
-      body = (await req.json()) as CallBody
+      body = (await req.json()) as Partial<CallBody> | null
     } catch {
       return fail(400, 'The call is not JSON')
     }
-    const { method } = body
-    if (typeof method !== 'string' || !Array.isArray(body.args) || !isCall(method)) return fail(400, `No method ${String(method)}`)
+    if (closed !== null) return gone()
+    const method = body?.method
+    if (typeof method !== 'string' || !isCall(method) || !Array.isArray(body?.args)) return fail(400, `No method ${String(method)}`)
     const fn = source[method] as ((...args: unknown[]) => Promise<unknown>) | undefined
     if (!fn) return fail(404, `The source has no ${method}`)
     if (CALLS[method].write && access !== 'write') return fail(403, 'The workbook is read-only for this viewer')
     const args = [...body.args]
-    for (const i of body.undef ?? []) args[i] = undefined
+    for (const i of Array.isArray(body.undef) ? body.undef : []) if (Number.isInteger(i)) args[i] = undefined
     const kind = CALLS[method]
     if (kind.signal !== undefined) args[kind.signal] = kind.inOpts ? { ...(args[kind.signal] as object | undefined), signal: req.signal } : req.signal
     try {
       const result = await fn.apply(source, args)
-      return json({ result: result ?? null, ...(source.history ? { history: historyOf(source) } : {}) } satisfies CallResponse)
+      return json({ ...(result === undefined ? {} : { result }), ...(source.history ? { history: historyOf(source) } : {}) } satisfies CallResponse)
     } catch (e) {
       return fail(500, messageOf(e))
     }
@@ -65,10 +72,12 @@ export function serveSource(source: SheetSource, opts: ServeOptions = {}): Sourc
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         const write = (text: string) => controller.enqueue(encoder.encode(text))
+        const data = (body: StreamEvent) => write(`data: ${JSON.stringify(body)}\n\n`)
         const entry = {
           send(event: SourceEvent) {
-            write(`data: ${JSON.stringify({ event, ...(source.history ? { history: historyOf(source) } : {}) } satisfies StreamEvent)}\n\n`)
+            data({ event, epoch, seq, ...(source.history ? { history: historyOf(source) } : {}) })
           },
+          // The viewer gone or the server closed: the stream ends, so that whoever reads it stops too
           end() {
             stop()
             controller.close()
@@ -77,14 +86,18 @@ export function serveSource(source: SheetSource, opts: ServeOptions = {}): Sourc
         const unsubscribe = subscribe.call(source, entry.send)
         const alive = setInterval(() => write(': alive\n\n'), opts.keepAliveMs ?? 25_000)
         streams.add(entry)
+        let stopped = false
         stop = () => {
+          if (stopped) return
+          stopped = true
           clearInterval(alive)
           unsubscribe()
           streams.delete(entry)
-          req.signal.removeEventListener('abort', stop)
+          req.signal.removeEventListener('abort', entry.end)
         }
-        req.signal.addEventListener('abort', stop)
-        write(': open\n\n')
+        req.signal.addEventListener('abort', entry.end)
+        // The count the stream starts from, after its subscription: the client compares it with the count it knows
+        data({ epoch, seq })
       },
       cancel: () => stop(),
     })
@@ -93,9 +106,11 @@ export function serveSource(source: SheetSource, opts: ServeOptions = {}): Sourc
 
   return {
     async handle(req) {
-      if (closed !== null) return fail(410, closed || 'The workbook was closed')
+      if (closed !== null) return gone()
       const end = new URL(req.url).pathname.split('/').pop()
       const access = await accessOf(req)
+      // The host may have closed the server while the viewer's access was being decided
+      if (closed !== null) return gone()
       if (end === 'manifest' && req.method === 'GET') return json(manifest(access))
       if (end === 'call' && req.method === 'POST') return call(req, access)
       if (end === 'events' && req.method === 'GET') return events(req)
@@ -103,6 +118,7 @@ export function serveSource(source: SheetSource, opts: ServeOptions = {}): Sourc
     },
     close(message) {
       closed = message ?? ''
+      counting?.()
       for (const s of [...streams]) {
         s.send({ kind: 'reload', ...(message ? { message } : {}) })
         s.end()
