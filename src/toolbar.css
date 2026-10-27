@@ -112,6 +112,22 @@
   background: var(--xs-head-bg);
 }
 
+/* A button's ScreenTip below it: its name and key, as Office shows them. */
+.xs-tb-tip {
+  position: fixed;
+  z-index: 2;
+  max-width: min(320px, calc(100vw - 8px));
+  padding: 3px 7px;
+  border: 1px solid var(--xs-grid);
+  border-radius: 4px;
+  background: var(--xs-bg);
+  box-shadow: var(--xs-shadow-menu);
+  color: var(--xs-fg);
+  font: 12px var(--xs-font);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 /* ── a menu below a button: palettes and borders ── */
 .xs-tb-pop {
   position: absolute;

@@ -1,5 +1,6 @@
 // Excel's notes on cells: New Note, Edit Note and Delete Note in the cell menu, Shift+F2, and the note box being edited at its cell,
-// which saves through the source's `note` when it is left (Esc or a press outside it), as Excel saves a note.
+// which saves through the source's `note` when it is left (Esc or a press outside it), as Excel saves a note; and a cell's note
+// shown in the same box, read-only, while the mouse rests on the cell, as Excel shows it.
 import { computed, ref } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { SheetNote } from '../contract/workbook'
@@ -29,6 +30,21 @@ export function useNotes(s: SheetState, w: Windows, extras: Extras, deps: NotesD
   const m = () => s.messages.value
   const draft = ref<NoteDraft | null>(null)
   const available = computed(() => extras.method('note') !== null)
+  /** The cell with a note that the mouse is over, while no note is being edited. */
+  const hovered = ref<{ sheet: string; row: number; col: number } | null>(null)
+  /** The hovered cell's note, from its loaded window, for the read-only box. */
+  const peek = computed(() => {
+    const h = hovered.value
+    const note = h && !draft.value && h.sheet === s.sheetName.value ? w.noteOfRow(h.row, h.col) : undefined
+    return h && note ? { ...h, ...note } : null
+  })
+  /** The mouse over a cell (null: over none, or not a mouse): its note shows at once, and hides when the mouse leaves the cell. */
+  function hover(row: number | null, col = 0): void {
+    const sheet = s.sheetName.value
+    const at = row !== null && w.noteOfRow(row, col) ? { sheet, row, col } : null
+    const h = hovered.value
+    if (at?.row !== h?.row || at?.col !== h?.col || at?.sheet !== h?.sheet) hovered.value = at
+  }
 
   /** The active cell's note from its loaded window. */
   function activeNote(): SheetNote | undefined {
@@ -82,7 +98,7 @@ export function useNotes(s: SheetState, w: Windows, extras: Extras, deps: NotesD
     return out
   }
 
-  return { draft, available, open, save, remove, items }
+  return { draft, available, peek, hover, open, save, remove, items }
 }
 
 export type Notes = ReturnType<typeof useNotes>

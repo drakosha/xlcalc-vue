@@ -1,4 +1,4 @@
-/* Excel's Insert Hyperlink dialog (LinkDialog.vue), a DialogShell box (modal.css), and the note box anchored to its cell (NoteBox.vue). */
+/* Excel's Insert Hyperlink dialog (LinkDialog.vue), a DialogShell box (modal.css), and the note box anchored to its cell (NoteBox.vue), edited or shown on hover. */
 .xs-link {
   gap: 10px;
   width: min(480px, 100%);
@@ -96,6 +96,17 @@
   resize: both;
   overflow: hidden;
   font: var(--xs-font-size) / 1.3 var(--xs-font);
+}
+/* A note shown on hover: the same box, as tall as its text (up to a limit), read-only and transparent to the mouse. */
+.xs-note-box.xs-note-peek {
+  height: auto;
+  max-height: 240px;
+  resize: none;
+  pointer-events: none;
+}
+.xs-note-peek > .xs-note-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .xs-note-author {
   font-weight: 700;

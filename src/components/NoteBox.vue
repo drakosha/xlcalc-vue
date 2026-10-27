@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // The note being edited, anchored to its cell as Excel's note box: to the right of the cell (to its left where the viewport has
 // no room), the author's name in bold on the first line, then the text. Esc or a press outside the box saves it, as Excel does.
+// With `peek`, the note of the cell under the mouse in the same box, read-only, as Excel shows a note on hover.
 import { computed, onMounted, ref } from 'vue'
 import { useSheetContext } from './context'
 import { useOutsidePress } from './popup'
 
+const props = defineProps<{ peek?: boolean }>()
 const ctx = useSheetContext()
 const { v, views, notes } = ctx
 const m = ctx.messages
@@ -15,8 +17,10 @@ const WIDTH = 180
 const box = ref<HTMLElement | null>(null)
 const input = ref<HTMLTextAreaElement | null>(null)
 
+/** The note shown: the one being edited, or with `peek` the hovered cell's. */
+const shown = computed(() => (props.peek ? notes.peek.value : notes.draft.value))
 const place = computed(() => {
-  const d = notes.draft.value
+  const d = shown.value
   const at = d && d.sheet === ctx.sheetName.value ? ctx.indexOf(d.row) : undefined
   if (!d || at === undefined) return null
   const sp = views.spanOf(d.row, d.col)
@@ -33,7 +37,7 @@ onMounted(() => {
   el.focus({ preventScroll: true })
   el.setSelectionRange(el.value.length, el.value.length)
 })
-useOutsidePress(box, () => void notes.save(false), () => !!notes.draft.value)
+useOutsidePress(box, () => void notes.save(false), () => !props.peek && !!notes.draft.value)
 
 function onKey(e: KeyboardEvent): void {
   // the box's keys are its own: Enter is a new line, as in Excel's note
@@ -45,7 +49,11 @@ function onKey(e: KeyboardEvent): void {
 </script>
 
 <template>
-  <div v-if="notes.draft.value && place" ref="box" class="xs-note-box" :style="place" data-xs-note-box>
+  <div v-if="peek && shown && place" class="xs-note-box xs-note-peek" :style="place" role="note" :aria-label="m.note(shown.author)" data-xs-note-peek>
+    <div v-if="shown.author" class="xs-note-author">{{ shown.author }}:</div>
+    <div class="xs-note-text">{{ shown.text }}</div>
+  </div>
+  <div v-else-if="notes.draft.value && place" ref="box" class="xs-note-box" :style="place" data-xs-note-box>
     <div v-if="notes.draft.value.author" class="xs-note-author">{{ notes.draft.value.author }}:</div>
     <textarea
       ref="input"

@@ -134,7 +134,7 @@ function onKey(e: KeyboardEvent): void {
       :inputmode="inputmode"
       :data-tb="hook"
       :value="shown"
-      :title="bad ?? label"
+      :data-tip="bad ?? label"
       :aria-label="label"
       :aria-expanded="open"
       :aria-controls="id"
@@ -146,7 +146,7 @@ function onKey(e: KeyboardEvent): void {
       @keydown="onKey"
       @blur="restore"
     />
-    <button type="button" class="xs-tool xs-tb-caret" :data-tb="`${hook}-list`" :title="label" :aria-label="label" :aria-expanded="open" :disabled="disabled" @click="setOpen(!open)">
+    <button type="button" class="xs-tool xs-tb-caret" :data-tb="`${hook}-list`" :data-tip="label" :aria-label="label" :aria-expanded="open" :disabled="disabled" @click="setOpen(!open)">
       <IconDown />
     </button>
     <div v-if="open" :id="id" ref="listEl" class="xs-tb-pop xs-tb-list" role="listbox" :aria-label="label">

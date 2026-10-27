@@ -5,7 +5,7 @@
 // applied to the selection the sheet's `state` event reports, Format Cells for a host that displays the dialog, and AutoSum
 // with its list (through the sheet, with the source's `autoSum`); `items` picks and orders the groups and adds the host's
 // buttons. In a narrow viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
 import { failedOutcome } from '../failure'
 import { NARROW_PX, useCoarsePointer } from '../frame'
@@ -193,7 +193,7 @@ const canRedo = computed(() => !history.value || history.value.redo > 0)
 const root = ref<HTMLElement | null>(null)
 const width = ref(0)
 const coarse = useCoarsePointer()
-/** Below `NARROW_PX` the toolbar keeps its first buttons in a row and the rest in a menu, as the sheet narrows. */
+/** Below `NARROW_PX` the toolbar keeps the items that fit in its row and the rest in a menu, as the sheet narrows. */
 const narrow = computed(() => (width.value || (typeof window === 'undefined' ? NARROW_PX : window.innerWidth)) < NARROW_PX)
 const touch = computed(() => narrow.value || coarse.value)
 const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(([entry]) => (width.value = entry?.contentRect.width ?? 0))
@@ -205,8 +205,6 @@ watch(root, (el, old) => {
 // ── the items: groups in the host's order, its buttons together between them ──
 /** A group, or a run of the host's buttons drawn as one group. */
 type Block = { key: string; group: ToolbarGroup; buttons?: undefined } | { key: string; group?: undefined; buttons: ToolbarButton[] }
-/** In a narrow viewport these stay in the row, wherever `items` puts them; everything else goes into the menu, in order. */
-const ROW_GROUPS: ReadonlySet<ToolbarGroup> = new Set(['undo', 'fontStyle'])
 const blocks = computed(() => {
   const out: Block[] = []
   const seen = new Set<string>()
@@ -222,25 +220,91 @@ const blocks = computed(() => {
   }
   return out
 })
-const inRow = (b: Block) => !!b.group && ROW_GROUPS.has(b.group)
-/** The row and, in a narrow viewport, the menu with what is not in the row (no menu when nothing is left for it). */
+/** In a narrow viewport, how many blocks from the start stay in the row, as measured; null while measuring, when all are drawn there. */
+const fit = ref<number | null>(null)
+/** The row and, in a narrow viewport, the menu with the blocks that do not fit in the row (no menu when all fit). */
 const parts = computed(() => {
-  if (!narrow.value) return [{ place: 'row', blocks: blocks.value }]
-  const menuBlocks = blocks.value.filter((b) => !inRow(b))
-  const row = { place: 'row', blocks: blocks.value.filter(inRow) }
-  return menuBlocks.length ? [row, { place: 'menu', blocks: menuBlocks }] : [row]
+  const all = blocks.value
+  if (!narrow.value) return [{ place: 'row', blocks: all }]
+  const n = fit.value ?? all.length
+  const row = { place: 'row', blocks: all.slice(0, n) }
+  return n < all.length ? [row, { place: 'menu', blocks: all.slice(n) }] : [row]
 })
+/** The More button: while the row is measured too, so that its width counts. */
+const moreShown = computed(() => parts.value.length > 1 || (narrow.value && fit.value === null))
+/** Measures the row drawn with every block: all stay when they fit, otherwise the blocks from the start that fit beside the More button. */
+function measureRow(): void {
+  const row = root.value?.querySelector<HTMLElement>('.xs-tb-row')
+  if (!narrow.value || !row || fit.value !== null) return
+  const widthOf = (el: Element | null) => el?.getBoundingClientRect().width ?? 0
+  const widths = blocks.value.map((b) => widthOf(row.querySelector(`:scope > [data-tb-block="${b.key}"]`)))
+  const room = row.clientWidth
+  if (widths.reduce((a, w) => a + w, 0) <= room) return void (fit.value = widths.length)
+  let used = widthOf(row.querySelector('[data-tb="more"]'))
+  let n = 0
+  while (n < widths.length && used + widths[n]! <= room) used += widths[n++]!
+  fit.value = n
+}
+// Whatever changes the row's widths draws it whole again and measures it
+watch(
+  [narrow, width, touch, blocks, () => props.messages],
+  () => {
+    fit.value = null
+    void nextTick(measureRow)
+  },
+  { flush: 'post' },
+)
 /** A host's button: its action, after the menus close. */
 function runHost(button: ToolbarButton): void {
   closeAll()
   button.run()
 }
 
+// ── ScreenTips: a button's name (and key) below it, sooner than the browser's title; mouse only ──
+/** How long the pointer rests on a button before its tip shows, and how long after a tip hides the next one shows at once, as Office's do. */
+const TIP_DELAY = 400
+const TIP_WARM = 600
+const tip = ref<{ el: HTMLElement; text: string; left: number; top: number } | null>(null)
+const tipEl = ref<HTMLElement | null>(null)
+let tipTimer: ReturnType<typeof setTimeout> | undefined
+let warmUntil = 0
+function hideTip(warm = true): void {
+  clearTimeout(tipTimer)
+  if (tip.value && warm) warmUntil = Date.now() + TIP_WARM
+  tip.value = null
+}
+function showTip(el: HTMLElement): void {
+  const text = el.dataset.tip
+  if (!text || open.value !== null || !el.isConnected) return
+  const r = el.getBoundingClientRect()
+  tip.value = { el, text, left: r.left, top: r.bottom + 4 }
+  // Kept inside the viewport: a tip near the right edge moves left
+  void nextTick(() => {
+    const box = tipEl.value?.getBoundingClientRect()
+    if (box && tip.value && box.right > window.innerWidth - 4) tip.value = { ...tip.value, left: Math.max(4, window.innerWidth - 4 - box.width) }
+  })
+}
+function onTipOver(e: PointerEvent): void {
+  if (e.pointerType !== 'mouse') return
+  const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]')
+  if (!el || el === tip.value?.el) return
+  hideTip()
+  if (Date.now() < warmUntil) showTip(el)
+  else tipTimer = setTimeout(() => showTip(el), TIP_DELAY)
+}
+function onTipOut(e: PointerEvent): void {
+  const from = (e.target as HTMLElement).closest('[data-tip]')
+  if (from && !from.contains(e.relatedTarget as Node | null)) hideTip()
+}
+
 // ── menus: the color palettes, the borders, and the narrow layout's menu ──
 type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'autoSum' | 'fontName' | 'fontSize'
 const open = ref<Menu | null>(null)
 const menu = ref(false)
-const toggle = (what: Menu) => (open.value = open.value === what ? null : what)
+const toggle = (what: Menu) => {
+  hideTip(false)
+  open.value = open.value === what ? null : what
+}
 /** A box's list opens or closes, as the toolbar's other menus do. */
 const listOpen = (what: Menu, on: boolean) => (open.value = on ? what : open.value === what ? null : open.value)
 function closeAll(): void {
@@ -261,8 +325,10 @@ function subscribe(): void {
 watch(() => props.source, subscribe)
 onMounted(() => {
   subscribe()
+  measureRow()
 })
 onBeforeUnmount(() => {
+  clearTimeout(tipTimer)
   unsubscribe?.()
   observer?.disconnect()
 })
@@ -375,6 +441,9 @@ function pickNumber(e: Event): void {
     :aria-label="m.toolbar"
     @mousedown="keepFocus"
     @keydown.esc="closeAll"
+    @pointerover="onTipOver"
+    @pointerout="onTipOut"
+    @pointerdown="hideTip(false)"
   >
     <div
       v-for="part in parts"
@@ -384,22 +453,22 @@ function pickNumber(e: Event): void {
       :data-tb-menu="part.place === 'menu' ? '' : undefined"
     >
       <template v-for="blk in part.blocks" :key="blk.key">
-        <span v-if="blk.group === 'undo' && (source.undo || source.redo)" class="xs-tb-group">
-          <button v-if="source.undo" type="button" class="xs-tool" data-tb="undo" :title="m.undo" :aria-label="m.undo" :disabled="!canUndo" @click="step('undo')">
+        <span v-if="blk.group === 'undo' && (source.undo || source.redo)" :data-tb-block="blk.key" class="xs-tb-group">
+          <button v-if="source.undo" type="button" class="xs-tool" data-tb="undo" :data-tip="m.undo" :aria-label="m.undo" :disabled="!canUndo" @click="step('undo')">
             <IconUndo />
           </button>
-          <button v-if="source.redo" type="button" class="xs-tool" data-tb="redo" :title="m.redo" :aria-label="m.redo" :disabled="!canRedo" @click="step('redo')">
+          <button v-if="source.redo" type="button" class="xs-tool" data-tb="redo" :data-tip="m.redo" :aria-label="m.redo" :disabled="!canRedo" @click="step('redo')">
             <IconRedo />
           </button>
         </span>
-        <span v-else-if="blk.group === 'fontStyle'" class="xs-tb-group">
+        <span v-else-if="blk.group === 'fontStyle'" :data-tb-block="blk.key" class="xs-tb-group">
           <button
             v-for="b in FONT"
             :key="b.what"
             type="button"
             :class="['xs-tool', { 'xs-tool-on': fontOn(style, b.what) }]"
             :data-tb="b.what"
-            :title="text(b.title)"
+            :data-tip="text(b.title)"
             :aria-label="text(b.title)"
             :aria-pressed="fontOn(style, b.what)"
             :disabled="!state"
@@ -408,7 +477,7 @@ function pickNumber(e: Event): void {
             <component :is="b.icon" />
           </button>
         </span>
-        <span v-else-if="blk.group === 'font'" class="xs-tb-group">
+        <span v-else-if="blk.group === 'font'" :data-tb-block="blk.key" class="xs-tb-group">
           <span class="xs-tb-pair">
             <ToolbarBox
               :value="font.name"
@@ -440,21 +509,21 @@ function pickNumber(e: Event): void {
             />
           </span>
           <span class="xs-tb-pair">
-            <button type="button" class="xs-tool" data-tb="font-up" :title="m.fontSizeUp" :aria-label="m.fontSizeUp" :disabled="!state" @click="restyle(fontSizeStep(style, true, book()))">
+            <button type="button" class="xs-tool" data-tb="font-up" :data-tip="m.fontSizeUp" :aria-label="m.fontSizeUp" :disabled="!state" @click="restyle(fontSizeStep(style, true, book()))">
               <IconFontUp />
             </button>
-            <button type="button" class="xs-tool" data-tb="font-down" :title="m.fontSizeDown" :aria-label="m.fontSizeDown" :disabled="!state" @click="restyle(fontSizeStep(style, false, book()))">
+            <button type="button" class="xs-tool" data-tb="font-down" :data-tip="m.fontSizeDown" :aria-label="m.fontSizeDown" :disabled="!state" @click="restyle(fontSizeStep(style, false, book()))">
               <IconFontDown />
             </button>
           </span>
         </span>
-        <span v-else-if="blk.group === 'number'" class="xs-tb-group">
+        <span v-else-if="blk.group === 'number'" :data-tb-block="blk.key" class="xs-tb-group">
           <select
             v-if="numbers.choices.value.length"
             class="xs-field xs-field-s xs-tb-select"
             data-tb="number"
             :data-tb-category="category?.category"
-            :title="m.numberFormat"
+            :data-tip="m.numberFormat"
             :aria-label="m.numberFormat"
             value=""
             :disabled="!state"
@@ -463,32 +532,32 @@ function pickNumber(e: Event): void {
             <option value="" hidden>{{ category?.name ?? '' }}</option>
             <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
           </select>
-          <button type="button" class="xs-tool" data-tb="accounting" :title="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!state" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
+          <button type="button" class="xs-tool" data-tb="accounting" :data-tip="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!state" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
             <IconAccounting />
           </button>
-          <button type="button" class="xs-tool" data-tb="percent" :title="m.percentStyle" :aria-label="m.percentStyle" :disabled="!state" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
+          <button type="button" class="xs-tool" data-tb="percent" :data-tip="m.percentStyle" :aria-label="m.percentStyle" :disabled="!state" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
             <IconPercent />
           </button>
-          <button type="button" class="xs-tool" data-tb="comma" :title="m.commaStyle" :aria-label="m.commaStyle" :disabled="!state" @click="apply(over({ numberFormat: COMMA_STYLE }))">
+          <button type="button" class="xs-tool" data-tb="comma" :data-tip="m.commaStyle" :aria-label="m.commaStyle" :disabled="!state" @click="apply(over({ numberFormat: COMMA_STYLE }))">
             <IconComma />
           </button>
-          <button type="button" class="xs-tool" data-tb="decimal-up" :title="m.decimalIncrease" :aria-label="m.decimalIncrease" :disabled="!state" @click="stepDecimal(true)">
+          <button type="button" class="xs-tool" data-tb="decimal-up" :data-tip="m.decimalIncrease" :aria-label="m.decimalIncrease" :disabled="!state" @click="stepDecimal(true)">
             <IconDecimalUp />
           </button>
-          <button type="button" class="xs-tool" data-tb="decimal-down" :title="m.decimalDecrease" :aria-label="m.decimalDecrease" :disabled="!state" @click="stepDecimal(false)">
+          <button type="button" class="xs-tool" data-tb="decimal-down" :data-tip="m.decimalDecrease" :aria-label="m.decimalDecrease" :disabled="!state" @click="stepDecimal(false)">
             <IconDecimalDown />
           </button>
         </span>
-        <span v-else-if="blk.group === 'colors'" class="xs-tb-group">
+        <span v-else-if="blk.group === 'colors'" :data-tb-block="blk.key" class="xs-tb-group">
           <span v-for="c in COLOURS" :key="c.what" class="xs-tb-split">
-            <button type="button" class="xs-tool" :data-tb="`${c.what}-colour`" :title="text(c.title)" :aria-label="text(c.title)" :disabled="!state" @click="paint(c.what, last[c.what])">
+            <button type="button" class="xs-tool" :data-tb="`${c.what}-colour`" :data-tip="text(c.title)" :aria-label="text(c.title)" :disabled="!state" @click="paint(c.what, last[c.what])">
               <component :is="c.icon" :colour="last[c.what]" />
             </button>
             <button
               type="button"
               class="xs-tool xs-tb-caret"
               :data-tb="`${c.what}-palette`"
-              :title="m.pickColor"
+              :data-tip="m.pickColor"
               :aria-label="m.pickColor"
               :aria-expanded="open === c.what"
               :disabled="!state"
@@ -502,9 +571,9 @@ function pickNumber(e: Event): void {
             </div>
           </span>
         </span>
-        <span v-else-if="blk.group === 'borders'" class="xs-tb-group">
+        <span v-else-if="blk.group === 'borders'" :data-tb-block="blk.key" class="xs-tb-group">
           <span class="xs-tb-split">
-            <button type="button" class="xs-tool xs-tb-wide" data-tb="borders" :title="m.borders" :aria-label="m.borders" :aria-expanded="open === 'borders'" :disabled="!state" @click="toggle('borders')">
+            <button type="button" class="xs-tool xs-tb-wide" data-tb="borders" :data-tip="m.borders" :aria-label="m.borders" :aria-expanded="open === 'borders'" :disabled="!state" @click="toggle('borders')">
               <IconBorderAll />
               <IconDown class="xs-tb-down" />
             </button>
@@ -516,14 +585,14 @@ function pickNumber(e: Event): void {
             </div>
           </span>
         </span>
-        <span v-else-if="blk.group === 'verticalAlign'" class="xs-tb-group">
+        <span v-else-if="blk.group === 'verticalAlign'" :data-tb-block="blk.key" class="xs-tb-group">
           <button
             v-for="a in VERTICAL"
             :key="a.v"
             type="button"
             :class="['xs-tool', { 'xs-tool-on': verticalOn(style, a.v) }]"
             :data-tb="`align-${a.v === 'center' ? 'middle' : a.v}`"
-            :title="text(a.title)"
+            :data-tip="text(a.title)"
             :aria-label="text(a.title)"
             :aria-pressed="verticalOn(style, a.v)"
             :disabled="!state"
@@ -532,14 +601,14 @@ function pickNumber(e: Event): void {
             <component :is="a.icon" />
           </button>
         </span>
-        <span v-else-if="blk.group === 'align'" class="xs-tb-group">
+        <span v-else-if="blk.group === 'align'" :data-tb-block="blk.key" class="xs-tb-group">
           <button
             v-for="a in ALIGN"
             :key="a.h"
             type="button"
             :class="['xs-tool', { 'xs-tool-on': style?.alignment?.horizontal === a.h }]"
             :data-tb="`align-${a.h}`"
-            :title="text(a.title)"
+            :data-tip="text(a.title)"
             :aria-label="text(a.title)"
             :aria-pressed="style?.alignment?.horizontal === a.h"
             :disabled="!state"
@@ -547,17 +616,17 @@ function pickNumber(e: Event): void {
           >
             <component :is="a.icon" />
           </button>
-          <button type="button" class="xs-tool" data-tb="indent-down" :title="m.indentDecrease" :aria-label="m.indentDecrease" :disabled="!state" @click="restyle(indentStep(style, false))">
+          <button type="button" class="xs-tool" data-tb="indent-down" :data-tip="m.indentDecrease" :aria-label="m.indentDecrease" :disabled="!state" @click="restyle(indentStep(style, false))">
             <IconIndentDecrease />
           </button>
-          <button type="button" class="xs-tool" data-tb="indent-up" :title="m.indentIncrease" :aria-label="m.indentIncrease" :disabled="!state" @click="restyle(indentStep(style, true))">
+          <button type="button" class="xs-tool" data-tb="indent-up" :data-tip="m.indentIncrease" :aria-label="m.indentIncrease" :disabled="!state" @click="restyle(indentStep(style, true))">
             <IconIndentIncrease />
           </button>
           <button
             type="button"
             :class="['xs-tool', { 'xs-tool-on': !!style?.alignment?.wrap }]"
             data-tb="wrap"
-            :title="m.wrapText"
+            :data-tip="m.wrapText"
             :aria-label="m.wrapText"
             :aria-pressed="!!style?.alignment?.wrap"
             :disabled="!state"
@@ -566,13 +635,13 @@ function pickNumber(e: Event): void {
             <IconWrap />
           </button>
         </span>
-        <span v-else-if="blk.group === 'merge' && sheet && source.structure" class="xs-tb-group">
+        <span v-else-if="blk.group === 'merge' && sheet && source.structure" :data-tb-block="blk.key" class="xs-tb-group">
           <span class="xs-tb-split">
             <button
               type="button"
               :class="['xs-tool', { 'xs-tool-on': merged }]"
               data-tb="merge"
-              :title="m.mergeCenter"
+              :data-tip="m.mergeCenter"
               :aria-label="m.mergeCenter"
               :aria-pressed="merged"
               :disabled="!state?.canMerge"
@@ -580,7 +649,7 @@ function pickNumber(e: Event): void {
             >
               <IconMerge />
             </button>
-            <button type="button" class="xs-tool xs-tb-caret" data-tb="merge-menu" :title="m.mergeMenu" :aria-label="m.mergeMenu" :aria-expanded="open === 'merge'" :disabled="!state?.canMerge" @click="toggle('merge')">
+            <button type="button" class="xs-tool xs-tb-caret" data-tb="merge-menu" :data-tip="m.mergeMenu" :aria-label="m.mergeMenu" :aria-expanded="open === 'merge'" :disabled="!state?.canMerge" @click="toggle('merge')">
               <IconDown />
             </button>
             <div v-if="open === 'merge'" class="xs-tb-pop" role="menu" :aria-label="m.mergeMenu">
@@ -590,17 +659,17 @@ function pickNumber(e: Event): void {
             </div>
           </span>
         </span>
-        <span v-else-if="blk.group === 'formatCells' && (dialogToHost() || sheet)" class="xs-tb-group">
-          <button type="button" class="xs-tool" data-tb="format-cells" :title="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="formatCells">
+        <span v-else-if="blk.group === 'formatCells' && (dialogToHost() || sheet)" :data-tb-block="blk.key" class="xs-tb-group">
+          <button type="button" class="xs-tool" data-tb="format-cells" :data-tip="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="formatCells">
             <IconFormatCells />
           </button>
         </span>
-        <span v-else-if="blk.group === 'autoSum' && sheet" class="xs-tb-group">
+        <span v-else-if="blk.group === 'autoSum' && sheet" :data-tb-block="blk.key" class="xs-tb-group">
           <span class="xs-tb-split">
-            <button type="button" class="xs-tool" data-tb="auto-sum" :title="m.autoSum" :aria-label="m.autoSum" :disabled="!state?.canAutoSum" @click="autoSum('sum')">
+            <button type="button" class="xs-tool" data-tb="auto-sum" :data-tip="m.autoSum" :aria-label="m.autoSum" :disabled="!state?.canAutoSum" @click="autoSum('sum')">
               <IconAutoSum />
             </button>
-            <button type="button" class="xs-tool xs-tb-caret" data-tb="auto-sum-menu" :title="m.autoSumMenu" :aria-label="m.autoSumMenu" :aria-expanded="open === 'autoSum'" :disabled="!state?.canAutoSum" @click="toggle('autoSum')">
+            <button type="button" class="xs-tool xs-tb-caret" data-tb="auto-sum-menu" :data-tip="m.autoSumMenu" :aria-label="m.autoSumMenu" :aria-expanded="open === 'autoSum'" :disabled="!state?.canAutoSum" @click="toggle('autoSum')">
               <IconDown />
             </button>
             <div v-if="open === 'autoSum'" class="xs-tb-pop" role="menu" :aria-label="m.autoSumMenu">
@@ -613,14 +682,14 @@ function pickNumber(e: Event): void {
             </div>
           </span>
         </span>
-        <span v-else-if="blk.buttons" class="xs-tb-group">
+        <span v-else-if="blk.buttons" :data-tb-block="blk.key" class="xs-tb-group">
         <button
           v-for="x in blk.buttons"
           :key="x.id"
           type="button"
           :class="['xs-tool', { 'xs-tool-on': x.pressed, 'xs-tb-wide xs-tb-text': !x.icon }]"
           :data-tb-host="x.id"
-          :title="x.label"
+          :data-tip="x.label"
           :aria-label="x.label"
           :aria-pressed="x.pressed === undefined ? undefined : x.pressed"
           :disabled="x.disabled"
@@ -632,10 +701,11 @@ function pickNumber(e: Event): void {
         </button>
         </span>
       </template>
-      <button v-if="part.place === 'row' && parts.length > 1" type="button" :class="['xs-tool', 'xs-tb-more', { 'xs-tool-on': menu }]" data-tb="more" :title="m.toolbarMore" :aria-label="m.toolbarMore" :aria-expanded="menu" @click="menu = !menu">
+      <button v-if="part.place === 'row' && moreShown" type="button" :class="['xs-tool', 'xs-tb-more', { 'xs-tool-on': menu }]" data-tb="more" :data-tip="m.toolbarMore" :aria-label="m.toolbarMore" :aria-expanded="menu" @click="menu = !menu">
         <IconMore />
       </button>
     </div>
+    <div v-if="tip" ref="tipEl" class="xs-tb-tip" role="tooltip" data-tb-tip :style="{ left: `${tip.left}px`, top: `${tip.top}px` }">{{ tip.text }}</div>
   </div>
 </template>
 

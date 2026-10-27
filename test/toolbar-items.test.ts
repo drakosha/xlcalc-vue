@@ -1,8 +1,8 @@
 // The toolbar's `items`: the groups it draws and their order, the host's buttons drawn as its own, and in a narrow viewport
-// Undo and the font style in the row with everything else, the host's buttons too, in the menu.
+// the items that fit in the row, in order, with the rest, the host's buttons too, in the menu.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import { SheetToolbar, TOOLBAR_GROUPS, type SheetViewState, type ToolbarItem } from '../src'
 import type { EditOutcome, SheetSource } from '../src/contract/source'
 
@@ -53,7 +53,7 @@ describe("SheetToolbar's items", () => {
     expect(hooks(w)).toEqual(['bold', 'italic', 'underline', 'host:share', 'host:pin', 'host:save', 'undo', 'redo'])
     expect(w.findAll('.xs-tb-group')).toHaveLength(3)
     const share = w.find('[data-tb-host="share"]')
-    expect(share.attributes('title')).toBe('Share')
+    expect(share.attributes('data-tip')).toBe('Share')
     expect(share.find('svg[data-mine]').classes()).toContain('xs-icon')
     expect(share.attributes('aria-pressed')).toBeUndefined()
     const pin = w.find('[data-tb-host="pin"]')
@@ -68,10 +68,25 @@ describe("SheetToolbar's items", () => {
     expect(run).toHaveBeenCalledTimes(2)
   })
 
-  it('in a narrow viewport keeps Undo and the font style in the row and moves the rest, the host’s buttons too, into the menu', async () => {
+  /** A narrow toolbar whose row is `room` px wide, each block `block` px and the More button 44 px wide. */
+  function narrowLayout(room: number, block: (key: string) => number = () => 100): void {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('xs-tb-row') ? room : 0
+    })
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const key = this.dataset.tbBlock
+      const width = key ? block(key) : this.dataset.tb === 'more' ? 44 : 0
+      return { width, height: 44, top: 0, left: 0, right: width, bottom: 44, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
+    })
+  }
+
+  it('in a narrow viewport keeps the items in the row while they fit beside More, in order, and moves the rest, the host’s buttons too, into the menu', async () => {
+    narrowLayout(300)
     const run = vi.fn()
-    const w = mountBar(['autoSum', 'borders', { id: 'share', label: 'Share', run }, 'fontStyle', 'undo'])
+    const w = mountBar(['fontStyle', 'undo', 'borders', { id: 'share', label: 'Share', run }])
+    await nextTick()
+    await nextTick()
     expect(hooks(w, '.xs-tb-row')).toEqual(['bold', 'italic', 'underline', 'undo', 'redo', 'more'])
     const menu = w.find('[data-tb-menu]')
     expect((menu.element as HTMLElement).style.display).toBe('none')
@@ -83,10 +98,48 @@ describe("SheetToolbar's items", () => {
     expect((menu.element as HTMLElement).style.display).toBe('none')
   })
 
-  it('in a narrow viewport without anything for the menu has no More button', async () => {
-    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
-    const w = mountBar(['undo', 'fontStyle'])
-    expect(hooks(w)).toEqual(['undo', 'redo', 'bold', 'italic', 'underline'])
+  it('in a narrow viewport keeps every item in the row when all fit, with no More button', async () => {
+    narrowLayout(380, (key) => (key === 'undo' ? 100 : 90))
+    const run = vi.fn()
+    const w = mountBar(['undo', { id: 'a', label: 'A', run }, 'borders', 'fontStyle'])
+    await nextTick()
+    await nextTick()
+    expect(hooks(w)).toEqual(['undo', 'redo', 'host:a', 'borders', 'bold', 'italic', 'underline'])
     expect(w.find('[data-tb-menu]').exists()).toBe(false)
+    expect(w.find('[data-tb="more"]').exists()).toBe(false)
+  })
+})
+
+describe("SheetToolbar's ScreenTips", () => {
+  const over = (w: VueWrapper, hook: string, pointerType = 'mouse') => w.find(hook).element.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType }))
+  const out = (w: VueWrapper, hook: string) => w.find(hook).element.dispatchEvent(new PointerEvent('pointerout', { bubbles: true, pointerType: 'mouse' }))
+  const tipText = (w: VueWrapper) => (w.find('[data-tb-tip]').exists() ? w.find('[data-tb-tip]').text() : null)
+
+  it("shows a button's name and key after a short rest of the mouse, the next button's at once, and none on a press or a touch", async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mountBar(['fontStyle', { id: 'share', label: 'Share', run: () => {} }])
+      over(w, '[data-tb="bold"]')
+      await nextTick()
+      expect(tipText(w)).toBeNull()
+      vi.advanceTimersByTime(400)
+      await nextTick()
+      expect(tipText(w)).toBe('Bold (Ctrl+B)')
+      expect(w.find('[data-tb="bold"]').attributes('title')).toBeUndefined()
+      out(w, '[data-tb="bold"]')
+      over(w, '[data-tb-host="share"]')
+      await nextTick()
+      expect(tipText(w)).toBe('Share')
+      w.find('[data-tb-host="share"]').element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }))
+      await nextTick()
+      expect(tipText(w)).toBeNull()
+      vi.advanceTimersByTime(2000)
+      over(w, '[data-tb="italic"]', 'touch')
+      vi.advanceTimersByTime(1000)
+      await nextTick()
+      expect(tipText(w)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

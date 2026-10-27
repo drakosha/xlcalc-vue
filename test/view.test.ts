@@ -87,7 +87,8 @@ describe('cell style', () => {
     expect(css(w, 1, 1).color).toBe('#ff0000')
     expect(td(w, 1, 1).text()).toBe('(1)')
     expect(css(w, 1, 1).backgroundImage).toContain('var(--xs-note)')
-    expect(td(w, 1, 1).attributes('title')).toContain('Note (Ann): Check it')
+    // the note shows on hover (links-notes.test.ts), not in the cell's title
+    expect(td(w, 1, 1).attributes('title')).not.toContain('Check it')
     // an old-style bar is drawn as an Excel bar from the window's appearance would be: from the left edge to its share
     expect(css(w, 1, 2).backgroundImage).toContain('linear-gradient(to right, transparent 0%, #638ec6 0%, color-mix(in srgb, #638ec6 18%, white) 25%, transparent 25%)')
     expect(td(w, 3, 2).classes()).toContain('xs-thead')
