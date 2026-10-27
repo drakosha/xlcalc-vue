@@ -9,6 +9,10 @@ Built over xlcalc 0.60.0. Nothing breaks for a host; Paste Special and Format Pa
 - The display filter for a ribbon: `SheetViewApi.filterColumn()`, `clearFilter()` and `sortColumn('asc' | 'desc')`, and `SheetViewState.filtered`.
 - A host's toolbar button may have a list: `ToolbarButton.menu` (`ToolbarMenuItem`), drawn as the toolbar's own lists; without `run` a click opens it, with `run` the button is split. `run` is now optional.
 
+## 0.25.1 (2026-10-27)
+
+- Fixed: below 600 px the toolbar's groups shrank and wrapped their buttons onto several lines, so the row measured less than it held and kept everything in it, without More (a few groups after `undo` and many host buttons). The row's groups now keep their width and their buttons on one line.
+
 ## 0.25.0 (2026-10-27)
 
 Fixes and polish from the app's first look at 0.24.0. Nothing in the contract changes; a host's tests that read a toolbar button's name or a cell's note from `title` need another hook (below).
