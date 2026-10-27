@@ -140,6 +140,17 @@ describe('Format Painter', () => {
     expect((await look(s, 'C6')).style).toBeUndefined()
   })
 
+  it("a larger font painted onto a row without its own height fits the row, as Excel does (xlcalc 0.60.1's fitted)", async () => {
+    const s = localSource({ locale: 'en-US', styles: [{}, { font: { size: 20, bold: true } }], sheets: [{ name: 'S', cells: { A1: { value: 'Big', style: 1 }, C5: { value: 'x' } } }] }, { calc: 'inline' })
+    open.push(s)
+    const w = await mountLocal(s)
+    await goTo(w, 'A1')
+    api(w).formatPainter()
+    await press(w, 'C5')
+    const win = (await s.window({ sheet: 'S', row: 5, rows: 1, col: 3, cols: 1 })) as SheetWindow
+    expect(win.rowHeights[5]).toBe(26)
+  })
+
   it('is not available on a read-only sheet', async () => {
     const w = await mountLocal(source(), { readOnly: true })
     await goTo(w, 'A1')
