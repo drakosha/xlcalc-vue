@@ -4,9 +4,10 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { toRaw } from 'vue'
+import { cellAddress } from 'xlcalc/a1'
 import type { SheetViewApi } from '../src'
-import type { EditOutcome, SheetInfo, SheetOp, SheetSource } from '../src/contract/source'
-import { active, address, fakeSource, goTo, key, mountSheet, settle } from './helpers'
+import type { EditOutcome, SheetInfo, SheetOp, SheetSource, SheetWindow, SourceEvent, WindowRequest } from '../src/contract/source'
+import { active, address, fakeSource, goTo, gridWindow, key, mountSheet, settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -102,6 +103,60 @@ describe('SheetView exposes format', () => {
     await api(t).format([{ style: { font: { italic: true } } }])
     await settle()
     expect(told.sheetsCalls).toBe(was + 1)
+  })
+
+  it('a reload keeps the windows and sizes on screen until the new ones arrive, rather than a default grid in between', async () => {
+    let hold = false
+    const held: (() => void)[] = []
+    const win = (req: WindowRequest): SheetWindow =>
+      gridWindow(req, (r, c) => (r === 1 && c === 1 ? 'Region' : ''), { widths: new Array(req.cols).fill(null).map((_, i) => (req.col + i === 1 ? 30 : null)), rowHeights: { 1: 30 } })
+    const listeners = new Set<(e: SourceEvent) => void>()
+    const src: SheetSource = {
+      sheets: async () => [{ name: 'S', maxRow: 20, maxCol: 5 }],
+      window: (req) => (hold ? new Promise((done) => held.push(() => done(win(req)))) : Promise.resolve(win(req))),
+      subscribe: (l) => (listeners.add(l), () => listeners.delete(l)),
+    }
+    const w = await mountSheet(src)
+    const shown = () => [w.find('[data-cell="1:1"]').text(), (w.findAll('.xs-table colgroup col')[1]!.element as HTMLElement).style.width, (w.find('[data-cell="1:1"]').element.parentElement as HTMLElement).style.height]
+    const before = shown()
+    expect(before[0]).toBe('Region')
+    hold = true
+    for (const l of listeners) l({ kind: 'reload' })
+    await settle()
+    expect(held.length).toBeGreaterThan(0)
+    expect(shown()).toEqual(before)
+    hold = false
+    for (const done of held.splice(0)) done()
+    await settle()
+    expect(shown()).toEqual(before)
+  })
+
+  it('a reload keeps the scroll where it is when rows above the viewport have heights of their own', async () => {
+    let hold = false
+    const held: (() => void)[] = []
+    const tall = Object.fromEntries(Array.from({ length: 40 }, (_, i) => [i + 1, 30]))
+    const listeners = new Set<(e: SourceEvent) => void>()
+    const src: SheetSource = {
+      sheets: async () => [{ name: 'S', maxRow: 400, maxCol: 5 }],
+      window: (req) => {
+        const win = gridWindow(req, (r, c) => cellAddress(r, c), { rowHeights: Object.fromEntries(Object.entries(tall).filter(([r]) => +r >= req.row && +r < req.row + req.rows)) })
+        return hold ? new Promise((done) => held.push(() => done(win))) : Promise.resolve(win)
+      },
+      subscribe: (l) => (listeners.add(l), () => listeners.delete(l)),
+    }
+    const w = await mountSheet(src)
+    const scroller = w.find('.xs-scroller')
+    ;(scroller.element as HTMLElement).scrollTop = 1500
+    await scroller.trigger('scroll')
+    await settle()
+    const top = (scroller.element as HTMLElement).scrollTop
+    hold = true
+    for (const l of listeners) l({ kind: 'reload' })
+    await settle()
+    hold = false
+    for (const done of held.splice(0)) done()
+    await settle()
+    expect((scroller.element as HTMLElement).scrollTop).toBe(top)
   })
 
   it('a format change that the source repaints is not read a second time: only the windows over its ranges are', async () => {

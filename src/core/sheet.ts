@@ -327,9 +327,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       return
     }
     s.grown.value = { rows: 0, cols: 0 }
-    w.reset()
-    w.resetSizes()
-    if (hasLayout()) s.userWidths.value = {}
+    // The old windows and sizes stay on screen until the first new window replaces them
+    w.refresh(() => {
+      if (hasLayout()) s.userWidths.value = {}
+    })
     if (filter.active.value) void filter.refresh()
     w.ensure()
   }
