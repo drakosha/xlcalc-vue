@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.27.1 (2026-10-27)
+
+Built over xlcalc 0.60.1.
+
+- `SheetToolbar` is one row at any width: what does not fit goes into the menu under More, as below 600 px, rather than onto a second line (at Excel's ribbon size from 0.27.0, the Home groups wrapped at 1440 px).
+- A paste that brings styles (Paste, Paste Special All and Formats, the Format Painter) fits the rows without a height of their own to their fonts, as Excel does: `./local` with xlcalc 0.60.1, which fits them in the same undo step.
+
 ## 0.27.0 (2026-10-27)
 
 The toolbar at about Excel's ribbon size, and fixes from a look at 0.26.0. Nothing in the contract changes; the toolbar's default look does.

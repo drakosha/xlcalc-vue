@@ -194,7 +194,7 @@ const canRedo = computed(() => !history.value || history.value.redo > 0)
 const root = ref<HTMLElement | null>(null)
 const width = ref(0)
 const coarse = useCoarsePointer()
-/** Below `NARROW_PX` the toolbar keeps the items that fit in its row and the rest in a menu, as the sheet narrows. */
+/** Below `NARROW_PX` the toolbar's targets are touch-sized; at any width its row keeps the items that fit and the rest go into a menu. */
 const narrow = computed(() => (width.value || (typeof window === 'undefined' ? NARROW_PX : window.innerWidth)) < NARROW_PX)
 const touch = computed(() => narrow.value || coarse.value)
 const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(([entry]) => (width.value = entry?.contentRect.width ?? 0))
@@ -221,22 +221,21 @@ const blocks = computed(() => {
   }
   return out
 })
-/** In a narrow viewport, how many blocks from the start stay in the row, as measured; null while measuring, when all are drawn there. */
+/** How many blocks from the start stay in the row, as measured; null while measuring, when all are drawn there. */
 const fit = ref<number | null>(null)
-/** The row and, in a narrow viewport, the menu with the blocks that do not fit in the row (no menu when all fit). */
+/** The row and the menu with the blocks that do not fit in the row (no menu when all fit): the toolbar never wraps. */
 const parts = computed(() => {
   const all = blocks.value
-  if (!narrow.value) return [{ place: 'row', blocks: all }]
   const n = fit.value ?? all.length
   const row = { place: 'row', blocks: all.slice(0, n) }
   return n < all.length ? [row, { place: 'menu', blocks: all.slice(n) }] : [row]
 })
 /** The More button: while the row is measured too, so that its width counts. */
-const moreShown = computed(() => parts.value.length > 1 || (narrow.value && fit.value === null))
+const moreShown = computed(() => parts.value.length > 1 || fit.value === null)
 /** Measures the row drawn with every block: all stay when they fit, otherwise the blocks from the start that fit beside the More button. */
 function measureRow(): void {
   const row = root.value?.querySelector<HTMLElement>('.xs-tb-row')
-  if (!narrow.value || !row || fit.value !== null) return
+  if (!row || fit.value !== null) return
   const widthOf = (el: Element | null) => el?.getBoundingClientRect().width ?? 0
   const widths = blocks.value.map((b) => widthOf(row.querySelector(`:scope > [data-tb-block="${b.key}"]`)))
   const room = row.clientWidth
