@@ -1,12 +1,20 @@
-/* The formatting toolbar: the sheet's --xs-* variables and its .xs-tool buttons (style.css), in groups with menus below them. */
+/* The formatting toolbar: the sheet's --xs-* variables and its .xs-tool buttons (style.css), in groups with menus below them.
+   Its sizes are --xs-tb-* variables, at about Excel's ribbon by default; a touch screen has 44 px targets instead. */
 .xs-toolbar {
+  --xs-tb-tool: 32px;
+  --xs-tb-tool-h: 30px;
+  --xs-tb-icon: 18px;
+  --xs-tb-field-h: 28px;
+  --xs-tb-text: 13px;
+  --xs-tb-font-w: 150px;
+  --xs-tb-size-w: 52px;
   position: relative;
   z-index: 30;
   display: flex;
   flex-shrink: 0;
   align-items: center;
   min-width: 0;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--xs-grid);
   background: var(--xs-bar-bg);
   color: var(--xs-fg);
@@ -45,21 +53,31 @@
   display: inline-flex;
   align-items: center;
 }
+/* Buttons and their icons at the toolbar's size, not the sheet's bar size (controls.css). */
+.xs-toolbar:not(.xs-touch) .xs-tool {
+  min-width: var(--xs-tb-tool);
+  height: var(--xs-tb-tool-h);
+}
+.xs-toolbar:not(.xs-touch) .xs-tool .xs-icon {
+  width: var(--xs-tb-icon);
+  height: var(--xs-tb-icon);
+}
 .xs-toolbar:not(.xs-touch) .xs-tb-caret {
-  width: 14px;
+  width: 16px;
+  min-width: 0;
 }
 .xs-toolbar:not(.xs-touch) .xs-tb-caret .xs-icon {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 .xs-tool.xs-tb-wide {
   width: auto;
   gap: 1px;
   padding: 0 3px;
 }
-.xs-tb-down {
-  width: 10px;
-  height: 10px;
+.xs-toolbar:not(.xs-touch) .xs-tool .xs-tb-down {
+  width: 12px;
+  height: 12px;
 }
 /* A host's button: its SVG markup at the icon's size, or its label as text. */
 .xs-tb-svg {
@@ -70,27 +88,31 @@
   height: 100%;
 }
 .xs-tool.xs-tb-text {
-  padding: 0 6px;
-  font: 12px var(--xs-font);
+  padding: 0 8px;
+  font: var(--xs-tb-text) var(--xs-font);
   white-space: nowrap;
 }
 .xs-tb-select {
-  max-width: 140px;
-  font-size: 12px;
+  max-width: 170px;
+  font-size: var(--xs-tb-text);
 }
 /* The Font and Font Size boxes: an input joined to the button that opens its list, as Excel draws them. */
 .xs-tb-input {
   border-radius: 4px 0 0 4px;
-  font-size: 12px;
+  font-size: var(--xs-tb-text);
+}
+.xs-toolbar:not(.xs-touch) .xs-tb-input,
+.xs-toolbar:not(.xs-touch) .xs-tb-select {
+  height: var(--xs-tb-field-h);
 }
 .xs-tb-font {
-  width: 120px;
+  width: var(--xs-tb-font-w);
 }
 .xs-tb-size {
-  width: 40px;
+  width: var(--xs-tb-size-w);
 }
 .xs-tb-box > .xs-tb-caret {
-  height: 22px;
+  height: var(--xs-tb-field-h);
   border: 1px solid var(--xs-grid);
   border-left: 0;
   border-radius: 0 4px 4px 0;
@@ -147,13 +169,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 26px;
-  padding: 3px 8px;
+  min-height: 30px;
+  padding: 3px 10px;
   border: 0;
   border-radius: 4px;
   background: none;
   color: var(--xs-fg);
-  font: var(--xs-font-size) var(--xs-font);
+  font: var(--xs-tb-text) var(--xs-font);
   text-align: left;
   white-space: nowrap;
   cursor: pointer;

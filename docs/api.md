@@ -620,4 +620,6 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | `--xs-watch-w`, `--xs-watch-h` | `560px`, `200px` | The Watch Window's size when it opens (within the sheet's box); on a phone its height is at most 45 %. |
 | `--xs-prompt-bg`, `--xs-prompt-fg`, `--xs-prompt-line` | `#ffffe1`, `#1f2328`, `#767676` | The data validation input message. |
 | `--xs-alert-stop`, `--xs-alert-warning`, `--xs-alert-information` | `#d13438`, `#ffb900`, `#0f6cbd` | The validation alert's icons. |
+| `--xs-tb-tool`, `--xs-tb-tool-h`, `--xs-tb-icon` | `32px`, `30px`, `18px` | The toolbar's buttons (their least width and their height) and icons, at about Excel's ribbon; on a touch screen every target is 44 × 44 px instead. Set on `.xs-toolbar`. |
+| `--xs-tb-field-h`, `--xs-tb-text`, `--xs-tb-font-w`, `--xs-tb-size-w` | `28px`, `13px`, `150px`, `52px` | The toolbar's boxes (height, text size) and the widths of the Font and Font Size boxes. |
 | `--xs-fl-line` | `#7a7a7a` | The border of lists under a cell: Formula AutoComplete and validation lists. |
