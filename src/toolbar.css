@@ -47,12 +47,17 @@
   gap: 2px;
   padding: 0 6px;
 }
-.xs-tb-group + .xs-tb-group,
-.xs-tb-row + .xs-tb-row > .xs-tb-group:first-child {
+.xs-tb-group + .xs-tb-group {
   border-left: 1px solid var(--xs-grid);
 }
-.xs-tb-row:first-child > .xs-tb-group:first-child {
+/* With `rows`, the row wraps onto its lines; a group that starts a line has no separator, as the first one. */
+.xs-tb-rows {
+  flex-wrap: wrap;
+}
+.xs-tb-row > .xs-tb-group:first-child,
+.xs-tb-row > [data-tb-line] {
   padding-left: 0;
+  border-left: 0;
 }
 .xs-tb-split {
   position: relative;

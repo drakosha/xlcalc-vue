@@ -28,6 +28,7 @@ import {
   ACCOUNTING_STYLE,
   COMMA_STYLE,
   decimalStep,
+  fitLines,
   PERCENT_STYLE,
   shownFont,
   TOOLBAR_GROUPS,
@@ -104,8 +105,10 @@ const props = withDefaults(
     fonts?: readonly string[]
     /** The groups to draw, in order, and the host's buttons among them; all groups in their default order (`TOOLBAR_GROUPS`) without it. */
     items?: readonly ToolbarItem[]
+    /** How many lines the items may take at 600 px and wider before the rest go into the menu under More; one below 600 px. */
+    rows?: number
   }>(),
-  { messages: undefined, locale: undefined, sheet: null, hostDialog: false, fonts: () => FONT_NAMES, items: () => TOOLBAR_GROUPS },
+  { messages: undefined, locale: undefined, sheet: null, hostDialog: false, fonts: () => FONT_NAMES, items: () => TOOLBAR_GROUPS, rows: 1 },
 )
 const emit = defineEmits<{
   /** Where the selection goes after an undo or a redo (`EditOutcome.select`), for the sheet's `focus`; not emitted with `sheet`. */
@@ -221,9 +224,13 @@ const blocks = computed(() => {
   }
   return out
 })
+/** The lines the row may take: `rows` (at least one, whole) at 600 px and wider, one below. */
+const lines = computed(() => (narrow.value ? 1 : Math.max(1, Math.floor(props.rows) || 1)))
 /** How many blocks from the start stay in the row, as measured; null while measuring, when all are drawn there. */
 const fit = ref<number | null>(null)
-/** The row and the menu with the blocks that do not fit in the row (no menu when all fit): the toolbar never wraps. */
+/** The keys of the kept blocks that start a line after the first, drawn without the separator before them. */
+const breaks = ref<ReadonlySet<string>>(new Set())
+/** The row on its lines and the menu with the blocks that do not fit on them (no menu when all fit). */
 const parts = computed(() => {
   const all = blocks.value
   const n = fit.value ?? all.length
@@ -232,28 +239,29 @@ const parts = computed(() => {
 })
 /** The More button: while the row is measured too, so that its width counts. */
 const moreShown = computed(() => parts.value.length > 1 || fit.value === null)
-/** Measures the row drawn with every block: all stay when they fit, otherwise the blocks from the start that fit beside the More button. */
+/** Measures the row drawn with every block: all stay when they fit on its lines, otherwise those from the start that fit with More at the end. */
 function measureRow(): void {
   const row = root.value?.querySelector<HTMLElement>('.xs-tb-row')
   if (!row || fit.value !== null) return
   const widthOf = (el: Element | null) => el?.getBoundingClientRect().width ?? 0
   const widths = blocks.value.map((b) => widthOf(row.querySelector(`:scope > [data-tb-block="${b.key}"]`)))
-  const room = row.clientWidth
-  if (widths.reduce((a, w) => a + w, 0) <= room) return void (fit.value = widths.length)
-  let used = widthOf(row.querySelector('[data-tb="more"]'))
-  let n = 0
-  while (n < widths.length && used + widths[n]! <= room) used += widths[n++]!
-  fit.value = n
+  const out = fitLines(widths, row.clientWidth, lines.value, widthOf(row.querySelector('[data-tb="more"]')))
+  breaks.value = new Set(out.breaks.map((i) => blocks.value[i]!.key))
+  fit.value = out.fit
 }
-// Whatever changes the row's widths draws it whole again and measures it
+// Whatever changes the row's widths or lines draws it whole again and measures it: the sheet and the source decide which
+// groups are drawn, and the Number Format box widens when its locale's list loads
 watch(
-  [narrow, width, touch, blocks, () => props.messages],
+  [narrow, width, touch, blocks, lines, () => props.messages, () => props.sheet, () => props.source, () => props.hostDialog, () => numbers.choices.value.length > 0],
   () => {
     fit.value = null
+    breaks.value = new Set()
     void nextTick(measureRow)
   },
   { flush: 'post' },
 )
+/** The hook of a block that starts a line after the first. */
+const lineStart = (key: string) => (breaks.value.has(key) ? '' : undefined)
 /** A host's button: its action, after the menus close. */
 function runHost(button: { run?: () => void }): void {
   closeAll()
@@ -464,11 +472,11 @@ function pickNumber(e: Event): void {
       v-for="part in parts"
       v-show="part.place === 'row' || menu"
       :key="part.place"
-      :class="part.place === 'row' ? 'xs-tb-row' : 'xs-tb-menu'"
+      :class="part.place === 'row' ? ['xs-tb-row', { 'xs-tb-rows': lines > 1 }] : 'xs-tb-menu'"
       :data-tb-menu="part.place === 'menu' ? '' : undefined"
     >
       <template v-for="blk in part.blocks" :key="blk.key">
-        <span v-if="blk.group === 'undo' && (source.undo || source.redo)" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-if="blk.group === 'undo' && (source.undo || source.redo)" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <button v-if="source.undo" type="button" class="xs-tool" data-tb="undo" :data-tip="m.undo" :aria-label="m.undo" :disabled="!canUndo" @click="step('undo')">
             <IconUndo />
           </button>
@@ -476,7 +484,7 @@ function pickNumber(e: Event): void {
             <IconRedo />
           </button>
         </span>
-        <span v-else-if="blk.group === 'formatPainter' && sheet" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'formatPainter' && sheet" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <button
             type="button"
             :class="['xs-tool', { 'xs-tool-on': !!state?.painting }]"
@@ -491,7 +499,7 @@ function pickNumber(e: Event): void {
             <IconFormatPainter />
           </button>
         </span>
-        <span v-else-if="blk.group === 'fontStyle'" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'fontStyle'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <button
             v-for="b in FONT"
             :key="b.what"
@@ -507,7 +515,7 @@ function pickNumber(e: Event): void {
             <component :is="b.icon" />
           </button>
         </span>
-        <span v-else-if="blk.group === 'font'" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'font'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span class="xs-tb-pair">
             <ToolbarBox
               :value="font.name"
@@ -547,7 +555,7 @@ function pickNumber(e: Event): void {
             </button>
           </span>
         </span>
-        <span v-else-if="blk.group === 'number'" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'number'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <select
             v-if="numbers.choices.value.length"
             class="xs-field xs-field-s xs-tb-select"
@@ -578,7 +586,7 @@ function pickNumber(e: Event): void {
             <IconDecimalDown />
           </button>
         </span>
-        <span v-else-if="blk.group === 'colors'" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'colors'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span v-for="c in COLOURS" :key="c.what" class="xs-tb-split">
             <button type="button" class="xs-tool" :data-tb="`${c.what}-colour`" :data-tip="text(c.title)" :aria-label="text(c.title)" :disabled="!state" @click="paint(c.what, last[c.what])">
               <component :is="c.icon" :colour="last[c.what]" />
@@ -601,7 +609,7 @@ function pickNumber(e: Event): void {
             </div>
           </span>
         </span>
-        <span v-else-if="blk.group === 'borders'" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'borders'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span class="xs-tb-split">
             <button type="button" class="xs-tool xs-tb-wide" data-tb="borders" :data-tip="m.borders" :aria-label="m.borders" :aria-expanded="open === 'borders'" :disabled="!state" @click="toggle('borders')">
               <IconBorderAll />
@@ -615,7 +623,7 @@ function pickNumber(e: Event): void {
             </div>
           </span>
         </span>
-        <span v-else-if="blk.group === 'verticalAlign'" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'verticalAlign'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <button
             v-for="a in VERTICAL"
             :key="a.v"
@@ -631,7 +639,7 @@ function pickNumber(e: Event): void {
             <component :is="a.icon" />
           </button>
         </span>
-        <span v-else-if="blk.group === 'align'" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'align'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <button
             v-for="a in ALIGN"
             :key="a.h"
@@ -665,7 +673,7 @@ function pickNumber(e: Event): void {
             <IconWrap />
           </button>
         </span>
-        <span v-else-if="blk.group === 'merge' && sheet && source.structure" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'merge' && sheet && source.structure" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span class="xs-tb-split">
             <button
               type="button"
@@ -689,12 +697,12 @@ function pickNumber(e: Event): void {
             </div>
           </span>
         </span>
-        <span v-else-if="blk.group === 'formatCells' && (dialogToHost() || sheet)" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'formatCells' && (dialogToHost() || sheet)" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <button type="button" class="xs-tool" data-tb="format-cells" :data-tip="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="formatCells">
             <IconFormatCells />
           </button>
         </span>
-        <span v-else-if="blk.group === 'autoSum' && sheet" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.group === 'autoSum' && sheet" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span class="xs-tb-split">
             <button type="button" class="xs-tool" data-tb="auto-sum" :data-tip="m.autoSum" :aria-label="m.autoSum" :disabled="!state?.canAutoSum" @click="autoSum('sum')">
               <IconAutoSum />
@@ -712,7 +720,7 @@ function pickNumber(e: Event): void {
             </div>
           </span>
         </span>
-        <span v-else-if="blk.buttons" :data-tb-block="blk.key" class="xs-tb-group">
+        <span v-else-if="blk.buttons" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <template v-for="x in blk.buttons" :key="x.id">
             <button
               v-if="!x.menu || x.run"

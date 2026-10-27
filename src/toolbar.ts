@@ -9,6 +9,33 @@ import type { SheetViewState, ToolbarGroup } from './contract/view'
 /** The toolbar's groups in their default order, as `SheetToolbar`'s `items` takes them: a host spreads it to add its buttons. */
 export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = ['undo', 'formatPainter', 'fontStyle', 'font', 'number', 'colors', 'borders', 'verticalAlign', 'align', 'merge', 'formatCells', 'autoSum']
 
+/**
+ * How many blocks of these widths, from the start, fit on `rows` lines of `room` px, each line filled as a wrapping flex row
+ * fills it: all when they fit, otherwise those that fit with `more` px left on the last line for the More button. A block
+ * wider than a line does not fit. `breaks` are the kept blocks that start a line after the first.
+ */
+export function fitLines(widths: readonly number[], room: number, rows: number, more: number): { fit: number; breaks: number[] } {
+  const pack = (last: number) => {
+    const breaks: number[] = []
+    let line = 0
+    let used = 0
+    for (let i = 0; i < widths.length; i++) {
+      const w = widths[i]!
+      const limit = (at: number) => (at === rows - 1 ? last : room)
+      const next = used > 0 && used + w > limit(line)
+      const at = next ? line + 1 : line
+      const from = next ? 0 : used
+      if (at >= rows || from + w > limit(at)) return { fit: i, breaks }
+      if (next) breaks.push(i)
+      line = at
+      used = from + w
+    }
+    return { fit: widths.length, breaks }
+  }
+  const all = pack(room)
+  return all.fit === widths.length ? all : pack(room - more)
+}
+
 export type FontToggle = 'bold' | 'italic' | 'underline'
 export type HorizontalAlign = 'left' | 'center' | 'right'
 export type VerticalAlign = 'top' | 'center' | 'bottom'
