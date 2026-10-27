@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.25.0 (2026-10-27)
+
+Fixes and polish from the app's first look at 0.24.0. Nothing in the contract changes; a host's tests that read a toolbar button's name or a cell's note from `title` need another hook (below).
 
 - Fixed: Trace Precedents in a sheet narrower than about 940 px redrew without end. The phone layout was decided by the grid's width, which the panel beside it narrows below 600 px, so the panel moved below the grid and back; it is now decided by the sheet's own width.
 - Fixed: after a change the sheet reads again (a font size that fits rows, a number format, a structure operation), the grid showed default widths and heights and empty cells until the new windows arrived. The old windows and sizes now stay on screen until the first new window replaces them, and the scroll stays where it was.
