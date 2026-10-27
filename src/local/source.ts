@@ -21,11 +21,12 @@ import { workbookMethods } from './workbook'
 
 /** A display filter's rows as `visibleRows` last returned them and where the sheet's rows ended then; ascending (for search and totals) once requested. */
 interface RowList {
-  key: string
   rows: number[]
   max: number
   asc?: number[]
 }
+/** How many filters' row lists a sheet keeps, for viewers that share the source with different filters. */
+const LISTS_PER_SHEET = 8
 
 async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
   const kind = typeof opts.calc === 'string' ? opts.calc : typeof Worker === 'function' ? 'pool' : 'inline'
@@ -82,8 +83,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   const listeners = new Set<(event: SourceEvent) => void>()
   /** Displayed values of the sheets that the display filter or its funnel needed, by the sheet's name key. */
   const values = new Map<string, Promise<SheetValues>>()
-  /** The rows of a sheet's display filter, as `visibleRows` last returned them: windows under the filter use them. */
-  const lists = new Map<string, RowList>()
+  /** The rows of a sheet's display filters by filter, as `visibleRows` last returned them: windows under a filter use its list. */
+  const lists = new Map<string, Map<string, RowList>>()
   let calc: Calc | null = null
   let session: AsyncSession | null = null
 
@@ -180,11 +181,16 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   /** The rows of a sheet under a filter: the list `visibleRows` returned for it, so windows match what the component holds. */
   async function rowsUnder(s: AsyncSession, sheet: string, filter: SheetFilter, fresh: boolean, signal?: AbortSignal): Promise<RowList> {
     const key = filterKey(filter)
-    const kept = lists.get(nameKey(sheet))
-    if (!fresh && kept?.key === key) return kept
+    let byFilter = lists.get(nameKey(sheet))
+    const kept = byFilter?.get(key)
+    if (!fresh && kept) return kept
     const v = await columnsOf(s, sheet, filterColumns(filter), signal)
-    const list: RowList = { key, rows: visibleList(v, filter, locale), max: v.maxRow }
-    lists.set(nameKey(sheet), list)
+    const list: RowList = { rows: visibleList(v, filter, locale), max: v.maxRow }
+    if (!byFilter) lists.set(nameKey(sheet), (byFilter = new Map()))
+    // the newest last; the oldest list goes beyond the limit
+    byFilter.delete(key)
+    byFilter.set(key, list)
+    if (byFilter.size > LISTS_PER_SHEET) byFilter.delete(byFilter.keys().next().value!)
     return list
   }
 
@@ -552,10 +558,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     },
     async visibleRows(sheet, filter, signal) {
       const s = await open()
-      if (!filterActive(filter)) {
-        lists.delete(nameKey(sheet))
-        return { rows: null }
-      }
+      if (!filterActive(filter)) return { rows: null }
       throwIfAborted(signal)
       return { rows: (await rowsUnder(s, sheet, filter, true, signal)).rows }
     },

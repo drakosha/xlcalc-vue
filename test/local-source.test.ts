@@ -116,6 +116,21 @@ describe('localSource: search, display filter, totals', () => {
     expect(await s.visibleRows('Список', { head: 1, sort: { col: 1, dir: 'desc' } })).toEqual({ rows: [1, 6, 2, 4, 3, 5] })
   })
 
+  it('keeps the rows of each filter until it is applied again, so viewers sharing the source with different filters each keep theirs', async () => {
+    const cells = { A1: { value: 'h' }, A2: { value: 'x' }, A3: { value: 'y' }, A4: { value: 'x' }, B1: { value: 1 }, B2: { value: 2 }, B3: { value: 3 }, B4: { value: 4 } }
+    const s = source({ sheets: [{ name: 'S', cells }] })
+    const xs: SheetFilter = { head: 1, cols: { 1: { values: ['x'] } } }
+    const ys: SheetFilter = { head: 1, cols: { 1: { values: ['y'] } } }
+    expect((await s.visibleRows('S', xs)).rows).toEqual([1, 2, 4])
+    expect((await s.visibleRows('S', ys)).rows).toEqual([1, 3])
+    await s.visibleRows('S', { head: 1 })
+    expect((await s.edit([{ sheet: 'S', cell: 'A3', text: 'x' }])).ok).toBe(true)
+    // Both lists stay as their viewers hold them, as Excel keeps rows until Reapply
+    expect((await win(s, 'S', 1, 3, 2, 1, xs)).text.map((r) => r[0])).toEqual(['1', '2', '4'])
+    expect((await win(s, 'S', 1, 2, 2, 1, ys)).text.map((r) => r[0])).toEqual(['1', '3'])
+    expect((await s.visibleRows('S', xs)).rows).toEqual([1, 2, 3, 4])
+  })
+
   it("sorts mixed values in Excel's order, as memorySource does: numbers, text case-insensitively in en-US order, FALSE, TRUE, errors, empty cells last in either direction", async () => {
     const cells = { A1: { value: 'k' }, A2: { value: 'b' }, A3: { value: 2 }, A4: { value: true }, A5: { formula: '1/0' }, A7: { value: 1 }, A8: { value: 'a' }, A9: { value: 'Item10' }, A10: { value: 'Item2' }, A11: { value: false } }
     const s = source({ sheets: [{ name: 'S', cells }] })
