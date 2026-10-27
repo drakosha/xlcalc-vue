@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27.0 (2026-10-27)
+
+The toolbar at about Excel's ribbon size, and fixes from a look at 0.26.0. Nothing in the contract changes; the toolbar's default look does.
+
+- Fixed: in a column wider than the viewport, Up and Down flipped the view between the column's left and right edges. A cell larger than the scrolled area now keeps its left (or top) edge in view, as Excel scrolls by whole columns and rows.
+- A double click on a row number's edge fits every row of the selection the row is in, a range of cells too, as Excel does; it fitted them only for selected entire rows. A column letter's edge does the same for the selection's columns.
+- `SheetToolbar` is drawn at about Excel's ribbon size: buttons 32 × 30 px with 18 px icons, boxes 28 px high with 13 px text (they were 24 × 22, 14 and 12), sized by the new `--xs-tb-*` variables on `.xs-toolbar`, which a host overrides for the old compact look. A touch screen keeps its 44 px targets. This changes the toolbar's default look.
+- A drag with the mouse over row numbers or column letters selects those rows or columns, on into the grid too, as in Excel; it selected nothing.
+
 ## 0.26.0 (2026-10-27)
 
 The app's next requests, built over xlcalc 0.60.0. Nothing breaks for a host; Paste Special and Format Painter in `./local` need xlcalc 0.60.0.

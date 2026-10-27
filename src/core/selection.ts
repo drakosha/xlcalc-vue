@@ -115,13 +115,38 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     lastTap = { at: double ? 0 : e.timeStamp, key }
     return double
   }
+  /** A press on a row number or a column letter, dragged as Excel's: rows or columns from it to the one under the pointer. */
+  let lineDrag: 'rows' | 'columns' | null = null
+  /** Selects the row or column (from the active one with Shift) and starts the drag; not for touch, whose drag scrolls. */
+  function onLineDown(e: PointerEvent, kind: 'rows' | 'columns', line: number): void {
+    if (e.button !== 0 || e.pointerType === 'touch') return
+    if (kind === 'rows') pickRow(line, e.shiftKey)
+    else pickColumn(line, e.shiftKey)
+    lineDrag = kind
+  }
+  /** The row or column under the pointer: its number or letter, or a cell in it. */
+  function lineAt(el: Element | null | undefined, kind: 'rows' | 'columns'): number | null {
+    const head = el?.closest<HTMLElement>(kind === 'rows' ? '[data-row]' : '[data-col]')
+    const n = Number(kind === 'rows' ? head?.dataset.row : head?.dataset.col)
+    if (n > 0) return n
+    const at = cellOfData(el?.closest('[data-cell]')?.getAttribute('data-cell'))
+    return at ? (kind === 'rows' ? at.row : at.col) : null
+  }
   function onGridMove(e: PointerEvent): void {
-    if (!dragging || typeof document.elementFromPoint !== 'function') return
-    const at = cellOfData(document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-cell]')?.getAttribute('data-cell'))
+    if ((!dragging && !lineDrag) || typeof document.elementFromPoint !== 'function') return
+    const el = document.elementFromPoint(e.clientX, e.clientY)
+    if (lineDrag) {
+      const line = lineAt(el, lineDrag)
+      const to = line === null ? null : lineDrag === 'rows' ? { row: line, col: MAX_COLS } : { row: MAX_ROWS, col: line }
+      if (to && (s.extent.value?.row !== to.row || s.extent.value?.col !== to.col)) s.extent.value = to
+      return
+    }
+    const at = cellOfData(el?.closest('[data-cell]')?.getAttribute('data-cell'))
     if (at && (s.extent.value?.row !== at.row || s.extent.value?.col !== at.col)) s.extent.value = at
   }
   function onGridUp(): void {
     dragging = false
+    lineDrag = null
   }
 
   /** Scrolls so the cell (by sheet row) is in the viewport with a margin; a row hidden by the filter clears the filter first. */
@@ -139,14 +164,19 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     const z = s.zoom.value
     let y = el.scrollTop / z
     let x = el.scrollLeft / z
-    // Frozen rows and columns are always in the viewport.
+    // Frozen rows and columns are always in the viewport. A cell larger than the scrolled area keeps its top or left edge in
+    // view, as Excel scrolls by whole rows and columns: aligning the far edge would flip the view on each move along it.
     if (d > v.frozenRows.value) {
-      if (top - v.frozenH.value < y) y = top - v.frozenH.value - REVEAL_PAD
-      else if (bottom > y + s.viewH.value - v.headH.value - v.footH.value) y = bottom - s.viewH.value + v.headH.value + v.footH.value + REVEAL_PAD
+      const end = y + s.viewH.value - v.headH.value - v.footH.value
+      const tall = bottom - top > end - y - v.frozenH.value
+      if (top - v.frozenH.value < y || (tall && top > end)) y = top - v.frozenH.value - REVEAL_PAD
+      else if (!tall && bottom > end) y = bottom - s.viewH.value + v.headH.value + v.footH.value + REVEAL_PAD
     }
     if (col > v.frozenCols.value) {
-      if (left - v.frozenW.value < x) x = left - v.frozenW.value - REVEAL_PAD
-      else if (right > x + s.viewW.value - v.leadW.value) x = right - s.viewW.value + v.leadW.value + REVEAL_PAD
+      const end = x + s.viewW.value - v.leadW.value
+      const wide = right - left > end - x - v.frozenW.value
+      if (left - v.frozenW.value < x || (wide && left > end)) x = left - v.frozenW.value - REVEAL_PAD
+      else if (!wide && right > end) x = right - s.viewW.value + v.leadW.value + REVEAL_PAD
     }
     if (y !== el.scrollTop / z || x !== el.scrollLeft / z) {
       s.scrollGridTo(Math.max(0, y), Math.max(0, x))
@@ -316,6 +346,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     pickCell,
     pickColumn,
     pickRow,
+    onLineDown,
     selectAll,
     stretchTo,
     selectRect,

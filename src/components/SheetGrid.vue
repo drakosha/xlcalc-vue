@@ -120,6 +120,8 @@ function onDown(e: PointerEvent): void {
   const cell = under && cellOf(e)
   // A column letter or a row number may insert a reference to its column or row.
   if (!cell && ctx.point.down(e, h && { kind: h.kind, row: h.kind === 'rows' ? h.line : 1, col: h.kind === 'columns' ? h.line : 1 })) return
+  // A column letter or a row number selects its line at once, and a drag over more of them selects those too, as Excel's do; a list's sortable title sorts on its click instead.
+  if (h && !(h.kind === 'columns' && list.sortable(h.line))) sel.onLineDown(e, h.kind, h.line)
   if (h && ctx.menu.linesAvailable.value) return ctx.menu.press.start(e, (x, y) => ctx.menu.openLines(h.kind, h.line, x, y))
   if (cell) ctx.menu.press.start(e, (x, y) => ctx.menu.openCells(cell.row, cell.col, x, y))
 }

@@ -27,6 +27,53 @@ async function goTo(w: VueWrapper, address: string): Promise<void> {
   await settle()
 }
 
+describe('a drag over row numbers or column letters', () => {
+  it('selects the rows or columns from the pressed one to the one under the pointer, a cell in the grid too, as Excel does', async () => {
+    const w = await mountSheet(memorySource(book()))
+    const scroller = w.find('.xs-scroller').element
+    const drag = async (from: Element, over: Element) => {
+      vi.spyOn(document, 'elementFromPoint').mockReturnValue(over)
+      from.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }))
+      scroller.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse' }))
+      scroller.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' }))
+      await settle()
+    }
+    await drag(w.find('.xs-num[data-row="2"]').element, w.find('.xs-num[data-row="5"]').element)
+    expect(addressOf(w)).toBe('2:5')
+    await drag(w.find('.xs-num[data-row="4"]').element, w.find('[data-cell="2:3"]').element)
+    expect(addressOf(w)).toBe('2:4')
+    await drag(w.find('.xs-head[data-col="3"]').element, w.find('.xs-head[data-col="1"]').element)
+    expect(addressOf(w)).toBe('A:C')
+  })
+
+  it('a touch on a row number does not start one: the drag scrolls', async () => {
+    const w = await mountSheet(memorySource(book()))
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(w.find('.xs-num[data-row="5"]').element)
+    w.find('.xs-num[data-row="2"]').element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'touch' }))
+    w.find('.xs-scroller').element.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'touch' }))
+    await settle()
+    expect(addressOf(w)).toBe('A1')
+  })
+})
+
+describe('a column wider than the viewport', () => {
+  it('Up and Down within it keep the scroll, its left edge in view, as Excel scrolls by whole columns', async () => {
+    const w = await mountSheet(memorySource({ sheets: [{ name: 'S', widths: { B: 200 }, cells: { B1: 'wide', B2: 'wide', B3: 'wide' } }] }))
+    const scroller = w.find('.xs-scroller').element as HTMLElement
+    await goTo(w, 'B1')
+    const left = scroller.scrollLeft
+    const at: number[] = []
+    for (let i = 0; i < 3; i++) {
+      await w.find('.xs-scroller').trigger('keydown', { key: i < 2 ? 'ArrowDown' : 'ArrowUp' })
+      await settle()
+      at.push(scroller.scrollLeft)
+    }
+    expect(at).toEqual([left, left, left])
+    // the column's left edge is in view: the scroll is at most where it starts
+    expect(left).toBeLessThanOrEqual(71)
+  })
+})
+
 describe('Name Box and Back history', () => {
   it('goes to a range on another sheet, flashes it, and Back returns', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })

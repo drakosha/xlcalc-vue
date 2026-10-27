@@ -300,7 +300,7 @@ describe('column width set with the mouse', () => {
     expect(layout).not.toHaveBeenCalled()
   })
 
-  it('a double click on an edge fits the column through `layout`, as Excel does, together with every selected entire column when it is one of them', async () => {
+  it('a double click on an edge fits the column through `layout`, as Excel does, together with every column of the selection it is in, entire columns or cells', async () => {
     const source = memorySource({ sheets: [{ name: 'S', cells: { C3: 'x' } }] })
     const layout = vi.spyOn(source, 'layout')
     const sheets = vi.spyOn(source, 'sheets')
@@ -320,7 +320,15 @@ describe('column width set with the mouse', () => {
     await grip(5).trigger('dblclick')
     await settle()
     expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'E', fit: true })
-    expect(layout).toHaveBeenCalledTimes(3)
+    // a range of cells, as Excel fits every column of the selection
+    const box = w.find('.xs-address')
+    await box.setValue('B2:C4')
+    await box.trigger('keydown', { key: 'Enter' })
+    await settle()
+    await grip(3).trigger('dblclick')
+    await settle()
+    expect(layout).toHaveBeenLastCalledWith({ sheet: 'S', columns: 'B:C', fit: true })
+    expect(layout).toHaveBeenCalledTimes(4)
   })
 
   it("a column without its own width has the library's default, 8.83203125 (53 points, 71 px)", async () => {
