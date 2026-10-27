@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.27.0 (2026-10-27)
+
+The toolbar at about Excel's ribbon size, and fixes from a look at 0.26.0. Nothing in the contract changes; the toolbar's default look does.
 
 - Fixed: in a column wider than the viewport, Up and Down flipped the view between the column's left and right edges. A cell larger than the scrolled area now keeps its left (or top) edge in view, as Excel scrolls by whole columns and rows.
 - A double click on a row number's edge fits every row of the selection the row is in, a range of cells too, as Excel does; it fitted them only for selected entire rows. A column letter's edge does the same for the selection's columns.
