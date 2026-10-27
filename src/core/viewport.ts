@@ -29,6 +29,7 @@ interface ViewportInput {
   scrollLeft: Ref<number>
   viewH: Ref<number>
   viewW: Ref<number>
+  sheetW: Ref<number>
   zoom: Ref<number>
   memory: Memory
 }
@@ -59,8 +60,11 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
    */
   const line = computed(() => (i.zoom.value < 1 ? 1 / i.zoom.value : 1))
   const lineOf = (px: number): number => (px > 0 ? Math.max(px, line.value) : 0)
-  /** A phone-width viewport, on screen whatever the zoom: a narrower row number column. */
-  const narrow = computed(() => i.viewW.value * i.zoom.value < NARROW_PX)
+  /**
+   * A phone-width sheet, by its own width on screen whatever the zoom: a narrower row number column, panels below the grid.
+   * Not by the grid's width, which a panel beside it narrows: the panel would then move below and back without end.
+   */
+  const narrow = computed(() => i.sheetW.value < NARROW_PX)
   /** A coarse pointer (touch): targets get touch size. */
   const coarse = useCoarsePointer()
   /** A phone-width viewport or touch input: buttons, inputs and tabs at least 44 × 44 px, the grid itself unchanged. */

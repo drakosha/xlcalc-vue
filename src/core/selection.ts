@@ -158,6 +158,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     if (!el) return
     s.viewH.value = (el.clientHeight || 600) / s.zoom.value
     s.viewW.value = (el.clientWidth || 800) / s.zoom.value
+    s.sheetW.value = el.closest<HTMLElement>('.xs-sheet')?.clientWidth || el.clientWidth || 800
   }
 
   /**

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: Trace Precedents in a sheet narrower than about 940 px redrew without end. The phone layout was decided by the grid's width, which the panel beside it narrows below 600 px, so the panel moved below the grid and back; it is now decided by the sheet's own width.
+
 ## 0.24.0 (2026-10-26)
 
 AutoSum on the toolbar and the toolbar's items, as the app asked. Nothing breaks for a host; `./local` works with xlcalc 0.46.0 and later, its AutoSum with 0.59.0.
