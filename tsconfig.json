@@ -13,5 +13,5 @@
     "allowImportingTsExtensions": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "test", "example", "scripts", "vite.config.ts", "vite.local.config.ts", "vite.example.config.ts"]
+  "include": ["src", "test", "example", "scripts", "vite.config.ts", "vite.local.config.ts", "vite.remote.config.ts", "vite.example.config.ts"]
 }

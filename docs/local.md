@@ -24,7 +24,7 @@ Find is the session's `findCells` with the options of Excel's dialog, which retu
 
 ## Display filter and totals
 
-The display filter, its sort and the filter funnel's value list follow the same rules as in `memorySource` (`src/sheet-query.ts`): a condition compares the displayed text, the header rows stay on top, and a sort and the funnel's list order values as Excel's SORT does (xlcalc's `valueComparator`): numbers, text case-insensitively in the order of the workbook's locale, FALSE, TRUE, errors, with empty cells and formulas returning `""` last in either direction. `./local` passes the workbook's locale to the comparator and `memorySource` passes none, which means en-US; the ru-RU order is the same as en-US (`Item10` before `Item2`, Latin before Cyrillic), as Excel for Windows sorts in every locale, whereas Excel for Mac in ru-RU puts Cyrillic first. The source reads from the session only the columns a condition, a sort or a funnel needs, the first time they are needed, keeps them in arrays by row and updates them with edits: on the data sheet of the synthetic workbook of 34,000 rows by 15 columns in Node, through the pool, the first sort takes about 0.16 s and 7 MB, and the first funnel 0.12 s. A request's signal stops the session's read of its columns (`getCells` with `signal`), and a read stopped for one request is repeated for another request still waiting for it. Selection totals come from the session's `summarizeRanges`, which counts without transferring the cells, and under a display filter covers only its rows. A cell is counted when it displays something or contains a value, so a number hidden by its format is counted and a formula returning `""` is not, as the grid counts the cells of its windows.
+The display filter, its sort and the filter funnel's value list follow the same rules as in `memorySource` (`src/sheet-query.ts`): a condition compares the displayed text, the header rows stay on top, and a sort and the funnel's list order values as Excel's SORT does (xlcalc's `valueComparator`): numbers, text case-insensitively in the order of the workbook's locale, FALSE, TRUE, errors, with empty cells and formulas returning `""` last in either direction. `./local` passes the workbook's locale to the comparator and `memorySource` passes none, which means en-US; the ru-RU order is the same as en-US (`Item10` before `Item2`, Latin before Cyrillic), as Excel for Windows sorts in every locale, whereas Excel for Mac in ru-RU puts Cyrillic first. The source reads from the session only the columns a condition, a sort or a funnel needs, the first time they are needed, keeps them in arrays by row and updates them with edits: on the data sheet of the synthetic workbook of 34,000 rows by 15 columns in Node, through the pool, the first sort takes about 0.16 s and 7 MB, and the first funnel 0.12 s. A request's signal stops the session's read of its columns (`getCells` with `signal`), and a read stopped for one request is repeated for another request still waiting for it. Selection totals come from the session's `summarizeRanges`, which counts without transferring the cells, and under a display filter covers only its rows. The rows of a filter stay as `visibleRows` returned them until the filter is applied again, as Excel keeps them until Reapply, and the source keeps them for each filter (up to eight a sheet), so viewers that share one source on a server with different filters each keep theirs ([remote.md](remote.md)). A cell is counted when it displays something or contains a value, so a number hidden by its format is counted and a formula returning `""` is not, as the grid counts the cells of its windows.
 
 ## Outline
 
@@ -41,6 +41,26 @@ Rejection messages come from the library, in the workbook's language. A group at
 ## Files
 
 `openXlsx` reads a file into a workbook and the values stored in it (`cached`), and `saveXlsx` writes the source's workbook with its values. With `locale` (the language the user chose: a tag whose module is loaded on demand, or a locale object), their issue messages are in that language; without it, in English. A tag xlcalc has no module for fails with the library's message.
+
+A workbook does not hold everything a file may: charts, pictures, pivot tables, the theme, page setup. To save it without losing them, open the file with `keep: true` (xlcalc's `openKept`, 0.57.0 or later) and save with `over`, the same file's bytes (xlcalc's `writeKept`): the edited workbook is written over the original, which keeps those parts as the file has them, and without edits gives the original bytes back. A change the file cannot take, one that would leave such a part pointing at the wrong cells (a sheet with a pivot table deleted, rows moved under a chart whose references the library cannot write back), is rejected with xlcalc's `KeptRefusal` (`error.name === 'KeptRefusal'`, the reason in its message), and nothing is written; the host may then save the workbook anew, without `over`, which loses those parts (with xlcalc 0.59.1 or later; an earlier one writes the hidden names `openKept` adds, `_xlcalc.keep.*`). The source does not list those names. `mode: 'values'` is for a new file only.
+
+```ts
+import { localSource, openXlsx, saveXlsx } from '@xlcalc/vue/local'
+
+export async function editKept(file: File): Promise<Uint8Array> {
+  const { book, cached } = await openXlsx(file, { keep: true })
+  const source = localSource(book, { session: { cached } })
+  await source.edit([{ sheet: book.sheets[0]!.name, cell: 'A1', text: 'Checked' }])
+  try {
+    return (await saveXlsx(source, { over: file })).data // the charts and the theme as the file has them
+  } catch (e) {
+    if ((e as Error).name !== 'KeptRefusal') throw e
+    return (await saveXlsx(source)).data // anew: what the workbook holds, without those parts
+  } finally {
+    await source.close()
+  }
+}
+```
 
 A page that opens an xlsx file, reports what the file lost, and saves the workbook back under the file's name:
 

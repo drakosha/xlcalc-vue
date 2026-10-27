@@ -1,6 +1,6 @@
 {
   "name": "@xlcalc/vue",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "description": "Vue 3 sheet component for xlcalc workbooks: a windowed grid with styles, formulas and editing over a pluggable sheet source",
   "keywords": [
     "vue",
@@ -40,6 +40,14 @@
       "types": "./dist/local/index.d.ts",
       "default": "./dist/local.js"
     },
+    "./remote": {
+      "types": "./dist/remote/index.d.ts",
+      "default": "./dist/remote.js"
+    },
+    "./server": {
+      "types": "./dist/remote/server.d.ts",
+      "default": "./dist/server.js"
+    },
     "./style.css": "./dist/style.css"
   },
   "files": [
@@ -53,7 +61,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && vite build --config vite.local.config.ts && vue-tsc -p tsconfig.build.json && node scripts/dts-paths.ts",
+    "build": "vite build && vite build --config vite.local.config.ts && vite build --config vite.remote.config.ts && vue-tsc -p tsconfig.build.json && node scripts/dts-paths.ts",
     "test": "vitest run",
     "typecheck": "vue-tsc --noEmit",
     "pack:release": "npm run build && node -e \"require('fs').mkdirSync('release',{recursive:true})\" && npm pack --pack-destination release",
@@ -63,6 +71,7 @@
     "build:demo": "vite build --config vite.example.config.ts --mode demo",
     "screens": "node scripts/screens.ts",
     "check:local": "node scripts/local-check.ts",
+    "check:remote": "node scripts/remote-check.ts",
     "check:spa": "node scripts/spa-check.ts",
     "check:big": "node scripts/big-check.ts",
     "check:excel-values": "node scripts/excel-values.ts",

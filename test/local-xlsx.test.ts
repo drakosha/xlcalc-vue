@@ -1,6 +1,6 @@
 // @vitest-environment node
 // xlsx reading and writing in the local source: a workbook written and read back, a Blob, the issues in a locale and grouped.
-import { crc32 } from 'node:zlib'
+import { crc32, inflateRawSync } from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
 import { compute, sameValue, type CellValue } from 'xlcalc'
 import { synthBook } from 'xlcalc/unstable/synth'
@@ -45,6 +45,23 @@ function storedZip(files: Record<string, string>): Uint8Array {
   return new Uint8Array(Buffer.concat([...parts, ...dir, end]))
 }
 
+/** A zip's entries as text, stored or deflated, by the central directory. */
+function unzipText(data: Uint8Array): Record<string, string> {
+  const b = Buffer.from(data)
+  const end = b.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]))
+  const out: Record<string, string> = {}
+  let at = b.readUInt32LE(end + 16)
+  for (let i = 0; i < b.readUInt16LE(end + 10); i++) {
+    const [method, size, nameLen, extra, comment, local] = [b.readUInt16LE(at + 10), b.readUInt32LE(at + 20), b.readUInt16LE(at + 28), b.readUInt16LE(at + 30), b.readUInt16LE(at + 32), b.readUInt32LE(at + 42)]
+    const name = b.toString('utf8', at + 46, at + 46 + nameLen)
+    const from = local + 30 + b.readUInt16LE(local + 26) + b.readUInt16LE(local + 28)
+    const raw = b.subarray(from, from + size)
+    out[name] = (method === 8 ? inflateRawSync(raw) : raw).toString('utf8')
+    at += 46 + nameLen + extra + comment
+  }
+  return out
+}
+
 const RELS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 /** A file with one empty sheet `S` with sheet protection, which the workbook cannot keep. */
 const protectedFile = () =>
@@ -56,7 +73,27 @@ const protectedFile = () =>
     'xl/worksheets/sheet1.xml': '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData/><sheetProtection sheet="1"/></worksheet>',
   })
 
+/** A file with 1 in `S!A1` and a page break before row 6, which the workbook does not hold. */
+const brokenFile = () =>
+  storedZip({
+    ...unzipText(protectedFile()),
+    'xl/worksheets/sheet1.xml':
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1"><v>1</v></c></row></sheetData><rowBreaks count="1" manualBreakCount="1"><brk id="5" max="16383" man="1"/></rowBreaks></worksheet>',
+  })
+
 describe('xlsx reading and writing', () => {
+  it('with keep writes the workbook over the file it was read from, keeping what the workbook does not hold', async () => {
+    const file = brokenFile()
+    const read = await openXlsx(file, { keep: true })
+    const s = source(read.book)
+    expect((await s.edit([{ sheet: 'S', cell: 'A1', text: '5' }])).ok).toBe(true)
+    const kept = unzipText((await saveXlsx(s, { over: file })).data)['xl/worksheets/sheet1.xml']!
+    expect(kept).toContain('<brk id="5"')
+    expect(kept).toMatch(/<c r="A1"[^>]*><v>5<\/v>/)
+    // Anew, the workbook's own parts only
+    expect(unzipText((await saveXlsx(s)).data)['xl/worksheets/sheet1.xml']).not.toContain('<brk')
+  })
+
   it('writes the workbook and reads it back with the same values, styles, notes and frozen panes', async () => {
     const s = source()
     await s.edit([{ sheet: 'Лист1', cell: 'A1', text: '1,5' }])
