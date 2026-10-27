@@ -3,7 +3,7 @@
 // viewer reaching the other, the history, errors as outcomes, a request's signal, and the server closing.
 import type { Server } from 'node:http'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { SheetSource, SourceEvent } from '../src/contract/source'
+import type { SheetFunctionSignature, SheetSource, SourceEvent } from '../src/contract/source'
 import { localSource, type LocalSource } from '../src/local'
 import { remoteSource, type RemoteSource } from '../src/remote'
 import { serveSource, type ServeOptions, type SourceServer } from '../src/remote/server'
@@ -140,6 +140,45 @@ describe('remoteSource over serveSource', () => {
     expect(seen[1]).toEqual(['S', 'A1', null])
     // A call shorter than its signal's place leaves no hole that would arrive as null
     expect(seen[2]!.slice(0, 3)).toEqual(['S', 'B1:B2', undefined])
+  })
+
+  it("sends a turn's reads as one request, answered call by call as each completes, and a change alone", async () => {
+    let requests = 0
+    let release!: () => void
+    const held = new Promise<void>((r) => (release = r))
+    const stub: SheetSource = {
+      sheets: async () => [],
+      window: async () => ({ pending: { elapsedMs: 0 } }),
+      functionSignature: async (name) => {
+        if (name === 'SLOW') await held
+        if (name === 'BAD') throw new Error('No such function here')
+        return { name, args: [] } as unknown as SheetFunctionSignature
+      },
+      edit: async () => ({ ok: true, changes: [] }),
+    }
+    const { url } = await served({ access: () => (requests++, 'write') }, stub)
+    const c = await connect(url)
+    const names = Array.from({ length: 300 }, (_, i) => `F${i}`)
+    const got = await Promise.all(names.map((n) => c.functionSignature!(n)))
+    expect(got.map((x) => x?.name)).toEqual(names)
+    expect(requests).toBe(2)
+    // In one batch: the slow call holds back no other, a failed or stopped call fails alone
+    const stop = new AbortController()
+    const slow = c.functionSignature!('SLOW')
+    const failure = (p: Promise<unknown>) => p.then(() => null, (e: Error) => e)
+    const bad = failure(c.functionSignature!('BAD'))
+    const stopped = failure(c.functionSignature!('F1', stop.signal))
+    const fast = c.functionSignature!('F2')
+    const edited = c.edit!([{ sheet: 'S', cell: 'A1', text: '1' }])
+    stop.abort()
+    expect((await fast)?.name).toBe('F2')
+    expect((await bad)?.message).toBe('No such function here')
+    expect((await stopped)?.name).toBe('AbortError')
+    expect((await edited).ok).toBe(true)
+    release()
+    expect((await slow)?.name).toBe('SLOW')
+    // the manifest, the 300 reads, these four reads and the edit
+    expect(requests).toBe(4)
   })
 
   it("stops a call with the caller's signal", async () => {

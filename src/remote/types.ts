@@ -33,8 +33,8 @@ export interface ServeOptions {
 /** A source served to viewers: a handler of standard requests and responses, which any server mounts under a path. */
 export interface SourceServer {
   /**
-   * Answers a request whose path ends with `/manifest` (GET: what the viewer may call), `/call` (POST: a call) or
-   * `/events` (GET: the source's events as a stream of server-sent events); anything else is 404.
+   * Answers a request whose path ends with `/manifest` (GET: what the viewer may call), `/call` (POST: a call), `/batch`
+   * (POST: calls that read, answered line by line) or `/events` (GET: the source's events as server-sent events); anything else is 404.
    */
   handle(req: Request): Promise<Response>
   /** Sends every viewer `reload` with the message and ends their streams; later requests get 410. The source stays open. */

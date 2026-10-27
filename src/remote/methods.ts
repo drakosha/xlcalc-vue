@@ -82,6 +82,12 @@ export interface CallBody {
 /** A call's response: the result (none for `undefined`), and the history after it for a source that has one; or the error's message. */
 export type CallResponse = { result?: unknown; history?: { undo: number; redo: number } } | { error: string }
 
+/** The most calls one batch takes: a client sends more as several. */
+export const BATCH_MAX = 1000
+
+/** A line of a batch's response: the call's index in the batch, its status and its response. */
+export type BatchLine = { i: number; status: number } & CallResponse
+
 /** A message of the stream: the source's event with the history after it, or without one the count the stream starts from. */
 export interface StreamEvent {
   event?: SourceEvent

@@ -60,6 +60,21 @@ try {
   check((await a.locator('[data-remote-access="write"]').count()) === 1 && (await r.locator('[data-remote-access="read"]').count()) === 1, 'the server gives each viewer its access')
   check((await a.locator('.xs-toolbar').count()) === 1 && (await r.locator('.xs-toolbar').count()) === 0, "the editor has the toolbar, the reader's sheet has none")
 
+  // Insert Function asks for every function's signature at once: one batch, not a request each
+  const sent: string[] = []
+  a.on('request', (req) => void (req.url().includes('/sheet/1/') && sent.push(new URL(req.url()).pathname.split('/').pop()!)))
+  await a.locator('[data-cell="4:2"]').click()
+  const begun = Date.now()
+  await a.locator('[data-xs-bar-fx]').click()
+  await a.waitForFunction(() => (document.querySelector('[data-xs-if-category]') as HTMLSelectElement | null)?.options.length! > 2, null, { timeout: 30_000 })
+  const listed = Date.now() - begun
+  const batches = sent.filter((x) => x === 'batch').length
+  const calls = sent.filter((x) => x === 'call').length
+  console.log(`Insert Function: categories in ${listed} ms, ${batches} batch and ${calls} single requests`)
+  check(batches >= 1 && batches + calls <= 5, 'Insert Function reads the signatures in a batch')
+  await a.keyboard.press('Escape')
+  await a.keyboard.press('Escape')
+
   await type(a, '1:2', '10')
   check(await shows(a, '3:2', '13'), "the editor's own sheet recalculates")
   check((await shows(b, '1:2', '10')) && (await shows(b, '3:2', '13')), "the other editor's sheet shows the edit without a reload")

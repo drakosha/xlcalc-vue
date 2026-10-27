@@ -1,7 +1,8 @@
-// A sheet source over a workbook on a server that serves it with `serveSource`: each method is a POST of its arguments,
-// and the source's events come over one stream of server-sent events, read with fetch so that the host's headers go too.
+// A sheet source over a workbook on a server that serves it with `serveSource`: each method is a POST of its arguments (the
+// reads of one turn in one batch), and the source's events come over one stream of server-sent events, read with fetch so
+// that the host's headers go too.
 import type { EditOutcome, SourceEvent } from '../contract/source'
-import { CALLS, isCall, type CallBody, type CallKind, type CallResponse, type Manifest, type StreamEvent } from './methods'
+import { BATCH_MAX, CALLS, isCall, type BatchLine, type CallBody, type CallKind, type CallResponse, type Manifest, type StreamEvent } from './methods'
 import type { RemoteSource, RemoteSourceOptions } from './types'
 
 /** The longest wait before the event stream connects again. */
@@ -18,8 +19,31 @@ class HttpError extends Error {
 
 const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError'
 
+type Answer = Exclude<CallResponse, { error: string }>
+/** A call that reads, waiting for this turn's other reads to go with it in one batch. */
+interface Waiting {
+  body: CallBody
+  signal?: AbortSignal
+  done: (answer: Answer) => void
+  fail: (e: unknown) => void
+}
+
+/** A response's text, line by line, as it comes. */
+async function* linesOf(res: Response): AsyncGenerator<string> {
+  let buf = ''
+  for await (const chunk of res.body!.pipeThrough(new TextDecoderStream())) {
+    buf += chunk
+    let at: number
+    while ((at = buf.indexOf('\n')) >= 0) {
+      yield buf.slice(0, at)
+      buf = buf.slice(at + 1)
+    }
+  }
+  if (buf) yield buf
+}
+
 /**
- * Connects to a workbook served at `url` (the path before `/manifest`, `/call` and `/events`): reads what the server
+ * Connects to a workbook served at `url` (the path before `/manifest`, `/call`, `/batch` and `/events`): reads what the server
  * allows this viewer and gives a source with those methods. Rejects when the server cannot be reached or refuses.
  */
 export async function remoteSource(url: string, opts: RemoteSourceOptions = {}): Promise<RemoteSource> {
@@ -43,6 +67,58 @@ export async function remoteSource(url: string, opts: RemoteSourceOptions = {}):
   /** The server's mark and the count of the source's events this client has seen, from the manifest on. */
   let seen = { epoch: manifest.epoch, seq: manifest.seq }
 
+  const single = async (body: CallBody, signal?: AbortSignal): Promise<Answer> => (await (await request('call', { method: 'POST', body: JSON.stringify(body), signal })).json()) as Answer
+
+  // Calls that read go together: those of one turn (Insert Function's hundreds of signatures, a screen of windows) are one request
+  let waiting: Waiting[] = []
+  function queued(body: CallBody, signal?: AbortSignal): Promise<Answer> {
+    if (signal?.aborted) return Promise.reject(signal.reason)
+    return new Promise((done, fail) => {
+      if (!waiting.length) setTimeout(flush, 0)
+      waiting.push({ body, signal, done, fail })
+    })
+  }
+  function flush(): void {
+    const all = waiting.filter((w) => (w.signal?.aborted ? (w.fail(w.signal.reason), false) : true))
+    waiting = []
+    for (let at = 0; at < all.length; at += BATCH_MAX) {
+      const part = all.slice(at, at + BATCH_MAX)
+      if (part.length === 1) single(part[0]!.body, part[0]!.signal).then(part[0]!.done, part[0]!.fail)
+      else void batch(part)
+    }
+  }
+  /** One request for the calls: each settles with its line, as the server completes it; each one's signal stops it alone, and the request when all have stopped. */
+  async function batch(calls: Waiting[]): Promise<void> {
+    const ctl = new AbortController()
+    const left = new Set(calls.keys())
+    const cleanups: (() => void)[] = []
+    const settle = (i: number, how: (w: Waiting) => void) => {
+      if (!left.delete(i)) return
+      how(calls[i]!)
+      if (!left.size) for (const c of cleanups) c()
+    }
+    calls.forEach((w, i) => {
+      if (!w.signal) return
+      const stop = () => {
+        settle(i, (x) => x.fail(w.signal!.reason))
+        if (![...left].some((j) => !calls[j]!.signal?.aborted)) ctl.abort()
+      }
+      w.signal.addEventListener('abort', stop, { once: true })
+      cleanups.push(() => w.signal!.removeEventListener('abort', stop))
+    })
+    try {
+      const res = await request('batch', { method: 'POST', body: JSON.stringify({ calls: calls.map((w) => w.body) }), signal: ctl.signal })
+      for await (const line of linesOf(res)) {
+        if (!line) continue
+        const { i, status, ...out } = JSON.parse(line) as BatchLine
+        settle(i, (w) => ('error' in out ? w.fail(new HttpError(status, out.error)) : w.done(out)))
+      }
+      for (const i of [...left]) settle(i, (w) => w.fail(new Error('The server ended the batch without this call')))
+    } catch (e) {
+      for (const i of [...left]) settle(i, (w) => w.fail(e))
+    }
+  }
+
   /** A method's call: its signal stays here and stops the request; an outcome method fails as an outcome. */
   function method(name: string): (...args: unknown[]) => Promise<unknown> {
     const kind: CallKind = isCall(name) ? CALLS[name] : {}
@@ -63,7 +139,7 @@ export async function remoteSource(url: string, opts: RemoteSourceOptions = {}):
       }
       const body: CallBody = { method: name, args: sent, undef: sent.flatMap((a, i) => (a === undefined ? [i] : [])) }
       try {
-        const got = (await (await request('call', { method: 'POST', body: JSON.stringify(body), signal })).json()) as Exclude<CallResponse, { error: string }>
+        const got = kind.write ? await single(body, signal) : await queued(body, signal)
         if (got.history) history = got.history
         return got.result
       } catch (e) {

@@ -557,12 +557,12 @@ A workbook on a server: `serveSource` serves a source to viewers over HTTP, and 
 | `SourceAccess` | | `'read' \| 'write'`: `read` calls only the methods that do not change the workbook. |
 | `ServeOptions` | `access?: SourceAccess \| ((req: Request) => SourceAccess \| Promise<SourceAccess>)` | What each request may do; `read` by default. |
 | | `keepAliveMs?: number` | How often the event stream sends a comment so that proxies keep it open; 25,000 by default. |
-| `SourceServer` | `handle(req: Request): Promise<Response>` | Answers `GET …/manifest`, `POST …/call` and `GET …/events` (server-sent events) at the end of any path; anything else is 404. |
+| `SourceServer` | `handle(req: Request): Promise<Response>` | Answers `GET …/manifest`, `POST …/call`, `POST …/batch` (calls that read, answered line by line) and `GET …/events` (server-sent events) at the end of any path; anything else is 404. |
 | | `close(message?: string): void` | Sends every viewer `reload` with the message and ends their streams; later requests get 410. The source stays open. |
 | `RemoteSourceOptions` | `fetch?: typeof fetch` | The fetch to call the server with; the global one without it. |
 | | `headers?: HeadersInit \| (() => HeadersInit)` | Headers of every request, the event stream's included, or a function called for each. |
 | | `retryMs?: number` | The first wait before the event stream connects again after it broke, doubled up to 30 s; 1,000 by default. |
-| `RemoteSource` | the methods of `SheetSource` the server allows | Calls to the server: a method that returns an `EditOutcome` fails as one (`refused` for 403), any other rejects with the server's message; a call's signal stops its request. `subscribe` is one event stream for all listeners, which sends `reload` when the workbook changed while no stream was open. |
+| `RemoteSource` | the methods of `SheetSource` the server allows | Calls to the server: a method that returns an `EditOutcome` fails as one (`refused` for 403), any other rejects with the server's message; calls that read in one turn go as one batch, a change alone; a call's signal stops it. `subscribe` is one event stream for all listeners, which sends `reload` when the workbook changed while no stream was open. |
 | | `access: SourceAccess` | What the server allows this viewer. |
 | | `locale?: string` | The workbook's locale, when the served source has one. |
 | | `close(): void` | Stops the event stream; calls keep working. |
