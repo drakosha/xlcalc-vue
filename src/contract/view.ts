@@ -273,7 +273,7 @@ export type ToolbarSource = SheetSource
  */
 export type ToolbarGroup = 'undo' | 'formatPainter' | 'fontStyle' | 'font' | 'number' | 'colors' | 'borders' | 'verticalAlign' | 'align' | 'merge' | 'formatCells' | 'autoSum'
 
-/** A host's button on `SheetToolbar`, drawn as the toolbar's own and, in a narrow viewport where it does not fit, moved into its menu. */
+/** A host's button on `SheetToolbar`, drawn as the toolbar's own and, where it does not fit, moved into its menu. */
 export interface ToolbarButton {
   /** Unique among the host's buttons; the button's hook is `data-tb-host="<id>"`. */
   id: string

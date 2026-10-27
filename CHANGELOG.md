@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `SheetToolbar`'s `rows` sets how many lines its items may take at 600 px and wider before the rest go into the menu under More: 1 by default, as in 0.27.1, and `Infinity` wraps them all, as before 0.27.1. Below 600 px the toolbar keeps one line.
+
 ## 0.27.1 (2026-10-27)
 
 Built over xlcalc 0.60.1.

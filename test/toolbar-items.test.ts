@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { SheetToolbar, TOOLBAR_GROUPS, type SheetViewState, type ToolbarItem } from '../src'
 import type { EditOutcome, SheetSource } from '../src/contract/source'
+import { fitLines } from '../src/toolbar'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -110,6 +111,38 @@ describe("SheetToolbar's items", () => {
     expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['borders', 'align'])
   })
 
+  it('with rows wraps onto that many lines, as the row wraps them, and moves only the rest into More, which ends the last line', async () => {
+    narrowLayout(920, () => 300, 1440)
+    const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'fontStyle', 'font', 'borders', 'align', 'colors', 'number', 'merge'], rows: 2 }, attachTo: document.body })
+    await nextTick()
+    await nextTick()
+    expect(w.find('.xs-tb-row').classes()).toContain('xs-tb-rows')
+    // Three blocks a line; the second line keeps two beside More
+    expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => [b.attributes('data-tb-block'), b.attributes('data-tb-line') !== undefined])).toEqual([
+      ['undo', false],
+      ['fontStyle', false],
+      ['font', false],
+      ['borders', true],
+      ['align', false],
+    ])
+    expect(hooks(w, '.xs-tb-row').at(-1)).toBe('more')
+    expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['colors', 'number'])
+    await w.setProps({ rows: 3 })
+    await nextTick()
+    await nextTick()
+    expect(w.find('[data-tb-menu]').exists()).toBe(false)
+    expect(w.findAll('.xs-tb-row > [data-tb-line]').map((b) => b.attributes('data-tb-block'))).toEqual(['borders', 'number'])
+  })
+
+  it('below 600 px keeps one row whatever rows says', async () => {
+    narrowLayout(300, () => 100, 390)
+    const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'fontStyle', 'borders', 'align'], rows: 3 }, attachTo: document.body })
+    await nextTick()
+    await nextTick()
+    expect(w.find('.xs-tb-row').classes()).not.toContain('xs-tb-rows')
+    expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['undo', 'fontStyle'])
+  })
+
   it('in a narrow viewport keeps every item in the row when all fit, with no More button', async () => {
     narrowLayout(380, (key) => (key === 'undo' ? 100 : 90))
     const run = vi.fn()
@@ -119,6 +152,26 @@ describe("SheetToolbar's items", () => {
     expect(hooks(w)).toEqual(['undo', 'redo', 'host:a', 'borders', 'bold', 'italic', 'underline'])
     expect(w.find('[data-tb-menu]').exists()).toBe(false)
     expect(w.find('[data-tb="more"]').exists()).toBe(false)
+  })
+})
+
+describe('fitLines', () => {
+  it('packs the blocks onto lines as a wrapping row does: all when they fit, otherwise those that fit with More on the last line', () => {
+    expect(fitLines([40, 40, 40], 100, 1, 30)).toEqual({ fit: 1, breaks: [] })
+    expect(fitLines([40, 40, 20], 100, 1, 30)).toEqual({ fit: 3, breaks: [] })
+    expect(fitLines([40, 40, 40, 40], 100, 2, 30)).toEqual({ fit: 4, breaks: [2] })
+    // The last line leaves 30 px for More: 40 + 40 > 70
+    expect(fitLines([40, 40, 40, 40, 40], 100, 2, 30)).toEqual({ fit: 3, breaks: [2] })
+    expect(fitLines([60, 50, 50, 50, 10, 90], 100, 3, 30)).toEqual({ fit: 5, breaks: [1, 3] })
+  })
+
+  it('stops at a block wider than a line, rather than letting it overflow', () => {
+    expect(fitLines([40, 120, 40], 100, 2, 30)).toEqual({ fit: 1, breaks: [] })
+    expect(fitLines([120, 40], 100, 3, 30)).toEqual({ fit: 0, breaks: [] })
+  })
+
+  it('with Infinity wraps every block', () => {
+    expect(fitLines([60, 60, 60, 60], 100, Infinity, 30)).toEqual({ fit: 4, breaks: [1, 2, 3] })
   })
 })
 
