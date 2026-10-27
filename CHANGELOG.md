@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.28.0 (2026-10-27)
+
+The toolbar may take more lines than one, and measures its row again as it fills. Nothing breaks for a host.
 
 - `SheetToolbar`'s `rows` sets how many lines its items may take at 600 px and wider before the rest go into the menu under More: 1 by default, as in 0.27.1, and `Infinity` wraps them all, as before 0.27.1. Below 600 px the toolbar keeps one line.
 - Fixed: `SheetToolbar` measured its row before the sheet's template ref arrived and before the Number Format box's list loaded in a locale other than en-US, so Format Painter, Merge & Center, Format Cells and AutoSum counted as empty and the row ran past the toolbar's edge rather than moving them into More. It measures again when `sheet`, `source` or `hostDialog` changes and when the list loads.
