@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.25.0 (2026-10-27)
+
+Fixes and polish from the app's first look at 0.24.0. Nothing in the contract changes; a host's tests that read a toolbar button's name or a cell's note from `title` need another hook (below).
+
+- Fixed: Trace Precedents in a sheet narrower than about 940 px redrew without end. The phone layout was decided by the grid's width, which the panel beside it narrows below 600 px, so the panel moved below the grid and back; it is now decided by the sheet's own width.
+- Fixed: after a change the sheet reads again (a font size that fits rows, a number format, a structure operation), the grid showed default widths and heights and empty cells until the new windows arrived. The old windows and sizes now stay on screen until the first new window replaces them, and the scroll stays where it was.
+- `SheetToolbar` below 600 px keeps in its row the items that fit, in order, and moves only the rest into More (there was room for more than Undo and the font style, and a host's few buttons went into More); with everything fitting there is no More button.
+- `SheetToolbar` has Excel's ScreenTips: the name and the key below a button or box after 0.4 s of a resting mouse, the next at once, disabled buttons and the host's buttons included. The toolbar's controls no longer have `title`, so the browser's slow tooltip does not show on top; their text is in `data-tip` and `aria-label`. Bold, Italic and Underline name their keys (`Bold (Ctrl+B)`).
+- A cell's note shows on hover as Excel shows it, in the note box, read-only, at once, and hides when the mouse leaves the cell; the cell's tooltip no longer carries the note. A host whose tests read the note from a cell's `title`, or a toolbar button's name from its `title`, reads `[data-xs-note-peek]` and `aria-label` or `data-tip` instead.
+
 ## 0.24.0 (2026-10-26)
 
 AutoSum on the toolbar and the toolbar's items, as the app asked. Nothing breaks for a host; `./local` works with xlcalc 0.46.0 and later, its AutoSum with 0.59.0.

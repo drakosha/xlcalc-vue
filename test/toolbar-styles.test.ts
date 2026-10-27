@@ -125,7 +125,7 @@ describe('the Font and Font Size boxes', () => {
     await typeInto(w, 'font-size', '10,3')
     await typeInto(w, 'font-size', '500')
     const f = field(w, 'font-size')
-    expect([f.attributes('aria-invalid'), f.attributes('title'), f.element.value]).toEqual(['true', 'Out of range', '500'])
+    expect([f.attributes('aria-invalid'), f.attributes('data-tip'), f.element.value]).toEqual(['true', 'Out of range', '500'])
     await f.trigger('keydown', { key: 'Escape' })
     expect([f.attributes('aria-invalid'), f.element.value]).toEqual(['false', ''])
     await w.find('[data-tb="font-size-list"]').trigger('click')

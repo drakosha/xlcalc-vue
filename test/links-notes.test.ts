@@ -238,6 +238,11 @@ describe('the cell menu’s hyperlink items', () => {
 })
 
 describe('notes', () => {
+  const peek = (w: VueWrapper) => w.find('[data-xs-note-peek]')
+  async function hover(w: VueWrapper, cell: string, init: PointerEventInit = {}): Promise<void> {
+    w.find(`[data-cell="${cell}"]`).element.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse', ...init }))
+    await settle()
+  }
   const box = (w: VueWrapper) => w.find('[data-xs-note-box]')
   const text = (w: VueWrapper) => w.find('[data-xs-note-text]')
 
@@ -258,7 +263,30 @@ describe('notes', () => {
     expect(box(w).exists()).toBe(false)
     expect(note).toHaveBeenCalledWith('S', 'A1', { author: 'Bob', text: 'Check the total' })
     expect(window.mock.calls.length).toBeGreaterThan(before)
-    expect(w.find('[data-cell="1:1"]').attributes('title')).toContain('Check the total')
+    expect(w.find('[data-cell="1:1"]').attributes('title')).not.toContain('Check the total')
+    await hover(w, '1:1')
+    expect(peek(w).text()).toBe('Bob:Check the total')
+  })
+
+  it("shows a cell's note read-only while the mouse rests on it, as Excel does: not for a cell without one, a touch or a drag", async () => {
+    const source = memorySource(book())
+    await source.note!('S', 'B2', { author: 'Ann', text: 'Line one\nLine two' })
+    const again = await mountSheet(source)
+    await hover(again, '2:2')
+    expect(peek(again).exists()).toBe(true)
+    expect(peek(again).attributes('aria-label')).toBe('Note (Ann)')
+    expect(peek(again).find('.xs-note-text').text()).toBe('Line one\nLine two')
+    expect(peek(again).find('textarea').exists()).toBe(false)
+    await hover(again, '1:1')
+    expect(peek(again).exists()).toBe(false)
+    await hover(again, '2:2', { pointerType: 'touch' })
+    expect(peek(again).exists()).toBe(false)
+    await hover(again, '2:2', { buttons: 1 })
+    expect(peek(again).exists()).toBe(false)
+    await hover(again, '2:2')
+    again.find('.xs-scroller').element.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }))
+    await settle()
+    expect(peek(again).exists()).toBe(false)
   })
 
   it('Shift+F2 edits the note of a cell that has one; a press outside saves the change', async () => {

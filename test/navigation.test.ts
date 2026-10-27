@@ -309,6 +309,15 @@ describe('a phone', () => {
     expect(active(w)).toBe('1:2')
   })
 
+  it("is narrow by the sheet's own width, not the grid's: a panel beside the grid does not make it a phone layout", async () => {
+    // A 900 px sheet with Trace Precedents to the right leaves the grid 560 px; by the grid's width the panel would move below it, the grid widen and the panel come back, without end
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('xs-sheet') ? 900 : this.classList.contains('xs-scroller') ? 560 : 0
+    })
+    const w = await mountSheet(memorySource(book()))
+    expect(w.find('.xs-sheet').classes()).not.toContain('xs-narrow')
+  })
+
   it('a narrow viewport narrows the row numbers; a tap selects, a double tap and a tap on the formula bar open the editor', async () => {
     const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-scroller') ? 390 : 0

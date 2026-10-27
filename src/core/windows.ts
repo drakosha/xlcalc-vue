@@ -312,7 +312,16 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         return
       }
       stopWait()
-      takeSizes(got)
+      if (fresh) {
+        // The first window after a reload: the sizes start over in the same tick as the window replaces the old one, the scroll
+        // held from the sizes on screen
+        const done = fresh
+        fresh = null
+        const held = anchorNow()
+        resetSizes()
+        done()
+        takeSizes(got, held)
+      } else takeSizes(got)
       const width = Math.max(got.widths.length, got.text[0]?.length ?? 0)
       // A window shorter than requested, at or beyond the data's edge: the source stops there, and the grid will not request beyond it.
       if (width < cols && req.col + width - 1 >= s.dataCols.value) edge = { ...edge, cols: req.col + width - 1 }
@@ -373,8 +382,16 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     waitSeconds.value = 0
   }
 
-  /** Widths, heights and the default height from a window, changed in place; rows above the viewport keep it steady when their heights change. */
-  function takeSizes(w: SheetWindow): void {
+  /** The row at the top of the viewport and its offset, from which the scroll is kept steady when heights change. */
+  function anchorNow(): { anchor: number; before: number } {
+    const anchor = geo.rowAt(s.scrollTop.value + v.frozenH.value)
+    return { anchor, before: geo.rowOffsets.value[anchor - 1] ?? 0 }
+  }
+  /**
+   * Widths, heights and the default height from a window, changed in place; rows above the viewport keep it steady when their
+   * heights change, measured from `held` when the sizes were reset before (a reload).
+   */
+  function takeSizes(w: SheetWindow, held?: { anchor: number; before: number }): void {
     const widths = s.bookWidths.value
     let widthsChanged = false
     w.widths.forEach((width, i) => {
@@ -397,9 +414,8 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
       if (!own.has(r) && heights.has(r)) rows.push([r, undefined])
     }
     const def = rowPx(w.defaultRowHeight ?? DEFAULT_ROW_HEIGHT)
-    if (!rows.length && def === s.defaultRowPx.value) return
-    const anchor = geo.rowAt(s.scrollTop.value + v.frozenH.value)
-    const before = geo.rowOffsets.value[anchor - 1] ?? 0
+    if (!held && !rows.length && def === s.defaultRowPx.value) return
+    const { anchor, before } = held ?? anchorNow()
     geo.setHeights(rows)
     s.defaultRowPx.value = def
     const after = geo.rowOffsets.value[anchor - 1] ?? 0
@@ -432,9 +448,32 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     repaintTimer = null
     edge = { rows: Infinity, cols: Infinity }
     stopWait()
+    fresh = null
     for (const kind of order) {
       slots[kind].value.ctrl?.abort()
       slots[kind].value = newSlot()
+    }
+    s.loading.value = false
+  }
+  /** What a reload does once its first window arrives (sizes start over); null when none is pending. */
+  let fresh: (() => void) | null = null
+  /**
+   * A reload of the same sheet: every window is read again but drawn as is until its response arrives, and the sizes start
+   * over (then `onFresh` runs) only with the first response, so the grid never shows default sizes and empty cells in between.
+   */
+  function refresh(onFresh: () => void): void {
+    epoch++
+    rowRevisions.clear()
+    repaints = []
+    if (repaintTimer) clearTimeout(repaintTimer)
+    repaintTimer = null
+    edge = { rows: Infinity, cols: Infinity }
+    stopWait()
+    fresh = onFresh
+    for (const kind of order) {
+      const slot = slots[kind].value
+      slot.ctrl?.abort()
+      slots[kind].value = { ...slot, pendingKey: '', servedKey: '', ctrl: null, asked: null, stale: true }
     }
     s.loading.value = false
   }
@@ -609,6 +648,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     ensure,
     reset,
     resetSizes,
+    refresh,
     applyChanges,
     repaint,
   }

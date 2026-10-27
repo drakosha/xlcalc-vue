@@ -366,7 +366,6 @@ export function useCellView(
     ]
 
     const titleParts = [data.formula !== undefined ? `=${data.formula}\n${data.text}` : data.text]
-    if (data.note) titleParts.push(`${m.note(data.note.author)}: ${data.note.text}`)
     if (lock !== null) titleParts.push(m.locked(lock))
     if (pendingText !== undefined) titleParts.push(m.pending)
 

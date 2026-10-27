@@ -126,6 +126,13 @@ function onMove(e: PointerEvent): void {
   sel.onGridMove(e)
   ctx.point.move(e)
   ctx.menu.press.move(e)
+  peekNote(e)
+}
+/** A cell's note while the mouse rests on it, not while a button is held (a selection being dragged) or for touch. */
+function peekNote(e: PointerEvent): void {
+  const at = e.pointerType === 'mouse' && !e.buttons ? (e.target as Element).closest<HTMLElement>('[data-cell]')?.dataset.cell?.split(':').map(Number) : undefined
+  if (at && at.length === 2) ctx.notes.hover(at[0]!, at[1]!)
+  else ctx.notes.hover(null)
 }
 function onUp(): void {
   sel.onGridUp()
@@ -160,6 +167,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
     @dblclick="onDouble"
     @mousedown="ctx.point.onMouseDown"
     @pointermove="onMove"
+    @pointerleave="ctx.notes.hover(null)"
     @pointerup="onUp"
     @pointercancel="onUp"
     @wheel="ctx.zoomer.onWheel"
@@ -274,6 +282,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
       <SheetMarks v-if="ctx.sheet.value && !empty" />
       <TraceArrows v-if="ctx.sheet.value && !empty" />
       <NoteBox v-if="ctx.notes.draft.value" />
+      <NoteBox v-else-if="ctx.notes.peek.value" peek />
       <template v-if="activeBox && !ctx.editor.value && !ctx.notes.draft.value">
         <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="v.viewBox.value" />
         <ValidationDropdown

@@ -69,6 +69,8 @@ export function createState(props: SheetViewProps) {
   const scrollLeft = ref(0)
   const viewH = ref(600)
   const viewW = ref(800)
+  /** The sheet's own width in screen pixels (the grid with the panels beside it), which decides the phone layout. */
+  const sheetW = ref(800)
   /** The display filter in effect: the sheet's rows in display order and the reverse map; null without one. */
   const visible = shallowRef<{ key: string; spec: SheetFilter; rows: Int32Array; index: Int32Array } | null>(null)
   /** A filter's row list is loading: windows wait for it, since their rows would belong to another list. */
@@ -170,6 +172,7 @@ export function createState(props: SheetViewProps) {
     scrollLeft,
     viewH,
     viewW,
+    sheetW,
     bookWidths,
     userWidths,
     heights,
