@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.29.0 (2026-10-28)
+
+A workbook on a server, edited by several viewers, and xlsx saved over the file it was opened from. Nothing breaks for a host; `keep` in `./local` needs xlcalc 0.57.0.
 
 - A workbook on a server: `@xlcalc/vue/server`'s `serveSource(source, { access })` serves any source to every viewer of its workbook as a handler of standard requests and responses (`SourceServer.handle`, `close`), and `@xlcalc/vue/remote`'s `remoteSource(url, opts)` gives the browser's sheet a source with the methods the server allows the viewer. An edit by one viewer reaches the others at once through the source's events; the workbook has one undo history for all its viewers. The reads of one turn go as one request, answered call by call (Insert Function's signatures are one request). Neither entry needs the engine or Vue at runtime ([remote.md](docs/remote.md)).
 - `./local` saves a workbook over the file it was opened from: `openXlsx(data, { keep: true })` reads through xlcalc's `openKept` (0.57.0 or later), and `saveXlsx(source, { over: data })` writes through `writeKept`, so the file's charts, pivot tables, pictures, theme and page setup stay as they were; a change the file cannot take rejects with xlcalc's `KeptRefusal`.
