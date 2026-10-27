@@ -392,11 +392,12 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (px !== undefined) void saveWidth(col, px)
     w.ensure()
   }
-  /** A double click on a column edge fits the column, as Excel does, together with every selected entire column when it is one of them; without `layout` (or with `edgeRestoresWidth`) it restores the workbook's width. */
+  /** A double click on a column edge fits the column, as Excel does, together with every column of the selection when it is in it (entire columns or cells); without `layout` (or with `edgeRestoresWidth`) it restores the workbook's width. */
   const fitsOnEdge = computed(() => !props.edgeRestoresWidth && cmd.can('layout'))
   function onEdgeDouble(col: number): void {
     if (!fitsOnEdge.value) return resetWidth(col)
-    const { first, last } = sel.linesOf(sel.wholeColumns.value, col)
+    const r = sel.fullRect.value
+    const { first, last } = sel.linesOf(r ? { first: r.left, last: r.right } : null, col)
     void cmd.layout({ sheet: s.sheetName.value, columns: linesKey(first, last, 'columns'), fit: true })
   }
   /** The widths set with the mouse, except a column's. */
