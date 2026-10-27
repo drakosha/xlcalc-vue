@@ -75,6 +75,12 @@ export interface SheetViewState {
   canMerge?: true
   /** AutoSum is available (`SheetViewApi.autoSum`): the source has `autoSum` and the sheet is editable. */
   canAutoSum?: true
+  /** Format Painter is available (`SheetViewApi.formatPainter`): the source has `structure`, the sheet is editable, and no display filter is on. */
+  canFormatPainter?: true
+  /** Format Painter holds a brush: `once` paints the next range, `keep` until it is turned off; a ribbon shows its button pressed. */
+  painting?: FormatPainterMode
+  /** The display filter has a condition or a sort: a ribbon shows its Filter button pressed and enables Clear. */
+  filtered?: true
   /** Excel's Show Formulas is on for the displayed sheet (Ctrl+` or `SheetViewApi.showFormulas`): a ribbon shows its button pressed. */
   showFormulas?: true
   /** The sheet's zoom in percent; absent at 100%. */
@@ -181,6 +187,30 @@ export interface SheetViewApi {
   /** Opens Excel's Insert Function dialog (the formula bar's fx, AutoSum's More Functions…); false on a read-only sheet or without the source's `functionNames`. */
   insertFunction(): boolean
   /**
+   * Opens Excel's Paste Special dialog (Ctrl+Alt+V, Ctrl+Cmd+V on a Mac) for the copied range: All, Formulas, Values, Formats or
+   * Validation, and Transpose, through the source's `structure` (`copyRange` with `paste`, xlcalc 0.60). false without a copy
+   * in copy mode (a cut has no Paste Special), without `structure`, on a read-only sheet or under a display filter.
+   */
+  pasteSpecial(): boolean
+  /**
+   * Excel's Format Painter: `once` (the default) takes the selection's formats and paints them onto the next range selected
+   * with the mouse or a touch, `keep` paints until Esc or `off`, as a double click on Excel's button; each painting is a single
+   * undo step through `structure` (`copyRange` with `paste: 'formats'`). Returns whether painting is on afterwards.
+   */
+  formatPainter(mode?: FormatPainterMode | 'off'): boolean
+  /**
+   * Data > Filter for a ribbon: opens the display filter's menu (the funnel on the column letter: its sort, values and text
+   * condition) for the active cell's column; false without the source's `visibleRows` and `columnValues`. The data do not change.
+   */
+  filterColumn(): boolean
+  /** Data > Clear: every condition and the sort of the display filter at once; false when none is on. */
+  clearFilter(): boolean
+  /**
+   * Sort A to Z (`asc`) or Z to A (`desc`) by the active cell's column, as the display filter sorts: the rows below the header
+   * are displayed in that order and the data do not change (Excel's sort rewrites them); false without the display filter.
+   */
+  sortColumn(dir: 'asc' | 'desc'): boolean
+  /**
    * Excel's Home > Clear > Clear Formats (`formats`) or Clear All (`all`) over the selection through the source's `clear`, as a
    * single undo step (under a display filter, over its visible rows), after which the windows over it are read again. null when
    * nothing was sent: no `clear`, a read-only sheet, or a locked cell in the selection.
@@ -217,6 +247,9 @@ export interface SheetViewApi {
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */
 export type SheetFormatPatch = Omit<FormatPatch, 'range'> & { range?: string }
 
+/** Format Painter's brush: `once` paints one range, `keep` paints until it is turned off. */
+export type FormatPainterMode = 'once' | 'keep'
+
 /** Excel's Freeze Panes commands: the panes of the active cell, Unfreeze Panes, Freeze Top Row, Freeze First Column. */
 export type FreezeMode = 'panes' | 'unfreeze' | 'topRow' | 'firstColumn'
 
@@ -233,12 +266,12 @@ export interface ListSort {
 export type ToolbarSource = SheetSource
 
 /**
- * A group of `SheetToolbar`'s buttons, as `items` names it: Undo and Redo, Bold, Italic and Underline (`fontStyle`), the
+ * A group of `SheetToolbar`'s buttons, as `items` names it: Undo and Redo, Format Painter, Bold, Italic and Underline (`fontStyle`), the
  * Font and Font Size boxes with Increase and Decrease Font Size (`font`), the Number Format box with its buttons (`number`),
  * font and fill color, borders, Top, Middle and Bottom Align, horizontal alignment with indent and Wrap Text (`align`),
  * Merge & Center, Format Cells, and AutoSum.
  */
-export type ToolbarGroup = 'undo' | 'fontStyle' | 'font' | 'number' | 'colors' | 'borders' | 'verticalAlign' | 'align' | 'merge' | 'formatCells' | 'autoSum'
+export type ToolbarGroup = 'undo' | 'formatPainter' | 'fontStyle' | 'font' | 'number' | 'colors' | 'borders' | 'verticalAlign' | 'align' | 'merge' | 'formatCells' | 'autoSum'
 
 /** A host's button on `SheetToolbar`, drawn as the toolbar's own and, in a narrow viewport where it does not fit, moved into its menu. */
 export interface ToolbarButton {
@@ -248,10 +281,21 @@ export interface ToolbarButton {
   label: string
   /** A Vue component (it gets the toolbar's icon class) or SVG markup, drawn at the toolbar's icon size. */
   icon?: Component | string
-  run: () => void
+  /** The click's action; with `menu` too, the button is split, as AutoSum's: this part runs, its arrow opens the list. */
+  run?: () => void
+  /** A dropdown list the toolbar draws as its own lists (the narrow menu too); without `run` a click opens it, as Excel's Conditional Formatting. */
+  menu?: readonly ToolbarMenuItem[]
   disabled?: boolean
   /** Shown as pressed (`aria-pressed`), as a toggle. */
   pressed?: boolean
+}
+
+/** An item of a host's button's list; its hook is `data-tb-host-item="<id>"`. */
+export interface ToolbarMenuItem {
+  id: string
+  label: string
+  run: () => void
+  disabled?: boolean
 }
 
 /** An item of `SheetToolbar`'s `items`: one of its groups, or a host's button. */

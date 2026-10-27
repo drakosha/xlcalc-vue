@@ -4,6 +4,10 @@
 
 When a display filter is on, the cell context menu has Excel's Reapply command, also available as Ctrl+Alt+L (on a Mac as well, since the browser reserves Cmd+Option+L) and as a button on the filter's status line at the bottom. Reapply applies the filter conditions and the sort again to the current data through `visibleRows`: rows that no longer match after an edit are hidden, and rows that now match appear. Until then such rows stay as they are, as in Excel. The scroll position is kept, and so is the active cell, unless its row was hidden; the active cell then moves to the row that takes its place.
 
+## The display filter on a ribbon
+
+The display filter's funnels are on the column letters whenever the source has `visibleRows` and `columnValues`, so the sheet has no Filter switch of its own as Excel's AutoFilter does. A host's ribbon builds Excel's Data group from the sheet's methods: `filterColumn()` opens the funnel's menu for the active cell's column (its sort, values and text condition), `sortColumn('asc')` and `sortColumn('desc')` are Sort A to Z and Z to A by that column, and `clearFilter()` is Clear. `state.filtered` is set while a condition or a sort is on, for a pressed Filter button and an enabled Clear. The sort is the display filter's: the rows below the header are displayed in that order and the data do not change, where Excel's sort rewrites them.
+
 ## Freeze Panes
 
 If the source has `freeze(sheet, panes)` and the sheet is editable, the context menu has Excel's Freeze Panes, Freeze Top Row and Freeze First Column; on a sheet whose workbook has frozen panes, Unfreeze Panes replaces Freeze Panes. Freeze Panes keeps the rows above and the columns to the left of the active cell in view, so with entire columns selected it freezes the columns to the left of the selection, and with entire rows selected the rows above it. With A1 active it freezes the rows and columns above and to the left of the middle of the viewport, where Excel splits the window. Each command is a single undo step in the source, and the sheet reloads afterwards unless the source has sent `reload`.

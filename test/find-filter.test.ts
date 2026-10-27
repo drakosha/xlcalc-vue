@@ -2,7 +2,7 @@
 // from the source's stats, and the wait for a recalculated workbook with its retries.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { memorySource, type MemoryBook } from '../src'
+import { memorySource, type MemoryBook, type SheetViewApi, type SheetViewState } from '../src'
 import type { SheetPending, SheetSource, SheetWindow, WindowRequest } from '../src/contract/source'
 import { gridWindow, mountSheet, settle } from './helpers'
 
@@ -80,6 +80,39 @@ describe('the display filter', () => {
     const label = w.findAll('.xs-value').find((l) => l.find('.xs-value-text').text() === text)!
     await label.find('input').trigger('change')
   }
+
+  it("a ribbon's Filter, Sort and Clear through the sheet's methods, with `filtered` in the state", async () => {
+    const source = memorySource(book())
+    const visibleRows = vi.spyOn(source, 'visibleRows')
+    const states: SheetViewState[] = []
+    const w = await mountSheet(source, { readOnly: true, onState: (st: SheetViewState | null) => st && states.push(st) })
+    const api = w.vm as unknown as SheetViewApi
+    expect(api.clearFilter()).toBe(false)
+    await goTo(w, 'B3')
+    expect(api.sortColumn('desc')).toBe(true)
+    await settle()
+    expect(visibleRows).toHaveBeenLastCalledWith('S', { head: 1, sort: { col: 2, dir: 'desc' } }, expect.any(AbortSignal))
+    expect(states.at(-1)!.filtered).toBe(true)
+    expect(api.sortColumn('desc')).toBe(true)
+    await settle()
+    expect(states.at(-1)!.filtered).toBe(true)
+    expect(api.filterColumn()).toBe(true)
+    await settle()
+    expect(w.find('.xs-popover-title').text()).toBe('Status (B)')
+    expect(api.clearFilter()).toBe(true)
+    await settle()
+    expect(states.at(-1)!.filtered).toBeUndefined()
+    expect(numbers(w).slice(0, 3)).toEqual(['1', '2', '3'])
+  })
+
+  it('without the display filter in the source there is none of them', async () => {
+    const source = memorySource(book()) as SheetSource
+    delete (source as { visibleRows?: unknown }).visibleRows
+    const w = await mountSheet(source)
+    const api = w.vm as unknown as SheetViewApi
+    await goTo(w, 'B3')
+    expect([api.filterColumn(), api.sortColumn('asc'), api.clearFilter()]).toEqual([false, false, false])
+  })
 
   it("applies a column condition: the header stays, rows go by display index, row numbers stay the sheet's", async () => {
     const source = memorySource(book())

@@ -65,6 +65,18 @@ export interface SheetMessages extends ConditionalMessages {
   menuCut: string
   menuCopy: string
   menuPaste: string
+  /** Excel's Paste Special: the cell menu's item, the dialog's title, its Paste group and choices, and Transpose. */
+  menuPasteSpecial: string
+  pasteSpecialTitle: string
+  pasteSpecialPaste: string
+  pasteSpecialAll: string
+  pasteSpecialFormulas: string
+  pasteSpecialValues: string
+  pasteSpecialFormats: string
+  pasteSpecialValidation: string
+  pasteSpecialTranspose: string
+  /** Excel's Format Painter on the toolbar. */
+  formatPainter: string
   pasteDenied: string
   fillHandle: string
   /** Excel's commands in the cell context menu: Reapply for the display filter, Freeze Panes and its variants, Trace Precedents as a panel next to the grid. */

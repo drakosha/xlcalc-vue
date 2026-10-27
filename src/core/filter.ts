@@ -231,6 +231,11 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     sort.value = sort.value?.col === c && sort.value.dir === dir ? null : { col: c, dir }
     close()
   }
+  /** A ribbon's Sort A to Z or Z to A on a column: that sort, whatever the current one. */
+  function setSort(c: number, dir: 'asc' | 'desc'): void {
+    sort.value = { col: c, dir }
+    close()
+  }
   function onFunnelKey(e: KeyboardEvent): void {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -278,6 +283,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     applyDraft,
     clearColumn,
     sortBy,
+    setSort,
     onFunnelKey,
   }
 }

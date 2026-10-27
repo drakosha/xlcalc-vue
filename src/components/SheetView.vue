@@ -13,6 +13,7 @@ import FormatDialog from './FormatDialog.vue'
 import GoToDialog from './GoToDialog.vue'
 import SymbolDialog from './SymbolDialog.vue'
 import InsertFunction from './InsertFunction.vue'
+import PasteSpecialDialog from './PasteSpecialDialog.vue'
 import LinkDialog from './LinkDialog.vue'
 import ValidationAlert from './ValidationAlert.vue'
 import WatchWindow from './WatchWindow.vue'
@@ -120,6 +121,7 @@ const wait = ctx.w.wait
       />
       <GoToDialog v-if="ctx.goto.open.value" />
       <SymbolDialog v-if="ctx.symbolOpen.value" />
+      <PasteSpecialDialog v-if="ctx.clip.specialOpen.value" />
       <InsertFunction v-if="ctx.insertFunctionOpen.value" @pick="ctx.closeInsertFunction" @close="ctx.closeInsertFunction()" />
       <NameDialogs v-if="ctx.names.available.value" />
       <ZoomDialog v-if="ctx.zoomer.dialogOpen.value" />

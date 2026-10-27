@@ -1,10 +1,12 @@
 // Copy, cut and paste within the workbook, as in Excel: Ctrl+C and Ctrl+X put the selection's text on the clipboard and
 // mark the range with a moving border; pasting that same text (or a clipboard the browser does not provide) pastes the
 // range itself through the source's `structure` (`copyRange`, `moveRange`), with formulas adjusted as Excel adjusts them,
-// and any other text is pasted as text. The cell menu does the same through the browser's Clipboard API.
-import { computed, shallowRef, watch, type Ref } from 'vue'
+// and any other text is pasted as text. The cell menu does the same through the browser's Clipboard API. Excel's Paste
+// Special pastes a copied range as all, formulas, values, formats or validation, transposed or not (`copyRange`'s `paste`
+// and `transpose`, xlcalc 0.60).
+import { computed, ref, shallowRef, watch, type Ref } from 'vue'
 import { cellAddress, rangeAddress } from 'xlcalc/a1'
-import type { CellRect } from 'xlcalc/contract'
+import type { CellRect, PasteKind } from 'xlcalc/contract'
 import { formatClipboard } from 'xlcalc/text'
 import type { SheetOp } from '../contract/source'
 import type { Commands } from './commands'
@@ -52,6 +54,30 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   const canCut = cmd.canRanges
   /** The menu's Paste: our copy, or a clipboard the browser may allow the page to read. */
   const canPaste = computed(() => s.editable.value && (!!mark.value || typeof navigator.clipboard?.readText === 'function'))
+  /** Excel's Paste Special: over a copy (not a cut) in copy mode, with `structure` and no display filter. */
+  const canPasteSpecial = computed(() => cmd.canRanges.value && !!mark.value && !mark.value.cut)
+  const specialOpen = ref(false)
+  /** Opens the Paste Special dialog; false when there is nothing it could paste. */
+  function openSpecial(): boolean {
+    if (!canPasteSpecial.value) return false
+    specialOpen.value = true
+    return true
+  }
+  /** The dialog's OK (with a choice) or Cancel: it closes, and the copy is pasted as chosen. */
+  function closeSpecial(how?: { paste: PasteKind; transpose: boolean }): void {
+    specialOpen.value = false
+    s.focusGrid()
+    const m = mark.value
+    if (how && m && canPasteSpecial.value) void pasteMark(m, how)
+  }
+  /** Ctrl+Alt+V (Ctrl+Cmd+V on a Mac, as in Excel for Mac) opens Paste Special: true when handled. */
+  function specialKey(e: KeyboardEvent): boolean {
+    const keys = onMac() ? e.ctrlKey && e.metaKey && !e.altKey : e.ctrlKey && e.altKey && !e.metaKey
+    if (!keys || e.shiftKey || e.code !== 'KeyV' || !canPasteSpecial.value) return false
+    e.preventDefault()
+    specialOpen.value = true
+    return true
+  }
 
   // ── the selection as text ──
   /** What a copy takes: the selection's display rows and columns, up to the data. */
@@ -171,21 +197,24 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   }
   /**
    * Pastes the marked range at the selection, as Excel pastes it: a copy is tiled over a selection whose size is a multiple
-   * of it, otherwise pasted once from the top-left cell; a cut moves to the top-left cell and its mark ends. The pasted range is selected.
+   * of it, otherwise pasted once from the top-left cell; a cut moves to the top-left cell and its mark ends. The pasted range is
+   * selected. Paste Special's `how` pastes the copy as chosen, a transposed one once from the top-left cell, rows turned to columns.
    */
-  async function pasteMark(m: ClipMark): Promise<void> {
+  async function pasteMark(m: ClipMark, how?: { paste: PasteKind; transpose: boolean }): Promise<void> {
     const a = sel.fullRect.value
     if (!a) return
     const sheet = s.sheetName.value
-    const h = m.rect.bottom - m.rect.top + 1
-    const wd = m.rect.right - m.rect.left + 1
-    const tiles = !m.cut && (a.bottom - a.top + 1) % h === 0 && (a.right - a.left + 1) % wd === 0
+    const turned = !!how?.transpose
+    const h = (turned ? m.rect.right - m.rect.left : m.rect.bottom - m.rect.top) + 1
+    const wd = (turned ? m.rect.bottom - m.rect.top : m.rect.right - m.rect.left) + 1
+    const tiles = !m.cut && !turned && (a.bottom - a.top + 1) % h === 0 && (a.right - a.left + 1) % wd === 0
     const target: CellRect = tiles ? a : { top: a.top, left: a.left, bottom: a.top + h - 1, right: a.left + wd - 1 }
     const lock = ed.lockIn(target) ?? (m.cut && m.sheet === sheet ? ed.lockIn(m.rect) : null)
     if (lock !== null) return deps.notify(s.messages.value.locked(lock))
     const from = { sheet: m.sheet, range: rangeAddress(m.rect) }
     const corner = cellAddress(a.top, a.left)
-    const op: SheetOp = m.cut ? { op: 'moveRange', from, to: { sheet, cell: corner } } : { op: 'copyRange', from, to: { sheet, range: tiles ? rangeAddress(a) : corner } }
+    const to = { sheet, range: tiles ? rangeAddress(a) : corner }
+    const op: SheetOp = m.cut ? { op: 'moveRange', from, to: { sheet, cell: corner } } : how ? { op: 'copyRange', from, to, paste: how.paste, ...(turned ? { transpose: true } : {}) } : { op: 'copyRange', from, to }
     const before = { selected: s.selected.value, extent: s.extent.value }
     const out = await cmd.structure(op, false)
     if (!out?.ok) return
@@ -227,7 +256,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     return bottom < m.rect.top || right < m.rect.left ? null : v.boxOf(m.rect.top, m.rect.left, bottom, right)
   })
 
-  return { mark, ants, canCut, canPaste, clear, onCopy, onCut, onPaste, copy, paste }
+  return { mark, ants, canCut, canPaste, canPasteSpecial, specialOpen, openSpecial, closeSpecial, specialKey, clear, onCopy, onCut, onPaste, copy, paste }
 }
 
 export type Clip = ReturnType<typeof useClip>

@@ -29,6 +29,7 @@ import { useNotes } from './notes'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
 import { useAutoSum } from './autosum'
+import { usePainter } from './painter'
 import { useSpellCheck } from './spell-check'
 import { useTables } from './tables'
 import { useTrace } from './trace'
@@ -155,6 +156,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     structured: () => originalWidths.clear(),
   })
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
+  const painter = usePainter(s, sel, v, ed, cmd, { notify })
   const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
   const links = useLinks(s, sel, w, f, ed, extras, {
@@ -233,6 +235,26 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     checkSpelling: spell.check,
     autoSum: (fn) => autoSum.run(fn),
     insertFunction: openInsertFunction,
+    pasteSpecial: clip.openSpecial,
+    filterColumn: () => {
+      const a = s.selected.value
+      if (!filter.available.value || !a) return false
+      const th = s.scroller.value?.querySelector<HTMLElement>(`.xs-head[data-col="${a.col}"]`)
+      void filter.openFunnel(a.col, (th ?? s.scroller.value)?.getBoundingClientRect())
+      return true
+    },
+    clearFilter: () => {
+      if (!filter.active.value) return false
+      filter.clear()
+      return true
+    },
+    sortColumn: (dir) => {
+      const a = s.selected.value
+      if (!filter.available.value || !a) return false
+      filter.setSort(a.col, dir)
+      return true
+    },
+    formatPainter: (mode) => painter.start(mode),
     clear: extras.clear,
     insertLink: links.open,
     dataValidation: rules.open,
@@ -465,7 +487,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (validation.onKey(e)) return
     if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e) || goto.key(e) || fill.key(e) || formulaView.key(e))) return
     // Excel's Create Table (Ctrl+T, Ctrl+L) and Spelling (F7)
-    if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e))) return
+    if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e) || clip.specialKey(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -502,7 +524,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       else find.closeFind()
       return
     }
-    // Esc ends Excel's copy mode: the moving border disappears.
+    // Esc puts Format Painter's brush down, then ends Excel's copy mode: the moving border disappears.
+    if (painter.key(e)) return
     if (e.key === 'Escape' && clip.mark.value) {
       e.preventDefault()
       clip.clear()
@@ -622,6 +645,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(merge.area.value ? { merged: rangeAddress(merge.area.value) } : {}),
       ...(merge.available.value ? { canMerge: true as const } : {}),
       ...(autoSum.available.value ? { canAutoSum: true as const } : {}),
+      ...(painter.available.value ? { canFormatPainter: true as const } : {}),
+      ...(painter.mode.value ? { painting: painter.mode.value } : {}),
+      ...(filter.active.value ? { filtered: true as const } : {}),
       ...(s.formulaView.value ? { showFormulas: true as const } : {}),
       ...(zoom.percent.value !== 100 ? { zoom: zoom.percent.value } : {}),
       ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
@@ -673,6 +699,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     goto,
     symbolOpen,
     closeSymbol,
+    painter,
     insertFunctionOpen,
     canInsertFunction,
     openInsertFunction,

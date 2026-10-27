@@ -109,6 +109,15 @@ export function fakeSource(sheets: SheetInfo[], opts: { manual?: boolean; cell?:
   }
 }
 
+/** Copy or cut on the grid as the browser sends it; returns the text the sheet put on the clipboard. */
+export function clipboard(w: VueWrapper, kind: 'copy' | 'cut'): string | undefined {
+  const data: Record<string, string> = {}
+  const e = new Event(kind, { bubbles: true, cancelable: true }) as ClipboardEvent
+  Object.defineProperty(e, 'clipboardData', { value: { setData: (t: string, v: string) => (data[t] = v) } })
+  w.find('.xs-scroller').element.dispatchEvent(e)
+  return data['text/plain']
+}
+
 /** The text of a drawn cell, by address. */
 export function cellText(wrapper: VueWrapper, row: number, col: number): string | undefined {
   const td = wrapper.find(`[data-cell="${row}:${col}"]`)

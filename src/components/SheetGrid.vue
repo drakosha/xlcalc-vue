@@ -112,6 +112,7 @@ function onContext(e: MouseEvent): void {
   else ctx.menu.openCells(cell!.row, cell!.col, e.clientX, e.clientY)
 }
 function onDown(e: PointerEvent): void {
+  ctx.painter.down()
   const h = headerOf(e)
   const under = h ? null : cellUnder(e)
   // A press on a cell: Excel's Point mode while a formula accepts a reference there, otherwise the selection.
@@ -136,6 +137,7 @@ function peekNote(e: PointerEvent): void {
 }
 function onUp(): void {
   sel.onGridUp()
+  ctx.painter.up()
   ctx.point.up()
   ctx.menu.press.cancel()
 }
@@ -154,7 +156,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
 <template>
   <div
     :ref="setScroller"
-    class="xs-scroller"
+    :class="['xs-scroller', { 'xs-painting': ctx.painter.mode.value }]"
     tabindex="0"
     @scroll.passive="ctx.onScroll"
     @keydown="ctx.onGridKey"
