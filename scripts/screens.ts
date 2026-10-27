@@ -53,7 +53,7 @@ async function checkDecorations(page: Page): Promise<void> {
   console.log(`decorations: ${got.join('; ')}`)
 }
 
-/** Every button, input and tab outside the grid (within `scope`) is at least 44 × 44 px on a phone (the Name Box by its height); the desktop is unchanged. */
+/** Every button, input and tab outside the grid (within `scope`) is at least 44 × 44 px on a phone (the Name Box by its height); on the desktop a button keeps its size. */
 async function checkTargets(page: Page, mobile: boolean, scope = '.xs-sheet'): Promise<void> {
   const boxes = await page.evaluate((scope) =>
     [...document.querySelectorAll<HTMLElement>(['button', 'input', 'textarea', '[role=tab]', 'a'].map((x) => `${scope} ${x}`).join(', '))]
@@ -69,8 +69,10 @@ async function checkTargets(page: Page, mobile: boolean, scope = '.xs-sheet'): P
     const small = boxes.filter((b) => b.h < 44 || (b.w < 44 && !b.what.includes('xs-address')))
     if (small.length) throw new Error(`touch targets under 44 px: ${JSON.stringify(small)}`)
   } else {
+    // the sheet's bar buttons are 24 x 22; the toolbar's are at about Excel's ribbon (its --xs-tb-* variables)
+    const [w, h] = scope === '.xs-toolbar' ? [32, 30] : [24, 22]
     const tool = boxes.find((b) => b.what.startsWith('button.xs-tool'))
-    if (!tool || tool.w !== 24 || tool.h !== 22) throw new Error(`a desktop tool changed: ${JSON.stringify(tool)}`)
+    if (!tool || tool.w !== w || tool.h !== h) throw new Error(`a desktop tool changed: ${JSON.stringify(tool)}`)
   }
   return void console.log(`targets ${mobile ? '390' : '1920'}: ${boxes.length} checked`)
 }
