@@ -1,0 +1,112 @@
+// The `@xlcalc/vue/server` entry point: a sheet source served to viewers over HTTP, as a handler of standard requests and
+// responses that any server mounts (Hono, Node with an adapter, Bun, Deno). One source serves every viewer of a workbook:
+// their calls go to it in turn, and its events, the viewers' changes included, go to all of them.
+import type { SheetSource, SourceEvent } from '../contract/source'
+import { CALLS, historyOf, isCall, type CallBody, type CallResponse, type Manifest, type StreamEvent } from './methods'
+import type { ServeOptions, SourceAccess, SourceServer } from './types'
+
+export type { ServeOptions, SourceAccess, SourceServer } from './types'
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })
+const fail = (status: number, error: string) => json({ error } satisfies CallResponse, status)
+const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e))
+
+/** Serves `source` to viewers: the host keeps one per workbook and closes the source itself when it is done. */
+export function serveSource(source: SheetSource, opts: ServeOptions = {}): SourceServer {
+  const accessOf = async (req: Request): Promise<SourceAccess> => (typeof opts.access === 'function' ? await opts.access(req) : (opts.access ?? 'read'))
+  /** The open event streams, ended by `close`. */
+  const streams = new Set<{ send: (e: SourceEvent) => void; end: () => void }>()
+  let closed: string | null = null
+
+  function manifest(access: SourceAccess): Manifest {
+    const methods: string[] = Object.keys(CALLS).filter((m) => isCall(m) && typeof source[m] === 'function' && (access === 'write' || !CALLS[m].write))
+    if (source.subscribe) methods.push('subscribe')
+    const locale = (source as { locale?: unknown }).locale
+    return {
+      protocol: 1,
+      access,
+      methods,
+      ...(source.maxCells !== undefined ? { maxCells: source.maxCells } : {}),
+      ...(source.autoSumFunctions ? { autoSumFunctions: source.autoSumFunctions } : {}),
+      ...(source.history ? { history: historyOf(source) } : {}),
+      ...(typeof locale === 'string' ? { locale } : {}),
+    }
+  }
+
+  async function call(req: Request, access: SourceAccess): Promise<Response> {
+    let body: CallBody
+    try {
+      body = (await req.json()) as CallBody
+    } catch {
+      return fail(400, 'The call is not JSON')
+    }
+    const { method } = body
+    if (typeof method !== 'string' || !Array.isArray(body.args) || !isCall(method)) return fail(400, `No method ${String(method)}`)
+    const fn = source[method] as ((...args: unknown[]) => Promise<unknown>) | undefined
+    if (!fn) return fail(404, `The source has no ${method}`)
+    if (CALLS[method].write && access !== 'write') return fail(403, 'The workbook is read-only for this viewer')
+    const args = [...body.args]
+    for (const i of body.undef ?? []) args[i] = undefined
+    const kind = CALLS[method]
+    if (kind.signal !== undefined) args[kind.signal] = kind.inOpts ? { ...(args[kind.signal] as object | undefined), signal: req.signal } : req.signal
+    try {
+      const result = await fn.apply(source, args)
+      return json({ result: result ?? null, ...(source.history ? { history: historyOf(source) } : {}) } satisfies CallResponse)
+    } catch (e) {
+      return fail(500, messageOf(e))
+    }
+  }
+
+  function events(req: Request): Response {
+    const subscribe = source.subscribe
+    if (!subscribe) return fail(404, 'The source has no events')
+    const encoder = new TextEncoder()
+    let stop = () => {}
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const write = (text: string) => controller.enqueue(encoder.encode(text))
+        const entry = {
+          send(event: SourceEvent) {
+            write(`data: ${JSON.stringify({ event, ...(source.history ? { history: historyOf(source) } : {}) } satisfies StreamEvent)}\n\n`)
+          },
+          end() {
+            stop()
+            controller.close()
+          },
+        }
+        const unsubscribe = subscribe.call(source, entry.send)
+        const alive = setInterval(() => write(': alive\n\n'), opts.keepAliveMs ?? 25_000)
+        streams.add(entry)
+        stop = () => {
+          clearInterval(alive)
+          unsubscribe()
+          streams.delete(entry)
+          req.signal.removeEventListener('abort', stop)
+        }
+        req.signal.addEventListener('abort', stop)
+        write(': open\n\n')
+      },
+      cancel: () => stop(),
+    })
+    return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' } })
+  }
+
+  return {
+    async handle(req) {
+      if (closed !== null) return fail(410, closed || 'The workbook was closed')
+      const end = new URL(req.url).pathname.split('/').pop()
+      const access = await accessOf(req)
+      if (end === 'manifest' && req.method === 'GET') return json(manifest(access))
+      if (end === 'call' && req.method === 'POST') return call(req, access)
+      if (end === 'events' && req.method === 'GET') return events(req)
+      return fail(404, 'Not found')
+    },
+    close(message) {
+      closed = message ?? ''
+      for (const s of [...streams]) {
+        s.send({ kind: 'reload', ...(message ? { message } : {}) })
+        s.end()
+      }
+    },
+  }
+}

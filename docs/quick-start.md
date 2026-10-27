@@ -153,31 +153,35 @@ const state = shallowRef<SheetViewState | null>(null)
 
 ## A workbook on your server
 
-The component reads a workbook only through a `SheetSource`, so a workbook that lives on the host's server needs two methods: the list of sheets and a window of cells. Each further method turns on a feature: `edit` makes the sheet editable, `subscribe` brings in changes made elsewhere, `undo`, `find`, `format` and the rest add their commands. The `fallback` slot shows a failure to read the workbook, with a retry.
+A workbook calculated on the host's server reaches the sheet through `@xlcalc/vue/server`, which serves a source (a `localSource` on the server) as a handler of standard requests and responses, and `@xlcalc/vue/remote`, which gives the sheet a source whose methods are calls to that server. Every viewer of the workbook sees the others' edits at once.
+
+```ts
+import type { BookInput } from 'xlcalc'
+import { localSource } from '@xlcalc/vue/local'
+import { serveSource } from '@xlcalc/vue/server'
+
+// One server per workbook; the host mounts handle under a path, e.g. /sheet/:id/*
+export function serveBook(book: BookInput): (req: Request) => Promise<Response> {
+  const server = serveSource(localSource(book), { access: 'write' })
+  return (req) => server.handle(req)
+}
+```
 
 ```vue
 <script setup lang="ts">
-import { SheetView, type SheetInfo, type SheetPending, type SheetSource, type SheetWindow } from '@xlcalc/vue'
+import { onUnmounted, shallowRef } from 'vue'
+import { SheetView } from '@xlcalc/vue'
+import { remoteSource, type RemoteSource } from '@xlcalc/vue/remote'
 import '@xlcalc/vue/style.css'
 
-const props = defineProps<{ base: string }>()
-
-async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(props.base + path, { signal })
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return (await res.json()) as T
-}
-
-// The server answers with the contract's types as JSON; without `edit` the sheet is read-only
-const source: SheetSource = {
-  sheets: (signal) => get<SheetInfo[]>('/sheets', signal),
-  window: ({ sheet, row, rows, col, cols }, signal) =>
-    get<SheetWindow | SheetPending>(`/window?${new URLSearchParams({ sheet, row: `${row}`, rows: `${rows}`, col: `${col}`, cols: `${cols}` })}`, signal),
-}
+const props = defineProps<{ id: string }>()
+const source = shallowRef<RemoteSource | null>(null)
+remoteSource(`/sheet/${props.id}`).then((s) => (source.value = s))
+onUnmounted(() => source.value?.close())
 </script>
 
 <template>
-  <SheetView :source="source" style="height: 420px">
+  <SheetView v-if="source" :source="source" :locale="source.locale" style="height: 420px">
     <template #fallback="{ failure, retry }">
       <p>{{ failure.text }} <button @click="retry">Try again</button></p>
     </template>
@@ -185,7 +189,7 @@ const source: SheetSource = {
 </template>
 ```
 
-The server can calculate with xlcalc itself: a session's `getViewport` returns what a window holds. [The source](api.md#the-source-sheetsource) lists every method with the feature it turns on, with a fuller source over GET, POST and server-sent events; a new `source` prop means a new workbook.
+[A workbook on a server](remote.md) covers access by viewer, several viewers and the protocol. The component itself reads a workbook only through a `SheetSource`, so a host may also implement one over an API of its own: [the source](api.md#the-source-sheetsource) lists every method with the feature it turns on; a new `source` prop means a new workbook.
 
 ## The Russian interface and a Russian workbook
 

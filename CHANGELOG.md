@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A workbook on a server: `@xlcalc/vue/server`'s `serveSource(source, { access })` serves any source to every viewer of its workbook as a handler of standard requests and responses (`SourceServer.handle`, `close`), and `@xlcalc/vue/remote`'s `remoteSource(url, opts)` gives the browser's sheet a source with the methods the server allows the viewer. An edit by one viewer reaches the others at once through the source's events; the workbook has one undo history for all its viewers. Neither entry needs the engine or Vue at runtime ([remote.md](docs/remote.md)).
 - `./local` saves a workbook over the file it was opened from: `openXlsx(data, { keep: true })` reads through xlcalc's `openKept` (0.57.0 or later), and `saveXlsx(source, { over: data })` writes through `writeKept`, so the file's charts, pivot tables, pictures, theme and page setup stay as they were; a change the file cannot take rejects with xlcalc's `KeptRefusal`.
 - `./local` keeps the display filter's rows for each filter (up to eight a sheet) until that filter is applied again, so viewers that share one source with different filters each keep theirs; a cleared filter no longer drops its rows.
 

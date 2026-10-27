@@ -38,3 +38,7 @@ The table is printed to the terminal, the numbers go to `test-results/big-check.
 ## The local page: `check:local`
 
 `npm run check:local` opens the example's `local.html` (the synthetic workbook of 3,400 rows) in Chromium, measures it and takes screenshots; the page also opens an xlsx file from its file input and saves the workbook under the file's name.
+
+## A workbook on a server: `check:remote`
+
+`npm run check:remote` serves a `localSource` with `serveSource` under `/sheet/1/` on the same Node server as the example's dev server, and opens `remote.html` (the sheet and the toolbar over `remoteSource`) in three Chromium pages: two editors and a reader, told apart by a header the server's `access` reads. It checks that an edit on one page appears on the other two without a reload, that one editor's Undo takes back the other's edit (one history for the workbook), that the reader's sheet has no toolbar and changes nothing, and that `close()` shows every page its message, with no page error throughout; screenshots go to `test-results/screens/remote-*.png`. It exits with 1 if a check fails.

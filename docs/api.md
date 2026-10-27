@@ -1,6 +1,6 @@
 # API reference
 
-Everything the package exports, with signatures. How the sheet uses each part, key by key, is described in the other files of `docs/`; this page covers what to pass and what is returned. The types are declared in `src/contract/`, behind `src/contract.ts`: `source.ts` (the source contract), `view.ts` (the sheet's props, state, events and methods), `memory.ts` (`memorySource`) and `messages.ts` (the interface texts' keys); those of `@xlcalc/vue/local` are in `src/local/types.ts`.
+Everything the package exports, with signatures. How the sheet uses each part, key by key, is described in the other files of `docs/`; this page covers what to pass and what is returned. The types are declared in `src/contract/`, behind `src/contract.ts`: `source.ts` (the source contract), `view.ts` (the sheet's props, state, events and methods), `memory.ts` (`memorySource`) and `messages.ts` (the interface texts' keys); those of `@xlcalc/vue/local` are in `src/local/types.ts`, those of `@xlcalc/vue/remote` and `@xlcalc/vue/server` in `src/remote/types.ts`.
 
 ## Entry points
 
@@ -8,6 +8,8 @@ Everything the package exports, with signatures. How the sheet uses each part, k
 | --- | --- | --- |
 | `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages`, `TOOLBAR_GROUPS` and the types below | `vue` |
 | `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.46.0 or later (optional peer) |
+| `@xlcalc/vue/remote` | `remoteSource` | none |
+| `@xlcalc/vue/server` | `serveSource` | none (a server with standard `Request` and `Response`) |
 | `@xlcalc/vue/style.css` | Styles of the sheet, the toolbar and the dialog | |
 
 The main entry point bundles xlcalc's engine-free subpaths `xlcalc/a1` and `xlcalc/text` (addresses, references in formula text, the range of a paste), and a workbook in ru-RU loads the ru-RU formula text as a separate chunk. With a source without `editText`, `xlcalc/entry` (parsing of typed entries, without the engine) is loaded as another chunk, bundled in full separately from the main entry point, when the first cell needs its text; `memorySource` loads it for Find and Replace.
@@ -267,36 +269,7 @@ Excel's Format Cells dialog for the selection, for a host that places its own di
 
 The component accesses its data only through this interface. Rows and columns are 1-based, cells are A1 addresses, and formulas are displayed and typed in the source's own locale. Two methods are required; each optional method enables a feature. An editing method returns an `EditOutcome`.
 
-A source over a workbook on the host's server: sheets and windows via GET, edits via POST, and changes made elsewhere via server-sent events. The server responds with the contract's types as JSON; everything else (undo, Find, formatting) is added as further optional methods in the same way.
-
-```ts
-import type { EditOutcome, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent } from '@xlcalc/vue'
-
-export function serverSource(base: string): SheetSource {
-  const get = async <T>(path: string, signal?: AbortSignal): Promise<T> => {
-    const res = await fetch(base + path, { signal })
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-    return (await res.json()) as T
-  }
-  const post = async <T>(path: string, body: unknown): Promise<T> => {
-    const res = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-    return (await res.json()) as T
-  }
-  return {
-    sheets: (signal) => get<SheetInfo[]>('/sheets', signal),
-    // No visibleRows, so a request never carries a filter
-    window: ({ sheet, row, rows, col, cols }, signal) =>
-      get<SheetWindow | SheetPending>(`/window?${new URLSearchParams({ sheet, row: `${row}`, rows: `${rows}`, col: `${col}`, cols: `${cols}` })}`, signal),
-    edit: (entries, opts) => post<EditOutcome>('/edit', { entries, ...opts }),
-    subscribe(listener) {
-      const events = new EventSource(`${base}/events`)
-      events.onmessage = (e) => listener(JSON.parse(e.data) as SourceEvent)
-      return () => events.close()
-    },
-  }
-}
-```
+A workbook calculated on the host's server reaches the sheet through `@xlcalc/vue/server` and `@xlcalc/vue/remote` ([below](#xlcalcvueremote-and-xlcalcvueserver), [remote.md](remote.md)), which carry every method of this contract; a host may also implement the contract over an API of its own.
 
 ### Required
 
@@ -569,6 +542,30 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | `groupIssues(issues: XlsxIssue[])` | `IssueGroup[]` | Issues grouped by kind, in order of first appearance, for a notice of what a file lost. |
 
 `XlsxIssuesOptions` is `{ locale?: string | Locale }`: the language of the issue messages, English by default. `IssueGroup` is `{ code, count, sheets: string[], message }`, where `message` is the first issue's message.
+
+## `@xlcalc/vue/remote` and `@xlcalc/vue/server`
+
+A workbook on a server: `serveSource` serves a source to viewers over HTTP, and `remoteSource` connects the browser's sheet to it. See [remote.md](remote.md).
+
+| Function | Returns | Meaning |
+| --- | --- | --- |
+| `serveSource(source: SheetSource, opts?: ServeOptions)` | `SourceServer` | Serves the source to every viewer of its workbook, as a handler of standard requests and responses. |
+| `remoteSource(url: string, opts?: RemoteSourceOptions)` | `Promise<RemoteSource>` | Connects to a source served at `url` and resolves with the methods the server allows this viewer; rejects when the server cannot be reached or refuses. |
+
+| Type | Member | Meaning |
+| --- | --- | --- |
+| `SourceAccess` | | `'read' \| 'write'`: `read` calls only the methods that do not change the workbook. |
+| `ServeOptions` | `access?: SourceAccess \| ((req: Request) => SourceAccess \| Promise<SourceAccess>)` | What each request may do; `read` by default. |
+| | `keepAliveMs?: number` | How often the event stream sends a comment so that proxies keep it open; 25,000 by default. |
+| `SourceServer` | `handle(req: Request): Promise<Response>` | Answers `GET …/manifest`, `POST …/call` and `GET …/events` (server-sent events) at the end of any path; anything else is 404. |
+| | `close(message?: string): void` | Sends every viewer `reload` with the message and ends their streams; later requests get 410. The source stays open. |
+| `RemoteSourceOptions` | `fetch?: typeof fetch` | The fetch to call the server with; the global one without it. |
+| | `headers?: HeadersInit \| (() => HeadersInit)` | Headers of every request, the event stream's included, or a function called for each. |
+| | `retryMs?: number` | The first wait before the event stream connects again after it broke, doubled up to 30 s; 1,000 by default. |
+| `RemoteSource` | the methods of `SheetSource` the server allows | Calls to the server: a method that changes the workbook fails as an `EditOutcome` (`refused` for 403), any other rejects with the server's message; a call's signal stops its request. `subscribe` is one event stream for all listeners, which sends `reload` after it connects again. |
+| | `access: SourceAccess` | What the server allows this viewer. |
+| | `locale?: string` | The workbook's locale, when the served source has one. |
+| | `close(): void` | Stops the event stream; calls keep working. |
 
 ## CSS variables
 

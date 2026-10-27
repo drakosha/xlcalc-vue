@@ -3,8 +3,8 @@ import { resolve } from 'node:path'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig, type Plugin } from 'vite'
 
-// The example app (`npm run dev:example`): the "all formatting" book (index.html), the local source (local.html) and the
-// app like Excel (spa.html); built into example/dist, which git ignores.
+// The example app (`npm run dev:example`): the "all formatting" book (index.html), the local source (local.html), the
+// app like Excel (spa.html) and a workbook on a server (remote.html, served by `npm run check:remote`); built into example/dist, which git ignores.
 // `--mode demo` (`npm run build:demo`) builds the app alone for xlcalc.pridelab.dev/demo/ into example/dist-demo: its
 // paths under /demo/, its index.html the app itself, no source maps.
 
@@ -21,7 +21,7 @@ const demoIndex = (): Plugin => ({
 
 export default defineConfig(({ mode }) => {
   const demo = mode === 'demo'
-  const input: Record<string, string> = demo ? { spa: example('spa.html') } : { index: example('index.html'), local: example('local.html'), spa: example('spa.html') }
+  const input: Record<string, string> = demo ? { spa: example('spa.html') } : { index: example('index.html'), local: example('local.html'), spa: example('spa.html'), remote: example('remote.html') }
   return {
     root: example(''),
     base: demo ? '/demo/' : '/',
