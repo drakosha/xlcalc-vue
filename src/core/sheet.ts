@@ -459,10 +459,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     rowDrag.px = Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, Math.round(rowDrag.startH + (e.clientY - rowDrag.startY) / s.zoom.value)))
     geo.setHeights([[rowDrag.row, rowDrag.px]])
   }
-  /** A double click on a row number's edge fits the row, and every selected entire row when it is one of them, as Excel's AutoFit does. */
+  /** A double click on a row number's edge fits the row, and every row of the selection when it is in it (entire rows or cells), as Excel's AutoFit does. */
   function onRowEdgeDouble(row: number): void {
     if (!rowsResizable.value) return
-    const { first, last } = sel.linesOf(sel.wholeRows.value, row)
+    const r = sel.fullRect.value
+    const { first, last } = sel.linesOf(r ? { first: r.top, last: r.bottom } : null, row)
     void cmd.layout({ sheet: s.sheetName.value, rows: linesKey(first, last, 'rows'), fit: true })
   }
   async function endRowResize(): Promise<void> {
