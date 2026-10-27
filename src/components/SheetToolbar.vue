@@ -249,9 +249,10 @@ function measureRow(): void {
   breaks.value = new Set(out.breaks.map((i) => blocks.value[i]!.key))
   fit.value = out.fit
 }
-// Whatever changes the row's widths or lines draws it whole again and measures it
+// Whatever changes the row's widths or lines draws it whole again and measures it: the sheet and the source decide which
+// groups are drawn, and the Number Format box widens when its locale's list loads
 watch(
-  [narrow, width, touch, blocks, lines, () => props.messages],
+  [narrow, width, touch, blocks, lines, () => props.messages, () => props.sheet, () => props.source, () => props.hostDialog, () => numbers.choices.value.length > 0],
   () => {
     fit.value = null
     breaks.value = new Set()

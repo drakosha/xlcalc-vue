@@ -3,7 +3,7 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
-import { SheetToolbar, TOOLBAR_GROUPS, type SheetViewState, type ToolbarItem } from '../src'
+import { SheetToolbar, TOOLBAR_GROUPS, type SheetViewApi, type SheetViewState, type ToolbarItem } from '../src'
 import type { EditOutcome, SheetSource } from '../src/contract/source'
 import { fitLines } from '../src/toolbar'
 
@@ -72,14 +72,14 @@ describe("SheetToolbar's items", () => {
   })
 
   /** A narrow toolbar whose row is `room` px wide, each block `block` px and the More button 44 px wide. */
-  function narrowLayout(room: number, block: (key: string) => number = () => 100, viewport = 390): void {
+  function narrowLayout(room: number, block: (key: string, el: HTMLElement) => number = () => 100, viewport = 390): void {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(viewport)
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-tb-row') ? room : 0
     })
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       const key = this.dataset.tbBlock
-      const width = key ? block(key) : this.dataset.tb === 'more' ? 44 : 0
+      const width = key ? block(key, this) : this.dataset.tb === 'more' ? 44 : 0
       return { width, height: 44, top: 0, left: 0, right: width, bottom: 44, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
     })
   }
@@ -132,6 +132,24 @@ describe("SheetToolbar's items", () => {
     await nextTick()
     expect(w.find('[data-tb-menu]').exists()).toBe(false)
     expect(w.findAll('.xs-tb-row > [data-tb-line]').map((b) => b.attributes('data-tb-block'))).toEqual(['borders', 'number'])
+  })
+
+  it('measures again when the sheet arrives, which draws its groups, and when the Number Format list loads', async () => {
+    narrowLayout(300, (key, el) => (key === 'number' ? (el.querySelector('select') ? 250 : 50) : 100), 1440)
+    const sheet = { formatPainter: vi.fn() } as unknown as SheetViewApi
+    const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'formatPainter', 'fontStyle', 'borders'] }, attachTo: document.body })
+    await nextTick()
+    await nextTick()
+    expect(w.find('[data-tb-menu]').exists()).toBe(false)
+    await w.setProps({ sheet })
+    await nextTick()
+    await nextTick()
+    expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['undo', 'formatPainter'])
+    await w.setProps({ items: ['undo', 'number'], locale: 'ru-RU' })
+    await vi.waitFor(() => expect(w.find('[data-tb="number"]').exists()).toBe(true))
+    await nextTick()
+    await nextTick()
+    expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['number'])
   })
 
   it('below 600 px keeps one row whatever rows says', async () => {
