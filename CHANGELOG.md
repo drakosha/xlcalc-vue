@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.26.0 (2026-10-27)
 
-Built over xlcalc 0.60.0. Nothing breaks for a host; Paste Special and Format Painter in `./local` need xlcalc 0.60.0.
+The app's next requests, built over xlcalc 0.60.0. Nothing breaks for a host; Paste Special and Format Painter in `./local` need xlcalc 0.60.0.
 
 - Paste Special: the cell menu's Paste Special…, Ctrl+Alt+V (Ctrl+Cmd+V on a Mac) and `SheetViewApi.pasteSpecial()` open Excel's dialog for a copy: All, Formulas, Values, Formats or Validation, and Transpose, through `structure`'s `copyRange` with `paste` and `transpose` (xlcalc 0.60). The cell menu has the new item after Paste.
 - Format Painter: the toolbar's `formatPainter` group (with `sheet`; in `TOOLBAR_GROUPS` after `undo`, so a host with the default items gets the button) and `SheetViewApi.formatPainter(mode)`: a click paints the selection's formats onto the next range once, a double click until Esc, through `copyRange` with `paste: 'formats'`. `SheetViewState` has `canFormatPainter` and `painting`; `FormatPainterMode` is new.
