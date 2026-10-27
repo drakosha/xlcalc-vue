@@ -27,6 +27,24 @@ async function goTo(w: VueWrapper, address: string): Promise<void> {
   await settle()
 }
 
+describe('a column wider than the viewport', () => {
+  it('Up and Down within it keep the scroll, its left edge in view, as Excel scrolls by whole columns', async () => {
+    const w = await mountSheet(memorySource({ sheets: [{ name: 'S', widths: { B: 200 }, cells: { B1: 'wide', B2: 'wide', B3: 'wide' } }] }))
+    const scroller = w.find('.xs-scroller').element as HTMLElement
+    await goTo(w, 'B1')
+    const left = scroller.scrollLeft
+    const at: number[] = []
+    for (let i = 0; i < 3; i++) {
+      await w.find('.xs-scroller').trigger('keydown', { key: i < 2 ? 'ArrowDown' : 'ArrowUp' })
+      await settle()
+      at.push(scroller.scrollLeft)
+    }
+    expect(at).toEqual([left, left, left])
+    // the column's left edge is in view: the scroll is at most where it starts
+    expect(left).toBeLessThanOrEqual(71)
+  })
+})
+
 describe('Name Box and Back history', () => {
   it('goes to a range on another sheet, flashes it, and Back returns', async () => {
     const w = await mountSheet(memorySource(book()), { readOnly: true })

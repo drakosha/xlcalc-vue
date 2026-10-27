@@ -139,14 +139,19 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     const z = s.zoom.value
     let y = el.scrollTop / z
     let x = el.scrollLeft / z
-    // Frozen rows and columns are always in the viewport.
+    // Frozen rows and columns are always in the viewport. A cell larger than the scrolled area keeps its top or left edge in
+    // view, as Excel scrolls by whole rows and columns: aligning the far edge would flip the view on each move along it.
     if (d > v.frozenRows.value) {
-      if (top - v.frozenH.value < y) y = top - v.frozenH.value - REVEAL_PAD
-      else if (bottom > y + s.viewH.value - v.headH.value - v.footH.value) y = bottom - s.viewH.value + v.headH.value + v.footH.value + REVEAL_PAD
+      const end = y + s.viewH.value - v.headH.value - v.footH.value
+      const tall = bottom - top > end - y - v.frozenH.value
+      if (top - v.frozenH.value < y || (tall && top > end)) y = top - v.frozenH.value - REVEAL_PAD
+      else if (!tall && bottom > end) y = bottom - s.viewH.value + v.headH.value + v.footH.value + REVEAL_PAD
     }
     if (col > v.frozenCols.value) {
-      if (left - v.frozenW.value < x) x = left - v.frozenW.value - REVEAL_PAD
-      else if (right > x + s.viewW.value - v.leadW.value) x = right - s.viewW.value + v.leadW.value + REVEAL_PAD
+      const end = x + s.viewW.value - v.leadW.value
+      const wide = right - left > end - x - v.frozenW.value
+      if (left - v.frozenW.value < x || (wide && left > end)) x = left - v.frozenW.value - REVEAL_PAD
+      else if (!wide && right > end) x = right - s.viewW.value + v.leadW.value + REVEAL_PAD
     }
     if (y !== el.scrollTop / z || x !== el.scrollLeft / z) {
       s.scrollGridTo(Math.max(0, y), Math.max(0, x))

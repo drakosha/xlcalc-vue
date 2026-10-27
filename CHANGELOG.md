@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: in a column wider than the viewport, Up and Down flipped the view between the column's left and right edges. A cell larger than the scrolled area now keeps its left (or top) edge in view, as Excel scrolls by whole columns and rows.
+
 ## 0.26.0 (2026-10-27)
 
 The app's next requests, built over xlcalc 0.60.0. Nothing breaks for a host; Paste Special and Format Painter in `./local` need xlcalc 0.60.0.
