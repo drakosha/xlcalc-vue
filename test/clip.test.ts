@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages, type MemoryBook } from '../src'
 import { localSource } from '../src/local'
 import type { EditOutcome, SheetOp, SheetWindow } from '../src/contract/source'
-import { address, cellText, editorKey, goTo, key, mountSheet, paste, settle } from './helpers'
+import { address, cellText, clipboard, editorKey, goTo, key, mountSheet, paste, settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -28,14 +28,6 @@ function withStructure(answer: (op: SheetOp) => EditOutcome = () => OK) {
   source.structure = structure
   const edit = vi.spyOn(source, 'edit')
   return { source, structure, edit }
-}
-/** Copy or cut on the grid as the browser sends it; returns the text the sheet put on the clipboard. */
-function clipboard(w: VueWrapper, kind: 'copy' | 'cut'): string | undefined {
-  const data: Record<string, string> = {}
-  const e = new Event(kind, { bubbles: true, cancelable: true }) as ClipboardEvent
-  Object.defineProperty(e, 'clipboardData', { value: { setData: (t: string, v: string) => (data[t] = v) } })
-  w.find('.xs-scroller').element.dispatchEvent(e)
-  return data['text/plain']
 }
 /** A paste whose clipboard contents the browser does not provide. */
 function pasteUnread(w: VueWrapper): void {
@@ -277,7 +269,7 @@ describe('the cell menu', () => {
     const w = await mountSheet(source, { messages: ruMessages })
     await goTo(w, 'A1:B2')
     await context(w, '2:2')
-    expect(items()).toEqual(['cut', 'copy', 'paste', 'freeze', 'freezeTopRow', 'freezeFirstColumn', 'precedents', 'newNote', 'defineName', 'link'])
+    expect(items()).toEqual(['cut', 'copy', 'paste', 'pasteSpecial', 'freeze', 'freezeTopRow', 'freezeFirstColumn', 'precedents', 'newNote', 'defineName', 'link'])
     expect(document.querySelector('[data-xs-menu-box]')!.getAttribute('aria-label')).toBe('Ячейки')
     expect(document.querySelector('.xs-menu-caption')!.textContent).toBe('A1:B2')
     expect(document.querySelector('[data-xs-menu="paste"]')!.textContent!.trim()).toBe('Вставить')
@@ -351,7 +343,7 @@ describe('the cell menu', () => {
     await cell.trigger('pointerdown', touch)
     await new Promise((r) => setTimeout(r, 560))
     await settle()
-    expect(items()).toEqual(['cut', 'copy', 'paste', 'freeze', 'freezeTopRow', 'freezeFirstColumn', 'precedents', 'newNote', 'defineName', 'link'])
+    expect(items()).toEqual(['cut', 'copy', 'paste', 'pasteSpecial', 'freeze', 'freezeTopRow', 'freezeFirstColumn', 'precedents', 'newNote', 'defineName', 'link'])
     await cell.trigger('pointerup', touch)
     await cell.trigger('click')
     await settle()

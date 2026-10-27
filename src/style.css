@@ -641,6 +641,11 @@
   pointer-events: none;
 }
 /* The copied or cut range: Excel's moving dashed border, static where reduced motion is requested. */
+/* Format Painter holds a brush: the pointer says a press will paint. */
+.xs-painting,
+.xs-painting .xs-cell {
+  cursor: copy;
+}
 .xs-ants {
   position: absolute;
   pointer-events: none;

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// Excel's formatting toolbar over a sheet source: undo and redo, the font and its size, bold, italic, underline, font and
+// Excel's formatting toolbar over a sheet source: undo and redo, Format Painter (through the sheet), the font and its size, bold, italic, underline, font and
 // fill colors, borders, vertical and horizontal alignment, indent, wrapping, Merge & Center with its dropdown (through the
 // sheet, with the source's `structure`), Excel's Number Format box (xlcalc's, in the workbook's locale) and Percent Style,
 // applied to the selection the sheet's `state` event reports, Format Cells for a host that displays the dialog, and AutoSum
 // with its list (through the sheet, with the source's `autoSum`); `items` picks and orders the groups and adds the host's
 // buttons. In a narrow viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
-import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
 import { failedOutcome } from '../failure'
 import { NARROW_PX, useCoarsePointer } from '../frame'
@@ -65,6 +65,7 @@ import {
   IconFontDown,
   IconFontUp,
   IconFormatCells,
+  IconFormatPainter,
   IconIndentDecrease,
   IconIndentIncrease,
   IconItalic,
@@ -255,10 +256,14 @@ watch(
   { flush: 'post' },
 )
 /** A host's button: its action, after the menus close. */
-function runHost(button: ToolbarButton): void {
+function runHost(button: { run?: () => void }): void {
   closeAll()
-  button.run()
+  button.run?.()
 }
+/** A host's button's icon as the toolbar draws its own: a component, SVG markup, or without an icon its label as text. */
+const HostIcon: FunctionalComponent<{ button: ToolbarButton }> = ({ button: b }) =>
+  typeof b.icon === 'string' ? h('span', { class: 'xs-icon xs-tb-svg', innerHTML: b.icon }) : b.icon ? h(b.icon, { class: 'xs-icon' }) : b.label
+HostIcon.props = ['button']
 
 // ── ScreenTips: a button's name (and key) below it, sooner than the browser's title; mouse only ──
 /** How long the pointer rests on a button before its tip shows, and how long after a tip hides the next one shows at once, as Office's do. */
@@ -298,7 +303,8 @@ function onTipOut(e: PointerEvent): void {
 }
 
 // ── menus: the color palettes, the borders, and the narrow layout's menu ──
-type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'autoSum' | 'fontName' | 'fontSize'
+/** The toolbar's lists, and a host's button's (`host:<id>`). */
+type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'autoSum' | 'fontName' | 'fontSize' | `host:${string}`
 const open = ref<Menu | null>(null)
 const menu = ref(false)
 const toggle = (what: Menu) => {
@@ -413,6 +419,16 @@ function merge(command: MergeCommand): void {
 }
 /** The AutoSum list: Sum and the functions the source builds besides it. */
 const autoSums = computed(() => AUTO_SUMS.filter((x) => x.fn === 'sum' || props.source.autoSumFunctions?.includes(x.fn)))
+/**
+ * Excel's Format Painter through the sheet: a click takes the selection's formats for one painting, or puts a held brush down;
+ * a double click (after its two clicks) keeps painting until Esc or the button again.
+ */
+function paintFormats(keep: boolean): void {
+  closeAll()
+  const sheet = props.sheet
+  if (!sheet) return
+  sheet.formatPainter(keep ? 'keep' : props.state?.painting ? 'off' : 'once')
+}
 /** AutoSum through the sheet, which opens the active cell's edit with the formula; the menus close, as the edit takes focus. */
 function autoSum(fn: AutoSumFunction): void {
   closeAll()
@@ -459,6 +475,21 @@ function pickNumber(e: Event): void {
           </button>
           <button v-if="source.redo" type="button" class="xs-tool" data-tb="redo" :data-tip="m.redo" :aria-label="m.redo" :disabled="!canRedo" @click="step('redo')">
             <IconRedo />
+          </button>
+        </span>
+        <span v-else-if="blk.group === 'formatPainter' && sheet" :data-tb-block="blk.key" class="xs-tb-group">
+          <button
+            type="button"
+            :class="['xs-tool', { 'xs-tool-on': !!state?.painting }]"
+            data-tb="format-painter"
+            :data-tip="m.formatPainter"
+            :aria-label="m.formatPainter"
+            :aria-pressed="!!state?.painting"
+            :disabled="!state?.canFormatPainter"
+            @click="paintFormats(false)"
+            @dblclick="paintFormats(true)"
+          >
+            <IconFormatPainter />
           </button>
         </span>
         <span v-else-if="blk.group === 'fontStyle'" :data-tb-block="blk.key" class="xs-tb-group">
@@ -683,22 +714,42 @@ function pickNumber(e: Event): void {
           </span>
         </span>
         <span v-else-if="blk.buttons" :data-tb-block="blk.key" class="xs-tb-group">
-        <button
-          v-for="x in blk.buttons"
-          :key="x.id"
-          type="button"
-          :class="['xs-tool', { 'xs-tool-on': x.pressed, 'xs-tb-wide xs-tb-text': !x.icon }]"
-          :data-tb-host="x.id"
-          :data-tip="x.label"
-          :aria-label="x.label"
-          :aria-pressed="x.pressed === undefined ? undefined : x.pressed"
-          :disabled="x.disabled"
-          @click="runHost(x)"
-        >
-          <span v-if="typeof x.icon === 'string'" class="xs-icon xs-tb-svg" v-html="x.icon" />
-          <component :is="x.icon" v-else-if="x.icon" class="xs-icon" />
-          <template v-else>{{ x.label }}</template>
-        </button>
+          <template v-for="x in blk.buttons" :key="x.id">
+            <button
+              v-if="!x.menu || x.run"
+              type="button"
+              :class="['xs-tool', { 'xs-tool-on': x.pressed, 'xs-tb-wide xs-tb-text': !x.icon }]"
+              :data-tb-host="x.id"
+              :data-tip="x.label"
+              :aria-label="x.label"
+              :aria-pressed="x.pressed === undefined ? undefined : x.pressed"
+              :disabled="x.disabled"
+              @click="runHost(x)"
+            >
+              <HostIcon :button="x" />
+            </button>
+            <span v-if="x.menu" class="xs-tb-split">
+              <button
+                type="button"
+                :class="['xs-tool', x.run ? 'xs-tb-caret' : 'xs-tb-wide', { 'xs-tool-on': !x.run && x.pressed, 'xs-tb-text': !x.run && !x.icon }]"
+                :data-tb-host-menu="x.id"
+                :data-tip="x.label"
+                :aria-label="x.label"
+                aria-haspopup="menu"
+                :aria-expanded="open === `host:${x.id}`"
+                :disabled="x.disabled"
+                @click="toggle(`host:${x.id}`)"
+              >
+                <HostIcon v-if="!x.run" :button="x" />
+                <IconDown :class="{ 'xs-tb-down': !x.run }" />
+              </button>
+              <div v-if="open === `host:${x.id}`" class="xs-tb-pop" role="menu" :aria-label="x.label">
+                <button v-for="it in x.menu" :key="it.id" type="button" class="xs-tb-item" role="menuitem" :data-tb-host-item="it.id" :disabled="it.disabled" @click="runHost(it)">
+                  {{ it.label }}
+                </button>
+              </div>
+            </span>
+          </template>
         </span>
       </template>
       <button v-if="part.place === 'row' && moreShown" type="button" :class="['xs-tool', 'xs-tb-more', { 'xs-tool-on': menu }]" data-tb="more" :data-tip="m.toolbarMore" :aria-label="m.toolbarMore" :aria-expanded="menu" @click="menu = !menu">

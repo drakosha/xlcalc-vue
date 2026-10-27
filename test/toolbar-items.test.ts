@@ -110,6 +110,30 @@ describe("SheetToolbar's items", () => {
   })
 })
 
+describe("a host's button with a list", () => {
+  it('opens its list on a click without `run`; split with `run`: the button runs, its arrow opens the list; an item runs and closes it', async () => {
+    const run = vi.fn()
+    const pick = vi.fn()
+    const w = mountBar([
+      { id: 'cf', label: 'Conditional Formatting', menu: [{ id: 'bars', label: 'Data Bars', run: pick }, { id: 'clear', label: 'Clear Rules', run: pick, disabled: true }] },
+      { id: 'freeze', label: 'Freeze Panes', run, menu: [{ id: 'top', label: 'Freeze Top Row', run: pick }] },
+    ])
+    expect(w.find('[data-tb-host="cf"]').exists()).toBe(false)
+    const cf = w.find('[data-tb-host-menu="cf"]')
+    expect([cf.attributes('aria-haspopup'), cf.attributes('data-tip')]).toEqual(['menu', 'Conditional Formatting'])
+    await cf.trigger('click')
+    expect(w.findAll('[role="menu"] [data-tb-host-item]').map((b) => [b.text(), b.attributes('disabled') !== undefined])).toEqual([['Data Bars', false], ['Clear Rules', true]])
+    await w.find('[data-tb-host-item="bars"]').trigger('click')
+    expect(pick).toHaveBeenCalledOnce()
+    expect(w.find('[role="menu"]').exists()).toBe(false)
+    await w.find('[data-tb-host="freeze"]').trigger('click')
+    expect(run).toHaveBeenCalledOnce()
+    expect(w.find('[role="menu"]').exists()).toBe(false)
+    await w.find('[data-tb-host-menu="freeze"]').trigger('click')
+    expect(w.find('[data-tb-host-item="top"]').exists()).toBe(true)
+  })
+})
+
 describe("SheetToolbar's ScreenTips", () => {
   const over = (w: VueWrapper, hook: string, pointerType = 'mouse') => w.find(hook).element.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType }))
   const out = (w: VueWrapper, hook: string) => w.find(hook).element.dispatchEvent(new PointerEvent('pointerout', { bubbles: true, pointerType: 'mouse' }))

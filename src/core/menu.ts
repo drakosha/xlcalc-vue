@@ -121,6 +121,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
           { id: 'cut', label: m().menuCut, disabled: !clip.canCut.value, run: () => clip.copy(true) },
           copy,
           { id: 'paste', label: m().menuPaste, disabled: !clip.canPaste.value, run: () => void clip.paste() },
+          { id: 'pasteSpecial', label: m().menuPasteSpecial, disabled: !clip.canPasteSpecial.value, run: () => void clip.openSpecial() },
         ]
     if (deps.filter.active.value && deps.filter.available.value) out.push({ id: 'reapply', label: m().menuReapply, run: () => void deps.filter.reapply(), group: true })
     // the display filter's rows on screen are not the sheet's rows, which panes freeze

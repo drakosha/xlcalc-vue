@@ -15,7 +15,11 @@ const place = (b: { top: number; left: number; width: number; height: number; fr
   height: `${b.height}px`,
   zIndex: b.frozen ? '7' : '1',
 })
-const ants = computed(() => (clip.ants.value ? place(clip.ants.value) : null))
+/** The copied range's moving border, or Format Painter's brush. */
+const ants = computed(() => {
+  const b = clip.ants.value ?? ctx.painter.ants.value
+  return b ? place(b) : null
+})
 const frame = computed(() => (fill.frame.value ? place(fill.frame.value) : null))
 /** The fill handle keeps its size at any zoom, so it can still be grabbed zoomed out: its own zoom undoes the sheet's, and its place is in the resulting pixels. */
 const handle = computed(() => {

@@ -79,6 +79,18 @@
   flex-direction: column;
   gap: 2px;
 }
+/* A dialog's choices under a caption (Paste Special's Paste): a fieldset without the browser's frame. */
+fieldset.xs-dialog-choices {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.xs-dialog-choices > legend {
+  margin-bottom: 4px;
+  padding: 0;
+  font-weight: 600;
+}
 .xs-dialog-choice {
   display: flex;
   align-items: center;

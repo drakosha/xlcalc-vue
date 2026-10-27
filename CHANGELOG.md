@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.26.0 (2026-10-27)
+
+The app's next requests, built over xlcalc 0.60.0. Nothing breaks for a host; Paste Special and Format Painter in `./local` need xlcalc 0.60.0.
+
+- Paste Special: the cell menu's Paste Special…, Ctrl+Alt+V (Ctrl+Cmd+V on a Mac) and `SheetViewApi.pasteSpecial()` open Excel's dialog for a copy: All, Formulas, Values, Formats or Validation, and Transpose, through `structure`'s `copyRange` with `paste` and `transpose` (xlcalc 0.60). The cell menu has the new item after Paste.
+- Format Painter: the toolbar's `formatPainter` group (with `sheet`; in `TOOLBAR_GROUPS` after `undo`, so a host with the default items gets the button) and `SheetViewApi.formatPainter(mode)`: a click paints the selection's formats onto the next range once, a double click until Esc, through `copyRange` with `paste: 'formats'`. `SheetViewState` has `canFormatPainter` and `painting`; `FormatPainterMode` is new.
+- The display filter for a ribbon: `SheetViewApi.filterColumn()`, `clearFilter()` and `sortColumn('asc' | 'desc')`, and `SheetViewState.filtered`.
+- A host's toolbar button may have a list: `ToolbarButton.menu` (`ToolbarMenuItem`), drawn as the toolbar's own lists; without `run` a click opens it, with `run` the button is split. `run` is now optional.
+
 ## 0.25.1 (2026-10-27)
 
 - Fixed: below 600 px the toolbar's groups shrank and wrapped their buttons onto several lines, so the row measured less than it held and kept everything in it, without More (a few groups after `undo` and many host buttons). The row's groups now keep their width and their buttons on one line.
