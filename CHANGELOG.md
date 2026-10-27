@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `./local` saves a workbook over the file it was opened from: `openXlsx(data, { keep: true })` reads through xlcalc's `openKept` (0.57.0 or later), and `saveXlsx(source, { over: data })` writes through `writeKept`, so the file's charts, pivot tables, pictures, theme and page setup stay as they were; a change the file cannot take rejects with xlcalc's `KeptRefusal`.
+- `./local` keeps the display filter's rows for each filter (up to eight a sheet) until that filter is applied again, so viewers that share one source with different filters each keep theirs; a cleared filter no longer drops its rows.
+
 ## 0.28.0 (2026-10-27)
 
 The toolbar may take more lines than one, and measures its row again as it fills. Nothing breaks for a host.

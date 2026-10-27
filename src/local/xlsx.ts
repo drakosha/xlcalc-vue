@@ -16,17 +16,33 @@ async function issuesIn(opts: XlsxIssuesOptions): Promise<{ locale?: string | Lo
   return { locale: opts.locale }
 }
 
-/** Reads a file (the bytes, or a `File` from a file input or a drop) into a workbook; `issues` lists what the workbook cannot keep, in `locale`'s language. */
-export async function openXlsx(data: Blob | ArrayBuffer | Uint8Array, opts: XlsxIssuesOptions = {}): Promise<XlsxRead> {
-  const bytes = data instanceof Blob ? new Uint8Array(await data.arrayBuffer()) : data
-  const [{ readXlsx }, read] = await Promise.all([import('xlcalc/xlsx'), issuesIn(opts)])
-  return readXlsx(bytes, read)
+/** A file's bytes: a `File` from a file input or a drop, or the bytes themselves. */
+type FileData = Blob | ArrayBuffer | Uint8Array
+const bytesOf = async (data: FileData) => (data instanceof Blob ? new Uint8Array(await data.arrayBuffer()) : data)
+
+/**
+ * Reads a file into a workbook; `issues` lists what the workbook cannot keep, in `locale`'s language. With `keep`, through
+ * xlcalc's `openKept` (0.57.0 or later), so that `saveXlsx` with `over` can write the workbook over this file.
+ */
+export async function openXlsx(data: FileData, opts: XlsxIssuesOptions & { keep?: boolean } = {}): Promise<XlsxRead> {
+  const [bytes, read] = await Promise.all([bytesOf(data), issuesIn(opts)])
+  if (opts.keep) return (await import('xlcalc/xlsx/keep')).openKept(bytes, read)
+  return (await import('xlcalc/xlsx')).readXlsx(bytes, read)
 }
 
-/** Writes the source's workbook with its calculated values (`formulas`, the default, or `values` only); `issues` lists what the file cannot keep, in `locale`'s language. */
-export async function saveXlsx(source: LocalSource, opts: XlsxIssuesOptions & { mode?: 'formulas' | 'values' } = {}): Promise<XlsxWritten> {
-  const [{ writeXlsx }, snapshot, write] = await Promise.all([import('xlcalc/xlsx'), source.snapshot(), issuesIn(opts)])
-  return writeXlsx(snapshot, { ...(opts.mode ? { mode: opts.mode } : {}), ...write })
+/**
+ * Writes the source's workbook with its calculated values (`formulas`, the default, or `values` only); `issues` lists what
+ * the file cannot keep, in `locale`'s language. With `over`, the file the workbook was opened from with `keep`, through
+ * xlcalc's `writeKept`: what the workbook does not hold stays as the file has it, and a change the file cannot take is
+ * rejected with xlcalc's `KeptRefusal`.
+ */
+export async function saveXlsx(source: LocalSource, opts: XlsxIssuesOptions & ({ mode?: 'formulas' | 'values'; over?: undefined } | { over: FileData; mode?: undefined }) = {}): Promise<XlsxWritten> {
+  const [snapshot, write] = await Promise.all([source.snapshot(), issuesIn(opts)])
+  if (opts.over) {
+    const [{ writeKept }, original] = await Promise.all([import('xlcalc/xlsx/keep'), bytesOf(opts.over)])
+    return writeKept(original, snapshot, write)
+  }
+  return (await import('xlcalc/xlsx')).writeXlsx(snapshot, { ...(opts.mode ? { mode: opts.mode } : {}), ...write })
 }
 
 export interface IssueGroup {
