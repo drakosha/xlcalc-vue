@@ -255,12 +255,12 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     s.scrollLeft.value = cols[colGroup(id)]!
     if (els[id]) s.scroller.value = els[id]
   }
-  /** The sheet and split the panes follow, and whether frozen panes had taken the split's place. */
-  let shown: { sheet: string; split: SheetSplit | null; frozen: boolean } = { sheet: '', split: null, frozen: false }
-  /** A sheet displayed at its top left corner: the second panes from the split's `topLeft`, its active pane active. */
+  /** The split the panes follow, and whether frozen panes had taken its place. */
+  let shown: { split: SheetSplit | null; frozen: boolean } = { split: null, frozen: false }
+  /** A sheet made active, at its top left corner: the second panes from the split's `topLeft`, its active pane active. */
   function enter(): void {
     const x = split.value
-    shown = { sheet: s.sheetName.value, split: x, frozen: v.bookFreeze.value }
+    shown = { split: x, frozen: v.bookFreeze.value }
     drag.value = null
     const at = parseCell(x?.topLeft ?? '')
     const rows = [0, x?.y && at ? rowOffset(at.row) : 0]
@@ -272,14 +272,14 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
    * scroll from the split's `topLeft`; a removed vertical line keeps the left panes' columns, a removed horizontal one the
    * top panes' rows, and with no line left the window keeps the top left pane's scroll. Frozen panes in its place start at
    * the top left, past the frozen rows and columns, and the split back from under them at the top left too, since they
-   * were frozen from the sheet's first row and column.
+   * were frozen from the sheet's first row and column. Another sheet made active has entered already (`enter`); the same
+   * sheet renamed keeps its panes.
    */
   function follow(): void {
-    if (s.sheetName.value !== shown.sheet) return enter()
     const prev = shown.split
     const next = split.value
     const thawed = shown.frozen && !v.bookFreeze.value
-    shown = { sheet: shown.sheet, split: next, frozen: v.bookFreeze.value }
+    shown = { split: next, frozen: v.bookFreeze.value }
     if (prev === next) return
     const rows = [topOf(0), topOf(1)]
     const cols = [leftOf(0), leftOf(1)]
@@ -296,7 +296,7 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     place(rows, cols, id)
     deps.measure()
   }
-  watch([() => s.sheetName.value, split], follow)
+  watch(split, follow)
 
   // ── the bars: dragged to a row's or a column's edge, removed at the window's edge ──
   /** A line dragged to `px` on the screen, snapped to the nearest edge of a row or column in the panes before it. */
