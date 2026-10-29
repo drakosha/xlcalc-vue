@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Excel's Tab Color: a sheet's `SheetInfo.tabColor` (`#RRGGBB`) fills its tab, or underlines it while it is active, and the source's new optional `tabColor(sheet, color)` gives the tab menu Tab Color with No Color and Excel's palette, a single undo step. `./local` reads, sets and writes it through xlcalc's `setLayout` (0.66.0); `memorySource` passes a sheet's `tabColor` through.
+
 ## 0.29.0 (2026-10-28)
 
 A workbook on a server, edited by several viewers, and xlsx saved over the file it was opened from. Nothing breaks for a host; `keep` in `./local` needs xlcalc 0.57.0.

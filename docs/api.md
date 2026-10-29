@@ -294,6 +294,7 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `validation(sheet, cell, signal?) => Promise<SheetValidation \| null>` | Excel's validation dropdown and input message. | None. | [validation.md](validation.md) |
 | `pick(sheet, cell, item, text)` | A picked list item written as Excel writes it. | The item goes to `edit` with `accept`. | [validation.md](validation.md) |
 | `freeze(sheet, panes: { rows; cols } \| null)` | Freeze Panes in the context menu. | Only the formula bar's lock button hides the workbook's frozen panes. | [view.md](view.md) |
+| `tabColor(sheet, color: string \| null)` | Excel's Tab Color on the tab menu (with `structure`): a `#RRGGBB` color, null for No Color, as a single undo step. | Tab colors are drawn but not changed. | [sheets.md](sheets.md#tab-color) |
 | `functionNames(signal?) => Promise<string[]>` | Formula AutoComplete and Insert Function. | No list, and the fx button is disabled. | [autocomplete.md](autocomplete.md) |
 | `functionSignature(name, signal?) => Promise<SheetFunctionSignature \| null>` | A function's arguments for Excel's argument tooltip while a formula is typed (`SUM(number1, [number2], ...)`), and for Insert Function its syntax, `description` and `category` with `categoryName` (xlcalc 0.42); the name as typed, in any letter case; null for a function the source does not know. | No tooltip; Insert Function lists only the names. | [autocomplete.md](autocomplete.md) |
 | `explain(sheet, cell) => Promise<string>` | Trace Precedents. | No panel. | [view.md](view.md) |
@@ -369,6 +370,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `outline` | `SheetOutline?` | Excel's outline: `rows` and `columns` as `OutlineGroup[]` (`{ from, to, level, collapsed }`), `summaryBelow`, `summaryRight`. |
 | `font` | `{ name; size }?` | The workbook's default font (its Normal style), in which a cell without a font of its own is drawn; `--xs-font` without it. `./local` gives xlcalc's `BookInput.font`, Calibri 11 without one, the font in which xlcalc measures widths and `####`. |
 | `zoom` | `number?` | The sheet's saved zoom in percent (xlsx `zoomScale`), with which it opens; 100 without it. |
+| `tabColor` | `string?` | Excel's Tab Color, `#RRGGBB`: another tab is filled with it, the active one underlined in it ([sheets.md](sheets.md#tab-color)). |
 
 ### Edits and outcomes
 
@@ -600,6 +602,7 @@ A workbook on a server: `serveSource` serves a source to viewers over HTTP, and 
 | `--xs-accent`, `--xs-sel-tint` | `#1a73e8`, `rgb(26 115 232 / 0.12)` | The selection border and tint. |
 | `--xs-on-accent` | `#ffffff` | Text on the accent color: a primary button, a list's highlighted item. |
 | `--xs-link`, `--xs-note` | `#1558d6`, `#dc2626` | Hyperlinks, a note indicator. |
+| `--xs-tab-text-dark`, `--xs-tab-text-light` | `#000000`, `#ffffff` | The text of a tab filled with its Tab Color: on a light color, on a dark one. |
 | `--xs-flash`, `--xs-hit` | `rgb(250 204 21 / 0.85)`, `rgb(250 204 21 / 0.45)` | The flash after a jump, Find matches. |
 | `--xs-freeze-line`, `--xs-border-auto` | `#9aa0a6`, `#000000` | The frozen panes line, a border with automatic color. |
 | `--xs-table-head-bg`, `--xs-table-line` | `#e8eef8`, `#8faadc` | Tables. |

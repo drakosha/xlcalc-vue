@@ -50,6 +50,9 @@ export interface SheetMessages extends ConditionalMessages {
   menuMoveLeft: string
   menuMoveRight: string
   menuUnhideSheet: string
+  /** Excel's Tab Color on the tab menu, and its No Color. */
+  menuTabColor: string
+  tabColorNone: string
   /** Excel's outline: Group and Ungroup in the menu and the dialog for a cell range (rows or columns), the buttons' tooltips, and the messages for commands that are not performed. */
   menuGroup: string
   menuUngroup: string

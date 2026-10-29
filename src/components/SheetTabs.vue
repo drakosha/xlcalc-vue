@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // The bottom bar, as in Excel: sheet tabs (scrolling horizontally on a phone), the filter's status with Reapply and Clear, the selection's totals and the zoom.
 import { computed } from 'vue'
+import { darkColour } from '../core/sheet-look'
 import { useSheetContext } from './context'
 import { refInto } from './dom'
 import { IconFilterOff, IconPlus, IconRetry } from './icons'
@@ -49,7 +50,8 @@ const zoomBar = computed(() => !!ctx.sheet.value && !ctx.v.touch.value)
           type="button"
           role="tab"
           :aria-selected="i === ctx.active.value"
-          :class="['xs-tab', i === ctx.active.value ? 'xs-tab-on' : '']"
+          :class="['xs-tab', i === ctx.active.value ? 'xs-tab-on' : '', sheet.tabColor ? 'xs-tab-colored' : '', sheet.tabColor && darkColour(sheet.tabColor) ? 'xs-tab-dark' : '']"
+          :style="sheet.tabColor ? { '--xs-tab-color': sheet.tabColor } : undefined"
           :title="m.sheetTitle(sheet.name, sheet.maxRow, sheet.maxCol)"
           @click="onClick(i)"
           @dblclick="menu.startRename(i)"

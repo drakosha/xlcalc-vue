@@ -31,6 +31,7 @@ export const CALLS: Readonly<Record<CallName, CallKind>> = {
   validation: { signal: 2 },
   pick: { write: true, outcome: true },
   freeze: { write: true, outcome: true },
+  tabColor: { write: true, outcome: true },
   functionNames: { signal: 0 },
   functionSignature: { signal: 1 },
   explain: {},

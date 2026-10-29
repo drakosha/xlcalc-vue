@@ -33,6 +33,9 @@
   --xs-trace-error: #d92d20;
   --xs-trace-sheet: #1f2328;
   --xs-on-accent: #ffffff;
+  /* the text of a tab filled with its Tab Color: on a light color, on a dark one */
+  --xs-tab-text-dark: #000000;
+  --xs-tab-text-light: #ffffff;
   --xs-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --xs-font-size: 12.5px;
   /* shadows of a list or a tooltip under a cell, of a menu, of a dialog; the dimmed page under a dialog; stacking layers above the page (an alert above a dialog) */
@@ -796,6 +799,17 @@
   box-shadow: inset 0 -2px 0 var(--xs-accent);
   color: var(--xs-fg);
   font-weight: 600;
+}
+/* Excel's Tab Color: another tab is filled with it, in dark or light text by its brightness; the active one is underlined in it. */
+.xs-tab-colored:not(.xs-tab-on) {
+  background: var(--xs-tab-color);
+  color: var(--xs-tab-text-dark);
+}
+.xs-tab-colored.xs-tab-dark:not(.xs-tab-on) {
+  color: var(--xs-tab-text-light);
+}
+.xs-tab-colored.xs-tab-on {
+  box-shadow: inset 0 -4px 0 var(--xs-tab-color);
 }
 /* A tab being renamed in place: the name in an input the size of the tab. */
 .xs-tab-input {

@@ -37,7 +37,7 @@ export interface CommandsDeps {
 const FONT_KEYS: Record<string, FontToggle> = { b: 'bold', i: 'italic', u: 'underline' }
 
 /** The source's methods that change the workbook beyond cells. */
-type ChangeMethod = 'format' | 'structure' | 'layout' | 'outline' | 'freeze' | 'table'
+type ChangeMethod = 'format' | 'structure' | 'layout' | 'outline' | 'freeze' | 'table' | 'tabColor'
 
 export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: CommandsDeps) {
   /** A change method the source accepts: the sheet is editable (not read-only, with `edit`) and the source has it; otherwise null. */
@@ -101,6 +101,12 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     return call ? change(() => call(op)) : null
   }
 
+  /** Excel's Tab Color on a sheet (null: No Color), a single undo step; the sheets are read again for the tab. */
+  async function tabColor(sheet: string, color: string | null): Promise<EditOutcome | null> {
+    const call = method('tabColor')
+    return call ? change(() => call(sheet, color), null, false) : null
+  }
+
   /**
    * Excel's Freeze Panes commands on the active sheet; a selection of entire columns or rows freezes to the left of it or
    * above it, since its active cell is in the first row or column. None under the display filter, whose rows on screen are not the sheet's.
@@ -151,7 +157,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     s.focusGrid()
   }
 
-  return { can, canRanges, format, structure, layout, outline, table, freeze, formatKey, formatOpen, openFormat, closeFormat }
+  return { can, canRanges, format, structure, layout, outline, table, tabColor, freeze, formatKey, formatOpen, openFormat, closeFormat }
 }
 
 export type Commands = ReturnType<typeof useCommands>

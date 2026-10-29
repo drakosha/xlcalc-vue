@@ -53,6 +53,8 @@ export interface SheetSource {
   pick?(sheet: string, cell: string, item: number, text: string): Promise<EditOutcome>
   /** Excel's Freeze Panes: the rows above and the columns to the left of a cell kept in view (`{ rows: 2, cols: 1 }`), null unfreezes; a single undo step. Without it only the sheet's lock button hides the workbook's frozen panes. */
   freeze?(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome>
+  /** Excel's Tab Color: a sheet's tab color (`#RRGGBB`), null for No Color; a single undo step. Without it the tab menu has no Tab Color. */
+  tabColor?(sheet: string, color: string | null): Promise<EditOutcome>
   /** The functions a formula can call, by their names as typed in the source's locale (`СУММ` in ru-RU), for Excel's Formula AutoComplete. */
   functionNames?(signal?: AbortSignal): Promise<string[]>
   /**
@@ -176,6 +178,8 @@ export interface SheetInfo {
   font?: { name: string; size: number }
   /** The sheet's saved zoom in percent (xlsx `zoomScale`), with which the sheet opens; 100 without it. */
   zoom?: number
+  /** Excel's Tab Color (`#RRGGBB`): another tab is filled with it, the active one underlined in it. */
+  tabColor?: string
 }
 
 /** A sheet's groups as Excel draws them in the bars next to the row numbers and above the column letters. */

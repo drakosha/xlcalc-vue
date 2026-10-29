@@ -50,6 +50,7 @@ function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size:
     ...(sheet.hidden ? { hidden: sheet.hidden } : {}),
     ...(outline ? { outline } : {}),
     ...(sheet.view?.zoom ? { zoom: sheet.view.zoom } : {}),
+    ...(sheet.tabColor ? { tabColor: sheet.tabColor } : {}),
     font,
   }
 }
@@ -406,6 +407,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { ok: true, changes }
   }
 
+  /** Excel's Tab Color in one `setLayout` call, a single undo step (null: No Color); subscribers read the sheets again (`reload`). */
+  async function tabColor(s: AsyncSession, sheet: string, color: string | null): Promise<EditOutcome> {
+    const got = await s.setLayout([{ sheet, tabColor: color }])
+    const changes = take(got.changes)
+    emit({ kind: 'reload' })
+    return { ok: true, changes }
+  }
+
   /** A patch of cells that changes how they look but no text (a hyperlink, a note): the windows over them are re-read in place. */
   function repainted(got: EditResult, ranges: { sheet: string; range: string }[]): EditOutcome {
     const changes = take(got.changes)
@@ -458,6 +467,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     replace: mutation(replace, (e): ReplaceOutcome => ({ ...refusedBy(e), replaced: 0 })),
     outline: mutation(outline, failedBy),
     freeze: mutation(freeze, failedBy),
+    tabColor: mutation(tabColor, failedBy),
     clear: mutation(book.clear, failedBy),
     link: mutation(book.link, refusedBy),
     note: mutation(book.note, refusedBy),
