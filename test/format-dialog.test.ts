@@ -61,6 +61,17 @@ describe('FormatDialog', () => {
     expect(w.emitted('close')).toHaveLength(3)
   })
 
+  it("draws the Border tab's edges on every range of a selection of several", async () => {
+    const w = await open(at('C3', { areas: ['A1', 'C3:C4'] }))
+    await tab(w, 'border')
+    await w.find('[data-fmt-edge="bottom"]').trigger('click')
+    await w.find('form').trigger('submit')
+    expect(w.emitted('apply')![0]![0]).toEqual([
+      { range: 'A1', style: { border: { bottom: { style: 'thin' } } } },
+      { range: 'C4', style: { border: { bottom: { style: 'thin' } } } },
+    ])
+  })
+
   it("draws the Border tab's line on the edges: a red medium outline of a range in one call", async () => {
     const w = await open(at('B2:C3'))
     await tab(w, 'border')

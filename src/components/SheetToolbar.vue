@@ -370,7 +370,9 @@ function apply(patches: FormatPatch[]): void {
   if (!st || !format || !patches.length) return
   void run(() => (sheet ? sheet.format(patches) : format.call(props.source, st.sheet, patches)))
 }
-const over = (p: Omit<FormatPatch, 'range'>): FormatPatch[] => (props.state ? [{ range: props.state.ref, ...p }] : [])
+/** The selection's ranges: every one of several, as Excel formats them all. */
+const ranges = (): string[] => (props.state ? (props.state.areas ?? [props.state.ref]) : [])
+const over = (p: Omit<FormatPatch, 'range'>): FormatPatch[] => ranges().map((range) => ({ range, ...p }))
 /** A style patch over the selection; nothing for none (a step at its limit). */
 const restyle = (p: StylePatch | null) => p && apply(over({ style: p }))
 /** Increase or Decrease Decimal: the active cell's next format over the selection; nothing when the step changes nothing. */
@@ -417,7 +419,7 @@ function paint(what: Colouring, colour: string | null): void {
 }
 function border(kind: BorderKind): void {
   open.value = null
-  if (props.state) apply(borderPatches(props.state.ref, kind))
+  apply(ranges().flatMap((range) => borderPatches(range, kind)))
 }
 /** Excel's Merge & Center shows as pressed on a merged cell, and clicking it then unmerges. */
 const merged = computed(() => !!props.state?.merged)

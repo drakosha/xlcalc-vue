@@ -56,6 +56,8 @@ export interface FormatDraft {
 export interface FormatStart {
   draft: FormatDraft
   ref: string
+  /** Every range of a selection of several, whose edges the Border tab sets on each; absent for one range. */
+  areas?: string[]
   /** One cell: the inside edges are off, and the outline is the cell's own sides. */
   single: boolean
   edges: EdgeLines
@@ -98,7 +100,7 @@ export function startOf(state: SheetViewState): FormatStart {
   }
   // a cell's own sides are its outline; a range's edges cannot be known from its active cell, as Excel's gray buttons show
   const edges: EdgeLines = single ? { top: own.top ?? null, bottom: own.bottom ?? null, left: own.left ?? null, right: own.right ?? null } : {}
-  return { draft, ref: state.ref, single, edges }
+  return { draft, ref: state.ref, single, edges, ...(state.areas ? { areas: state.areas } : {}) }
 }
 
 /** The edges the selection has: a single cell has no inside lines. */
@@ -213,6 +215,6 @@ export function patchesOf(start: FormatStart, draft: FormatDraft): SheetFormatPa
     const now = draft.edges[e]
     if (now !== undefined && (start.edges[e] === undefined || !sameLine(now, start.edges[e]))) lines[e] = now
   }
-  if (Object.keys(lines).length) out.push(...edgePatches(start.ref, lines))
+  if (Object.keys(lines).length) for (const ref of start.areas ?? [start.ref]) out.push(...edgePatches(ref, lines))
   return out
 }

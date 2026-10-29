@@ -31,6 +31,19 @@ function mountBar(src: SheetSource, state: SheetViewState | null, props: Record<
 const at = (ref: string, more: Partial<SheetViewState> = {}): SheetViewState => ({ sheet: 'Лист1', ref, ...more })
 
 describe('SheetToolbar: formatting through the source', () => {
+  it('formats every range of a selection of several (state.areas), styles and borders alike, in one call each', async () => {
+    const src = source()
+    const w = mountBar(src, at('C3', { areas: ['A1', 'C3', 'E5:E6'] }))
+    await w.find('[data-tb="bold"]').trigger('click')
+    await w.find('[data-tb="borders"]').trigger('click')
+    await w.find('[data-tb="border-bottom"]').trigger('click')
+    await settle()
+    expect(src.format.mock.calls).toEqual([
+      ['Лист1', ['A1', 'C3', 'E5:E6'].map((range) => ({ range, style: { font: { bold: true } } }))],
+      ['Лист1', [{ range: 'A1', style: { border: { bottom: THIN } } }, { range: 'C3', style: { border: { bottom: THIN } } }, { range: 'E6', style: { border: { bottom: THIN } } }]],
+    ])
+  })
+
   it('draws outside borders as Excel does: four edges of the selection in one call', async () => {
     const src = source()
     const w = mountBar(src, at('B2:D5'))

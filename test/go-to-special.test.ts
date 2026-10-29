@@ -1,9 +1,9 @@
 // Excel's Go To Special over `./local` (xlcalc 0.66's getSpecialCells) and the selection of several areas it makes: the
 // dialog's options, the active cell kept or moved as Excel for Mac moved it, "No cells were found.", the rules' All and Same
 // as Excel for Mac selected them, and what the sheet's commands do over several areas.
-import type { VueWrapper } from '@vue/test-utils'
+import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { SheetViewApi, SheetViewState } from '../src'
+import { SheetToolbar, type SheetViewApi, type SheetViewState } from '../src'
 import type { SheetRules } from '../src/contract/workbook'
 import { ruleCells } from '../src/core/special'
 import { localSource, type LocalSource } from '../src/local'
@@ -224,6 +224,30 @@ describe('a selection of several areas', () => {
     await key(w, 'Delete')
     await settle(12)
     expect([cellText(w, 1, 13), cellText(w, 3, 12), cellText(w, 2, 13)]).toEqual(['', '', '1'])
+  })
+
+  it("SheetToolbar's Bold and Format Cells' Border tab, through the sheet, format every area", async () => {
+    const s = probe()
+    const w = await mounted(s)
+    await goTo(w, 'L1:N3')
+    await special(w, 'constants', { values: ['text'] })
+    const state = (w.emitted('state') ?? []).at(-1)![0] as SheetViewState
+    const bar = mount(SheetToolbar, { props: { source: s, state, sheet: api(w) }, attachTo: document.body })
+    await bar.find('[data-tb="bold"]').trigger('click')
+    await settle(12)
+    bar.unmount()
+    expect(api(w).formatCells()).toBe(true)
+    await settle()
+    w.find('[data-fmt-tab="border"]').element.dispatchEvent(new Event('click'))
+    await settle()
+    await w.find('[data-fmt-edge="bottom"]').trigger('click')
+    await w.find('[data-fmt] form, form[data-fmt]').trigger('submit')
+    await settle(12)
+    const win = await s.window({ sheet: 'P', row: 1, rows: 3, col: 12, cols: 3 })
+    if ('pending' in win) throw new Error('pending')
+    const style = (cell: string) => win.styles[win.styleIds[cell] ?? -1]
+    expect(['L1', 'M1', 'N1', 'L3', 'M2'].map((c) => style(c)?.font?.bold === true)).toEqual([true, true, true, true, false])
+    expect(['N1', 'L3', 'M2'].map((c) => style(c)?.border?.bottom?.style)).toEqual(['thin', 'thin', undefined])
   })
 
   it("copy, cut and paste refuse with Excel's message", async () => {
