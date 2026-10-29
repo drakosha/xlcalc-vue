@@ -7,7 +7,7 @@ Everything the package exports, with signatures. How the sheet uses each part, k
 | Import | Exports | Runtime dependencies |
 | --- | --- | --- |
 | `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages`, `TOOLBAR_GROUPS` and the types below | `vue` |
-| `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.46.0 or later (optional peer) |
+| `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.66.0 or later (optional peer) |
 | `@xlcalc/vue/remote` | `remoteSource` | none |
 | `@xlcalc/vue/server` | `serveSource` | none (a server with standard `Request` and `Response`) |
 | `@xlcalc/vue/style.css` | Styles of the sheet, the toolbar and the dialog | |
@@ -572,7 +572,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 
 | Function | Returns | Meaning |
 | --- | --- | --- |
-| `openXlsx(data: Blob \| ArrayBuffer \| Uint8Array, opts?: XlsxIssuesOptions & { keep?: boolean })` | `Promise<XlsxRead>` (`{ book, cached, issues }`) | Reads a file into a workbook and the values stored in it; with `keep`, through xlcalc's `openKept` (0.57.0 or later), for `saveXlsx` with `over`. |
+| `openXlsx(data: Blob \| ArrayBuffer \| Uint8Array, opts?: XlsxIssuesOptions & { keep?: boolean })` | `Promise<XlsxRead>` (`{ book, cached, issues }`) | Reads a file into a workbook and the values stored in it; with `keep`, through xlcalc's `openKept`, for `saveXlsx` with `over`. |
 | `saveXlsx(source: LocalSource, opts?: XlsxIssuesOptions & ({ mode?: 'formulas' \| 'values' } \| { over: Blob \| ArrayBuffer \| Uint8Array }))` | `Promise<XlsxWritten>` (`{ data, issues }`) | Writes the source's workbook with its values; `values` mode writes no formulas. With `over`, the file opened with `keep`, writes over it through xlcalc's `writeKept`, keeping what the workbook does not hold (charts, pivot tables, the theme); a change the file cannot take rejects with xlcalc's `KeptRefusal`, whose `code` (xlcalc 0.61.0) tells its kind. In Manual it calculates first, as Excel does before saving. See [local.md](local.md#files). |
 | `groupIssues(issues: XlsxIssue[])` | `IssueGroup[]` | Issues grouped by kind, in order of first appearance, for a notice of what a file lost. |
 
