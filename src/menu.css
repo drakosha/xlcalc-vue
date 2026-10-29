@@ -106,6 +106,12 @@ fieldset.xs-dialog-choices {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* The title and the buttons stay while the groups scroll in a short box (a phone's 44 px targets). */
+.xs-dialog-wide > :not(.xs-dialog-groups) {
+  flex-shrink: 0;
 }
 .xs-dialog-cols {
   display: flex;

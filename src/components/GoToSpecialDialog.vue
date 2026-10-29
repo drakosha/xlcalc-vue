@@ -46,22 +46,24 @@ function ok(): void {
 <template>
   <DialogShell class="xs-dialog xs-dialog-wide" :aria-labelledby="titleId" focus="[data-xs-special-kind]:checked" data-xs-special @close="special.close()">
     <p :id="titleId" class="xs-modal-title">{{ m.specialTitle }}</p>
-    <fieldset class="xs-dialog-choices" @keydown.enter.prevent="ok()">
-      <legend>{{ m.specialSelect }}</legend>
-      <div class="xs-dialog-cols">
-        <div>
-          <label v-for="o in LEFT" :key="o.kind" class="xs-dialog-choice"><input v-model="kind" type="radio" :value="o.kind" :data-xs-special-kind="o.kind" />{{ text(o.label) }}</label>
-          <label v-for="v in SPECIAL_VALUES" :key="v" class="xs-dialog-choice xs-dialog-sub"><input v-model="values" type="checkbox" :value="v" :disabled="!byValue" :data-xs-special-value="v" />{{ text(VALUE_LABELS[v]) }}</label>
-          <label class="xs-dialog-choice"><input v-model="kind" type="radio" value="blanks" data-xs-special-kind="blanks" />{{ m.specialBlanks }}</label>
-          <label class="xs-dialog-choice"><input v-model="kind" type="radio" value="currentRegion" data-xs-special-kind="currentRegion" />{{ m.specialRegion }}</label>
+    <div class="xs-dialog-groups">
+      <fieldset class="xs-dialog-choices" @keydown.enter.prevent="ok()">
+        <legend>{{ m.specialSelect }}</legend>
+        <div class="xs-dialog-cols">
+          <div>
+            <label v-for="o in LEFT" :key="o.kind" class="xs-dialog-choice"><input v-model="kind" type="radio" :value="o.kind" :data-xs-special-kind="o.kind" />{{ text(o.label) }}</label>
+            <label v-for="v in SPECIAL_VALUES" :key="v" class="xs-dialog-choice xs-dialog-sub"><input v-model="values" type="checkbox" :value="v" :disabled="!byValue" :data-xs-special-value="v" />{{ text(VALUE_LABELS[v]) }}</label>
+            <label class="xs-dialog-choice"><input v-model="kind" type="radio" value="blanks" data-xs-special-kind="blanks" />{{ m.specialBlanks }}</label>
+            <label class="xs-dialog-choice"><input v-model="kind" type="radio" value="currentRegion" data-xs-special-kind="currentRegion" />{{ m.specialRegion }}</label>
+          </div>
+          <div>
+            <label v-for="o in RIGHT" :key="o.kind" class="xs-dialog-choice"><input v-model="kind" type="radio" :value="o.kind" :disabled="ruled(o.kind) && !special.hasRules.value" :data-xs-special-kind="o.kind" />{{ text(o.label) }}</label>
+            <label class="xs-dialog-choice xs-dialog-sub"><input v-model="same" type="radio" :value="false" :disabled="!byRule" data-xs-special-same="all" />{{ m.specialAll }}</label>
+            <label class="xs-dialog-choice xs-dialog-sub"><input v-model="same" type="radio" :value="true" :disabled="!byRule" data-xs-special-same="same" />{{ m.specialSame }}</label>
+          </div>
         </div>
-        <div>
-          <label v-for="o in RIGHT" :key="o.kind" class="xs-dialog-choice"><input v-model="kind" type="radio" :value="o.kind" :disabled="ruled(o.kind) && !special.hasRules.value" :data-xs-special-kind="o.kind" />{{ text(o.label) }}</label>
-          <label class="xs-dialog-choice xs-dialog-sub"><input v-model="same" type="radio" :value="false" :disabled="!byRule" data-xs-special-same="all" />{{ m.specialAll }}</label>
-          <label class="xs-dialog-choice xs-dialog-sub"><input v-model="same" type="radio" :value="true" :disabled="!byRule" data-xs-special-same="same" />{{ m.specialSame }}</label>
-        </div>
-      </div>
-    </fieldset>
+      </fieldset>
+    </div>
     <div class="xs-dialog-foot">
       <button type="button" class="xs-button" data-xs-dialog-cancel @click="special.close()">{{ m.cancel }}</button>
       <button type="button" class="xs-button xs-button-main" :disabled="!canRun" data-xs-dialog-ok @click="ok()">{{ m.ok }}</button>
