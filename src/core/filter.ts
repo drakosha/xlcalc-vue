@@ -104,19 +104,8 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
   function remember(): void {
     if (s.sheetName.value) s.memory.remember(memoryName(), active.value ? { cols: cols.value, sort: sort.value } : null)
   }
-  // An AutoFilter removed (Filter off, its header row deleted, a table over it) takes its conditions along, as in Excel.
-  watch([() => s.sheetName.value, auto], ([sheet, now], [was, before]) => {
-    if (sheet === was && before && !now) clear()
-  })
-  /**
-   * Columns inserted or deleted on the sheet by its own structure command: the conditions and the sort move with their
-   * columns, and those of deleted columns go, as Excel moves an AutoFilter's criteria.
-   */
-  function moveColumns(op: SheetOp): void {
-    if ((op.op !== 'insertColumns' && op.op !== 'deleteColumns') || !sameName(op.sheet, s.sheetName.value)) return
-    const at = parseRange(`${op.column}1`)?.left ?? MAX_COLS + 1
-    const n = op.count ?? 1
-    const moved = (c: number): number | null => (c < at ? c : op.op === 'insertColumns' ? c + n : c < at + n ? null : c - n)
+  /** Moves the conditions and the sort to the columns `moved` gives, dropping those it gives none. */
+  function remap(moved: (c: number) => number | null): void {
     const next: Record<number, ColumnFilter> = {}
     for (const [c, f] of Object.entries(own.value)) {
       const to = moved(Number(c))
@@ -125,6 +114,49 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     own.value = next
     const by = ownSort.value && moved(ownSort.value.col)
     ownSort.value = ownSort.value && by ? { ...ownSort.value, col: by } : null
+  }
+  const sameRect = (a: CellRect, b: CellRect) => a.top === b.top && a.left === b.left && a.bottom === b.bottom && a.right === b.right
+  /** The AutoFilter's change the watcher followed, with the conditions before it, for a structure command whose hook comes after. */
+  let followed: { before: CellRect; now: CellRect; own: Record<number, ColumnFilter>; sort: Sort | null } | null = null
+  /** The AutoFilter's change the sheet's own structure command leads to, whose conditions `moveColumns` has moved already. */
+  let moved: { before: CellRect; now: CellRect | null } | null = null
+  // An AutoFilter removed (Filter off, its header row deleted, a table over it) takes its conditions along, as in Excel.
+  // One moved otherwise (an undo, a redo, another viewer) takes them along when it moved whole; those outside it go.
+  watch([() => s.sheetName.value, auto], ([sheet, now], [was, before]) => {
+    const mine = moved
+    moved = null
+    followed = null
+    if (sheet !== was || !before) return
+    if (!now) return clear()
+    if (sameRect(before, now) || (mine && mine.now && sameRect(mine.before, before) && sameRect(mine.now, now))) return
+    followed = { before, now, own: own.value, sort: ownSort.value }
+    const shift = now.right - now.left === before.right - before.left ? now.left - before.left : 0
+    remap((c) => (c + shift >= now.left && c + shift <= now.right ? c + shift : null))
+  })
+  /** The AutoFilter's range after columns are inserted or deleted, as Excel adjusts it; null when every column of it is deleted. */
+  function rangeAfter(r: CellRect, insert: boolean, at: number, n: number): CellRect | null {
+    const end = (c: number, left: boolean) => (c < at ? c : insert ? c + n : c >= at + n ? c - n : left ? at : at - 1)
+    const out = { ...r, left: end(r.left, true), right: end(r.right, false) }
+    return out.right < out.left ? null : out
+  }
+  /**
+   * Columns inserted or deleted on the sheet by its own structure command: the conditions and the sort move with their
+   * columns, and those of deleted columns go, as Excel moves an AutoFilter's criteria.
+   */
+  function moveColumns(op: SheetOp): void {
+    if ((op.op !== 'insertColumns' && op.op !== 'deleteColumns') || !sameName(op.sheet, s.sheetName.value)) return
+    const at = parseRange(`${op.column}1`)?.left ?? MAX_COLS + 1
+    const n = op.count ?? 1
+    const insert = op.op === 'insertColumns'
+    // The sheets may have been read again before this hook: the watcher then followed this very change, which is undone here.
+    const f = followed
+    followed = null
+    const done = f && auto.value && sameRect(auto.value, f.now) && rangeAfter(f.before, insert, at, n)
+    if (f && done && sameRect(done, f.now)) {
+      own.value = f.own
+      ownSort.value = f.sort
+    } else if (auto.value) moved = { before: auto.value, now: rangeAfter(auto.value, insert, at, n) }
+    remap((c) => (c < at ? c : insert ? c + n : c < at + n ? null : c - n))
   }
   /** The sheet's stored conditions, before its windows load; the row list arrives through the watcher. */
   function restore(): void {
