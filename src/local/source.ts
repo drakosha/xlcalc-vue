@@ -1,7 +1,7 @@
 // localSource: a sheet source over an xlcalc workbook whose session runs in a Web Worker pool or on the page's thread.
 // The session holds and calculates the workbook, finds as Excel's Find does and returns windows, sheets and edits as Excel
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
-import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView } from 'xlcalc'
+import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView, type SplitPanes } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { ClearKind, TableOp } from '../contract/workbook'
 import type { CalculationMode, CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetShow, SourceEvent, WindowRequest } from '../contract/source'
@@ -67,6 +67,8 @@ function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size:
     ...(sheet.view?.headings === false ? { headings: false } : {}),
     ...(autoFilter ? { autoFilter: { range: autoFilter } } : {}),
     ...(sheet.protection ? { protection: sheet.protection } : {}),
+    // frozen panes take the place of a split, as in Excel
+    ...(sheet.view?.split && !f ? { split: sheet.view.split } : {}),
     font,
   }
 }
@@ -106,10 +108,16 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
    * Excel's View > Show as set by `show`, by the sheet's name key: the session has no edit for it, since in Excel it is not
    * an undo step, so the source puts it on the sheets it lists and the workbook it returns, and follows renamed sheets.
    */
-  const shows = new Map<string, SheetShow>()
+  const shows = new Map<string, SheetShow & { split?: SplitPanes | null }>()
   const viewed = <T extends { name: string; view?: SheetView }>(sheet: T): T => {
     const own = shows.get(nameKey(sheet.name))
-    return own ? { ...sheet, view: { ...sheet.view, ...own } } : sheet
+    if (!own) return sheet
+    // View > Split set by `split`, null where it was removed
+    const { split, ...shown } = own
+    const view: SheetView = { ...sheet.view, ...shown }
+    if (split) view.split = split
+    else if (split === null) delete view.split
+    return { ...sheet, view }
   }
   let calc: Calc | null = null
   let session: AsyncSession | null = null
@@ -508,6 +516,13 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { ok: true, changes: [] }
   }
 
+  /** Excel's View > Split: kept by the source with View > Show (`shows`), not an undo step; written with the sheet's view. */
+  async function split(s: AsyncSession, sheet: string, panes: SplitPanes | null): Promise<EditOutcome> {
+    if (!(await s.getLayout()).sheets.some((x) => sameName(x.name, sheet))) return failed(`No sheet ${sheet}`)
+    shows.set(nameKey(sheet), { ...shows.get(nameKey(sheet)), split: panes })
+    return { ok: true, changes: [] }
+  }
+
   /** A patch of cells that changes how they look but no text (a hyperlink, a note): the windows over them are re-read in place. */
   function repainted(got: EditResult, ranges: { sheet: string; range: string }[]): EditOutcome {
     const changes = take(got.changes)
@@ -565,6 +580,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     freeze: mutation(freeze, failedBy),
     tabColor: mutation(tabColor, failedBy),
     show: mutation(show, failedBy),
+    split: mutation(split, failedBy),
     protect: mutation((s, sheet, protection) => protectSheet(s, sheet, protection, reloaded), failedBy),
     clear: mutation(guard.clear(async (s, sheet: string, ranges: string[], what: ClearKind) => book.clear(s, sheet, ranges, await guard.clearKind(s, sheet, what))), failedBy),
     link: mutation(guard.link(book.link), refusedBy),

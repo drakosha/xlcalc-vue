@@ -124,6 +124,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `showFormulas` | `true?` | Excel's Show Formulas is on for the displayed sheet, so a ribbon shows its button pressed ([view.md](view.md#show-formulas)). |
 | `zoom` | `number?` | The sheet's zoom in percent; absent at 100%. |
 | `allNotes` | `true?` | Excel's Show All Notes is on (`showNotes()`), so a ribbon shows its button pressed. |
+| `split` | `true?` | The sheet's window is split (`SheetInfo.split`, `split()`), so a ribbon shows View > Split pressed ([view.md](view.md#split)). |
 | `gridlines`, `headings` | `false?` | The displayed sheet hides its gridlines or its row numbers and column letters (View > Show), so a ribbon shows their boxes unchecked ([view.md](view.md#gridlines-and-headings)). |
 | `font` | `{ name; size }?` | The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays; the toolbar's Font and Font Size boxes show it for such a cell. |
 | `calculation` | `CalculationMode?` | The workbook's calculation option, from a source with `calculation`: a ribbon shows the checked item of Calculation Options ([calculation.md](calculation.md)). |
@@ -149,6 +150,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `fillRight()` | `Promise<EditOutcome \| null>` | Excel's Fill Right (Ctrl+R): the same along the columns, from the selection's left column or the column to its left. |
 | `showFormulas(on?: boolean)` | `boolean` | Turns Excel's Show Formulas on or off on the displayed sheet, or toggles it without `on`, as Ctrl+` does; whether it is on afterwards. A view setting: nothing goes to the source. |
 | `showNotes(on?: boolean)` | `boolean` | Excel's Show All Notes: every note drawn all the time, toggled without `on`; whether it is on afterwards. A view setting: nothing goes to the source ([links-notes.md](links-notes.md#notes-shown-all-the-time)). |
+| `split(on?: boolean)` | `boolean` | Excel's View > Split, toggled without `on`: splits the window above and to the left of the active cell (at the middle with the first cell in view active) or removes the split, through the source's `split`, not an undo step; whether the sheet is split afterwards. `false` without `split`, on a read-only sheet, with frozen panes or under a display filter. The sheet draws a single pane ([view.md](view.md#split)). |
 | `showGridlines(on?: boolean)`, `showHeadings(on?: boolean)` | `boolean` | Excel's View > Show > Gridlines and Headings on the displayed sheet, toggled without `on`; whether they show afterwards. Drawn at once and kept through the source's `show`, not an undo step; for a read-only sheet or a source without `show`, in the browser as Show Formulas is ([view.md](view.md#gridlines-and-headings)). |
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
@@ -311,6 +313,7 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `validation(sheet, cell, signal?) => Promise<SheetValidation \| null>` | Excel's validation dropdown and input message. | None. | [validation.md](validation.md) |
 | `pick(sheet, cell, item, text)` | A picked list item written as Excel writes it. | The item goes to `edit` with `accept`. | [validation.md](validation.md) |
 | `freeze(sheet, panes: { rows; cols } \| null)` | Freeze Panes in the context menu. | Only the formula bar's lock button hides the workbook's frozen panes. | [view.md](view.md) |
+| `split(sheet, split: SheetSplit \| null)` | Keeps Excel's View > Split (`split()`) with the workbook, null removing it. Not an undo step, as in Excel. `./local` keeps it with the sheet's view and writes it to the file (xlcalc 0.67.0). | No View > Split. | [view.md](view.md#split) |
 | `show(sheet, show: SheetShow)` | Keeps Excel's View > Show (`showGridlines`, `showHeadings`) with the workbook: `SheetShow` is `{ gridlines?; headings? }`, a setting that does not change left out. Not an undo step, as in Excel. | The sheet keeps them in the browser. | [view.md](view.md#gridlines-and-headings) |
 | `tabColor(sheet, color: string \| null)` | Excel's Tab Color on the tab menu (with `structure`): a `#RRGGBB` color, null for No Color, as a single undo step. | Tab colors are drawn but not changed. | [sheets.md](sheets.md#tab-color) |
 | `protect(sheet, protection: SheetProtection \| null)` | Excel's Protect Sheet with what users may still do (`{}`: selecting cells only), null for Unprotect Sheet, as a single undo step; the sheet tab's menu offers both. A source that has it refuses on a protected sheet what Excel refuses there, with `code: 'protected'`. There is no password. | Neither command; the sheet still disables on a protected sheet what Excel disables. | [protection.md](protection.md) |
@@ -400,6 +403,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `tabColor` | `string?` | Excel's Tab Color, `#RRGGBB`: another tab is filled with it, the active one underlined in it ([sheets.md](sheets.md#tab-color)). |
 | `autoFilter` | `{ range }?` | Excel's AutoFilter outside a table, header row first (`A1:D20`): the filter buttons on its header row, the display filter over its rows below ([autofilter.md](autofilter.md)). It is the range the AutoFilter acts on: `./local` gives xlcalc's `getAutoFilterRange`, the stored `SheetInput.autoFilter` down to the last row of its current region, and sends `sheets` when an edit changes it. |
 | `protection` | `SheetProtection?` | Excel's Protect Sheet: the sheet is protected, with what users may still do (xlcalc's `SheetProtection`, the boxes of Excel's dialog; `{}` is its default). A locked cell (`CellStyle.protection` in the window's `styles`) takes no edit and a hidden one's formula is not displayed ([protection.md](protection.md)). |
+| `split` | `SheetSplit?` | Excel's split window (View > Split) of a sheet without frozen panes: the lines in the file's points, the top-left cell of the pane after them, the active pane. `./local` gives xlcalc's `SheetView.split` ([view.md](view.md#split)). |
 
 ### Edits and outcomes
 
@@ -452,6 +456,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 | `RangeStats` | `{ cells, numbers, sum, min, max }` |
 | `SheetAutoSum` | `{ range: string \| null; formula: string }`: the range AutoSum offers (the run of numbers above the cell, else to its left, up to a subtotal), null without numbers, and its formula as the source displays formulas, without `=` (`SUM(B2:B9)`, `СУММ(B2:B9)` in ru-RU, `SUM()` without a range). `./local` gives xlcalc's `getAutoSum` (xlcalc 0.59 and later), null with an older one. |
 | `AutoSumFunction` | `'sum' \| 'average' \| 'count' \| 'max' \| 'min'`: the functions of Excel's AutoSum list, Count Numbers being `COUNT`. |
+| `SheetSplit` | xlcalc's `SplitPanes`, `{ x?, y?, topLeft?, activePane? }`: a split window's vertical line `x` and horizontal line `y` in points from the window's left and top edges, headings counted in, at the view's zoom (at least one), the top-left cell of the pane after both lines, and the pane that holds the active cell (`topRight`, `bottomLeft`, `bottomRight`; the first without it). |
 | `SheetSpecialCells` | xlcalc's `SpecialCells` (`{ type: 'blanks' }`, `{ type: 'constants' \| 'formulas'; values?: ('numbers' \| 'text' \| 'logicals' \| 'errors')[] }`, `{ type: 'visible' }`) or `{ type: 'lastCell' }`: what `specialCells` finds. |
 | `SheetFunctionSignature` | xlcalc's `FunctionSignature` with `description?`, a one-line description of the function in the source's locale, for Insert Function. |
 | `SheetValidation` | `{ list?: string[]; prompt?: { title?; text } }` |

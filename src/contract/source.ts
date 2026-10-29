@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SelectionLabels, SheetProtection, SpecialCells, StructureOp, StylePatch, WorkbookStatistics } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SelectionLabels, SheetProtection, SpecialCells, StructureOp, SplitPanes, StylePatch, WorkbookStatistics } from 'xlcalc/contract'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
@@ -57,6 +57,8 @@ export interface SheetSource {
   tabColor?(sheet: string, color: string | null): Promise<EditOutcome>
   /** Excel's View > Show on a sheet: its gridlines and its headings, kept with the workbook; not an undo step, as in Excel. Without it the sheet keeps them in the browser. */
   show?(sheet: string, show: SheetShow): Promise<EditOutcome>
+  /** Excel's View > Split on a sheet: its split window (`SheetInfo.split`), null to remove it; kept with the workbook, not an undo step, as in Excel. Without it the sheet offers no Split. */
+  split?(sheet: string, split: SheetSplit | null): Promise<EditOutcome>
   /**
    * Excel's Protect Sheet with what users may still do (`{}` is the dialog's default protection), or null for Unprotect
    * Sheet; a single undo step, after which the sheets are read again (`SheetInfo.protection`). There is no password: the
@@ -260,7 +262,16 @@ export interface SheetInfo {
    * and a hidden cell's formula is not displayed; the component disables the commands Excel disables. A source enforces it.
    */
   protection?: SheetProtection
+  /** Excel's split window (View > Split) where the sheet has no frozen panes, which take its place. */
+  split?: SheetSplit
 }
+
+/**
+ * Excel's split window, xlcalc's `SplitPanes`: the vertical line `x` points from the window's left edge and the horizontal
+ * one `y` points from its top (at least one), as the file holds them, headings counted in, at the view's zoom; `topLeft`,
+ * the top-left cell of the pane after both lines; `activePane`, the pane that holds the active cell (the first without it).
+ */
+export type SheetSplit = SplitPanes
 
 /** What Excel's View > Show sets on a sheet: whether its gridlines and its headings show. */
 export interface SheetShow {

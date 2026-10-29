@@ -33,6 +33,7 @@ export const CALLS: Readonly<Record<CallName, CallKind>> = {
   freeze: { write: true, outcome: true },
   tabColor: { write: true, outcome: true },
   show: { write: true, outcome: true },
+  split: { write: true, outcome: true },
   functionNames: { signal: 0 },
   functionSignature: { signal: 1 },
   explain: {},
