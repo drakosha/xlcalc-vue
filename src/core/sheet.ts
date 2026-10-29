@@ -17,6 +17,8 @@ import { useFormula } from './formula'
 import { useFormulaView } from './formula-view'
 import { useGoTo } from './goto'
 import { useSpecial } from './special'
+import { useStatistics } from './statistics'
+import { useSplit } from './split'
 import { useLinks } from './links'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
@@ -213,6 +215,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   const nameDialogs = useNameDialogs(s, sel, names, { editing: () => editor.value !== null })
   const createNames = useCreateNames(s, sel, names, { editing: () => editor.value !== null, ask: alerts.ask, notify })
+  const statistics = useStatistics(s, notify)
+  const split = useSplit(s, geo, v, notify)
   // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
   const trace = useTrace(s, v, w, notify)
   const tables = useTables(s, w, sel, cmd)
@@ -244,9 +248,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     showGridlines: (on) => look.show('gridlines', on),
     showHeadings: (on) => look.show('headings', on),
     showNotes: (on) => notes.showAll(on),
+    split: split.toggle,
     defineName: nameDialogs.define,
     nameManager: nameDialogs.openManager,
     createNames: createNames.open,
+    workbookStatistics: statistics.open,
     setZoom: (z) => (z === 'selection' ? zoom.fitSelection() : zoom.apply(z)),
     watchWindow: (open) => watches.setOpen(open),
     traceDependents: trace.traceDependents,
@@ -385,6 +391,21 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     })
     if (filter.active.value) void filter.refresh()
     w.ensure()
+  }
+  /** The source's `sheets` event: the sheets read again with the windows, sizes and the display filter's rows kept; a reload started meanwhile wins. */
+  async function relist(): Promise<void> {
+    const since = reloadSeq
+    const outdated = s.outdated()
+    const name = s.sheetName.value
+    try {
+      const list = await s.source().sheets()
+      const i = list.findIndex((x) => sameName(x.name, name))
+      if (since !== reloadSeq || outdated() || i < 0) return
+      s.sheets.value = look.apply(list)
+      s.active.value = i
+    } catch {
+      // the sheets stay as they were until the next reload
+    }
   }
   function retry(): void {
     void init()
@@ -637,6 +658,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
           w.repaint(event.ranges)
         }
         else if (event.kind === 'calculation') return calc.told(event.calculation)
+        else if (event.kind === 'sheets') return void relist()
         else {
           if (event.message) notify(event.message)
           void reload()
@@ -694,6 +716,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(s.sheet.value.gridlines === false ? { gridlines: false as const } : {}),
       ...(s.sheet.value.headings === false ? { headings: false as const } : {}),
       ...(notes.all.value ? { allNotes: true as const } : {}),
+      ...(split.split.value ? { split: true as const } : {}),
       ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
       ...(calc.state.value ? { calculation: calc.state.value.mode } : {}),
       ...(calc.pending.value ? { calculationPending: true as const } : {}),
@@ -757,6 +780,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     names,
     nameDialogs,
     createNames,
+    statistics,
     zoomer: zoom,
     watches,
     cf,

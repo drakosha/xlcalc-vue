@@ -70,4 +70,32 @@ describe('localSource: the AutoFilter', () => {
     await s.structure({ op: 'insertRows', sheet: 'S', row: 3, count: 2 })
     expect((await s.sheets())[0]!.autoFilter).toEqual({ range: 'A1:B7' })
   })
+
+  it('lists the range the AutoFilter acts on after data typed under it, tells the sheet (`sheets`), and keeps the stored range', async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'Key' }, B1: { value: 'N' }, A2: { value: 'a' }, A3: { value: 'b' } }, autoFilter: { range: 'A1:B3' } }] })
+    expect((await s.sheets())[0]!.autoFilter).toEqual({ range: 'A1:B3' })
+    const events: SourceEvent['kind'][] = []
+    s.subscribe((e) => events.push(e.kind))
+    await s.edit([{ sheet: 'S', cell: 'A4', text: 'c' }])
+    expect(events).toEqual(['changed', 'sheets'])
+    expect((await s.sheets())[0]!.autoFilter).toEqual({ range: 'A1:B4' })
+    expect((await s.book()).sheets[0]!.autoFilter).toEqual({ range: 'A1:B3' })
+    // a column away, or a row away, it stays; the sheet is not told
+    events.length = 0
+    await s.edit([{ sheet: 'S', cell: 'D5', text: 'x' }])
+    await s.edit([{ sheet: 'S', cell: 'A6', text: 'y' }])
+    expect(events).toEqual(['changed', 'changed'])
+    // A5 joins A6 to it; cleared again, the range shrinks back, never shorter than its own
+    await s.edit([{ sheet: 'S', cell: 'A5', text: 'z' }])
+    expect((await s.sheets())[0]!.autoFilter).toEqual({ range: 'A1:B6' })
+    events.length = 0
+    await s.edit([{ sheet: 'S', cell: 'A4', text: null }, { sheet: 'S', cell: 'A5', text: null }, { sheet: 'S', cell: 'A6', text: null }])
+    expect(events).toEqual(['changed', 'sheets'])
+    expect((await s.sheets())[0]!.autoFilter).toEqual({ range: 'A1:B3' })
+    // an undo tells it too
+    events.length = 0
+    await s.undo()
+    expect(events).toEqual(['changed', 'sheets'])
+    expect((await s.sheets())[0]!.autoFilter).toEqual({ range: 'A1:B6' })
+  })
 })

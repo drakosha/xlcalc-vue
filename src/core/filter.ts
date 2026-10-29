@@ -91,7 +91,9 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
       clear()
     }
   }
-  watch([() => s.sheetName.value, key], () => void fetchVisible())
+  // An AutoFilter's range grown or shrunk by an edit (its `last`) applies at Reapply or with other conditions, as Excel filters the new rows then.
+  const conditions = computed(() => (spec.value ? filterKey({ ...spec.value, last: 0 }) : ''))
+  watch([() => s.sheetName.value, conditions], () => void fetchVisible())
   /** Each sheet row's display index (0: not displayed), with a row listed twice at its last position: a typed array, since a million rows take 4 MB. */
   function displayIndex(rows: number[]): Int32Array {
     const index = new Int32Array(rows.reduce((m, r) => Math.max(m, r), 0) + 1)

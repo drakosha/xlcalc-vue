@@ -17,6 +17,17 @@ describe('localSource: typed edits', () => {
     expect(filled.ok && filled.changes.filter((c) => c.value === 0.07).map((c) => c.cell)).toEqual(['A1', 'A2'])
   })
 
+  it('gives a typed formula the number format of the cell it refers to, as Excel does (xlcalc 0.67): a sum of percentages is a percentage', async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 0.1, numberFormat: '0%' }, A2: { value: 0.2, numberFormat: '0%' }, B1: { value: { date: '2026-03-15' }, numberFormat: 14 } } }] })
+    const got = await s.edit([{ sheet: 'S', cell: 'A3', text: '=A1+A2' }, { sheet: 'S', cell: 'B2', text: '=B1+1' }])
+    expect(got).toMatchObject({ ok: true })
+    const changes = got.ok ? got.changes : []
+    expect(changes.find((c) => c.cell === 'A3')).toMatchObject({ text: '30%', numberFormat: '0%' })
+    expect(changes.find((c) => c.cell === 'B2')).toMatchObject({ text: '3/16/2026' })
+    const w = await win(s, 'S', 1, 3, 1, 2)
+    expect(w.text[2]![0]).toBe('30%')
+  })
+
   it('parses 1,5 as a number in ru-RU and sends the dependent cell', async () => {
     const got = await source().edit([{ sheet: 'Лист1', cell: 'A1', text: '1,5' }])
     expect(got.ok).toBe(true)

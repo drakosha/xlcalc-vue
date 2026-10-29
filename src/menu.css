@@ -164,3 +164,24 @@ fieldset.xs-dialog-choices {
 .xs-touch .xs-dialog-choice {
   min-height: var(--xs-touch-target);
 }
+/* Excel's Workbook Statistics: a section's title, then its rows of a label and a value at the right. */
+.xs-stats-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+.xs-stats-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-left: 12px;
+}
+.xs-stats-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.xs-stats-row > dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}

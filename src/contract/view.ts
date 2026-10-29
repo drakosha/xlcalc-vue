@@ -94,6 +94,8 @@ export interface SheetViewState {
   headings?: false
   /** Excel's Show All Notes is on (`SheetViewApi.showNotes`): a ribbon shows its button pressed. */
   allNotes?: true
+  /** The sheet's window is split (Excel's View > Split, `SheetInfo.split`), so a ribbon shows its button pressed. */
+  split?: true
   /** The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays: a toolbar's Font and Font Size boxes show it for such a cell. */
   font?: { name: string; size: number }
   /** The workbook's calculation option, from a source with `calculation`: a ribbon shows the checked item of Calculation Options. */
@@ -180,6 +182,13 @@ export interface SheetViewApi {
   showHeadings(on?: boolean): boolean
   /** Excel's Show All Notes: every note drawn in its box all the time, toggled without `on`; a view setting the source does not get, as in Excel; whether it is on afterwards. */
   showNotes(on?: boolean): boolean
+  /**
+   * Excel's View > Split, toggled without `on`: splits the window above and to the left of the active cell (at the middle
+   * of the viewport with the top-left cell in view active, as Excel does) or removes the split, through the source's
+   * `split`, not an undo step; whether the sheet is split afterwards. false without `split`, on a read-only sheet, with
+   * frozen panes or under a display filter. The sheet keeps and reports the split but draws a single pane.
+   */
+  split(on?: boolean): boolean
   /** Excel's Define Name: the New Name dialog for the selection; false when names cannot be defined (no `names` or `setNames`, a read-only sheet) or a cell is being edited. */
   defineName(): boolean
   /** Excel's Name Manager (Ctrl+F3); false when the source has no `names` or a cell is being edited. Without `setNames` or on a read-only sheet it only lists the names. */
@@ -191,6 +200,8 @@ export interface SheetViewApi {
    * read-only sheet or while a cell is being edited.
    */
   createNames(): boolean
+  /** Opens Excel's Workbook Statistics for the displayed sheet once the source's `workbookStatistics` answers; false without it or while no sheet is displayed. */
+  workbookStatistics(): boolean
   /**
    * Excel's zoom of the active sheet: a percentage (rounded and kept within 10 to 400), or `selection` for Zoom to Selection,
    * which fits the selection into the viewport and scrolls it to the top-left corner. Returns the zoom set; it is not

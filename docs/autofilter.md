@@ -1,6 +1,6 @@
 # The AutoFilter
 
-Excel's AutoFilter (Data > Filter) is a range of a sheet, outside a table, with a filter button on each cell of its header row. A source tells the sheet where a sheet's AutoFilter is with `SheetInfo.autoFilter` (`{ range: 'A1:D20' }`, the header row first), and turns it on or off with `setAutoFilter(sheet, range | null)`, a single undo step. `./local` gives xlcalc's `SheetInput.autoFilter` and sets it through `setLayout`.
+Excel's AutoFilter (Data > Filter) is a range of a sheet, outside a table, with a filter button on each cell of its header row. A source tells the sheet where a sheet's AutoFilter is with `SheetInfo.autoFilter` (`{ range: 'A1:D20' }`, the header row first), and turns it on or off with `setAutoFilter(sheet, range | null)`, a single undo step. `./local` gives the range the AutoFilter acts on ([below](#data-typed-under-it)) and sets it through `setLayout`.
 
 ## The buttons and the rows they filter
 
@@ -21,6 +21,10 @@ If the source has `setAutoFilter` and the sheet is editable, Ctrl+Shift+L (Contr
 A new AutoFilter starts without conditions. `state.autoFilter` is the sheet's AutoFilter range, for a pressed Filter button on a ribbon, and `state.canAutoFilter` says Data > Filter is available. The source refuses an AutoFilter over a table, which has a filter of its own (`./local` with xlcalc's message), and a protected sheet may refuse it too; the sheet displays the refusal.
 
 A source with `setAutoFilter` shows no funnels on a sheet without an AutoFilter, as Excel has none until Data > Filter. A source without it, or a read-only sheet, keeps the funnels on the column letters of such a sheet, and the buttons of a sheet that has one ([view.md](view.md#the-display-filter-on-a-ribbon)); list mode is unchanged.
+
+## Data typed under it
+
+Excel does not change an AutoFilter's range when data is typed under it, and saves the range as it was, but it filters more: the range it acts on goes down to the last row of its current region, so a row typed right under the data joins it, and a row past an empty one does not (xlcalc's `getAutoFilterRange`, measured in Excel for Mac and Windows). `SheetInfo.autoFilter` is that range: the buttons stay on the same header row over the same columns, and the display filter's conditions, its funnels' lists and the status line count the rows down to its last row. `./local` lists it, keeps the stored range in the workbook it saves, after typing, a paste, a fill, Delete or an undo that changes it sends `sheets` (a command after which it sends `reload` lists it anew), on which the sheet reads the sheets again and keeps its windows and the display filter's rows. As in Excel, the rows already filtered stay as they are: a row typed under a filtered range shows until Reapply (Ctrl+Alt+L) or a change of the conditions filters it with the others.
 
 ## When the sheet changes
 

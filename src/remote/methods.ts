@@ -33,6 +33,7 @@ export const CALLS: Readonly<Record<CallName, CallKind>> = {
   freeze: { write: true, outcome: true },
   tabColor: { write: true, outcome: true },
   show: { write: true, outcome: true },
+  split: { write: true, outcome: true },
   functionNames: { signal: 0 },
   functionSignature: { signal: 1 },
   explain: {},
@@ -62,6 +63,7 @@ export const CALLS: Readonly<Record<CallName, CallKind>> = {
   protect: { write: true, outcome: true },
   specialCells: { signal: 3 },
   namesFromSelection: { signal: 3 },
+  workbookStatistics: { signal: 1 },
 }
 
 export const isCall = (name: string): name is CallName => Object.hasOwn(CALLS, name)

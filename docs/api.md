@@ -7,7 +7,7 @@ Everything the package exports, with signatures. How the sheet uses each part, k
 | Import | Exports | Runtime dependencies |
 | --- | --- | --- |
 | `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages`, `TOOLBAR_GROUPS` and the types below | `vue` |
-| `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.66.0 or later (optional peer) |
+| `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.67.0 or later (optional peer) |
 | `@xlcalc/vue/remote` | `remoteSource` | none |
 | `@xlcalc/vue/server` | `serveSource` | none (a server with standard `Request` and `Response`) |
 | `@xlcalc/vue/style.css` | Styles of the sheet, the toolbar and the dialog | |
@@ -124,6 +124,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `showFormulas` | `true?` | Excel's Show Formulas is on for the displayed sheet, so a ribbon shows its button pressed ([view.md](view.md#show-formulas)). |
 | `zoom` | `number?` | The sheet's zoom in percent; absent at 100%. |
 | `allNotes` | `true?` | Excel's Show All Notes is on (`showNotes()`), so a ribbon shows its button pressed. |
+| `split` | `true?` | The sheet's window is split (`SheetInfo.split`, `split()`), so a ribbon shows View > Split pressed ([view.md](view.md#split)). |
 | `gridlines`, `headings` | `false?` | The displayed sheet hides its gridlines or its row numbers and column letters (View > Show), so a ribbon shows their boxes unchecked ([view.md](view.md#gridlines-and-headings)). |
 | `font` | `{ name; size }?` | The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays; the toolbar's Font and Font Size boxes show it for such a cell. |
 | `calculation` | `CalculationMode?` | The workbook's calculation option, from a source with `calculation`: a ribbon shows the checked item of Calculation Options ([calculation.md](calculation.md)). |
@@ -149,11 +150,13 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `fillRight()` | `Promise<EditOutcome \| null>` | Excel's Fill Right (Ctrl+R): the same along the columns, from the selection's left column or the column to its left. |
 | `showFormulas(on?: boolean)` | `boolean` | Turns Excel's Show Formulas on or off on the displayed sheet, or toggles it without `on`, as Ctrl+` does; whether it is on afterwards. A view setting: nothing goes to the source. |
 | `showNotes(on?: boolean)` | `boolean` | Excel's Show All Notes: every note drawn all the time, toggled without `on`; whether it is on afterwards. A view setting: nothing goes to the source ([links-notes.md](links-notes.md#notes-shown-all-the-time)). |
+| `split(on?: boolean)` | `boolean` | Excel's View > Split, toggled without `on`: splits the window above and to the left of the active cell (at the middle with the first cell in view active) or removes the split, through the source's `split`, not an undo step; whether the sheet is split afterwards. `false` without `split`, on a read-only sheet, with frozen panes or under a display filter. The sheet draws a single pane ([view.md](view.md#split)). |
 | `showGridlines(on?: boolean)`, `showHeadings(on?: boolean)` | `boolean` | Excel's View > Show > Gridlines and Headings on the displayed sheet, toggled without `on`; whether they show afterwards. Drawn at once and kept through the source's `show`, not an undo step; for a read-only sheet or a source without `show`, in the browser as Show Formulas is ([view.md](view.md#gridlines-and-headings)). |
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
 | `goTo()` | `boolean` | Opens Excel's Go To dialog (F5, Ctrl+G); `false` while no sheet is displayed ([go-to-and-symbol.md](go-to-and-symbol.md#go-to)). |
+| `workbookStatistics()` | `boolean` | Opens Excel's Workbook Statistics for the displayed sheet with the source's `workbookStatistics` answer: its end and counts and the workbook's, in the rows Excel for Mac shows. `false` without `workbookStatistics` or while no sheet is displayed ([sheets.md](sheets.md#workbook-statistics)). |
 | `goToSpecial()` | `boolean` | Opens Excel's Go To Special dialog; OK selects the cells it finds, several ranges at once. `false` without the source's `specialCells`, while no sheet is displayed or under a display filter ([go-to-and-symbol.md](go-to-and-symbol.md#go-to-special)). |
 | `insertSymbol()` | `boolean` | Opens Excel's Symbol dialog: Insert puts the character at the caret of an open edit, otherwise starts editing the active cell with it; `false` on a read-only sheet or without an active cell ([go-to-and-symbol.md](go-to-and-symbol.md#symbol)). A host button that calls it during an edit keeps the edit open only if it does not take focus (`@mousedown.prevent`). |
 | `defineName()` | `boolean` | Opens Excel's New Name dialog (Define Name) for the selection; `false` when names cannot be defined (no `names` or `setNames`, a read-only sheet) or a cell is being edited. See [names.md](names.md). |
@@ -310,6 +313,7 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `validation(sheet, cell, signal?) => Promise<SheetValidation \| null>` | Excel's validation dropdown and input message. | None. | [validation.md](validation.md) |
 | `pick(sheet, cell, item, text)` | A picked list item written as Excel writes it. | The item goes to `edit` with `accept`. | [validation.md](validation.md) |
 | `freeze(sheet, panes: { rows; cols } \| null)` | Freeze Panes in the context menu. | Only the formula bar's lock button hides the workbook's frozen panes. | [view.md](view.md) |
+| `split(sheet, split: SheetSplit \| null)` | Keeps Excel's View > Split (`split()`) with the workbook, null removing it. Not an undo step, as in Excel. `./local` keeps it with the sheet's view and writes it to the file (xlcalc 0.67.0). | No View > Split. | [view.md](view.md#split) |
 | `show(sheet, show: SheetShow)` | Keeps Excel's View > Show (`showGridlines`, `showHeadings`) with the workbook: `SheetShow` is `{ gridlines?; headings? }`, a setting that does not change left out. Not an undo step, as in Excel. | The sheet keeps them in the browser. | [view.md](view.md#gridlines-and-headings) |
 | `tabColor(sheet, color: string \| null)` | Excel's Tab Color on the tab menu (with `structure`): a `#RRGGBB` color, null for No Color, as a single undo step. | Tab colors are drawn but not changed. | [sheets.md](sheets.md#tab-color) |
 | `protect(sheet, protection: SheetProtection \| null)` | Excel's Protect Sheet with what users may still do (`{}`: selecting cells only), null for Unprotect Sheet, as a single undo step; the sheet tab's menu offers both. A source that has it refuses on a protected sheet what Excel refuses there, with `code: 'protected'`. There is no password. | Neither command; the sheet still disables on a protected sheet what Excel disables. | [protection.md](protection.md) |
@@ -340,6 +344,7 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `setCalculation(mode: CalculationMode)` | Changes the option, which the workbook keeps; not a step of undo, as in Excel. Automatic calculates what waits. | The option cannot be changed. | [calculation.md](calculation.md) |
 | `calculate(sheet?)` | Excel's Calculate Now (F9), or with `sheet` Calculate Sheet (Shift+F9): the waiting cells show their values, as `changes` and as a `changed` event; not a step of undo. | No F9, and Calculate does nothing. | [calculation.md](calculation.md) |
 | `autoSum(sheet, cell, signal?, fn?: AutoSumFunction) => Promise<SheetAutoSum \| null>` | Excel's AutoSum (Alt+=): the range it offers at the cell and its `SUM`, or with `fn` (one of `autoSumFunctions`) the same range under that function; null when the source guesses nothing. The sheet passes `fn` only for a function other than Sum. | No AutoSum. | [editing.md](editing.md#autosum) |
+| `workbookStatistics(sheet, signal?) => Promise<WorkbookStatistics>` | Excel's Workbook Statistics with the sheet active: xlcalc's `WorkbookStatistics`, `{ sheet: { end, cells, tables, formulas, notes, pivotTables, charts, images, formControls, objects, comments }, workbook: { sheets, ... } }`, a count the workbook does not hold being null. `./local` gives xlcalc's `getWorkbookStatistics` (0.67.0). | No Workbook Statistics. | [sheets.md](sheets.md#workbook-statistics) |
 | `specialCells(sheet, range, kind: SheetSpecialCells, signal?) => Promise<string[]>` | Excel's Go To Special: the rectangles Excel selects over the range (`['B2:D2', 'B4']`), none when it finds no cells; a range of one cell stands for the used range. `./local` gives xlcalc's `getSpecialCells` (0.66.0), and the used range's last cell for `lastCell`. | No Go To Special. | [go-to-and-symbol.md](go-to-and-symbol.md#go-to-special) |
 
 After `link`, `note`, `clear` and `setRules` succeed, the sheet re-reads the windows over what they changed: their outcome's `changes` carry values, not hyperlinks, notes or formatting. A source need not send a `repaint` for its own sheet, but `./local` does, for other sheets over the same source.
@@ -396,8 +401,9 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `zoom` | `number?` | The sheet's saved zoom in percent (xlsx `zoomScale`), with which it opens; 100 without it. |
 | `gridlines`, `headings` | `boolean?` | False hides the gridlines, or the row numbers and column letters, as Excel's View > Show does (xlsx `showGridLines`, `showRowColHeaders`); shown by default ([view.md](view.md#gridlines-and-headings)). |
 | `tabColor` | `string?` | Excel's Tab Color, `#RRGGBB`: another tab is filled with it, the active one underlined in it ([sheets.md](sheets.md#tab-color)). |
-| `autoFilter` | `{ range }?` | Excel's AutoFilter outside a table, header row first (`A1:D20`): the filter buttons on its header row, the display filter over its rows below ([autofilter.md](autofilter.md)). `./local` gives xlcalc's `SheetInput.autoFilter`. |
+| `autoFilter` | `{ range }?` | Excel's AutoFilter outside a table, header row first (`A1:D20`): the filter buttons on its header row, the display filter over its rows below ([autofilter.md](autofilter.md)). It is the range the AutoFilter acts on: `./local` gives xlcalc's `getAutoFilterRange`, the stored `SheetInput.autoFilter` down to the last row of its current region, and sends `sheets` when an edit changes it. |
 | `protection` | `SheetProtection?` | Excel's Protect Sheet: the sheet is protected, with what users may still do (xlcalc's `SheetProtection`, the boxes of Excel's dialog; `{}` is its default). A locked cell (`CellStyle.protection` in the window's `styles`) takes no edit and a hidden one's formula is not displayed ([protection.md](protection.md)). |
+| `split` | `SheetSplit?` | Excel's split window (View > Split) of a sheet without frozen panes: the lines in the file's points, the top-left cell of the pane after them, the active pane. `./local` gives xlcalc's `SheetView.split` ([view.md](view.md#split)). |
 
 ### Edits and outcomes
 
@@ -416,6 +422,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 - `{ kind: 'reload'; message? }`: the sheets and windows are read again.
 - `{ kind: 'repaint'; ranges: { sheet; range }[] }`: the windows that overlap the ranges are re-read in place.
 - `{ kind: 'calculation'; calculation: SheetCalculation }`: the calculation option changed, or cells began or stopped waiting for a calculation; the status bar follows it.
+- `{ kind: 'sheets' }`: the sheets' information changed without their cells (an AutoFilter's range after data typed under it): the sheets are read again, and the windows and the display filter's rows stay.
 
 `CalculationMode` is `'automatic' | 'autoNoTable' | 'manual'` (Excel's Automatic, Automatic Except for Data Tables and Manual), and `SheetCalculation` is `{ mode: CalculationMode; pending: boolean }`.
 
@@ -449,6 +456,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 | `RangeStats` | `{ cells, numbers, sum, min, max }` |
 | `SheetAutoSum` | `{ range: string \| null; formula: string }`: the range AutoSum offers (the run of numbers above the cell, else to its left, up to a subtotal), null without numbers, and its formula as the source displays formulas, without `=` (`SUM(B2:B9)`, `СУММ(B2:B9)` in ru-RU, `SUM()` without a range). `./local` gives xlcalc's `getAutoSum` (xlcalc 0.59 and later), null with an older one. |
 | `AutoSumFunction` | `'sum' \| 'average' \| 'count' \| 'max' \| 'min'`: the functions of Excel's AutoSum list, Count Numbers being `COUNT`. |
+| `SheetSplit` | xlcalc's `SplitPanes`, `{ x?, y?, topLeft?, activePane? }`: a split window's vertical line `x` and horizontal line `y` in points from the window's left and top edges, headings counted in, at the view's zoom (at least one), the top-left cell of the pane after both lines, and the pane that holds the active cell (`topRight`, `bottomLeft`, `bottomRight`; the first without it). |
 | `SheetSpecialCells` | xlcalc's `SpecialCells` (`{ type: 'blanks' }`, `{ type: 'constants' \| 'formulas'; values?: ('numbers' \| 'text' \| 'logicals' \| 'errors')[] }`, `{ type: 'visible' }`) or `{ type: 'lastCell' }`: what `specialCells` finds. |
 | `SheetFunctionSignature` | xlcalc's `FunctionSignature` with `description?`, a one-line description of the function in the source's locale, for Insert Function. |
 | `SheetValidation` | `{ list?: string[]; prompt?: { title?; text } }` |
