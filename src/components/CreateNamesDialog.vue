@@ -31,8 +31,8 @@ const ok = () => any.value && void cn.submit({ ...labels.value })
       <label v-for="x in SIDES" :key="x.side" class="xs-dialog-choice"><input v-model="labels[x.side]" type="checkbox" :data-xs-create-names-side="x.side" />{{ text(x.label) }}</label>
     </fieldset>
     <div class="xs-dialog-foot">
-      <button type="button" class="xs-button" data-xs-dialog-cancel @click="cn.close()">{{ m.cancel }}</button>
       <button type="button" class="xs-button xs-button-main" :disabled="!any" data-xs-dialog-ok @click="ok()">{{ m.ok }}</button>
+      <button type="button" class="xs-button" data-xs-dialog-cancel @click="cn.close()">{{ m.cancel }}</button>
     </div>
   </DialogShell>
 </template>

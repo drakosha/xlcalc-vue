@@ -105,8 +105,8 @@ function choose(key: string): void {
     <p v-if="d.error" class="xs-link-error" role="alert">{{ d.error }}</p>
     <div class="xs-link-foot">
       <button v-if="d.old" type="button" class="xs-button xs-link-remove" data-xs-link-remove @click="links.remove()">{{ m.linkRemove }}</button>
-      <button type="button" class="xs-button" data-xs-dialog-cancel @click="links.close()">{{ m.cancel }}</button>
       <button type="submit" class="xs-button xs-button-main" data-xs-dialog-ok>{{ m.ok }}</button>
+      <button type="button" class="xs-button" data-xs-dialog-cancel @click="links.close()">{{ m.cancel }}</button>
     </div>
   </DialogShell>
 </template>

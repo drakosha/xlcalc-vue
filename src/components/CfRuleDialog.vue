@@ -158,8 +158,8 @@ async function ok(): Promise<void> {
       <p v-if="error" class="xs-cf-error" role="alert">{{ error }}</p>
     </div>
     <footer class="xs-cf-foot">
-      <button type="button" class="xs-button xs-cf-btn" data-cf-cancel @click="cf.ruleClose()">{{ m.cancel }}</button>
       <button type="submit" class="xs-button xs-button-main xs-cf-btn" data-cf-ok>{{ m.ok }}</button>
+      <button type="button" class="xs-button xs-cf-btn" data-cf-cancel @click="cf.ruleClose()">{{ m.cancel }}</button>
     </footer>
   </DialogShell>
 </template>

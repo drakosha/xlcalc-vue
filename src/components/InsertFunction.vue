@@ -125,8 +125,8 @@ function onKey(e: KeyboardEvent): void {
     <p class="xs-ifn-syntax" data-xs-if-syntax>{{ selectedSig?.text ?? selected ?? '' }}</p>
     <p class="xs-ifn-about" data-xs-if-about>{{ selectedSig?.description ?? '' }}</p>
     <div class="xs-dialog-foot">
-      <button type="button" class="xs-button" data-xs-dialog-cancel @click="emit('close')">{{ m.cancel }}</button>
       <button type="button" class="xs-button xs-button-main" :disabled="!selected" data-xs-dialog-ok @click="ok()">{{ m.ok }}</button>
+      <button type="button" class="xs-button" data-xs-dialog-cancel @click="emit('close')">{{ m.cancel }}</button>
     </div>
   </DialogShell>
 </template>

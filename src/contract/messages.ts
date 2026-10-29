@@ -667,12 +667,11 @@ export interface ProtectionMessages {
   /** The sheet tab's menu: Protect Sheet… and Unprotect Sheet. */
   menuProtectSheet: string
   menuUnprotectSheet: string
-  /** The Protect Sheet dialog: its title, the box that protects the sheet, the list's heading, each of its boxes, and the note under them. */
+  /** The Protect Sheet dialog: its title, the box that protects the sheet, the list's heading, and each of its boxes. */
   protectTitle: string
   protectContents: string
   protectAllow: string
   protectBox: (box: keyof SheetProtection) => string
-  protectNote: string
   /** Format Cells' Protection tab: its name, Locked, Hidden, and Excel's note. */
   fmtProtection: string
   fmtLocked: string

@@ -143,8 +143,8 @@ function onRefEsc(e: KeyboardEvent): void {
       <input v-model="draft.ref" class="xs-field xs-field-l" type="text" spellcheck="false" autocomplete="off" data-xs-name-refers />
     </label>
     <div class="xs-dialog-foot">
-      <button type="button" class="xs-button" data-xs-name-cancel @click="nd.closeDraft()">{{ m.cancel }}</button>
       <button type="submit" class="xs-button xs-button-main" :disabled="nd.busy.value" data-xs-name-ok>{{ m.ok }}</button>
+      <button type="button" class="xs-button" data-xs-name-cancel @click="nd.closeDraft()">{{ m.cancel }}</button>
     </div>
   </DialogShell>
   <DialogShell

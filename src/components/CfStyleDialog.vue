@@ -116,8 +116,8 @@ function ok(): void {
     </div>
     <footer class="xs-fmt-foot">
       <button type="button" class="xs-button xs-fmt-btn xs-cf-clear" data-cf-clear @click="clear">{{ m.cfClear }}</button>
-      <button type="button" class="xs-button xs-fmt-btn" data-fmt-cancel @click="emit('close')">{{ m.cancel }}</button>
       <button type="submit" class="xs-button xs-button-main xs-fmt-btn" data-fmt-ok>{{ m.ok }}</button>
+      <button type="button" class="xs-button xs-fmt-btn" data-fmt-cancel @click="emit('close')">{{ m.cancel }}</button>
     </footer>
   </DialogShell>
 </template>
