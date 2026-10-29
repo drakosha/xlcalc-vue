@@ -52,6 +52,53 @@ function drawnLines(first: number, last: number, spare: number, step: number): [
   return [first - lead - spare, last + step - 1 - lead + spare]
 }
 
+/** What a scroller draws and reads: the rows and columns under its scroll and its size. */
+export interface ScrollInput {
+  rowCount: Readonly<Ref<number>>
+  colCount: Readonly<Ref<number>>
+  scrollTop: Readonly<Ref<number>>
+  scrollLeft: Readonly<Ref<number>>
+  viewH: Readonly<Ref<number>>
+  viewW: Readonly<Ref<number>>
+}
+/** The parts of the grid that do not scroll: frozen rows and columns and the headings above and to the left of the cells. */
+interface FixedParts {
+  frozenRows: Readonly<Ref<number>>
+  frozenCols: Readonly<Ref<number>>
+  frozenH: Readonly<Ref<number>>
+  frozenW: Readonly<Ref<number>>
+  headH: Readonly<Ref<number>>
+  leadW: Readonly<Ref<number>>
+}
+
+/** The body under a scroll: the rows and columns drawn, spacers for the rest, and the part in view; a split window's panes each have their own. */
+export function scrolledArea(i: ScrollInput, geo: Geometry, f: FixedParts) {
+  const { frozenRows, frozenCols, frozenH, frozenW, headH, leadW } = f
+  const bodyRow0 = computed(() => frozenRows.value + 1)
+  const bodyCol0 = computed(() => frozenCols.value + 1)
+  const drawnRows = computed(() => drawnLines(geo.rowAt(i.scrollTop.value + frozenH.value), geo.rowAt(i.scrollTop.value + i.viewH.value), RENDER_ROWS, ROW_STEP))
+  const drawnCols = computed(() => drawnLines(geo.colAt(i.scrollLeft.value + frozenW.value), geo.colAt(i.scrollLeft.value + i.viewW.value), RENDER_COLS, COL_STEP))
+  const firstRow = computed(() => clamp(drawnRows.value[0], bodyRow0.value, Math.max(bodyRow0.value, i.rowCount.value)))
+  const lastRow = computed(() => clamp(drawnRows.value[1], bodyRow0.value, i.rowCount.value))
+  const firstCol = computed(() => clamp(drawnCols.value[0], bodyCol0.value, Math.max(bodyCol0.value, i.colCount.value)))
+  const lastCol = computed(() => clamp(drawnCols.value[1], bodyCol0.value, i.colCount.value))
+  /** Visible body rows and columns. */
+  const shownRows = shownLines(() => firstRow.value, () => lastRow.value, geo.heightOf)
+  const shownCols = shownLines(() => firstCol.value, () => lastCol.value, geo.widthOf)
+  const topPad = computed(() => Math.max(0, (geo.rowOffsets.value[firstRow.value - 1] ?? 0) - frozenH.value))
+  const bottomPad = computed(() => Math.max(0, (geo.rowOffsets.value[i.rowCount.value] ?? 0) - (geo.rowOffsets.value[lastRow.value] ?? 0)))
+  const leftPad = computed(() => Math.max(0, (geo.offsets.value[firstCol.value - 1] ?? 0) - frozenW.value))
+  const rightPad = computed(() => Math.max(0, (geo.offsets.value[i.colCount.value] ?? 0) - (geo.offsets.value[lastCol.value] ?? 0)))
+  /** The part of the grid in view, in the scroller's content coordinates: a popup goes over its cell where it has no room below. */
+  const viewBox = computed(() => ({
+    top: i.scrollTop.value + headH.value,
+    left: i.scrollLeft.value + leadW.value,
+    width: Math.max(0, i.viewW.value - leadW.value),
+    height: Math.max(0, i.viewH.value - headH.value),
+  }))
+  return { firstRow, lastRow, firstCol, lastCol, shownRows, shownCols, topPad, bottomPad, leftPad, rightPad, viewBox }
+}
+
 export function useViewport(i: ViewportInput, geo: Geometry) {
   /** Excel's View > Show > Headings: row numbers and column letters; a list's `rowNumbers` hides the numbers alone. */
   const showHeads = computed(() => i.sheet.value?.headings !== false)
@@ -141,21 +188,7 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const stickyLeft = (c: number) => `${leadW.value + (geo.offsets.value[c - 1] ?? 0)}px`
 
   // ── the body: what is not frozen, under the scroll ──
-  const bodyRow0 = computed(() => frozenRows.value + 1)
-  const bodyCol0 = computed(() => frozenCols.value + 1)
-  const drawnRows = computed(() => drawnLines(geo.rowAt(i.scrollTop.value + frozenH.value), geo.rowAt(i.scrollTop.value + i.viewH.value), RENDER_ROWS, ROW_STEP))
-  const drawnCols = computed(() => drawnLines(geo.colAt(i.scrollLeft.value + frozenW.value), geo.colAt(i.scrollLeft.value + i.viewW.value), RENDER_COLS, COL_STEP))
-  const firstRow = computed(() => clamp(drawnRows.value[0], bodyRow0.value, Math.max(bodyRow0.value, i.rowCount.value)))
-  const lastRow = computed(() => clamp(drawnRows.value[1], bodyRow0.value, i.rowCount.value))
-  const firstCol = computed(() => clamp(drawnCols.value[0], bodyCol0.value, Math.max(bodyCol0.value, i.colCount.value)))
-  const lastCol = computed(() => clamp(drawnCols.value[1], bodyCol0.value, i.colCount.value))
-  /** Visible body rows and columns. */
-  const shownRows = shownLines(() => firstRow.value, () => lastRow.value, geo.heightOf)
-  const shownCols = shownLines(() => firstCol.value, () => lastCol.value, geo.widthOf)
-  const topPad = computed(() => Math.max(0, (geo.rowOffsets.value[firstRow.value - 1] ?? 0) - frozenH.value))
-  const bottomPad = computed(() => Math.max(0, (geo.rowOffsets.value[i.rowCount.value] ?? 0) - (geo.rowOffsets.value[lastRow.value] ?? 0)))
-  const leftPad = computed(() => Math.max(0, (geo.offsets.value[firstCol.value - 1] ?? 0) - frozenW.value))
-  const rightPad = computed(() => Math.max(0, (geo.offsets.value[i.colCount.value] ?? 0) - (geo.offsets.value[lastCol.value] ?? 0)))
+  const area = scrolledArea(i, geo, { frozenRows, frozenCols, frozenH, frozenW, headH, leadW })
   const tableWidth = computed(() => leadW.value + (geo.offsets.value[i.colCount.value] ?? 0))
 
   /** Where display rows d1..d2 and columns c1..c2 are drawn in the scroller's content; one entirely in frozen rows or columns follows the scroll, since they stick. */
@@ -166,13 +199,6 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     const left = (cols[c1 - 1] ?? 0) + (c2 <= frozenCols.value ? i.scrollLeft.value : 0)
     return { top: headH.value + top, left: leadW.value + left, width: (cols[c2] ?? 0) - (cols[c1 - 1] ?? 0), height: (rows[d2] ?? 0) - (rows[d1 - 1] ?? 0), frozen: d2 <= frozenRows.value || c2 <= frozenCols.value }
   }
-  /** The part of the grid in view, in the same coordinates: a popup goes over its cell where it has no room below. */
-  const viewBox = computed(() => ({
-    top: i.scrollTop.value + headH.value,
-    left: i.scrollLeft.value + leadW.value,
-    width: Math.max(0, i.viewW.value - leadW.value),
-    height: Math.max(0, i.viewH.value - headH.value),
-  }))
   /** The display row and column under a point of the viewport (pixels from its top-left corner), with the point in the offsets' space (`x`, `y`). */
   function cellAt(px: number, py: number): { d: number; col: number; x: number; y: number } {
     const cy = Math.max(0, py - headH.value)
@@ -214,19 +240,9 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     frozenColList,
     stickyTop,
     stickyLeft,
-    firstRow,
-    lastRow,
-    firstCol,
-    lastCol,
-    shownRows,
-    shownCols,
-    topPad,
-    bottomPad,
-    leftPad,
-    rightPad,
+    ...area,
     tableWidth,
     boxOf,
-    viewBox,
     cellAt,
     cellAtPoint,
   }

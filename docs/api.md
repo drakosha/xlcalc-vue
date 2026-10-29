@@ -151,7 +151,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `fillRight()` | `Promise<EditOutcome \| null>` | Excel's Fill Right (Ctrl+R): the same along the columns, from the selection's left column or the column to its left. |
 | `showFormulas(on?: boolean)` | `boolean` | Turns Excel's Show Formulas on or off on the displayed sheet, or toggles it without `on`, as Ctrl+` does; whether it is on afterwards. A view setting: nothing goes to the source. |
 | `showNotes(on?: boolean)` | `boolean` | Excel's Show All Notes: every note drawn all the time, toggled without `on`; whether it is on afterwards. A view setting: nothing goes to the source ([links-notes.md](links-notes.md#notes-shown-all-the-time)). |
-| `split(on?: boolean)` | `boolean` | Excel's View > Split, toggled without `on`: splits the window above and to the left of the active cell (at the middle with the first cell in view active) or removes the split, through the source's `split`, not an undo step; whether the sheet is split afterwards. `false` without `split`, on a read-only sheet, with frozen panes or under a display filter. The sheet draws a single pane ([view.md](view.md#split)). |
+| `split(on?: boolean)` | `boolean` | Excel's View > Split, toggled without `on`: splits the window above and to the left of the active cell (at the middle with the first cell in view active) or removes the split, through the source's `split`, not an undo step; whether the sheet is split afterwards. `false` without `split`, on a read-only sheet, with frozen panes or under a display filter. The sheet draws the split's panes, which scroll apart, and its bars, which move and remove the lines ([view.md](view.md#split)). |
 | `showGridlines(on?: boolean)`, `showHeadings(on?: boolean)` | `boolean` | Excel's View > Show > Gridlines and Headings on the displayed sheet, toggled without `on`; whether they show afterwards. Drawn at once and kept through the source's `show`, not an undo step; for a read-only sheet or a source without `show`, in the browser as Show Formulas is ([view.md](view.md#gridlines-and-headings)). |
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
@@ -647,6 +647,7 @@ A workbook on a server: `serveSource` serves a source to viewers over HTTP, and 
 | `--xs-tab-text-dark`, `--xs-tab-text-light` | `#000000`, `#ffffff` | The text of a tab filled with its Tab Color: on a light color, on a dark one. |
 | `--xs-flash`, `--xs-hit` | `rgb(250 204 21 / 0.85)`, `rgb(250 204 21 / 0.45)` | The flash after a jump, Find matches. |
 | `--xs-freeze-line`, `--xs-border-auto` | `#9aa0a6`, `#000000` | The frozen panes line, a border with automatic color. |
+| `--xs-split-bar` | `#c4c7cc` | The bars of a split window (View > Split). |
 | `--xs-table-head-bg`, `--xs-table-line` | `#e8eef8`, `#8faadc` | Tables. |
 | `--xs-locked`, `--xs-pending`, `--xs-error` | `#8b8f96`, `#8b8f96`, `#b42318` | Locked cells, pending edits, errors. |
 | `--xs-bar-bg` | `#fafafa` | The formula bar, the toolbar and the Trace Precedents panel. |

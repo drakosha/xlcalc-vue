@@ -30,6 +30,8 @@ export interface CommandsDeps {
   /** Whether the workbook freezes panes on the displayed sheet, the panes Excel freezes with A1 active, and the view after a freeze. */
   frozen: () => boolean
   middlePanes: () => { rows: number; cols: number }
+  /** The panes a split window freezes at, its lines; null without a split. */
+  splitPanes: () => { rows: number; cols: number } | null
   showFreeze: (sheet: string, on: boolean) => void
   /** A structure operation succeeded: rows or columns may have moved, so what the sheet stores by row or column number no longer holds. */
   structured: (op: SheetOp) => void
@@ -125,7 +127,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
 
   /**
    * Excel's Freeze Panes commands on the active sheet; a selection of entire columns or rows freezes to the left of it or
-   * above it, since its active cell is in the first row or column. None under the display filter, whose rows on screen are not the sheet's.
+   * above it, since its active cell is in the first row or column, and a split window freezes at its lines. None under the display filter, whose rows on screen are not the sheet's.
    */
   async function freeze(mode: FreezeMode = 'panes'): Promise<EditOutcome | null> {
     const call = method('freeze')
@@ -134,7 +136,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     let panes: { rows: number; cols: number } | null = null
     if (mode === 'topRow') panes = { rows: 1, cols: 0 }
     else if (mode === 'firstColumn') panes = { rows: 0, cols: 1 }
-    else if (mode === 'panes') panes = a.row === 1 && a.col === 1 ? deps.middlePanes() : { rows: a.row - 1, cols: a.col - 1 }
+    else if (mode === 'panes') panes = deps.splitPanes() ?? (a.row === 1 && a.col === 1 ? deps.middlePanes() : { rows: a.row - 1, cols: a.col - 1 })
     if (panes ? panes.rows <= 0 && panes.cols <= 0 : !deps.frozen()) return null
     const sheet = s.sheetName.value
     const out = await change(() => call(sheet, panes), null, false)

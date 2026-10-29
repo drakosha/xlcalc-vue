@@ -18,6 +18,7 @@ import { useFormulaView } from './formula-view'
 import { useGoTo } from './goto'
 import { useSpecial } from './special'
 import { useStatistics } from './statistics'
+import { usePanes } from './panes'
 import { useSplit } from './split'
 import { useLinks } from './links'
 import { usePoint } from './point'
@@ -90,7 +91,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const s = createState(props)
   const geo = useGeometry(s)
   const v = useViewport(s, geo)
-  const w = useWindows(s, v, geo)
+  // A split window's panes: each draws and scrolls apart, the active one is the viewport above.
+  const panes = usePanes(s, geo, v, { measure: () => sel.measure(), scrolled: onScroll, ensure: () => w.ensure() })
+  const w = useWindows(s, v, geo, panes)
   // Excel's sheet protection: the displayed sheet's locked and hidden cells, its alert, Protect Sheet and Unprotect Sheet.
   const protection = useProtection(s, w, { ask: (a) => alerts.ask(a), protect: (sheet, p) => cmd.protect(sheet, p) })
   const sel = useSelection(s, geo, v, { on: () => protection.limitsSelection.value, selectable: protection.selectable })
@@ -151,7 +154,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const find = useFind(s, sel, notify)
   const explain = useExplain(s, f)
   const formulaView = useFormulaView(s, f)
-  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows, formulaText: formulaView.textOf, hidden: protection.hiddenAt })
+  const viewDeps = { editor, hostLinks, find, openRows: () => !!props.openRows, formulaText: formulaView.textOf, hidden: protection.hiddenAt }
+  const views = useCellView(s, geo, v, w, sel, f, nav, ed, viewDeps)
+  /** Each pane's cells as drawn: its merges and overflow follow what that pane draws. */
+  const paneViews = panes.viewports.map((pv) => useCellView(s, geo, pv, w, sel, f, nav, ed, viewDeps))
   const list = useList(s, w, emit, props)
   /** The active cell's formatting, from its loaded window: the `state` event and the font shortcuts use it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
@@ -163,6 +169,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     activeStyle: () => activeLook.value?.style,
     frozen: () => v.bookFreeze.value,
     middlePanes: () => v.middlePanes(),
+    splitPanes: () => panes.freezeLines(),
     showFreeze: (sheet, on) => v.showFreeze(sheet, on),
     structured: (op) => {
       originalWidths.clear()
@@ -216,7 +223,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const nameDialogs = useNameDialogs(s, sel, names, { editing: () => editor.value !== null })
   const createNames = useCreateNames(s, sel, names, { editing: () => editor.value !== null, ask: alerts.ask, notify })
   const statistics = useStatistics(s, notify)
-  const split = useSplit(s, geo, v, notify)
+  const split = useSplit(s, geo, v, panes, notify)
   // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
   const trace = useTrace(s, v, w, notify)
   const tables = useTables(s, w, sel, cmd)
@@ -319,6 +326,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     filter.restore()
     zoom.enter()
     s.scrollGridTo(0, 0)
+    panes.enter()
     w.ensure()
   }
   async function pickSheet(index: number): Promise<void> {
@@ -639,6 +647,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     () => [v.firstRow.value, v.lastRow.value, v.firstCol.value, v.lastCol.value, v.frozenRows.value, v.frozenCols.value, s.dataRows.value, s.dataCols.value],
     () => w.ensure(),
   )
+  watch(panes.needs, () => w.ensure())
   onMounted(() => {
     sel.measure()
     subscribe()
@@ -741,6 +750,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     ...s,
     geo,
     v,
+    panes,
+    paneViews,
+    split,
     w,
     sel,
     f,

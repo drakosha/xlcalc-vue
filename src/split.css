@@ -1,0 +1,46 @@
+/* Excel's split window (SheetSplit.vue): the panes side by side, each one's scroller past the pane's edges by the headings and
+   scrollbars it does not show, and the split bars between them, in the sheet's --xs-* variables; --xs-split-bar colors the bars. */
+.xs-split {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.xs-pane {
+  position: absolute;
+  overflow: hidden;
+}
+/* Every pane has both scrollbars, so panes that scroll together have the same client area; those Excel does not draw are clipped. */
+.xs-split .xs-pane-scroller {
+  position: absolute;
+  overflow: scroll;
+}
+.xs-split-bar {
+  position: absolute;
+  z-index: 9;
+  background: var(--xs-split-bar);
+  touch-action: none;
+}
+/* A target wider than the bar, wider still for a finger. */
+.xs-split-bar::before {
+  position: absolute;
+  inset: -3px;
+  content: '';
+}
+.xs-touch .xs-split-bar::before {
+  inset: -10px;
+}
+.xs-split-v {
+  top: 0;
+  bottom: 0;
+  cursor: col-resize;
+}
+.xs-split-h {
+  right: 0;
+  left: 0;
+  cursor: row-resize;
+}
+.xs-split-cross {
+  z-index: 10;
+  cursor: move;
+}

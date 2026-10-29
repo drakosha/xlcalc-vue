@@ -1,12 +1,14 @@
 <script setup lang="ts">
 // The grid: a real <table> with sticky column letters and row numbers, Excel's outline bars next to them, frozen panes,
 // spacers for what is off screen, the marks over the cells (the copy border, the fill handle, the tracer arrows) and the in-cell editor.
-import { computed } from 'vue'
+// A split window draws one for each pane, scrolled apart; the active pane has the editor and the boxes over the active cell.
+import { computed, onMounted, provide } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import AutoFilterButtons from './AutoFilterButtons.vue'
 import CellEditor from './CellEditor.vue'
 import { cellOfData } from '../core/selection'
-import { useSheetContext } from './context'
+import type { PaneId } from '../core/panes'
+import { sheetContextKey, useSheetContext } from './context'
 import { refInto } from './dom'
 import NoteBox from './NoteBox.vue'
 import ShownNotes from './ShownNotes.vue'
@@ -19,8 +21,18 @@ import TraceArrows from './TraceArrows.vue'
 import ValidationDropdown from './ValidationDropdown.vue'
 import ValidationPrompt from './ValidationPrompt.vue'
 
-const ctx = useSheetContext()
+const props = defineProps<{
+  /** A pane of a split window (Excel's View > Split), drawing what its own scroll shows; none for the single window. */
+  pane?: PaneId
+}>()
+const root = useSheetContext()
+const pane = props.pane
+/** A pane's parts draw its rows and columns through its own viewport and cell views. */
+const ctx = pane === undefined ? root : { ...root, v: root.panes.viewports[pane]!, views: root.paneViews[pane]! }
+if (pane !== undefined) provide(sheetContextKey, ctx)
 const { v, geo, sel, views, ed, list } = ctx
+/** The window's only pane, or a split window's active one: it takes the keys and has the editor and the boxes over the active cell. */
+const active = computed(() => pane === undefined || root.panes.active.value === pane)
 const m = ctx.messages
 
 /** Drawn columns: the frozen ones, a spacer for those scrolled away, the body's, a spacer for the rest (c = 0). */
@@ -69,6 +81,11 @@ const vd = ctx.validation
 // ── presses, clicks and double clicks on cells, handled on the scroller for every cell ──
 /** A click on a cell: list mode opens what a cell leads to, and a double tap on a phone opens the editor. */
 function onClick(e: MouseEvent): void {
+  const was = [ctx.selected.value, ctx.extent.value]
+  clicked(e)
+  follow(was)
+}
+function clicked(e: MouseEvent): void {
   const at = cellUnder(e)
   // The release of a long press that opened the cell menu keeps the selection, and so does a press that inserted a reference.
   if (!at || ctx.menu.press.after() || ctx.point.took()) return
@@ -113,7 +130,25 @@ function onContext(e: MouseEvent): void {
   if (h) ctx.menu.openLines(h.kind, h.line, e.clientX, e.clientY)
   else ctx.menu.openCells(cell!.row, cell!.col, e.clientX, e.clientY)
 }
+/**
+ * A press in a pane that is not active makes it active first, as Excel's click does, but not one on its scrollbars (on the
+ * scroller itself); with an edit open, only a press that moves the selection does (`follow`).
+ */
+function onPress(e: PointerEvent): void {
+  if (pane !== undefined && !active.value && !ctx.editor.value && e.target !== e.currentTarget) root.panes.activate(pane)
+}
+/** After a press that `onPress` left (an edit was open): the pane becomes active once the press moved the selection to it; a reference pointed at keeps the edit's pane. */
+function follow(was: unknown[]): void {
+  if (pane === undefined || active.value || (was[0] === ctx.selected.value && was[1] === ctx.extent.value)) return
+  root.panes.activate(pane)
+  ctx.focusGrid()
+}
 function onDown(e: PointerEvent): void {
+  const was = [ctx.selected.value, ctx.extent.value]
+  pressed(e)
+  follow(was)
+}
+function pressed(e: PointerEvent): void {
   ctx.painter.down()
   const h = headerOf(e)
   const under = h ? null : cellUnder(e)
@@ -152,7 +187,12 @@ function pickLine(kind: 'rows' | 'columns', line: number, extend: boolean): void
   if (kind === 'rows') sel.pickRow(line, extend)
   else sel.pickColumn(line, extend)
 }
-const setScroller = refInto(ctx.scroller)
+const setScroller = pane === undefined ? refInto(ctx.scroller) : (el: unknown) => root.panes.setEl(pane, (el as HTMLElement | null) ?? null)
+const onScroll = pane === undefined ? ctx.onScroll : () => root.panes.onScroll(pane)
+// The single window drawn again after a split was removed keeps the scroll the split left.
+onMounted(() => {
+  if (pane === undefined && (ctx.scrollTop.value || ctx.scrollLeft.value)) ctx.scrollGridTo(ctx.scrollTop.value, ctx.scrollLeft.value)
+})
 /** The zoom, and zoomed out the gridline's width that draws as one screen pixel (`--xs-line`). */
 const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom.value), ...(ctx.zoom.value < 1 ? { '--xs-line': `${v.line.value}px` } : {}) } : undefined))
 </script>
@@ -160,9 +200,11 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
 <template>
   <div
     :ref="setScroller"
-    :class="['xs-scroller', { 'xs-painting': ctx.painter.mode.value }]"
-    tabindex="0"
-    @scroll.passive="ctx.onScroll"
+    :class="['xs-scroller', { 'xs-painting': ctx.painter.mode.value, 'xs-pane-scroller': pane !== undefined, 'xs-pane-active': pane !== undefined && active }]"
+    :tabindex="active ? 0 : -1"
+    :data-xs-pane="pane"
+    @scroll.passive="onScroll"
+    @pointerdown.capture="onPress"
     @keydown="ctx.onGridKey"
     @copy="ctx.clip.onCopy"
     @cut="ctx.clip.onCut"
@@ -185,7 +227,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
     @gesturechange="ctx.zoomer.onGesture"
     @gestureend="ctx.zoomer.onGesture"
   >
-    <p v-if="empty && ctx.sheet.value" class="xs-empty">{{ m.empty }}</p>
+    <p v-if="empty && ctx.sheet.value && active" class="xs-empty">{{ m.empty }}</p>
     <!-- Excel's zoom: the content is drawn under CSS zoom in its unzoomed pixels; the page's pixels (pointers, rectangles) are zoomed ones. -->
     <div class="xs-zoom" :style="zoomStyle">
       <table v-if="ctx.sheet.value && !empty" :class="['xs-table', ctx.sheet.value.gridlines === false ? 'xs-nogrid' : '']" :style="tableStyle">
@@ -289,9 +331,9 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
       <AutoFilterButtons v-if="ctx.sheet.value && !empty" />
       <TraceArrows v-if="ctx.sheet.value && !empty" />
       <ShownNotes v-if="ctx.notes.shown.value.length" />
-      <NoteBox v-if="ctx.notes.draft.value" />
-      <NoteBox v-else-if="ctx.notes.peek.value" peek />
-      <template v-if="activeBox && !ctx.editor.value && !ctx.notes.draft.value">
+      <NoteBox v-if="ctx.notes.draft.value && active" />
+      <NoteBox v-else-if="ctx.notes.peek.value && !ctx.notes.draft.value" peek />
+      <template v-if="activeBox && active && !ctx.editor.value && !ctx.notes.draft.value">
         <ValidationPrompt v-if="vd.prompt.value" :rect="activeBox" :prompt="vd.prompt.value" :view="v.viewBox.value" />
         <ValidationDropdown
           v-if="vd.list.value && ctx.editable.value"
@@ -309,8 +351,8 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
         />
       </template>
     </div>
-    <CellEditor v-if="ctx.editable.value" />
-    <div v-if="ctx.loading.value" class="xs-loading">
+    <CellEditor v-if="ctx.editable.value && active" />
+    <div v-if="ctx.loading.value && active" class="xs-loading">
       <IconSpinner class="xs-spin" />
       {{ m.loading }}
     </div>
