@@ -192,6 +192,32 @@ describe('localSource: calculation options', () => {
     expect(events.filter((e) => e.kind === 'calculation')).toEqual([{ kind: 'calculation', calculation: { mode: 'manual', pending: false } }])
   })
 
+  it('in Manual a structure operation that moves no cell keeps the values waiting: a paste, a fill, sheets inserted, hidden, renamed, deleted', async () => {
+    const s = source(twoSheets('manual'))
+    await s.edit([{ sheet: 'One', cell: 'A1', text: '5' }])
+    // the pasted and filled cells show as entered, the waiting ones stay
+    expect(await s.structure({ op: 'copyRange', from: { sheet: 'One', range: 'A1' }, to: { sheet: 'One', range: 'E1' } })).toMatchObject({ ok: true })
+    expect(await s.structure({ op: 'fillRange', sheet: 'One', range: 'B1', to: 'B1:B2' })).toMatchObject({ ok: true })
+    expect((await win(s, 'One', 1, 2, 1, 5)).values).toEqual([
+      [5, 2, 3, null, 5],
+      [null, 0, null, null, null],
+    ])
+    await s.structure({ op: 'insertSheet', name: 'Three' })
+    await s.structure({ op: 'hideSheet', sheet: 'Three' })
+    await s.structure({ op: 'mergeCells', sheet: 'One', range: 'F1:G1' })
+    expect(await row1(s, 'One')).toEqual([5, 2, 3])
+    // a renamed sheet keeps its waiting values, and so does its undo
+    await s.structure({ op: 'renameSheet', sheet: 'One', name: 'Uno' })
+    expect(await row1(s, 'Uno')).toEqual([5, 2, 3])
+    await s.undo()
+    expect(await row1(s, 'One')).toEqual([5, 2, 3])
+    // a deleted sheet's waiting cells go with it
+    await s.structure({ op: 'deleteSheet', sheet: 'Two' })
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: true })
+    const calc = await s.calculate()
+    expect(calc.ok && calc.changes.map((c) => `${c.sheet}!${c.cell}=${c.value}`).sort()).toEqual(['One!B1=10', 'One!C1=11'])
+  })
+
   it('a structure operation in Manual shows the calculated values, the cells having moved', async () => {
     const s = source(twoSheets('manual'))
     await s.edit([{ sheet: 'One', cell: 'A1', text: '5' }])

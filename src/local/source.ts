@@ -356,7 +356,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     // The step's changes keep the cached values current and the filters' row lists stay as the component holds them; a step that needs more reloads, which drops both.
     // TODO(xlcalc): undoing a structure step does not list the cells it empties (a copy onto empty cells), so the sheet is read again, as after the operation.
     if (got.call === 'editStructure') {
-      calcMode.forget()
+      calcMode.moved(got.moved)
       return reloaded(got.changes)
     }
     const boxes = boxesOf(got.cells ?? [])
@@ -380,16 +380,16 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return out
   }
 
-  /** A structure operation; one that moves cells (`moves`) leaves the values held in Manual at addresses that no longer hold, so the sheet shows the session's. */
-  async function structure(s: AsyncSession, op: SheetOp, moves = false): Promise<EditOutcome> {
+  /** A structure operation; the values waiting in Manual follow the addresses it moved (`calcMode.moved`). */
+  async function structure(s: AsyncSession, op: SheetOp): Promise<EditOutcome> {
     const got = await s.editStructure(op)
     if (!got.ok) return { ok: false, reason: 'refused', code: got.code, message: got.message }
-    if (moves) calcMode.forget()
+    calcMode.moved(got.moved)
     return reloaded(got.changes)
   }
 
-  /** A structure operation once the sheet's protection allows it; one that moves cells drops Manual's held values. */
-  const guardedStructure = guard.structure((s: AsyncSession, op: SheetOp) => structure(s, op, true))
+  /** A structure operation once the sheet's protection allows it. */
+  const guardedStructure = guard.structure(structure)
 
   /** Calculate Now, or Calculate Sheet: the values held in Manual shown, as an edit's changes are. */
   async function calculate(s: AsyncSession, sheet?: string): Promise<EditOutcome> {

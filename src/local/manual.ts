@@ -1,7 +1,7 @@
 // Excel's calculation options over a session that calculates every edit (xlcalc records the option and does not apply
 // it): in Manual the source keeps showing formulas' values as of the last calculation until Calculate Now or Calculate
 // Sheet, and the workbook keeps the option.
-import type { AsyncSession, BookInput, CellChange, CellValue, CellView } from 'xlcalc'
+import type { AddressMove, AsyncSession, BookInput, CellChange, CellValue, CellView } from 'xlcalc'
 import { nameKey, parseCell } from 'xlcalc/a1'
 import { cellKey } from './outcome'
 import type { CalculationMode, CellUpdate, SheetCalculation, SheetWindow } from '../contract/source'
@@ -141,10 +141,29 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     return out
   }
 
-  /** Rows and columns moved (a structure operation or its undo): the values known by address no longer hold, so the sheet shows the session's. */
+  /** Values known by address that no longer hold (a table command): the sheet shows the session's. */
   function forget(): void {
     known = null
     held.clear()
+  }
+  /**
+   * How a structure operation or its undo moved addresses (`EditResult.moved`): rows, columns or a range moved leave the
+   * values known by address behind, so the sheet shows the session's (`forget`); a renamed sheet keeps its own under its
+   * new name and a deleted one takes them with it. A paste, a fill, a merge, a sheet inserted, moved or hidden move nothing.
+   */
+  function moved(moves: AddressMove[] = []): void {
+    if (moves.some((m) => m.kind === 'lines' || m.kind === 'range')) return forget()
+    for (const m of moves) {
+      if (m.kind !== 'deleteSheet' && m.kind !== 'renameSheet') continue
+      const from = nameKey(m.sheet)
+      const cells = known?.get(from)
+      const mine = held.get(from)
+      known?.delete(from)
+      held.delete(from)
+      if (m.kind === 'deleteSheet') continue
+      if (cells) known!.set(nameKey(m.name), cells)
+      if (mine) held.set(nameKey(m.name), new Map([...mine].map(([addr, h]) => [addr, { ...h, sheet: m.name }])))
+    }
   }
 
   /** The window with the values held on its sheet put back over the session's. */
@@ -198,7 +217,7 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     return (mode === 'automatic' ? rest : { ...rest, calculation: mode }) as B
   }
 
-  return { state, report, capture, hold, showing, spillsOf, forget, overlay, calculate, setMode, book, manual }
+  return { state, report, capture, hold, showing, spillsOf, forget, moved, overlay, calculate, setMode, book, manual }
 }
 
 export type ManualCalculation = ReturnType<typeof manualCalculation>

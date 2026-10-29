@@ -10,6 +10,7 @@ In Manual, as Excel for Mac 16.114 behaved when measured:
 - A formula entered, pasted or filled in Manual shows its value at once (`=A1*10` shows 50), with the cells its array fills and empties; entering a formula again calculates it the same way.
 - A change of how a cell looks, such as a number format, a narrower column or Clear Formats, shows at once with the cell's value as of the last calculation, and nothing starts waiting.
 - Undo and redo restore the edited cells and leave the dependents too.
+- A paste or a fill shows the pasted cells as entered and leaves the waiting cells as they are; so do merging cells and inserting, renaming, moving, hiding and deleting sheets (not measured in Excel for each).
 - Calculate Now (F9, or a click on Calculate) shows the values of every waiting cell; Calculate Sheet (Shift+F9) those of the active sheet only, so the status bar keeps Calculate while another sheet waits.
 - Switching to Automatic calculates what waits.
 
@@ -43,7 +44,7 @@ await source.setCalculation('automatic')
 - A formula entered or pasted in Manual shows the value calculated from its precedents' current values; Excel calculates it from the values they show, so `=B1` over a waiting `B1` shows the old value there.
 - A cell that waits keeps the text it showed when its number format or its column's width changes, until a calculation; Excel draws the old value in the new format (not measured).
 - Calculate Sheet shows the session's values of the sheet's cells, calculated from every sheet; Excel calculates the sheet over the values the other sheets show.
-- A structure operation in Manual (inserting or deleting rows, columns and sheets, moving a range, a table command), and its undo, shows the calculated values of every cell: the values waiting are held by address, which the operation moves. Excel keeps the old values until F9.
+- An operation in Manual that moves cells (inserting or deleting rows and columns, moving a range), a table command, and their undo show the calculated values of every cell: the values waiting are held by address, which the operation moves. A deleted sheet that undo brings back shows its calculated values. Excel keeps the old values until F9.
 - The display filter's lists, Find in values, the selection's totals and Copy read the calculated values, where Excel reads the values shown.
 - In Automatic, F9 recalculates nothing: the session's values are current. Excel recalculates volatile functions such as `RAND` and `NOW` on F9.
 
