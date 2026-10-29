@@ -6,7 +6,7 @@ When a display filter is on, the cell context menu has Excel's Reapply command, 
 
 ## The display filter on a ribbon
 
-The display filter's funnels are on the column letters whenever the source has `visibleRows` and `columnValues`, so the sheet has no Filter switch of its own as Excel's AutoFilter does. A host's ribbon builds Excel's Data group from the sheet's methods: `filterColumn()` opens the funnel's menu for the active cell's column (its sort, values and text condition), `sortColumn('asc')` and `sortColumn('desc')` are Sort A to Z and Z to A by that column, and `clearFilter()` is Clear. `state.filtered` is set while a condition or a sort is on, for a pressed Filter button and an enabled Clear. The sort is the display filter's: the rows below the header are displayed in that order and the data do not change, where Excel's sort rewrites them.
+The display filter's funnels are on the column letters whenever the source has `visibleRows` and `columnValues`, unless the sheet has an AutoFilter, whose buttons on its header row take their place, or the source can put one on it with `setAutoFilter`, when Data > Filter turns the buttons on ([autofilter.md](autofilter.md)). A host's ribbon builds Excel's Data group from the sheet's methods: `filterColumn()` opens the funnel's menu for the active cell's column (its sort, values and text condition), `sortColumn('asc')` and `sortColumn('desc')` are Sort A to Z and Z to A by that column, and `clearFilter()` is Clear. `state.filtered` is set while a condition or a sort is on, for a pressed Filter button and an enabled Clear. The sort is the display filter's: the rows below the header are displayed in that order and the data do not change, where Excel's sort rewrites them.
 
 ## Freeze Panes
 

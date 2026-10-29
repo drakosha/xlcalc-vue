@@ -29,6 +29,7 @@ import { useNotes } from './notes'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
 import { useAutoSum } from './autosum'
+import { useAutoFilter } from './autofilter'
 import { usePainter } from './painter'
 import { useSpellCheck } from './spell-check'
 import { useTables } from './tables'
@@ -153,7 +154,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     frozen: () => v.bookFreeze.value,
     middlePanes: () => v.middlePanes(),
     showFreeze: (sheet, on) => v.showFreeze(sheet, on),
-    structured: () => originalWidths.clear(),
+    structured: (op) => {
+      originalWidths.clear()
+      filter.moveColumns(op)
+    },
   })
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
   const painter = usePainter(s, sel, v, ed, cmd, { notify })
@@ -201,6 +205,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
   const trace = useTrace(s, v, w, notify)
   const tables = useTables(s, w, sel, cmd)
+  const autoFilter = useAutoFilter(s, sel, cmd, filter, notify)
   const autoSum = useAutoSum(s, ed, { editing: () => editor.value !== null })
   const spell = useSpellCheck(s, sel, ed, notify)
   const rules = useValidationDialog(s, sel, w, { scan: f.scanOptions, ask: alerts.ask, notify, changed: () => validation.refresh() })
@@ -238,9 +243,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     pasteSpecial: clip.openSpecial,
     filterColumn: () => {
       const a = s.selected.value
-      if (!filter.available.value || !a) return false
-      const th = s.scroller.value?.querySelector<HTMLElement>(`.xs-head[data-col="${a.col}"]`)
-      void filter.openFunnel(a.col, (th ?? s.scroller.value)?.getBoundingClientRect())
+      if (!a || !filter.canFunnel(a.col)) return false
+      // the AutoFilter's button on its header row, or the column letter
+      const at = s.scroller.value?.querySelector<HTMLElement>(filter.auto.value ? `[data-xs-af="${a.col}"]` : `.xs-head[data-col="${a.col}"]`)
+      void filter.openFunnel(a.col, (at ?? s.scroller.value)?.getBoundingClientRect())
       return true
     },
     clearFilter: () => {
@@ -250,11 +256,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     },
     sortColumn: (dir) => {
       const a = s.selected.value
-      if (!filter.available.value || !a) return false
+      if (!a || !filter.canFunnel(a.col)) return false
       filter.setSort(a.col, dir)
       return true
     },
-    toggleAutoFilter: async () => null,
+    toggleAutoFilter: autoFilter.toggle,
     formatPainter: (mode) => painter.start(mode),
     clear: extras.clear,
     insertLink: links.open,
@@ -491,6 +497,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e) || goto.key(e) || fill.key(e) || formulaView.key(e))) return
     // Excel's Create Table (Ctrl+T, Ctrl+L) and Spelling (F7)
     if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e) || clip.specialKey(e))) return
+    // Excel's Data > Filter (Ctrl+Shift+L) and Alt+Down on an AutoFilter's header cell
+    if (!e.isComposing && autoFilter.key(e)) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -651,6 +659,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(painter.available.value ? { canFormatPainter: true as const } : {}),
       ...(painter.mode.value ? { painting: painter.mode.value } : {}),
       ...(filter.active.value ? { filtered: true as const } : {}),
+      ...(s.sheet.value.autoFilter ? { autoFilter: s.sheet.value.autoFilter.range } : {}),
+      ...(autoFilter.available.value ? { canAutoFilter: true as const } : {}),
       ...(s.formulaView.value ? { showFormulas: true as const } : {}),
       ...(zoom.percent.value !== 100 ? { zoom: zoom.percent.value } : {}),
       ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
@@ -678,6 +688,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     point,
     totals,
     filter,
+    autoFilter,
     find,
     explain,
     trace,

@@ -251,7 +251,10 @@ describe('repaint from the local source', () => {
 
   it('keeps a row that no longer matches the display filter after an edit, recolored, until the filter is reapplied', async () => {
     localStorage.setItem('k:filter:S', JSON.stringify({ cols: filter.cols, sort: null }))
-    const s = localSource(book(), { calc: 'inline' })
+    // ./local can set an AutoFilter, so the sheet's funnels are those of its AutoFilter
+    const b = book()
+    b.sheets[0]!.autoFilter = { range: 'A1:B6' }
+    const s = localSource(b, { calc: 'inline' })
     const w = await mountSheet(s, { storageKey: 'k' })
     await settle(12)
     expect(numbers(w)).toEqual(['1', '2', '4', '6'])

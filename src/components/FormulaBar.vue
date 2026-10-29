@@ -218,8 +218,8 @@ if (painting) {
   )
   onBeforeUnmount(() => (painted = paintRefs(null, [], painted)))
 }
-/** Touch input gets no funnels on the column letters (too small to hit): one in the formula bar opens the active cell's column. */
-const barFunnel = computed(() => v.touch.value && ctx.filter.available.value && ctx.dataRows.value > 1)
+/** Touch input gets no funnels on the column letters (too small to hit): one in the formula bar opens the active cell's column. An AutoFilter has buttons of its own. */
+const barFunnel = computed(() => v.touch.value && ctx.filter.letters.value && ctx.dataRows.value > 1)
 function openBarFunnel(e: MouseEvent): void {
   const col = active.value?.col ?? 1
   if (ctx.filter.open.value === col) return ctx.filter.close()

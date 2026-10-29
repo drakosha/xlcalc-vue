@@ -1,0 +1,24 @@
+/* The AutoFilter's buttons (AutoFilterButtons.vue): Excel's square arrows at the bottom right of the header cells, sized by the component. */
+.xs-af {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--xs-grid);
+  border-radius: 2px;
+  background: var(--xs-bg);
+  color: var(--xs-fg);
+  cursor: pointer;
+}
+.xs-af svg {
+  width: 75%;
+  height: 75%;
+}
+.xs-af:hover,
+.xs-af.xs-open {
+  background: var(--xs-head-on-bg);
+}
+.xs-af.xs-on {
+  color: var(--xs-accent);
+}

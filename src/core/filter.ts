@@ -1,10 +1,12 @@
-// The display filter and sort, with the funnel on a column letter: the data do not change, and the source lists the rows to display, in order.
+// The display filter and sort: the data do not change, and the source lists the rows to display, in order. Its funnels are the
+// buttons on the header row of the sheet's AutoFilter, over the AutoFilter's rows; without one, on the column letters.
 import { computed, nextTick, onScopeDispose, ref, watch } from 'vue'
-import { colLetters } from 'xlcalc/a1'
+import { colLetters, parseRange, sameName, MAX_COLS } from 'xlcalc/a1'
+import type { CellRect } from 'xlcalc/contract'
 import { isAbort } from '../abort'
 import { filterKey } from '../filter-key'
 import { clamp } from '../rect'
-import type { SheetFilter } from '../contract/source'
+import type { SheetFilter, SheetOp } from '../contract/source'
 import type { SheetState } from './state'
 import type { Windows } from './windows'
 
@@ -12,19 +14,44 @@ type ColumnFilter = NonNullable<SheetFilter['cols']>[number]
 type Sort = NonNullable<SheetFilter['sort']>
 
 export function useFilter(s: SheetState, w: Windows, notify: (text: string) => void) {
-  const cols = ref<Record<number, ColumnFilter>>({})
-  const sort = ref<Sort | null>(null)
+  /** The conditions and the sort as set; those on columns without a funnel (outside the AutoFilter) are kept but not in effect. */
+  const own = ref<Record<number, ColumnFilter>>({})
+  const ownSort = ref<Sort | null>(null)
   /** The funnel needs both: the rows to display and a column's values. */
   const available = computed(() => typeof s.source().visibleRows === 'function' && typeof s.source().columnValues === 'function')
-  /** Header rows the filter leaves alone: the workbook's frozen rows, otherwise the first row, as Excel does. */
+  /** The sheet's AutoFilter (`SheetInfo.autoFilter`), null without one. */
+  const auto = computed<CellRect | null>(() => {
+    const r = s.sheet.value?.autoFilter ? parseRange(s.sheet.value.autoFilter.range) : null
+    return r?.kind === 'cells' ? r : null
+  })
+  /** The source can put an AutoFilter on the sheet (Data > Filter): a sheet without one then has no funnels, as in Excel. */
+  const settable = computed(() => s.editable.value && !!s.sourceMethod('setAutoFilter'))
+  /** The funnels are on the column letters: no AutoFilter on the sheet, and the source cannot set one. */
+  const letters = computed(() => available.value && !auto.value && !settable.value)
+  /** A column has a funnel: within the AutoFilter, or any column with the funnels on the letters. */
+  const canFunnel = (c: number): boolean => (auto.value ? available.value && c >= auto.value.left && c <= auto.value.right : letters.value)
+  /** The conditions and the sort in effect; setting them sets them as given. */
+  const cols = computed({
+    get: () => {
+      const out: Record<number, ColumnFilter> = {}
+      for (const [c, f] of Object.entries(own.value)) if (canFunnel(Number(c))) out[Number(c)] = f
+      return out
+    },
+    set: (next: Record<number, ColumnFilter>) => void (own.value = next),
+  })
+  const sort = computed({ get: () => (ownSort.value && canFunnel(ownSort.value.col) ? ownSort.value : null), set: (next: Sort | null) => void (ownSort.value = next) })
+  /** Header rows the filter leaves alone: those down to the AutoFilter's header row; otherwise the workbook's frozen rows, or the first row, as Excel does. */
   const head = computed(() => {
+    if (auto.value) return auto.value.top
     const frozen = s.sheet.value?.freeze?.rows ?? 0
     return clamp(frozen > 0 ? frozen : 1, 0, Math.max(0, s.dataRows.value - 1))
   })
   const active = computed(() => Object.keys(cols.value).length > 0 || sort.value !== null)
+  /** The rows the conditions apply to: below the header, down to the AutoFilter's last row. */
+  const rowsSpec = (): SheetFilter => (auto.value ? { head: head.value, last: auto.value.bottom } : { head: head.value })
   const spec = computed<SheetFilter | null>(() => {
     if (!active.value) return null
-    const out: SheetFilter = { head: head.value }
+    const out = rowsSpec()
     if (Object.keys(cols.value).length) out.cols = cols.value
     if (sort.value) out.sort = sort.value
     return out
@@ -77,14 +104,36 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
   function remember(): void {
     if (s.sheetName.value) s.memory.remember(memoryName(), active.value ? { cols: cols.value, sort: sort.value } : null)
   }
+  // An AutoFilter removed (Filter off, its header row deleted, a table over it) takes its conditions along, as in Excel.
+  watch([() => s.sheetName.value, auto], ([sheet, now], [was, before]) => {
+    if (sheet === was && before && !now) clear()
+  })
+  /**
+   * Columns inserted or deleted on the sheet by its own structure command: the conditions and the sort move with their
+   * columns, and those of deleted columns go, as Excel moves an AutoFilter's criteria.
+   */
+  function moveColumns(op: SheetOp): void {
+    if ((op.op !== 'insertColumns' && op.op !== 'deleteColumns') || !sameName(op.sheet, s.sheetName.value)) return
+    const at = parseRange(`${op.column}1`)?.left ?? MAX_COLS + 1
+    const n = op.count ?? 1
+    const moved = (c: number): number | null => (c < at ? c : op.op === 'insertColumns' ? c + n : c < at + n ? null : c - n)
+    const next: Record<number, ColumnFilter> = {}
+    for (const [c, f] of Object.entries(own.value)) {
+      const to = moved(Number(c))
+      if (to !== null) next[to] = f
+    }
+    own.value = next
+    const by = ownSort.value && moved(ownSort.value.col)
+    ownSort.value = ownSort.value && by ? { ...ownSort.value, col: by } : null
+  }
   /** The sheet's stored conditions, before its windows load; the row list arrives through the watcher. */
   function restore(): void {
     close()
     const saved = s.memory.recall<{ cols?: Record<number, ColumnFilter>; sort?: Sort | null }>(memoryName())
     s.visible.value = null
-    cols.value = saved?.cols ?? {}
-    sort.value = saved?.sort ?? null
-    s.filterWait.value = !!(available.value && (Object.keys(cols.value).length || sort.value))
+    own.value = saved?.cols ?? {}
+    ownSort.value = saved?.sort ?? null
+    s.filterWait.value = active.value
   }
   /** Reads the list again (the source reloaded): the rows may have changed. */
   function refresh(): Promise<void> {
@@ -113,8 +162,8 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
   }
   /** Clears every condition at once: the rows return to the sheet's order. */
   function clear(): void {
-    cols.value = {}
-    sort.value = null
+    own.value = {}
+    ownSort.value = null
     seq++
     ctrl?.abort()
     apply(null)
@@ -125,14 +174,19 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     notify(s.messages.value.unfiltered(row))
   }
 
-  /** The status line below the grid: visible rows out of all, the columns with conditions, the sort. */
+  /** The status line below the grid: visible rows out of all (of the AutoFilter's rows below its header), the columns with conditions, the sort. */
   const status = computed(() => {
     if (!active.value) return ''
     const fmt = new Intl.NumberFormat(s.locale.value)
-    const shown = Math.max(0, (s.visible.value?.rows.length ?? s.dataRows.value) - head.value)
+    const last = auto.value ? Math.min(auto.value.bottom, s.dataRows.value) : s.dataRows.value
+    const rows = s.visible.value?.rows
+    // the rows below the AutoFilter come last in the list, in order
+    let below = 0
+    if (rows) while (below < rows.length && rows[rows.length - 1 - below]! > last) below++
+    const shown = Math.max(0, (rows ? rows.length - below : last) - head.value)
     const names = Object.keys(cols.value).map(Number).sort((a, b) => a - b).map(colLetters)
     const sorted = sort.value ? { col: colLetters(sort.value.col), dir: sort.value.dir } : null
-    return s.messages.value.filterStatus(fmt.format(shown), fmt.format(Math.max(0, s.dataRows.value - head.value)), names, sorted)
+    return s.messages.value.filterStatus(fmt.format(shown), fmt.format(Math.max(0, last - head.value)), names, sorted)
   })
 
   // ── a column's funnel: its values with checkboxes, a substring, the sort ──
@@ -159,7 +213,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     busy.value = true
     const mine = ++valuesSeq
     try {
-      const got = await s.source().columnValues!(s.sheetName.value, col, spec.value ?? { head: head.value })
+      const got = await s.source().columnValues!(s.sheetName.value, col, spec.value ?? rowsSpec())
       if (mine !== valuesSeq) return
       values.value = got.values
       more.value = got.more
@@ -217,23 +271,23 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     const next = { ...cols.value }
     if (cond.values || cond.text) next[c] = cond
     else delete next[c]
-    cols.value = next
+    own.value = next
     close()
   }
   function clearColumn(c: number): void {
     const next = { ...cols.value }
     delete next[c]
-    cols.value = next
-    if (sort.value?.col === c) sort.value = null
+    own.value = next
+    if (sort.value?.col === c) ownSort.value = null
     close()
   }
   function sortBy(c: number, dir: 'asc' | 'desc'): void {
-    sort.value = sort.value?.col === c && sort.value.dir === dir ? null : { col: c, dir }
+    ownSort.value = sort.value?.col === c && sort.value.dir === dir ? null : { col: c, dir }
     close()
   }
   /** A ribbon's Sort A to Z or Z to A on a column: that sort, whatever the current one. */
   function setSort(c: number, dir: 'asc' | 'desc'): void {
-    sort.value = { col: c, dir }
+    ownSort.value = { col: c, dir }
     close()
   }
   function onFunnelKey(e: KeyboardEvent): void {
@@ -257,6 +311,10 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     cols,
     sort,
     available,
+    auto,
+    letters,
+    canFunnel,
+    moveColumns,
     head,
     active,
     spec,

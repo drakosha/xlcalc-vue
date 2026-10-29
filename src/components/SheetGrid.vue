@@ -3,6 +3,7 @@
 // spacers for what is off screen, the marks over the cells (the copy border, the fill handle, the tracer arrows) and the in-cell editor.
 import { computed } from 'vue'
 import { colLetters } from 'xlcalc/a1'
+import AutoFilterButtons from './AutoFilterButtons.vue'
 import CellEditor from './CellEditor.vue'
 import { cellOfData } from '../core/selection'
 import { useSheetContext } from './context'
@@ -81,9 +82,9 @@ function onDouble(e: MouseEvent): void {
   sel.pickCell(at.row, at.col)
   ed.startEdit({ mode: 'edit' })
 }
-/** Funnels on the column letters: when the source can filter and there is more than a header to filter; touch input gets one in the formula bar instead. */
-const funnels = computed(() => ctx.filter.available.value && ctx.dataRows.value > 1 && !v.touch.value)
-const filtered = (c: number) => !!ctx.filter.cols.value[c] || ctx.filter.sort.value?.col === c
+/** Funnels on the column letters: when the source can filter, the sheet has no AutoFilter and there is more than a header to filter; touch input gets one in the formula bar instead. */
+const funnels = computed(() => ctx.filter.letters.value && ctx.dataRows.value > 1 && !v.touch.value)
+const filtered = (c: number) => ctx.filter.letters.value && (!!ctx.filter.cols.value[c] || ctx.filter.sort.value?.col === c)
 function openFunnel(e: MouseEvent, c: number): void {
   const th = (e.currentTarget as HTMLElement).closest('th')
   void ctx.filter.openFunnel(c, th?.getBoundingClientRect())
@@ -229,7 +230,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
                 @click="pickLine('columns', k.c, $event.shiftKey)"
               >
                 <span class="xs-head-label" :style="list.alignOf(k.c) ? { textAlign: list.alignOf(k.c) } : undefined"
-                  >{{ headLabel(k.c) }}<span v-if="ctx.filter.sort.value?.col === k.c" class="xs-sortmark">{{ ctx.filter.sort.value.dir === 'asc' ? '↑' : '↓' }}</span
+                  >{{ headLabel(k.c) }}<span v-if="ctx.filter.letters.value && ctx.filter.sort.value?.col === k.c" class="xs-sortmark">{{ ctx.filter.sort.value.dir === 'asc' ? '↑' : '↓' }}</span
                   ><span v-else-if="list.sortOf(k.c)" class="xs-sortmark xs-list-sort">{{ list.sortOf(k.c) === 'asc' ? '↑' : '↓' }}</span
                   ><span v-else-if="list.sortable(k.c)" class="xs-sortmark xs-sorthint" aria-hidden="true">↕</span></span
                 >
@@ -284,6 +285,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
         </tfoot>
       </table>
       <SheetMarks v-if="ctx.sheet.value && !empty" />
+      <AutoFilterButtons v-if="ctx.sheet.value && !empty" />
       <TraceArrows v-if="ctx.sheet.value && !empty" />
       <NoteBox v-if="ctx.notes.draft.value" />
       <NoteBox v-else-if="ctx.notes.peek.value" peek />
