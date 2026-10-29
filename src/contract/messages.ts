@@ -191,6 +191,8 @@ export interface SheetMessages extends ConditionalMessages {
   filterFailed: string
   valuesFailed: string
   unfiltered: (row: number) => string
+  /** Data > Filter with no data at the active cell or in the selection, Excel's message. */
+  autoFilterNoRange: string
   /** The formatting toolbar (`SheetToolbar`): its buttons, menus and number formats, with Excel's names. */
   toolbar: string
   toolbarMore: string

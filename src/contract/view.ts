@@ -81,6 +81,10 @@ export interface SheetViewState {
   painting?: FormatPainterMode
   /** The display filter has a condition or a sort: a ribbon shows its Filter button pressed and enables Clear. */
   filtered?: true
+  /** The sheet's AutoFilter range (`SheetInfo.autoFilter`): a ribbon shows Data > Filter pressed. */
+  autoFilter?: string
+  /** Data > Filter is available (`toggleAutoFilter`): the source has `setAutoFilter` and the sheet is editable. */
+  canAutoFilter?: true
   /** Excel's Show Formulas is on for the displayed sheet (Ctrl+` or `SheetViewApi.showFormulas`): a ribbon shows its button pressed. */
   showFormulas?: true
   /** The sheet's zoom in percent; absent at 100%. */
@@ -210,6 +214,13 @@ export interface SheetViewApi {
    * are displayed in that order and the data do not change (Excel's sort rewrites them); false without the display filter.
    */
   sortColumn(dir: 'asc' | 'desc'): boolean
+  /**
+   * Excel's Data > Filter (Ctrl+Shift+L) through the source's `setAutoFilter`, as a single undo step: removes the sheet's
+   * AutoFilter with its conditions, or puts one over the selection, or over the active cell's current region when a single
+   * cell is selected, trimmed to its data as Excel trims it; the sheet reloads afterwards. null when nothing was sent: no
+   * `setAutoFilter`, a read-only sheet, or no data there (the sheet displays Excel's message).
+   */
+  toggleAutoFilter(): Promise<EditOutcome | null>
   /**
    * Excel's Home > Clear > Clear Formats (`formats`) or Clear All (`all`) over the selection through the source's `clear`, as a
    * single undo step (under a display filter, over its visible rows), after which the windows over it are read again. null when

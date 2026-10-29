@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Excel's AutoFilter: `SheetInfo.autoFilter` (`{ range }`) puts the filter buttons on the range's header row, over its columns only, and the display filter's conditions and sort apply to the rows below the header down to the range's last row (`SheetFilter.last`), the rows above and below it staying as they are. The source's new optional `setAutoFilter(sheet, range | null)` is Data > Filter as a single undo step; the sheet's `toggleAutoFilter()` and Ctrl+Shift+L put an AutoFilter over the selection or the active cell's current region as Excel picks it, or remove it with its conditions, and `state.autoFilter` and `state.canAutoFilter` serve a ribbon. A source with `setAutoFilter` shows no funnels on a sheet without an AutoFilter, as Excel; a source without it keeps the funnels on the column letters where a sheet has none. Nothing breaks for a host ([autofilter.md](docs/autofilter.md)).
+
 ## 0.29.0 (2026-10-28)
 
 A workbook on a server, edited by several viewers, and xlsx saved over the file it was opened from. Nothing breaks for a host; `keep` in `./local` needs xlcalc 0.57.0.

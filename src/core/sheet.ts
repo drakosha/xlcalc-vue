@@ -254,6 +254,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       filter.setSort(a.col, dir)
       return true
     },
+    toggleAutoFilter: async () => null,
     formatPainter: (mode) => painter.start(mode),
     clear: extras.clear,
     insertLink: links.open,
