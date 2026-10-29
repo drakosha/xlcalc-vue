@@ -35,7 +35,9 @@ describe('localSource: calculation options', () => {
     expect(await row1(s, 'One')).toEqual([5, 2, 3])
     expect(await row1(s, 'Two', 2)).toEqual([100, 101])
     expect(await s.calculation()).toEqual({ mode: 'manual', pending: true })
-    expect(events).toContainEqual({ kind: 'calculation', calculation: { mode: 'manual', pending: true } })
+    // the edit's own cells first, then that cells wait
+    expect(events.map((e) => e.kind)).toEqual(['changed', 'calculation'])
+    expect(events[1]).toEqual({ kind: 'calculation', calculation: { mode: 'manual', pending: true } })
     // the next edit keeps the values shown as of the last calculation, not of the last edit
     await s.edit([{ sheet: 'One', cell: 'A1', text: '6' }])
     expect(await row1(s, 'One')).toEqual([6, 2, 3])

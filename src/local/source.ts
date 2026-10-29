@@ -123,7 +123,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     for (const l of listeners) l(event)
   }
   /** Excel's calculation option, which the session records and does not apply: in Manual the values shown wait for a calculation. */
-  const calcMode = manualCalculation(input, (calculation) => emit({ kind: 'calculation', calculation }))
+  // told after the change's own events, which the caller sends once `take` returns
+  const calcMode = manualCalculation(input, (calculation) => queueMicrotask(() => emit({ kind: 'calculation', calculation })))
 
   /** The workbook changed in many places: cached values are dropped and subscribers read the sheets and windows again. */
   function reload(): void {
