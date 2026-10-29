@@ -149,7 +149,7 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
   /**
    * How a structure operation or its undo moved addresses (`EditResult.moved`): rows, columns or a range moved leave the
    * values known by address behind, so the sheet shows the session's (`forget`); a renamed sheet keeps its own under its
-   * new name and a deleted one takes them with it. A paste, a fill, a merge, a sheet inserted, moved or hidden move nothing.
+   * new name and a deleted one takes them with it. A paste, a fill, a sheet inserted, moved or hidden move nothing.
    */
   function moved(moves: AddressMove[] = []): void {
     if (moves.some((m) => m.kind === 'lines' || m.kind === 'range')) return forget()
