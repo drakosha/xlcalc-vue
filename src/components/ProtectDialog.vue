@@ -33,7 +33,6 @@ function toggle(box: ProtectionAllowance, on: boolean): void {
         </label>
       </div>
     </fieldset>
-    <p class="xs-muted">{{ m.protectNote }}</p>
     <div class="xs-dialog-foot">
       <button type="button" class="xs-button xs-button-main" :disabled="!p.draft.value.contents" data-xs-protect-ok data-xs-dialog-ok @click="p.apply()">{{ m.ok }}</button>
       <button type="button" class="xs-button" data-xs-dialog-cancel @click="p.close()">{{ m.cancel }}</button>
