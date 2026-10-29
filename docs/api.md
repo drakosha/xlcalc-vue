@@ -119,6 +119,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `canFormatPainter` | `true?` | Format Painter is available (`formatPainter()`): the source has `structure`, the sheet is editable, and no display filter is on. |
 | `painting` | `FormatPainterMode?` | Format Painter holds a brush: `'once'` or `'keep'`; a ribbon shows its button pressed. |
 | `filtered` | `true?` | The display filter has a condition or a sort: a ribbon shows Filter pressed and enables Clear. |
+| `autoFilter` | `string?` | The sheet's AutoFilter range (`SheetInfo.autoFilter`): a ribbon shows Data > Filter pressed ([autofilter.md](autofilter.md)). |
+| `canAutoFilter` | `true?` | Data > Filter is available (`toggleAutoFilter()`): the source has `setAutoFilter` and the sheet is editable. |
 | `showFormulas` | `true?` | Excel's Show Formulas is on for the displayed sheet, so a ribbon shows its button pressed ([view.md](view.md#show-formulas)). |
 | `zoom` | `number?` | The sheet's zoom in percent; absent at 100%. |
 | `allNotes` | `true?` | Excel's Show All Notes is on (`showNotes()`), so a ribbon shows its button pressed. |
@@ -165,9 +167,10 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `autoSum(fn?: AutoSumFunction)` | `Promise<boolean>` | Excel's AutoSum (Alt+=) through the source's `autoSum`: the active cell's edit opens with `=SUM(range)`, the range selected, so Enter enters it and typing or the arrows replace it; with `fn` (`'average'`, `'count'`, `'max'`, `'min'`), that function of Excel's AutoSum list. `false` without `autoSum`, with a function the source does not list in `autoSumFunctions`, on a read-only sheet, while a cell is being edited or when the source guesses nothing. See [editing.md](editing.md#autosum). |
 | `pasteSpecial()` | `boolean` | Opens Excel's Paste Special dialog (Ctrl+Alt+V, Ctrl+Cmd+V on a Mac) for the copied range: All, Formulas, Values, Formats or Validation, and Transpose, through `structure` (`copyRange` with `paste`, xlcalc 0.60). `false` without a copy in copy mode (a cut has none), without `structure`, on a read-only sheet or under a display filter. See [clipboard.md](clipboard.md#paste-special). |
 | `formatPainter(mode?: FormatPainterMode \| 'off')` | `boolean` | Excel's Format Painter: `'once'` (the default) takes the selection's formats and paints them onto the next range selected with the mouse or a touch, `'keep'` until Esc or `'off'`; each painting is a single undo step through `structure` (`copyRange` with `paste: 'formats'`). Whether painting is on afterwards. See [clipboard.md](clipboard.md#format-painter). |
-| `filterColumn()` | `boolean` | Data > Filter for a ribbon: opens the display filter's menu for the active cell's column; `false` without the source's `visibleRows` and `columnValues`. See [view.md](view.md#the-display-filter-on-a-ribbon). |
+| `filterColumn()` | `boolean` | Opens the display filter's menu for the active cell's column, below its AutoFilter button or its column letter; `false` without the source's `visibleRows` and `columnValues`, or for a column without a funnel (outside the AutoFilter, or on a sheet without one whose source has `setAutoFilter`). See [view.md](view.md#the-display-filter-on-a-ribbon). |
 | `clearFilter()` | `boolean` | Data > Clear: every condition and the sort of the display filter; `false` when none is on. |
-| `sortColumn(dir: 'asc' \| 'desc')` | `boolean` | Sort A to Z or Z to A by the active cell's column, as the display filter sorts (the data do not change); `false` without the display filter. |
+| `sortColumn(dir: 'asc' \| 'desc')` | `boolean` | Sort A to Z or Z to A by the active cell's column, as the display filter sorts (the data do not change); `false` without the display filter or for a column without a funnel, as for `filterColumn()`. |
+| `toggleAutoFilter()` | `Promise<EditOutcome \| null>` | Excel's Data > Filter (Ctrl+Shift+L) through the source's `setAutoFilter`, as a single undo step: removes the sheet's AutoFilter with its conditions, or puts one over the selection, or over the active cell's current region, trimmed to the data as Excel trims it. `null` without `setAutoFilter`, on a read-only sheet, or with no data there, when the sheet displays Excel's message. See [autofilter.md](autofilter.md). |
 | `insertFunction()` | `boolean` | Opens Excel's Insert Function dialog, as the formula bar's fx and AutoSum's More Functions… do; `false` on a read-only sheet or without the source's `functionNames`. See [autocomplete.md](autocomplete.md#insert-function). |
 | `clear(what: ClearKind)` | `Promise<EditOutcome \| null>` | Excel's Home > Clear > Clear Formats (`'formats'`) or Clear All (`'all'`) over the selection through the source's `clear`, as a single undo step; under a display filter, over its visible rows. `null` also over a locked cell. See [links-notes.md](links-notes.md#clear-formats-and-clear-all). |
 | `insertLink()` | `boolean` | Opens Excel's Insert Hyperlink dialog (Ctrl+K) for the selection, as Edit Hyperlink when the active cell has a link; OK writes the link through the source's `link`. `false` without `link`, on a read-only sheet or over a locked cell. See [links-notes.md](links-notes.md#hyperlinks). |
@@ -314,6 +317,7 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `outline(change: OutlineChange)` | The outline buttons, Group and Ungroup. | The bars are drawn, but their buttons do nothing. | [sheets.md](sheets.md) |
 | `visibleRows(sheet, filter, signal?) => Promise<{ rows: number[] \| null }>` | The display filter and sort. | No filter. | [view.md](view.md) |
 | `columnValues(sheet, col, filter, signal?) => Promise<{ values: { text; count }[]; more }>` | The filter funnel's list of values. | No list in the funnel. | |
+| `setAutoFilter(sheet, range: string \| null)` | Excel's Data > Filter: the sheet's AutoFilter over `range` (header row first), or none, showing the rows its filter hid; a single undo step. | A sheet keeps the AutoFilter it has, and one without an AutoFilter has the funnels on its column letters. | [autofilter.md](autofilter.md) |
 | `clear(sheet, ranges: string[], what: ClearKind)` | Excel's Clear Formats (`'formats'`: styles, number formats and the conditional formats over the cells) and Clear All (`'all'`: also contents, hyperlinks, notes and data validation rules), as a single undo step. Delete clears contents through `edit`. | Neither is offered. | [links-notes.md](links-notes.md) |
 | `link(sheet, range, link: SheetLink \| null)` | Excel's Insert Link over a range, the cells' contents kept; null is Remove Hyperlinks. | Links can be followed but not edited. | [links-notes.md](links-notes.md) |
 | `note(sheet, cell, note: SheetNote \| null)` | Excel's New Note and Edit Note; null is Delete Note. | Notes are shown but not edited. | [links-notes.md](links-notes.md) |
@@ -384,6 +388,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `zoom` | `number?` | The sheet's saved zoom in percent (xlsx `zoomScale`), with which it opens; 100 without it. |
 | `gridlines`, `headings` | `boolean?` | False hides the gridlines, or the row numbers and column letters, as Excel's View > Show does (xlsx `showGridLines`, `showRowColHeaders`); shown by default ([view.md](view.md#gridlines-and-headings)). |
 | `tabColor` | `string?` | Excel's Tab Color, `#RRGGBB`: another tab is filled with it, the active one underlined in it ([sheets.md](sheets.md#tab-color)). |
+| `autoFilter` | `{ range }?` | Excel's AutoFilter outside a table, header row first (`A1:D20`): the filter buttons on its header row, the display filter over its rows below ([autofilter.md](autofilter.md)). `./local` gives xlcalc's `SheetInput.autoFilter`. |
 
 ### Edits and outcomes
 
@@ -431,7 +436,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 | `FindRequest` | `{ sheet, query, range?, matchCase?, wholeCell?, lookIn?: 'formulas' \| 'values', byColumns?, after?, filter? }`. `query` accepts Excel's wildcards `*`, `?` and `~`. |
 | `FindResult` | `{ hits: { row, col }[]; total }` |
 | `ReplaceOutcome` | `EditOutcome & { replaced: number; refused?: { sheet, cell, message }[] }` |
-| `SheetFilter` | `{ head: number; cols?: Record<number, { values?: string[]; text?: string }>; sort?: { col; dir: 'asc' \| 'desc' } }` |
+| `SheetFilter` | `{ head: number; last?: number; cols?: Record<number, { values?: string[]; text?: string }>; sort?: { col; dir: 'asc' \| 'desc' } }`: rows 1 to `head` stay on top, the conditions and the sort apply to the rows after them up to `last` (an AutoFilter's last row; the sheet's end without it), and the rows below `last` follow in their order. |
 | `RangeStats` | `{ cells, numbers, sum, min, max }` |
 | `SheetAutoSum` | `{ range: string \| null; formula: string }`: the range AutoSum offers (the run of numbers above the cell, else to its left, up to a subtotal), null without numbers, and its formula as the source displays formulas, without `=` (`SUM(B2:B9)`, `СУММ(B2:B9)` in ru-RU, `SUM()` without a range). `./local` gives xlcalc's `getAutoSum` (xlcalc 0.59 and later), null with an older one. |
 | `AutoSumFunction` | `'sum' \| 'average' \| 'count' \| 'max' \| 'min'`: the functions of Excel's AutoSum list, Count Numbers being `COUNT`. |

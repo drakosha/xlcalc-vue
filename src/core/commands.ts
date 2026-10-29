@@ -31,13 +31,13 @@ export interface CommandsDeps {
   middlePanes: () => { rows: number; cols: number }
   showFreeze: (sheet: string, on: boolean) => void
   /** A structure operation succeeded: rows or columns may have moved, so what the sheet stores by row or column number no longer holds. */
-  structured: () => void
+  structured: (op: SheetOp) => void
 }
 
 const FONT_KEYS: Record<string, FontToggle> = { b: 'bold', i: 'italic', u: 'underline' }
 
 /** The source's methods that change the workbook beyond cells. */
-type ChangeMethod = 'format' | 'structure' | 'layout' | 'outline' | 'freeze' | 'table' | 'tabColor'
+type ChangeMethod = 'format' | 'structure' | 'layout' | 'outline' | 'freeze' | 'table' | 'tabColor' | 'setAutoFilter'
 
 export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: CommandsDeps) {
   /** A change method the source accepts: the sheet is editable (not read-only, with `edit`) and the source has it; otherwise null. */
@@ -85,7 +85,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     else if (op.op === 'unhideSheet') target = { name: op.sheet, keep: false }
     else if (op.op === 'renameSheet' && op.sheet === s.sheetName.value) target = { name: op.name, keep: true }
     const out = await change(() => call(op), target, endsCopy)
-    if (out.ok) deps.structured()
+    if (out.ok) deps.structured(op)
     return out
   }
 
@@ -105,6 +105,12 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
   async function tabColor(sheet: string, color: string | null): Promise<EditOutcome | null> {
     const call = method('tabColor')
     return call ? change(() => call(sheet, color), null, false) : null
+  }
+
+  /** Excel's Data > Filter: the sheet's AutoFilter over a range, or none; rows its filter hid may show, so the sheet reloads, and copy mode stays. */
+  async function setAutoFilter(sheet: string, range: string | null): Promise<EditOutcome | null> {
+    const call = method('setAutoFilter')
+    return call ? change(() => call(sheet, range), null, false) : null
   }
 
   /**
@@ -157,7 +163,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     s.focusGrid()
   }
 
-  return { can, canRanges, format, structure, layout, outline, table, tabColor, freeze, formatKey, formatOpen, openFormat, closeFormat }
+  return { can, canRanges, format, structure, layout, outline, table, tabColor, setAutoFilter, freeze, formatKey, formatOpen, openFormat, closeFormat }
 }
 
 export type Commands = ReturnType<typeof useCommands>

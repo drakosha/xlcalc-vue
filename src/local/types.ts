@@ -29,7 +29,7 @@ export interface LocalSourceOptions {
 }
 
 /** Methods of `SheetSource` that the local source always has. */
-type Given = 'calculation' | 'calculate' | 'setCalculation' | 'edit' | 'paste' | 'fill' | 'pick' | 'end' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'freeze' | 'tabColor' | 'show' | 'subscribe' | 'validation' | 'functionNames' | 'functionSignature' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues' | 'clear' | 'link' | 'note' | 'names' | 'setNames' | 'dependents' | 'rules' | 'setRules' | 'table' | 'autoSum' | 'autoSumFunctions'
+type Given = 'calculation' | 'calculate' | 'setCalculation' | 'edit' | 'paste' | 'fill' | 'pick' | 'end' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'freeze' | 'tabColor' | 'show' | 'subscribe' | 'validation' | 'functionNames' | 'functionSignature' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues' | 'clear' | 'link' | 'note' | 'names' | 'setNames' | 'dependents' | 'rules' | 'setRules' | 'table' | 'autoSum' | 'autoSumFunctions' | 'setAutoFilter'
 
 /** A sheet source over an xlcalc workbook: every method of `SheetSource`, plus the host's handles on the workbook. */
 export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Required<Pick<SheetSource, Given>> {

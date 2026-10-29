@@ -85,6 +85,12 @@ export interface SheetSource {
   visibleRows?(sheet: string, filter: SheetFilter, signal?: AbortSignal): Promise<{ rows: number[] | null }>
   /** A column's values for the filter funnel, over the rows visible under the other columns' conditions. */
   columnValues?(sheet: string, col: number, filter: SheetFilter, signal?: AbortSignal): Promise<{ values: { text: string; count: number }[]; more: number }>
+  /**
+   * Excel's Data > Filter: puts the sheet's AutoFilter (`SheetInfo.autoFilter`) over `range`, its header row first (`A1:D20`),
+   * or removes it with null, showing the rows its filter hid; a single undo step. Without it a sheet keeps the AutoFilter it
+   * has, which cannot be turned on or off, and a sheet without one has the display filter's funnels on its column letters.
+   */
+  setAutoFilter?(sheet: string, range: string | null): Promise<EditOutcome>
   /** Excel's Clear Formats and Clear All over ranges, as a single undo step; Delete clears contents through `edit`. Without it neither is offered. */
   clear?(sheet: string, ranges: string[], what: ClearKind): Promise<EditOutcome>
   /** Excel's Insert Link over a range (null: Remove Hyperlinks), the cells' contents kept; a single undo step. Without it links can be followed but not edited. */
@@ -171,6 +177,8 @@ export interface FormatPatch {
 export interface SheetFilter {
   /** Header rows at the top, which are never filtered. */
   head: number
+  /** The last row the conditions and the sort apply to (an AutoFilter's last row); the rows below it follow in their order. Every row below the header without it. */
+  last?: number
   cols?: Record<number, { values?: string[]; text?: string }>
   sort?: { col: number; dir: 'asc' | 'desc' }
 }
@@ -210,6 +218,8 @@ export interface SheetInfo {
   gridlines?: boolean
   /** False hides the row numbers and column letters (Excel's View > Show > Headings, xlsx `showRowColHeaders`); shown by default. */
   headings?: boolean
+  /** Excel's AutoFilter outside a table (xlcalc's `SheetInput.autoFilter`): its range, header row first (`A1:D20`); the filter buttons are on that row, and the display filter applies to the rows below it. */
+  autoFilter?: { range: string }
 }
 
 /** What Excel's View > Show sets on a sheet: whether its gridlines and its headings show. */

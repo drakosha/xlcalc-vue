@@ -63,6 +63,7 @@ function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size:
     ...(sheet.tabColor ? { tabColor: sheet.tabColor } : {}),
     ...(sheet.view?.gridlines === false ? { gridlines: false } : {}),
     ...(sheet.view?.headings === false ? { headings: false } : {}),
+    ...(sheet.autoFilter ? { autoFilter: { range: sheet.autoFilter.range } } : {}),
     font,
   }
 }
@@ -560,6 +561,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       if (out.ok) calcMode.forget()
       return out
     }, failedBy),
+    setAutoFilter: mutation(book.setAutoFilter, refusedBy),
     ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
     /**
      * Excel's AutoSum as the session guesses it (xlcalc 0.59), its formula in the workbook's locale; null with an older library.
