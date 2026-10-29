@@ -85,6 +85,31 @@ describe('a protected sheet', () => {
     expect(lastState(w)?.protection).toBeUndefined()
   })
 
+  it('keeps a hidden formula out of the tooltip, Show Formulas (an empty cell, as in Excel for Mac) and formula auditing', async () => {
+    const w = await mounted(form())
+    expect(w.find('[data-cell="2:1"]').attributes('title')).toBe('3')
+    api(w).showFormulas(true)
+    await settle()
+    expect(w.find('[data-cell="2:1"]').text()).toBe('')
+    expect(w.find('[data-cell="1:2"]').text()).toBe('Ann')
+    await goTo(w, 'A2')
+    // Excel disables Trace Precedents and Trace Dependents on a protected sheet
+    expect(api(w).explain()).toBe(false)
+    await goTo(w, 'B1')
+    expect(await api(w).traceDependents()).toBe(false)
+    await w.find('[data-cell="2:1"]').trigger('contextmenu', { button: 2, clientX: 200, clientY: 100 })
+    await settle()
+    expect(menuItem('precedents')).toBeNull()
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await api(w).unprotectSheet()
+    await until(() => w.find('[data-cell="2:1"]').text() === '=LEN(B1)')
+    expect(w.find('[data-cell="2:1"]').attributes('title')).toBe('=LEN(B1)\n3')
+    await goTo(w, 'B1')
+    expect(await api(w).traceDependents()).toBe(true)
+    await goTo(w, 'A2')
+    expect(api(w).explain()).toBe(true)
+  })
+
   it("shows the source's refusal on a protected sheet as Excel's alert", async () => {
     const w = await mounted(form({ deleteRows: true }))
     const out = api(w).structure({ op: 'deleteRows', sheet: 'Form', row: 1 })

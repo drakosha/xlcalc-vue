@@ -149,7 +149,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const find = useFind(s, sel, notify)
   const explain = useExplain(s, f)
   const formulaView = useFormulaView(s, f)
-  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows, formulaText: formulaView.textOf })
+  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows, formulaText: formulaView.textOf, hidden: protection.hiddenAt })
   const list = useList(s, w, emit, props)
   /** The active cell's formatting, from its loaded window: the `state` event and the font shortcuts use it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
