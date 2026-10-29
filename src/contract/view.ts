@@ -188,7 +188,7 @@ export interface SheetViewApi {
    * Excel's View > Split, toggled without `on`: splits the window above and to the left of the active cell (at the middle
    * of the viewport with the top-left cell in view active, as Excel does) or removes the split, through the source's
    * `split`, not an undo step; whether the sheet is split afterwards. false without `split`, on a read-only sheet, with
-   * frozen panes or under a display filter. The sheet keeps and reports the split but draws a single pane.
+   * frozen panes or under a display filter. The sheet draws the split's panes, which scroll apart, and its bars.
    */
   split(on?: boolean): boolean
   /** Excel's Define Name: the New Name dialog for the selection; false when names cannot be defined (no `names` or `setNames`, a read-only sheet) or a cell is being edited. */
