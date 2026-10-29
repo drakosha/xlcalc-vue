@@ -246,6 +246,11 @@ export interface SheetMessages extends ConditionalMessages {
   fmtHorizontalKind: (h: 'general' | 'left' | 'center' | 'right' | 'fill' | 'justify' | 'centerContinuous' | 'distributed') => string
   fmtVerticalKind: (v: 'top' | 'center' | 'bottom' | 'justify' | 'distributed') => string
   fmtIndent: string
+  /** The Alignment tab's Orientation: its box, the degrees, Vertical Text, and the degrees' limits. */
+  fmtOrientation: string
+  fmtDegrees: string
+  fmtVerticalText: string
+  fmtDegreesRange: string
   fmtIndentRange: string
   fmtFontName: string
   fmtFontDefault: string

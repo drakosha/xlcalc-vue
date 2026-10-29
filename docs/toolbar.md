@@ -78,7 +78,7 @@ At any width the toolbar is one row: it keeps in the row the items that fit, in 
 `SheetView` has its own Excel Format Cells dialog when the source has `format`: Ctrl+1 opens it (on a Mac as well, since the browser reserves Cmd+1), as do the sheet's `formatCells()` and the toolbar's Format Cells… with `sheet`, and OK formats the selection through the sheet's `format`. The dialog is also exported as `FormatDialog`, for a host that places its own. It is Excel's Format Cells for the selection reported by the sheet's `state` event, with the tabs whose settings xlcalc's cell style supports:
 
 - Number is Excel's Number Format box: the category of the code in the input, the list's items (an item puts its format's code in the input) and the code itself, which may be any code.
-- Alignment has the horizontal and vertical alignment, the indent (with Left, Right and Distributed alignment, as in Excel) and text wrapping.
+- Alignment has the horizontal and vertical alignment, the indent (with Left, Right and Distributed alignment, as in Excel), text wrapping, and Orientation: Degrees, a whole number from -90 to 90 (up for positive ones), and Vertical Text, which stacks the letters and sets the degrees aside, as Excel's Text box does. They are xlcalc's `AlignmentStyle.rotation` (0.66.0), a number or `'vertical'`; 0 removes it.
 - Font has the font name, Regular, Italic, Bold or Bold Italic, the size, the underline, strikethrough and the color.
 - Border has the line style and color, the presets None, Outline and Inside, and a button for each edge around a preview, the inside ones for a selection of more than one row or column.
 - Fill has the background color.
@@ -111,4 +111,8 @@ const formatOpen = ref(false)
 </template>
 ```
 
-Fill patterns, diagonal borders, rotated text, shrink to fit, merging, text direction, superscript, subscript and the Protection tab are not available, since xlcalc's cell style does not support them.
+Fill patterns, diagonal borders, shrink to fit, merging, text direction, superscript, subscript and the Protection tab are not available, since xlcalc's cell style does not support them. Excel's dial for the degrees is not drawn; the degrees are typed.
+
+### Rotated text
+
+A cell whose style has `alignment.rotation` is drawn as Excel orients its text: at an angle, the line turned counterclockwise by positive degrees and clockwise by negative ones, about the middle of the box it takes when turned, and that box aligned in the cell by the cell's horizontal and vertical alignment as level text is; `'vertical'` stacks the letters one above the other. The box is measured in the cell's font on a canvas (estimated where the browser has none). Unlike Excel, rotated text does not overflow into empty neighbors and does not wrap, borders are not slanted with text at an angle, and a hyperlink's text stays level: the text is clipped to its cell. Excel fits a row of the default height to rotated text; xlcalc fits widths and heights as for level text (0.66.0), so such a row keeps its height until the user sets one.

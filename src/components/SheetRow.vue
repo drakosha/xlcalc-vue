@@ -122,6 +122,12 @@ const spacer = computed(() => (props.frozen ? { class: 'xs-fz-row', style: { top
           >
             <span :style="{ ...cv.deco, background: cv.ov!.bg }"><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></span>
           </div>
+          <span v-else-if="cv.rot" class="xs-rot">
+            <span v-if="'vertical' in cv.rot" class="xs-vert" :style="cv.deco">{{ cv.text }}</span>
+            <span v-else class="xs-rot-box" :style="{ width: cv.rot.width + 'px', height: cv.rot.height + 'px' }"
+              ><span class="xs-rot-text" :style="{ ...cv.deco, transform: `translate(-50%, -50%) rotate(${-cv.rot.angle}deg)` }">{{ cv.text }}</span></span
+            >
+          </span>
           <span v-else-if="cv.kind !== 'icon'" :style="cv.deco"><CellDraft v-if="cv.draft" :fill="cv.draft.fill" /><template v-else>{{ cv.text }}</template></span>
         </div>
       </template>

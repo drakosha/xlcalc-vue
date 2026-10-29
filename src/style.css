@@ -447,6 +447,29 @@
 .xs-ov > span {
   white-space: nowrap;
 }
+/* Excel's text orientation: the rotated line's box is aligned as level text is (text-align, the box's flex), the line turned about its middle; vertical text stacks its letters. */
+.xs-in > .xs-rot {
+  line-height: 0;
+}
+.xs-rot-box {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+}
+.xs-rot-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  line-height: 1.3;
+  white-space: pre;
+}
+.xs-vert {
+  display: inline-block;
+  vertical-align: top;
+  line-height: 1.3;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+}
 .xs-cell .xs-link {
   padding: 0;
   border: 0;
