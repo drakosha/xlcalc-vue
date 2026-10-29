@@ -72,6 +72,19 @@ describe("localSource: View > Show", () => {
     await s.redo()
     expect((await s.sheets())[1]).toMatchObject({ name: 'C', gridlines: false })
   })
+
+  it('brings a deleted sheet back with them on undo; a new sheet of its name has none', async () => {
+    const s = book()
+    await s.show('B', { gridlines: false, headings: false })
+    await s.structure({ op: 'deleteSheet', sheet: 'B' })
+    await s.undo()
+    expect((await s.sheets())[1]).toMatchObject({ name: 'B', gridlines: false, headings: false })
+    await s.redo()
+    expect((await s.sheets()).map((x) => x.name)).toEqual(['A'])
+    await s.structure({ op: 'insertSheet', name: 'B' })
+    expect((await s.sheets())[1]).toMatchObject({ name: 'B' })
+    expect((await s.sheets())[1]!.gridlines).toBeUndefined()
+  })
 })
 
 describe('localSource: notes shown all the time', () => {

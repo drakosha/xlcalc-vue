@@ -106,6 +106,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
    * an undo step, so the source puts it on the sheets it lists and the workbook it returns, and follows renamed sheets.
    */
   const shows = new Map<string, SheetShow>()
+  /** The settings of `shows` of deleted sheets, by the name key, for an undo that brings a sheet back. */
+  const dropped = new Map<string, SheetShow>()
   const viewed = <T extends { name: string; view?: SheetView }>(sheet: T): T => {
     const own = shows.get(nameKey(sheet.name))
     return own ? { ...sheet, view: { ...sheet.view, ...own } } : sheet
@@ -365,18 +367,34 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return first ? { ...out, select: { sheet: first.sheet, range: rangeAddress(first.rect) } } : out
   }
 
-  /** Runs a call that may rename or delete sheets, moving the settings of `shows` to a renamed sheet's new name and dropping a deleted one's. */
-  async function following<R>(s: AsyncSession, run: () => Promise<R>): Promise<R> {
-    if (!shows.size) return run()
+  /**
+   * Runs a call that may rename, delete or bring back sheets, moving the settings of `shows` to a renamed sheet's new
+   * name and keeping a deleted one's in `dropped`, which a step of undo or redo (`step`) that brings the sheet back restores.
+   */
+  async function following<R>(s: AsyncSession, run: () => Promise<R>, step = false): Promise<R> {
+    if (!shows.size && !dropped.size) return run()
     const names = async () => new Set((await s.getLayout()).sheets.map((x) => nameKey(x.name)))
     const before = await names()
     const out = await run()
     const after = await names()
     const gone = [...before].filter((k) => !after.has(k))
     const came = [...after].filter((k) => !before.has(k))
-    const own = gone.length === 1 && came.length === 1 ? shows.get(gone[0]!) : undefined
-    if (own) shows.set(came[0]!, own)
-    for (const k of gone) shows.delete(k)
+    if (gone.length === 1 && came.length === 1) {
+      const own = shows.get(gone[0]!)
+      if (own) shows.set(came[0]!, own)
+      shows.delete(gone[0]!)
+      return out
+    }
+    for (const k of gone) {
+      const own = shows.get(k)
+      if (own) dropped.set(k, own)
+      shows.delete(k)
+    }
+    for (const k of step ? came : []) {
+      const own = dropped.get(k)
+      if (own) shows.set(k, own)
+      dropped.delete(k)
+    }
     return out
   }
 
@@ -555,8 +573,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     paste: mutation(guard.paste(paste), refusedBy),
     fill: mutation(guard.fill(fill), refusedBy),
     pick: mutation(guard.pick(pick), refusedBy),
-    undo: mutation((s) => following(s, () => step(s, 'undo')), failedBy),
-    redo: mutation((s) => following(s, () => step(s, 'redo')), failedBy),
+    undo: mutation((s) => following(s, () => step(s, 'undo'), true), failedBy),
+    redo: mutation((s) => following(s, () => step(s, 'redo'), true), failedBy),
     structure: mutation((s, op: SheetOp) => following(s, () => guardedStructure(s, op)), failedBy),
     layout: mutation(guard.layout(setLayout), failedBy),
     format: mutation(guard.format(format), refusedBy),
