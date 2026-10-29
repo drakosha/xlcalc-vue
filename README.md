@@ -52,6 +52,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Rows, columns and sheets](docs/sheets.md): row, column and sheet tab context menus, sizes, outline.
 - [Clipboard and fill handle](docs/clipboard.md)
 - [Freeze Panes, zoom, Watch Window, Reapply, Show Formulas, Trace Precedents and Trace Dependents](docs/view.md)
+- [Calculation options](docs/calculation.md): Automatic and Manual, Calculate Now (F9) and Calculate Sheet (Shift+F9), the status bar's Calculate.
 - [Tables](docs/tables.md): Create Table, Convert to Range, Delete Table.
 - [Hyperlinks, notes, Clear and the default font](docs/links-notes.md)
 - [Find and Replace](docs/find-replace.md)

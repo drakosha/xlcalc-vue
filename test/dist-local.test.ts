@@ -33,13 +33,14 @@ describe('dist/local.js', () => {
     const index = readFileSync(join(out, 'index.js'), 'utf8')
     expect(new Set(importsOf(index))).toEqual(new Set(['vue', `./${ru}`, `./${entry}`]))
   })
-  it('imports xlcalc and loads the pool, the xlsx reader and writer over a file, a locale and the function texts only when requested', () => {
+  it('imports xlcalc and loads the pool, the xlsx reader and writer over a file, a locale, the function texts and a level of regular expressions only when requested', () => {
     const local = readFileSync(join(out, 'local.js'), 'utf8')
-    expect(new Set(importsOf(local))).toEqual(new Set(['xlcalc', 'xlcalc/a1', 'xlcalc/text', 'xlcalc/worker', 'xlcalc/xlsx', 'xlcalc/xlsx/keep', 'xlcalc/locales/ru-RU', 'xlcalc/function-text', 'xlcalc/function-text/ru-RU']))
+    expect(new Set(importsOf(local))).toEqual(new Set(['xlcalc', 'xlcalc/a1', 'xlcalc/text', 'xlcalc/worker', 'xlcalc/xlsx', 'xlcalc/xlsx/keep', 'xlcalc/locales/ru-RU', 'xlcalc/function-text', 'xlcalc/function-text/ru-RU', 'xlcalc/regex']))
     expect(local).toMatch(/import\(\s*["']xlcalc\/worker["']\s*\)/)
     expect(local).toMatch(/import\(\s*["']xlcalc\/locales\/ru-RU["']\s*\)/)
     expect(local).toMatch(/import\(\s*["']xlcalc\/function-text["']\s*\)/)
     expect(local).toMatch(/import\(\s*["']xlcalc\/xlsx\/keep["']\s*\)/)
-    expect(local).not.toMatch(/from\s*["']xlcalc\/(worker|xlsx|locales\/[^"']+|function-text[^"']*)["']/)
+    expect(local).toMatch(/import\(\s*["']xlcalc\/regex["']\s*\)/)
+    expect(local).not.toMatch(/from\s*["']xlcalc\/(worker|xlsx|locales\/[^"']+|function-text[^"']*|regex)["']/)
   })
 })

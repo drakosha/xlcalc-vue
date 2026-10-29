@@ -440,6 +440,9 @@ export interface SheetMessages extends ConditionalMessages {
   dvEmpty: (box: string) => string
   dvInvalid: (box: string) => string
   dvOrder: (min: string, max: string) => string
+  /** The status bar's Calculate in Manual while cells wait for a calculation, and its tooltip (a click calculates, as F9). */
+  calculateStatus: string
+  calculateHint: string
 }
 
 /** The Symbol dialog's Subset list: Unicode blocks by Excel's names (`basicLatin` is Basic Latin, `latin1` Latin-1 Supplement). */

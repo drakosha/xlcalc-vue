@@ -88,6 +88,23 @@ describe('remoteSource over serveSource', () => {
     expect('text' in w && w.text.map((r) => r[0])).toEqual(['2', '3', '5'])
   })
 
+  it("carries Manual calculation: one viewer's edit makes the other's Calculate, and a reader may not calculate", async () => {
+    const local = (open.local = localSource({ calculation: 'manual', sheets: [{ name: 'S', cells: { A1: { value: 1 }, B1: { formula: 'A1*2' } } }] }, { calc: 'inline' }))
+    const { url } = await served({ access: (req) => (req.headers.get('x-user') === 'editor' ? 'write' : 'read') }, local)
+    const editor = await connect(url, { headers: { 'x-user': 'editor' } })
+    const reader = await connect(url)
+    expect(await reader.calculation!()).toEqual({ mode: 'manual', pending: false })
+    expect([reader.calculate, reader.setCalculation, typeof editor.calculate]).toEqual([undefined, undefined, 'function'])
+    const seen = events(reader)
+    await new Promise((r) => setTimeout(r, 50))
+    const waiting = seen.next((e) => e.kind === 'calculation')
+    await editor.edit!([{ sheet: 'S', cell: 'A1', text: '5' }])
+    expect(await waiting).toEqual({ kind: 'calculation', calculation: { mode: 'manual', pending: true } })
+    const changed = seen.next((e) => e.kind === 'changed' && e.changes.some((c) => c.cell === 'B1'))
+    expect(await editor.calculate!()).toMatchObject({ ok: true, changes: [{ cell: 'B1', value: 10 }] })
+    expect(await changed).toMatchObject({ kind: 'changed', changes: [{ cell: 'B1', value: 10 }] })
+  })
+
   it('reloads a viewer whose stream opened after a change it may have missed, and only then', async () => {
     const { url } = await served()
     const late = await connect(url)

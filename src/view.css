@@ -1,4 +1,4 @@
-/* Excel's zoom on the status bar (ZoomBar.vue) and the Watch Window floating over the sheet (WatchWindow.vue), in the sheet's --xs-* variables; --xs-watch-w and --xs-watch-h size the window. */
+/* Excel's status bar items (Calculate, the zoom of ZoomBar.vue) and the Watch Window floating over the sheet (WatchWindow.vue), in the sheet's --xs-* variables; --xs-watch-w and --xs-watch-h size the window. */
 .xs-zoom-bar {
   display: inline-flex;
   flex-shrink: 0;
@@ -8,6 +8,24 @@
 }
 .xs-stats + .xs-zoom-bar {
   margin-left: 8px;
+}
+/* Excel's Calculate on the status bar in Manual while cells wait; a click calculates the workbook. */
+.xs-calc-status {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: var(--xs-fg);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.xs-calc-status:hover:not(:disabled) {
+  background: var(--xs-head-bg);
+}
+.xs-calc-status:disabled {
+  cursor: default;
 }
 .xs-zoom-slider {
   width: 100px;

@@ -124,6 +124,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `allNotes` | `true?` | Excel's Show All Notes is on (`showNotes()`), so a ribbon shows its button pressed. |
 | `gridlines`, `headings` | `false?` | The displayed sheet hides its gridlines or its row numbers and column letters (View > Show), so a ribbon shows their boxes unchecked ([view.md](view.md#gridlines-and-headings)). |
 | `font` | `{ name; size }?` | The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays; the toolbar's Font and Font Size boxes show it for such a cell. |
+| `calculation` | `CalculationMode?` | The workbook's calculation option, from a source with `calculation`: a ribbon shows the checked item of Calculation Options ([calculation.md](calculation.md)). |
+| `calculationPending` | `true?` | In Manual, cells wait for a calculation: the status bar shows Calculate. |
 
 `SheetLinkEvent` is a window's hyperlink (`href`, `location`, `tooltip`, `target`) with the `sheet` and `cell` it belongs to. `SheetFailure` is `{ error: unknown; text: string }`.
 
@@ -177,6 +179,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `clearRules(from: ClearRulesFrom)` | `Promise<EditOutcome \| null>` | Excel's Clear Rules from Selected Cells (`'selection'`: a rule keeps the rest of its cells) or from Entire Sheet (`'sheet'`); `null` when no rule is there to clear. |
 | `newRule()` | `boolean` | Opens Excel's New Formatting Rule dialog for the selection. |
 | `manageRules()` | `boolean` | Opens Excel's Conditional Formatting Rules Manager. |
+| `calculate(scope?: 'workbook' \| 'sheet')` | `Promise<EditOutcome \| null>` | Excel's Calculate Now (F9, `'workbook'`, the default) or Calculate Sheet (Shift+F9, `'sheet'`, the active sheet) through the source's `calculate`; `null` without it or on a read-only sheet. See [calculation.md](calculation.md). |
+| `setCalculation(mode: CalculationMode)` | `Promise<EditOutcome \| null>` | Excel's Calculation Options (`'automatic'`, `'autoNoTable'`, `'manual'`) through the source's `setCalculation`; `null` without it or on a read-only sheet. |
 
 `QuickRule` is `'greaterThan' | 'lessThan' | 'between' | 'equalTo' | 'textContains' | 'dateOccurring' | 'duplicateValues' | 'top10' | 'top10Percent' | 'bottom10' | 'bottom10Percent' | 'aboveAverage' | 'belowAverage'`, `DataBarColor` is `'blue' | 'green' | 'red' | 'orange' | 'lightBlue' | 'purple'`, `ColorScalePreset` names a color scale of Excel's gallery from the highest numbers' color to the lowest's (`'greenYellowRed'`, `'redYellowGreen'`, `'greenWhiteRed'`, `'redWhiteGreen'`, `'blueWhiteRed'`, `'redWhiteBlue'`, `'whiteRed'`, `'redWhite'`, `'greenWhite'`, `'whiteGreen'`, `'greenYellow'`, `'yellowGreen'`), and `ClearRulesFrom` is `'selection' | 'sheet'`; `IconSetName` is xlcalc's.
 
@@ -321,6 +325,9 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `table(op: TableOp)` | Excel's Format as Table, Insert Table, Rename, Delete Table and Convert to Range. | No table commands. | [tables.md](tables.md) |
 | `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | [editing.md](editing.md#spelling) |
 | `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | [editing.md](editing.md#spelling) |
+| `calculation(signal?) => Promise<SheetCalculation>` | Excel's calculation options: the workbook's option and, in Manual, whether cells wait for a calculation (the status bar's Calculate), read with the sheets; a `calculation` event tells a change. With `calculate`, F9 and Shift+F9. | The workbook calculates automatically; no Calculate. | [calculation.md](calculation.md) |
+| `setCalculation(mode: CalculationMode)` | Changes the option, which the workbook keeps; not a step of undo, as in Excel. Automatic calculates what waits. | The option cannot be changed. | [calculation.md](calculation.md) |
+| `calculate(sheet?)` | Excel's Calculate Now (F9), or with `sheet` Calculate Sheet (Shift+F9): the waiting cells show their values, as `changes` and as a `changed` event; not a step of undo. | No F9, and Calculate does nothing. | [calculation.md](calculation.md) |
 | `autoSum(sheet, cell, signal?, fn?: AutoSumFunction) => Promise<SheetAutoSum \| null>` | Excel's AutoSum (Alt+=): the range it offers at the cell and its `SUM`, or with `fn` (one of `autoSumFunctions`) the same range under that function; null when the source guesses nothing. The sheet passes `fn` only for a function other than Sum. | No AutoSum. | [editing.md](editing.md#autosum) |
 
 After `link`, `note`, `clear` and `setRules` succeed, the sheet re-reads the windows over what they changed: their outcome's `changes` carry values, not hyperlinks, notes or formatting. A source need not send a `repaint` for its own sheet, but `./local` does, for other sheets over the same source.
@@ -394,6 +401,9 @@ A window is a rectangular block of cells that the sheet reads from the source as
 - `{ kind: 'changed'; changes: CellUpdate[] }`: the loaded windows are patched.
 - `{ kind: 'reload'; message? }`: the sheets and windows are read again.
 - `{ kind: 'repaint'; ranges: { sheet; range }[] }`: the windows that overlap the ranges are re-read in place.
+- `{ kind: 'calculation'; calculation: SheetCalculation }`: the calculation option changed, or cells began or stopped waiting for a calculation; the status bar follows it.
+
+`CalculationMode` is `'automatic' | 'autoNoTable' | 'manual'` (Excel's Automatic, Automatic Except for Data Tables and Manual), and `SheetCalculation` is `{ mode: CalculationMode; pending: boolean }`.
 
 `FormatPatch` is `{ range, style?: StylePatch | null, numberFormat?: NumberFormat | null }`; `style: null` removes the cells' own style. `LayoutChange` is `{ sheet, columns, width?, hidden?, fit? }` or `{ sheet, rows, height?, hidden?, fit? }`. `SheetOp` is xlcalc's `StructureOp` without its table operations, which go to `table`. `OutlineChange` is `{ op: 'group' | 'ungroup', sheet, rows | columns }`, `{ op: 'collapse' | 'expand', sheet, rows | columns, level }` or `{ op: 'showLevel', sheet, axis, level }`.
 
@@ -517,6 +527,7 @@ The options, `LocalSourceOptions`:
 | `maxCells` | `number` | The maximum number of cells in one window, 20,000 by default. |
 | `notice` | `string` | A notice included in every window. |
 | `spelling` | `SpellChecker` | The host's word checker; enables `spelling` and `learnWord`. |
+| `regex` | `'pcreSyntax' \| 'pcreEngine'` | A level of `xlcalc/regex` (0.66.0) for match mode 3 of `XLOOKUP` and `XMATCH`, loaded as its own chunk and registered before the workbook is calculated; xlcalc keeps it for every calculation of the page. See [local.md](local.md#regular-expressions). |
 
 ```ts
 import { localSource } from '@xlcalc/vue/local'
@@ -539,6 +550,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | `history` | `SessionHistory` | The steps `undo` and `redo` can take now. |
 | `book()` | `Promise<BookInput>` | The workbook with all changes so far. |
 | `snapshot()` | `Promise<BookSnapshot>` | The workbook and its values captured at one moment, as `writeXlsx` takes them. |
+| `setExternalBooks(books: ExternalBook[])` | `Promise<EditOutcome>` | The links to other workbooks with the values the host read from them (xlcalc 0.62.0): the workbook is calculated again in one step of undo, and typed text finds a new link by its file name. See [local.md](local.md#links-to-other-workbooks). |
 | `close()` | `Promise<void>` | Closes the session, and the pool when the source started it. |
 
 ### Files
@@ -546,7 +558,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | Function | Returns | Meaning |
 | --- | --- | --- |
 | `openXlsx(data: Blob \| ArrayBuffer \| Uint8Array, opts?: XlsxIssuesOptions & { keep?: boolean })` | `Promise<XlsxRead>` (`{ book, cached, issues }`) | Reads a file into a workbook and the values stored in it; with `keep`, through xlcalc's `openKept` (0.57.0 or later), for `saveXlsx` with `over`. |
-| `saveXlsx(source: LocalSource, opts?: XlsxIssuesOptions & ({ mode?: 'formulas' \| 'values' } \| { over: Blob \| ArrayBuffer \| Uint8Array }))` | `Promise<XlsxWritten>` (`{ data, issues }`) | Writes the source's workbook with its values; `values` mode writes no formulas. With `over`, the file opened with `keep`, writes over it through xlcalc's `writeKept`, keeping what the workbook does not hold (charts, pivot tables, the theme); a change the file cannot take rejects with xlcalc's `KeptRefusal`. See [local.md](local.md#files). |
+| `saveXlsx(source: LocalSource, opts?: XlsxIssuesOptions & ({ mode?: 'formulas' \| 'values' } \| { over: Blob \| ArrayBuffer \| Uint8Array }))` | `Promise<XlsxWritten>` (`{ data, issues }`) | Writes the source's workbook with its values; `values` mode writes no formulas. With `over`, the file opened with `keep`, writes over it through xlcalc's `writeKept`, keeping what the workbook does not hold (charts, pivot tables, the theme); a change the file cannot take rejects with xlcalc's `KeptRefusal`, whose `code` (xlcalc 0.61.0) tells its kind. In Manual it calculates first, as Excel does before saving. See [local.md](local.md#files). |
 | `groupIssues(issues: XlsxIssue[])` | `IssueGroup[]` | Issues grouped by kind, in order of first appearance, for a notice of what a file lost. |
 
 `XlsxIssuesOptions` is `{ locale?: string | Locale }`: the language of the issue messages, English by default. `IssueGroup` is `{ code, count, sheets: string[], message }`, where `message` is the first issue's message.

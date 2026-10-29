@@ -30,6 +30,7 @@ import { useOutline } from './outline'
 import { useSelection } from './selection'
 import { useSheetLook } from './sheet-look'
 import { useAutoSum } from './autosum'
+import { useCalculation } from './calculation'
 import { usePainter } from './painter'
 import { useSpellCheck } from './spell-check'
 import { useTables } from './tables'
@@ -207,6 +208,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const spell = useSpellCheck(s, sel, ed, notify)
   const rules = useValidationDialog(s, sel, w, { scan: f.scanOptions, ask: alerts.ask, notify, changed: () => validation.refresh() })
   const cf = useConditional(s, sel, w, ed, { notify, scan: f.scanOptions })
+  const calc = useCalculation(s, ed)
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
@@ -264,6 +266,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     insertLink: links.open,
     dataValidation: rules.open,
     ...cf.api,
+    calculate: calc.calculate,
+    setCalculation: calc.setMode,
   }
 
   // ── sheets ──
@@ -305,6 +309,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     const outdated = s.outdated()
     reloadSeq++
     names.read()
+    void calc.read()
     clip.clear()
     w.reset()
     s.failure.value = null
@@ -339,6 +344,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     const at = s.active.value
     const asked = target
     names.read()
+    void calc.read()
     try {
       const list = await s.source().sheets()
       if (mine !== reloadSeq || outdated()) return
@@ -493,8 +499,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
     if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e) || goto.key(e) || fill.key(e) || formulaView.key(e))) return
-    // Excel's Create Table (Ctrl+T, Ctrl+L) and Spelling (F7)
-    if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e) || clip.specialKey(e))) return
+    // Excel's Create Table (Ctrl+T, Ctrl+L), Spelling (F7), AutoSum, Paste Special and Calculate (F9, Shift+F9)
+    if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e) || clip.specialKey(e) || calc.key(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -605,6 +611,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
           repaints++
           w.repaint(event.ranges)
         }
+        else if (event.kind === 'calculation') return calc.told(event.calculation)
         else {
           if (event.message) notify(event.message)
           void reload()
@@ -661,6 +668,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(s.sheet.value.headings === false ? { headings: false as const } : {}),
       ...(notes.all.value ? { allNotes: true as const } : {}),
       ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
+      ...(calc.state.value ? { calculation: calc.state.value.mode } : {}),
+      ...(calc.pending.value ? { calculationPending: true as const } : {}),
     }
   })
   watch(viewState, (state) => emit('state', state), { immediate: true })
@@ -719,6 +728,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     zoomer: zoom,
     watches,
     cf,
+    calc,
     editor,
     message,
     notify,

@@ -118,6 +118,30 @@ export interface SheetSource {
   readonly maxCells?: number
   /** The number of steps `undo` and `redo` can take, as of the last completed call: a toolbar enables its buttons by them. */
   readonly history?: { readonly undo: number; readonly redo: number }
+  /**
+   * The workbook's calculation option (Excel's Formulas > Calculation Options) and whether cells wait for a calculation,
+   * read when the sheets are read; a `calculation` event tells a change. Without it the workbook calculates automatically.
+   */
+  calculation?(signal?: AbortSignal): Promise<SheetCalculation>
+  /** Sets the calculation option, which the workbook keeps; not a step of undo. Automatic calculates what waits. Without it the option cannot be changed. */
+  setCalculation?(mode: CalculationMode): Promise<EditOutcome>
+  /**
+   * Excel's Calculate Now (F9), or with `sheet` Calculate Sheet (Shift+F9): the cells that wait for a calculation show
+   * their values, returned as `changes` and sent as a `changed` event; not a step of undo. Without it there is no F9.
+   */
+  calculate?(sheet?: string): Promise<EditOutcome>
+}
+
+/**
+ * Excel's calculation options: `automatic`; `autoNoTable`, automatic except for data tables (What-If Analysis); `manual`,
+ * where an edit leaves the formulas that depend on it with their values until the user calculates.
+ */
+export type CalculationMode = 'automatic' | 'autoNoTable' | 'manual'
+
+/** The workbook's calculation: its option and, in Manual, whether cells wait for a calculation (Excel's status bar then shows Calculate). */
+export interface SheetCalculation {
+  mode: CalculationMode
+  pending: boolean
 }
 
 /**
@@ -415,3 +439,5 @@ export type SourceEvent =
   | { kind: 'reload'; message?: string }
   /** Cells in these ranges may look different (conditional formats): windows that overlap them are re-read in place, keeping the sheets, sizes and display filter as they are. */
   | { kind: 'repaint'; ranges: { sheet: string; range: string }[] }
+  /** The calculation option changed, or cells began or stopped waiting for a calculation. */
+  | { kind: 'calculation'; calculation: SheetCalculation }
