@@ -122,6 +122,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `showFormulas` | `true?` | Excel's Show Formulas is on for the displayed sheet, so a ribbon shows its button pressed ([view.md](view.md#show-formulas)). |
 | `zoom` | `number?` | The sheet's zoom in percent; absent at 100%. |
 | `font` | `{ name; size }?` | The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays; the toolbar's Font and Font Size boxes show it for such a cell. |
+| `protection` | `SheetProtection?` | The displayed sheet is protected (`SheetInfo.protection`), with what users may still do: the toolbar disables formatting without `formatCells`, as Excel does ([protection.md](protection.md)). |
 
 `SheetLinkEvent` is a window's hyperlink (`href`, `location`, `tooltip`, `target`) with the `sheet` and `cell` it belongs to. `SheetFailure` is `{ error: unknown; text: string }`.
 
@@ -173,6 +174,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `clearRules(from: ClearRulesFrom)` | `Promise<EditOutcome \| null>` | Excel's Clear Rules from Selected Cells (`'selection'`: a rule keeps the rest of its cells) or from Entire Sheet (`'sheet'`); `null` when no rule is there to clear. |
 | `newRule()` | `boolean` | Opens Excel's New Formatting Rule dialog for the selection. |
 | `manageRules()` | `boolean` | Opens Excel's Conditional Formatting Rules Manager. |
+| `protectSheet()` | `boolean` | Opens Excel's Protect Sheet dialog for the displayed sheet, without a password; OK protects it through the source's `protect`, as a single undo step. `false` without `protect`, on a read-only sheet, or on a protected one ([protection.md](protection.md)). |
+| `unprotectSheet()` | `Promise<EditOutcome \| null>` | Excel's Unprotect Sheet on the displayed sheet through the source's `protect`; `null` when nothing was sent (no `protect`, a read-only sheet, an unprotected one). |
 
 `QuickRule` is `'greaterThan' | 'lessThan' | 'between' | 'equalTo' | 'textContains' | 'dateOccurring' | 'duplicateValues' | 'top10' | 'top10Percent' | 'bottom10' | 'bottom10Percent' | 'aboveAverage' | 'belowAverage'`, `DataBarColor` is `'blue' | 'green' | 'red' | 'orange' | 'lightBlue' | 'purple'`, `ColorScalePreset` names a color scale of Excel's gallery from the highest numbers' color to the lowest's (`'greenYellowRed'`, `'redYellowGreen'`, `'greenWhiteRed'`, `'redWhiteGreen'`, `'blueWhiteRed'`, `'redWhiteBlue'`, `'whiteRed'`, `'redWhite'`, `'greenWhite'`, `'whiteGreen'`, `'greenYellow'`, `'yellowGreen'`), and `ClearRulesFrom` is `'selection' | 'sheet'`; `IconSetName` is xlcalc's.
 
@@ -425,7 +428,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 
 ## Interface texts: `SheetMessages`
 
-`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`, those of the conditional formatting dialogs (`cf…`) in its `ConditionalMessages`, which `SheetMessages` extends.
+`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`, those of the conditional formatting dialogs (`cf…`) in its `ConditionalMessages`, and those of sheet protection (Excel's alert, Protect Sheet, Format Cells' Protection tab) in its `ProtectionMessages`, both of which `SheetMessages` extends.
 
 ```ts
 import { ruMessages } from '@xlcalc/vue'

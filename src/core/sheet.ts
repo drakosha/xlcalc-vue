@@ -27,7 +27,9 @@ import { useNames } from './names'
 import { useNavigation } from './navigation'
 import { useNotes } from './notes'
 import { useOutline } from './outline'
+import { useProtection } from './protection'
 import { useSelection } from './selection'
+import { cellRect } from '../rect'
 import { useAutoSum } from './autosum'
 import { usePainter } from './painter'
 import { useSpellCheck } from './spell-check'
@@ -82,10 +84,12 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const geo = useGeometry(s)
   const v = useViewport(s, geo)
   const w = useWindows(s, v, geo)
-  const sel = useSelection(s, geo, v)
+  // Excel's sheet protection: the displayed sheet's locked and hidden cells, its alert, Protect Sheet and Unprotect Sheet.
+  const protection = useProtection(s, w, { ask: (a) => alerts.ask(a), protect: (sheet, p) => cmd.protect(sheet, p) })
+  const sel = useSelection(s, geo, v, { on: () => protection.limitsSelection.value, selectable: protection.selectable })
   const zoom = useZoom(s, v, sel, { given: () => props.zoom, changed: (sheet, pct) => emit('zoom', { sheet, zoom: pct }) })
   const editor = ref<EditorState | null>(null)
-  const f = useFormula(s, w, sel, computed(() => editor.value?.text ?? null))
+  const f = useFormula(s, w, sel, computed(() => editor.value?.text ?? null), protection.hiddenAt)
 
   // ── messages: one line at the bottom, the last one wins ──
   const message = ref<string | null>(null)
@@ -114,7 +118,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     return true
   }
   const alerts = useValidationAlert()
-  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare })
+  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare, protection })
   const point = usePoint(s, sel, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, scan: f.scanOptions, commit: ed.commit })
   // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, otherwise in as typed, past the rule.
   const validation = useValidation({
@@ -125,8 +129,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     pick: (text, at, item) => {
       const a = parseCell(at.cell)
       if (!s.editable.value || !a || at.sheet !== s.sheetName.value) return
-      const lock = ed.lockAt(a.row, a.col)
-      if (lock !== null) return notify(s.messages.value.locked(lock))
+      if (ed.blocked(cellRect(a.row, a.col))) return
       const source = s.source()
       const entry = [{ sheet: at.sheet, cell: at.cell, text }]
       // a rejected pick (the list changed meanwhile) requests the rule again, so the list shows what the source holds now
@@ -134,7 +137,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       else void ed.send(entry, null, { accept: true })
     },
   })
-  const extras = useExtras(s, sel, w, ed, { notify, changed: () => validation.refresh() })
+  const extras = useExtras(s, sel, w, ed, { notify, changed: () => validation.refresh(), blocks: protection.blocks })
   const totals = useTotals(s, w, sel)
   const filter = useFilter(s, w, notify)
   const find = useFind(s, sel, notify)
@@ -154,10 +157,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     middlePanes: () => v.middlePanes(),
     showFreeze: (sheet, on) => v.showFreeze(sheet, on),
     structured: () => originalWidths.clear(),
+    blocks: protection.blocks,
   })
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
-  const painter = usePainter(s, sel, v, ed, cmd, { notify })
-  const fill = useFill(s, geo, v, sel, ed, cmd, { notify, editor })
+  const painter = usePainter(s, sel, v, ed, cmd, { formats: () => protection.can('formatCells') })
+  const fill = useFill(s, geo, v, sel, ed, cmd, { editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
   const links = useLinks(s, sel, w, f, ed, extras, {
     notify,
@@ -168,8 +172,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     openLink: (link) => emit('openLink', link),
   })
   const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
-  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items() })
-  const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), protection })
+  const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask, blocked: () => protection.blocks('merge') })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
   /** Excel's Symbol dialog: open over an editable sheet with an active cell; it inserts into the edit it keeps open. */
   const symbolOpen = ref(false)
@@ -203,8 +207,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const tables = useTables(s, w, sel, cmd)
   const autoSum = useAutoSum(s, ed, { editing: () => editor.value !== null })
   const spell = useSpellCheck(s, sel, ed, notify)
-  const rules = useValidationDialog(s, sel, w, { scan: f.scanOptions, ask: alerts.ask, notify, changed: () => validation.refresh() })
-  const cf = useConditional(s, sel, w, ed, { notify, scan: f.scanOptions })
+  const rules = useValidationDialog(s, sel, w, { scan: f.scanOptions, ask: alerts.ask, notify, changed: () => validation.refresh(), blocked: () => protection.blocks('rules') })
+  const cf = useConditional(s, sel, w, ed, { notify, scan: f.scanOptions, blocked: () => protection.blocks('format') })
 
   /** What the host's template ref gets: the commands as the sheet's own keys and menus run them. */
   const api: SheetViewApi = {
@@ -259,6 +263,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     insertLink: links.open,
     dataValidation: rules.open,
     ...cf.api,
+    protectSheet: protection.open,
+    unprotectSheet: protection.unprotect,
   }
 
   // ── sheets ──
@@ -372,6 +378,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const originalWidths = new Map<number, number>()
   let drag: { col: number; startX: number; startW: number } | null = null
   function startResize(e: PointerEvent, col: number): void {
+    // a protected sheet without Format columns keeps its widths, as Excel's does
+    if (!protection.can('formatColumns')) return
     drag = { col, startX: e.clientX, startW: geo.widthOf(col) }
     if (!originalWidths.has(col)) originalWidths.set(col, s.bookWidths.value.has(col) ? colPx(s.bookWidths.value.get(col)) : geo.baseWidthOf(col))
     holdPointer(e)
@@ -395,6 +403,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   /** A double click on a column edge fits the column, as Excel does, together with every column of the selection when it is in it (entire columns or cells); without `layout` (or with `edgeRestoresWidth`) it restores the workbook's width. */
   const fitsOnEdge = computed(() => !props.edgeRestoresWidth && cmd.can('layout'))
   function onEdgeDouble(col: number): void {
+    if (!protection.can('formatColumns')) return
     if (!fitsOnEdge.value) return resetWidth(col)
     const r = sel.fullRect.value
     const { first, last } = sel.linesOf(r ? { first: r.left, last: r.right } : null, col)
@@ -445,7 +454,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
 
   // ── row height with the mouse ──
   /** The grip on a row number's edge, where the source sets heights; not for touch, which would snap to it from the number (a long press opens the menu, which has Row Height). */
-  const rowsResizable = computed(() => cmd.can('layout') && !v.touch.value)
+  const rowsResizable = computed(() => cmd.can('layout') && !v.touch.value && protection.can('formatRows'))
   /** The dragged row is drawn at the new height meanwhile; the release sets it for every selected entire row it is one of. */
   let rowDrag: { first: number; last: number; row: number; startY: number; startH: number; px: number } | null = null
   function startRowResize(e: PointerEvent, row: number): void {
@@ -653,6 +662,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(s.formulaView.value ? { showFormulas: true as const } : {}),
       ...(zoom.percent.value !== 100 ? { zoom: zoom.percent.value } : {}),
       ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
+      ...(protection.protection.value ? { protection: protection.protection.value } : {}),
     }
   })
   watch(viewState, (state) => emit('state', state), { immediate: true })
@@ -697,6 +707,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     rules,
     alerts,
     outline,
+    protection,
     menu,
     goto,
     symbolOpen,

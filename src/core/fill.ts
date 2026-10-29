@@ -23,7 +23,6 @@ const EDGE_PX = 24
 const EDGE_STEP_PX = 40
 
 export interface FillDeps {
-  notify: (text: string) => void
   editor: Ref<EditorState | null>
 }
 
@@ -157,8 +156,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
 
   /** Fills the outline of `from` plus the added cells `to` from `from` as a single undo step; the selection becomes the outlined range, as Excel leaves it. */
   async function fill(from: CellRect, to: CellRect, type?: FillType): Promise<void> {
-    const lock = ed.lockIn(to)
-    if (lock !== null) return deps.notify(s.messages.value.locked(lock))
+    if (ed.blocked(to)) return
     const sheet = s.sheetName.value
     const frame = unionRect(from, to)
     const before = { selected: s.selected.value, extent: s.extent.value }
@@ -183,11 +181,7 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     const line = single ? first - 1 : first
     const from = down ? { ...r, top: line, bottom: line } : { ...r, left: line, right: line }
     const to = single ? r : down ? { ...r, top: r.top + 1 } : { ...r, left: r.left + 1 }
-    const lock = ed.lockIn(to)
-    if (lock !== null) {
-      deps.notify(s.messages.value.locked(lock))
-      return null
-    }
+    if (ed.blocked(to)) return null
     const sheet = s.sheetName.value
     return cmd.structure({ op: 'copyRange', from: { sheet, range: rangeAddress(from) }, to: { sheet, range: rangeAddress(to) } })
   }

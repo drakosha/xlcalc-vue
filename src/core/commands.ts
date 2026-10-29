@@ -1,7 +1,7 @@
 // Changes to the workbook that the host or the grid's menus and keys request (format, structure, rows and columns, outline, frozen panes, undo and redo):
 // each goes through the source as Ctrl+Z does, and the sheet is read again after one that a window's cells cannot carry.
 import { computed, ref } from 'vue'
-import type { CellStyle } from 'xlcalc/contract'
+import type { CellStyle, SheetProtection } from 'xlcalc/contract'
 import type { EditOutcome, FormatPatch, LayoutChange, OutlineChange, SheetOp } from '../contract/source'
 import type { TableOp } from '../contract/workbook'
 import { fontToggle, PERCENT_STYLE, type FontToggle } from '../toolbar'
@@ -32,16 +32,18 @@ export interface CommandsDeps {
   showFreeze: (sheet: string, on: boolean) => void
   /** A structure operation succeeded: rows or columns may have moved, so what the sheet stores by row or column number no longer holds. */
   structured: () => void
+  /** The sheet's protection disables this kind of change (formatting without Format cells, the outline, tables). */
+  blocks: (kind: ChangeMethod) => boolean
 }
 
 const FONT_KEYS: Record<string, FontToggle> = { b: 'bold', i: 'italic', u: 'underline' }
 
 /** The source's methods that change the workbook beyond cells. */
-type ChangeMethod = 'format' | 'structure' | 'layout' | 'outline' | 'freeze' | 'table'
+type ChangeMethod = 'format' | 'structure' | 'layout' | 'outline' | 'freeze' | 'table' | 'protect'
 
 export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: CommandsDeps) {
-  /** A change method the source accepts: the sheet is editable (not read-only, with `edit`) and the source has it; otherwise null. */
-  const method = <K extends ChangeMethod>(name: K) => (s.editable.value ? s.sourceMethod(name) : null)
+  /** A change method the source accepts: the sheet is editable (not read-only, with `edit`), its protection allows it, and the source has it; otherwise null. */
+  const method = <K extends ChangeMethod>(name: K) => (s.editable.value && !deps.blocks(name) ? s.sourceMethod(name) : null)
   const can = (name: ChangeMethod): boolean => method(name) !== null
   /** Structure operations over ranges (a pasted copy or cut, a fill, a merge): with `structure`, and no display filter scattering the rows. */
   const canRanges = computed(() => can('structure') && !s.visible.value)
@@ -95,6 +97,11 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
   }
   const layout = (edit: LayoutChange) => lineChange(method('layout'), edit)
   const outline = (command: OutlineChange) => lineChange(method('outline'), command)
+  /** Excel's Protect Sheet (null: Unprotect Sheet) through the source's `protect`, after which the sheets are read again; copy mode stays on. */
+  async function protect(sheet: string, protection: SheetProtection | null): Promise<EditOutcome | null> {
+    const call = method('protect')
+    return call ? change(() => call(sheet, protection), null, false) : null
+  }
   /** A table command (Create Table, Convert to Range, Delete Table): its header cells or its cells change, so copy mode ends. */
   async function table(op: TableOp): Promise<EditOutcome | null> {
     const call = method('table')
@@ -151,7 +158,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     s.focusGrid()
   }
 
-  return { can, canRanges, format, structure, layout, outline, table, freeze, formatKey, formatOpen, openFormat, closeFormat }
+  return { can, canRanges, format, structure, layout, outline, table, protect, freeze, formatKey, formatOpen, openFormat, closeFormat }
 }
 
 export type Commands = ReturnType<typeof useCommands>

@@ -38,9 +38,13 @@ function sameColors(a: Map<string, { color: string }>, b: Map<string, { color: s
   return true
 }
 
-export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref<string | null>) {
+export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref<string | null>, hidden: (row: number, col: number) => boolean = () => false) {
   const formulaAt = (row: number, col: number): string | undefined => w.formulaOfRow(row, col)
-  const selectedFormula = computed(() => (s.selected.value ? (formulaAt(s.selected.value.row, s.selected.value.col) ?? '') : ''))
+  /** The active cell's formula, for the state and the references' highlights; none for a protected sheet's hidden formula. */
+  const selectedFormula = computed(() => {
+    const a = s.selected.value
+    return a && !hidden(a.row, a.col) ? (formulaAt(a.row, a.col) ?? '') : ''
+  })
   const selectedValue = computed(() => (s.selected.value ? w.textOfRow(s.selected.value.row, s.selected.value.col) : ''))
   /** The formula being typed, when the draft is one, takes over the highlights. */
   const shownFormula = computed(() => {

@@ -12,10 +12,12 @@ import type { SheetState } from './state'
 import type { Viewport } from './viewport'
 
 export interface PainterDeps {
-  notify: (text: string) => void
+  /** The sheet's protection allows formatting cells (Excel disables Format Painter otherwise). */
+  formats: () => boolean
 }
 
 export function usePainter(s: SheetState, sel: Selection, v: Viewport, ed: Editing, cmd: Commands, deps: PainterDeps) {
+  const available = computed(() => cmd.canRanges.value && deps.formats())
   const brush = shallowRef<{ sheet: string; rect: CellRect; mode: FormatPainterMode } | null>(null)
   /** A press on the grid while the brush was held: its release paints. */
   let armed = false
@@ -23,7 +25,7 @@ export function usePainter(s: SheetState, sel: Selection, v: Viewport, ed: Editi
   /** The selection's formats as the brush (`off` puts it down); whether painting is on afterwards. */
   function start(mode: FormatPainterMode | 'off' = 'once'): boolean {
     const r = sel.fullRect.value
-    if (mode === 'off' || !cmd.canRanges.value || !r) {
+    if (mode === 'off' || !available.value || !r) {
       brush.value = null
       return false
     }
@@ -43,14 +45,13 @@ export function usePainter(s: SheetState, sel: Selection, v: Viewport, ed: Editi
   async function paint(): Promise<void> {
     const b = brush.value
     const a = sel.fullRect.value
-    if (!b || !a || !cmd.canRanges.value) return
+    if (!b || !a || !available.value) return
     if (b.mode === 'once') brush.value = null
     const h = b.rect.bottom - b.rect.top + 1
     const w = b.rect.right - b.rect.left + 1
     const tiles = (a.bottom - a.top + 1) % h === 0 && (a.right - a.left + 1) % w === 0
     const target: CellRect = tiles ? a : { top: a.top, left: a.left, bottom: a.top + h - 1, right: a.left + w - 1 }
-    const lock = ed.lockIn(target)
-    if (lock !== null) return deps.notify(s.messages.value.locked(lock))
+    if (ed.blocked(target)) return
     const sheet = s.sheetName.value
     await cmd.structure({ op: 'copyRange', from: { sheet: b.sheet, range: rangeAddress(b.rect) }, to: { sheet, range: rangeAddress(target) }, paste: 'formats' }, false)
     if (sheet === s.sheetName.value) sel.selectRect(target)
@@ -71,7 +72,7 @@ export function usePainter(s: SheetState, sel: Selection, v: Viewport, ed: Editi
   })
   const mode = computed(() => brush.value?.mode)
 
-  return { available: cmd.canRanges, mode, ants, start, down, up, key }
+  return { available, mode, ants, start, down, up, key }
 }
 
 export type Painter = ReturnType<typeof usePainter>

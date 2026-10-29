@@ -75,6 +75,8 @@ export interface EditingDeps {
   /** The defined names visible on the sheet, in alphabetical order, and their order, for Formula AutoComplete; none without it. */
   names?: () => readonly string[]
   nameOrder?: (a: string, b: string) => number
+  /** The sheet's protection: a locked cell in a range shows Excel's alert and refuses the change (true); none without it. */
+  protection?: { refuse: (rect: CellRect) => boolean }
 }
 
 export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula, editor: Ref<EditorState | null>, deps: EditingDeps) {
@@ -105,6 +107,12 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     return locks.value.find((l) => rectsMeet(l.rect, r))?.reason ?? null
   }
   const lockAt = (row: number, col: number): string | null => (locks.value.length ? lockIn(cellRect(row, col)) : null)
+  /** A change that reaches `rect` is refused: a locked range's reason goes to the message line, a protected sheet's locked cell shows Excel's alert. */
+  function blocked(rect: CellRect): boolean {
+    const lock = lockIn(rect)
+    if (lock !== null) deps.notify(s.messages.value.locked(lock))
+    return lock !== null || !!deps.protection?.refuse(rect)
+  }
 
   /** xlcalc's typed-entry module for a source without `editText`, requested by the first edit text that needs it; null until it loads. */
   const entry = shallowRef<Entry | null>(null)
@@ -141,12 +149,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   /** Opens the editor on the active cell; for a locked cell, explains why instead. False when nothing opened. */
   function startEdit(opts: { text?: string; mode: 'enter' | 'edit'; place?: 'cell' | 'bar'; caret?: number; caretEnd?: number; focus?: boolean }): boolean {
     const a = s.selected.value
-    if (!s.editable.value || !a) return false
-    const lock = lockAt(a.row, a.col)
-    if (lock !== null) {
-      deps.notify(s.messages.value.locked(lock))
-      return false
-    }
+    if (!s.editable.value || !a || blocked(cellRect(a.row, a.col))) return false
     const initial = editText(a.row, a.col)
     const text = opts.text ?? initial
     editor.value = { sheet: s.sheetName.value, row: a.row, col: a.col, text, initial, mode: opts.mode, place: opts.place ?? 'cell', caret: opts.caret ?? text.length, caretEnd: opts.caretEnd, inPlace: opts.text === undefined }
@@ -239,8 +242,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const r = sel.selRect.value
     if (!ed || !fill || !r || !sel.multi.value || ed.sheet !== s.sheetName.value || !sel.isActive(ed.row, ed.col)) return commit(0, 0)
     // A locked cell anywhere in the range: the editor stays open with the draft.
-    const lock = lockIn(r)
-    if (lock !== null) return deps.notify(s.messages.value.locked(lock))
+    if (blocked(r)) return
     const extent = s.extent.value
     editor.value = null
     s.focusGrid()
@@ -341,7 +343,11 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     // Cancel: the cell keeps its contents and stays active, as Excel leaves it.
     if (answer === 'cancel') return outcome
     const m = s.messages.value
-    if (outcome.reason === 'conflict') {
+    if (outcome.code === 'protected' && deps.alert) {
+      // a protected sheet's refusal: Excel's alert, in the source's words
+      await deps.alert({ severity: 'notice', message: outcome.message || m.protectedAlert })
+      if (!outdated()) s.focusGrid()
+    } else if (outcome.reason === 'conflict') {
       deps.notify(m.conflict)
       await deps.reload()
       if (draft && !outdated()) reopen(draft, null, extent)
@@ -420,9 +426,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   }
   /** Delete and Backspace: clear the selection's cells (cells known to be empty and rows hidden by the filter are skipped, as in Excel). */
   function clearSelection(): void {
-    if (!s.editable.value || !sel.selRect.value) return
-    const lock = lockIn(sel.selRect.value)
-    if (lock !== null) return deps.notify(s.messages.value.locked(lock))
+    if (!s.editable.value || !sel.selRect.value || blocked(sel.selRect.value)) return
     const r = dataRect()
     if (!r) return
     if ((r.bottom - r.top + 1) * (r.right - r.left + 1) > MAX_EDIT_CELLS) return deps.notify(s.messages.value.tooManyCells)
@@ -445,8 +449,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     const one = !paste && rows.length === 1 && rows[0]!.length === 1
     const width = rows[0]!.length
     const target: CellRect = one ? a : { top: a.top, left: a.left, bottom: a.top + rows.length - 1, right: a.left + width - 1 }
-    const lock = lockIn(target)
-    if (lock !== null) return deps.notify(s.messages.value.locked(lock))
+    if (blocked(target)) return
     const textAt = (row: number, col: number): string | null => {
       const t = one ? rows[0]![0]! : (rows[row - target.top]?.[col - target.left] ?? '')
       return t === '' ? null : t
@@ -552,7 +555,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pendingAt, forget, lockIn, lockAt, editText, startEdit, inputOf, focusEditor, insertFunction, insertText, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pendingAt, forget, lockIn, lockAt, blocked, editText, startEdit, inputOf, focusEditor, insertFunction, insertText, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

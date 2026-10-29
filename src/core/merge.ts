@@ -17,14 +17,16 @@ import type { MergeCommand } from '../contract/view'
 interface MergeDeps {
   /** Shows an alert and waits for the answer. */
   ask: (alert: SheetAlert) => Promise<AlertAnswer>
+  /** A protected sheet: Excel disables the merge commands there. */
+  blocked: () => boolean
 }
 
 const holds = (text: string | undefined, value: CellValue | undefined, formula: string | undefined): boolean => formula !== undefined || !isBlank(text, value)
 
 export function useMerge(s: SheetState, w: Windows, sel: Selection, cmd: Commands, deps: MergeDeps) {
   const read = useSheetReads(s)
-  /** The commands are available: the source has `structure`, the sheet is editable, and no display filter scatters its rows. */
-  const available = computed(() => !!s.sheet.value && cmd.canRanges.value)
+  /** The commands are available: the source has `structure`, the sheet is editable and not protected, and no display filter scatters its rows. */
+  const available = computed(() => !!s.sheet.value && cmd.canRanges.value && !deps.blocked())
   /** The merged range containing the active cell, from the loaded windows: Excel's button shows as pressed on it. */
   const area = computed<CellRect | null>(() => {
     const a = s.selected.value

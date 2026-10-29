@@ -19,6 +19,8 @@ export interface ValidationDialogDeps {
   notify: (text: string) => void
   /** The active cell's rule changed: its dropdown and input message are requested again. */
   changed: () => void
+  /** A protected sheet: Excel disables Data Validation there. */
+  blocked: () => boolean
 }
 
 /** The open dialog: the selection and active cell it was opened for, the sheet's rules then, the rule shown, and its first inputs. */
@@ -50,7 +52,7 @@ export function useValidationDialog(s: SheetState, sel: Selection, w: Windows, d
   const read = useSheetReads(s)
   const state = shallowRef<ValidationDialogState | null>(null)
   /** The dialog can be opened: the sheet is editable and the source reads and writes rules. */
-  const available = () => s.editable.value && !!s.sourceMethod('rules') && !!s.sourceMethod('setRules')
+  const available = () => s.editable.value && !deps.blocked() && !!s.sourceMethod('rules') && !!s.sourceMethod('setRules')
 
   async function start(sheet: string, r: CellRect, at: CellPosition): Promise<void> {
     const signal = read()

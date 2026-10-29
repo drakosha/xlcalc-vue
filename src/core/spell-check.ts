@@ -5,6 +5,7 @@ import { cellAddress, parseCell } from 'xlcalc/a1'
 import type { CellPosition } from 'xlcalc/contract'
 import type { SpellingHit } from '../contract/workbook'
 import type { Editing } from './editing'
+import { cellRect } from '../rect'
 import { readRange } from './range-read'
 import type { Selection } from './selection'
 import { useSheetReads, type SheetState } from './state'
@@ -99,11 +100,7 @@ export function useSpellCheck(s: SheetState, sel: Selection, ed: Editing, notify
   /** The cell's text with the word replaced, through `edit` as typed text (a text that opens with `'` keeps it); false when it was not written. */
   async function write(hit: SpellingHit, at: CellPosition, text: string, by: string, editText: string | undefined): Promise<boolean> {
     const r = run!
-    const lock = ed.lockAt(at.row, at.col)
-    if (lock !== null) {
-      notify(s.messages.value.locked(lock))
-      return false
-    }
+    if (ed.blocked(cellRect(at.row, at.col))) return false
     const changed = text.slice(0, hit.at) + by + text.slice(hit.at + hit.word.length)
     const quoted = editText?.startsWith("'") || /^[=+-]/.test(changed) ? `'${changed}` : changed
     const out = await ed.send([{ sheet: r.sheet, cell: hit.cell, text: quoted }], null)

@@ -1,8 +1,8 @@
 // The interface texts' keys and their arguments; the English and Russian sets are in src/messages.ts.
-import type { ConditionalFormat, IconSetName } from 'xlcalc/contract'
+import type { ConditionalFormat, IconSetName, SheetProtection } from 'xlcalc/contract'
 import type { QuickRule } from './conditional'
 
-export interface SheetMessages extends ConditionalMessages {
+export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
   back: string
   backEmpty: string
   address: string
@@ -584,4 +584,24 @@ export interface ConditionalMessages {
   /** A rule's Format Cells: no choice in a list, and Clear. */
   cfNotSet: string
   cfClear: string
+}
+
+/** The texts of sheet protection, as Excel for Mac words them: its alert, the tab menu's commands, the Protect Sheet dialog, Format Cells' Protection tab. */
+export interface ProtectionMessages {
+  /** Excel's alert for a change a protected sheet does not allow, such as typing into a locked cell. */
+  protectedAlert: string
+  /** The sheet tab's menu: Protect Sheet… and Unprotect Sheet. */
+  menuProtectSheet: string
+  menuUnprotectSheet: string
+  /** The Protect Sheet dialog: its title, the box that protects the sheet, the list's heading, each of its boxes, and the note under them. */
+  protectTitle: string
+  protectContents: string
+  protectAllow: string
+  protectBox: (box: keyof SheetProtection) => string
+  protectNote: string
+  /** Format Cells' Protection tab: its name, Locked, Hidden, and Excel's note. */
+  fmtProtection: string
+  fmtLocked: string
+  fmtHidden: string
+  fmtProtectionNote: string
 }

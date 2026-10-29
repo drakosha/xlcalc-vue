@@ -16,6 +16,7 @@ import type { Explain } from './explain'
 import type { Filter } from './filter'
 import { ptFromPx, widthFromPx } from './geometry'
 import type { Outline, OutlineAxis, OutlineOp } from './outline'
+import type { Protection } from './protection'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 
@@ -68,6 +69,8 @@ export interface MenuDeps {
   /** The cell menu's items for notes and for hyperlinks, which Excel lists before and after Define Name at the menu's end. */
   cellNotes: () => MenuItem[]
   cellLinks: () => MenuItem[]
+  /** The sheet's protection: what it disables in the menus of rows and columns, and the tab menu's Protect Sheet and Unprotect Sheet. */
+  protection: Protection
 }
 
 export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: MenuDeps) {
@@ -90,9 +93,11 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     open.value = { kind, x, y, first: lines.first, last: Math.min(lines.last, kind === 'rows' ? MAX_ROWS : MAX_COLS) }
     return true
   }
+  /** The tab menu: the sheet commands with `structure`, Protect Sheet and Unprotect Sheet with `protect`. */
+  const sheetsAvailable = computed(() => cmd.can('structure') || deps.protection.available.value)
   /** Opens a tab's menu: the sheet becomes active, as a right click on a tab makes it in Excel. */
   async function openSheet(index: number, x: number, y: number): Promise<boolean> {
-    if (!cmd.can('structure') || !s.sheets.value[index]) return false
+    if (!sheetsAvailable.value || !s.sheets.value[index]) return false
     await deps.pickSheet(index)
     open.value = { kind: 'sheet', x, y, first: index, last: index }
     return true
@@ -145,25 +150,34 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     const count = last - first + 1
     const key = linesKey(first, last, axis)
     const out: MenuItem[] = []
+    // Excel disables on a protected sheet what its protection does not allow
+    const p = deps.protection
+    const rows = axis === 'rows'
     if (cmd.can('structure')) {
       const column = colLetters(first)
       const insert: SheetOp = axis === 'rows' ? { op: 'insertRows', sheet, row: first, count } : { op: 'insertColumns', sheet, column, count }
       const remove: SheetOp = axis === 'rows' ? { op: 'deleteRows', sheet, row: first, count } : { op: 'deleteColumns', sheet, column, count }
-      out.push({ id: 'insert', label: m().menuInsert, run: () => void cmd.structure(insert) }, { id: 'delete', label: m().menuDelete, run: () => void cmd.structure(remove) })
+      out.push(
+        { id: 'insert', label: m().menuInsert, disabled: !p.can(rows ? 'insertRows' : 'insertColumns'), run: () => void cmd.structure(insert) },
+        { id: 'delete', label: m().menuDelete, disabled: !p.can(rows ? 'deleteRows' : 'deleteColumns'), run: () => void cmd.structure(remove) },
+      )
     }
     if (cmd.can('layout')) {
       const lines = linesOn(axis, key)
+      const off = !p.can(rows ? 'formatRows' : 'formatColumns')
       out.push(
-        { id: 'size', label: axis === 'rows' ? m().menuRowHeight : m().menuColumnWidth, run: () => openSize(axis, first, last), group: out.length > 0 },
-        { id: 'hide', label: m().menuHide, run: () => void cmd.layout({ sheet, ...lines, hidden: true }) },
+        { id: 'size', label: axis === 'rows' ? m().menuRowHeight : m().menuColumnWidth, disabled: off, run: () => openSize(axis, first, last), group: out.length > 0 },
+        { id: 'hide', label: m().menuHide, disabled: off, run: () => void cmd.layout({ sheet, ...lines, hidden: true }) },
         // always present, as in Excel: the grid knows a hidden row or column only from the windows it has read
-        { id: 'unhide', label: m().menuUnhide, run: () => void cmd.layout({ sheet, ...lines, hidden: false }) },
+        { id: 'unhide', label: m().menuUnhide, disabled: off, run: () => void cmd.layout({ sheet, ...lines, hidden: false }) },
       )
     }
-    if (cmd.can('outline')) {
+    // a protected sheet keeps Group and Ungroup in the menu, disabled
+    if (cmd.can('outline') || (p.protection.value && s.editable.value && s.sourceMethod('outline'))) {
+      const off = !cmd.can('outline')
       out.push(
-        { id: 'group', label: m().menuGroup, run: () => deps.outline.lines('group', axis, first, last), group: out.length > 0 },
-        { id: 'ungroup', label: m().menuUngroup, run: () => deps.outline.lines('ungroup', axis, first, last) },
+        { id: 'group', label: m().menuGroup, disabled: off, run: () => deps.outline.lines('group', axis, first, last), group: out.length > 0 },
+        { id: 'ungroup', label: m().menuUngroup, disabled: off, run: () => deps.outline.lines('ungroup', axis, first, last) },
       )
     }
     return out
@@ -175,7 +189,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     const tabs = deps.tabs()
     const k = tabs.findIndex((t) => t.i === index)
     const hidden = s.sheets.value.filter((x) => x.hidden === true).map((x) => x.name)
-    const out: MenuItem[] = [
+    const out: MenuItem[] = !cmd.can('structure') ? [] : [
       { id: 'insertSheet', label: m().menuInsert, run: () => void cmd.structure({ op: 'insertSheet', name: nextSheetName(), before: name }) },
       { id: 'deleteSheet', label: m().menuDelete, run: () => deleteSheet(info) },
       { id: 'rename', label: m().menuRename, run: () => startRename(index) },
@@ -184,7 +198,16 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
       { id: 'moveRight', label: m().menuMoveRight, disabled: k < 0 || k >= tabs.length - 1, run: () => void cmd.structure(k + 2 < tabs.length ? { op: 'moveSheet', sheet: name, before: tabs[k + 2]!.sheet.name } : { op: 'moveSheet', sheet: name }) },
       { id: 'hideSheet', label: m().menuHide, run: () => void cmd.structure({ op: 'hideSheet', sheet: name }), group: true },
     ]
-    if (hidden.length) out.push({ id: 'unhideSheet', label: m().menuUnhideSheet, run: () => (dialog.value = { kind: 'unhide', sheets: hidden }) })
+    if (hidden.length && cmd.can('structure')) out.push({ id: 'unhideSheet', label: m().menuUnhideSheet, run: () => (dialog.value = { kind: 'unhide', sheets: hidden }) })
+    // Excel's Protect Sheet… or, on a protected sheet, Unprotect Sheet (the menu acts on the active sheet, which the tab became)
+    const p = deps.protection
+    if (p.available.value) {
+      out.push(
+        info.protection
+          ? { id: 'unprotectSheet', label: m().menuUnprotectSheet, run: () => void p.unprotect(), group: out.length > 0 }
+          : { id: 'protectSheet', label: m().menuProtectSheet, run: () => void p.open(), group: out.length > 0 },
+      )
+    }
     return out
   }
   function choose(item: MenuItem): void {
@@ -322,6 +345,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     openSheet,
     openCells,
     linesAvailable,
+    sheetsAvailable,
     applySize,
     askOutline,
     applyOutline,

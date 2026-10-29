@@ -29,3 +29,20 @@ xlcalc's session does not enforce protection, so `localSource` checks each chang
 | Freeze Panes, sheets (insert, delete, rename, move, hide), defined names | always: they are the view and the workbook's structure, which a sheet's protection does not cover |
 
 A cell beyond the sheet's used range is locked unless its row's style, or else its column's, unlocks it. Sort and AutoFilter belong to the AutoFilter, which the sheet's display filter does not change: it filters and sorts the display, not the data, on a protected sheet too.
+
+## On the sheet
+
+The sheet tab's menu has Protect Sheet… with the source's `protect`, or Unprotect Sheet on a protected sheet, as do the sheet's `protectSheet()` and `unprotectSheet()`. Protect Sheet is Excel for Mac's dialog without its password field: Protect the sheet and contents of locked cells (OK is disabled without it, as in Excel), then the boxes of what users may still do, in Excel's order and with its defaults (selecting cells only), and Excel's note that all cells are locked by default. Checking Select locked cells checks Select unlocked cells too, and unchecking Select unlocked cells unchecks Select locked cells, as Excel ties them. Unprotect Sheet asks nothing. Both are a single undo step, after which the sheet reads its sheets again.
+
+Format Cells has Excel's Protection tab, Locked and Hidden with its note ([toolbar.md](toolbar.md#formatdialog)); on a protected sheet both boxes are disabled, as Excel changes neither there.
+
+On a protected sheet, as in Excel:
+
+- Typing into a locked cell, F2, Delete, a paste, Ctrl+Enter, the fill handle, Fill Down and Fill Right, Clear, Spelling's Change, a dropdown's item and Insert Function or Symbol show Excel's alert ("The cell or chart you're trying to change is on a protected sheet…", `protectedAlert`) before anything opens or is sent, for the cells the sheet has loaded; the source refuses the rest, and the sheet shows the same alert for its refusal (`code: 'protected'`).
+- A hidden cell's formula is not displayed: the formula bar shows nothing and the `state` event has no `formula`; the cell shows its value.
+- Formatting (the toolbar, Ctrl+B and the other shortcuts, Format Cells, Format Painter, Conditional Formatting) is disabled without Format cells. The row and column menus disable Insert and Delete without their boxes, Row Height, Column Width, Hide and Unhide without Format rows or Format columns, and Group and Ungroup always; the edges of row numbers and column letters do not resize without them either. Merge & Center, Data Validation, Format as Table and the outline's buttons are disabled; Insert Link without Insert hyperlinks, New Note and Edit Note without Edit objects.
+- Without Select locked cells, only unlocked cells can be selected: a click on a locked cell does nothing, an arrow goes on to the next unlocked cell that way (or stays where there is none), and Tab and Enter move to the next unlocked cell along the rows or down the columns, wrapping around, among the cells the sheet has loaded.
+
+The display filter and its sort change no data, so a protected sheet does not limit them. The sheet's AutoFilter, when a source sets one, is for the protection's Sort and Use AutoFilter boxes (`allows(protection, 'autoFilter')` in `src/protection.ts`).
+
+Not as in Excel: Show Formulas shows a hidden formula, Find's Look in Formulas finds text in it, and Trace Precedents explains it, since the sheet hides it only in the formula bar and the state; the sheet checks only the loaded cells before a change, so a change beyond them reaches the source, whose refusal it shows. Excel's alert for a locked cell is the same on Excel for Windows, but its Protect Sheet dialog words the boxes differently (Windows: "Protect worksheet and contents of locked cells"); the texts here are Excel for Mac's.

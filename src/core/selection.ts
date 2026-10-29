@@ -21,8 +21,18 @@ export function cellOfData(data: string | null | undefined): CellPosition | null
 
 /** The margin kept from the viewport's edge when scrolling to a cell: a cell flush with the edge looks clipped. */
 const REVEAL_PAD = 24
+/** The most cells a move looks through for one the protection lets the user select. */
+const MAX_SCAN = 100_000
 
-export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
+/** A protected sheet's limit on what can be selected (Excel's Select locked cells and Select unlocked cells): while `on`, only `selectable` cells. */
+export interface SelectionLimit {
+  on: () => boolean
+  selectable: (row: number, col: number) => boolean
+}
+
+export function useSelection(s: SheetState, geo: Geometry, v: Viewport, limit?: SelectionLimit) {
+  /** A cell the user may select: any, unless the sheet's protection limits them. */
+  const allowed = (row: number, col: number): boolean => !limit?.on() || limit.selectable(row, col)
   /** The selection as Excel holds it: entire columns extend to the last row, entire rows to the last column. */
   const fullRect = computed<CellRect | null>(() => {
     const sa = s.selected.value
@@ -57,6 +67,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   const isActive = (row: number, col: number) => s.selected.value?.row === row && s.selected.value?.col === col
 
   function pickCell(row: number, col: number, extend = false): void {
+    if (!allowed(row, col)) return
     if (extend && s.selected.value) s.extent.value = { row, col }
     else {
       s.selected.value = { row, col }
@@ -260,8 +271,45 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     if (!to) return false
     e.preventDefault()
     if (to instanceof Promise) void endKey(to, e.shiftKey)
-    else moveTo(to, e.shiftKey)
+    else if (!limit?.on()) moveTo(to, e.shiftKey)
+    else {
+      // only some cells can be selected: an arrow goes on to the next of them that way, as in Excel
+      const way = END_WAYS[e.key]
+      const next = allowed(to.row, to.col) ? to : way && !isMod(e) ? nextAllowed(to, way === 'down' ? 1 : way === 'up' ? -1 : 0, way === 'right' ? 1 : way === 'left' ? -1 : 0) : null
+      if (next) moveTo(next, false)
+    }
     return true
+  }
+  /** The first cell from `from` on, stepping by `dr` rows and `dc` columns, that can be selected; null at the grid's edge. */
+  function nextAllowed(from: CellPosition, dr: number, dc: number): CellPosition | null {
+    let d = s.indexOf(from.row) ?? 1
+    let col = from.col
+    for (let n = 0; n < MAX_SCAN; n++) {
+      if (allowed(s.rowOf(d), col)) return { row: s.rowOf(d), col }
+      const nd = dr ? geo.nextRow(d, dr as 1 | -1) : d
+      const nc = dc ? geo.nextCol(col, dc as 1 | -1) : col
+      if (nd === d && nc === col) return null
+      d = nd
+      col = nc
+    }
+    return null
+  }
+  /**
+   * Excel's Tab and Enter where only some cells can be selected: the next of them along the rows (Tab) or down the columns
+   * (Enter) of the grid, back with Shift, wrapping around at the end.
+   */
+  function scanAllowed(from: CellPosition, byRows: boolean, dir: 1 | -1): CellPosition | null {
+    const rows = Math.max(1, s.rowCount.value)
+    const cols = Math.max(1, s.colCount.value)
+    const total = rows * cols
+    let i = byRows ? ((s.indexOf(from.row) ?? 1) - 1) * cols + from.col - 1 : (from.col - 1) * rows + (s.indexOf(from.row) ?? 1) - 1
+    for (let n = 0; n < Math.min(total, MAX_SCAN); n++) {
+      i = (i + dir + total) % total
+      const d = byRows ? Math.floor(i / cols) + 1 : (i % rows) + 1
+      const col = byRows ? (i % cols) + 1 : Math.floor(i / rows) + 1
+      if (allowed(s.rowOf(d), col)) return { row: s.rowOf(d), col }
+    }
+    return null
   }
   /** Moves the active cell to `p`, or the corner with Shift; the grid extends to it, and the viewport scrolls to it. */
   function moveTo({ row, col }: CellPosition, extend: boolean): void {
@@ -285,6 +333,11 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   function step(dr: -1 | 0 | 1, dc: -1 | 0 | 1): void {
     const a = s.selected.value
     if (!a) return
+    if (limit?.on()) {
+      const next = scanAllowed(a, !!dc, (dr || dc) as 1 | -1)
+      if (next) moveTo(next, false)
+      return
+    }
     const r = selRect.value
     // under a display filter the selection's sheet rows are not its rows on screen: it collapses as before
     if (multi.value && r && !s.visible.value) return stepInside(a, r, dr, dc)

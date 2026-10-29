@@ -209,8 +209,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     const wd = (turned ? m.rect.bottom - m.rect.top : m.rect.right - m.rect.left) + 1
     const tiles = !m.cut && !turned && (a.bottom - a.top + 1) % h === 0 && (a.right - a.left + 1) % wd === 0
     const target: CellRect = tiles ? a : { top: a.top, left: a.left, bottom: a.top + h - 1, right: a.left + wd - 1 }
-    const lock = ed.lockIn(target) ?? (m.cut && m.sheet === sheet ? ed.lockIn(m.rect) : null)
-    if (lock !== null) return deps.notify(s.messages.value.locked(lock))
+    if (ed.blocked(target) || (m.cut && m.sheet === sheet && ed.blocked(m.rect))) return
     const from = { sheet: m.sheet, range: rangeAddress(m.rect) }
     const corner = cellAddress(a.top, a.left)
     const to = { sheet, range: tiles ? rangeAddress(a) : corner }

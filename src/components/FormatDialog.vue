@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Excel's Format Cells dialog (Ctrl+1) for the selection reported by the sheet's `state` event: Number, Alignment, Font,
-// Border and Fill, the settings xlcalc's cell style supports; the Number tab is Excel's Number Format box in the workbook's
+// Border, Fill and Protection, the settings xlcalc's cell style supports; the Number tab is Excel's Number Format box in the workbook's
 // locale (xlcalc's list and categories). It opens with the active cell's formatting; OK emits the patches for `SheetView.format`
 // covering what changed (one call, a single undo step) and closes, Cancel closes. Full screen on a phone.
 import { computed, reactive, ref, shallowRef, toRaw, watch } from 'vue'
@@ -110,9 +110,12 @@ const cancel = () => emit('close')
       <button v-for="t in FORMAT_TABS" :key="t" type="button" class="xs-fmt-tab" role="tab" :aria-selected="tab === t" :data-fmt-tab="t" @click="tab = t">
         {{ m.fmtTab(t) }}
       </button>
+      <button type="button" class="xs-fmt-tab" role="tab" :aria-selected="tab === 'protection'" data-fmt-tab="protection" @click="tab = 'protection'">
+        {{ m.fmtProtection }}
+      </button>
     </div>
 
-    <div class="xs-fmt-body" role="tabpanel" :aria-label="m.fmtTab(tab)">
+    <div class="xs-fmt-body" role="tabpanel" :aria-label="tab === 'protection' ? m.fmtProtection : m.fmtTab(tab)">
       <div v-show="tab === 'number'" class="xs-fmt-stack">
         <p class="xs-fmt-category" data-fmt-category :data-fmt-category-key="category?.category">
           {{ m.fmtCategory }}: <b>{{ category?.name ?? '' }}</b>
@@ -210,6 +213,19 @@ const cancel = () => emit('close')
         <legend>{{ m.fmtBackground }}</legend>
         <FormatColour v-model="draft.fill" :none-label="m.fillNone" :messages="m" name="fill" @invalid="badColour.fill = $event" />
       </fieldset>
+
+      <!-- Excel keeps Locked and Hidden as they are while the sheet is protected -->
+      <div v-show="tab === 'protection'" class="xs-fmt-stack">
+        <label class="xs-fmt-check">
+          <input v-model="draft.locked" type="checkbox" :disabled="!!state?.protection" data-fmt-locked />
+          {{ m.fmtLocked }}
+        </label>
+        <label class="xs-fmt-check">
+          <input v-model="draft.hidden" type="checkbox" :disabled="!!state?.protection" data-fmt-hidden />
+          {{ m.fmtHidden }}
+        </label>
+        <p class="xs-fmt-note" data-fmt-protection-note>{{ m.fmtProtectionNote }}</p>
+      </div>
     </div>
 
     <footer class="xs-fmt-foot">

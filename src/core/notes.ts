@@ -55,7 +55,7 @@ export function useNotes(s: SheetState, w: Windows, extras: Extras, deps: NotesD
   /** Excel's New Note, or Edit Note on a cell with one (Shift+F2 does either): the box opens at the active cell; false when notes cannot be edited. */
   function open(): boolean {
     const a = s.selected.value
-    if (!available.value || !s.sheet.value || !a || extras.locked({ top: a.row, left: a.col, bottom: a.row, right: a.col })) return false
+    if (!available.value || !s.sheet.value || !a || extras.locked({ top: a.row, left: a.col, bottom: a.row, right: a.col }, false)) return false
     const note = activeNote()
     const author = note ? note.author : deps.author()?.trim() || undefined
     draft.value = { sheet: s.sheetName.value, row: a.row, col: a.col, ...(author ? { author } : {}), text: note?.text ?? '', initial: note?.text ?? '', fresh: !note }
@@ -79,7 +79,7 @@ export function useNotes(s: SheetState, w: Windows, extras: Extras, deps: NotesD
   async function remove(): Promise<void> {
     const a = s.selected.value
     const call = extras.method('note')
-    if (!a || !call || extras.locked({ top: a.row, left: a.col, bottom: a.row, right: a.col })) return
+    if (!a || !call || extras.locked({ top: a.row, left: a.col, bottom: a.row, right: a.col }, false)) return
     const sheet = s.sheetName.value
     const cell = cellAddress(a.row, a.col)
     await extras.change(() => call(sheet, cell, null), sheet, [cell])

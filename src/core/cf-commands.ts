@@ -45,6 +45,8 @@ export interface ConditionalDeps {
   notify: (text: string) => void
   /** How the workbook's formula text is parsed (its locale); null while the locale loads. */
   scan: () => ScanOptions | null
+  /** A protected sheet without Format cells, where Excel disables Conditional Formatting. */
+  blocked: () => boolean
 }
 
 export function useConditional(s: SheetState, sel: Selection, w: Windows, ed: Editing, deps: ConditionalDeps) {
@@ -64,7 +66,7 @@ export function useConditional(s: SheetState, sel: Selection, w: Windows, ed: Ed
   function methods() {
     const read = s.sourceMethod('rules')
     const write = s.sourceMethod('setRules')
-    return s.editable.value && read && write && s.sheet.value && sel.fullRect.value && s.selected.value ? { read, write } : null
+    return s.editable.value && !deps.blocked() && read && write && s.sheet.value && sel.fullRect.value && s.selected.value ? { read, write } : null
   }
   const available = () => methods() !== null
 

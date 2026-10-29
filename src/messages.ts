@@ -2,6 +2,7 @@
 import { computed, type ComputedRef } from 'vue'
 import type { SheetMessages } from './contract/messages'
 import { enConditional, ruConditional } from './messages-conditional'
+import { enProtection, ruProtection } from './messages-protection'
 
 /** `n` and its English noun, singular for one. */
 const countEn = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -492,6 +493,7 @@ export const enMessages: SheetMessages = {
   dvInvalid: (box) => `The ${box} you entered is not valid.`,
   dvOrder: (min, max) => `The ${max} must be greater than or equal to the ${min}.`,
   ...enConditional,
+  ...enProtection,
 }
 
 /** Russian plural: one, few, many. */
@@ -1002,6 +1004,7 @@ export const ruMessages: SheetMessages = {
   dvInvalid: (box) => `Значение в поле «${box}» недопустимо.`,
   dvOrder: (min, max) => `Значение в поле «${max}» должно быть больше или равно значению в поле «${min}».`,
   ...ruConditional,
+  ...ruProtection,
 }
 
 /** A component's texts: the English set overridden by the part a host passed. */

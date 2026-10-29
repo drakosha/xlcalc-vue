@@ -169,3 +169,17 @@ describe('the limits OK checks', () => {
     expect([d.horizontal, d.indent]).toEqual(['center', '0'])
   })
 })
+
+describe('the Protection tab', () => {
+  it("starts from the cell's Locked and Hidden, locked and not hidden by default", () => {
+    expect([startOf(at('B2')).draft.locked, startOf(at('B2')).draft.hidden]).toEqual([true, false])
+    const own = startOf(at('B2', { style: { protection: { locked: false, hidden: true } } })).draft
+    expect([own.locked, own.hidden]).toEqual([false, true])
+  })
+
+  it('unlocks and hides as a style patch, and back to the defaults by removing the fields', () => {
+    expect(ok(at('B2:C3'), (d) => ((d.locked = false), (d.hidden = true)))).toEqual([{ style: { protection: { locked: false, hidden: true } } }])
+    expect(ok(at('B2', { style: { protection: { locked: false, hidden: true } } }), (d) => ((d.locked = true), (d.hidden = false)))).toEqual([{ style: { protection: { locked: null, hidden: null } } }])
+    expect(ok(at('B2'), () => {})).toEqual([])
+  })
+})
