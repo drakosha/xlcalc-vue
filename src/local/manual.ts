@@ -3,6 +3,7 @@
 // Sheet, and the workbook keeps the option.
 import type { AsyncSession, BookInput, CellChange, CellValue } from 'xlcalc'
 import { nameKey, parseCell } from 'xlcalc/a1'
+import { cellKey } from './outcome'
 import type { CalculationMode, CellUpdate, SheetCalculation, SheetWindow } from '../contract/source'
 
 /** A cell's display as the sheet shows it. */
@@ -15,13 +16,18 @@ interface Shown {
 /** How many rectangles of formulas one `getCells` call reads while the values shown are captured. */
 const RECTS_PER_READ = 2000
 
+/** Whether two values are the same, an error by its code. */
+const sameValue = (a: CellValue, b: CellValue): boolean => a === b || (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null && a.error === b.error)
+
 const shownOf = (c: { text?: string; value: CellValue; color?: string } | undefined): Shown => ({ text: c?.text ?? '', value: c ? c.value : null, ...(c?.color ? { color: c.color } : {}) })
 
 /**
  * The values shown in Manual. `known` is captured from the session before the first change in Manual: every formula's
- * cell and the cells its array fills, as the sheet shows them; edited cells update it. A change of such a cell's value
- * that is not its own edit (a recalculation) is held: the sheet keeps the known value until a calculation shows the
- * session's. A cell outside `known` (a constant, an empty cell an array spills into anew) shows its change.
+ * cell and the cells its array fills, as the sheet shows them; the cells that changes show update it, a formula entered
+ * joining it and a cell left without one leaving it. A change of such a cell's value that is not its own edit (a
+ * recalculation) is held: the sheet keeps the known value until a calculation shows the session's. A change of how such a
+ * cell looks with its value as known (a number format, a column too narrow, a note) shows. A cell outside `known` (a
+ * constant, an empty cell an array spills into anew) shows its change.
  */
 export function manualCalculation(input: BookInput, emit: (calculation: SheetCalculation) => void) {
   let mode: CalculationMode = input.calculation ?? 'automatic'
@@ -71,22 +77,33 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     if (!manual() || !known || 'formula' in ch) return false
     const sk = nameKey(ch.sheet)
     const was = known.get(sk)?.get(ch.cell)
-    if (!was) return false
+    if (!was || sameValue(was.value, ch.value)) return false
     let mine = held.get(sk)
     if (!mine) held.set(sk, (mine = new Map()))
     if (!mine.has(ch.cell)) mine.set(ch.cell, { sheet: ch.sheet, shown: was })
     return true
   }
-  /** Cells the change wrote or showed: what the sheet shows of them now is known and no longer waits. */
-  function showing(updates: Iterable<CellUpdate>): void {
+  /**
+   * Cells the change wrote or showed, with the session's `changes` that listed them: they no longer wait, and what the
+   * sheet shows of a formula's cell is known. An edited cell's formula, or a change's, tells whether the cell has one;
+   * a cell an array fills is known; a cell with neither keeps what it was.
+   */
+  function showing(updates: Iterable<CellUpdate>, changes: CellChange[] = []): void {
     if (!known) return
+    const listed = new Map(changes.map((c) => [cellKey(c.sheet, c.cell), c]))
     for (const u of updates) {
       const sk = nameKey(u.sheet)
-      let cells = known.get(sk)
-      if (!cells) known.set(sk, (cells = new Map()))
-      cells.set(u.cell, shownOf(u))
       const mine = held.get(sk)
       if (mine?.delete(u.cell) && !mine.size) held.delete(sk)
+      const ch = listed.get(cellKey(u.sheet, u.cell))
+      let cells = known.get(sk)
+      const formula = u.formula !== undefined ? u.formula !== null : ch && 'formula' in ch ? ch.formula !== null : ch?.spillOf !== undefined || cells?.has(u.cell)
+      if (!formula) {
+        cells?.delete(u.cell)
+        continue
+      }
+      if (!cells) known.set(sk, (cells = new Map()))
+      cells.set(u.cell, shownOf(u))
     }
   }
   /** Rows and columns moved (a structure operation or its undo): the values known by address no longer hold, so the sheet shows the session's. */

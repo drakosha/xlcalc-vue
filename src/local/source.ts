@@ -171,7 +171,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       if (!out.has(key) && !calcMode.hold(ch)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
     }
     const list = [...out.values()]
-    calcMode.showing(list)
+    calcMode.showing(list, changes)
     calcMode.report()
     const bySheet = new Map<Promise<SheetValues>, CellUpdate[]>()
     for (const u of list) {

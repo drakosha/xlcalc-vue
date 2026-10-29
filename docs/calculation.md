@@ -8,6 +8,7 @@ In Manual, as Excel for Mac 16.114 behaved when measured:
 
 - An edit shows the edited cell and leaves the formulas that depend on it with their values: after typing 5 into `A1`, `=A1*2` in `B1` still shows 2. The status bar shows Calculate.
 - A formula entered in Manual shows its value at once (`=A1*10` shows 50).
+- A change of how a cell looks, such as a number format, a narrower column or Clear Formats, shows at once with the cell's value as of the last calculation, and nothing starts waiting.
 - Undo and redo restore the edited cells and leave the dependents too.
 - Calculate Now (F9, or a click on Calculate) shows the values of every waiting cell; Calculate Sheet (Shift+F9) those of the active sheet only, so the status bar keeps Calculate while another sheet waits.
 - Switching to Automatic calculates what waits.
@@ -40,6 +41,7 @@ await source.setCalculation('automatic')
 ## Differences from Excel
 
 - A formula entered or pasted in Manual shows the value calculated from its precedents' current values; Excel calculates it from the values they show, so `=B1` over a waiting `B1` shows the old value there.
+- A cell that waits keeps the text it showed when its number format or its column's width changes, until a calculation; Excel draws the old value in the new format (not measured).
 - Calculate Sheet shows the session's values of the sheet's cells, calculated from every sheet; Excel calculates the sheet over the values the other sheets show.
 - A structure operation in Manual (inserting or deleting rows, columns and sheets, moving a range, a table command), and its undo, shows the calculated values of every cell: the values waiting are held by address, which the operation moves. Excel keeps the old values until F9.
 - The display filter's lists, Find in values, the selection's totals and Copy read the calculated values, where Excel reads the values shown.

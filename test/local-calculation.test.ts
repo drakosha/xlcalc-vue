@@ -134,6 +134,27 @@ describe('localSource: calculation options', () => {
     expect((await win(s, 'S', 2, 1, 1, 2)).values[0]).toEqual([null, null])
   })
 
+  it('in Manual a change of how a formula cell looks shows at once and makes nothing wait: a number format, a narrow column, Clear Formats, a note', async () => {
+    const s = source({ calculation: 'manual', sheets: [{ name: 'S', cells: { A1: { value: 0.5 }, B1: { formula: 'A1*2', numberFormat: '0.00%' }, C1: { formula: 'A1*1E+11' } } }] })
+    const text = async () => (await win(s, 'S', 1, 1, 1, 3)).text[0]
+    expect(await text()).toEqual(['0.5', '100.00%', '5E+10'])
+    await s.format('S', [{ range: 'C1', numberFormat: '0.0' }])
+    expect((await text())?.[2]).toBe('50000000000.0')
+    await s.layout({ sheet: 'S', columns: 'C', width: 2 })
+    expect((await text())?.[2]).toMatch(/^#+$/)
+    await s.clear('S', ['B1'], 'formats')
+    expect((await text())?.[1]).toBe('1')
+    await s.note('S', 'B1', { text: 'check' })
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: false })
+  })
+
+  it('in Manual a constant cleared by Clear Contents shows empty, after an edit made it known', async () => {
+    const s = source(twoSheets('manual'))
+    await s.edit([{ sheet: 'One', cell: 'A1', text: '5' }])
+    await s.clear('One', ['A1'], 'contents')
+    expect(await row1(s, 'One')).toEqual([null, 2, 3])
+  })
+
   it('a structure operation in Manual shows the calculated values, the cells having moved', async () => {
     const s = source(twoSheets('manual'))
     await s.edit([{ sheet: 'One', cell: 'A1', text: '5' }])
