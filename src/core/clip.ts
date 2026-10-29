@@ -10,8 +10,10 @@ import type { CellRect, PasteKind, PasteOperation } from 'xlcalc/contract'
 import { formatClipboard } from 'xlcalc/text'
 import type { SheetOp } from '../contract/source'
 import type { Commands } from './commands'
+import type { ProtectionAllowance } from '../protection'
 import type { Editing, EditorState } from './editing'
 import { onMac } from './keys'
+import type { Protection } from './protection'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 import { listOf, type Totals } from './totals'
@@ -33,7 +35,12 @@ export interface ClipDeps {
   editor: Ref<EditorState | null>
   /** Whether a column is visible: Excel omits hidden ones from a copy. */
   colShown: (col: number) => boolean
+  /** The sheet's protection, which gates some of Paste Special's kinds by its boxes rather than by the cells. */
+  protection: Pick<Protection, 'protection' | 'can' | 'alert'>
 }
+
+/** Paste Special's kinds a protected sheet allows by a box over locked cells too, as `./local` checks them; Validation it never allows. */
+const PASTE_BOXES: Partial<Record<PasteKind, ProtectionAllowance | null>> = { notes: 'objects', columnWidths: 'formatColumns', validation: null }
 
 /** What Paste Special's OK pastes: a kind of `copyRange`'s `paste`, Transpose, an operation and Skip Blanks. */
 export interface PasteHow {
@@ -224,7 +231,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     const wd = (turned ? m.rect.bottom - m.rect.top : m.rect.right - m.rect.left) + 1
     const tiles = !m.cut && !turned && (a.bottom - a.top + 1) % h === 0 && (a.right - a.left + 1) % wd === 0
     const target: CellRect = tiles ? a : { top: a.top, left: a.left, bottom: a.top + h - 1, right: a.left + wd - 1 }
-    if (ed.blocked(target) || (m.cut && m.sheet === sheet && ed.blocked(m.rect))) return
+    if (pasteBlocked(target, how?.paste) || (m.cut && m.sheet === sheet && ed.blocked(m.rect))) return
     const from = { sheet: m.sheet, range: rangeAddress(m.rect) }
     const corner = cellAddress(a.top, a.left)
     const to = { sheet, range: tiles ? rangeAddress(a) : corner }
@@ -235,6 +242,19 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     if (!out?.ok) return
     if (m.cut && mark.value === m) clear()
     if (sheet === s.sheetName.value && s.selected.value === before.selected && s.extent.value === before.extent) sel.selectRect(target)
+  }
+  /** A paste the sheet refuses before sending: a locked range's reason, or a protected sheet's alert by the cells or by the kind's box. */
+  function pasteBlocked(target: CellRect, kind: PasteKind | undefined): boolean {
+    const box = kind === undefined ? undefined : PASTE_BOXES[kind]
+    if (box === undefined) return ed.blocked(target)
+    const lock = ed.lockIn(target)
+    if (lock !== null) {
+      deps.notify(s.messages.value.locked(lock))
+      return true
+    }
+    if (!deps.protection.protection.value || (box !== null && deps.protection.can(box))) return false
+    deps.protection.alert()
+    return true
   }
   function onPaste(e: ClipboardEvent): void {
     if (e.target !== s.scroller.value || !s.editable.value) return

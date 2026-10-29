@@ -102,7 +102,7 @@ export function useNotes(s: SheetState, w: Windows, extras: Extras, deps: NotesD
     const a = s.selected.value
     const call = extras.method('note')
     const note = activeNote()
-    if (!a || !call || !note || extras.locked({ top: a.row, left: a.col, bottom: a.row, right: a.col })) return
+    if (!a || !call || !note || extras.locked({ top: a.row, left: a.col, bottom: a.row, right: a.col }, false)) return
     const sheet = s.sheetName.value
     const cell = cellAddress(a.row, a.col)
     const { shown: was, ...rest } = note

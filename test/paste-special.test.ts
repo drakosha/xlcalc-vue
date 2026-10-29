@@ -180,6 +180,41 @@ describe('Paste Special', () => {
   })
 })
 
+describe('Paste Special on a protected sheet', () => {
+  /** A1 locked, B1 unlocked with a note and its own width; protected with `protection`. */
+  async function form(protection: Record<string, boolean>) {
+    const s = localSource({ locale: 'en-US', styles: [{}, { protection: { locked: false } }], sheets: [{ name: 'S', cells: { A1: { value: 'a' }, B1: { value: 'b', style: 1, note: { text: 'n' } } }, columns: { B: { width: 30 } }, protection }] } as never, { calc: 'inline' })
+    open.push(s)
+    const w = await mountLocal(s)
+    await goTo(w, 'B1')
+    clipboard(w, 'copy')
+    await settle()
+    await goTo(w, 'A1')
+    return { s, w }
+  }
+  const alert = () => document.querySelector('[data-xs-alert="notice"] [data-xs-alert-message]')?.textContent ?? null
+  it('pastes notes with Edit objects and column widths with Format columns over a locked cell, as the source allows them', async () => {
+    const { s, w } = await form({ objects: true, formatColumns: true })
+    await pasteSpecial(w, 'notes')
+    await pasteSpecial(w, 'columnWidths')
+    expect(alert()).toBeNull()
+    const book = await s.book()
+    expect(book.sheets[0]!.cells.A1!.note).toMatchObject({ text: 'n' })
+    expect(book.sheets[0]!.columns?.A?.width).toBe(30)
+  })
+  it("refuses them with Excel's alert before sending without their boxes, and Validation always", async () => {
+    for (const kind of ['notes', 'columnWidths', 'validation']) {
+      const { s, w } = await form({ objects: kind !== 'notes', formatColumns: kind !== 'columnWidths' })
+      const structure = vi.spyOn(s, 'structure')
+      await pasteSpecial(w, kind)
+      expect([kind, alert()?.startsWith('The cell or chart'), structure.mock.calls.length]).toEqual([kind, true, 0])
+      document.querySelector<HTMLButtonElement>('[data-xs-alert-button="ok"]')!.click()
+      await settle()
+      w.unmount()
+    }
+  })
+})
+
 describe('Format Painter', () => {
   const press = async (w: VueWrapper, cell: string) => {
     await goTo(w, cell)

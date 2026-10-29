@@ -168,7 +168,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     },
     blocks: protection.blocks,
   })
-  const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
+  const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0, protection })
   const painter = usePainter(s, sel, v, ed, cmd, { formats: () => protection.can('formatCells') })
   const fill = useFill(s, geo, v, sel, ed, cmd, { editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
