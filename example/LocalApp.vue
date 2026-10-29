@@ -5,7 +5,7 @@
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
 import { SheetView, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import { groupIssues, localSource, openXlsx, saveXlsx, type IssueGroup, type LocalSource } from '../src/local'
-import type { CellEntry, EditOptions } from '../src/contract/source'
+import type { CalculationMode, CellEntry, EditOptions } from '../src/contract/source'
 import { localBook } from './local-book'
 
 const params = new URLSearchParams(location.search)
@@ -99,6 +99,13 @@ const ms = (n: number) => `${Math.round(n)} мс`
       <label class="file">Открыть xlsx <input type="file" accept=".xlsx" data-open @change="openFile" /></label>
       <button type="button" @click="save">Сохранить xlsx</button>
       <button type="button" data-validation @click="sheet?.dataValidation()">Проверка данных…</button>
+      <!-- Excel's Formulas > Calculation Options and Calculate Now, through the sheet -->
+      <select data-calc-mode :value="state?.calculation ?? 'automatic'" @change="sheet?.setCalculation(($event.target as HTMLSelectElement).value as CalculationMode)">
+        <option value="automatic">Автоматически</option>
+        <option value="autoNoTable">Автоматически, кроме таблиц данных</option>
+        <option value="manual">Вручную</option>
+      </select>
+      <button type="button" data-calc-now @click="sheet?.calculate()">Пересчет</button>
       <span class="state" data-file>{{ fileName }}</span>
       <span class="state">{{ state ? `${state.sheet}!${state.ref}${state.formula ? ' =' + state.formula : ''}` : '' }}</span>
     </header>
