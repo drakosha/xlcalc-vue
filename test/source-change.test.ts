@@ -5,7 +5,8 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 import { memorySource, SheetView, type MemoryBook, type SheetViewApi } from '../src'
 import type { EditOutcome, SheetInfo, SheetOp, SheetSource, SheetWindow, WindowRequest } from '../src/contract/source'
-import { cellText, editorKey, fakeSource, goTo, gridWindow, key, mountSheet, settle } from './helpers'
+import { localSource } from '../src/local'
+import { cellText, editorKey, fakeSource, goTo, gridWindow, key, mountSheet, settle, until } from './helpers'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -242,4 +243,27 @@ it("a structure operation of the replaced source answered late does not move the
   await inserted
   await settle()
   expect(w.find('.xs-tab-on').text()).toBe('S')
+})
+
+it('a new source closes Protect Sheet, Create Names and Go To Special opened over the old one', async () => {
+  const book = () => localSource({ sheets: [{ name: 'S', cells: { A1: { value: 'x' }, B1: { value: 'y' }, A2: { value: 1 }, B2: { value: 2 } } }] } as never, { calc: 'inline' })
+  const old = book()
+  const next = book()
+  const w = await mounted(old)
+  await until(() => cellText(w, 1, 1) === 'x')
+  const dialogs = ['[data-xs-protect-dialog]', '[data-xs-create-names]', '[data-xs-special]']
+  const openOne = [() => api(w).protectSheet(), () => api(w).createNames(), () => api(w).goToSpecial()]
+  let other = next
+  for (let i = 0; i < dialogs.length; i++) {
+    await goTo(w, 'A1:B2')
+    expect(openOne[i]!()).toBe(true)
+    await settle(8)
+    expect(document.querySelector(dialogs[i]!)).not.toBeNull()
+    await w.setProps({ source: other })
+    other = other === next ? old : next
+    await until(() => cellText(w, 1, 1) === 'x')
+    await settle(8)
+    expect([dialogs[i], document.querySelector(dialogs[i]!)]).toEqual([dialogs[i], null])
+  }
+  await Promise.all([old.close(), next.close()])
 })

@@ -156,3 +156,17 @@ describe('Create from Selection', () => {
     expect(api(ro).createNames()).toBe(false)
   })
 })
+
+describe('Create from Selection and a sheet switch', () => {
+  it('does not open once the sheet has changed while the boxes were read', async () => {
+    const s = localSource({ sheets: [{ name: 'A', cells: { A1: v('x'), B1: v('y'), A2: v(1), B2: v(2) } }, { name: 'B', cells: { A1: v('z') } }] } as never, { calc: 'inline' })
+    open.push(s)
+    const w = await mounted(s)
+    await goTo(w, 'A1:B2')
+    expect(api(w).createNames()).toBe(true)
+    await w.findAll('.xs-tab')[1]!.trigger('click')
+    await settle(12)
+    expect(w.find('.xs-tab-on').text()).toBe('B')
+    expect(dialog(w).exists()).toBe(false)
+  })
+})

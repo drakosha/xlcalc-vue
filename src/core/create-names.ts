@@ -56,7 +56,11 @@ export function useCreateNames(s: SheetState, sel: Selection, names: Names, deps
     if (!available.value || !s.sheet.value || !rect || deps.editing()) return false
     const sheet = s.sheetName.value
     const probe = { top: rect.top, left: rect.left, bottom: Math.min(rect.bottom, rect.top + 1), right: Math.min(rect.right, rect.left + 1) }
-    void readRange(s.source(), sheet, probe, read()).then((cells) => {
+    // A sheet switch (which aborts the read) or a new workbook while the cells are read: the dialog does not open.
+    const signal = read()
+    const outdated = s.outdated()
+    void readRange(s.source(), sheet, probe, signal).then((cells) => {
+      if (signal.aborted || outdated()) return
       const isText = (row: number, col: number) => {
         const v = cells?.get(cellAddress(row, col))?.value
         return typeof v === 'string' && v !== ''

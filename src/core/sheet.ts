@@ -660,6 +660,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       notes.draft.value = null
       rules.state.value = null
       cf.closeAll()
+      protection.draft.value = null
+      createNames.draft.value = null
+      special.open.value = false
       subscribe()
       void init()
     },
