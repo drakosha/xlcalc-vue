@@ -169,6 +169,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     activeStyle: () => activeLook.value?.style,
     frozen: () => v.bookFreeze.value,
     middlePanes: () => v.middlePanes(),
+    splitPanes: () => panes.freezeLines(),
     showFreeze: (sheet, on) => v.showFreeze(sheet, on),
     structured: (op) => {
       originalWidths.clear()

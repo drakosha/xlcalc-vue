@@ -1,6 +1,6 @@
 // Excel's split window drawn: two or four panes laid out as Excel draws them, each reading its own windows; panes in a row of
 // panes scroll up and down together and in a column of panes left and right together (measured in Excel for Mac); a press
-// makes its pane active, which takes the keys; the bars move and remove the lines.
+// makes its pane active, which takes the keys; the bars move and remove the lines; Freeze Panes freezes at the lines.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SheetViewApi } from '../src'
@@ -28,6 +28,7 @@ function book(split: SheetSplit | undefined, extra: Partial<SheetInfo> = {}) {
     sheets[0] = panes ? { ...rest, split: panes } : rest
     return { ok: true, changes: [] }
   })
+  f.source.freeze = vi.fn(async (): Promise<EditOutcome> => ({ ok: true, changes: [] }))
   f.source.structure = vi.fn(async (): Promise<EditOutcome> => ({ ok: true, changes: [] }))
   return f
 }
@@ -219,6 +220,15 @@ describe('a split window on the sheet', () => {
     await settle()
     const single = w.find('.xs-scroller').element as HTMLElement
     expect([single.scrollTop, single.scrollLeft]).toEqual([400, 120])
+  })
+
+  it('freezes at the lines with Freeze Panes, as Excel does, whatever the active cell', async () => {
+    const f = book({ ...lines(4, 2), topLeft: 'C5' })
+    const w = await mountSheet(f.source)
+    await pane(w, 0).find('[data-cell="2:1"]').trigger('pointerdown', { button: 0, pointerType: 'mouse' })
+    await settle()
+    await api(w).freezePanes()
+    expect(f.source.freeze).toHaveBeenLastCalledWith('S', { rows: 4, cols: 2 })
   })
 
   it('keeps the panes that are not active on their top row when the heights of rows above them arrive', async () => {

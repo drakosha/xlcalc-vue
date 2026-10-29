@@ -315,6 +315,19 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     return px <= head + 1 || px >= size - SPLIT_BAR_PX - bar - 2
   }
 
+  /**
+   * Freeze Panes on a split window freezes at its lines, as in Excel: the rows above the horizontal line and the columns to
+   * the left of the vertical one, counted from the sheet's first; null without a split.
+   */
+  function freezeLines(): { rows: number; cols: number } | null {
+    const lay = layout.value
+    if (!lay) return null
+    const z = s.zoom.value
+    return {
+      rows: lay.y === null ? 0 : nearestEdge(geo.rowOffsets.value, topOf(0) + lay.y / z - v.headH.value, geo.rowAt),
+      cols: lay.x === null ? 0 : nearestEdge(geo.offsets.value, leftOf(0) + lay.x / z - v.leadW.value, geo.colAt),
+    }
+  }
   /** Before row heights change: the row at the top of the rows of panes that are not active, to keep them steady afterwards. */
   function hold(): (() => void) | null {
     const lay = layout.value
@@ -330,7 +343,7 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     }
   }
 
-  return { split, drag, box, scrollbars, layout, on, active, viewports, needs, topOf, leftOf, setEl, onScroll, activate, enter, snap, offEdge, hold }
+  return { split, drag, box, scrollbars, layout, on, active, viewports, needs, topOf, leftOf, setEl, onScroll, activate, enter, snap, offEdge, freezeLines, hold }
 }
 
 export type Panes = ReturnType<typeof usePanes>
