@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The bottom bar, as in Excel: sheet tabs (scrolling horizontally on a phone), the filter's status with Reapply and Clear, the selection's totals and the zoom.
+// The bottom bar, as in Excel: sheet tabs (scrolling horizontally on a phone), the filter's status with Reapply and Clear, Calculate in Manual, the selection's totals and the zoom.
 import { computed } from 'vue'
 import { useSheetContext } from './context'
 import { refInto } from './dom'
@@ -28,7 +28,7 @@ const zoomBar = computed(() => !!ctx.sheet.value && !ctx.v.touch.value)
 </script>
 
 <template>
-  <div v-if="ctx.showTabs.value || ctx.totals.statsText.value || ctx.filter.status.value || zoomBar" class="xs-bottom">
+  <div v-if="ctx.showTabs.value || ctx.totals.statsText.value || ctx.filter.status.value || ctx.calc.pending.value || zoomBar" class="xs-bottom">
     <div v-if="ctx.showTabs.value" class="xs-tabs" role="tablist">
       <template v-for="{ sheet, i } in ctx.tabs.value" :key="sheet.name + i">
         <input
@@ -75,6 +75,10 @@ const zoomBar = computed(() => !!ctx.sheet.value && !ctx.v.touch.value)
         <IconFilterOff />
       </button>
     </span>
+    <!-- Excel's Calculate in Manual while cells wait: a click calculates the workbook, as F9 does -->
+    <button v-if="ctx.calc.pending.value" type="button" class="xs-calc-status" :disabled="!ctx.calc.canCalculate.value" :title="m.calculateHint" data-xs-calculate @click="ctx.calc.calculate()">
+      {{ m.calculateStatus }}
+    </button>
     <span v-if="ctx.totals.statsText.value" class="xs-stats" :title="ctx.totals.statsText.value">{{ ctx.totals.statsText.value }}</span>
     <ZoomBar v-if="zoomBar" />
   </div>

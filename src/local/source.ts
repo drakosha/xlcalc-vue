@@ -3,7 +3,8 @@
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
 import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
-import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../contract/source'
+import type { TableOp } from '../contract/workbook'
+import type { CalculationMode, CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../contract/source'
 import { boxesUnder, findHits, replaceAll } from './find'
 import { loadLocale, tipLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
@@ -15,6 +16,7 @@ import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import { columnList, filterActive, filterColumns, visibleList } from '../sheet-query'
 import { SheetValues } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
+import { manualCalculation } from './manual'
 import { validationOf } from './validation'
 import { windowOf } from './window'
 import { workbookMethods } from './workbook'
@@ -112,6 +114,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   function emit(event: SourceEvent): void {
     for (const l of listeners) l(event)
   }
+  /** Excel's calculation option, which the session records and does not apply: in Manual the values shown wait for a calculation. */
+  const calcMode = manualCalculation(input, (calculation) => emit({ kind: 'calculation', calculation }))
 
   /** The workbook changed in many places: cached values are dropped and subscribers read the sheets and windows again. */
   function reload(): void {
@@ -137,9 +141,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const out = new Map(edited)
     for (const ch of changes) {
       const key = cellKey(ch.sheet, ch.cell)
-      if (!out.has(key)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
+      if (!out.has(key) && !calcMode.hold(ch)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
     }
     const list = [...out.values()]
+    calcMode.showing(list)
+    calcMode.report()
     const bySheet = new Map<Promise<SheetValues>, CellUpdate[]>()
     for (const u of list) {
       const kept = values.get(nameKey(u.sheet))
@@ -239,6 +245,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return serial(async (...args: A) => {
       const s = await open()
       try {
+        await calcMode.capture(s)
         return await run(s, ...args)
       } catch (e) {
         return failure(e)
@@ -316,17 +323,39 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     if (!got) return { ok: true, changes: [] }
     // The step's changes keep the cached values current and the filters' row lists stay as the component holds them; a step that needs more reloads, which drops both.
     // TODO(xlcalc): undoing a structure step does not list the cells it empties (a copy onto empty cells), so the sheet is read again, as after the operation.
-    if (got.call === 'editStructure') return reloaded(got.changes)
+    if (got.call === 'editStructure') {
+      calcMode.forget()
+      return reloaded(got.changes)
+    }
     const boxes = boxesOf(got.cells ?? [])
     const out = await settle(s, got, boxes)
     const first = boxes[0]
     return first ? { ...out, select: { sheet: first.sheet, range: rangeAddress(first.rect) } } : out
   }
 
-  async function structure(s: AsyncSession, op: SheetOp): Promise<EditOutcome> {
+  /** A structure operation; one that moves cells (`moves`) leaves the values held in Manual at addresses that no longer hold, so the sheet shows the session's. */
+  async function structure(s: AsyncSession, op: SheetOp, moves = false): Promise<EditOutcome> {
     const got = await s.editStructure(op)
-    return got.ok ? reloaded(got.changes) : { ok: false, reason: 'refused', code: got.code, message: got.message }
+    if (!got.ok) return { ok: false, reason: 'refused', code: got.code, message: got.message }
+    if (moves) calcMode.forget()
+    return reloaded(got.changes)
   }
+
+  /** Calculate Now, or Calculate Sheet: the values held in Manual shown, as an edit's changes are. */
+  async function calculate(s: AsyncSession, sheet?: string): Promise<EditOutcome> {
+    const changes = await calcMode.calculate(s, sheet)
+    if (changes.length) emit({ kind: 'changed', changes })
+    calcMode.report()
+    return { ok: true, changes }
+  }
+  async function setCalculation(s: AsyncSession, mode: CalculationMode): Promise<EditOutcome> {
+    const changes = await calcMode.setMode(s, mode)
+    if (changes.length) emit({ kind: 'changed', changes })
+    calcMode.report()
+    return { ok: true, changes }
+  }
+  /** A change of what the sheet shows that is no change of the workbook: after the pending changes, outside undo. */
+  const showing = <A extends unknown[]>(run: (s: AsyncSession, ...args: A) => Promise<EditOutcome>) => serial(async (...args: A) => run(await open(), ...args).catch(failedBy))
 
   async function setLayout(s: AsyncSession, change: LayoutChange): Promise<EditOutcome> {
     const shown = (size: number | undefined) => (change.hidden !== undefined ? { hidden: change.hidden ? true : null } : size !== undefined && size > 0 ? { hidden: null } : {})
@@ -444,7 +473,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const range = `${cellAddress(top, req.col)}:${cellAddress(asked[asked.length - 1] ?? top, req.col + Math.max(1, cols) - 1)}`
       const v = await s.getViewport(req.sheet, range, { formulaLocal: true, editText: true, maxCells, ...(filtered || !rows.length ? { rows: asked } : {}) })
       throwIfAborted(signal)
-      return windowOf(v, { row: req.row, rows, col: req.col, cols, filtered, notice: opts.notice })
+      return calcMode.overlay(req.sheet, windowOf(v, { row: req.row, rows, col: req.col, cols, filtered, notice: opts.notice }), rows)
     },
     edit: mutation(edit, refusedBy),
     paste: mutation(paste, refusedBy),
@@ -452,7 +481,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     pick: mutation(pick, refusedBy),
     undo: mutation((s) => step(s, 'undo'), failedBy),
     redo: mutation((s) => step(s, 'redo'), failedBy),
-    structure: mutation(structure, failedBy),
+    structure: mutation((s, op: SheetOp) => structure(s, op, true), failedBy),
     layout: mutation(setLayout, failedBy),
     format: mutation(format, refusedBy),
     replace: mutation(replace, (e): ReplaceOutcome => ({ ...refusedBy(e), replaced: 0 })),
@@ -466,7 +495,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     dependents: reading(book.dependents),
     rules: reading(book.rules),
     setRules: mutation(book.setRules, refusedBy),
-    table: mutation(book.table, failedBy),
+    // a table command is a structure operation of the session, whose changes do not tell a cleared formula: Manual's held values go
+    table: mutation(async (s, op: TableOp) => {
+      const out = await book.table(s, op)
+      if (out.ok) calcMode.forget()
+      return out
+    }, failedBy),
     ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
     /**
      * Excel's AutoSum as the session guesses it (xlcalc 0.59), its formula in the workbook's locale; null with an older library.
@@ -568,11 +602,19 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       return columnList(await columnsOf(s, sheet, [col, ...Object.keys(filter.cols ?? {}).map(Number)], signal), col, filter, locale)
     },
     async book() {
-      return (await open()).getBook()
+      return calcMode.book(await (await open()).getBook())
     },
     async snapshot() {
-      return (await open()).getSnapshot()
+      const snap = await (await open()).getSnapshot()
+      return { ...snap, book: calcMode.book(snap.book) }
     },
+    async calculation(signal) {
+      await ready
+      throwIfAborted(signal)
+      return calcMode.state()
+    },
+    calculate: showing(calculate),
+    setCalculation: showing(setCalculation),
     async close() {
       await ready.catch(() => {})
       await session?.close()

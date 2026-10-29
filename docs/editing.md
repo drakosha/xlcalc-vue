@@ -12,6 +12,7 @@ Editing uses Excel's keys:
 - F5 and Ctrl+G (Control+G on a Mac as well) open Excel's Go To dialog ([go-to-and-symbol.md](go-to-and-symbol.md));
 - Ctrl+F3 opens the Name Manager, and Ctrl+L on a Mac Define Name, with a source that has defined names ([names.md](names.md));
 - F7 opens Spelling when the source has `spelling` ([Spelling](#spelling)), and Ctrl+T or Ctrl+L (Control+T on a Mac) opens Create Table when it has `table` ([tables.md](tables.md));
+- F9 calculates the workbook and Shift+F9 the active sheet when the source has `calculate`, as Excel's Calculate Now and Calculate Sheet ([calculation.md](calculation.md));
 - Ctrl+arrow goes where the source's `end(sheet, cell, direction)` points, as Excel's Range.End, and Shift+Ctrl+arrow extends the selection there. Without `end`, or under a display filter, it goes to the edge of the data known to the sheet.
 
 Without `edit` the sheet is read-only.
