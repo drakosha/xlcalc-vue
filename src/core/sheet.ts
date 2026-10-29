@@ -16,12 +16,14 @@ import { useFill } from './fill'
 import { useFormula } from './formula'
 import { useFormulaView } from './formula-view'
 import { useGoTo } from './goto'
+import { useSpecial } from './special'
 import { useLinks } from './links'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
 import { isShortcut, onMac, shortcutLetter } from './keys'
 import { useMenu } from './menu'
 import { useMerge } from './merge'
+import { useCreateNames } from './create-names'
 import { useNameDialogs } from './name-dialogs'
 import { useNames } from './names'
 import { useNavigation } from './navigation'
@@ -182,6 +184,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), protection })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask, blocked: () => protection.blocks('merge') })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
+  const special = useSpecial(s, sel, { ask: alerts.ask, notify })
   /** Excel's Symbol dialog: open over an editable sheet with an active cell; it inserts into the edit it keeps open. */
   const symbolOpen = ref(false)
   function openSymbol(): boolean {
@@ -209,6 +212,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     else s.focusGrid()
   }
   const nameDialogs = useNameDialogs(s, sel, names, { editing: () => editor.value !== null })
+  const createNames = useCreateNames(s, sel, names, { editing: () => editor.value !== null, ask: alerts.ask, notify })
   // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
   const trace = useTrace(s, v, w, notify)
   const tables = useTables(s, w, sel, cmd)
@@ -232,6 +236,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     explain: explain.show,
     merge: merge.run,
     goTo: goto.openGoTo,
+    goToSpecial: special.openSpecial,
     insertSymbol: openSymbol,
     fillDown: () => fill.fillFrom('down'),
     fillRight: () => fill.fillFrom('right'),
@@ -241,6 +246,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     showNotes: (on) => notes.showAll(on),
     defineName: nameDialogs.define,
     nameManager: nameDialogs.openManager,
+    createNames: createNames.open,
     setZoom: (z) => (z === 'selection' ? zoom.fitSelection() : zoom.apply(z)),
     watchWindow: (open) => watches.setOpen(open),
     traceDependents: trace.traceDependents,
@@ -531,6 +537,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       return
     }
     // Excel's Name Manager, Ctrl+F3 (on a Mac too), and Define Name, Ctrl+L in Excel for Mac (on Windows Ctrl+L is Create Table).
+    if (createNames.key(e)) return
     if (e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && e.key === 'F3' && nameDialogs.openManager()) {
       e.preventDefault()
       return
@@ -739,6 +746,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     protection,
     menu,
     goto,
+    special,
     symbolOpen,
     closeSymbol,
     painter,
@@ -748,6 +756,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     closeInsertFunction,
     names,
     nameDialogs,
+    createNames,
     zoomer: zoom,
     watches,
     cf,

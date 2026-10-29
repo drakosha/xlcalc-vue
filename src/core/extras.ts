@@ -36,14 +36,14 @@ export function useExtras(s: SheetState, sel: Selection, w: Windows, ed: Editing
   }
 
   /**
-   * The selection's areas as Excel writes them (`B2:D5`, `B:D`, `2:5`); under a display filter, the runs of its visible rows,
+   * The selection's areas as Excel writes them (`B2:D5`, `B:D`, `2:5`), each of several; under a display filter, the runs of its visible rows,
    * since Excel changes only the visible cells of a filtered range.
    */
   function areas(): string[] {
     const full = sel.fullRect.value
     const shown = sel.selRect.value
     if (!full || !shown) return []
-    if (!s.visible.value) return [sel.selectionRef.value]
+    if (!s.visible.value) return s.areas.value?.map(rangeAddress) ?? [sel.selectionRef.value]
     const out: string[] = []
     const run = (top: number, bottom: number) => out.push(rangeAddress({ top, bottom, left: full.left, right: full.right >= MAX_COLS ? MAX_COLS : full.right }))
     let start = 0
@@ -74,7 +74,7 @@ export function useExtras(s: SheetState, sel: Selection, w: Windows, ed: Editing
   /** Excel's Home > Clear > Clear Formats or Clear All over the selection, as a single undo step. */
   async function clear(what: ClearKind): Promise<EditOutcome | null> {
     const call = method('clear')
-    if (!call || !s.sheet.value || locked(sel.selRect.value)) return null
+    if (!call || !s.sheet.value || (s.areas.value ?? [sel.selRect.value]).some((r) => locked(r))) return null
     const ranges = areas()
     if (!ranges.length) return null
     const sheet = s.sheetName.value

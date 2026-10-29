@@ -98,6 +98,40 @@ fieldset.xs-dialog-choices {
   min-height: 26px;
   cursor: pointer;
 }
+/* A dialog of several groups of choices in columns (Paste Special, Go To Special): wider, its columns stacked on a phone. */
+.xs-dialog-wide {
+  width: min(460px, 100%);
+}
+.xs-dialog-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* The title and the buttons stay while the groups scroll in a short box (a phone's 44 px targets). */
+.xs-dialog-wide > :not(.xs-dialog-groups) {
+  flex-shrink: 0;
+}
+.xs-dialog-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+}
+.xs-dialog-cols > div {
+  display: flex;
+  flex: 1 1 180px;
+  flex-direction: column;
+  gap: 2px;
+}
+/* An option that belongs to the one above it (Go To Special's kinds of values, All and Same). */
+.xs-dialog-sub {
+  padding-left: 22px;
+}
+.xs-dialog-choice:has(input:disabled) {
+  color: var(--xs-muted);
+  cursor: default;
+}
 .xs-dialog-foot {
   display: flex;
   justify-content: flex-end;

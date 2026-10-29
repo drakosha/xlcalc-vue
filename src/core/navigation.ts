@@ -1,6 +1,6 @@
 // Jumps: the Name Box (addresses and defined names), the formula's references, hyperlinks and `focus`; the Back history, and the flash after a jump.
 import { computed, nextTick, onScopeDispose, ref, watch } from 'vue'
-import { MAX_COLS, MAX_ROWS, quoteSheetIfNeeded, rangeAddress } from 'xlcalc/a1'
+import { cellAddress, MAX_COLS, MAX_ROWS, quoteSheetIfNeeded, rangeAddress } from 'xlcalc/a1'
 import type { CellRect, GridReference } from 'xlcalc/contract'
 import type { SheetName } from '../contract/workbook'
 import type { Formula } from './formula'
@@ -116,8 +116,11 @@ export function useNavigation(s: SheetState, sel: Selection, f: Formula, deps: N
 
   // ── the Name Box ──
   const names = deps.names
-  /** What the Name Box shows: the name whose range is exactly the selection, as Excel's does, otherwise the selection's address. */
-  const boxText = computed(() => names.nameOf(sel.fullRect.value) ?? sel.selectionRef.value)
+  /** What the Name Box shows: the name whose range is exactly the selection, as Excel's does, otherwise the selection's address; the active cell for several areas. */
+  const boxText = computed(() => {
+    const a = s.selected.value
+    return s.areas.value && a ? cellAddress(a.row, a.col) : (names.nameOf(sel.fullRect.value) ?? sel.selectionRef.value)
+  })
   const addressDraft = ref('')
   const addressFocused = ref(false)
   watch(boxText, (v) => {

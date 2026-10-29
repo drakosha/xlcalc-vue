@@ -25,6 +25,12 @@ Ctrl+F3 (on a Mac too) and the sheet's `nameManager()` open Excel's Name Manager
 - Without `setNames`, or on a read-only sheet, it only lists the names.
 - It is not opened while a cell is being edited (`nameManager()` returns false), nor without the source's `names`.
 
+## Create from Selection
+
+Excel's Create from Selection (Formulas > Defined Names) opens the Create Names dialog for the selection with Ctrl+Shift+F3, Cmd+Shift+F3 on a Mac (as in Excel for Mac), and through the sheet's `createNames()` for a ribbon. Create names in: Top row, Left column, Bottom row, Right column. The dialog opens with the boxes Excel for Mac checked on 17 selections: Top row when the selection has two rows or more and the cell right of its top-left cell (the top-left cell itself in a single column) holds text, a formula's text included; Left column likewise by the cell below the top-left cell (the top-left cell itself in a single row); Bottom row and Right column never. So a table with a header row and a column of row labels opens with both, a header of years (numbers) with none, and a single cell with none. OK is off while no box is checked.
+
+OK closes the dialog and makes the names through the source's `namesFromSelection` (`./local`: xlcalc 0.66.0's `getNamesFromSelection`, which makes them as Excel does: `Q1` becomes `Q1_`, `2025 total` becomes `_2025_total`, a label without text makes none), workbook names referring absolutely to their cells (`P!$M$2:$M$3`). They go to `setNames` in one call with the workbook's other names, so a single undo removes them all. A name the workbook already has with another definition brings Excel's question, `Replace existing definition of 'Q1_'?`: Yes replaces it, No keeps the old one, Cancel stops there, and the names decided before it are made, as Excel makes them one by one. A name with the same definition is left as it is without a question, as Excel for Mac does. Labels with no cell past them (a single row with Top row checked) bring Excel's message, `This selection isn’t valid. Make sure the copy and paste areas don’t overlap unless they are the same size and shape.`, which is the one Excel for Mac shows there, and nothing is made. A refusal of `setNames` goes to the message line. `createNames()` returns false without `namesFromSelection`, `names` or `setNames`, on a read-only sheet or while a cell is being edited. Its texts are `createNamesTitle`, `createNamesIn`, `createNamesTop`, `createNamesLeft`, `createNamesBottom`, `createNamesRight`, `createNamesInvalid` and `createNamesReplace(name)`, with `ok`, `cancel`, `validationYes` and `validationNo`; the English and Russian ones are Excel for Mac's.
+
 ## Formula AutoComplete
 
 Formula AutoComplete lists the names visible on the active sheet together with the functions ([autocomplete.md](autocomplete.md)), as Excel lists defined names: the names that begin with the typed text, merged in among the functions in alphabetical order (a name spelt as a function follows it), each with a tag icon where a function has fx. Tab or a double click inserts a name without a parenthesis. Names are offered without the source's `functionNames` too.
@@ -35,7 +41,7 @@ The sheet reads the names once per source, when the workbook loads, and again af
 
 ## Sources
 
-`memorySource` keeps a workbook's `names` as text and checks a name as Excel checks one, without calculating it. `./local` returns its session's names with their formulas translated into the workbook's locale, and parses the formulas of `setNames` in it, refusing one that does not parse; the sheet is read again after a change, since a name changes the values of formulas anywhere.
+`memorySource` keeps a workbook's `names` as text and checks a name as Excel checks one, without calculating it; it has no `namesFromSelection`, whose names follow the engine's rules for labels. `./local` returns its session's names with their formulas translated into the workbook's locale, and parses the formulas of `setNames` in it, refusing one that does not parse; the sheet is read again after a change, since a name changes the values of formulas anywhere.
 
 ```vue
 <script setup lang="ts">

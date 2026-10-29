@@ -57,7 +57,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [The AutoFilter](docs/autofilter.md): Data > Filter, the buttons on the header row, the display filter over its rows.
 - [Hyperlinks, notes, Clear and the default font](docs/links-notes.md)
 - [Find and Replace](docs/find-replace.md)
-- [Go To and Symbol](docs/go-to-and-symbol.md)
+- [Go To, Go To Special and Symbol](docs/go-to-and-symbol.md)
 - [Data validation](docs/validation.md)
 - [Sheet and cell protection](docs/protection.md): Protect Sheet, Unprotect Sheet, locked and hidden cells, what `./local` refuses on a protected sheet.
 - [Conditional formatting](docs/conditional-formatting.md): Excel's quick rules, galleries, Clear Rules, New Rule and the Rules Manager as the sheet's methods.

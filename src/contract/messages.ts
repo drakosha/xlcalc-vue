@@ -68,7 +68,7 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
   menuCut: string
   menuCopy: string
   menuPaste: string
-  /** Excel's Paste Special: the cell menu's item, the dialog's title, its Paste group and choices, and Transpose. */
+  /** Excel's Paste Special: the cell menu's item, the dialog's title, its Paste group and choices, its Operation group, Skip Blanks and Transpose. */
   menuPasteSpecial: string
   pasteSpecialTitle: string
   pasteSpecialPaste: string
@@ -78,6 +78,19 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
   pasteSpecialFormats: string
   pasteSpecialValidation: string
   pasteSpecialTranspose: string
+  pasteSpecialNotes: string
+  pasteSpecialAllExceptBorders: string
+  pasteSpecialColumnWidths: string
+  pasteSpecialFormulasNumbers: string
+  pasteSpecialValuesNumbers: string
+  pasteSpecialMergeConditional: string
+  pasteSpecialOperation: string
+  pasteSpecialNone: string
+  pasteSpecialAdd: string
+  pasteSpecialSubtract: string
+  pasteSpecialMultiply: string
+  pasteSpecialDivide: string
+  pasteSpecialSkipBlanks: string
   /** Excel's Format Painter on the toolbar. */
   formatPainter: string
   pasteDenied: string
@@ -123,6 +136,8 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
   /** A paste whose range would extend past the sheet's last row or column. */
   pasteOffSheet: string
   tooManyCells: string
+  /** Excel's refusal of a copy, a cut or a paste over a selection of several areas (Go To Special's). */
+  multipleSelections: string
   pending: string
   close: string
   /** The formula bar's tooltip over a formula with references: Ctrl+click (Cmd on a Mac; the key is passed in) goes to a reference. */
@@ -311,6 +326,25 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
   goToList: string
   goToReference: string
   goToBad: string
+  /** Excel's Go To Special: the Go To dialog's Special… button, the dialog's title, its Select group and options, and Excel's message when it finds no cells. */
+  goToSpecial: string
+  specialTitle: string
+  specialSelect: string
+  specialConstants: string
+  specialFormulas: string
+  specialNumbers: string
+  specialText: string
+  specialLogicals: string
+  specialErrors: string
+  specialBlanks: string
+  specialRegion: string
+  specialLastCell: string
+  specialVisible: string
+  specialConditional: string
+  specialValidation: string
+  specialAll: string
+  specialSame: string
+  specialNone: string
   /** Excel's Symbol dialog: its title and tabs, the Subset box and its blocks, the recently used row, the Character code box, the Special Characters tab's names, Insert. */
   symbolTitle: string
   symbolTab: (tab: 'symbols' | 'special') => string
@@ -344,6 +378,15 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
   nameCommit: string
   nameDeleteAsk: (name: string) => string
   nameSaveAsk: string
+  /** Excel's Create Names from Selection: the dialog's title, its caption and boxes, Excel's message for labels alone, and its question before a name's other definition is replaced. */
+  createNamesTitle: string
+  createNamesIn: string
+  createNamesTop: string
+  createNamesLeft: string
+  createNamesBottom: string
+  createNamesRight: string
+  createNamesInvalid: string
+  createNamesReplace: (name: string) => string
   /** Excel's zoom on the status bar (Zoom Out, the slider, Zoom In, the percentage that opens the Zoom dialog), and the dialog's title, choices and limits. */
   zoomOut: string
   zoomIn: string

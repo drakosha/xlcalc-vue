@@ -52,6 +52,23 @@ export function currentRegion(at: CellPosition | CellRect, area: CellRect, fille
 }
 
 /**
+ * The active cell's current region read from the source: a block around the cell, read again four times wider while the
+ * region reaches its edge inside the data; the region and the cells read, or null when a window cannot be read.
+ */
+export async function readRegion(s: SheetState, at: CellPosition, signal: AbortSignal): Promise<{ rect: CellRect; cells: Map<string, ReadCell> } | null> {
+  const data = { bottom: Math.max(1, s.dataRows.value), right: Math.max(1, s.dataCols.value) }
+  for (let rows = REGION_ROWS, cols = REGION_COLS; ; rows *= 4, cols *= 4) {
+    const area = { top: Math.max(1, at.row - rows), left: Math.max(1, at.col - cols), bottom: Math.min(data.bottom, at.row + rows), right: Math.min(data.right, at.col + cols) }
+    if (area.top > area.bottom || area.left > area.right || at.row > data.bottom || at.col > data.right) return { rect: cellRect(at.row, at.col), cells: new Map() }
+    const cells = await readRange(s.source(), s.sheetName.value, area, signal)
+    if (!cells) return null
+    const rect = currentRegion(at, area, (row, col) => cells.has(cellAddress(row, col)))
+    const edge = (rect.top === area.top && area.top > 1) || (rect.left === area.left && area.left > 1) || (rect.bottom === area.bottom && area.bottom < data.bottom) || (rect.right === area.right && area.right < data.right)
+    if (!edge) return { rect, cells }
+  }
+}
+
+/**
  * Column names from the header cells' text, as Excel names them: an empty header `Column1` (the first number no other column
  * uses), a name another column to the left already has with the next free number (`Qty`, `Qty2`), compared case-insensitively.
  */
@@ -106,15 +123,7 @@ export function useTables(s: SheetState, w: Windows, sel: Selection, cmd: Comman
       const cells = await readRange(s.source(), sheet, { ...rect, bottom: Math.min(rect.bottom, rect.top + 1) }, signal)
       return cells && { rect, cells }
     }
-    for (let rows = REGION_ROWS, cols = REGION_COLS; ; rows *= 4, cols *= 4) {
-      const area = { top: Math.max(1, a.row - rows), left: Math.max(1, a.col - cols), bottom: Math.min(data.bottom, a.row + rows), right: Math.min(data.right, a.col + cols) }
-      if (area.top > area.bottom || area.left > area.right || a.row > data.bottom || a.col > data.right) return { rect: cellRect(a.row, a.col), cells: new Map() }
-      const cells = await readRange(s.source(), sheet, area, signal)
-      if (!cells) return null
-      const rect = currentRegion(a, area, (row, col) => cells.has(cellAddress(row, col)))
-      const edge = (rect.top === area.top && area.top > 1) || (rect.left === area.left && area.left > 1) || (rect.bottom === area.bottom && area.bottom < data.bottom) || (rect.right === area.right && area.right < data.right)
-      if (!edge) return { rect, cells }
-    }
+    return readRegion(s, a, signal)
   }
 
   /**

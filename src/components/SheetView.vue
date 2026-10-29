@@ -11,6 +11,7 @@ import FilterPopover from './FilterPopover.vue'
 import FindBar from './FindBar.vue'
 import FormatDialog from './FormatDialog.vue'
 import GoToDialog from './GoToDialog.vue'
+import GoToSpecialDialog from './GoToSpecialDialog.vue'
 import SymbolDialog from './SymbolDialog.vue'
 import InsertFunction from './InsertFunction.vue'
 import PasteSpecialDialog from './PasteSpecialDialog.vue'
@@ -22,6 +23,7 @@ import ZoomDialog from './ZoomDialog.vue'
 import ValidationDialog from './ValidationDialog.vue'
 import FormulaBar from './FormulaBar.vue'
 import NameDialogs from './NameDialogs.vue'
+import CreateNamesDialog from './CreateNamesDialog.vue'
 import SheetGrid from './SheetGrid.vue'
 import SheetMenu from './SheetMenu.vue'
 import SheetTabs from './SheetTabs.vue'
@@ -121,10 +123,12 @@ const wait = ctx.w.wait
         @close="ctx.cmd.closeFormat()"
       />
       <GoToDialog v-if="ctx.goto.open.value" />
+      <GoToSpecialDialog v-if="ctx.special.open.value" />
       <SymbolDialog v-if="ctx.symbolOpen.value" />
       <PasteSpecialDialog v-if="ctx.clip.specialOpen.value" />
       <InsertFunction v-if="ctx.insertFunctionOpen.value" @pick="ctx.closeInsertFunction" @close="ctx.closeInsertFunction()" />
       <NameDialogs v-if="ctx.names.available.value" />
+      <CreateNamesDialog v-if="ctx.createNames.draft.value" />
       <ZoomDialog v-if="ctx.zoomer.dialogOpen.value" />
       <ProtectDialog />
       <TableDialog />

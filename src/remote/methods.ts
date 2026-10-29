@@ -60,6 +60,8 @@ export const CALLS: Readonly<Record<CallName, CallKind>> = {
   setCalculation: { write: true, outcome: true },
   calculate: { write: true, outcome: true },
   protect: { write: true, outcome: true },
+  specialCells: { signal: 3 },
+  namesFromSelection: { signal: 3 },
 }
 
 export const isCall = (name: string): name is CallName => Object.hasOwn(CALLS, name)

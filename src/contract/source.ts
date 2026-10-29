@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SheetProtection, StructureOp, StylePatch } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SelectionLabels, SheetProtection, SpecialCells, StructureOp, StylePatch } from 'xlcalc/contract'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
@@ -127,6 +127,20 @@ export interface SheetSource {
   autoSum?(sheet: string, cell: string, signal?: AbortSignal, fn?: AutoSumFunction): Promise<SheetAutoSum | null>
   /** The functions of Excel's AutoSum list that `autoSum` builds besides Sum; without it the list offers Sum and More Functions… only. */
   readonly autoSumFunctions?: readonly AutoSumFunction[]
+  /**
+   * Excel's Go To Special over a range: the rectangles Excel selects (`['B2:D2', 'B4']`), none when Excel finds no cells. A
+   * range of one cell stands for the sheet's used range, as in Excel. `kind` is xlcalc's `SpecialCells` (blank cells,
+   * constants and formulas by the kinds of their values, visible cells) or `lastCell`, the used range's last cell whatever
+   * the range. Without it there is no Go To Special.
+   */
+  specialCells?(sheet: string, range: string, kind: SheetSpecialCells, signal?: AbortSignal): Promise<string[]>
+  /**
+   * Excel's Create from Selection over a range: the workbook names its labels make (`labels`: the sides that hold them, as the
+   * dialog's boxes; at least one), each referring absolutely to its cells with the sheet, in the source's locale, in the order
+   * Excel makes them; none for labels alone or labels without text. The sheet asks about names the workbook already has and
+   * writes them with `setNames`. Without it there is no Create from Selection.
+   */
+  namesFromSelection?(sheet: string, range: string, labels: SelectionLabels, signal?: AbortSignal): Promise<SheetName[]>
   /** The maximum number of cells in one window, 20,000 by default. */
   readonly maxCells?: number
   /** The number of steps `undo` and `redo` can take, as of the last completed call: a toolbar enables its buttons by them. */
@@ -166,6 +180,9 @@ export interface SheetAutoSum {
   range: string | null
   formula: string
 }
+
+/** What `SheetSource.specialCells` finds: xlcalc's `SpecialCells`, or the last cell of the sheet's used range (Excel's Last cell). */
+export type SheetSpecialCells = SpecialCells | { type: 'lastCell' }
 
 /** The functions of Excel's AutoSum list: Sum, Average, Count Numbers (`COUNT`), Max, Min. */
 export type AutoSumFunction = 'sum' | 'average' | 'count' | 'max' | 'min'

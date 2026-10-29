@@ -151,6 +151,12 @@ export interface SheetViewApi {
   /** Opens Excel's Go To dialog (F5, Ctrl+G) with the locations its jumps have left; false while no sheet is displayed. */
   goTo(): boolean
   /**
+   * Opens Excel's Go To Special dialog (Home > Find & Select, Go To's Special…) through the source's `specialCells`: OK selects
+   * the cells it finds, several ranges at once, keeping the active cell when one of them holds it. false without
+   * `specialCells`, while no sheet is displayed or under a display filter.
+   */
+  goToSpecial(): boolean
+  /**
    * Opens Excel's Symbol dialog (Insert > Symbol): Insert puts the character at the caret of an open edit, otherwise starts
    * editing the active cell with it, as typing does; false on a read-only sheet or without an active cell.
    */
@@ -178,6 +184,13 @@ export interface SheetViewApi {
   defineName(): boolean
   /** Excel's Name Manager (Ctrl+F3); false when the source has no `names` or a cell is being edited. Without `setNames` or on a read-only sheet it only lists the names. */
   nameManager(): boolean
+  /**
+   * Excel's Create from Selection (Ctrl+Shift+F3, Cmd+Shift+F3 on a Mac): the Create Names dialog for the selection, with the
+   * boxes Excel checks; OK makes the names through the source's `namesFromSelection` and `setNames` as a single undo step,
+   * asking first about a name the workbook defines otherwise. false without `namesFromSelection`, `names` or `setNames`, on a
+   * read-only sheet or while a cell is being edited.
+   */
+  createNames(): boolean
   /**
    * Excel's zoom of the active sheet: a percentage (rounded and kept within 10 to 400), or `selection` for Zoom to Selection,
    * which fits the selection into the viewport and scrolls it to the top-left corner. Returns the zoom set; it is not
@@ -211,8 +224,9 @@ export interface SheetViewApi {
   /** Opens Excel's Insert Function dialog (the formula bar's fx, AutoSum's More Functions…); false on a read-only sheet or without the source's `functionNames`. */
   insertFunction(): boolean
   /**
-   * Opens Excel's Paste Special dialog (Ctrl+Alt+V, Ctrl+Cmd+V on a Mac) for the copied range: All, Formulas, Values, Formats or
-   * Validation, and Transpose, through the source's `structure` (`copyRange` with `paste`, xlcalc 0.60). false without a copy
+   * Opens Excel's Paste Special dialog (Ctrl+Alt+V, Ctrl+Cmd+V on a Mac) for the copied range: its Paste choices, Operation,
+   * Skip Blanks and Transpose, through the source's `structure` (`copyRange` with `paste`, `transpose`, `operation` and
+   * `skipBlanks`, xlcalc 0.65). false without a copy
    * in copy mode (a cut has no Paste Special), without `structure`, on a read-only sheet or under a display filter.
    */
   pasteSpecial(): boolean

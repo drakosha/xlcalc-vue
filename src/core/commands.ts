@@ -1,6 +1,7 @@
 // Changes to the workbook that the host or the grid's menus and keys request (format, structure, rows and columns, outline, frozen panes, undo and redo):
 // each goes through the source as Ctrl+Z does, and the sheet is read again after one that a window's cells cannot carry.
 import { computed, ref } from 'vue'
+import { rangeAddress } from 'xlcalc/a1'
 import type { CellStyle, SheetProtection } from 'xlcalc/contract'
 import type { EditOutcome, FormatPatch, LayoutChange, OutlineChange, SheetOp } from '../contract/source'
 import type { TableOp } from '../contract/workbook'
@@ -66,13 +67,15 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
 
   async function format(patches: SheetFormatPatch[]): Promise<EditOutcome | null> {
     const call = method('format')
-    const range = sel.selectionRef.value
+    // a patch without its own range formats the selection, every area of several
+    const ranges = s.areas.value?.map(rangeAddress) ?? (sel.selectionRef.value ? [sel.selectionRef.value] : [])
     if (!call || !patches.length || !s.sheet.value) return null
     const sheet = s.sheetName.value
     const list: FormatPatch[] = []
     for (const p of patches) {
-      if (p.range === undefined && !range) return null
-      list.push({ ...p, range: p.range ?? range })
+      if (p.range !== undefined) list.push({ ...p, range: p.range })
+      else if (!ranges.length) return null
+      else for (const range of ranges) list.push({ ...p, range })
     }
     return change(() => call(sheet, list), null, false, true)
   }
