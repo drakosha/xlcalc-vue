@@ -1,5 +1,6 @@
-// The texts of sheet protection, English and Russian, as Excel for Mac 16.114 words them (its strman tables and its Protect
-// Sheet and Format Cells dialogs); src/messages.ts includes them in its sets.
+// The texts of sheet protection, English and Russian, as Excel for Windows 16.0 words them in its alert and its Protect Sheet
+// and Format Cells dialogs; Unprotect Sheet and the note under Protect Sheet's boxes are Excel for Mac 16.114's (Windows has no
+// such note). src/messages.ts includes them in its sets.
 import type { ProtectionMessages } from './contract/messages'
 
 export const enProtection: ProtectionMessages = {
@@ -7,8 +8,8 @@ export const enProtection: ProtectionMessages = {
   menuProtectSheet: 'Protect Sheet…',
   menuUnprotectSheet: 'Unprotect Sheet',
   protectTitle: 'Protect Sheet',
-  protectContents: 'Protect the sheet and contents of locked cells.',
-  protectAllow: 'Allow users of this sheet to:',
+  protectContents: 'Protect worksheet and contents of locked cells',
+  protectAllow: 'Allow all users of this worksheet to:',
   protectBox: (box) =>
     ({
       selectLockedCells: 'Select locked cells',
@@ -31,7 +32,7 @@ export const enProtection: ProtectionMessages = {
   fmtProtection: 'Protection',
   fmtLocked: 'Locked',
   fmtHidden: 'Hidden',
-  fmtProtectionNote: 'To lock cells or hide formulas, protect the worksheet. On the Review tab, click Protect Sheet.',
+  fmtProtectionNote: 'Locking cells or hiding formulas has no effect until you protect the worksheet (Review tab, Protect group, Protect Sheet button).',
 }
 
 export const ruProtection: ProtectionMessages = {
@@ -39,29 +40,29 @@ export const ruProtection: ProtectionMessages = {
   menuProtectSheet: 'Защитить лист…',
   menuUnprotectSheet: 'Снять защиту листа',
   protectTitle: 'Защитить лист',
-  protectContents: 'Защита листа и содержимого заблокированных ячеек.',
+  protectContents: 'Защитить лист и содержимое защищаемых ячеек',
   protectAllow: 'Разрешить всем пользователям этого листа:',
   protectBox: (box) =>
     ({
-      selectLockedCells: 'Выделить заблокированные ячейки',
-      selectUnlockedCells: 'Выделить незаблокированные ячейки',
-      formatCells: 'Форматировать ячейки',
-      formatColumns: 'Форматировать столбцы',
-      formatRows: 'Форматировать строки',
-      insertColumns: 'Вставить столбцы',
-      insertRows: 'Вставить строки',
-      insertHyperlinks: 'Вставить гиперссылки',
-      deleteColumns: 'Удалить столбцы',
-      deleteRows: 'Удалить строки',
-      sort: 'Сортировать',
+      selectLockedCells: 'Выделение заблокированных ячеек',
+      selectUnlockedCells: 'Выделение незаблокированных ячеек',
+      formatCells: 'Форматирование ячеек',
+      formatColumns: 'Форматирование столбцов',
+      formatRows: 'Форматирование строк',
+      insertColumns: 'Вставку столбцов',
+      insertRows: 'Вставку строк',
+      insertHyperlinks: 'Вставку гиперссылок',
+      deleteColumns: 'Удаление столбцов',
+      deleteRows: 'Удаление строк',
+      sort: 'Сортировку',
       autoFilter: 'Использование автофильтра',
-      pivotTables: 'Использовать сводную таблицу и сводную диаграмму',
-      objects: 'Изменить объекты',
-      scenarios: 'Изменить сценарии',
+      pivotTables: 'Использование сводной таблицы и сводной диаграммы',
+      objects: 'Изменение объектов',
+      scenarios: 'Изменение сценариев',
     })[box],
   protectNote: 'Все ячейки по умолчанию заблокированы, однако их можно пометить как незаблокированные.',
   fmtProtection: 'Защита',
-  fmtLocked: 'Заблокировать ячейку',
-  fmtHidden: 'Скрыть формулу',
-  fmtProtectionNote: 'Чтобы заблокировать ячейки или скрыть формулы, защитите лист. Для этого на вкладке "Рецензирование" выберите команду "Защитить лист".',
+  fmtLocked: 'Защищаемая ячейка',
+  fmtHidden: 'Скрыть формулы',
+  fmtProtectionNote: 'Блокирование ячеек и скрытие формул действуют только после защиты листа (вкладка "Рецензирование", группа "Изменения", кнопка "Защитить лист").',
 }

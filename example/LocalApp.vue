@@ -106,7 +106,7 @@ const ms = (n: number) => `${Math.round(n)} мс`
         <option value="manual">Вручную</option>
       </select>
       <button type="button" data-calc-now @click="sheet?.calculate()">Пересчет</button>
-      <button type="button" data-statistics @click="sheet?.workbookStatistics()">Статистика книги</button>
+      <button type="button" data-statistics @click="sheet?.workbookStatistics()">Статистика книг</button>
       <span class="state" data-file>{{ fileName }}</span>
       <span class="state">{{ state ? `${state.sheet}!${state.ref}${state.formula ? ' =' + state.formula : ''}` : '' }}</span>
     </header>

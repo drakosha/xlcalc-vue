@@ -660,7 +660,7 @@ export interface ConditionalMessages {
   cfClear: string
 }
 
-/** The texts of sheet protection, as Excel for Mac words them: its alert, the tab menu's commands, the Protect Sheet dialog, Format Cells' Protection tab. */
+/** The texts of sheet protection, in Excel for Windows' words: its alert, the tab menu's commands, the Protect Sheet dialog, Format Cells' Protection tab. */
 export interface ProtectionMessages {
   /** Excel's alert for a change a protected sheet does not allow, such as typing into a locked cell. */
   protectedAlert: string

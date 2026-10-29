@@ -20,7 +20,7 @@ The fill handle's `fillRange` is xlcalc's AutoFill (xlcalc 0.39, measured in Exc
 
 ## Protection
 
-xlcalc's session does not enforce a sheet's protection, so the source does: each change to a protected sheet is checked before it reaches the session and refused as Excel for Mac refuses it, with Excel's alert in the workbook's language (`code: 'protected'`); `protect` is one `setLayout` call and a single undo step. What it allows, measured in Excel, is in [protection.md](protection.md#local).
+xlcalc's session does not enforce a sheet's protection, so the source does: each change to a protected sheet is checked before it reaches the session and refused as Excel for Mac refuses it, with Excel's alert in the workbook's language (`code: 'protected'`), deleting a row or a column with a locked cell included, as Excel for Windows words it; `protect` is one `setLayout` call and a single undo step. What it allows, measured in Excel, is in [protection.md](protection.md#local).
 
 ## Find and Replace
 
