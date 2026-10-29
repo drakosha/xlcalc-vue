@@ -149,6 +149,38 @@ describe('Go To Special', () => {
   })
 })
 
+describe('Go To Special and a sheet switch while it finds', () => {
+  /** Two sheets over `./local`, whose specialCells answers on `release()`, rejecting an aborted call when it `honours` the signal. */
+  function slow(honours: boolean) {
+    const local = localSource({ sheets: [{ name: 'A', cells: { A1: v(1), C3: v(2), E5: v(3) } }, { name: 'B', cells: { A1: v('z') } }] } as never, { calc: 'inline' })
+    open.push(local)
+    let release = () => {}
+    const source = Object.create(local) as LocalSource
+    source.specialCells = (sheet, range, kind, signal) =>
+      new Promise((resolve, reject) => {
+        release = () => (honours && signal?.aborted ? reject(new DOMException('The operation was aborted.', 'AbortError')) : resolve(local.specialCells(sheet, range, kind)))
+      })
+    return { source, release: () => release() }
+  }
+  for (const honours of [false, true])
+    it(`selects nothing on the sheet switched to and shows no message (a source that ${honours ? 'honours' : 'ignores'} the signal)`, async () => {
+      const { source, release } = slow(honours)
+      const w = await mounted(source)
+      await goTo(w, 'A1:E5')
+      expect(api(w).goToSpecial()).toBe(true)
+      await settle()
+      await w.find('[data-xs-special-kind="constants"]').setValue(true)
+      await w.find('[data-xs-special] [data-xs-dialog-ok]').trigger('click')
+      await settle()
+      await w.findAll('.xs-tab')[1]!.trigger('click')
+      await settle()
+      release()
+      await settle(12)
+      expect(w.find('.xs-tab-on').text()).toBe('B')
+      expect([areaCells(w), address(w), w.find('.xs-message').exists()]).toEqual([[], 'A1', false])
+    })
+})
+
 describe('a selection of several areas', () => {
   /** The probe with the blanks of K1:N4 selected: K1:K3 (active K1) and K4:N4. */
   async function blanks(): Promise<{ s: LocalSource; w: VueWrapper }> {

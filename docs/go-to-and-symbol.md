@@ -10,7 +10,7 @@ OK (or Enter) goes to the reference as the Name Box does: a cell, a range, entir
 
 ## Go To Special
 
-Excel's Go To Special (Home > Find & Select > Go To Special) opens from the Go To dialog's Special…, which closes Go To, and through the sheet's `goToSpecial()` for a ribbon. It needs the source's `specialCells` (`./local`: xlcalc 0.66.0 or later) and no display filter, whose rows on screen are not the sheet's; it works on a read-only sheet too.
+Excel's Go To Special (Home > Find & Select > Go To Special) opens from the Go To dialog's Special…, which closes Go To, and through the sheet's `goToSpecial()` for a ribbon. It needs the source's `specialCells` (`./local`: xlcalc 0.66.0 or later) and no display filter, whose rows on screen are not the sheet's; it works on a read-only sheet too, and is disabled on a protected sheet, as Excel for Mac disables Special… there.
 
 The dialog lays out Excel's options in its two columns, with the options the component can find. Constants and Formulas, with the kinds of values under them (Numbers, Text, Logicals, Errors, all checked at first; a formula counts by the value it answers), Blanks, Current region; Last cell, Visible cells only, Conditional formats and Data validation, with All or Same under them. It opens with the choice last made, Constants at first. OK, or Enter, closes it and selects what it found:
 

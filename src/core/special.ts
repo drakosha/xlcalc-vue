@@ -6,6 +6,7 @@
 import { computed, ref } from 'vue'
 import { parseRange, rangeAddress } from 'xlcalc/a1'
 import type { CellPosition, CellRect, SpecialValue } from 'xlcalc/contract'
+import { isAbort } from '../abort'
 import type { SheetSpecialCells } from '../contract/source'
 import type { SheetRules } from '../contract/workbook'
 import type { Selection } from './selection'
@@ -71,8 +72,8 @@ export function useSpecial(s: SheetState, sel: Selection, deps: SpecialDeps) {
   const open = ref(false)
   /** The last choice, which the dialog opens with, as Excel keeps it: Constants of every kind at first (Excel's Notes is not offered). */
   const last = ref<SpecialChoice>({ kind: 'constants', values: [...SPECIAL_VALUES], same: false })
-  /** Go To Special is offered: a sheet with the source's `specialCells`, and no display filter, whose rows on screen are not the sheet's. */
-  const available = computed(() => !!s.sheet.value && !s.visible.value && typeof s.source().specialCells === 'function')
+  /** Go To Special is offered: a sheet with the source's `specialCells`, and no display filter, whose rows on screen are not the sheet's; not on a protected sheet, as Excel for Mac disables Special… there. */
+  const available = computed(() => !!s.sheet.value && !s.sheet.value.protection && !s.visible.value && typeof s.source().specialCells === 'function')
   /** Conditional formats and Data validation need the sheet's rules. */
   const hasRules = computed(() => typeof s.source().rules === 'function')
 
@@ -116,14 +117,16 @@ export function useSpecial(s: SheetState, sel: Selection, deps: SpecialDeps) {
     close()
     if (!s.selected.value || !sel.fullRect.value) return
     const outdated = s.outdated()
+    // A sheet switch aborts the read: a source that ignores the signal still answers for the sheet it left.
+    const signal = read()
     let got: CellRect[] | null
     try {
-      got = await find(choice, read())
+      got = await find(choice, signal)
     } catch (e) {
-      if (!outdated()) deps.notify(e instanceof Error ? e.message : String(e))
+      if (!outdated() && !signal.aborted && !isAbort(e)) deps.notify(e instanceof Error ? e.message : String(e))
       return
     }
-    if (outdated() || got === null) return
+    if (outdated() || signal.aborted || got === null) return
     if (!got.length) {
       await deps.ask({ severity: 'notice', message: s.messages.value.specialNone })
       return
