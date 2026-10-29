@@ -30,6 +30,9 @@ export interface FormatDraft {
   vertical: Vertical
   wrap: boolean
   indent: string
+  /** Orientation: the degrees as typed (−90 to 90), and Vertical Text, which stacks the letters whatever the degrees. */
+  degrees: string
+  verticalText: boolean
   fontName: string
   fontSize: string
   fontStyle: FontStyleKind
@@ -59,6 +62,8 @@ const isBold = (k: FontStyleKind) => k === 'bold' || k === 'boldItalic'
 const isItalic = (k: FontStyleKind) => k === 'italic' || k === 'boldItalic'
 /** The typed indent: a whole number of characters, NaN for anything else. */
 const parseIndent = (text: string): number => (/^\d+$/.test(text.trim()) ? Number(text.trim()) : NaN)
+/** The typed degrees: a whole number, NaN for anything else. */
+const parseDegrees = (text: string): number => (/^-?\d+$/.test(text.trim()) ? Number(text.trim()) : NaN)
 
 /** The inputs as the active cell's formatting fills them: its style, its number format's code, and Excel's thin black line to draw with. */
 export function startOf(state: SheetViewState): FormatStart {
@@ -73,6 +78,8 @@ export function startOf(state: SheetViewState): FormatStart {
     vertical: s.alignment?.vertical ?? 'bottom',
     wrap: !!s.alignment?.wrap,
     indent: String(s.alignment?.indent ?? 0),
+    degrees: String(typeof s.alignment?.rotation === 'number' ? s.alignment.rotation : 0),
+    verticalText: s.alignment?.rotation === 'vertical',
     fontName: s.font?.name ?? '',
     fontSize: s.font?.size === undefined ? '' : String(s.font.size),
     fontStyle: fontStyleOf(s.font),
@@ -116,13 +123,15 @@ export function pressPreset(start: FormatStart, draft: FormatDraft, preset: 'non
 interface DraftErrors {
   numberCode?: true
   indent?: true
+  degrees?: true
   fontSize?: true
 }
-/** Excel's limits: a font of 1 to 409 points, an indent of 0 to 250, and a non-empty code of the cell's own. */
+/** Excel's limits: a font of 1 to 409 points, an indent of 0 to 250, whole degrees from −90 to 90, and a non-empty code of the cell's own. */
 export function draftErrors(draft: FormatDraft): DraftErrors {
   const out: DraftErrors = {}
   if (!draft.numberCode.trim()) out.numberCode = true
   if (!(parseIndent(draft.indent) <= 250)) out.indent = true
+  if (!draft.verticalText && !(Math.abs(parseDegrees(draft.degrees)) <= 90)) out.degrees = true
   const size = parseFontSize(draft.fontSize)
   if (size !== undefined && !(size >= 1 && size <= 409)) out.fontSize = true
   return out
@@ -176,6 +185,8 @@ export function patchesOf(start: FormatStart, draft: FormatDraft): SheetFormatPa
   if (draft.wrap !== was.wrap) alignment.wrap = draft.wrap || null
   const indent = parseIndent(draft.indent)
   if (indent !== parseIndent(was.indent)) alignment.indent = indent || null
+  const rotation = (d: FormatDraft) => (d.verticalText ? 'vertical' : parseDegrees(d.degrees))
+  if (rotation(draft) !== rotation(was)) alignment.rotation = rotation(draft) || null
   const style: Record<string, unknown> = {}
   if (Object.keys(font).length) style.font = font
   if (Object.keys(alignment).length) style.alignment = alignment

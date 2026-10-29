@@ -5,6 +5,7 @@ import type { BorderLine, CellStyle, Icon } from 'xlcalc/contract'
 import { cellRect } from '../rect'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, horizontalOf, overflows, setSide, verticalOf, wrapsOf, type CssLine, type Horizontal } from './cell-style'
 import { barLayers, type Layer } from './conditional'
+import { rotatedBox, rotationOf, textFont, type RotatedBox } from './rotation'
 import type { Editing, EditorState } from './editing'
 import type { Formula, Highlight } from './formula'
 import type { Geometry } from './geometry'
@@ -41,6 +42,8 @@ export interface CellView {
   link?: CellData['link']
   /** A conditional format's icon, drawn at the left of the cell before its text. */
   icon?: Icon
+  /** Excel's text orientation: the box of the line rotated by its angle, or letters stacked vertically. */
+  rot?: RotatedBox | { vertical: true }
   /** The draft typed in the formula bar replaces `text`, drawn separately so typing does not redraw the grid; `fill`: the width Excel's Fill alignment repeats it across. */
   draft?: { fill?: number }
 }
@@ -407,6 +410,12 @@ export function useCellView(
       view.link = link
       view.deco = decorationCss(st, true)
       view.kind = link.location ? 'place' : safeHref(link.href) ? 'href' : (link.href || link.target) && deps.hostLinks() ? 'host' : 'dead'
+      return view
+    }
+    // Rotated text is aligned in its cell as a box of its own and does not overflow into its neighbors.
+    const rot = view.draft || !hasText ? null : rotationOf(st)
+    if (rot !== null) {
+      view.rot = rot === 'vertical' ? { vertical: true } : rotatedBox(shownText, textFont(st, s.defaultFont.value), rot)
       return view
     }
     if (h === 'fill') {

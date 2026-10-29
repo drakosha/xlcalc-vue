@@ -103,6 +103,13 @@ fieldset.xs-dialog-choices {
   justify-content: flex-end;
   gap: 6px;
 }
+/* Tab Color: No Color above Excel's palette. */
+.xs-dialog-colors {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
 
 /* ── touch ── */
 .xs-touch .xs-menu {

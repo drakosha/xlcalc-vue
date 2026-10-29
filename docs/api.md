@@ -121,6 +121,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `filtered` | `true?` | The display filter has a condition or a sort: a ribbon shows Filter pressed and enables Clear. |
 | `showFormulas` | `true?` | Excel's Show Formulas is on for the displayed sheet, so a ribbon shows its button pressed ([view.md](view.md#show-formulas)). |
 | `zoom` | `number?` | The sheet's zoom in percent; absent at 100%. |
+| `allNotes` | `true?` | Excel's Show All Notes is on (`showNotes()`), so a ribbon shows its button pressed. |
+| `gridlines`, `headings` | `false?` | The displayed sheet hides its gridlines or its row numbers and column letters (View > Show), so a ribbon shows their boxes unchecked ([view.md](view.md#gridlines-and-headings)). |
 | `font` | `{ name; size }?` | The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays; the toolbar's Font and Font Size boxes show it for such a cell. |
 
 `SheetLinkEvent` is a window's hyperlink (`href`, `location`, `tooltip`, `target`) with the `sheet` and `cell` it belongs to. `SheetFailure` is `{ error: unknown; text: string }`.
@@ -141,6 +143,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `fillDown()` | `Promise<EditOutcome \| null>` | Excel's Fill Down (Ctrl+D) through `structure`: the selection's top row copied over its other rows, or the row above into a selection one row tall ([editing.md](editing.md)). `null` also under a display filter, for row 1 alone, and when a filled cell is locked. |
 | `fillRight()` | `Promise<EditOutcome \| null>` | Excel's Fill Right (Ctrl+R): the same along the columns, from the selection's left column or the column to its left. |
 | `showFormulas(on?: boolean)` | `boolean` | Turns Excel's Show Formulas on or off on the displayed sheet, or toggles it without `on`, as Ctrl+` does; whether it is on afterwards. A view setting: nothing goes to the source. |
+| `showNotes(on?: boolean)` | `boolean` | Excel's Show All Notes: every note drawn all the time, toggled without `on`; whether it is on afterwards. A view setting: nothing goes to the source ([links-notes.md](links-notes.md#notes-shown-all-the-time)). |
+| `showGridlines(on?: boolean)`, `showHeadings(on?: boolean)` | `boolean` | Excel's View > Show > Gridlines and Headings on the displayed sheet, toggled without `on`; whether they show afterwards. Drawn at once and kept through the source's `show`, not an undo step; for a read-only sheet or a source without `show`, in the browser as Show Formulas is ([view.md](view.md#gridlines-and-headings)). |
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
@@ -294,6 +298,8 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `validation(sheet, cell, signal?) => Promise<SheetValidation \| null>` | Excel's validation dropdown and input message. | None. | [validation.md](validation.md) |
 | `pick(sheet, cell, item, text)` | A picked list item written as Excel writes it. | The item goes to `edit` with `accept`. | [validation.md](validation.md) |
 | `freeze(sheet, panes: { rows; cols } \| null)` | Freeze Panes in the context menu. | Only the formula bar's lock button hides the workbook's frozen panes. | [view.md](view.md) |
+| `show(sheet, show: SheetShow)` | Keeps Excel's View > Show (`showGridlines`, `showHeadings`) with the workbook: `SheetShow` is `{ gridlines?; headings? }`, a setting that does not change left out. Not an undo step, as in Excel. | The sheet keeps them in the browser. | [view.md](view.md#gridlines-and-headings) |
+| `tabColor(sheet, color: string \| null)` | Excel's Tab Color on the tab menu (with `structure`): a `#RRGGBB` color, null for No Color, as a single undo step. | Tab colors are drawn but not changed. | [sheets.md](sheets.md#tab-color) |
 | `functionNames(signal?) => Promise<string[]>` | Formula AutoComplete and Insert Function. | No list, and the fx button is disabled. | [autocomplete.md](autocomplete.md) |
 | `functionSignature(name, signal?) => Promise<SheetFunctionSignature \| null>` | A function's arguments for Excel's argument tooltip while a formula is typed (`SUM(number1, [number2], ...)`), and for Insert Function its syntax, `description` and `category` with `categoryName` (xlcalc 0.42); the name as typed, in any letter case; null for a function the source does not know. | No tooltip; Insert Function lists only the names. | [autocomplete.md](autocomplete.md) |
 | `explain(sheet, cell) => Promise<string>` | Trace Precedents. | No panel. | [view.md](view.md) |
@@ -348,7 +354,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `tables` | `{ name; range; headerRow }[]?` | Tables, whose header and border are drawn. |
 | `appearance` | `Record<string, ConditionalAppearance>?` | The cells' conditional formatting, as xlcalc calculates it. |
 | `links` | `Record<string, { href?; location?; tooltip?; target? }>?` | Hyperlinks. |
-| `notes` | `Record<string, { author?; text }>?` | Notes. |
+| `notes` | `Record<string, { author?; text; shown? }>?` | Notes; one with `shown` is drawn all the time, in its box next to its cell ([links-notes.md](links-notes.md#notes-shown-all-the-time)). |
 | `notice` | `string?` | A notice above the grid. |
 | `drill` | `Record<string, true>?` | List mode: drill-down cells, underlined; a click or Enter emits `cellDrill`. An empty cell is never a drill-down. |
 
@@ -364,11 +370,13 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `hidden` | `boolean \| 'very'?` | Not shown on the tabs; `'very'` is also not offered for Unhide. |
 | `locked` | `{ range; reason }[]?` | Ranges that cannot be edited, with the reason displayed. |
 | `columns` | `{ title; align?; sortable? }[]?` | List mode: titles in place of column letters, aligned by `align` (the totals too); clicking a `sortable` title emits `sort`. |
-| `rowNumbers` | `boolean?` | Row numbers on the left, shown by default. |
+| `rowNumbers` | `boolean?` | Row numbers on the left, shown by default; a list hides them while its titles stay. |
 | `totals` | `(string \| null)[]?` | List mode: a totals row pinned to the bottom of the viewport, the displayed text for each of the sheet's columns. |
 | `outline` | `SheetOutline?` | Excel's outline: `rows` and `columns` as `OutlineGroup[]` (`{ from, to, level, collapsed }`), `summaryBelow`, `summaryRight`. |
 | `font` | `{ name; size }?` | The workbook's default font (its Normal style), in which a cell without a font of its own is drawn; `--xs-font` without it. `./local` gives xlcalc's `BookInput.font`, Calibri 11 without one, the font in which xlcalc measures widths and `####`. |
 | `zoom` | `number?` | The sheet's saved zoom in percent (xlsx `zoomScale`), with which it opens; 100 without it. |
+| `gridlines`, `headings` | `boolean?` | False hides the gridlines, or the row numbers and column letters, as Excel's View > Show does (xlsx `showGridLines`, `showRowColHeaders`); shown by default ([view.md](view.md#gridlines-and-headings)). |
+| `tabColor` | `string?` | Excel's Tab Color, `#RRGGBB`: another tab is filled with it, the active one underlined in it ([sheets.md](sheets.md#tab-color)). |
 
 ### Edits and outcomes
 
@@ -397,7 +405,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 | --- | --- |
 | `ClearKind` | `'formats' \| 'all'` |
 | `SheetLink` | `{ href?; location?; tooltip? }`: an address outside the workbook, a place in it (`'Sheet 2'!B12`, a defined name), or both, and the ScreenTip. |
-| `SheetNote` | `{ author?; text }` |
+| `SheetNote` | `{ author?; text; shown? }`: `shown`, the note is drawn all the time (Excel's Show/Hide Note). |
 | `SheetName` | `{ name; ref; scope? }`: what the name refers to as a formula, and the sheet it is visible on (the workbook without `scope`). |
 | `SheetDependent`, `SheetDependents` | `{ sheet; cell }`; `{ cells: SheetDependent[]; more: boolean }`, `more` when the source left some out. |
 | `SheetRules` | `{ conditionalFormats: ConditionalFormat[]; validations: DataValidation[] }`, xlcalc's types, conditional formats in priority order. |
@@ -600,6 +608,7 @@ A workbook on a server: `serveSource` serves a source to viewers over HTTP, and 
 | `--xs-accent`, `--xs-sel-tint` | `#1a73e8`, `rgb(26 115 232 / 0.12)` | The selection border and tint. |
 | `--xs-on-accent` | `#ffffff` | Text on the accent color: a primary button, a list's highlighted item. |
 | `--xs-link`, `--xs-note` | `#1558d6`, `#dc2626` | Hyperlinks, a note indicator. |
+| `--xs-tab-text-dark`, `--xs-tab-text-light` | `#000000`, `#ffffff` | The text of a tab filled with its Tab Color: on a light color, on a dark one. |
 | `--xs-flash`, `--xs-hit` | `rgb(250 204 21 / 0.85)`, `rgb(250 204 21 / 0.45)` | The flash after a jump, Find matches. |
 | `--xs-freeze-line`, `--xs-border-auto` | `#9aa0a6`, `#000000` | The frozen panes line, a border with automatic color. |
 | `--xs-table-head-bg`, `--xs-table-line` | `#e8eef8`, `#8faadc` | Tables. |

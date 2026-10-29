@@ -1,9 +1,9 @@
 // localSource: a sheet source over an xlcalc workbook whose session runs in a Web Worker pool or on the page's thread.
 // The session holds and calculates the workbook, finds as Excel's Find does and returns windows, sheets and edits as Excel
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
-import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
-import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../contract/source'
+import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetShow, SourceEvent, WindowRequest } from '../contract/source'
 import { boxesUnder, findHits, replaceAll } from './find'
 import { loadLocale, tipLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
@@ -50,6 +50,9 @@ function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size:
     ...(sheet.hidden ? { hidden: sheet.hidden } : {}),
     ...(outline ? { outline } : {}),
     ...(sheet.view?.zoom ? { zoom: sheet.view.zoom } : {}),
+    ...(sheet.tabColor ? { tabColor: sheet.tabColor } : {}),
+    ...(sheet.view?.gridlines === false ? { gridlines: false } : {}),
+    ...(sheet.view?.headings === false ? { headings: false } : {}),
     font,
   }
 }
@@ -85,6 +88,15 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   const values = new Map<string, Promise<SheetValues>>()
   /** The rows of a sheet's display filters by filter, as `visibleRows` last returned them: windows under a filter use its list. */
   const lists = new Map<string, Map<string, RowList>>()
+  /**
+   * Excel's View > Show as set by `show`, by the sheet's name key: the session has no edit for it, since in Excel it is not
+   * an undo step, so the source puts it on the sheets it lists and the workbook it returns, and follows renamed sheets.
+   */
+  const shows = new Map<string, SheetShow>()
+  const viewed = <T extends { name: string; view?: SheetView }>(sheet: T): T => {
+    const own = shows.get(nameKey(sheet.name))
+    return own ? { ...sheet, view: { ...sheet.view, ...own } } : sheet
+  }
   let calc: Calc | null = null
   let session: AsyncSession | null = null
 
@@ -323,6 +335,21 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return first ? { ...out, select: { sheet: first.sheet, range: rangeAddress(first.rect) } } : out
   }
 
+  /** Runs a call that may rename or delete sheets, moving the settings of `shows` to a renamed sheet's new name and dropping a deleted one's. */
+  async function following<R>(s: AsyncSession, run: () => Promise<R>): Promise<R> {
+    if (!shows.size) return run()
+    const names = async () => new Set((await s.getLayout()).sheets.map((x) => nameKey(x.name)))
+    const before = await names()
+    const out = await run()
+    const after = await names()
+    const gone = [...before].filter((k) => !after.has(k))
+    const came = [...after].filter((k) => !before.has(k))
+    const own = gone.length === 1 && came.length === 1 ? shows.get(gone[0]!) : undefined
+    if (own) shows.set(came[0]!, own)
+    for (const k of gone) shows.delete(k)
+    return out
+  }
+
   async function structure(s: AsyncSession, op: SheetOp): Promise<EditOutcome> {
     const got = await s.editStructure(op)
     return got.ok ? reloaded(got.changes) : { ok: false, reason: 'refused', code: got.code, message: got.message }
@@ -406,6 +433,21 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { ok: true, changes }
   }
 
+  /** Excel's Tab Color in one `setLayout` call, a single undo step (null: No Color); subscribers read the sheets again (`reload`). */
+  async function tabColor(s: AsyncSession, sheet: string, color: string | null): Promise<EditOutcome> {
+    const got = await s.setLayout([{ sheet, tabColor: color }])
+    const changes = take(got.changes)
+    emit({ kind: 'reload' })
+    return { ok: true, changes }
+  }
+
+  /** Excel's View > Show: kept by the source (`shows`), not an undo step; a sheet the workbook does not have is refused. */
+  async function show(s: AsyncSession, sheet: string, what: SheetShow): Promise<EditOutcome> {
+    if (!(await s.getLayout()).sheets.some((x) => sameName(x.name, sheet))) return failed(`No sheet ${sheet}`)
+    shows.set(nameKey(sheet), { ...shows.get(nameKey(sheet)), ...what })
+    return { ok: true, changes: [] }
+  }
+
   /** A patch of cells that changes how they look but no text (a hyperlink, a note): the windows over them are re-read in place. */
   function repainted(got: EditResult, ranges: { sheet: string; range: string }[]): EditOutcome {
     const changes = take(got.changes)
@@ -427,7 +469,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       // xlcalc 0.59 gives the workbook's default font; an older one, or a workbook without it, is Calibri 11
       const font = layout.font ?? CALIBRI_11
-      return layout.sheets.map((x, i) => info(x, used[i]!, font))
+      return layout.sheets.map((x, i) => info(viewed(x), used[i]!, font))
     },
     async window(req: WindowRequest, signal) {
       const s = await open()
@@ -450,14 +492,16 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     paste: mutation(paste, refusedBy),
     fill: mutation(fill, refusedBy),
     pick: mutation(pick, refusedBy),
-    undo: mutation((s) => step(s, 'undo'), failedBy),
-    redo: mutation((s) => step(s, 'redo'), failedBy),
-    structure: mutation(structure, failedBy),
+    undo: mutation((s) => following(s, () => step(s, 'undo')), failedBy),
+    redo: mutation((s) => following(s, () => step(s, 'redo')), failedBy),
+    structure: mutation((s, op: SheetOp) => following(s, () => structure(s, op)), failedBy),
     layout: mutation(setLayout, failedBy),
     format: mutation(format, refusedBy),
     replace: mutation(replace, (e): ReplaceOutcome => ({ ...refusedBy(e), replaced: 0 })),
     outline: mutation(outline, failedBy),
     freeze: mutation(freeze, failedBy),
+    tabColor: mutation(tabColor, failedBy),
+    show: mutation(show, failedBy),
     clear: mutation(book.clear, failedBy),
     link: mutation(book.link, refusedBy),
     note: mutation(book.note, refusedBy),
@@ -568,10 +612,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       return columnList(await columnsOf(s, sheet, [col, ...Object.keys(filter.cols ?? {}).map(Number)], signal), col, filter, locale)
     },
     async book() {
-      return (await open()).getBook()
+      const b = await (await open()).getBook()
+      return shows.size ? { ...b, sheets: b.sheets.map(viewed) } : b
     },
     async snapshot() {
-      return (await open()).getSnapshot()
+      const snap = await (await open()).getSnapshot()
+      return shows.size ? { ...snap, book: { ...snap.book, sheets: snap.book.sheets.map(viewed) } } : snap
     },
     async close() {
       await ready.catch(() => {})

@@ -8,6 +8,7 @@ import { cellOfData } from '../core/selection'
 import { useSheetContext } from './context'
 import { refInto } from './dom'
 import NoteBox from './NoteBox.vue'
+import ShownNotes from './ShownNotes.vue'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
@@ -186,7 +187,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
     <p v-if="empty && ctx.sheet.value" class="xs-empty">{{ m.empty }}</p>
     <!-- Excel's zoom: the content is drawn under CSS zoom in its unzoomed pixels; the page's pixels (pointers, rectangles) are zoomed ones. -->
     <div class="xs-zoom" :style="zoomStyle">
-      <table v-if="ctx.sheet.value && !empty" class="xs-table" :style="tableStyle">
+      <table v-if="ctx.sheet.value && !empty" :class="['xs-table', ctx.sheet.value.gridlines === false ? 'xs-nogrid' : '']" :style="tableStyle">
         <colgroup>
           <col v-if="v.barW.value" :style="{ width: v.barW.value + 'px' }" />
           <col v-if="v.showNums.value" :style="{ width: v.numW.value + 'px' }" />
@@ -207,10 +208,12 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
               />
             </template>
           </tr>
-          <tr>
+          <tr v-if="v.headRow.value">
             <OutlineLevels v-if="v.barW.value" axis="rows" />
             <th v-if="v.showNums.value" class="xs-corner" :title="m.selectAll" @click="sel.selectAll()"></th>
-            <template v-for="k in cols" :key="k.key">
+            <!-- without headings the row only holds the row bar's level buttons -->
+            <th v-if="!v.showHeads.value" class="xs-head-off" :colspan="cols.length"></th>
+            <template v-for="k in cols" v-else :key="k.key">
               <th v-if="k.c === 0" class="xs-head"></th>
               <th
                 v-else
@@ -285,6 +288,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
       </table>
       <SheetMarks v-if="ctx.sheet.value && !empty" />
       <TraceArrows v-if="ctx.sheet.value && !empty" />
+      <ShownNotes v-if="ctx.notes.shown.value.length" />
       <NoteBox v-if="ctx.notes.draft.value" />
       <NoteBox v-else-if="ctx.notes.peek.value" peek />
       <template v-if="activeBox && !ctx.editor.value && !ctx.notes.draft.value">

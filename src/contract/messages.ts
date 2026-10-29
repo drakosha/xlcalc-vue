@@ -50,6 +50,9 @@ export interface SheetMessages extends ConditionalMessages {
   menuMoveLeft: string
   menuMoveRight: string
   menuUnhideSheet: string
+  /** Excel's Tab Color on the tab menu, and its No Color. */
+  menuTabColor: string
+  tabColorNone: string
   /** Excel's outline: Group and Ungroup in the menu and the dialog for a cell range (rows or columns), the buttons' tooltips, and the messages for commands that are not performed. */
   menuGroup: string
   menuUngroup: string
@@ -243,6 +246,11 @@ export interface SheetMessages extends ConditionalMessages {
   fmtHorizontalKind: (h: 'general' | 'left' | 'center' | 'right' | 'fill' | 'justify' | 'centerContinuous' | 'distributed') => string
   fmtVerticalKind: (v: 'top' | 'center' | 'bottom' | 'justify' | 'distributed') => string
   fmtIndent: string
+  /** The Alignment tab's Orientation: its box, the degrees, Vertical Text, and the degrees' limits. */
+  fmtOrientation: string
+  fmtDegrees: string
+  fmtVerticalText: string
+  fmtDegreesRange: string
   fmtIndentRange: string
   fmtFontName: string
   fmtFontDefault: string
@@ -402,6 +410,8 @@ export interface SheetMessages extends ConditionalMessages {
   menuNewNote: string
   menuEditNote: string
   menuDeleteNote: string
+  /** Excel's Show/Hide Note on a cell with a note. */
+  menuShowNote: string
   noteEditor: string
   /** Excel's Data Validation dialog: its title and tabs, the Settings tab's boxes by the rule's type and comparison, the Input Message and Error Alert tabs (the styles are `validationStyle`), Clear All, Excel's questions before it opens and its checks before OK. */
   dataValidation: string

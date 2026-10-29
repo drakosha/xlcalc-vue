@@ -1,8 +1,8 @@
 // Excel's context menus: on row numbers and column letters (insert, delete, sizes, hide, unhide, group, ungroup), on the
-// sheet tabs (insert, delete, rename, move, hide, unhide) and the "+" after them, on cells (cut, copy, paste, the display
+// sheet tabs (insert, delete, rename, move, tab color, hide, unhide) and the "+" after them, on cells (cut, copy, paste, the display
 // filter's Reapply, Freeze Panes and its variants, Trace Precedents, then the notes' and hyperlinks' items); a right click
 // opens one, and so does a long press on a touch screen. Its small dialogs ask for a size, confirm a sheet's deletion,
-// list hidden sheets, and ask whether to group rows or columns.
+// list hidden sheets, ask whether to group rows or columns, and offer a tab's colors.
 import { computed, nextTick, onScopeDispose, ref, shallowRef } from 'vue'
 import { colLetters, linesKey, MAX_COLS, MAX_ROWS, rangeAddress, rectContains, sameName } from 'xlcalc/a1'
 import type { CellRect } from 'xlcalc/contract'
@@ -53,6 +53,7 @@ export type MenuDialog =
   | { kind: 'deleteSheet'; sheet: string }
   | { kind: 'unhide'; sheets: string[] }
   | { kind: 'outline'; op: OutlineOp; axis: OutlineAxis; rect: CellRect }
+  | { kind: 'tabColor'; sheet: string; color: string | null }
 
 export interface MenuDeps {
   pickSheet: (index: number) => Promise<void>
@@ -182,8 +183,9 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
       // Excel moves a sheet among the visible ones: before the visible sheet to its left, or after the one to its right.
       { id: 'moveLeft', label: m().menuMoveLeft, disabled: k <= 0, run: () => void cmd.structure({ op: 'moveSheet', sheet: name, before: tabs[k - 1]!.sheet.name }), group: true },
       { id: 'moveRight', label: m().menuMoveRight, disabled: k < 0 || k >= tabs.length - 1, run: () => void cmd.structure(k + 2 < tabs.length ? { op: 'moveSheet', sheet: name, before: tabs[k + 2]!.sheet.name } : { op: 'moveSheet', sheet: name }) },
-      { id: 'hideSheet', label: m().menuHide, run: () => void cmd.structure({ op: 'hideSheet', sheet: name }), group: true },
     ]
+    if (cmd.can('tabColor')) out.push({ id: 'tabColor', label: m().menuTabColor, run: () => (dialog.value = { kind: 'tabColor', sheet: name, color: info.tabColor?.toUpperCase() ?? null }), group: true })
+    out.push({ id: 'hideSheet', label: m().menuHide, run: () => void cmd.structure({ op: 'hideSheet', sheet: name }), group: true })
     if (hidden.length) out.push({ id: 'unhideSheet', label: m().menuUnhideSheet, run: () => (dialog.value = { kind: 'unhide', sheets: hidden }) })
     return out
   }
@@ -264,6 +266,13 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     dialog.value = null
     void cmd.structure({ op: 'deleteSheet', sheet: d.sheet })
   }
+  /** A color chosen in Tab Color's palette (null: No Color) applies at once, as Excel's submenu does. */
+  function setTabColor(color: string | null): void {
+    const d = dialog.value
+    if (d?.kind !== 'tabColor') return
+    dialog.value = null
+    void cmd.tabColor(d.sheet, color)
+  }
   function unhide(name: string): void {
     dialog.value = null
     void cmd.structure({ op: 'unhideSheet', sheet: name })
@@ -327,6 +336,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     applyOutline,
     addSheet,
     confirmDelete,
+    setTabColor,
     unhide,
     startRename,
     commitRename,

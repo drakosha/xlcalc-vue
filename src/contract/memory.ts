@@ -17,7 +17,7 @@ export interface MemoryCell {
   /** The number format code the cell is displayed with, as xlsx stores it (`0.0%`, `dd.mm.yyyy`); General without it. The text the cell opens with for editing follows it. */
   numberFormat?: string
   link?: { href?: string; location?: string; tooltip?: string; target?: string }
-  note?: { author?: string; text: string }
+  note?: { author?: string; text: string; shown?: boolean }
   /** List mode: the cell is a drill-down (`SheetWindow.drill`). */
   drill?: true
   /** The cell's conditional formatting, as xlcalc calculates it (`ConditionalAppearance`); the in-memory workbook keeps it as given. */

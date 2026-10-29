@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Excel's Tab Color: a sheet's `SheetInfo.tabColor` (`#RRGGBB`) fills its tab, or underlines it while it is active, and the source's new optional `tabColor(sheet, color)` gives the tab menu Tab Color with No Color and Excel's palette, a single undo step. `./local` reads, sets and writes it through xlcalc's `setLayout` (0.66.0); `memorySource` passes a sheet's `tabColor` through.
+- Excel's View > Show: a sheet whose `SheetInfo` has `gridlines: false` or `headings: false` is drawn without gridlines or without row numbers and column letters, and the sheet's `showGridlines(on?)` and `showHeadings(on?)` change them for a ribbon (`state.gridlines`, `state.headings`). The source's new optional `show(sheet, show: SheetShow)` keeps them with the workbook, not as an undo step, as in Excel; without it the sheet keeps them in the browser. `./local` reads them from the sheet's view and writes them to the file.
+- Notes shown all the time: a window's note with `shown` (`SheetNote.shown`, xlcalc 0.66.0's `CellNote.shown`) is drawn in its box next to its cell with a line from the cell's corner, as Excel draws it; the cell menu has Show/Hide Note after Delete Note, through `note`, and Edit Note keeps a note shown. The sheet's `showNotes(on?)` is Excel's Show All Notes, a view setting (`state.allNotes`). `./local` and `memorySource` keep `shown` with the note.
+- Rotated text: a cell whose style has `alignment.rotation` (xlcalc 0.66.0) draws its text at that angle, or with its letters stacked for `'vertical'`, aligned in the cell as level text is; the Format Cells dialog's Alignment tab has Orientation, Degrees and Vertical Text. Rotated text neither overflows nor wraps, and its row keeps its height, as xlcalc fits rows as for level text.
+
 ## 0.29.0 (2026-10-28)
 
 A workbook on a server, edited by several viewers, and xlsx saved over the file it was opened from. Nothing breaks for a host; `keep` in `./local` needs xlcalc 0.57.0.

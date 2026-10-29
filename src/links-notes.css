@@ -126,3 +126,19 @@
   resize: none;
   outline: none;
 }
+/* A note shown all the time (ShownNotes.vue): the hover box's look, under a box being edited, and the line from its cell's corner. */
+.xs-note-box.xs-note-shown {
+  z-index: 7;
+}
+.xs-note-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 7;
+  overflow: visible;
+  pointer-events: none;
+}
+.xs-note-lines line {
+  stroke: var(--xs-prompt-line);
+  stroke-width: 1;
+}

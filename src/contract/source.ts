@@ -53,6 +53,10 @@ export interface SheetSource {
   pick?(sheet: string, cell: string, item: number, text: string): Promise<EditOutcome>
   /** Excel's Freeze Panes: the rows above and the columns to the left of a cell kept in view (`{ rows: 2, cols: 1 }`), null unfreezes; a single undo step. Without it only the sheet's lock button hides the workbook's frozen panes. */
   freeze?(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome>
+  /** Excel's Tab Color: a sheet's tab color (`#RRGGBB`), null for No Color; a single undo step. Without it the tab menu has no Tab Color. */
+  tabColor?(sheet: string, color: string | null): Promise<EditOutcome>
+  /** Excel's View > Show on a sheet: its gridlines and its headings, kept with the workbook; not an undo step, as in Excel. Without it the sheet keeps them in the browser. */
+  show?(sheet: string, show: SheetShow): Promise<EditOutcome>
   /** The functions a formula can call, by their names as typed in the source's locale (`СУММ` in ru-RU), for Excel's Formula AutoComplete. */
   functionNames?(signal?: AbortSignal): Promise<string[]>
   /**
@@ -176,6 +180,18 @@ export interface SheetInfo {
   font?: { name: string; size: number }
   /** The sheet's saved zoom in percent (xlsx `zoomScale`), with which the sheet opens; 100 without it. */
   zoom?: number
+  /** Excel's Tab Color (`#RRGGBB`): another tab is filled with it, the active one underlined in it. */
+  tabColor?: string
+  /** False hides the gridlines (Excel's View > Show > Gridlines, xlsx `showGridLines`); shown by default. */
+  gridlines?: boolean
+  /** False hides the row numbers and column letters (Excel's View > Show > Headings, xlsx `showRowColHeaders`); shown by default. */
+  headings?: boolean
+}
+
+/** What Excel's View > Show sets on a sheet: whether its gridlines and its headings show. */
+export interface SheetShow {
+  gridlines?: boolean
+  headings?: boolean
 }
 
 /** A sheet's groups as Excel draws them in the bars next to the row numbers and above the column letters. */
@@ -293,7 +309,8 @@ export interface SheetWindow {
   appearance?: Record<string, ConditionalAppearance>
   /** Hyperlinks: an external address, a location in the workbook (`Sheet!B12`), a tooltip, a host-specific target (such as a file of the host). */
   links?: Record<string, { href?: string; location?: string; tooltip?: string; target?: string }>
-  notes?: Record<string, { author?: string; text: string }>
+  /** Notes; `shown` is drawn all the time, in its box next to its cell. */
+  notes?: Record<string, { author?: string; text: string; shown?: boolean }>
   /** A notice above the grid (for example, "values calculated on the server"). */
   notice?: string
   /** Drill-down cells (list mode): underlined, and a click or Enter emits `cellDrill`. */

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // The context menus of rows, columns, tabs and cells at the pointer (kept on screen) and their small dialogs: a size in Excel's units,
-// the confirmation before a sheet with data is deleted, the hidden sheets to unhide, rows or columns to group. A click outside or Esc closes them.
+// the confirmation before a sheet with data is deleted, the hidden sheets to unhide, rows or columns to group, a tab's colors. A click outside or Esc closes them.
 // Keys in a menu as in Excel: Down and Up cycle through its enabled items, Home and End, Enter or Space chooses, Esc and Tab close;
 // a press in the menu leaves focus where the keys put it.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import type { MenuItem } from '../core/menu'
 import { useSheetContext } from './context'
+import ColourSwatches from './ColourSwatches.vue'
 import DialogShell from './DialogShell.vue'
 import { useOutsidePress } from './popup'
 import '../controls.css'
@@ -75,8 +76,9 @@ const size = computed(() => (menu.dialog.value?.kind === 'size' ? menu.dialog.va
 const doomed = computed(() => (menu.dialog.value?.kind === 'deleteSheet' ? menu.dialog.value.sheet : null))
 const hidden = computed(() => (menu.dialog.value?.kind === 'unhide' ? menu.dialog.value.sheets : null))
 const grouping = computed(() => (menu.dialog.value?.kind === 'outline' ? menu.dialog.value : null))
+const tabColor = computed(() => (menu.dialog.value?.kind === 'tabColor' ? menu.dialog.value : null))
 /** A size dialog opens with its input's text selected, a grouping dialog with its first choice. */
-const dialogFocus = computed(() => (size.value ? '[data-xs-dialog-input]' : grouping.value ? '[data-xs-outline-axis]' : undefined))
+const dialogFocus = computed(() => (size.value ? '[data-xs-dialog-input]' : grouping.value ? '[data-xs-outline-axis]' : tabColor.value ? '[data-xs-tab-color-none]' : undefined))
 const closeDialog = () => (menu.dialog.value = null)
 /** The dialog's title labels it for screen readers. */
 const titleId = `${useId()}-title`
@@ -117,6 +119,13 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
       <div class="xs-dialog-choices" role="radiogroup" @keydown.enter.prevent="menu.applyOutline()">
         <label class="xs-dialog-choice"><input v-model="grouping.axis" type="radio" value="rows" data-xs-outline-axis="rows" />{{ m.outlineRows }}</label>
         <label class="xs-dialog-choice"><input v-model="grouping.axis" type="radio" value="columns" data-xs-outline-axis="columns" />{{ m.outlineColumns }}</label>
+      </div>
+    </template>
+    <template v-else-if="tabColor">
+      <p :id="titleId" class="xs-modal-title">{{ m.menuTabColor }}</p>
+      <div class="xs-dialog-colors" data-xs-tab-colors>
+        <button type="button" class="xs-button" :aria-pressed="!tabColor.color" data-xs-tab-color-none @click="menu.setTabColor(null)">{{ m.tabColorNone }}</button>
+        <ColourSwatches :model-value="tabColor.color" @update:model-value="menu.setTabColor" />
       </div>
     </template>
     <template v-else-if="hidden">

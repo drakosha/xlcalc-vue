@@ -53,7 +53,9 @@ function drawnLines(first: number, last: number, spare: number, step: number): [
 }
 
 export function useViewport(i: ViewportInput, geo: Geometry) {
-  const showNums = computed(() => i.sheet.value?.rowNumbers !== false)
+  /** Excel's View > Show > Headings: row numbers and column letters; a list's `rowNumbers` hides the numbers alone. */
+  const showHeads = computed(() => i.sheet.value?.headings !== false)
+  const showNums = computed(() => showHeads.value && i.sheet.value?.rowNumbers !== false)
   /**
    * A gridline's width in unzoomed pixels: 1, and zoomed out what draws as one screen pixel, since browsers draw a thinner
    * border one pixel wide and the rows would then outgrow the geometry. `lineOf` widens a border line the same way.
@@ -88,7 +90,9 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const barW = computed(() => outlineSlots.value.rows * slotPx.value)
   const barH = computed(() => outlineSlots.value.cols * slotPx.value)
   /** The header's height (the letters and the column bar) and the width to the left of the cells (the row bar and the numbers). */
-  const headH = computed(() => HEAD_H + barH.value)
+  /** The letters row is drawn without headings too while the row bar's level buttons need it. */
+  const headRow = computed(() => showHeads.value || barW.value > 0)
+  const headH = computed(() => (headRow.value ? HEAD_H : 0) + barH.value)
   /** List mode's totals row at the bottom, as tall as the column letters row. */
   const footH = computed(() => (i.sheet.value?.totals ? HEAD_H : 0))
   const leadW = computed(() => barW.value + numW.value)
@@ -181,7 +185,9 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const cellAtPoint = (clientX: number, clientY: number, box: { left: number; top: number }) => cellAt((clientX - box.left) / i.zoom.value, (clientY - box.top) / i.zoom.value)
 
   return {
+    showHeads,
     showNums,
+    headRow,
     line,
     lineOf,
     narrow,

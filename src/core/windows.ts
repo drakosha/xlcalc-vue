@@ -200,6 +200,24 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
   /** A cell's hyperlink and note by sheet row, from its loaded window; undefined when it has none or no window holds it. */
   const linkOfRow = (r: number, col: number): CellData['link'] => cellOfRow(r, col)?.win.links?.[cellAddress(r, col)]
   const noteOfRow = (r: number, col: number): CellData['note'] => cellOfRow(r, col)?.win.notes?.[cellAddress(r, col)]
+  /** The notes of the loaded windows that are drawn all the time (`shown`, or every one with `all`), each once, by sheet row. */
+  function shownNotes(all: boolean): { row: number; col: number; note: NonNullable<CellData['note']> }[] {
+    void revision.value
+    const view = viewKey()
+    const seen = new Set<string>()
+    const out: { row: number; col: number; note: NonNullable<CellData['note']> }[] = []
+    for (const kind of order) {
+      const slot = slots[kind].value
+      if (!slot.win?.notes || slot.view !== view) continue
+      for (const [addr, note] of Object.entries(slot.win.notes)) {
+        if ((!all && !note.shown) || seen.has(addr)) continue
+        seen.add(addr)
+        const at = parseCell(addr)
+        if (at) out.push({ row: at.row, col: at.col, note })
+      }
+    }
+    return out
+  }
   /** A cell's displayed style and its number format code (none: General), from its loaded window; null when no window holds it. */
   const lookOfRow = (r: number, col: number): { style?: CellStyle; numberFormat?: string } | null => {
     const w = cellOfRow(r, col)?.win
@@ -640,6 +658,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     lookOfRow,
     linkOfRow,
     noteOfRow,
+    shownNotes,
     merges,
     tables,
     notice,

@@ -164,6 +164,18 @@ const cancel = () => emit('close')
           {{ m.wrapText }}
         </label>
         <p v-if="errors.indent" class="xs-fmt-error" role="alert">{{ m.fmtIndentRange }}</p>
+        <fieldset class="xs-fmt-box xs-fmt-wide">
+          <legend>{{ m.fmtOrientation }}</legend>
+          <label class="xs-fmt-check">
+            <input v-model="draft.verticalText" type="checkbox" data-fmt-vertical-text />
+            {{ m.fmtVerticalText }}
+          </label>
+          <label class="xs-fmt-field">
+            <span>{{ m.fmtDegrees }}</span>
+            <input v-model="draft.degrees" class="xs-field xs-fmt-input" type="text" inputmode="numeric" :disabled="draft.verticalText" :aria-invalid="!!errors.degrees" data-fmt-degrees />
+          </label>
+          <p v-if="errors.degrees" class="xs-fmt-error" role="alert">{{ m.fmtDegreesRange }}</p>
+        </fieldset>
       </div>
 
       <div v-show="tab === 'font'" class="xs-fmt-grid">
