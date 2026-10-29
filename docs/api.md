@@ -294,6 +294,7 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `validation(sheet, cell, signal?) => Promise<SheetValidation \| null>` | Excel's validation dropdown and input message. | None. | [validation.md](validation.md) |
 | `pick(sheet, cell, item, text)` | A picked list item written as Excel writes it. | The item goes to `edit` with `accept`. | [validation.md](validation.md) |
 | `freeze(sheet, panes: { rows; cols } \| null)` | Freeze Panes in the context menu. | Only the formula bar's lock button hides the workbook's frozen panes. | [view.md](view.md) |
+| `protect(sheet, protection: SheetProtection \| null)` | Excel's Protect Sheet with what users may still do (`{}`: selecting cells only), null for Unprotect Sheet, as a single undo step; the sheet tab's menu offers both. A source that has it refuses on a protected sheet what Excel refuses there, with `code: 'protected'`. There is no password. | Neither command; the sheet still disables on a protected sheet what Excel disables. | [protection.md](protection.md) |
 | `functionNames(signal?) => Promise<string[]>` | Formula AutoComplete and Insert Function. | No list, and the fx button is disabled. | [autocomplete.md](autocomplete.md) |
 | `functionSignature(name, signal?) => Promise<SheetFunctionSignature \| null>` | A function's arguments for Excel's argument tooltip while a formula is typed (`SUM(number1, [number2], ...)`), and for Insert Function its syntax, `description` and `category` with `categoryName` (xlcalc 0.42); the name as typed, in any letter case; null for a function the source does not know. | No tooltip; Insert Function lists only the names. | [autocomplete.md](autocomplete.md) |
 | `explain(sheet, cell) => Promise<string>` | Trace Precedents. | No panel. | [view.md](view.md) |
@@ -369,6 +370,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `outline` | `SheetOutline?` | Excel's outline: `rows` and `columns` as `OutlineGroup[]` (`{ from, to, level, collapsed }`), `summaryBelow`, `summaryRight`. |
 | `font` | `{ name; size }?` | The workbook's default font (its Normal style), in which a cell without a font of its own is drawn; `--xs-font` without it. `./local` gives xlcalc's `BookInput.font`, Calibri 11 without one, the font in which xlcalc measures widths and `####`. |
 | `zoom` | `number?` | The sheet's saved zoom in percent (xlsx `zoomScale`), with which it opens; 100 without it. |
+| `protection` | `SheetProtection?` | Excel's Protect Sheet: the sheet is protected, with what users may still do (xlcalc's `SheetProtection`, the boxes of Excel's dialog; `{}` is its default). A locked cell (`CellStyle.protection` in the window's `styles`) takes no edit and a hidden one's formula is not displayed ([protection.md](protection.md)). |
 
 ### Edits and outcomes
 

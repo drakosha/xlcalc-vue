@@ -60,8 +60,8 @@ export function workbookMethods(locale: string, done: Completion, checker?: Spel
     return t.canonical
   }
 
-  /** Clear Formats and Clear All: the session's `clearCells`, which changes displayed text, so the sheet is read again. */
-  async function clear(s: AsyncSession, sheet: string, ranges: string[], what: ClearKind): Promise<EditOutcome> {
+  /** Clear Formats and Clear All (Clear Contents for the protection's Clear All): the session's `clearCells`, which changes displayed text, so the sheet is read again. */
+  async function clear(s: AsyncSession, sheet: string, ranges: string[], what: ClearKind | 'contents'): Promise<EditOutcome> {
     if (!ranges.length) return { ok: true, changes: [] }
     return done.reloaded((await s.clearCells(ranges.map((range) => ({ sheet, range })), what)).changes)
   }

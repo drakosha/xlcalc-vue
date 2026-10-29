@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, StructureOp, StylePatch } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SheetProtection, StructureOp, StylePatch } from 'xlcalc/contract'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
@@ -53,6 +53,13 @@ export interface SheetSource {
   pick?(sheet: string, cell: string, item: number, text: string): Promise<EditOutcome>
   /** Excel's Freeze Panes: the rows above and the columns to the left of a cell kept in view (`{ rows: 2, cols: 1 }`), null unfreezes; a single undo step. Without it only the sheet's lock button hides the workbook's frozen panes. */
   freeze?(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome>
+  /**
+   * Excel's Protect Sheet with what users may still do (`{}` is the dialog's default protection), or null for Unprotect
+   * Sheet; a single undo step, after which the sheets are read again (`SheetInfo.protection`). There is no password: the
+   * workbook holds none. Without it the sheet tab's menu offers neither command; a source that has it refuses on a protected
+   * sheet what Excel refuses there (`EditOutcome` code `protected`).
+   */
+  protect?(sheet: string, protection: SheetProtection | null): Promise<EditOutcome>
   /** The functions a formula can call, by their names as typed in the source's locale (`СУММ` in ru-RU), for Excel's Formula AutoComplete. */
   functionNames?(signal?: AbortSignal): Promise<string[]>
   /**
@@ -176,6 +183,12 @@ export interface SheetInfo {
   font?: { name: string; size: number }
   /** The sheet's saved zoom in percent (xlsx `zoomScale`), with which the sheet opens; 100 without it. */
   zoom?: number
+  /**
+   * Excel's Protect Sheet: the sheet is protected, with what users may still do (`{}`: selecting cells only, Excel's
+   * default). Its cells whose style is locked (`CellStyle.protection`, locked unless a style says otherwise) take no edit,
+   * and a hidden cell's formula is not displayed; the component disables the commands Excel disables. A source enforces it.
+   */
+  protection?: SheetProtection
 }
 
 /** A sheet's groups as Excel draws them in the bars next to the row numbers and above the column letters. */
@@ -364,7 +377,8 @@ export type EditOutcome =
       /**
        * The source's code for the reason, for a host that reacts to it rather than to the text. `memorySource` and
        * `@xlcalc/vue/local` give xlcalc's codes: an outline command's `outline_deep`, `not_grouped` or `detail`, and in
-       * `./local` the code of any structure operation xlcalc refuses.
+       * `./local` the code of any structure operation xlcalc refuses. `protected`: a protected sheet does not allow it, with
+       * Excel's alert as the message; the component displays it as Excel does, in an alert.
        */
       code?: string
       at?: number

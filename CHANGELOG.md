@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Sheet protection, as Excel's Protect Sheet: a source reports a protected sheet with what it still allows in `SheetInfo.protection` (xlcalc's `SheetProtection`), its windows' styles carry each cell's `protection`, and the new optional `protect(sheet, protection | null)` protects and unprotects a sheet as a single undo step. A refusal on a protected sheet has `code: 'protected'`. `./local` enforces protection, which xlcalc's session does not: it refuses what Excel for Mac refuses on a protected sheet (typing into a locked cell, formatting without Format cells, deleting rows with locked cells, and the rest in [protection.md](docs/protection.md)) with Excel's alert in the workbook's language. There is no password: the workbook holds none.
+
 ## 0.29.0 (2026-10-28)
 
 A workbook on a server, edited by several viewers, and xlsx saved over the file it was opened from. Nothing breaks for a host; `keep` in `./local` needs xlcalc 0.57.0.

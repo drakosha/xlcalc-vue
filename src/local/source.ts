@@ -3,6 +3,7 @@
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
 import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
+import type { ClearKind } from '../contract/workbook'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../contract/source'
 import { boxesUnder, findHits, replaceAll } from './find'
 import { loadLocale, tipLocale } from './locale'
@@ -15,6 +16,7 @@ import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import { columnList, filterActive, filterColumns, visibleList } from '../sheet-query'
 import { SheetValues } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
+import { protectionGuard, protectSheet } from './protect'
 import { validationOf } from './validation'
 import { windowOf } from './window'
 import { workbookMethods } from './workbook'
@@ -50,6 +52,7 @@ function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size:
     ...(sheet.hidden ? { hidden: sheet.hidden } : {}),
     ...(outline ? { outline } : {}),
     ...(sheet.view?.zoom ? { zoom: sheet.view.zoom } : {}),
+    ...(sheet.protection ? { protection: sheet.protection } : {}),
     font,
   }
 }
@@ -87,6 +90,9 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   const lists = new Map<string, Map<string, RowList>>()
   let calc: Calc | null = null
   let session: AsyncSession | null = null
+
+  /** Excel's sheet protection, which the session does not enforce: each change to a protected sheet is checked first. */
+  const guard = protectionGuard(locale, maxCells)
 
   /** The source's own changes in sequence: each starts from the state the previous one left. */
   let last: Promise<unknown> = Promise.resolve()
@@ -242,6 +248,9 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
         return await run(s, ...args)
       } catch (e) {
         return failure(e)
+      } finally {
+        // the change may have protected a sheet or changed a style, which the guard reads from the layout
+        guard.forget()
       }
     })
   }
@@ -446,27 +455,31 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       return windowOf(v, { row: req.row, rows, col: req.col, cols, filtered, notice: opts.notice })
     },
-    edit: mutation(edit, refusedBy),
-    paste: mutation(paste, refusedBy),
-    fill: mutation(fill, refusedBy),
-    pick: mutation(pick, refusedBy),
+    edit: mutation(guard.edit(edit), refusedBy),
+    paste: mutation(guard.paste(paste), refusedBy),
+    fill: mutation(guard.fill(fill), refusedBy),
+    pick: mutation(guard.pick(pick), refusedBy),
     undo: mutation((s) => step(s, 'undo'), failedBy),
     redo: mutation((s) => step(s, 'redo'), failedBy),
-    structure: mutation(structure, failedBy),
-    layout: mutation(setLayout, failedBy),
-    format: mutation(format, refusedBy),
-    replace: mutation(replace, (e): ReplaceOutcome => ({ ...refusedBy(e), replaced: 0 })),
-    outline: mutation(outline, failedBy),
+    structure: mutation(guard.structure(structure), failedBy),
+    layout: mutation(guard.layout(setLayout), failedBy),
+    format: mutation(guard.format(format), refusedBy),
+    replace: mutation(
+      guard.replace(replace, (r): ReplaceOutcome => ({ ...r, replaced: 0 }), (s, req) => searchedRows(s, req.sheet, req.filter)),
+      (e): ReplaceOutcome => ({ ...refusedBy(e), replaced: 0 }),
+    ),
+    outline: mutation(guard.outline(outline), failedBy),
     freeze: mutation(freeze, failedBy),
-    clear: mutation(book.clear, failedBy),
-    link: mutation(book.link, refusedBy),
-    note: mutation(book.note, refusedBy),
+    protect: mutation((s, sheet, protection) => protectSheet(s, sheet, protection, reloaded), failedBy),
+    clear: mutation(guard.clear(async (s, sheet: string, ranges: string[], what: ClearKind) => book.clear(s, sheet, ranges, await guard.clearKind(s, sheet, what))), failedBy),
+    link: mutation(guard.link(book.link), refusedBy),
+    note: mutation(guard.note(book.note), refusedBy),
     names: reading(book.names),
     setNames: mutation(book.setNames, refusedBy),
     dependents: reading(book.dependents),
     rules: reading(book.rules),
-    setRules: mutation(book.setRules, refusedBy),
-    table: mutation(book.table, failedBy),
+    setRules: mutation(guard.setRules(book.setRules), refusedBy),
+    table: mutation(guard.table(book.table), failedBy),
     ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
     /**
      * Excel's AutoSum as the session guesses it (xlcalc 0.59), its formula in the workbook's locale; null with an older library.
