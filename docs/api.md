@@ -106,7 +106,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `sheet` | `string` | The displayed sheet. |
-| `ref` | `string` | The selection as Excel writes it: `B2:D5`, `B:D`, `2:5`, `1:1048576`. |
+| `ref` | `string` | The selection as Excel writes it: `B2:D5`, `B:D`, `2:5`, `1:1048576`; of several ranges, the active cell's (`areas` has them all). |
 | `formula` | `string?` | The active cell's formula as displayed. |
 | `value` | `string?` | The active cell's displayed text. |
 | `style` | `CellStyle?` | The active cell's style; absent while its window is not loaded. |
@@ -129,6 +129,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `calculation` | `CalculationMode?` | The workbook's calculation option, from a source with `calculation`: a ribbon shows the checked item of Calculation Options ([calculation.md](calculation.md)). |
 | `calculationPending` | `true?` | In Manual, cells wait for a calculation: the status bar shows Calculate. |
 | `protection` | `SheetProtection?` | The displayed sheet is protected (`SheetInfo.protection`), with what users may still do: the toolbar disables formatting without `formatCells`, as Excel does ([protection.md](protection.md)). |
+| `areas` | `string[]?` | A selection of several ranges, as Go To Special makes it: each range as Excel writes it, `ref` (the active cell's range) among them; absent for a single range. `SheetToolbar` and `FormatDialog` format every range ([go-to-and-symbol.md](go-to-and-symbol.md#a-selection-of-several-ranges)). |
 
 `SheetLinkEvent` is a window's hyperlink (`href`, `location`, `tooltip`, `target`) with the `sheet` and `cell` it belongs to. `SheetFailure` is `{ error: unknown; text: string }`.
 

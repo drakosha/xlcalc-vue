@@ -701,6 +701,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(calc.state.value ? { calculation: calc.state.value.mode } : {}),
       ...(calc.pending.value ? { calculationPending: true as const } : {}),
       ...(protection.protection.value ? { protection: protection.protection.value } : {}),
+      ...(s.areas.value ? { areas: s.areas.value.map(rangeAddress) } : {}),
     }
   })
   watch(viewState, (state) => emit('state', state), { immediate: true })

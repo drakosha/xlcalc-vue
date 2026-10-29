@@ -3,7 +3,7 @@
 // as Excel for Mac selected them, and what the sheet's commands do over several areas.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { SheetViewApi } from '../src'
+import type { SheetViewApi, SheetViewState } from '../src'
 import type { SheetRules } from '../src/contract/workbook'
 import { ruleCells } from '../src/core/special'
 import { localSource, type LocalSource } from '../src/local'
@@ -193,14 +193,18 @@ describe('a selection of several areas', () => {
 
   it('Enter moves down the active area and on to the next one, Shift+Enter back; a click ends the areas', async () => {
     const { w } = await blanks()
+    const state = () => (w.emitted('state') ?? []).at(-1)?.[0] as SheetViewState
+    expect([state().ref, state().areas]).toEqual(['K1:K3', ['K1:K3', 'K4:N4']])
     for (let i = 0; i < 3; i++) await key(w, 'Enter')
     await settle()
     expect([active(w), areaCells(w)]).toEqual(['4:11', ['1:11', '2:11', '3:11']])
+    expect([state().ref, state().areas]).toEqual(['K4:N4', ['K1:K3', 'K4:N4']])
     await key(w, 'Enter', { shiftKey: true })
     await settle()
     expect(active(w)).toBe('3:11')
     await goTo(w, 'A1')
     expect(areaCells(w)).toEqual([])
+    expect(state().areas).toBeUndefined()
   })
 
   it('Delete clears and Bold formats every area, as one step each', async () => {
