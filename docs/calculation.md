@@ -10,7 +10,7 @@ In Manual, as Excel for Mac 16.114 behaved when measured:
 - A formula entered, pasted or filled in Manual shows its value at once (`=A1*10` shows 50), with the cells its array fills and empties; entering a formula again calculates it the same way.
 - A change of how a cell looks, such as a number format, a narrower column or Clear Formats, shows at once with the cell's value as of the last calculation, and nothing starts waiting.
 - Undo and redo restore the edited cells and leave the dependents too.
-- A paste or a fill shows the pasted cells as entered and leaves the waiting cells as they are; so do merging cells whose first cell holds a value and inserting, renaming, moving, hiding and deleting sheets (not measured in Excel for each).
+- A paste or a fill shows the pasted cells as entered and leaves the waiting cells as they are; so do merging cells whose first cell holds a value and inserting, renaming, moving, hiding and deleting sheets: Excel for Mac 16.114 kept the waiting values through a paste, a fill down, and inserting, deleting, renaming and hiding a sheet; merging and moving a sheet were not measured.
 - Calculate Now (F9, or a click on Calculate) shows the values of every waiting cell; Calculate Sheet (Shift+F9) those of the active sheet only, so the status bar keeps Calculate while another sheet waits.
 - Switching to Automatic calculates what waits.
 
