@@ -111,6 +111,11 @@ fieldset.xs-dialog-choices {
   gap: 8px;
 }
 
+/* Protect Sheet's list of what users may do (ProtectDialog.vue): its own padding inside the frame. */
+.xs-protect-list {
+  padding: 4px 8px;
+}
+
 /* ── touch ── */
 .xs-touch .xs-menu {
   font-size: 15px;

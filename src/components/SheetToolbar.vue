@@ -12,6 +12,7 @@ import { NARROW_PX, useCoarsePointer } from '../frame'
 import { useMessages } from '../messages'
 import type { SheetMessages } from '../contract/messages'
 import { useNumberFormats } from '../number-formats'
+import { allows } from '../protection'
 import type { AutoSumFunction, EditOutcome, FormatPatch } from '../contract/source'
 import {
   alignToggle,
@@ -130,6 +131,8 @@ function formatCells(): void {
   else props.sheet.formatCells()
 }
 const style = computed(() => props.state?.style)
+/** The formatting buttons work on a sheet whose protection, if any, allows formatting cells, as Excel's are disabled otherwise. */
+const formattable = computed(() => !!props.state && allows(props.state.protection, 'formatCells'))
 
 const FONT: { what: FontToggle; icon: typeof IconBold; title: keyof SheetMessages }[] = [
   { what: 'bold', icon: IconBold, title: 'bold' },
@@ -509,7 +512,7 @@ function pickNumber(e: Event): void {
             :data-tip="text(b.title)"
             :aria-label="text(b.title)"
             :aria-pressed="fontOn(style, b.what)"
-            :disabled="!state"
+            :disabled="!formattable"
             @click="apply(over({ style: fontToggle(style, b.what) }))"
           >
             <component :is="b.icon" />
@@ -526,7 +529,7 @@ function pickNumber(e: Event): void {
               preview
               complete
               :open="open === 'fontName'"
-              :disabled="!state"
+              :disabled="!formattable"
               @update:open="listOpen('fontName', $event)"
               @apply="setFont"
               @leave="emit('done')"
@@ -540,17 +543,17 @@ function pickNumber(e: Event): void {
               inputmode="decimal"
               :check="checkSize"
               :open="open === 'fontSize'"
-              :disabled="!state"
+              :disabled="!formattable"
               @update:open="listOpen('fontSize', $event)"
               @apply="setSize"
               @leave="emit('done')"
             />
           </span>
           <span class="xs-tb-pair">
-            <button type="button" class="xs-tool" data-tb="font-up" :data-tip="m.fontSizeUp" :aria-label="m.fontSizeUp" :disabled="!state" @click="restyle(fontSizeStep(style, true, book()))">
+            <button type="button" class="xs-tool" data-tb="font-up" :data-tip="m.fontSizeUp" :aria-label="m.fontSizeUp" :disabled="!formattable" @click="restyle(fontSizeStep(style, true, book()))">
               <IconFontUp />
             </button>
-            <button type="button" class="xs-tool" data-tb="font-down" :data-tip="m.fontSizeDown" :aria-label="m.fontSizeDown" :disabled="!state" @click="restyle(fontSizeStep(style, false, book()))">
+            <button type="button" class="xs-tool" data-tb="font-down" :data-tip="m.fontSizeDown" :aria-label="m.fontSizeDown" :disabled="!formattable" @click="restyle(fontSizeStep(style, false, book()))">
               <IconFontDown />
             </button>
           </span>
@@ -564,31 +567,31 @@ function pickNumber(e: Event): void {
             :data-tip="m.numberFormat"
             :aria-label="m.numberFormat"
             value=""
-            :disabled="!state"
+            :disabled="!formattable"
             @change="pickNumber"
           >
             <option value="" hidden>{{ category?.name ?? '' }}</option>
             <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
           </select>
-          <button type="button" class="xs-tool" data-tb="accounting" :data-tip="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!state" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
+          <button type="button" class="xs-tool" data-tb="accounting" :data-tip="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!formattable" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
             <IconAccounting />
           </button>
-          <button type="button" class="xs-tool" data-tb="percent" :data-tip="m.percentStyle" :aria-label="m.percentStyle" :disabled="!state" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
+          <button type="button" class="xs-tool" data-tb="percent" :data-tip="m.percentStyle" :aria-label="m.percentStyle" :disabled="!formattable" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
             <IconPercent />
           </button>
-          <button type="button" class="xs-tool" data-tb="comma" :data-tip="m.commaStyle" :aria-label="m.commaStyle" :disabled="!state" @click="apply(over({ numberFormat: COMMA_STYLE }))">
+          <button type="button" class="xs-tool" data-tb="comma" :data-tip="m.commaStyle" :aria-label="m.commaStyle" :disabled="!formattable" @click="apply(over({ numberFormat: COMMA_STYLE }))">
             <IconComma />
           </button>
-          <button type="button" class="xs-tool" data-tb="decimal-up" :data-tip="m.decimalIncrease" :aria-label="m.decimalIncrease" :disabled="!state" @click="stepDecimal(true)">
+          <button type="button" class="xs-tool" data-tb="decimal-up" :data-tip="m.decimalIncrease" :aria-label="m.decimalIncrease" :disabled="!formattable" @click="stepDecimal(true)">
             <IconDecimalUp />
           </button>
-          <button type="button" class="xs-tool" data-tb="decimal-down" :data-tip="m.decimalDecrease" :aria-label="m.decimalDecrease" :disabled="!state" @click="stepDecimal(false)">
+          <button type="button" class="xs-tool" data-tb="decimal-down" :data-tip="m.decimalDecrease" :aria-label="m.decimalDecrease" :disabled="!formattable" @click="stepDecimal(false)">
             <IconDecimalDown />
           </button>
         </span>
         <span v-else-if="blk.group === 'colors'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span v-for="c in COLOURS" :key="c.what" class="xs-tb-split">
-            <button type="button" class="xs-tool" :data-tb="`${c.what}-colour`" :data-tip="text(c.title)" :aria-label="text(c.title)" :disabled="!state" @click="paint(c.what, last[c.what])">
+            <button type="button" class="xs-tool" :data-tb="`${c.what}-colour`" :data-tip="text(c.title)" :aria-label="text(c.title)" :disabled="!formattable" @click="paint(c.what, last[c.what])">
               <component :is="c.icon" :colour="last[c.what]" />
             </button>
             <button
@@ -598,7 +601,7 @@ function pickNumber(e: Event): void {
               :data-tip="m.pickColor"
               :aria-label="m.pickColor"
               :aria-expanded="open === c.what"
-              :disabled="!state"
+              :disabled="!formattable"
               @click="toggle(c.what)"
             >
               <IconDown />
@@ -611,7 +614,7 @@ function pickNumber(e: Event): void {
         </span>
         <span v-else-if="blk.group === 'borders'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span class="xs-tb-split">
-            <button type="button" class="xs-tool xs-tb-wide" data-tb="borders" :data-tip="m.borders" :aria-label="m.borders" :aria-expanded="open === 'borders'" :disabled="!state" @click="toggle('borders')">
+            <button type="button" class="xs-tool xs-tb-wide" data-tb="borders" :data-tip="m.borders" :aria-label="m.borders" :aria-expanded="open === 'borders'" :disabled="!formattable" @click="toggle('borders')">
               <IconBorderAll />
               <IconDown class="xs-tb-down" />
             </button>
@@ -633,7 +636,7 @@ function pickNumber(e: Event): void {
             :data-tip="text(a.title)"
             :aria-label="text(a.title)"
             :aria-pressed="verticalOn(style, a.v)"
-            :disabled="!state"
+            :disabled="!formattable"
             @click="restyle(verticalToggle(style, a.v))"
           >
             <component :is="a.icon" />
@@ -649,15 +652,15 @@ function pickNumber(e: Event): void {
             :data-tip="text(a.title)"
             :aria-label="text(a.title)"
             :aria-pressed="style?.alignment?.horizontal === a.h"
-            :disabled="!state"
+            :disabled="!formattable"
             @click="apply(over({ style: alignToggle(style, a.h) }))"
           >
             <component :is="a.icon" />
           </button>
-          <button type="button" class="xs-tool" data-tb="indent-down" :data-tip="m.indentDecrease" :aria-label="m.indentDecrease" :disabled="!state" @click="restyle(indentStep(style, false))">
+          <button type="button" class="xs-tool" data-tb="indent-down" :data-tip="m.indentDecrease" :aria-label="m.indentDecrease" :disabled="!formattable" @click="restyle(indentStep(style, false))">
             <IconIndentDecrease />
           </button>
-          <button type="button" class="xs-tool" data-tb="indent-up" :data-tip="m.indentIncrease" :aria-label="m.indentIncrease" :disabled="!state" @click="restyle(indentStep(style, true))">
+          <button type="button" class="xs-tool" data-tb="indent-up" :data-tip="m.indentIncrease" :aria-label="m.indentIncrease" :disabled="!formattable" @click="restyle(indentStep(style, true))">
             <IconIndentIncrease />
           </button>
           <button
@@ -667,7 +670,7 @@ function pickNumber(e: Event): void {
             :data-tip="m.wrapText"
             :aria-label="m.wrapText"
             :aria-pressed="!!style?.alignment?.wrap"
-            :disabled="!state"
+            :disabled="!formattable"
             @click="apply(over({ style: wrapToggle(style) }))"
           >
             <IconWrap />
@@ -698,7 +701,7 @@ function pickNumber(e: Event): void {
           </span>
         </span>
         <span v-else-if="blk.group === 'formatCells' && (dialogToHost() || sheet)" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <button type="button" class="xs-tool" data-tb="format-cells" :data-tip="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!state" @click="formatCells">
+          <button type="button" class="xs-tool" data-tb="format-cells" :data-tip="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!formattable" @click="formatCells">
             <IconFormatCells />
           </button>
         </span>

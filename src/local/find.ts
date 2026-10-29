@@ -62,6 +62,18 @@ export function replaceAll(s: AsyncSession, req: FindRequest, by: string, rows: 
   return s.replaceInCells(rangesOf(req), req.query, by, matchOf(req, rows))
 }
 
+/** The cells Replace All would change: Find's matches in the text the cells open with, all pages of them. */
+export async function replacedCells(s: AsyncSession, req: FindRequest, rows: number[] | null): Promise<{ row: number; col: number }[]> {
+  const out: { row: number; col: number }[] = []
+  let cursor: string | undefined
+  do {
+    const page = await s.findCells(rangesOf(req), req.query, { ...matchOf(req, rows), in: 'edit', fields: [], maxCells: 10_000, ...(cursor ? { cursor } : {}) })
+    for (const c of page.cells) out.push(parseCell(c.cell)!)
+    cursor = page.cursor
+  } while (cursor)
+  return out
+}
+
 /**
  * Cells scattered over a sheet (Replace All's) in ranges of at most `max` cells, so that reading them fits in windows;
  * the cells come in Find's order, which keeps neighbors together.

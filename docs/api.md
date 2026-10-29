@@ -128,6 +128,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `font` | `{ name; size }?` | The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays; the toolbar's Font and Font Size boxes show it for such a cell. |
 | `calculation` | `CalculationMode?` | The workbook's calculation option, from a source with `calculation`: a ribbon shows the checked item of Calculation Options ([calculation.md](calculation.md)). |
 | `calculationPending` | `true?` | In Manual, cells wait for a calculation: the status bar shows Calculate. |
+| `protection` | `SheetProtection?` | The displayed sheet is protected (`SheetInfo.protection`), with what users may still do: the toolbar disables formatting without `formatCells`, as Excel does ([protection.md](protection.md)). |
 
 `SheetLinkEvent` is a window's hyperlink (`href`, `location`, `tooltip`, `target`) with the `sheet` and `cell` it belongs to. `SheetFailure` is `{ error: unknown; text: string }`.
 
@@ -184,6 +185,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `manageRules()` | `boolean` | Opens Excel's Conditional Formatting Rules Manager. |
 | `calculate(scope?: 'workbook' \| 'sheet')` | `Promise<EditOutcome \| null>` | Excel's Calculate Now (F9, `'workbook'`, the default) or Calculate Sheet (Shift+F9, `'sheet'`, the active sheet) through the source's `calculate`; `null` without it or on a read-only sheet. See [calculation.md](calculation.md). |
 | `setCalculation(mode: CalculationMode)` | `Promise<EditOutcome \| null>` | Excel's Calculation Options (`'automatic'`, `'autoNoTable'`, `'manual'`) through the source's `setCalculation`; `null` without it or on a read-only sheet. |
+| `protectSheet()` | `boolean` | Opens Excel's Protect Sheet dialog for the displayed sheet, without a password; OK protects it through the source's `protect`, as a single undo step. `false` without `protect`, on a read-only sheet, or on a protected one ([protection.md](protection.md)). |
+| `unprotectSheet()` | `Promise<EditOutcome \| null>` | Excel's Unprotect Sheet on the displayed sheet through the source's `protect`; `null` when nothing was sent (no `protect`, a read-only sheet, an unprotected one). |
 
 `QuickRule` is `'greaterThan' | 'lessThan' | 'between' | 'equalTo' | 'textContains' | 'dateOccurring' | 'duplicateValues' | 'top10' | 'top10Percent' | 'bottom10' | 'bottom10Percent' | 'aboveAverage' | 'belowAverage'`, `DataBarColor` is `'blue' | 'green' | 'red' | 'orange' | 'lightBlue' | 'purple'`, `ColorScalePreset` names a color scale of Excel's gallery from the highest numbers' color to the lowest's (`'greenYellowRed'`, `'redYellowGreen'`, `'greenWhiteRed'`, `'redWhiteGreen'`, `'blueWhiteRed'`, `'redWhiteBlue'`, `'whiteRed'`, `'redWhite'`, `'greenWhite'`, `'whiteGreen'`, `'greenYellow'`, `'yellowGreen'`), and `ClearRulesFrom` is `'selection' | 'sheet'`; `IconSetName` is xlcalc's.
 
@@ -307,6 +310,7 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `freeze(sheet, panes: { rows; cols } \| null)` | Freeze Panes in the context menu. | Only the formula bar's lock button hides the workbook's frozen panes. | [view.md](view.md) |
 | `show(sheet, show: SheetShow)` | Keeps Excel's View > Show (`showGridlines`, `showHeadings`) with the workbook: `SheetShow` is `{ gridlines?; headings? }`, a setting that does not change left out. Not an undo step, as in Excel. | The sheet keeps them in the browser. | [view.md](view.md#gridlines-and-headings) |
 | `tabColor(sheet, color: string \| null)` | Excel's Tab Color on the tab menu (with `structure`): a `#RRGGBB` color, null for No Color, as a single undo step. | Tab colors are drawn but not changed. | [sheets.md](sheets.md#tab-color) |
+| `protect(sheet, protection: SheetProtection \| null)` | Excel's Protect Sheet with what users may still do (`{}`: selecting cells only), null for Unprotect Sheet, as a single undo step; the sheet tab's menu offers both. A source that has it refuses on a protected sheet what Excel refuses there, with `code: 'protected'`. There is no password. | Neither command; the sheet still disables on a protected sheet what Excel disables. | [protection.md](protection.md) |
 | `functionNames(signal?) => Promise<string[]>` | Formula AutoComplete and Insert Function. | No list, and the fx button is disabled. | [autocomplete.md](autocomplete.md) |
 | `functionSignature(name, signal?) => Promise<SheetFunctionSignature \| null>` | A function's arguments for Excel's argument tooltip while a formula is typed (`SUM(number1, [number2], ...)`), and for Insert Function its syntax, `description` and `category` with `categoryName` (xlcalc 0.42); the name as typed, in any letter case; null for a function the source does not know. | No tooltip; Insert Function lists only the names. | [autocomplete.md](autocomplete.md) |
 | `explain(sheet, cell) => Promise<string>` | Trace Precedents. | No panel. | [view.md](view.md) |
@@ -389,6 +393,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `gridlines`, `headings` | `boolean?` | False hides the gridlines, or the row numbers and column letters, as Excel's View > Show does (xlsx `showGridLines`, `showRowColHeaders`); shown by default ([view.md](view.md#gridlines-and-headings)). |
 | `tabColor` | `string?` | Excel's Tab Color, `#RRGGBB`: another tab is filled with it, the active one underlined in it ([sheets.md](sheets.md#tab-color)). |
 | `autoFilter` | `{ range }?` | Excel's AutoFilter outside a table, header row first (`A1:D20`): the filter buttons on its header row, the display filter over its rows below ([autofilter.md](autofilter.md)). `./local` gives xlcalc's `SheetInput.autoFilter`. |
+| `protection` | `SheetProtection?` | Excel's Protect Sheet: the sheet is protected, with what users may still do (xlcalc's `SheetProtection`, the boxes of Excel's dialog; `{}` is its default). A locked cell (`CellStyle.protection` in the window's `styles`) takes no edit and a hidden one's formula is not displayed ([protection.md](protection.md)). |
 
 ### Edits and outcomes
 
@@ -446,7 +451,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 
 ## Interface texts: `SheetMessages`
 
-`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`, those of the conditional formatting dialogs (`cf…`) in its `ConditionalMessages`, which `SheetMessages` extends.
+`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`, those of the conditional formatting dialogs (`cf…`) in its `ConditionalMessages`, and those of sheet protection (Excel's alert, Protect Sheet, Format Cells' Protection tab) in its `ProtectionMessages`, both of which `SheetMessages` extends.
 
 ```ts
 import { ruMessages } from '@xlcalc/vue'

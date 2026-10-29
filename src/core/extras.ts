@@ -11,6 +11,8 @@ import type { Windows } from './windows'
 
 export interface ExtrasDeps {
   notify: (text: string) => void
+  /** The sheet's protection disables this kind of change (a hyperlink without Insert hyperlinks, a note without Edit objects). */
+  blocks: (kind: ExtraMethod) => boolean
   /** A change succeeded that may have changed the cells' rules too (Clear All removes data validation). */
   changed: () => void
 }
@@ -20,7 +22,7 @@ type ExtraMethod = 'clear' | 'link' | 'note'
 
 export function useExtras(s: SheetState, sel: Selection, w: Windows, ed: Editing, deps: ExtrasDeps) {
   /** A method the source accepts: the sheet is editable and the source has it; otherwise null. */
-  const method = <K extends ExtraMethod>(name: K) => (s.editable.value ? s.sourceMethod(name) : null)
+  const method = <K extends ExtraMethod>(name: K) => (s.editable.value && !deps.blocks(name) ? s.sourceMethod(name) : null)
 
   /** Calls the source; after a success the windows over `ranges` of `sheet` are read again, whether or not the source sent `repaint`. */
   async function change(call: () => Promise<EditOutcome>, sheet: string, ranges: string[]): Promise<EditOutcome> {
@@ -57,9 +59,14 @@ export function useExtras(s: SheetState, sel: Selection, w: Windows, ed: Editing
     return out
   }
 
-  /** A locked cell in the rectangle: its reason is displayed and nothing is sent. */
-  function locked(rect: CellRect | null): boolean {
-    const lock = rect ? ed.lockIn(rect) : null
+  /**
+   * A locked cell in the rectangle: its reason, or a protected sheet's alert, is displayed and nothing is sent. Without
+   * `cells` only the source's locked ranges count, for a change a protected sheet allows over locked cells (a note).
+   */
+  function locked(rect: CellRect | null, cells = true): boolean {
+    if (!rect) return false
+    if (cells) return ed.blocked(rect)
+    const lock = ed.lockIn(rect)
     if (lock !== null) deps.notify(s.messages.value.locked(lock))
     return lock !== null
   }

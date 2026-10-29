@@ -2,6 +2,7 @@
 import { computed, type ComputedRef } from 'vue'
 import type { SheetMessages } from './contract/messages'
 import { enConditional, ruConditional } from './messages-conditional'
+import { enProtection, ruProtection } from './messages-protection'
 
 /** `n` and its English noun, singular for one. */
 const countEn = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -502,6 +503,7 @@ export const enMessages: SheetMessages = {
   calculateStatus: 'Calculate',
   calculateHint: 'Calculate Now (F9)',
   ...enConditional,
+  ...enProtection,
 }
 
 /** Russian plural: one, few, many. */
@@ -1022,6 +1024,7 @@ export const ruMessages: SheetMessages = {
   calculateStatus: 'Вычислить',
   calculateHint: 'Пересчет (F9)',
   ...ruConditional,
+  ...ruProtection,
 }
 
 /** A component's texts: the English set overridden by the part a host passed. */

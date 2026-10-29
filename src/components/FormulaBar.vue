@@ -25,17 +25,17 @@ const activeLink = computed(() => {
   const a = active.value
   return a ? ctx.w.cellData(a.row, a.col, cellAddress(a.row, a.col)).link : undefined
 })
-/** What the input contains: the draft of an open editor, in the cell too, otherwise the text the active cell opens with, as in Excel's formula bar. */
+/** What the input contains: the draft of an open editor, in the cell too, otherwise the text the active cell opens with, as in Excel's formula bar; nothing for a protected sheet's hidden formula. */
 const barText = computed(() => {
   const open = ctx.editor.value
   if (open) return open.text
   const a = active.value
-  return a ? ed.editText(a.row, a.col) : ''
+  return a && !ctx.protection.hiddenAt(a.row, a.col) ? ed.editText(a.row, a.col) : ''
 })
-/** Outside editing, the input accepts no typing where no edit can start: a read-only sheet, a locked cell, no active cell. */
+/** Outside editing, the input accepts no typing where no edit can start: a read-only sheet, a locked cell (a protected sheet's too), no active cell. */
 const barReadonly = computed(() => {
   const a = active.value
-  return !ctx.editor.value && (!ctx.editable.value || !a || ed.lockAt(a.row, a.col) !== null)
+  return !ctx.editor.value && (!ctx.editable.value || !a || ed.lockAt(a.row, a.col) !== null || ctx.protection.lockedAt(a.row, a.col))
 })
 /** The text in pieces for the layer over the input: a formula's references in the colors of their range borders on the grid (the draft's while one is typed), otherwise the text as a whole. */
 const parts = computed<FormulaPart[]>(() => {

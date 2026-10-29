@@ -1,6 +1,6 @@
 // The sheet's public types: SheetView's props, state, events and methods, the toolbar's source, list mode's sort.
 import type { Component } from 'vue'
-import type { CellStyle, CellValue, IconSetName } from 'xlcalc/contract'
+import type { CellStyle, CellValue, IconSetName, SheetProtection } from 'xlcalc/contract'
 import type { ClearRulesFrom, ColorScalePreset, DataBarColor, QuickRule } from './conditional'
 import type { SheetMessages } from './messages'
 import type { AutoSumFunction, CalculationMode, EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
@@ -100,6 +100,8 @@ export interface SheetViewState {
   calculation?: CalculationMode
   /** In Manual, cells wait for a calculation: the status bar shows Calculate. */
   calculationPending?: true
+  /** The sheet is protected (`SheetInfo.protection`), with what users may still do: a toolbar disables formatting without `formatCells`, as Excel does. */
+  protection?: SheetProtection
 }
 
 /** The `zoom` event: the user changed a sheet's zoom (Ctrl+wheel, a pinch, the status bar, the Zoom dialog), in percent. */
@@ -278,6 +280,13 @@ export interface SheetViewApi {
   calculate(scope?: 'workbook' | 'sheet'): Promise<EditOutcome | null>
   /** Excel's Calculation Options through the source's `setCalculation`; null when nothing was sent (no `setCalculation`, a read-only sheet). */
   setCalculation(mode: CalculationMode): Promise<EditOutcome | null>
+  /**
+   * Opens Excel's Protect Sheet dialog for the displayed sheet: what users may still do, without a password; OK protects it
+   * through the source's `protect`, as a single undo step. false without `protect`, on a read-only sheet, or on a protected one.
+   */
+  protectSheet(): boolean
+  /** Excel's Unprotect Sheet on the displayed sheet through the source's `protect`; null when nothing was sent (no `protect`, a read-only sheet, an unprotected one). */
+  unprotectSheet(): Promise<EditOutcome | null>
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

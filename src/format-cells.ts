@@ -5,8 +5,9 @@ import { parseRange } from 'xlcalc/a1'
 import type { SheetFormatPatch, SheetViewState } from './contract/view'
 import { BORDER_EDGES, edgePatches, edgesOf, INDENTED, parseFontSize, sameLine, upperColour, type BorderEdge, type EdgeLines } from './toolbar'
 
-export type FormatTab = 'number' | 'alignment' | 'font' | 'border' | 'fill'
-export const FORMAT_TABS: readonly FormatTab[] = ['number', 'alignment', 'font', 'border', 'fill']
+export type FormatTab = 'number' | 'alignment' | 'font' | 'border' | 'fill' | 'protection'
+/** The tabs named by `fmtTab`; Protection, the last, has its own text. */
+export const FORMAT_TABS = ['number', 'alignment', 'font', 'border', 'fill'] as const
 
 type Horizontal = NonNullable<AlignmentStyle['horizontal']>
 type Vertical = NonNullable<AlignmentStyle['vertical']>
@@ -46,6 +47,9 @@ export interface FormatDraft {
   line: BorderLine
   /** Edges as the Border tab set them; an edge not listed stays unchanged. */
   edges: EdgeLines
+  /** The Protection tab's Locked and Hidden. */
+  locked: boolean
+  hidden: boolean
 }
 
 /** The dialog as it opened: the inputs, the range it formats and what its edges were (known for one cell, unknown for a range). */
@@ -89,6 +93,8 @@ export function startOf(state: SheetViewState): FormatStart {
     fill: upperColour(s.fill?.color),
     line: { style: 'thin' },
     edges: {},
+    locked: s.protection?.locked !== false,
+    hidden: !!s.protection?.hidden,
   }
   // a cell's own sides are its outline; a range's edges cannot be known from its active cell, as Excel's gray buttons show
   const edges: EdgeLines = single ? { top: own.top ?? null, bottom: own.bottom ?? null, left: own.left ?? null, right: own.right ?? null } : {}
@@ -191,6 +197,11 @@ export function patchesOf(start: FormatStart, draft: FormatDraft): SheetFormatPa
   if (Object.keys(font).length) style.font = font
   if (Object.keys(alignment).length) style.alignment = alignment
   if (draft.fill !== was.fill) style.fill = draft.fill ? { color: draft.fill } : null
+  // a cell is locked and not hidden unless its style says otherwise, so those defaults are removed (null)
+  const protection: Record<string, unknown> = {}
+  if (draft.locked !== was.locked) protection.locked = draft.locked ? null : false
+  if (draft.hidden !== was.hidden) protection.hidden = draft.hidden || null
+  if (Object.keys(protection).length) style.protection = protection
   const out: SheetFormatPatch[] = []
   const own: SheetFormatPatch = {}
   if (Object.keys(style).length) own.style = style

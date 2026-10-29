@@ -9,16 +9,16 @@ import ZoomBar from './ZoomBar.vue'
 
 const ctx = useSheetContext()
 const m = ctx.messages
-/** The "+" after the tabs and the tab menu, as in Excel, with the source's `structure` on an editable sheet. */
+/** The "+" after the tabs, as in Excel, with the source's `structure` on an editable sheet; the tab menu also with its `protect`. */
 const canAdd = computed(() => ctx.cmd.can('structure'))
 const { menu } = ctx
 const { press } = menu
 
 function onContext(e: MouseEvent, i: number): void {
-  if (canAdd.value && press.context(e)) void menu.openSheet(i, e.clientX, e.clientY)
+  if (menu.sheetsAvailable.value && press.context(e)) void menu.openSheet(i, e.clientX, e.clientY)
 }
 function onDown(e: PointerEvent, i: number): void {
-  if (canAdd.value) press.start(e, (x, y) => void menu.openSheet(i, x, y))
+  if (menu.sheetsAvailable.value) press.start(e, (x, y) => void menu.openSheet(i, x, y))
 }
 function onClick(i: number): void {
   if (!press.after()) void ctx.pickSheet(i)

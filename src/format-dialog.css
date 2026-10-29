@@ -122,6 +122,12 @@
   max-height: 240px;
   overflow: auto;
 }
+/* Excel's note under the Protection tab's boxes */
+.xs-fmt-note {
+  margin: 8px 0 0;
+  color: var(--xs-muted);
+  font-size: 12px;
+}
 .xs-fmt-error {
   grid-column: 1 / -1;
   margin: 0;
