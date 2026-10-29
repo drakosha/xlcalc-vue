@@ -1,8 +1,9 @@
-// The split window's edges: a renamed sheet keeps its scroll; windows no pane draws any more stop serving cells.
+// The split window's edges: a renamed sheet keeps its scroll; windows no pane draws any more stop serving cells; a reference
+// or the fill handle dragged into another pane takes the cell under the pointer there.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EditOutcome, SheetInfo, SheetOp } from '../src/contract/source'
-import { fakeSource, goTo, mountSheet, settle } from './helpers'
-import { api, book, el, lines, pane, ROW, scroll } from './split-fixture'
+import { fakeSource, goTo, mountSheet, settle, type } from './helpers'
+import { api, book, COL, el, HEAD, LEAD, lines, pane, ROW, scroll } from './split-fixture'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -121,5 +122,40 @@ describe('windows no pane draws', () => {
     f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A1:B2' }] })
     await repainted()
     expect(w.find('[data-cell="1:2"]').exists()).toBe(true)
+  })
+})
+
+describe('a drag into another pane', () => {
+  /** Every pane at the page's top left, as happy-dom lays them out: a point is in the pane its element is in. */
+  const at = (row: number, col: number) => ({ clientX: LEAD + (col - 0.5) * COL, clientY: HEAD + (row - 0.5) * ROW })
+
+  it('of a reference ends at the cell under the pointer in that pane', async () => {
+    const w = await mountSheet(book({ ...lines(4, 2), topLeft: 'C5', activePane: 'bottomRight' }).source)
+    const field = () => w.find('.xs-editor').element as HTMLTextAreaElement
+    await pane(w, 3).trigger('keydown', { key: '=' })
+    await type(w, '=')
+    field().setSelectionRange(1, 1)
+    await pane(w, 0).find('[data-cell="2:1"]').trigger('pointerdown', { button: 0, pointerId: 1, pointerType: 'mouse', ...at(2, 1) })
+    await settle()
+    expect(field().value).toBe('=A2')
+    await pane(w, 0).find('[data-cell="4:1"]').trigger('pointermove', { pointerId: 1, pointerType: 'mouse', buttons: 1, ...at(4, 1) })
+    await settle()
+    expect(field().value).toBe('=A2:A4')
+  })
+
+  it('of the fill handle fills up to the cell under the pointer in that pane', async () => {
+    const w = await mountSheet(book({ ...lines(4, 2), topLeft: 'C5', activePane: 'bottomRight' }).source)
+    await pane(w, 3).find('[data-cell="5:3"]').trigger('pointerdown', { button: 0, pointerType: 'mouse' })
+    await settle()
+    const target = pane(w, 2).find('[data-cell="5:1"]').element
+    // the handle holds the pointer, so the cell under it is found by its place on the page
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(target)
+    const handle = pane(w, 3).find('[data-xs-fill-handle]')
+    await handle.trigger('pointerdown', { button: 0, pointerId: 3, pointerType: 'mouse' })
+    await handle.trigger('pointermove', { pointerId: 3, pointerType: 'mouse', ...at(5, 1) })
+    await settle()
+    // the outline from A5 to C5: its left edge at column A
+    expect(pane(w, 3).find('[data-xs-fill-frame]').attributes('style')).toContain(`left: ${LEAD}px`)
+    vi.restoreAllMocks()
   })
 })

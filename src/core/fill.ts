@@ -24,6 +24,10 @@ const EDGE_STEP_PX = 40
 
 export interface FillDeps {
   editor: Ref<EditorState | null>
+  /** The cell under a point in a split window's pane there (the point in the offsets' space), null without a split or off its panes. */
+  paneAt: (clientX: number, clientY: number) => { d: number; col: number; x: number; y: number; pane: number } | null
+  /** The split window's active pane, the grid's scroller. */
+  activePane: () => number
 }
 
 /** A drag of the handle: the selection it fills from, the cells added so far, the pointer. */
@@ -59,9 +63,8 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     return v.boxOf(u.top, u.left, u.bottom, u.right)
   })
 
-  /** The cells a drag adds with the pointer at a point of the page (`box` is the viewport's): along the axis in which it moved farthest from the selection, up to the pointer's cell. */
-  function targetAt(from: CellRect, box: DOMRect, clientX: number, clientY: number): CellRect | null {
-    const p = v.cellAtPoint(clientX, clientY, box)
+  /** The cells a drag adds with the pointer over cell `p` (the point in the offsets' space): along the axis in which it moved farthest from the selection, up to that cell. */
+  function targetAt(from: CellRect, p: { d: number; col: number; x: number; y: number }): CellRect | null {
     const rows = geo.rowOffsets.value
     const cols = geo.offsets.value
     const top = rows[from.top - 1] ?? 0
@@ -116,8 +119,10 @@ export function useFill(s: SheetState, geo: Geometry, v: Viewport, sel: Selectio
     if (!d || e.pointerId !== d.pointer || !el) return
     // One measurement per move: the viewport does not move as it scrolls, and a read after the scroll's write would trigger another layout.
     const box = el.getBoundingClientRect()
-    edgeScroll(el, box, e.clientX, e.clientY)
-    const to = targetAt(d.from, box, e.clientX, e.clientY)
+    // over another pane of a split window the pointer points at its cell, and the grid's own pane does not scroll
+    const over = deps.paneAt(e.clientX, e.clientY)
+    if (!over || over.pane === deps.activePane()) edgeScroll(el, box, e.clientX, e.clientY)
+    const to = targetAt(d.from, over && over.pane !== deps.activePane() ? over : v.cellAtPoint(e.clientX, e.clientY, box))
     if (to?.top !== d.to?.top || to?.left !== d.to?.left || to?.bottom !== d.to?.bottom || to?.right !== d.to?.right) drag.value = { ...d, to }
   }
   function onUp(e: PointerEvent): void {

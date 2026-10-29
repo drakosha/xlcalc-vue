@@ -97,6 +97,15 @@ function nearestEdge(offsets: Float64Array, at: number, indexAt: (x: number) => 
   return at - a <= b - at ? k - 1 : k
 }
 
+/** A point of the page over a pane: the cell under it and the point in the offsets' space. */
+export interface PanePoint {
+  d: number
+  col: number
+  x: number
+  y: number
+  pane: PaneId
+}
+
 interface PaneDeps {
   /** The active pane's size measured again (the sheet's viewport). */
   measure: () => void
@@ -331,6 +340,23 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
       cols: lay.x === null ? 0 : nearestEdge(geo.offsets.value, leftOf(0) + lay.x / z - v.leadW.value, geo.colAt),
     }
   }
+  /**
+   * The cell under a point of the page in the pane there, found by the element under it (`under`, otherwise the page's
+   * element at that point): its display row and column, the point in the offsets' space, and the pane; null without a split
+   * or off the panes (on a bar).
+   */
+  function cellAtPoint(clientX: number, clientY: number, under?: EventTarget | null): PanePoint | null {
+    if (!layout.value) return null
+    const target = under instanceof Element ? under : typeof document.elementFromPoint === 'function' ? document.elementFromPoint(clientX, clientY) : null
+    const el = target?.closest<HTMLElement>('[data-xs-pane]')
+    const id = Number(el?.dataset.xsPane) as PaneId
+    if (!el || els[id] !== el) return null
+    const r = el.getBoundingClientRect()
+    const z = s.zoom.value
+    const x = Math.max(0, (clientX - r.left) / z - v.leadW.value) + leftOf(colGroup(id))
+    const y = Math.max(0, (clientY - r.top) / z - v.headH.value) + topOf(rowGroup(id))
+    return { d: geo.rowAt(y), col: geo.colAt(x), x, y, pane: id }
+  }
   /** Before row heights change: the row at the top of the rows of panes that are not active, to keep them steady afterwards. */
   function hold(): (() => void) | null {
     const lay = layout.value
@@ -346,7 +372,7 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     }
   }
 
-  return { split, drag, box, scrollbars, layout, on, active, viewports, needs, topOf, leftOf, setEl, onScroll, activate, enter, snap, offEdge, freezeLines, hold }
+  return { split, drag, box, scrollbars, layout, on, active, viewports, needs, topOf, leftOf, setEl, onScroll, activate, enter, snap, offEdge, freezeLines, hold, cellAtPoint }
 }
 
 export type Panes = ReturnType<typeof usePanes>
