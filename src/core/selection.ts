@@ -31,9 +31,17 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     const b = s.extent.value ?? sa
     return rectOf(a, b)
   })
-  // Any other move of the active cell or the corner starts the range from the active cell again.
+  // Any other move of the active cell or the corner starts the range from the active cell again, a single one.
   let inside = false
-  watch([() => s.selected.value, () => s.extent.value], () => !inside && (s.anchor.value = null), { flush: 'sync' })
+  watch(
+    [() => s.selected.value, () => s.extent.value],
+    () => {
+      if (inside) return
+      s.anchor.value = null
+      s.areas.value = null
+    },
+    { flush: 'sync' },
+  )
   /** The same, clipped to the grid's end, for what draws, counts and copies it. */
   const selRect = computed<CellRect | null>(() => {
     const r = fullRect.value
@@ -90,6 +98,46 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     s.selected.value = { row: r.top, col: r.left }
     s.extent.value = r.top === bottom && r.left === right ? null : { row: bottom, col: right }
   }
+  /** Whether a range holds a cell. */
+  const holds = (r: CellRect, p: CellPosition) => p.row >= r.top && p.row <= r.bottom && p.col >= r.left && p.col <= r.right
+  /** Makes `area` the selection's range with the active cell `at` in it, as Enter moves it there, keeping the areas. */
+  function enterArea(area: CellRect, at: CellPosition): void {
+    inside = true
+    const one = area.top === area.bottom && area.left === area.right
+    s.anchor.value = one ? null : { row: area.top, col: area.left }
+    s.extent.value = one ? null : { row: area.bottom, col: area.right }
+    s.selected.value = at
+    inside = false
+  }
+  /**
+   * Selects several ranges at once, as Go To Special does: the active cell stays where it is when one of them holds it,
+   * otherwise it goes to the first one's top-left cell; the grid extends to them, and the viewport scrolls to the active cell.
+   */
+  function selectAreas(rects: CellRect[], at: CellPosition | null): void {
+    const first = rects[0]
+    if (!first) return
+    const area = (at && rects.find((r) => holds(r, at))) ?? first
+    const active = at && holds(area, at) ? at : { row: area.top, col: area.left }
+    let bottom = 1
+    let right = 1
+    for (const r of rects) {
+      bottom = Math.max(bottom, r.bottom >= MAX_ROWS ? r.top : r.bottom)
+      right = Math.max(right, r.right >= MAX_COLS ? r.left : r.right)
+    }
+    s.stretch(bottom, right)
+    enterArea(area, active)
+    s.areas.value = rects.length > 1 ? rects : null
+    revealCell(active.row, active.col)
+  }
+  /** Enter or Tab past the end of the active area of several: the next area (the previous one with Shift), from its first cell (its last). */
+  function nextArea(list: CellRect[], r: CellRect, dir: 1 | -1): void {
+    const i = list.findIndex((x) => x.top === r.top && x.left === r.left && x.bottom === r.bottom && x.right === r.right)
+    const next = list[(i + dir + list.length) % list.length]!
+    const at = dir > 0 ? { row: next.top, col: next.left } : onGrid({ row: next.bottom, col: next.right })
+    enterArea(next, at)
+    void nextTick(() => revealCell(at.row, at.col))
+  }
+
   /** A selection corner clipped to the grid: keys move from where the grid displays it. */
   const onGrid = (p: CellPosition): CellPosition => ({ row: p.row >= MAX_ROWS ? s.lastRow.value : p.row, col: p.col >= MAX_COLS ? Math.max(1, s.colCount.value) : p.col })
 
@@ -287,7 +335,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     if (!a) return
     const r = selRect.value
     // under a display filter the selection's sheet rows are not its rows on screen: it collapses as before
-    if (multi.value && r && !s.visible.value) return stepInside(a, r, dr, dc)
+    if ((multi.value || s.areas.value) && r && !s.visible.value) return stepInside(a, r, dr, dc)
     const d = s.indexOf(a.row) ?? 1
     const row = s.rowOf(dr ? geo.nextRow(d, dr) : d)
     const col = dc ? geo.nextCol(a.col, dc) : a.col
@@ -299,7 +347,8 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
   /**
    * Excel's Enter and Tab in a selection of several cells: the active cell moves inside it, down its column and on to the
    * top of the next column (Tab: along its row and on to the start of the next row), back with Shift, wrapping around at the
-   * end, skipping hidden rows and columns; the selection stays. Without a display filter a display index is the sheet row.
+   * end (or going on to the next area of several), skipping hidden rows and columns; the selection stays. Without a display
+   * filter a display index is the sheet row.
    */
   function stepInside(a: CellPosition, r: CellRect, dr: -1 | 0 | 1, dc: -1 | 0 | 1): void {
     const firstRow = (dir: 1 | -1) => (geo.heightOf(dir > 0 ? r.top : r.bottom) > 0 ? (dir > 0 ? r.top : r.bottom) : geo.nextRow(dir > 0 ? r.top : r.bottom, dir))
@@ -307,12 +356,14 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     const inRows = (x: number, from: number) => x !== from && x >= r.top && x <= r.bottom
     const inCols = (x: number, from: number) => x !== from && x >= r.left && x <= r.right
     let { row, col } = a
+    let wrapped = false
     if (dr) {
       const n = geo.nextRow(row, dr)
       if (inRows(n, row)) row = n
       else {
         const c = geo.nextCol(col, dr)
-        col = inCols(c, col) ? c : firstCol(dr)
+        wrapped = !inCols(c, col)
+        col = wrapped ? firstCol(dr) : c
         row = firstRow(dr)
       }
     } else if (dc) {
@@ -320,11 +371,14 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
       if (inCols(c, col)) col = c
       else {
         const n = geo.nextRow(row, dc)
-        row = inRows(n, row) ? n : firstRow(dc)
+        wrapped = !inRows(n, row)
+        row = wrapped ? firstRow(dc) : n
         col = firstCol(dc)
       }
     }
     const full = fullRect.value!
+    const list = s.areas.value
+    if (wrapped && list) return nextArea(list, full, (dr || dc) as 1 | -1)
     const far = s.extent.value ?? a
     inside = true
     s.anchor.value ??= { row: far.row === full.top ? full.bottom : full.top, col: far.col === full.left ? full.right : full.left }
@@ -350,6 +404,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport) {
     selectAll,
     stretchTo,
     selectRect,
+    selectAreas,
     onCellDown,
     onCellTap,
     onGridMove,

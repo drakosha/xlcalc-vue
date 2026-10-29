@@ -16,6 +16,7 @@ import { useFill } from './fill'
 import { useFormula } from './formula'
 import { useFormulaView } from './formula-view'
 import { useGoTo } from './goto'
+import { useSpecial } from './special'
 import { useLinks } from './links'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
@@ -171,6 +172,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items() })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
+  const special = useSpecial(s, sel, { ask: alerts.ask, notify })
   /** Excel's Symbol dialog: open over an editable sheet with an active cell; it inserts into the edit it keeps open. */
   const symbolOpen = ref(false)
   function openSymbol(): boolean {
@@ -219,6 +221,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     explain: explain.show,
     merge: merge.run,
     goTo: goto.openGoTo,
+    goToSpecial: special.openSpecial,
     insertSymbol: openSymbol,
     fillDown: () => fill.fillFrom('down'),
     fillRight: () => fill.fillFrom('right'),
@@ -699,6 +702,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     outline,
     menu,
     goto,
+    special,
     symbolOpen,
     closeSymbol,
     painter,

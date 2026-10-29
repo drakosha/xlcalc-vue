@@ -118,6 +118,10 @@ fieldset.xs-dialog-choices {
   flex-direction: column;
   gap: 2px;
 }
+/* An option that belongs to the one above it (Go To Special's kinds of values, All and Same). */
+.xs-dialog-sub {
+  padding-left: 22px;
+}
 .xs-dialog-choice:has(input:disabled) {
   color: var(--xs-muted);
   cursor: default;

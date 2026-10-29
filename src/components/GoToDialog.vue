@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Excel's Go To dialog (F5, Ctrl+G): the list of locations its jumps have left and of the workbook's names, the Reference box, OK and Cancel.
+// Excel's Go To dialog (F5, Ctrl+G): the list of locations its jumps have left and of the workbook's names, the Reference box, Special…, OK and Cancel.
 import { ref, useId } from 'vue'
 import { stepIndex } from '../core/list-keys'
 import { useSheetContext } from './context'
@@ -37,6 +37,11 @@ async function ok(): Promise<void> {
     input.value?.select()
   }
 }
+/** Special… closes Go To and opens Go To Special, as in Excel. */
+function special(): void {
+  goto.close()
+  ctx.special.openSpecial()
+}
 /** Up and Down move through the list from anywhere in the dialog. */
 function onKey(e: KeyboardEvent): void {
   if ((e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || !items.length) return
@@ -70,6 +75,7 @@ function onKey(e: KeyboardEvent): void {
       <input ref="input" v-model="text" class="xs-field xs-field-l" type="text" enterkeyhint="go" autocomplete="off" autocapitalize="off" spellcheck="false" data-xs-goto-ref />
     </label>
     <div class="xs-dialog-foot">
+      <button v-if="ctx.special.available.value" type="button" class="xs-button xs-goto-special" data-xs-goto-special @click="special()">{{ m.goToSpecial }}</button>
       <button type="button" class="xs-button" data-xs-dialog-cancel @click="goto.close()">{{ m.cancel }}</button>
       <button type="submit" class="xs-button xs-button-main" data-xs-dialog-ok>{{ m.ok }}</button>
     </div>

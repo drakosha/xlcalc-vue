@@ -38,6 +38,10 @@
   background: var(--xs-accent);
   color: var(--xs-on-accent);
 }
+/* Special… stands apart at the left, as in Excel. */
+.xs-goto-special {
+  margin-right: auto;
+}
 .xs-goto-field,
 .xs-sym-field {
   display: flex;

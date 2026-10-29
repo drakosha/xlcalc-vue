@@ -68,6 +68,10 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   /** Opens the Paste Special dialog; false when there is nothing it could paste. */
   function openSpecial(): boolean {
     if (!canPasteSpecial.value) return false
+    if (s.areas.value) {
+      deps.notify(s.messages.value.multipleSelections)
+      return false
+    }
     specialOpen.value = true
     return true
   }
@@ -83,7 +87,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     const keys = onMac() ? e.ctrlKey && e.metaKey && !e.altKey : e.ctrlKey && e.altKey && !e.metaKey
     if (!keys || e.shiftKey || e.code !== 'KeyV' || !canPasteSpecial.value) return false
     e.preventDefault()
-    specialOpen.value = true
+    openSpecial()
     return true
   }
 
@@ -127,6 +131,7 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
     const r = sel.selRect.value
     const full = sel.fullRect.value
     if (!r || !full) return
+    if (s.areas.value) return deps.notify(s.messages.value.multipleSelections)
     // Under the display filter a copy is the text of the visible rows: there is no range to paste.
     const m: ClipMark | null = s.visible.value ? null : { sheet: s.sheetName.value, rect: full, text: null, cut }
     spent = null
@@ -195,6 +200,8 @@ export function useClip(s: SheetState, w: Windows, sel: Selection, v: Viewport, 
   /** A paste on the grid or from the menu: the marked range when the clipboard holds its text or provides none (null), otherwise the text. */
   function pasteWith(text: string | null): void {
     if (!s.editable.value) return
+    // Excel pastes into a single range only
+    if (s.areas.value) return deps.notify(s.messages.value.multipleSelections)
     const m = mark.value
     if (m && (!text || m.text === null || plain(text) === plain(m.text) || (m.shown !== undefined && plain(text) === plain(m.shown)))) {
       if (cmd.canRanges.value) return void pasteMark(m)

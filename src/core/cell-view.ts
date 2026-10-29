@@ -51,6 +51,8 @@ export interface RowState {
   height: number
   /** The selection over the row: its columns, whether the row is its top, how many rows below this one it ends (counted only as far as the row's merges reach), several cells or one; null when it does not cross the row. */
   sel: { left: number; right: number; top: boolean; below: number; multi: boolean } | null
+  /** The columns of a selection's other areas over the row (Go To Special's), tinted as the selection is; null for a single range. */
+  areas: readonly { left: number; right: number }[] | null
   /** The active cell's column in the row; 0 for none. */
   active: number
   /** The formula's ranges over the row. */
@@ -75,6 +77,7 @@ export function sameRowState(a: RowState, b: RowState): boolean {
     a.hl.length === b.hl.length &&
     a.hl.every((h, i) => h === b.hl[i]) &&
     same(a.sel, b.sel) &&
+    (a.areas === b.areas || (!!a.areas && !!b.areas && a.areas.length === b.areas.length && a.areas.every((x, i) => same(x, b.areas![i]!)))) &&
     same(a.flash, b.flash) &&
     same(a.editor, b.editor)
   )
@@ -179,6 +182,7 @@ export function useCellView(
     return {
       height: geo.heightOf(d),
       sel: inRect ? { left: rect.left, right: rect.right, top: r === rect.top, below: Math.min(rect.bottom - r, mergeRows.value.get(r) ?? 1), multi: sel.multi.value } : null,
+      areas: s.areas.value && s.areas.value.filter((x) => r >= x.top && r <= x.bottom).map((x) => ({ left: x.left, right: x.right })),
       active: a && a.row === r ? a.col : 0,
       hl: f.highlights.value.filter((h) => r >= h.ref.top && r <= h.bottom),
       hits: hitRows.value.get(r),
@@ -324,6 +328,9 @@ export function useCellView(
       if (c === rs.left) shadows.push('inset 1px 0 0 0 var(--xs-accent)')
       if (c2 >= rs.right) shadows.push('inset -1px 0 0 0 var(--xs-accent)')
     }
+    // a cell of another area is tinted once, however many areas cover it
+    const inArea = !inSel && !!row.areas?.some((x) => c >= x.left && c <= x.right)
+    if (inArea && !active) bg.push({ img: 'linear-gradient(var(--xs-sel-tint), var(--xs-sel-tint))', size: full, pos: '0 0' })
     const hit = !!row.hits?.has(c)
     if (hit) bg.push({ img: 'linear-gradient(var(--xs-hit), var(--xs-hit))', size: full, pos: '0 0' })
     const hl = row.hl.length ? f.highlightAt(r, c, row.hl) : null
@@ -351,6 +358,7 @@ export function useCellView(
       'xs-cell',
       active ? 'xs-active' : '',
       inSel ? 'xs-sel' : '',
+      inArea ? 'xs-area' : '',
       row.flash && c >= row.flash.left && c <= row.flash.right ? 'xs-flash' : '',
       hit ? 'xs-hit' : '',
       hit && row.hitNow === c ? 'xs-hit-now' : '',

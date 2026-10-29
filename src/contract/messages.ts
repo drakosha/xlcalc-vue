@@ -133,6 +133,8 @@ export interface SheetMessages extends ConditionalMessages {
   /** A paste whose range would extend past the sheet's last row or column. */
   pasteOffSheet: string
   tooManyCells: string
+  /** Excel's refusal of a copy, a cut or a paste over a selection of several areas (Go To Special's). */
+  multipleSelections: string
   pending: string
   close: string
   /** The formula bar's tooltip over a formula with references: Ctrl+click (Cmd on a Mac; the key is passed in) goes to a reference. */
@@ -314,6 +316,25 @@ export interface SheetMessages extends ConditionalMessages {
   goToList: string
   goToReference: string
   goToBad: string
+  /** Excel's Go To Special: the Go To dialog's Special… button, the dialog's title, its Select group and options, and Excel's message when it finds no cells. */
+  goToSpecial: string
+  specialTitle: string
+  specialSelect: string
+  specialConstants: string
+  specialFormulas: string
+  specialNumbers: string
+  specialText: string
+  specialLogicals: string
+  specialErrors: string
+  specialBlanks: string
+  specialRegion: string
+  specialLastCell: string
+  specialVisible: string
+  specialConditional: string
+  specialValidation: string
+  specialAll: string
+  specialSame: string
+  specialNone: string
   /** Excel's Symbol dialog: its title and tabs, the Subset box and its blocks, the recently used row, the Character code box, the Special Characters tab's names, Insert. */
   symbolTitle: string
   symbolTab: (tab: 'symbols' | 'special') => string

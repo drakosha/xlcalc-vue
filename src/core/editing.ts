@@ -411,30 +411,33 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     return letter === 'y' && !e.shiftKey ? 'redo' : null
   }
 
-  /** The selection clipped to the data: beyond it there is nothing to clear. */
-  function dataRect(): CellRect | null {
-    const r = sel.selRect.value
-    if (!r) return null
+  /** A range clipped to the data: beyond it there is nothing to clear. */
+  function dataRect(r: CellRect): CellRect | null {
     const out = { top: r.top, left: r.left, bottom: Math.min(r.bottom, s.dataRows.value), right: Math.min(r.right, s.dataCols.value) }
     return out.top <= out.bottom && out.left <= out.right ? out : null
   }
-  /** Delete and Backspace: clear the selection's cells (cells known to be empty and rows hidden by the filter are skipped, as in Excel). */
+  /** Delete and Backspace: clear the cells of the selection, every area of several (cells known to be empty and rows hidden by the filter are skipped, as in Excel). */
   function clearSelection(): void {
     if (!s.editable.value || !sel.selRect.value) return
-    const lock = lockIn(sel.selRect.value)
-    if (lock !== null) return deps.notify(s.messages.value.locked(lock))
-    const r = dataRect()
-    if (!r) return
-    if ((r.bottom - r.top + 1) * (r.right - r.left + 1) > MAX_EDIT_CELLS) return deps.notify(s.messages.value.tooManyCells)
-    const entries: CellEntry[] = []
-    for (let row = r.top; row <= r.bottom; row++) {
-      if (s.indexOf(row) === undefined) continue
-      for (let col = r.left; col <= r.right; col++) {
-        if (w.emptyAtRow(row, col) && f.formulaAt(row, col) === undefined) continue
-        entries.push({ sheet: s.sheetName.value, cell: cellAddress(row, col), text: null })
+    const all = s.areas.value ?? [sel.selRect.value]
+    for (const a of all) {
+      const lock = lockIn(a)
+      if (lock !== null) return deps.notify(s.messages.value.locked(lock))
+    }
+    const rects = all.map(dataRect).filter((r): r is CellRect => r !== null)
+    if (rects.reduce((n, r) => n + (r.bottom - r.top + 1) * (r.right - r.left + 1), 0) > MAX_EDIT_CELLS) return deps.notify(s.messages.value.tooManyCells)
+    const entries = new Map<string, CellEntry>()
+    for (const r of rects) {
+      for (let row = r.top; row <= r.bottom; row++) {
+        if (s.indexOf(row) === undefined) continue
+        for (let col = r.left; col <= r.right; col++) {
+          if (w.emptyAtRow(row, col) && f.formulaAt(row, col) === undefined) continue
+          const cell = cellAddress(row, col)
+          entries.set(cell, { sheet: s.sheetName.value, cell, text: null })
+        }
       }
     }
-    if (entries.length) void send(entries, null)
+    if (entries.size) void send([...entries.values()], null)
   }
   /** Pastes text as the range Excel pastes from the selection's top-left cell: with `paste` the source lays it out in one call, otherwise one value fills the selection. */
   function pasteText(text: string): void {

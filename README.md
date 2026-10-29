@@ -55,7 +55,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Tables](docs/tables.md): Create Table, Convert to Range, Delete Table.
 - [Hyperlinks, notes, Clear and the default font](docs/links-notes.md)
 - [Find and Replace](docs/find-replace.md)
-- [Go To and Symbol](docs/go-to-and-symbol.md)
+- [Go To, Go To Special and Symbol](docs/go-to-and-symbol.md)
 - [Data validation](docs/validation.md)
 - [Conditional formatting](docs/conditional-formatting.md): Excel's quick rules, galleries, Clear Rules, New Rule and the Rules Manager as the sheet's methods.
 - [Formula AutoComplete](docs/autocomplete.md)

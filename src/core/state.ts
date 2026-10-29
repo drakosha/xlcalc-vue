@@ -1,7 +1,7 @@
 // The component's base state: the workbook's sheets, the active one, its extent, sizes from the windows, and the viewport.
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
-import type { CellPosition } from 'xlcalc/contract'
+import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { DEFAULT_ROW_HEIGHT } from 'xlcalc/text'
 import { errorText } from '../failure'
 import { useMessages } from '../messages'
@@ -106,6 +106,8 @@ export function createState(props: SheetViewProps) {
   const extent = ref<CellPosition | null>(null)
   /** The selection's corner opposite `extent` once Enter or Tab moved the active cell inside it; null: the active cell is that corner. */
   const anchor = ref<CellPosition | null>(null)
+  /** Every area of a selection of several (Go To Special's), the active cell's among them; null for a single range, which the corners above hold. */
+  const areas = shallowRef<CellRect[] | null>(null)
 
   /**
    * Hooks into modules created later: clearing the filter when a jump needs a row it hides; a change of cells coming from the
@@ -181,6 +183,7 @@ export function createState(props: SheetViewProps) {
     selected,
     extent,
     anchor,
+    areas,
     hooks,
     focusGrid,
     scrollGridTo,

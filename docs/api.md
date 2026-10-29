@@ -145,6 +145,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
 | `goTo()` | `boolean` | Opens Excel's Go To dialog (F5, Ctrl+G); `false` while no sheet is displayed ([go-to-and-symbol.md](go-to-and-symbol.md#go-to)). |
+| `goToSpecial()` | `boolean` | Opens Excel's Go To Special dialog; OK selects the cells it finds, several ranges at once. `false` without the source's `specialCells`, while no sheet is displayed or under a display filter ([go-to-and-symbol.md](go-to-and-symbol.md#go-to-special)). |
 | `insertSymbol()` | `boolean` | Opens Excel's Symbol dialog: Insert puts the character at the caret of an open edit, otherwise starts editing the active cell with it; `false` on a read-only sheet or without an active cell ([go-to-and-symbol.md](go-to-and-symbol.md#symbol)). A host button that calls it during an edit keeps the edit open only if it does not take focus (`@mousedown.prevent`). |
 | `defineName()` | `boolean` | Opens Excel's New Name dialog (Define Name) for the selection; `false` when names cannot be defined (no `names` or `setNames`, a read-only sheet) or a cell is being edited. See [names.md](names.md). |
 | `nameManager()` | `boolean` | Opens Excel's Name Manager (Ctrl+F3); `false` without the source's `names` or while a cell is being edited. Without `setNames` or on a read-only sheet it only lists the names. |
@@ -316,6 +317,7 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `spelling(req: SpellingRequest, signal?) => Promise<SpellingHit \| null>` | Excel's Spelling: the next misspelt word from the active cell on, or null when there is none. | No Spelling. | [editing.md](editing.md#spelling) |
 | `learnWord(word) => Promise<void>` | Add to Dictionary in the Spelling dialog: the word is the user's own from then on. | No Add to Dictionary. | [editing.md](editing.md#spelling) |
 | `autoSum(sheet, cell, signal?, fn?: AutoSumFunction) => Promise<SheetAutoSum \| null>` | Excel's AutoSum (Alt+=): the range it offers at the cell and its `SUM`, or with `fn` (one of `autoSumFunctions`) the same range under that function; null when the source guesses nothing. The sheet passes `fn` only for a function other than Sum. | No AutoSum. | [editing.md](editing.md#autosum) |
+| `specialCells(sheet, range, kind: SheetSpecialCells, signal?) => Promise<string[]>` | Excel's Go To Special: the rectangles Excel selects over the range (`['B2:D2', 'B4']`), none when it finds no cells; a range of one cell stands for the used range. `./local` gives xlcalc's `getSpecialCells` (0.66.0), and the used range's last cell for `lastCell`. | No Go To Special. | [go-to-and-symbol.md](go-to-and-symbol.md#go-to-special) |
 
 After `link`, `note`, `clear` and `setRules` succeed, the sheet re-reads the windows over what they changed: their outcome's `changes` carry values, not hyperlinks, notes or formatting. A source need not send a `repaint` for its own sheet, but `./local` does, for other sheets over the same source.
 
@@ -417,6 +419,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 | `RangeStats` | `{ cells, numbers, sum, min, max }` |
 | `SheetAutoSum` | `{ range: string \| null; formula: string }`: the range AutoSum offers (the run of numbers above the cell, else to its left, up to a subtotal), null without numbers, and its formula as the source displays formulas, without `=` (`SUM(B2:B9)`, `СУММ(B2:B9)` in ru-RU, `SUM()` without a range). `./local` gives xlcalc's `getAutoSum` (xlcalc 0.59 and later), null with an older one. |
 | `AutoSumFunction` | `'sum' \| 'average' \| 'count' \| 'max' \| 'min'`: the functions of Excel's AutoSum list, Count Numbers being `COUNT`. |
+| `SheetSpecialCells` | xlcalc's `SpecialCells` (`{ type: 'blanks' }`, `{ type: 'constants' \| 'formulas'; values?: ('numbers' \| 'text' \| 'logicals' \| 'errors')[] }`, `{ type: 'visible' }`) or `{ type: 'lastCell' }`: what `specialCells` finds. |
 | `SheetFunctionSignature` | xlcalc's `FunctionSignature` with `description?`, a one-line description of the function in the source's locale, for Insert Function. |
 | `SheetValidation` | `{ list?: string[]; prompt?: { title?; text } }` |
 | `SheetValidationAlert` | `{ severity: 'stop' \| 'warning' \| 'information'; title?; message; sheet; cell }` |

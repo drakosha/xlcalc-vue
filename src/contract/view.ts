@@ -136,6 +136,12 @@ export interface SheetViewApi {
   /** Opens Excel's Go To dialog (F5, Ctrl+G) with the locations its jumps have left; false while no sheet is displayed. */
   goTo(): boolean
   /**
+   * Opens Excel's Go To Special dialog (Home > Find & Select, Go To's Special…) through the source's `specialCells`: OK selects
+   * the cells it finds, several ranges at once, keeping the active cell when one of them holds it. false without
+   * `specialCells`, while no sheet is displayed or under a display filter.
+   */
+  goToSpecial(): boolean
+  /**
    * Opens Excel's Symbol dialog (Insert > Symbol): Insert puts the character at the caret of an open edit, otherwise starts
    * editing the active cell with it, as typing does; false on a read-only sheet or without an active cell.
    */

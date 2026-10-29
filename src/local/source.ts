@@ -483,6 +483,26 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       return local.ok ? { range: got.range, formula: local.formula } : null
     },
     autoSumFunctions: ['average', 'count', 'max', 'min'],
+    /**
+     * Excel's Go To Special as the session finds it (xlcalc 0.66's `getSpecialCells`). Excel's Last cell is the used range's
+     * last row and column: those of the cells, spills included (`getUsedRange`), or further those of the rows and columns of
+     * their own that the special cells' used range reaches (a height, a width, a style).
+     */
+    async specialCells(sheet, range, kind, signal) {
+      const s = await open()
+      throwIfAborted(signal)
+      if (typeof s.getSpecialCells !== 'function') throw new Error('Go To Special needs xlcalc 0.66.0 or later')
+      if (kind.type !== 'lastCell') return s.getSpecialCells(sheet, range, kind)
+      const [used, ...found] = await Promise.all([s.getUsedRange(sheet), ...(['blanks', 'constants', 'formulas'] as const).map((type) => s.getSpecialCells(sheet, 'A1', { type }))])
+      throwIfAborted(signal)
+      let rows = used.rows
+      let cols = used.columns
+      for (const r of found.flat().map((a) => parseRange(a)!)) {
+        rows = Math.max(rows, r.bottom)
+        cols = Math.max(cols, r.right)
+      }
+      return [cellAddress(Math.max(1, rows), Math.max(1, cols))]
+    },
     get history() {
       return session?.history ?? { undo: 0, redo: 0 }
     },
