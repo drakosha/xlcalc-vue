@@ -177,6 +177,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const list = [...out.values()]
     calcMode.showing(list, changes)
     calcMode.report()
+    patch(list)
+    return list
+  }
+
+  /** The cached values of the sheets that cells updated, one sheet at a time. */
+  function patch(list: CellUpdate[]): void {
     const bySheet = new Map<Promise<SheetValues>, CellUpdate[]>()
     for (const u of list) {
       const kept = values.get(nameKey(u.sheet))
@@ -193,7 +199,6 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
         }
       })
     }
-    return list
   }
 
   /** A sheet's displayed values: where its cells end, read once, and its columns as the filter needs them. */
@@ -201,7 +206,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const key = nameKey(sheet)
     let got = values.get(key)
     if (!got) {
-      got = s.getUsedRange(sheet).then((used) => new SheetValues(used.rows, (ranges, signal) => s.getCells(sheet, ranges, signal ? { signal } : {})))
+      // in Manual the values shown, as the filter reads them in Excel
+      got = s.getUsedRange(sheet).then((used) => new SheetValues(used.rows, async (ranges, signal) => calcMode.overlayCells(sheet, await s.getCells(sheet, ranges, signal ? { signal } : {}), ranges)))
       values.set(key, got)
       got.catch(() => values.delete(key))
     }
@@ -412,12 +418,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   /** Calculate Now, or Calculate Sheet: the values held in Manual shown, as an edit's changes are. */
   async function calculate(s: AsyncSession, sheet?: string): Promise<EditOutcome> {
     const changes = await calcMode.calculate(s, sheet)
+    patch(changes)
     if (changes.length) emit({ kind: 'changed', changes })
     calcMode.report()
     return { ok: true, changes }
   }
   async function setCalculation(s: AsyncSession, mode: CalculationMode): Promise<EditOutcome> {
     const changes = await calcMode.setMode(s, mode)
+    patch(changes)
     if (changes.length) emit({ kind: 'changed', changes })
     calcMode.report()
     return { ok: true, changes }

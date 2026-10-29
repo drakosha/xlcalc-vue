@@ -45,7 +45,7 @@ await source.setCalculation('automatic')
 - A cell that waits keeps the text it showed when its number format or its column's width changes, until a calculation; Excel draws the old value in the new format (not measured).
 - Calculate Sheet shows the session's values of the sheet's cells, calculated from every sheet; Excel calculates the sheet over the values the other sheets show.
 - An operation in Manual that moves cells (inserting or deleting rows and columns, moving a range), a table command, and their undo show the calculated values of every cell: the values waiting are held by address, which the operation moves. A deleted sheet that undo brings back shows its calculated values. Excel keeps the old values until F9.
-- The display filter's lists, Find in values, the selection's totals and Copy read the calculated values, where Excel reads the values shown.
+- Find with Look in Values, the selection's totals on the status bar and Copy read the calculated values of the cells that wait, where Excel reads the values shown. The display filter and its lists read the values shown.
 - In Automatic, F9 recalculates nothing: the session's values are current. Excel recalculates volatile functions such as `RAND` and `NOW` on F9.
 
 ## A ribbon's Calculation Options

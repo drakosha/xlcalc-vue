@@ -2,7 +2,7 @@
 // it): in Manual the source keeps showing formulas' values as of the last calculation until Calculate Now or Calculate
 // Sheet, and the workbook keeps the option.
 import type { AddressMove, AsyncSession, BookInput, CellChange, CellValue, CellView } from 'xlcalc'
-import { nameKey, parseCell } from 'xlcalc/a1'
+import { nameKey, parseCell, parseRange } from 'xlcalc/a1'
 import { cellKey } from './outcome'
 import type { CalculationMode, CellUpdate, SheetCalculation, SheetWindow } from '../contract/source'
 
@@ -184,6 +184,19 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     return win
   }
 
+  /** Cells as `getCells` read them over `ranges`, with the values held on their sheet put back over the session's. */
+  function overlayCells(sheet: string, cells: Record<string, CellView>, ranges: string[]): Record<string, CellView> {
+    const mine = held.get(nameKey(sheet))
+    if (!mine) return cells
+    const rects = ranges.map((r) => parseRange(r)).filter((r) => r !== null)
+    for (const [addr, { shown }] of mine) {
+      const p = parseCell(addr)
+      if (!p || !rects.some((r) => p.row >= r.top && p.row <= r.bottom && p.col >= r.left && p.col <= r.right)) continue
+      cells[addr] = { ...cells[addr], text: shown.text, value: shown.value }
+    }
+    return cells
+  }
+
   /** Calculate Now, or Calculate Sheet with `sheet`: the held cells (of that sheet) show the session's values; the caller sends them, then `report`. */
   async function calculate(s: AsyncSession, sheet?: string): Promise<CellUpdate[]> {
     const out: CellUpdate[] = []
@@ -217,7 +230,7 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     return (mode === 'automatic' ? rest : { ...rest, calculation: mode }) as B
   }
 
-  return { state, report, capture, hold, showing, spillsOf, forget, moved, overlay, calculate, setMode, book, manual }
+  return { state, report, capture, hold, showing, spillsOf, forget, moved, overlay, overlayCells, calculate, setMode, book, manual }
 }
 
 export type ManualCalculation = ReturnType<typeof manualCalculation>

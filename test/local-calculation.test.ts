@@ -218,6 +218,19 @@ describe('localSource: calculation options', () => {
     expect(calc.ok && calc.changes.map((c) => `${c.sheet}!${c.cell}=${c.value}`).sort()).toEqual(['One!B1=10', 'One!C1=11'])
   })
 
+  it("in Manual the display filter reads the values shown: a column read while cells wait, and one read before a calculation", async () => {
+    const s = source({ calculation: 'manual', sheets: [{ name: 'S', cells: { A1: { value: 'N' }, B1: { value: 'D' }, A2: { value: 1 }, B2: { formula: 'A2*2' }, C2: { formula: 'A2*3' } } }] })
+    const texts = async (col: number) => (await s.columnValues('S', col, { head: 1 })).values.map((v) => v.text)
+    expect(await texts(3)).toEqual(['3'])
+    await s.edit([{ sheet: 'S', cell: 'A2', text: '5' }])
+    expect(await texts(2)).toEqual(['2'])
+    expect((await s.visibleRows('S', { head: 1, cols: { 2: { values: ['2'] } } })).rows).toEqual([1, 2])
+    expect(await texts(3)).toEqual(['3'])
+    await s.calculate()
+    expect(await texts(2)).toEqual(['10'])
+    expect(await texts(3)).toEqual(['15'])
+  })
+
   it('a structure operation in Manual shows the calculated values, the cells having moved', async () => {
     const s = source(twoSheets('manual'))
     await s.edit([{ sheet: 'One', cell: 'A1', text: '5' }])
