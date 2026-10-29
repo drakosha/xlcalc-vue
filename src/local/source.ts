@@ -3,7 +3,7 @@
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
 import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
-import type { ClearKind, TableOp } from '../contract/workbook'
+import type { ClearKind } from '../contract/workbook'
 import type { CalculationMode, CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetShow, SourceEvent, WindowRequest } from '../contract/source'
 import { boxesUnder, findHits, replaceAll } from './find'
 import { loadLocale, tipLocale } from './locale'
@@ -513,7 +513,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     emit({ kind: 'repaint', ranges: [...ranges, ...(got.repaint ?? []).map((x) => ({ sheet: x.sheet, range: x.range }))] })
     return { ok: true, changes }
   }
-  const book = workbookMethods(locale, { repainted, reloaded }, opts.spelling)
+  /** A change whose values Manual cannot hold by address: they show, and nothing waits, before the sheets are read again. */
+  function restructured(changes: CellChange[]): EditOutcome {
+    calcMode.forget()
+    return reloaded(changes)
+  }
+  const book = workbookMethods(locale, { repainted, reloaded, restructured }, opts.spelling)
   const reading = <A extends unknown[], R>(run: (s: AsyncSession, ...args: A) => Promise<R>) => async (...args: A): Promise<R> => run(await open(), ...args)
 
   const source: LocalSource = {
@@ -577,12 +582,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     dependents: reading(book.dependents),
     rules: reading(book.rules),
     setRules: mutation(guard.setRules(book.setRules), refusedBy),
-    // a table command is a structure operation of the session, whose changes do not tell a cleared formula: Manual's held values go
-    table: mutation(guard.table(async (s, op: TableOp) => {
-      const out = await book.table(s, op)
-      if (out.ok) calcMode.forget()
-      return out
-    }), failedBy),
+    table: mutation(guard.table(book.table), failedBy),
     setAutoFilter: mutation(guard.setAutoFilter(book.setAutoFilter), refusedBy),
     ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
     /**

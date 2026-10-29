@@ -148,10 +148,10 @@ describe('localSource: calculation options', () => {
     expect(await s.calculation()).toEqual({ mode: 'manual', pending: false })
   })
 
-  it('in Manual a constant cleared by Clear Contents shows empty, after an edit made it known', async () => {
+  it('in Manual a constant cleared by Clear All shows empty, after an edit made it known', async () => {
     const s = source(twoSheets('manual'))
     await s.edit([{ sheet: 'One', cell: 'A1', text: '5' }])
-    await s.clear('One', ['A1'], 'contents')
+    await s.clear('One', ['A1'], 'all')
     expect(await row1(s, 'One')).toEqual([null, 2, 3])
   })
 
@@ -174,6 +174,22 @@ describe('localSource: calculation options', () => {
     await s.edit([{ sheet: 'S', cell: 'D1', text: '=SEQUENCE(3)*A1' }])
     expect(await col()).toEqual([2, 4, 6, null])
     expect(await s.calculation()).toEqual({ mode: 'manual', pending: false })
+  })
+
+  it('a table command in Manual shows the calculated values and tells that nothing waits', async () => {
+    const s = source({
+      calculation: 'manual',
+      sheets: [{ name: 'S', cells: { A1: { value: 'N' }, B1: { value: 'D' }, A2: { value: 1 }, B2: { formula: 'T[[#This Row],[N]]*2' }, D2: { formula: 'A2*3' } }, tables: [{ name: 'T', range: 'A1:B2', columns: [{ name: 'N' }, { name: 'D', formula: 'T[[#This Row],[N]]*2' }] }] }],
+    })
+    const events: SourceEvent[] = []
+    s.subscribe((e) => events.push(e))
+    await s.edit([{ sheet: 'S', cell: 'A2', text: '5' }])
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: true })
+    events.length = 0
+    expect(await s.table({ op: 'renameTable', table: 'T', name: 'Sales' })).toMatchObject({ ok: true })
+    await Promise.resolve()
+    expect((await win(s, 'S', 2, 1, 1, 4)).values[0]).toEqual([5, 10, null, 15])
+    expect(events.filter((e) => e.kind === 'calculation')).toEqual([{ kind: 'calculation', calculation: { mode: 'manual', pending: false } }])
   })
 
   it('a structure operation in Manual shows the calculated values, the cells having moved', async () => {
