@@ -23,6 +23,7 @@ import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeo
 import { isShortcut, onMac, shortcutLetter } from './keys'
 import { useMenu } from './menu'
 import { useMerge } from './merge'
+import { useCreateNames } from './create-names'
 import { useNameDialogs } from './name-dialogs'
 import { useNames } from './names'
 import { useNavigation } from './navigation'
@@ -200,6 +201,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     else s.focusGrid()
   }
   const nameDialogs = useNameDialogs(s, sel, names, { editing: () => editor.value !== null })
+  const createNames = useCreateNames(s, sel, names, { editing: () => editor.value !== null, ask: alerts.ask, notify })
   // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
   const trace = useTrace(s, v, w, notify)
   const tables = useTables(s, w, sel, cmd)
@@ -228,6 +230,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     showFormulas: formulaView.show,
     defineName: nameDialogs.define,
     nameManager: nameDialogs.openManager,
+    createNames: createNames.open,
     setZoom: (z) => (z === 'selection' ? zoom.fitSelection() : zoom.apply(z)),
     watchWindow: (open) => watches.setOpen(open),
     traceDependents: trace.traceDependents,
@@ -505,6 +508,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       return
     }
     // Excel's Name Manager, Ctrl+F3 (on a Mac too), and Define Name, Ctrl+L in Excel for Mac (on Windows Ctrl+L is Create Table).
+    if (createNames.key(e)) return
     if (e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && e.key === 'F3' && nameDialogs.openManager()) {
       e.preventDefault()
       return
@@ -712,6 +716,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     closeInsertFunction,
     names,
     nameDialogs,
+    createNames,
     zoomer: zoom,
     watches,
     cf,

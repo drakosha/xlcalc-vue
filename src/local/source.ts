@@ -463,6 +463,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     note: mutation(book.note, refusedBy),
     names: reading(book.names),
     setNames: mutation(book.setNames, refusedBy),
+    namesFromSelection: async (sheet, range, labels, signal) => {
+      const s = await open()
+      throwIfAborted(signal)
+      return book.namesFromSelection(s, sheet, range, labels)
+    },
     dependents: reading(book.dependents),
     rules: reading(book.rules),
     setRules: mutation(book.setRules, refusedBy),

@@ -161,6 +161,13 @@ export interface SheetViewApi {
   /** Excel's Name Manager (Ctrl+F3); false when the source has no `names` or a cell is being edited. Without `setNames` or on a read-only sheet it only lists the names. */
   nameManager(): boolean
   /**
+   * Excel's Create from Selection (Ctrl+Shift+F3, Cmd+Shift+F3 on a Mac): the Create Names dialog for the selection, with the
+   * boxes Excel checks; OK makes the names through the source's `namesFromSelection` and `setNames` as a single undo step,
+   * asking first about a name the workbook defines otherwise. false without `namesFromSelection`, `names` or `setNames`, on a
+   * read-only sheet or while a cell is being edited.
+   */
+  createNames(): boolean
+  /**
    * Excel's zoom of the active sheet: a percentage (rounded and kept within 10 to 400), or `selection` for Zoom to Selection,
    * which fits the selection into the viewport and scrolls it to the top-left corner. Returns the zoom set; it is not
    * reported by the `zoom` event, which reports the user's changes.

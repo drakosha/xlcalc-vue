@@ -1,6 +1,6 @@
 // The local source's dialogs over the workbook beside cell values: clearing, hyperlinks, notes, defined names, rules, tables,
 // dependents and spelling, each a session call with its formulas translated between the stored form and the workbook's locale.
-import { toLocal, validateLocalFormula, type AsyncSession, type CellChange, type ConditionalFormat, type DataValidation, type EditResult } from 'xlcalc'
+import { toLocal, validateLocalFormula, type AsyncSession, type CellChange, type ConditionalFormat, type DataValidation, type EditResult, type SelectionLabels } from 'xlcalc'
 import { cellAddress, parseCell } from 'xlcalc/a1'
 import type { EditOutcome } from '../contract/source'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellChecker, SpellingHit, SpellingRequest, TableOp } from '../contract/workbook'
@@ -100,6 +100,12 @@ export function workbookMethods(locale: string, done: Completion, checker?: Spel
     })
   }
 
+  /** Excel's Create from Selection as the session makes the names (xlcalc 0.66), their references in the workbook's locale. */
+  async function namesFromSelection(s: AsyncSession, sheet: string, range: string, labels: SelectionLabels): Promise<SheetName[]> {
+    if (typeof s.getNamesFromSelection !== 'function') throw new Error('Create from Selection needs xlcalc 0.66.0 or later')
+    return (await s.getNamesFromSelection(sheet, range, labels)).map((n) => ({ name: n.name, ref: local(n.ref), ...(n.scope ? { scope: n.scope } : {}) }))
+  }
+
   async function dependents(s: AsyncSession, sheet: string, range: string, signal?: AbortSignal): Promise<SheetDependents> {
     const got = await s.getDependents([{ sheet, range }], { maxReferences: 1, ...(signal ? { signal } : {}) })
     return { cells: got.dependents.map((d) => ({ sheet: d.sheet, cell: d.cell })), more: got.truncated }
@@ -162,5 +168,5 @@ export function workbookMethods(locale: string, done: Completion, checker?: Spel
     checker?.add?.(word)
   }
 
-  return { clear, link, note, names, setNames, dependents, rules, setRules, table, spelling, learnWord }
+  return { clear, link, note, names, setNames, namesFromSelection, dependents, rules, setRules, table, spelling, learnWord }
 }

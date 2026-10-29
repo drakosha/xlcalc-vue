@@ -54,6 +54,7 @@ export const CALLS: Readonly<Record<CallName, CallKind>> = {
   learnWord: { write: true },
   autoSum: { signal: 2 },
   specialCells: { signal: 3 },
+  namesFromSelection: { signal: 3 },
 }
 
 export const isCall = (name: string): name is CallName => Object.hasOwn(CALLS, name)

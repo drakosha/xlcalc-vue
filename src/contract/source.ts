@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SpecialCells, StructureOp, StylePatch } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SelectionLabels, SpecialCells, StructureOp, StylePatch } from 'xlcalc/contract'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
@@ -117,6 +117,13 @@ export interface SheetSource {
    * the range. Without it there is no Go To Special.
    */
   specialCells?(sheet: string, range: string, kind: SheetSpecialCells, signal?: AbortSignal): Promise<string[]>
+  /**
+   * Excel's Create from Selection over a range: the workbook names its labels make (`labels`: the sides that hold them, as the
+   * dialog's boxes; at least one), each referring absolutely to its cells with the sheet, in the source's locale, in the order
+   * Excel makes them; none for labels alone or labels without text. The sheet asks about names the workbook already has and
+   * writes them with `setNames`. Without it there is no Create from Selection.
+   */
+  namesFromSelection?(sheet: string, range: string, labels: SelectionLabels, signal?: AbortSignal): Promise<SheetName[]>
   /** The maximum number of cells in one window, 20,000 by default. */
   readonly maxCells?: number
   /** The number of steps `undo` and `redo` can take, as of the last completed call: a toolbar enables its buttons by them. */

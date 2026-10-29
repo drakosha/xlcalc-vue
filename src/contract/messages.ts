@@ -368,6 +368,15 @@ export interface SheetMessages extends ConditionalMessages {
   nameCommit: string
   nameDeleteAsk: (name: string) => string
   nameSaveAsk: string
+  /** Excel's Create Names from Selection: the dialog's title, its caption and boxes, Excel's message for labels alone, and its question before a name's other definition is replaced. */
+  createNamesTitle: string
+  createNamesIn: string
+  createNamesTop: string
+  createNamesLeft: string
+  createNamesBottom: string
+  createNamesRight: string
+  createNamesInvalid: string
+  createNamesReplace: (name: string) => string
   /** Excel's zoom on the status bar (Zoom Out, the slider, Zoom In, the percentage that opens the Zoom dialog), and the dialog's title, choices and limits. */
   zoomOut: string
   zoomIn: string
