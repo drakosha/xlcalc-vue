@@ -19,8 +19,9 @@ export type ShowSetting = keyof SheetShow
 export function useSheetLook(s: SheetState, notify: (text: string) => void) {
   const memoryName = (sheet: string) => `show:${sheet}`
 
-  /** The sheets as read, with the settings the sheet keeps itself for a source that cannot. */
+  /** The sheets as read, with the settings the sheet keeps itself for a source that cannot; a source that keeps them wins on an editable sheet. */
   function apply(list: SheetInfo[]): SheetInfo[] {
+    if (s.editable.value && s.sourceMethod('show')) return list
     return list.map((x) => {
       const own = s.memory.recall<SheetShow>(memoryName(x.name))
       return own ? { ...x, ...own } : x
@@ -46,6 +47,12 @@ export function useSheetLook(s: SheetState, notify: (text: string) => void) {
       const own = { ...s.memory.recall<SheetShow>(memoryName(sheet)), [what]: next }
       s.memory.remember(memoryName(sheet), own)
       return next
+    }
+    // The source keeps it now: the browser's copy, stored while the sheet was read-only, goes
+    const kept = s.memory.recall<SheetShow>(memoryName(sheet))
+    if (kept && what in kept) {
+      const { [what]: _, ...rest } = kept
+      s.memory.remember(memoryName(sheet), Object.keys(rest).length ? rest : null)
     }
     const outdated = s.outdated()
     // Not an undo step, as in Excel: a refusal puts the setting back

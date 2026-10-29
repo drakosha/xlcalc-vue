@@ -109,6 +109,29 @@ describe('gridlines and headings', () => {
   })
 })
 
+describe('a setting kept in the browser, then by the source', () => {
+  it('the source wins once the sheet is editable, and the browser forgets what the source now keeps', async () => {
+    localStorage.clear()
+    const b = book([{ name: 'S', maxRow: 3, maxCol: 3 }])
+    const w = await mountSheet(b.source, { readOnly: true, storageKey: 'look' })
+    api(w).showGridlines(false)
+    await settle()
+    expect(b.show).not.toHaveBeenCalled()
+    await w.setProps({ readOnly: false })
+    await settle()
+    expect(api(w).showGridlines(true)).toBe(true)
+    await settle()
+    expect(b.show).toHaveBeenCalledWith('S', { gridlines: true })
+    b.emit({ kind: 'reload' })
+    await settle()
+    expect(lastState(w)?.gridlines).toBeUndefined()
+    await w.setProps({ readOnly: true })
+    b.emit({ kind: 'reload' })
+    await settle()
+    expect(lastState(w)?.gridlines).toBeUndefined()
+  })
+})
+
 describe('outline bars without headings', () => {
   const sheet = (headings: boolean, rows: boolean): SheetInfo =>
     ({ name: 'S', maxRow: 6, maxCol: 6, ...(headings ? {} : { headings: false }), outline: { rows: rows ? [{ first: 2, last: 3, level: 1, summary: 4, collapsed: false }] : [], columns: [{ first: 2, last: 3, level: 1, summary: 4, collapsed: false }] } }) as unknown as SheetInfo
