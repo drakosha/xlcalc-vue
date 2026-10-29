@@ -519,6 +519,7 @@ The options, `LocalSourceOptions`:
 | `maxCells` | `number` | The maximum number of cells in one window, 20,000 by default. |
 | `notice` | `string` | A notice included in every window. |
 | `spelling` | `SpellChecker` | The host's word checker; enables `spelling` and `learnWord`. |
+| `regex` | `'pcreSyntax' \| 'pcreEngine'` | A level of `xlcalc/regex` (0.66.0) for match mode 3 of `XLOOKUP` and `XMATCH`, loaded as its own chunk and registered before the workbook is calculated; xlcalc keeps it for every calculation of the page. See [local.md](local.md#regular-expressions). |
 
 ```ts
 import { localSource } from '@xlcalc/vue/local'

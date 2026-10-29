@@ -38,6 +38,14 @@ A sheet's `outline` comes from xlcalc's `outlineGroups`: a group of level L is a
 
 Rejection messages come from the library, in the workbook's language. A group at the edge of the sheet (rows 1:3 with summaries above) has no summary row and, as in Excel, no button: the grid draws none, and a command for it is rejected. `memorySource` also derives its groups with xlcalc's `outlineGroups` and runs the same commands without the engine, through xlcalc's `outlineEdit` from `xlcalc/a1`, with the same rejections in English; a row or column it hides gets a size of 0, and one it shows again gets the default size.
 
+## Regular expressions
+
+Match mode 3 of `XLOOKUP` and `XMATCH` finds a regular expression; xlcalc reads it as JavaScript does unless a level of `xlcalc/regex` (0.66.0) is registered. The option `regex` loads one before the workbook is calculated, as a chunk of its own that a host without it never downloads: `pcreSyntax` reads Excel's PCRE2 syntax (possessive quantifiers, atomic groups, `(?i)` anywhere) at JavaScript's speed, for workbooks the host trusts; `pcreEngine` runs xlcalc's PCRE2 engine, which also ends a heavy pattern at Excel's match limit (`#VALUE!`), for patterns the users write. xlcalc keeps the last level registered for every calculation of the page, a pool's threads too, so sources that ask for different levels share the last one. xlcalc's `docs/regex.md` compares the levels.
+
+```ts
+const source = localSource(book, { regex: 'pcreEngine' }) // XMATCH("(a+)+$", A1, 3) over a long text is #VALUE! at once, as in Excel
+```
+
 ## Calculation options
 
 The workbook's calculation option (xlcalc's `BookInput.calculation`, 0.66.0) is `calculation`; `setCalculation` changes it and `calculate` is F9 and Shift+F9. xlcalc calculates every edit whatever the option says, so in Manual the source keeps showing the values of the last calculation, puts them back over the session's in each window, and shows the session's on `calculate`; with an xlcalc before 0.66.0 the sheet shows calculated values in Manual too. What the source holds and where it differs from Excel are in [calculation.md](calculation.md#in-xlcalcvuelocal).

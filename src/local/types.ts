@@ -20,6 +20,12 @@ export interface LocalSourceOptions {
   notice?: string
   /** The host's word checker for Excel's Spelling; without it the source has no `spelling`. */
   spelling?: SpellChecker
+  /**
+   * A level of `xlcalc/regex` (0.66.0) for match mode 3 of XLOOKUP and XMATCH, loaded as its own chunk and registered
+   * before the workbook is calculated: `pcreSyntax` reads Excel's PCRE2 syntax, `pcreEngine` also ends a heavy pattern at
+   * Excel's match limit. xlcalc keeps the level for every calculation of the page from then on.
+   */
+  regex?: 'pcreSyntax' | 'pcreEngine'
 }
 
 /** Methods of `SheetSource` that the local source always has. */

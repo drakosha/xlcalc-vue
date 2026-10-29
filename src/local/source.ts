@@ -30,6 +30,14 @@ interface RowList {
 /** How many filters' row lists a sheet keeps, for viewers that share the source with different filters. */
 const LISTS_PER_SHEET = 8
 
+/** The regular expressions' level the options ask for, registered with xlcalc before a calculation (a pool's threads take it too). */
+async function loadRegex(level: LocalSourceOptions['regex']): Promise<void> {
+  if (!level) return
+  // the root's registerRegex through the module, so that ./local still links against an xlcalc before 0.66
+  const [levels, root] = await Promise.all([import('xlcalc/regex'), import('xlcalc')])
+  root.registerRegex(levels[level])
+}
+
 async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
   const kind = typeof opts.calc === 'string' ? opts.calc : typeof Worker === 'function' ? 'pool' : 'inline'
   if (kind === 'inline') return createInlineCalc()
@@ -101,7 +109,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   }
 
   const ready = (async () => {
-    await loadLocale(locale)
+    await Promise.all([loadLocale(locale), loadRegex(opts.regex)])
     calc = typeof opts.calc === 'object' ? opts.calc : await startCalc(opts)
     session = await calc.createSession(input, opts.session)
   })()

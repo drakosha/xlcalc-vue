@@ -6,6 +6,7 @@
 - `./local` takes the option from the workbook (xlcalc 0.66.0's `BookInput.calculation`) and in Manual keeps showing the values of the last calculation until `calculate`, as Excel does; `book()`, `snapshot()` and `saveXlsx` carry the option, and `saveXlsx` calculates first in Manual, as Excel recalculates before saving.
 - `./local`'s `setExternalBooks(books)` gives the workbook's links to other workbooks the values a host read from them (xlcalc 0.62.0): one step of undo, the changed cells sent as an edit's, a new link found by its file name in typed text, and written by `saveXlsx` with `over`.
 - `saveXlsx` with `over` passes xlcalc's `KeptRefusal` with its `code` (0.61.0), so a host tells a link removed (`links`) from rules the file holds (`rules`) without reading the message.
+- `./local`'s option `regex` (`'pcreSyntax'` or `'pcreEngine'`) loads a level of `xlcalc/regex` (0.66.0) for match mode 3 of `XLOOKUP` and `XMATCH` as its own chunk and registers it before the workbook is calculated.
 
 ## 0.29.0 (2026-10-28)
 
