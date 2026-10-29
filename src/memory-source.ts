@@ -183,9 +183,9 @@ export function memorySource(book: MemoryBook, options: MemorySourceOptions = {}
   }
 
   function info(store: Store): SheetInfo {
-    const { name, hidden, locked, columns, rowNumbers, totals, font, zoom, tabColor } = store.sheet
+    const { name, hidden, locked, columns, rowNumbers, totals, font, zoom, tabColor, gridlines, headings } = store.sheet
     const outline = outlineOf(outlineGroups(outlineSheet({ rows: axisLines(store, 'rows'), columns: axisLines(store, 'columns') }, store.sheet.outline)), store.sheet.outline)
-    return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze: store.freeze, hidden, locked, columns, rowNumbers, totals, ...(outline ? { outline } : {}), ...(font ? { font } : {}), ...(zoom ? { zoom } : {}), ...(tabColor ? { tabColor } : {}) }
+    return { name, maxRow: store.maxRow, maxCol: store.maxCol, freeze: store.freeze, hidden, locked, columns, rowNumbers, totals, ...(outline ? { outline } : {}), ...(font ? { font } : {}), ...(zoom ? { zoom } : {}), ...(tabColor ? { tabColor } : {}), ...(gridlines === false ? { gridlines } : {}), ...(headings === false ? { headings } : {}) }
   }
 
   /**

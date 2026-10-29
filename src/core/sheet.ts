@@ -28,6 +28,7 @@ import { useNavigation } from './navigation'
 import { useNotes } from './notes'
 import { useOutline } from './outline'
 import { useSelection } from './selection'
+import { useSheetLook } from './sheet-look'
 import { useAutoSum } from './autosum'
 import { usePainter } from './painter'
 import { useSpellCheck } from './spell-check'
@@ -96,6 +97,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     messageTimer = setTimeout(() => (message.value = null), MESSAGE_MS)
   }
   const dismiss = () => (message.value = null)
+  const look = useSheetLook(s, notify)
 
   // The workbook's defined names, read once per source and again after a change; the Name Box, Formula AutoComplete and the names' dialogs use them.
   const names = useNames(s, { reload, reloads: () => reloads, apply: (changes) => w.applyChanges(changes) })
@@ -223,6 +225,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     fillDown: () => fill.fillFrom('down'),
     fillRight: () => fill.fillFrom('right'),
     showFormulas: formulaView.show,
+    showGridlines: (on) => look.show('gridlines', on),
+    showHeadings: (on) => look.show('headings', on),
     defineName: nameDialogs.define,
     nameManager: nameDialogs.openManager,
     setZoom: (z) => (z === 'selection' ? zoom.fitSelection() : zoom.apply(z)),
@@ -309,7 +313,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     try {
       const list = await s.source().sheets()
       if (mine !== initSeq || outdated()) return
-      s.sheets.value = list
+      s.sheets.value = look.apply(list)
       const first = list.findIndex((x) => !x.hidden)
       activate(first >= 0 ? first : 0)
       const focus = nav.takePendingFocus()
@@ -338,7 +342,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       const list = await s.source().sheets()
       if (mine !== reloadSeq || outdated()) return
       if (target === asked) target = null
-      s.sheets.value = list
+      s.sheets.value = look.apply(list)
       const next = sheetAfter(list, name, at, asked)
       if (!next.keep) return activate(next.index)
       s.active.value = next.index
@@ -652,6 +656,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(filter.active.value ? { filtered: true as const } : {}),
       ...(s.formulaView.value ? { showFormulas: true as const } : {}),
       ...(zoom.percent.value !== 100 ? { zoom: zoom.percent.value } : {}),
+      ...(s.sheet.value.gridlines === false ? { gridlines: false as const } : {}),
+      ...(s.sheet.value.headings === false ? { headings: false as const } : {}),
       ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
     }
   })

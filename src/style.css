@@ -367,6 +367,19 @@
 .xs-num.xs-fz-corner.xs-on {
   background-color: var(--xs-head-on-bg);
 }
+/* View > Show without gridlines: a cell's own borders and the freeze edge stay, the gridlines go. */
+.xs-nogrid .xs-cell {
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
+/* Without headings, the row above the cells that holds the row bar's level buttons. */
+.xs-table th.xs-head-off {
+  position: sticky;
+  top: var(--xs-outline-h);
+  z-index: 4;
+  border-right: 0;
+  background: var(--xs-bg);
+}
 /* The workbook's freeze edge: a darker line, like Excel's freeze line. */
 .xs-table .xs-fz-edge-b {
   border-bottom-color: var(--xs-freeze-line);

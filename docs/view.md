@@ -1,4 +1,4 @@
-# Freeze Panes, zoom, Watch Window, Reapply, Show Formulas, Trace Precedents and Trace Dependents
+# Freeze Panes, zoom, gridlines and headings, Watch Window, Reapply, Show Formulas, Trace Precedents and Trace Dependents
 
 ## Reapply
 
@@ -86,6 +86,12 @@ const onZoom = (e: SheetZoomEvent) => (zooms.value = { ...zooms.value, [e.sheet]
 ```
 
 The grid's content is drawn under CSS `zoom`, which current Chrome, Safari and Firefox support as standardized: its geometry stays in the workbook's pixels, and the pointer's page coordinates are divided by the zoom where the sheet finds the cell under the pointer itself (a drag of the fill handle, a range pointed at in a formula, a column edge).
+
+## Gridlines and headings
+
+A sheet whose `SheetInfo` has `gridlines: false` is drawn without gridlines, and one with `headings: false` without its row numbers and column letters, as Excel's View > Show draws a sheet whose view says so (xlsx `showGridLines` and `showRowColHeaders`, which `./local` reads through xlcalc's `SheetView`). Without gridlines a cell keeps its own borders and its fill, and the frozen panes keep their line, as in Excel. Without headings the select-all corner and the display filter's funnels go with the column letters, and frozen rows stick at the grid's top; the outline bars stay, Excel's outline symbols being a setting of their own, and the row bar's level buttons keep a blank row above the cells. A list's `rowNumbers: false` still hides only the numbers under its column titles.
+
+The sheet's `showGridlines(on?)` and `showHeadings(on?)` are View > Show's boxes for a host's ribbon: without `on` they toggle, and they return whether the gridlines or headings show afterwards; `state.gridlines` and `state.headings` are `false` while hidden. The sheet is drawn at once. With the source's `show` on an editable sheet the setting goes to `show(sheet, { gridlines })` (or `{ headings }`), which keeps it with the workbook; as in Excel it is not an undo step, and a refusal puts the setting back and displays the source's message. `./local` keeps it beside the session, which has no edit for a sheet's view, puts it on the sheets it lists and on the workbook of `book()`, `snapshot()` and `saveXlsx`, and follows a sheet renamed, by Rename or by an undo. Without `show`, or on a read-only sheet, the sheet keeps the setting of each sheet as it keeps Show Formulas, in the browser's storage under `storageKey`. `memorySource` passes a sheet's `gridlines` and `headings` through and has no `show`.
 
 ## Watch Window
 

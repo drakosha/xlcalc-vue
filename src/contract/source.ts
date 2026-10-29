@@ -55,6 +55,8 @@ export interface SheetSource {
   freeze?(sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome>
   /** Excel's Tab Color: a sheet's tab color (`#RRGGBB`), null for No Color; a single undo step. Without it the tab menu has no Tab Color. */
   tabColor?(sheet: string, color: string | null): Promise<EditOutcome>
+  /** Excel's View > Show on a sheet: its gridlines and its headings, kept with the workbook; not an undo step, as in Excel. Without it the sheet keeps them in the browser. */
+  show?(sheet: string, show: SheetShow): Promise<EditOutcome>
   /** The functions a formula can call, by their names as typed in the source's locale (`СУММ` in ru-RU), for Excel's Formula AutoComplete. */
   functionNames?(signal?: AbortSignal): Promise<string[]>
   /**
@@ -180,6 +182,16 @@ export interface SheetInfo {
   zoom?: number
   /** Excel's Tab Color (`#RRGGBB`): another tab is filled with it, the active one underlined in it. */
   tabColor?: string
+  /** False hides the gridlines (Excel's View > Show > Gridlines, xlsx `showGridLines`); shown by default. */
+  gridlines?: boolean
+  /** False hides the row numbers and column letters (Excel's View > Show > Headings, xlsx `showRowColHeaders`); shown by default. */
+  headings?: boolean
+}
+
+/** What Excel's View > Show sets on a sheet: whether its gridlines and its headings show. */
+export interface SheetShow {
+  gridlines?: boolean
+  headings?: boolean
 }
 
 /** A sheet's groups as Excel draws them in the bars next to the row numbers and above the column letters. */
