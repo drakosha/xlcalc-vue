@@ -7,7 +7,7 @@ Excel's Formulas > Calculation Options sets how a workbook calculates: Automatic
 In Manual, as Excel for Mac 16.114 behaved when measured:
 
 - An edit shows the edited cell and leaves the formulas that depend on it with their values: after typing 5 into `A1`, `=A1*2` in `B1` still shows 2. The status bar shows Calculate.
-- A formula entered in Manual shows its value at once (`=A1*10` shows 50).
+- A formula entered, pasted or filled in Manual shows its value at once (`=A1*10` shows 50), with the cells its array fills and empties; entering a formula again calculates it the same way.
 - A change of how a cell looks, such as a number format, a narrower column or Clear Formats, shows at once with the cell's value as of the last calculation, and nothing starts waiting.
 - Undo and redo restore the edited cells and leave the dependents too.
 - Calculate Now (F9, or a click on Calculate) shows the values of every waiting cell; Calculate Sheet (Shift+F9) those of the active sheet only, so the status bar keeps Calculate while another sheet waits.

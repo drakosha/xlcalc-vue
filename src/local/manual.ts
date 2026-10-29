@@ -1,16 +1,17 @@
 // Excel's calculation options over a session that calculates every edit (xlcalc records the option and does not apply
 // it): in Manual the source keeps showing formulas' values as of the last calculation until Calculate Now or Calculate
 // Sheet, and the workbook keeps the option.
-import type { AsyncSession, BookInput, CellChange, CellValue } from 'xlcalc'
+import type { AsyncSession, BookInput, CellChange, CellValue, CellView } from 'xlcalc'
 import { nameKey, parseCell } from 'xlcalc/a1'
 import { cellKey } from './outcome'
 import type { CalculationMode, CellUpdate, SheetCalculation, SheetWindow } from '../contract/source'
 
-/** A cell's display as the sheet shows it. */
+/** A cell's display as the sheet shows it; `of` is the formula whose array fills the cell. */
 interface Shown {
   text: string
   value: CellValue
   color?: string
+  of?: string
 }
 
 /** How many rectangles of formulas one `getCells` call reads while the values shown are captured. */
@@ -19,15 +20,27 @@ const RECTS_PER_READ = 2000
 /** Whether two values are the same, an error by its code. */
 const sameValue = (a: CellValue, b: CellValue): boolean => a === b || (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null && a.error === b.error)
 
-const shownOf = (c: { text?: string; value: CellValue; color?: string } | undefined): Shown => ({ text: c?.text ?? '', value: c ? c.value : null, ...(c?.color ? { color: c.color } : {}) })
+const shownOf = (c: { text?: string; value: CellValue; color?: string; spillOf?: string } | undefined): Shown => ({ text: c?.text ?? '', value: c ? c.value : null, ...(c?.color ? { color: c.color } : {}), ...(c?.spillOf ? { of: c.spillOf } : {}) })
+
+/** A cell as the session reads it, as a change that lists it: its display, whether it has a formula, the array that fills it. */
+const changeOf = (sheet: string, cell: string, c: CellView | undefined): CellChange => ({
+  sheet,
+  cell,
+  text: c?.text ?? '',
+  value: c ? c.value : null,
+  ...(c?.color ? { color: c.color } : {}),
+  formula: c?.formula ?? null,
+  ...(c?.spillOf ? { spillOf: c.spillOf } : {}),
+})
 
 /**
  * The values shown in Manual. `known` is captured from the session before the first change in Manual: every formula's
  * cell and the cells its array fills, as the sheet shows them; the cells that changes show update it, a formula entered
  * joining it and a cell left without one leaving it. A change of such a cell's value that is not its own edit (a
  * recalculation) is held: the sheet keeps the known value until a calculation shows the session's. A change of how such a
- * cell looks with its value as known (a number format, a column too narrow, a note) shows. A cell outside `known` (a
- * constant, an empty cell an array spills into anew) shows its change.
+ * cell looks with its value as known (a number format, a column too narrow, a note) shows, as does a cell of the array
+ * of a formula entered, which Excel calculates with its cell. A cell outside `known` (a constant, an empty cell an array
+ * spills into anew) shows its change.
  */
 export function manualCalculation(input: BookInput, emit: (calculation: SheetCalculation) => void) {
   let mode: CalculationMode = input.calculation ?? 'automatic'
@@ -72,12 +85,14 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     known = next
   }
 
-  /** In Manual, a recalculated value of a known cell is held, and the sheet keeps showing the known one: true when held. */
-  function hold(ch: CellChange): boolean {
+  /** In Manual, a recalculated value of a known cell is held, and the sheet keeps showing the known one: true when held. `entered`: the cells entered, by `cellKey`. */
+  function hold(ch: CellChange, entered: Set<string>): boolean {
     if (!manual() || !known || 'formula' in ch) return false
     const sk = nameKey(ch.sheet)
     const was = known.get(sk)?.get(ch.cell)
     if (!was || sameValue(was.value, ch.value)) return false
+    // a cell of the array of a formula entered, filled now or left empty
+    if (was.of && entered.has(cellKey(ch.sheet, was.of))) return false
     let mine = held.get(sk)
     if (!mine) held.set(sk, (mine = new Map()))
     if (!mine.has(ch.cell)) mine.set(ch.cell, { sheet: ch.sheet, shown: was })
@@ -97,15 +112,35 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
       if (mine?.delete(u.cell) && !mine.size) held.delete(sk)
       const ch = listed.get(cellKey(u.sheet, u.cell))
       let cells = known.get(sk)
-      const formula = u.formula !== undefined ? u.formula !== null : ch && 'formula' in ch ? ch.formula !== null : ch?.spillOf !== undefined || cells?.has(u.cell)
-      if (!formula) {
+      const was = cells?.get(u.cell)
+      // a cell no change tells about stays a formula's, and an array's cell without its array is left empty
+      const kept = !!ch?.spillOf || (u.formula !== undefined ? u.formula !== null : ch && 'formula' in ch ? ch.formula !== null : !!was && !was.of)
+      if (!kept) {
         cells?.delete(u.cell)
         continue
       }
       if (!cells) known.set(sk, (cells = new Map()))
-      cells.set(u.cell, shownOf(u))
+      cells.set(u.cell, { ...shownOf(u), ...(ch?.spillOf ? { of: ch.spillOf } : {}) })
     }
   }
+  /**
+   * The waiting cells of the arrays of formulas `entered` (an edit's cells), as changes: entering a formula again
+   * calculates its whole array, the cells it no longer fills too, though the session's values of them did not change.
+   */
+  async function spillsOf(s: AsyncSession, entered: Iterable<CellUpdate>): Promise<CellChange[]> {
+    if (!held.size) return []
+    const keys = new Set([...entered].map((u) => cellKey(u.sheet, u.cell)))
+    const out: CellChange[] = []
+    for (const mine of held.values()) {
+      const sheet = mine.values().next().value!.sheet
+      const cells = [...mine].filter(([, { shown }]) => shown.of && keys.has(cellKey(sheet, shown.of))).map(([addr]) => addr)
+      if (!cells.length) continue
+      const got = await s.getCells(sheet, cells)
+      for (const addr of cells) out.push(changeOf(sheet, addr, got[addr]))
+    }
+    return out
+  }
+
   /** Rows and columns moved (a structure operation or its undo): the values known by address no longer hold, so the sheet shows the session's. */
   function forget(): void {
     known = null
@@ -133,14 +168,19 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
   /** Calculate Now, or Calculate Sheet with `sheet`: the held cells (of that sheet) show the session's values; the caller sends them, then `report`. */
   async function calculate(s: AsyncSession, sheet?: string): Promise<CellUpdate[]> {
     const out: CellUpdate[] = []
+    const changes: CellChange[] = []
     for (const [sk, mine] of [...held]) {
       if (sheet !== undefined && sk !== nameKey(sheet)) continue
       const name = mine.values().next().value!.sheet
       const got = await s.getCells(name, [...mine.keys()])
-      for (const addr of mine.keys()) out.push({ sheet: name, cell: addr, ...shownOf(got[addr]) })
+      for (const addr of mine.keys()) {
+        const ch = changeOf(name, addr, got[addr])
+        changes.push(ch)
+        out.push({ sheet: name, cell: addr, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
+      }
       held.delete(sk)
     }
-    showing(out)
+    showing(out, changes)
     return out
   }
 
@@ -158,7 +198,7 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     return (mode === 'automatic' ? rest : { ...rest, calculation: mode }) as B
   }
 
-  return { state, report, capture, hold, showing, forget, overlay, calculate, setMode, book, manual }
+  return { state, report, capture, hold, showing, spillsOf, forget, overlay, calculate, setMode, book, manual }
 }
 
 export type ManualCalculation = ReturnType<typeof manualCalculation>

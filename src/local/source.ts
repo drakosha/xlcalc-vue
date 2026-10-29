@@ -166,9 +166,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   /** The session's changes as cell updates, with the edited cells' updates in place, and the cached values updated, one sheet at a time. */
   function take(changes: CellChange[], edited: Map<string, CellUpdate> = new Map()): CellUpdate[] {
     const out = new Map(edited)
+    // Excel calculates a formula entered, typed, pasted or filled, with the cells its array fills
+    const entered = new Set([...edited.keys(), ...changes.filter((c) => typeof c.formula === 'string').map((c) => cellKey(c.sheet, c.cell))])
     for (const ch of changes) {
       const key = cellKey(ch.sheet, ch.cell)
-      if (!out.has(key) && !calcMode.hold(ch)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
+      if (!out.has(key) && !calcMode.hold(ch, entered)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
     }
     const list = [...out.values()]
     calcMode.showing(list, changes)
@@ -258,7 +260,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   /** A completed change: its updates, with the edited cells' current state, sent to subscribers, then the formatting it may have changed; a reload where updates cannot carry it. */
   async function settle(s: AsyncSession, got: EditResult, boxes: CellsBox[]): Promise<Extract<EditOutcome, { ok: true }>> {
     const { updates, truncated } = await editedIn(s, boxes)
-    const changes = take(got.changes, updates)
+    const changes = take([...got.changes, ...(await calcMode.spillsOf(s, updates.values()))], updates)
     if (truncated || needsReload(got)) reload()
     else {
       if (changes.length) emit({ kind: 'changed', changes })

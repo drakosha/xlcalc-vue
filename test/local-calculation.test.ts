@@ -155,6 +155,27 @@ describe('localSource: calculation options', () => {
     expect(await row1(s, 'One')).toEqual([null, 2, 3])
   })
 
+  it('a spilling formula entered in Manual shows with its whole spill, as Excel calculates the entered cell', async () => {
+    const s = source({ calculation: 'manual', sheets: [{ name: 'S', cells: { A1: { value: 1 }, D1: { formula: 'SEQUENCE(3)*A1' } } }] })
+    const col = async () => (await win(s, 'S', 1, 4, 4, 1)).values.map((r) => r[0])
+    await s.edit([{ sheet: 'S', cell: 'D1', text: '=SEQUENCE(3)*10' }])
+    expect(await col()).toEqual([10, 20, 30, null])
+    // a spill that shrinks empties the cells it leaves; one that grows fills the new ones
+    await s.edit([{ sheet: 'S', cell: 'D1', text: '=SEQUENCE(2)' }])
+    expect(await col()).toEqual([1, 2, null, null])
+    await s.paste('S', 'D1', '=SEQUENCE(4)*2')
+    expect(await col()).toEqual([2, 4, 6, 8])
+    await s.fill('S', 'D1', '=SEQUENCE(3)*3', 'D1')
+    expect(await col()).toEqual([3, 6, 9, null])
+    // the same formula entered again over a waiting spill calculates it
+    await s.edit([{ sheet: 'S', cell: 'D1', text: '=SEQUENCE(3)*A1' }])
+    await s.edit([{ sheet: 'S', cell: 'A1', text: '2' }])
+    expect(await col()).toEqual([1, 2, 3, null])
+    await s.edit([{ sheet: 'S', cell: 'D1', text: '=SEQUENCE(3)*A1' }])
+    expect(await col()).toEqual([2, 4, 6, null])
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: false })
+  })
+
   it('a structure operation in Manual shows the calculated values, the cells having moved', async () => {
     const s = source(twoSheets('manual'))
     await s.edit([{ sheet: 'One', cell: 'A1', text: '5' }])
