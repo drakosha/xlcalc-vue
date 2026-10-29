@@ -187,8 +187,9 @@ export interface SheetViewApi {
   /** Opens Excel's Insert Function dialog (the formula bar's fx, AutoSum's More Functions…); false on a read-only sheet or without the source's `functionNames`. */
   insertFunction(): boolean
   /**
-   * Opens Excel's Paste Special dialog (Ctrl+Alt+V, Ctrl+Cmd+V on a Mac) for the copied range: All, Formulas, Values, Formats or
-   * Validation, and Transpose, through the source's `structure` (`copyRange` with `paste`, xlcalc 0.60). false without a copy
+   * Opens Excel's Paste Special dialog (Ctrl+Alt+V, Ctrl+Cmd+V on a Mac) for the copied range: its Paste choices, Operation,
+   * Skip Blanks and Transpose, through the source's `structure` (`copyRange` with `paste`, `transpose`, `operation` and
+   * `skipBlanks`, xlcalc 0.65). false without a copy
    * in copy mode (a cut has no Paste Special), without `structure`, on a read-only sheet or under a display filter.
    */
   pasteSpecial(): boolean

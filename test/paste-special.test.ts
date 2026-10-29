@@ -44,13 +44,21 @@ async function look(s: LocalSource, cell: string) {
   return { text: win.text[0]![0], formula: win.formulas[cell], style: styleOf(win, cell) }
 }
 const dialog = (w: VueWrapper) => w.find('[data-xs-paste-special]')
-async function pasteSpecial(w: VueWrapper, kind: string, transpose = false): Promise<void> {
+async function pasteSpecial(w: VueWrapper, kind: string, transpose = false, more: { operation?: string; skipBlanks?: boolean } = {}): Promise<void> {
   expect(api(w).pasteSpecial()).toBe(true)
   await settle()
   await w.find(`[data-xs-paste-kind="${kind}"]`).setValue(true)
   if (transpose) await w.find('[data-xs-paste-transpose]').setValue(true)
+  if (more.operation) await w.find(`[data-xs-paste-operation="${more.operation}"]`).setValue(true)
+  if (more.skipBlanks) await w.find('[data-xs-paste-skip]').setValue(true)
   await w.find('[data-xs-paste-special] [data-xs-dialog-ok]').trigger('click')
   await settle(12)
+}
+/** A sheet over `cells` (and `extra` of its sheet), mounted once the workbook is open. */
+async function sheetOf(cells: Record<string, unknown>, extra: Record<string, unknown> = {}): Promise<{ s: LocalSource; w: VueWrapper }> {
+  const s = localSource({ locale: 'en-US', sheets: [{ name: 'S', cells, ...extra }] } as never, { calc: 'inline' })
+  open.push(s)
+  return { s, w: await mountLocal(s) }
 }
 
 describe('Paste Special', () => {
@@ -81,6 +89,75 @@ describe('Paste Special', () => {
     await goTo(w, 'C1')
     await pasteSpecial(w, 'all', true)
     expect([cellText(w, 1, 3), cellText(w, 1, 4)]).toEqual(['1', '2'])
+  })
+
+  it("offers Excel's Paste choices, its Operation group, Skip Blanks and Transpose; All and None at first", async () => {
+    const { w } = await sheetOf({ A1: { value: 1 } })
+    await goTo(w, 'A1')
+    clipboard(w, 'copy')
+    api(w).pasteSpecial()
+    await settle()
+    const values = (sel: string, attr: string) => w.findAll(sel).map((x) => x.attributes(attr))
+    expect(values('[data-xs-paste-kind]', 'data-xs-paste-kind')).toEqual(['all', 'formulas', 'values', 'formats', 'notes', 'validation', 'allExceptBorders', 'columnWidths', 'formulasAndNumberFormats', 'valuesAndNumberFormats', 'allMergingConditionalFormats'])
+    expect(values('[data-xs-paste-operation]', 'data-xs-paste-operation')).toEqual(['none', 'add', 'subtract', 'multiply', 'divide'])
+    const checked = (sel: string) => (w.find(sel).element as HTMLInputElement).checked
+    expect([checked('[data-xs-paste-kind="all"]'), checked('[data-xs-paste-operation="none"]'), checked('[data-xs-paste-skip]'), checked('[data-xs-paste-transpose]')]).toEqual([true, true, false, false])
+    expect(w.find('[data-xs-paste-special]').text()).toContain('All except borders')
+  })
+
+  it("combines the copy's numbers with the cells under it (Add, Multiply); a formula on either side makes a formula of both", async () => {
+    const { s, w } = await sheetOf({ A1: { value: 1 }, A2: { value: 2 }, B1: { formula: 'A1*2' }, C1: { value: 10 }, C2: { value: 10 }, D1: { value: 3 } })
+    await goTo(w, 'A1:A2')
+    clipboard(w, 'copy')
+    await goTo(w, 'C1')
+    await pasteSpecial(w, 'values', false, { operation: 'add' })
+    expect([(await look(s, 'C1')).text, (await look(s, 'C2')).text]).toEqual(['11', '12'])
+    await goTo(w, 'B1')
+    clipboard(w, 'copy')
+    await goTo(w, 'D1')
+    await pasteSpecial(w, 'formulas', false, { operation: 'multiply' })
+    expect(await look(s, 'D1')).toMatchObject({ formula: '3*(C1*2)', text: '66' })
+  })
+
+  it("Skip Blanks keeps the cells under the copy's blank cells", async () => {
+    const { s, w } = await sheetOf({ A1: { value: 1 }, A3: { value: 3 }, C1: { value: 7 }, C2: { value: 8 }, C3: { value: 9 } })
+    await goTo(w, 'A1:A3')
+    clipboard(w, 'copy')
+    await goTo(w, 'C1')
+    await pasteSpecial(w, 'all', false, { skipBlanks: true })
+    expect([(await look(s, 'C1')).text, (await look(s, 'C2')).text, (await look(s, 'C3')).text]).toEqual(['1', '8', '3'])
+  })
+
+  it('pastes column widths, notes, and values with their number formats', async () => {
+    const { s, w } = await sheetOf({ A1: { value: 0.5, numberFormat: '0%', note: { text: 'checked' } }, B1: { formula: 'A1*2' } }, { columns: { A: { width: 20 } } })
+    await goTo(w, 'A1')
+    clipboard(w, 'copy')
+    await goTo(w, 'F1')
+    await pasteSpecial(w, 'columnWidths')
+    const win = (await s.window({ sheet: 'S', row: 1, rows: 1, col: 6, cols: 1 })) as SheetWindow
+    expect(win.widths[0]).toBe(20)
+    expect(win.text[0]![0]).toBe('')
+    await goTo(w, 'C3')
+    await pasteSpecial(w, 'notes')
+    const noted = (await s.window({ sheet: 'S', row: 3, rows: 1, col: 3, cols: 1 })) as SheetWindow
+    expect([noted.notes?.C3?.text, noted.text[0]![0]]).toEqual(['checked', ''])
+    await goTo(w, 'A1:B1')
+    clipboard(w, 'copy')
+    await goTo(w, 'C5')
+    await pasteSpecial(w, 'valuesAndNumberFormats')
+    expect([(await look(s, 'C5')).text, (await look(s, 'D5')).text, (await look(s, 'D5')).formula]).toEqual(['50%', '1', undefined])
+  })
+
+  it("shows the library's refusal of an operation onto a spilled array in the message line, and pastes nothing", async () => {
+    const { s, w } = await sheetOf({ A1: { value: 1 }, B1: { formula: 'SEQUENCE(3)' } })
+    await goTo(w, 'A1')
+    clipboard(w, 'copy')
+    await goTo(w, 'B2')
+    await pasteSpecial(w, 'all', false, { operation: 'add' })
+    expect(w.find('.xs-message').text()).not.toBe('')
+    expect((await look(s, 'B2')).text).toBe('2')
+    const out = await api(w).structure({ op: 'copyRange', from: { sheet: 'S', range: 'A1' }, to: { sheet: 'S', range: 'B2' }, operation: 'add' })
+    expect(out).toMatchObject({ ok: false, code: 'array' })
   })
 
   it('opens with Ctrl+Alt+V and from the cell menu after a copy; not after a cut or without a copy; Cancel pastes nothing', async () => {

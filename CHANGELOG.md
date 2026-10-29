@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Paste Special is Excel's dialog: besides All, Formulas, Values, Formats, Validation and Transpose, it pastes Comments and Notes, All except borders, Column widths, Formulas and number formats, Values and number formats and All merging conditional formats, combines the copy with the cells under it (Operation: Add, Subtract, Multiply, Divide) and skips its blanks (Skip Blanks), through `structure`'s `copyRange` with `paste`, `operation` and `skipBlanks`. `./local` needs xlcalc 0.65.0 for them (0.66.0 for All merging conditional formats). The dialog's Russian labels are now Excel for Mac's (`Все`, `Проверка`, `Транспонировать`); a host's own `messages` keep theirs. New texts: `pasteSpecialNotes`, `pasteSpecialAllExceptBorders`, `pasteSpecialColumnWidths`, `pasteSpecialFormulasNumbers`, `pasteSpecialValuesNumbers`, `pasteSpecialMergeConditional`, `pasteSpecialOperation`, `pasteSpecialNone`, `pasteSpecialAdd`, `pasteSpecialSubtract`, `pasteSpecialMultiply`, `pasteSpecialDivide`, `pasteSpecialSkipBlanks`.
+
 ## 0.29.0 (2026-10-28)
 
 A workbook on a server, edited by several viewers, and xlsx saved over the file it was opened from. Nothing breaks for a host; `keep` in `./local` needs xlcalc 0.57.0.

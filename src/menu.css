@@ -98,6 +98,30 @@ fieldset.xs-dialog-choices {
   min-height: 26px;
   cursor: pointer;
 }
+/* A dialog of several groups of choices in columns (Paste Special, Go To Special): wider, its columns stacked on a phone. */
+.xs-dialog-wide {
+  width: min(460px, 100%);
+}
+.xs-dialog-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.xs-dialog-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+}
+.xs-dialog-cols > div {
+  display: flex;
+  flex: 1 1 180px;
+  flex-direction: column;
+  gap: 2px;
+}
+.xs-dialog-choice:has(input:disabled) {
+  color: var(--xs-muted);
+  cursor: default;
+}
 .xs-dialog-foot {
   display: flex;
   justify-content: flex-end;

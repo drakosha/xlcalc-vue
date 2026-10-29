@@ -65,7 +65,7 @@ export interface SheetMessages extends ConditionalMessages {
   menuCut: string
   menuCopy: string
   menuPaste: string
-  /** Excel's Paste Special: the cell menu's item, the dialog's title, its Paste group and choices, and Transpose. */
+  /** Excel's Paste Special: the cell menu's item, the dialog's title, its Paste group and choices, its Operation group, Skip Blanks and Transpose. */
   menuPasteSpecial: string
   pasteSpecialTitle: string
   pasteSpecialPaste: string
@@ -75,6 +75,19 @@ export interface SheetMessages extends ConditionalMessages {
   pasteSpecialFormats: string
   pasteSpecialValidation: string
   pasteSpecialTranspose: string
+  pasteSpecialNotes: string
+  pasteSpecialAllExceptBorders: string
+  pasteSpecialColumnWidths: string
+  pasteSpecialFormulasNumbers: string
+  pasteSpecialValuesNumbers: string
+  pasteSpecialMergeConditional: string
+  pasteSpecialOperation: string
+  pasteSpecialNone: string
+  pasteSpecialAdd: string
+  pasteSpecialSubtract: string
+  pasteSpecialMultiply: string
+  pasteSpecialDivide: string
+  pasteSpecialSkipBlanks: string
   /** Excel's Format Painter on the toolbar. */
   formatPainter: string
   pasteDenied: string
