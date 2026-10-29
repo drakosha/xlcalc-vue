@@ -491,6 +491,8 @@ export const enMessages: SheetMessages = {
   dvEmpty: (box) => `You must enter a value in the ${box} box.`,
   dvInvalid: (box) => `The ${box} you entered is not valid.`,
   dvOrder: (min, max) => `The ${max} must be greater than or equal to the ${min}.`,
+  calculateStatus: 'Calculate',
+  calculateHint: 'Calculate Now (F9)',
   ...enConditional,
 }
 
@@ -1001,6 +1003,8 @@ export const ruMessages: SheetMessages = {
   dvEmpty: (box) => `Необходимо ввести значение в поле «${box}».`,
   dvInvalid: (box) => `Значение в поле «${box}» недопустимо.`,
   dvOrder: (min, max) => `Значение в поле «${max}» должно быть больше или равно значению в поле «${min}».`,
+  calculateStatus: 'Вычислить',
+  calculateHint: 'Пересчет (F9)',
   ...ruConditional,
 }
 

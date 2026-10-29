@@ -3,7 +3,7 @@ import type { Component } from 'vue'
 import type { CellStyle, CellValue, IconSetName } from 'xlcalc/contract'
 import type { ClearRulesFrom, ColorScalePreset, DataBarColor, QuickRule } from './conditional'
 import type { SheetMessages } from './messages'
-import type { AutoSumFunction, EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
+import type { AutoSumFunction, CalculationMode, EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
 import type { ClearKind } from './workbook'
 
 /** Properties of `SheetView`. */
@@ -87,6 +87,10 @@ export interface SheetViewState {
   zoom?: number
   /** The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays: a toolbar's Font and Font Size boxes show it for such a cell. */
   font?: { name: string; size: number }
+  /** The workbook's calculation option, from a source with `calculation`: a ribbon shows the checked item of Calculation Options. */
+  calculation?: CalculationMode
+  /** In Manual, cells wait for a calculation: the status bar shows Calculate. */
+  calculationPending?: true
 }
 
 /** The `zoom` event: the user changed a sheet's zoom (Ctrl+wheel, a pinch, the status bar, the Zoom dialog), in percent. */
@@ -242,6 +246,13 @@ export interface SheetViewApi {
   newRule(): boolean
   /** Opens Excel's Conditional Formatting Rules Manager. */
   manageRules(): boolean
+  /**
+   * Excel's Calculate Now (F9, `workbook`, the default) or Calculate Sheet (Shift+F9, `sheet`) through the source's
+   * `calculate`; null when nothing was sent (no `calculate`, a read-only sheet).
+   */
+  calculate(scope?: 'workbook' | 'sheet'): Promise<EditOutcome | null>
+  /** Excel's Calculation Options through the source's `setCalculation`; null when nothing was sent (no `setCalculation`, a read-only sheet). */
+  setCalculation(mode: CalculationMode): Promise<EditOutcome | null>
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */

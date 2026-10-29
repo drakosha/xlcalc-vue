@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+
+- Excel's calculation options. The contract adds `SheetSource.calculation`, `setCalculation` and `calculate`, the `calculation` event (`SheetCalculation`, `CalculationMode`), and the sheet's `calculate` and `setCalculation` methods with `SheetViewState.calculation` and `calculationPending`. A source with them gets Calculate on the status bar while cells wait in Manual, F9 (Calculate Now) and Shift+F9 (Calculate Sheet). A host that switches over every `SourceEvent` kind gets one kind more ([calculation.md](docs/calculation.md)).
 ## 0.29.0 (2026-10-28)
 
 A workbook on a server, edited by several viewers, and xlsx saved over the file it was opened from. Nothing breaks for a host; `keep` in `./local` needs xlcalc 0.57.0.
