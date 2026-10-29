@@ -31,6 +31,8 @@ interface PointDeps {
   scan: () => ScanOptions | null
   /** Enters the draft and moves the selection in the arrow's direction. */
   commit: (dr: -1 | 0 | 1, dc: -1 | 0 | 1) => void
+  /** The cell under a point in a split window's pane there, null without a split or off its panes. */
+  paneAt: (clientX: number, clientY: number, under?: EventTarget | null) => { d: number; col: number } | null
 }
 
 export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref<EditorState | null>, deps: PointDeps) {
@@ -125,11 +127,11 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     else point(to)
     return true
   }
-  /** The drag's far corner under the pointer. */
+  /** The drag's far corner under the pointer, in the pane it is over. */
   function move(e: PointerEvent): void {
     const box = dragging && run ? s.scroller.value?.getBoundingClientRect() : null
     if (!box || !run) return
-    const p = v.cellAtPoint(e.clientX, e.clientY, box)
+    const p = deps.paneAt(e.clientX, e.clientY, e.target) ?? v.cellAtPoint(e.clientX, e.clientY, box)
     const [, far] = corners(run.kind, s.rowOf(p.d), p.col)
     if (far.row !== run.far.row || far.col !== run.far.col) write(far)
   }

@@ -130,7 +130,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   const alerts = useValidationAlert()
   const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare, protection })
-  const point = usePoint(s, sel, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, scan: f.scanOptions, commit: ed.commit })
+  const point = usePoint(s, sel, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, scan: f.scanOptions, commit: ed.commit, paneAt: panes.cellAtPoint })
   // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, otherwise in as typed, past the rule.
   const validation = useValidation({
     source: () => s.source(),
@@ -179,7 +179,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   })
   const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0, protection })
   const painter = usePainter(s, sel, v, ed, cmd, { formats: () => protection.can('formatCells') })
-  const fill = useFill(s, geo, v, sel, ed, cmd, { editor })
+  const fill = useFill(s, geo, v, sel, ed, cmd, { editor, paneAt: panes.cellAtPoint, activePane: () => panes.active.value })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
   const links = useLinks(s, sel, w, f, ed, extras, {
     notify,

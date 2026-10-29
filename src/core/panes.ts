@@ -1,7 +1,7 @@
 // Excel's split window drawn (View > Split): two or four panes, each a scroller of its own over the whole grid. As in Excel,
 // the panes of a row of panes scroll up and down together and those of a column of panes left and right together; the
 // active pane is the sheet's scroller (keys, the editor, scrolling to the active cell), the others draw and scroll.
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { parseCell } from 'xlcalc/a1'
 import { clamp } from '../rect'
 import type { SheetSplit } from '../contract/source'
@@ -95,6 +95,15 @@ function nearestEdge(offsets: Float64Array, at: number, indexAt: (x: number) => 
   const a = offsets[k - 1] ?? 0
   const b = offsets[k] ?? a
   return at - a <= b - at ? k - 1 : k
+}
+
+/** A point of the page over a pane: the cell under it and the point in the offsets' space. */
+export interface PanePoint {
+  d: number
+  col: number
+  x: number
+  y: number
+  pane: PaneId
 }
 
 interface PaneDeps {
@@ -255,12 +264,12 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     s.scrollLeft.value = cols[colGroup(id)]!
     if (els[id]) s.scroller.value = els[id]
   }
-  /** The sheet and split the panes follow, and whether frozen panes had taken the split's place. */
-  let shown: { sheet: string; split: SheetSplit | null; frozen: boolean } = { sheet: '', split: null, frozen: false }
-  /** A sheet displayed at its top left corner: the second panes from the split's `topLeft`, its active pane active. */
+  /** The split the panes follow, and whether frozen panes had taken its place. */
+  let shown: { split: SheetSplit | null; frozen: boolean } = { split: null, frozen: false }
+  /** A sheet made active, at its top left corner: the second panes from the split's `topLeft`, its active pane active. */
   function enter(): void {
     const x = split.value
-    shown = { sheet: s.sheetName.value, split: x, frozen: v.bookFreeze.value }
+    shown = { split: x, frozen: v.bookFreeze.value }
     drag.value = null
     const at = parseCell(x?.topLeft ?? '')
     const rows = [0, x?.y && at ? rowOffset(at.row) : 0]
@@ -272,15 +281,17 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
    * scroll from the split's `topLeft`; a removed vertical line keeps the left panes' columns, a removed horizontal one the
    * top panes' rows, and with no line left the window keeps the top left pane's scroll. Frozen panes in its place start at
    * the top left, past the frozen rows and columns, and the split back from under them at the top left too, since they
-   * were frozen from the sheet's first row and column.
+   * were frozen from the sheet's first row and column. Another sheet made active has entered already (`enter`); the same
+   * sheet renamed keeps its panes.
    */
   function follow(): void {
-    if (s.sheetName.value !== shown.sheet) return enter()
     const prev = shown.split
     const next = split.value
     const thawed = shown.frozen && !v.bookFreeze.value
-    shown = { sheet: shown.sheet, split: next, frozen: v.bookFreeze.value }
+    shown = { split: next, frozen: v.bookFreeze.value }
     if (prev === next) return
+    // the keys stay with the grid when the pane that had them goes: the new active pane or the single window takes them
+    const keys = typeof document !== 'undefined' && !!document.activeElement && (document.activeElement === s.scroller.value || els.includes(document.activeElement as HTMLElement))
     const rows = [topOf(0), topOf(1)]
     const cols = [leftOf(0), leftOf(1)]
     let id = active.value
@@ -295,8 +306,9 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     }
     place(rows, cols, id)
     deps.measure()
+    if (keys) void nextTick(s.focusGrid)
   }
-  watch([() => s.sheetName.value, split], follow)
+  watch(split, follow)
 
   // ── the bars: dragged to a row's or a column's edge, removed at the window's edge ──
   /** A line dragged to `px` on the screen, snapped to the nearest edge of a row or column in the panes before it. */
@@ -331,6 +343,23 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
       cols: lay.x === null ? 0 : nearestEdge(geo.offsets.value, leftOf(0) + lay.x / z - v.leadW.value, geo.colAt),
     }
   }
+  /**
+   * The cell under a point of the page in the pane there, found by the element under it (`under`, otherwise the page's
+   * element at that point): its display row and column, the point in the offsets' space, and the pane; null without a split
+   * or off the panes (on a bar).
+   */
+  function cellAtPoint(clientX: number, clientY: number, under?: EventTarget | null): PanePoint | null {
+    if (!layout.value) return null
+    const target = under instanceof Element ? under : typeof document.elementFromPoint === 'function' ? document.elementFromPoint(clientX, clientY) : null
+    const el = target?.closest<HTMLElement>('[data-xs-pane]')
+    const id = Number(el?.dataset.xsPane) as PaneId
+    if (!el || els[id] !== el) return null
+    const r = el.getBoundingClientRect()
+    const z = s.zoom.value
+    const x = Math.max(0, (clientX - r.left) / z - v.leadW.value) + leftOf(colGroup(id))
+    const y = Math.max(0, (clientY - r.top) / z - v.headH.value) + topOf(rowGroup(id))
+    return { d: geo.rowAt(y), col: geo.colAt(x), x, y, pane: id }
+  }
   /** Before row heights change: the row at the top of the rows of panes that are not active, to keep them steady afterwards. */
   function hold(): (() => void) | null {
     const lay = layout.value
@@ -346,7 +375,7 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     }
   }
 
-  return { split, drag, box, scrollbars, layout, on, active, viewports, needs, topOf, leftOf, setEl, onScroll, activate, enter, snap, offEdge, freezeLines, hold }
+  return { split, drag, box, scrollbars, layout, on, active, viewports, needs, topOf, leftOf, setEl, onScroll, activate, enter, snap, offEdge, freezeLines, hold, cellAtPoint }
 }
 
 export type Panes = ReturnType<typeof usePanes>

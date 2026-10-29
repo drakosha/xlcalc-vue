@@ -16,8 +16,15 @@ const bar = `${SPLIT_BAR_PX}px`
 
 // ── the window's size and the browser's scrollbars, which the panes' layout needs ──
 let observer: ResizeObserver | null = null
+/** The window's size, and the scrollbars once it is shown: a window mounted hidden measures none until then. */
 function measure(): void {
-  if (el.value) panes.box.value = { width: el.value.clientWidth, height: el.value.clientHeight }
+  const host = el.value
+  if (!host) return
+  panes.box.value = { width: host.clientWidth, height: host.clientHeight }
+  if (host.clientWidth > 0) {
+    const bars = scrollbars(host)
+    if (bars.v !== panes.scrollbars.value.v || bars.h !== panes.scrollbars.value.h) panes.scrollbars.value = bars
+  }
 }
 /** The scrollbars' thickness: a scroller's size less its client area, 0 where they overlay the content. */
 function scrollbars(host: HTMLElement): { v: number; h: number } {
@@ -31,7 +38,6 @@ function scrollbars(host: HTMLElement): { v: number; h: number } {
 }
 onMounted(() => {
   if (!el.value) return
-  panes.scrollbars.value = scrollbars(el.value)
   measure()
   if (typeof ResizeObserver !== 'undefined') {
     observer = new ResizeObserver(measure)
