@@ -1,12 +1,19 @@
-// The split window's edges: a renamed sheet keeps its scroll.
+// The split window's edges: a renamed sheet keeps its scroll; windows no pane draws any more stop serving cells.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EditOutcome, SheetInfo, SheetOp } from '../src/contract/source'
 import { fakeSource, goTo, mountSheet, settle } from './helpers'
-import { api, el, lines, ROW, scroll } from './split-fixture'
+import { api, book, el, lines, pane, ROW, scroll } from './split-fixture'
 
 afterEach(() => {
   document.body.innerHTML = ''
 })
+
+/** Waits out a repaint's delay. */
+async function repainted(): Promise<void> {
+  await settle(10)
+  await new Promise((r) => setTimeout(r, 150))
+  await settle(10)
+}
 
 describe('a renamed sheet', () => {
   function renamable(extra: Partial<SheetInfo> = {}) {
@@ -45,5 +52,74 @@ describe('a renamed sheet', () => {
     await settle()
     expect(w.findAll('.xs-tab').map((t) => t.text())).toEqual(['Data', 'B'])
     expect([el(w, 0).scrollTop, el(w, 2).scrollTop]).toEqual([50 * ROW, 400 * ROW])
+  })
+})
+
+describe('windows no pane draws', () => {
+  /** A source whose A1:B2 is merged while `merged` holds. */
+  function merging() {
+    const state = { merged: true }
+    const f = book(undefined)
+    const read = f.source.window.bind(f.source)
+    f.source.window = async (req, signal) => {
+      const got = await read(req, signal)
+      if ('pending' in got) return got
+      return { ...got, merges: state.merged && req.row <= 1 && req.col <= 1 ? ['A1:B2'] : [] }
+    }
+    return { f, state }
+  }
+
+  it('give way to a split made in the session: a repainted cell is drawn anew in its pane', async () => {
+    let ver = 1
+    const f = book(undefined, {}, { cell: (sh, r, c) => `${sh}:${r}:${c}:v${ver}` })
+    const w = await mountSheet(f.source)
+    await w.find('[data-cell="1:3"]').trigger('pointerdown', { button: 0, pointerType: 'mouse' })
+    await settle()
+    expect(api(w).split()).toBe(true)
+    await settle()
+    expect(w.findAll('.xs-pane')).toHaveLength(2)
+    expect(pane(w, 0).find('[data-cell="1:1"]').text()).toBe('S:1:1:v1')
+    ver = 2
+    f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A1:B2' }] })
+    await repainted()
+    expect(pane(w, 0).find('[data-cell="1:1"]').text()).toBe('S:1:1:v2')
+  })
+
+  it('go with a split removed: an unmerge repainted is drawn', async () => {
+    const { f, state } = merging()
+    const w = await mountSheet(f.source)
+    await w.find('[data-cell="3:3"]').trigger('pointerdown', { button: 0, pointerType: 'mouse' })
+    await settle()
+    expect(api(w).split()).toBe(true)
+    await settle()
+    expect(w.findAll('.xs-pane')).toHaveLength(4)
+    expect(api(w).split(false)).toBe(false)
+    await settle()
+    state.merged = false
+    f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A1:B2' }] })
+    await repainted()
+    expect(w.find('[data-cell="1:2"]').exists()).toBe(true)
+  })
+
+  it('go with frozen panes unfrozen: an unmerge repainted is drawn', async () => {
+    const { f, state } = merging()
+    const sheets: SheetInfo[] = [{ name: 'S', maxRow: 300, maxCol: 40 }]
+    f.source.sheets = async () => sheets
+    f.source.freeze = vi.fn(async (_s: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome> => {
+      sheets[0] = panes ? { name: 'S', maxRow: 300, maxCol: 40, freeze: panes } : { name: 'S', maxRow: 300, maxCol: 40 }
+      f.emit({ kind: 'reload' })
+      return { ok: true, changes: [] }
+    })
+    const w = await mountSheet(f.source)
+    await w.find('[data-cell="3:3"]').trigger('pointerdown', { button: 0, pointerType: 'mouse' })
+    await settle()
+    await api(w).freezePanes()
+    await settle(10)
+    await api(w).freezePanes('unfreeze')
+    await settle(10)
+    state.merged = false
+    f.emit({ kind: 'repaint', ranges: [{ sheet: 'S', range: 'A1:B2' }] })
+    await repainted()
+    expect(w.find('[data-cell="1:2"]').exists()).toBe(true)
   })
 })

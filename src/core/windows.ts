@@ -465,10 +465,21 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry, panes?: Pa
   /** Loads what the drawn area needs and the slots do not hold. */
   function ensure(): void {
     if (s.failure.value || s.filterWait.value || !s.sheet.value || s.rowCount.value === 0) return
+    let ready = true
     for (const kind of order) {
       const need = needOf(kind)
-      if (need && !covered(slots[kind].value, need)) void load(kind, need)
+      if (need && !covered(slots[kind].value, need)) {
+        ready = false
+        void load(kind, need)
+      }
     }
+    // A window nothing draws any more (a split or frozen panes gone) would shadow the drawn ones and is never read again on a
+    // repaint: it goes once they are loaded, so nothing blank is drawn meanwhile.
+    if (ready) for (const kind of order) if (!needOf(kind) && (slots[kind].value.win || slots[kind].value.pendingKey)) drop(kind)
+  }
+  function drop(kind: SlotKind): void {
+    slots[kind].value.ctrl?.abort()
+    slots[kind].value = newSlot()
   }
 
   /** Drops every window: pending responses are aborted and ignored. */
