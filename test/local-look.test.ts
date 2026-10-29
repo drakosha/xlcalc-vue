@@ -2,7 +2,7 @@
 // localSource and the sheet's look beside its cells: tab colors through `setLayout`, a single undo step, kept in the workbook;
 // View > Show, which the session has no edit for, kept by the source on the sheets it lists and the workbook it saves.
 import { afterEach, describe, expect, it } from 'vitest'
-import type { SourceEvent } from '../src/contract/source'
+import type { SheetWindow, SourceEvent } from '../src/contract/source'
 import { openXlsx, saveXlsx } from '../src/local'
 import { closeAll, source } from './local-fixture'
 
@@ -71,5 +71,20 @@ describe("localSource: View > Show", () => {
     expect((await s.sheets())[1]).toMatchObject({ name: 'B', gridlines: false })
     await s.redo()
     expect((await s.sheets())[1]).toMatchObject({ name: 'C', gridlines: false })
+  })
+})
+
+describe('localSource: notes shown all the time', () => {
+  it("gives a note's shown in its window and writes it with the note, to the file too", async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 1, note: { text: 'Always', shown: true } }, B1: { value: 2, note: { text: 'On hover' } } } }] })
+    const w = (await s.window({ sheet: 'S', row: 1, rows: 1, col: 1, cols: 2 })) as SheetWindow
+    expect(w.notes).toEqual({ A1: { text: 'Always', shown: true }, B1: { text: 'On hover' } })
+    expect(await s.note('S', 'B1', { text: 'On hover', shown: true })).toMatchObject({ ok: true })
+    expect(await s.note('S', 'A1', { text: 'Always' })).toMatchObject({ ok: true })
+    const after = (await s.window({ sheet: 'S', row: 1, rows: 1, col: 1, cols: 2 })) as SheetWindow
+    expect(after.notes).toEqual({ A1: { text: 'Always' }, B1: { text: 'On hover', shown: true } })
+    const read = await openXlsx((await saveXlsx(s)).data)
+    expect(read.book.sheets[0]!.cells.B1!.note).toMatchObject({ shown: true })
+    expect(read.book.sheets[0]!.cells.A1!.note?.shown).toBeUndefined()
   })
 })

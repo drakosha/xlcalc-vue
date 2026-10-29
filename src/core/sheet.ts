@@ -227,6 +227,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     showFormulas: formulaView.show,
     showGridlines: (on) => look.show('gridlines', on),
     showHeadings: (on) => look.show('headings', on),
+    showNotes: (on) => notes.showAll(on),
     defineName: nameDialogs.define,
     nameManager: nameDialogs.openManager,
     setZoom: (z) => (z === 'selection' ? zoom.fitSelection() : zoom.apply(z)),
@@ -658,6 +659,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(zoom.percent.value !== 100 ? { zoom: zoom.percent.value } : {}),
       ...(s.sheet.value.gridlines === false ? { gridlines: false as const } : {}),
       ...(s.sheet.value.headings === false ? { headings: false as const } : {}),
+      ...(notes.all.value ? { allNotes: true as const } : {}),
       ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
     }
   })

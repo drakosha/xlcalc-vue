@@ -19,6 +19,8 @@ export interface SheetLink {
 export interface SheetNote {
   author?: string
   text: string
+  /** Shown all the time (Excel's Show/Hide Note), not only while the mouse rests on its cell. */
+  shown?: boolean
 }
 
 /** A defined name as Excel's Name Manager lists it: what it refers to (a formula, in the source's locale, without `=`) and the sheet it is visible on, the workbook without `scope`. */

@@ -309,7 +309,8 @@ export interface SheetWindow {
   appearance?: Record<string, ConditionalAppearance>
   /** Hyperlinks: an external address, a location in the workbook (`Sheet!B12`), a tooltip, a host-specific target (such as a file of the host). */
   links?: Record<string, { href?: string; location?: string; tooltip?: string; target?: string }>
-  notes?: Record<string, { author?: string; text: string }>
+  /** Notes; `shown` is drawn all the time, in its box next to its cell. */
+  notes?: Record<string, { author?: string; text: string; shown?: boolean }>
   /** A notice above the grid (for example, "values calculated on the server"). */
   notice?: string
   /** Drill-down cells (list mode): underlined, and a click or Enter emits `cellDrill`. */

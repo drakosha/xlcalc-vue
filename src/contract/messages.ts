@@ -410,6 +410,8 @@ export interface SheetMessages extends ConditionalMessages {
   menuNewNote: string
   menuEditNote: string
   menuDeleteNote: string
+  /** Excel's Show/Hide Note on a cell with a note. */
+  menuShowNote: string
   noteEditor: string
   /** Excel's Data Validation dialog: its title and tabs, the Settings tab's boxes by the rule's type and comparison, the Input Message and Error Alert tabs (the styles are `validationStyle`), Clear All, Excel's questions before it opens and its checks before OK. */
   dataValidation: string

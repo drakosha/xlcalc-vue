@@ -121,6 +121,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `filtered` | `true?` | The display filter has a condition or a sort: a ribbon shows Filter pressed and enables Clear. |
 | `showFormulas` | `true?` | Excel's Show Formulas is on for the displayed sheet, so a ribbon shows its button pressed ([view.md](view.md#show-formulas)). |
 | `zoom` | `number?` | The sheet's zoom in percent; absent at 100%. |
+| `allNotes` | `true?` | Excel's Show All Notes is on (`showNotes()`), so a ribbon shows its button pressed. |
 | `gridlines`, `headings` | `false?` | The displayed sheet hides its gridlines or its row numbers and column letters (View > Show), so a ribbon shows their boxes unchecked ([view.md](view.md#gridlines-and-headings)). |
 | `font` | `{ name; size }?` | The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays; the toolbar's Font and Font Size boxes show it for such a cell. |
 
@@ -142,6 +143,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `fillDown()` | `Promise<EditOutcome \| null>` | Excel's Fill Down (Ctrl+D) through `structure`: the selection's top row copied over its other rows, or the row above into a selection one row tall ([editing.md](editing.md)). `null` also under a display filter, for row 1 alone, and when a filled cell is locked. |
 | `fillRight()` | `Promise<EditOutcome \| null>` | Excel's Fill Right (Ctrl+R): the same along the columns, from the selection's left column or the column to its left. |
 | `showFormulas(on?: boolean)` | `boolean` | Turns Excel's Show Formulas on or off on the displayed sheet, or toggles it without `on`, as Ctrl+` does; whether it is on afterwards. A view setting: nothing goes to the source. |
+| `showNotes(on?: boolean)` | `boolean` | Excel's Show All Notes: every note drawn all the time, toggled without `on`; whether it is on afterwards. A view setting: nothing goes to the source ([links-notes.md](links-notes.md#notes-shown-all-the-time)). |
 | `showGridlines(on?: boolean)`, `showHeadings(on?: boolean)` | `boolean` | Excel's View > Show > Gridlines and Headings on the displayed sheet, toggled without `on`; whether they show afterwards. Drawn at once and kept through the source's `show`, not an undo step; for a read-only sheet or a source without `show`, in the browser as Show Formulas is ([view.md](view.md#gridlines-and-headings)). |
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
@@ -352,7 +354,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `tables` | `{ name; range; headerRow }[]?` | Tables, whose header and border are drawn. |
 | `appearance` | `Record<string, ConditionalAppearance>?` | The cells' conditional formatting, as xlcalc calculates it. |
 | `links` | `Record<string, { href?; location?; tooltip?; target? }>?` | Hyperlinks. |
-| `notes` | `Record<string, { author?; text }>?` | Notes. |
+| `notes` | `Record<string, { author?; text; shown? }>?` | Notes; one with `shown` is drawn all the time, in its box next to its cell ([links-notes.md](links-notes.md#notes-shown-all-the-time)). |
 | `notice` | `string?` | A notice above the grid. |
 | `drill` | `Record<string, true>?` | List mode: drill-down cells, underlined; a click or Enter emits `cellDrill`. An empty cell is never a drill-down. |
 
@@ -403,7 +405,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 | --- | --- |
 | `ClearKind` | `'formats' \| 'all'` |
 | `SheetLink` | `{ href?; location?; tooltip? }`: an address outside the workbook, a place in it (`'Sheet 2'!B12`, a defined name), or both, and the ScreenTip. |
-| `SheetNote` | `{ author?; text }` |
+| `SheetNote` | `{ author?; text; shown? }`: `shown`, the note is drawn all the time (Excel's Show/Hide Note). |
 | `SheetName` | `{ name; ref; scope? }`: what the name refers to as a formula, and the sheet it is visible on (the workbook without `scope`). |
 | `SheetDependent`, `SheetDependents` | `{ sheet; cell }`; `{ cells: SheetDependent[]; more: boolean }`, `more` when the source left some out. |
 | `SheetRules` | `{ conditionalFormats: ConditionalFormat[]; validations: DataValidation[] }`, xlcalc's types, conditional formats in priority order. |

@@ -88,6 +88,8 @@ export interface SheetViewState {
   /** The displayed sheet hides its gridlines or its headings (View > Show): a ribbon shows their boxes unchecked. */
   gridlines?: false
   headings?: false
+  /** Excel's Show All Notes is on (`SheetViewApi.showNotes`): a ribbon shows its button pressed. */
+  allNotes?: true
   /** The workbook's default font (`SheetInfo.font`), which a cell without a font of its own displays: a toolbar's Font and Font Size boxes show it for such a cell. */
   font?: { name: string; size: number }
 }
@@ -160,6 +162,8 @@ export interface SheetViewApi {
   showGridlines(on?: boolean): boolean
   /** Excel's View > Show > Headings (row numbers and column letters) on the displayed sheet, as `showGridlines`. */
   showHeadings(on?: boolean): boolean
+  /** Excel's Show All Notes: every note drawn in its box all the time, toggled without `on`; a view setting the source does not get, as in Excel; whether it is on afterwards. */
+  showNotes(on?: boolean): boolean
   /** Excel's Define Name: the New Name dialog for the selection; false when names cannot be defined (no `names` or `setNames`, a read-only sheet) or a cell is being edited. */
   defineName(): boolean
   /** Excel's Name Manager (Ctrl+F3); false when the source has no `names` or a cell is being edited. Without `setNames` or on a read-only sheet it only lists the names. */

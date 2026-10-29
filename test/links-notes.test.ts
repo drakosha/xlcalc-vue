@@ -327,7 +327,7 @@ describe('notes', () => {
     const note = vi.spyOn(source, 'note')
     const w = await mountSheet(source)
     await context(w, '1:3')
-    expect(items().slice(-4)).toEqual(['editNote', 'deleteNote', 'defineName', 'link'])
+    expect(items().slice(-5)).toEqual(['editNote', 'deleteNote', 'showNote', 'defineName', 'link'])
     await pick('deleteNote')
     expect(note).toHaveBeenCalledWith('S', 'C1', null)
     expect(w.find('[data-cell="1:3"]').attributes('title') ?? '').not.toContain('On Friday')

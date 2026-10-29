@@ -8,6 +8,7 @@ import { cellOfData } from '../core/selection'
 import { useSheetContext } from './context'
 import { refInto } from './dom'
 import NoteBox from './NoteBox.vue'
+import ShownNotes from './ShownNotes.vue'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
@@ -287,6 +288,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
       </table>
       <SheetMarks v-if="ctx.sheet.value && !empty" />
       <TraceArrows v-if="ctx.sheet.value && !empty" />
+      <ShownNotes v-if="ctx.notes.shown.value.length" />
       <NoteBox v-if="ctx.notes.draft.value" />
       <NoteBox v-else-if="ctx.notes.peek.value" peek />
       <template v-if="activeBox && !ctx.editor.value && !ctx.notes.draft.value">
