@@ -107,16 +107,17 @@ describe('localSource: sheet protection', () => {
     ok(await source(form({ formatRows: true })).layout({ sheet: 'Form', rows: '1', height: 30 }))
   })
 
-  it('inserts rows and columns with their boxes; deletes them only when none of their cells is locked', async () => {
+  it('inserts rows and columns with their boxes; deletes them only when none of their cells is locked, with the same alert', async () => {
     expect(await source(form()).structure({ op: 'insertRows', sheet: 'Form', row: 1 })).toEqual(refused)
     ok(await source(form({ insertRows: true })).structure({ op: 'insertRows', sheet: 'Form', row: 1 }))
     ok(await source(form({ insertColumns: true })).structure({ op: 'insertColumns', sheet: 'Form', column: 'A' }))
     expect(await source(form()).structure({ op: 'deleteRows', sheet: 'Form', row: 10 })).toEqual(refused)
     const rows = source(form({ deleteRows: true }))
-    expect(await rows.structure({ op: 'deleteRows', sheet: 'Form', row: 1 })).toMatchObject({ ok: false, reason: 'refused', code: 'protected', message: expect.stringMatching(/^You are trying to delete a row that contains a locked cell\./) })
+    // Excel for Windows shows its protected sheet's alert here too, with no text of its own for a locked cell
+    expect(await rows.structure({ op: 'deleteRows', sheet: 'Form', row: 1 })).toEqual(refused)
     ok(await rows.structure({ op: 'deleteRows', sheet: 'Form', row: 10 }))
     const cols = source(form({ deleteColumns: true }, 'ru-RU'))
-    expect(await cols.structure({ op: 'deleteColumns', sheet: 'Form', column: 'B' })).toMatchObject({ code: 'protected', message: expect.stringMatching(/^Вы пытаетесь удалить столбец , содержащий заблокированную ячейку\./) })
+    expect(await cols.structure({ op: 'deleteColumns', sheet: 'Form', column: 'B' })).toEqual({ ...refused, message: ALERT_RU })
     // sheets are the workbook's structure, which sheet protection does not cover
     ok(await source(form()).structure({ op: 'renameSheet', sheet: 'Form', name: 'Anketa' }))
   })

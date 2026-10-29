@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Excel's Go To Special dialog in its two columns, with the options the component can find (`useSpecial`): Constants and
 // Formulas by the kinds of their values, Blanks, Current region; Last cell, Visible cells only, Conditional formats and Data
-// validation, each with All or Same. Excel's Notes, Current array, Objects, Row and Column differences, Precedents and
+// validation, each with All or Same. Excel's Comments, Current array, Objects, Row and Column differences, Precedents and
 // Dependents are left out: no source method tells them.
 import { computed, ref, useId } from 'vue'
 import type { SpecialValue } from 'xlcalc/contract'

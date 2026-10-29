@@ -91,7 +91,7 @@ describe('Paste Special', () => {
     expect([cellText(w, 1, 3), cellText(w, 1, 4)]).toEqual(['1', '2'])
   })
 
-  it("offers Excel's Paste choices, its Operation group, Skip Blanks and Transpose; All and None at first", async () => {
+  it("offers Excel's Paste choices, its Operation group, Skip blanks and Transpose; All and None at first", async () => {
     const { w } = await sheetOf({ A1: { value: 1 } })
     await goTo(w, 'A1')
     clipboard(w, 'copy')
@@ -102,7 +102,12 @@ describe('Paste Special', () => {
     expect(values('[data-xs-paste-operation]', 'data-xs-paste-operation')).toEqual(['none', 'add', 'subtract', 'multiply', 'divide'])
     const checked = (sel: string) => (w.find(sel).element as HTMLInputElement).checked
     expect([checked('[data-xs-paste-kind="all"]'), checked('[data-xs-paste-operation="none"]'), checked('[data-xs-paste-skip]'), checked('[data-xs-paste-transpose]')]).toEqual([true, true, false, false])
-    expect(w.find('[data-xs-paste-special]').text()).toContain('All except borders')
+    // Excel for Windows' labels in its screen order, without All using Source theme and Paste Link
+    expect(w.findAll('[data-xs-paste-special] label').map((x) => x.text())).toEqual([
+      'All', 'Formulas', 'Values', 'Formats', 'Comments', 'Validation',
+      'All except borders', 'Column widths', 'Formulas and number formats', 'Values and number formats', 'All merging conditional formats',
+      'None', 'Add', 'Subtract', 'Multiply', 'Divide', 'Skip blanks', 'Transpose',
+    ])
   })
 
   it("combines the copy's numbers with the cells under it (Add, Multiply); a formula on either side makes a formula of both", async () => {

@@ -114,7 +114,7 @@ describe('a protected sheet', () => {
     const w = await mounted(form({ deleteRows: true }))
     const out = api(w).structure({ op: 'deleteRows', sheet: 'Form', row: 1 })
     await until(() => alertText() !== null)
-    expect(alertText()).toMatch(/^You are trying to delete a row that contains a locked cell\./)
+    expect(alertText()).toMatch(/^The cell or chart you're trying to change is on a protected sheet\./)
     await closeAlert()
     expect(await out).toMatchObject({ ok: false, code: 'protected' })
     expect(w.find('.xs-message').exists()).toBe(false)

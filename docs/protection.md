@@ -12,7 +12,7 @@ The source enforces the protection: the sheet only disables what Excel disables 
 
 ## `./local`
 
-xlcalc's session does not enforce protection, so `localSource` checks each change to a protected sheet before it reaches the session, and refuses it with Excel for Mac's own alert in the workbook's language: "The cell or chart you're trying to change is on a protected sheet. To make a change, unprotect the sheet. You might be requested to enter a password." (ru-RU: "Ячейка или диаграмма, которую вы пытаетесь изменить, находится на защищенном листе. Чтобы внести изменения, снимите защиту листа. Может потребоваться пароль."). What it allows was measured in Excel for Mac 16.114 through its object model, on a sheet with locked and unlocked cells protected with each box:
+xlcalc's session does not enforce protection, so `localSource` checks each change to a protected sheet before it reaches the session, and refuses it with Excel's own alert in the workbook's language, as Excel for Windows and Excel for Mac word it: "The cell or chart you're trying to change is on a protected sheet. To make a change, unprotect the sheet. You might be requested to enter a password." (ru-RU: "Ячейка или диаграмма, которую вы пытаетесь изменить, находится на защищенном листе. Чтобы внести изменения, снимите защиту листа. Может потребоваться пароль."). What it allows was measured in Excel for Mac 16.114 through its object model, on a sheet with locked and unlocked cells protected with each box:
 
 | Change | Allowed on a protected sheet |
 | --- | --- |
@@ -21,7 +21,7 @@ xlcalc's session does not enforce protection, so `localSource` checks each chang
 | Formatting (`format`, conditional formatting rules) | with Format cells, over locked cells too; Locked and Hidden never change, nor does a cell's own style go |
 | Column widths, hiding columns; row heights, hiding rows | with Format columns; with Format rows |
 | Inserting rows, columns | with Insert rows, Insert columns |
-| Deleting rows, columns | with Delete rows, Delete columns, when none of their cells is locked, refused otherwise with Excel's "You are trying to delete a row that contains a locked cell…" |
+| Deleting rows, columns | with Delete rows, Delete columns, when none of their cells is locked, refused otherwise with the same alert, as Excel for Windows shows it there |
 | Pasting, moving and filling ranges (`copyRange`, `moveRange`, `fillRange`) | when every cell they write (and, for a move, take) is unlocked; Paste Special Formats with Format cells too, Column Widths with Format columns, Notes with Edit objects, Validation never |
 | Hyperlinks | with Insert hyperlinks, over unlocked cells |
 | Notes | with Edit objects, on locked cells too |
@@ -32,9 +32,9 @@ A cell beyond the sheet's used range is locked unless its row's style, or else i
 
 ## On the sheet
 
-The sheet tab's menu has Protect Sheet… with the source's `protect`, or Unprotect Sheet on a protected sheet, as do the sheet's `protectSheet()` and `unprotectSheet()`. Protect Sheet is Excel for Mac's dialog without its password field: Protect the sheet and contents of locked cells (OK is disabled without it, as in Excel), then the boxes of what users may still do, in Excel's order and with its defaults (selecting cells only), and Excel's note that all cells are locked by default. Checking Select locked cells checks Select unlocked cells too, and unchecking Select unlocked cells unchecks Select locked cells, as Excel ties them. Unprotect Sheet asks nothing. Both are a single undo step, after which the sheet reads its sheets again.
+The sheet tab's menu has Protect Sheet… with the source's `protect`, or Unprotect Sheet on a protected sheet, as do the sheet's `protectSheet()` and `unprotectSheet()`. Protect Sheet is Excel's dialog without its password field: Protect worksheet and contents of locked cells (OK is disabled without it, as in Excel), then Allow all users of this worksheet to: with the boxes of what users may still do, in Excel's order and with its defaults (selecting cells only), and Excel for Mac's note that all cells are locked by default, which Excel for Windows does not show. Its labels are Excel for Windows' in English and in Russian (`Защитить лист и содержимое защищаемых ячеек`, `Выделение заблокированных ячеек`); Unprotect Sheet is named as in both. Checking Select locked cells checks Select unlocked cells too, and unchecking Select unlocked cells unchecks Select locked cells, as Excel ties them. Unprotect Sheet asks nothing. Both are a single undo step, after which the sheet reads its sheets again.
 
-Format Cells has Excel's Protection tab, Locked and Hidden with its note ([toolbar.md](toolbar.md#formatdialog)); on a protected sheet both boxes are disabled, as Excel changes neither there.
+Format Cells has Excel's Protection tab, Locked and Hidden with its note, in Excel for Windows' words (`Защищаемая ячейка`, `Скрыть формулы`) ([toolbar.md](toolbar.md#formatdialog)); on a protected sheet both boxes are disabled, as Excel changes neither there.
 
 On a protected sheet, as in Excel:
 
@@ -47,4 +47,4 @@ On a protected sheet, as in Excel:
 
 The display filter and its sort change no data, so a protected sheet does not limit them, the AutoFilter's buttons included. Data > Filter (`toggleAutoFilter()`, Ctrl+Shift+L) is disabled on a protected sheet whatever its boxes allow, and `./local` refuses `setAutoFilter` there: in Excel the Sort and Use AutoFilter boxes let users use an AutoFilter the sheet has, not set or remove one ([autofilter.md](autofilter.md)).
 
-Not as in Excel: Find's Look in Formulas finds text in a hidden formula, and Trace Precedents from a cell of another sheet explains a hidden formula among its precedents, as the source's `find` and `explain` answer; the sheet checks only the loaded cells before a change, so a change beyond them reaches the source, whose refusal it shows. Excel's alert for a locked cell is the same on Excel for Windows, but its Protect Sheet dialog words the boxes differently (Windows: "Protect worksheet and contents of locked cells"); the texts here are Excel for Mac's.
+Not as in Excel: Find's Look in Formulas finds text in a hidden formula, and Trace Precedents from a cell of another sheet explains a hidden formula among its precedents, as the source's `find` and `explain` answer; the sheet checks only the loaded cells before a change, so a change beyond them reaches the source, whose refusal it shows.

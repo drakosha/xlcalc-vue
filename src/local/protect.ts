@@ -12,19 +12,15 @@ import { boxesUnder, replacedCells } from './find'
 /** The outcome code of a change a protected sheet does not allow. */
 export const PROTECTED = 'protected'
 
-/** Excel for Mac's alerts (its strman tables), in English and in Russian; `deleteLocked` names a row or a column as Excel does. */
+/** Excel's alerts in English and in Russian: the protected sheet's, as Excel for Windows words it (also for deleting a row or
+ * a column with a locked cell, which has no text of its own there), and Excel for Mac's for a table's command. */
 const TEXTS = {
   en: {
     alert: "The cell or chart you're trying to change is on a protected sheet. To make a change, unprotect the sheet. You might be requested to enter a password.",
-    deleteLocked: (line: 'row' | 'column') =>
-      `You are trying to delete ${line === 'row' ? 'a row' : 'a column'} that contains a locked cell. Locked cells cannot be deleted while the worksheet is protected.\n\nTo delete a locked cell, first remove protection using the Unprotect Sheet command (Review tab, Protect group). You may be prompted for a password.`,
     tables: "Table features aren't available because the sheet is protected.",
   },
   ru: {
     alert: 'Ячейка или диаграмма, которую вы пытаетесь изменить, находится на защищенном листе. Чтобы внести изменения, снимите защиту листа. Может потребоваться пароль.',
-    // Excel's own text, with its space before the comma
-    deleteLocked: (line: 'row' | 'column') =>
-      `Вы пытаетесь удалить ${line === 'row' ? 'строку' : 'столбец'} , содержащий заблокированную ячейку. Заблокированные ячейки невозможно удалить, если лист защищен.\n\nЧтобы удалить заблокированную ячейку, сначала снимите защиту с помощью команды "снять защиту листа" (вкладка "Рецензирование", защита группы). Возможно, потребуется ввести пароль.`,
     tables: 'Функции таблицы невозможно использовать на защищенном листе.',
   },
 }
@@ -163,10 +159,10 @@ export function protectionGuard(locale: string, maxCells: number) {
       case 'insertColumns':
         return [{ sheet: op.sheet, allow: ['insertColumns'] }]
       case 'deleteRows':
-        return [{ sheet: op.sheet, allow: ['deleteRows'] }, { sheet: op.sheet, cells: [linesRect('rows', op.row, op.count ?? 1)], message: words.deleteLocked('row') }]
+        return [{ sheet: op.sheet, allow: ['deleteRows'], cells: [linesRect('rows', op.row, op.count ?? 1)] }]
       case 'deleteColumns': {
         const col = colNumber(op.column) ?? 1
-        return [{ sheet: op.sheet, allow: ['deleteColumns'] }, { sheet: op.sheet, cells: [linesRect('columns', col, op.count ?? 1)], message: words.deleteLocked('column') }]
+        return [{ sheet: op.sheet, allow: ['deleteColumns'], cells: [linesRect('columns', col, op.count ?? 1)] }]
       }
       case 'moveRange': {
         const from = parseRange(op.from.range)
