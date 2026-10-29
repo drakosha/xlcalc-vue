@@ -11,7 +11,8 @@ In Manual, as Excel for Mac 16.114 behaved when measured:
 - Undo and redo restore the edited cells and leave the dependents too.
 - Calculate Now (F9, or a click on Calculate) shows the values of every waiting cell; Calculate Sheet (Shift+F9) those of the active sheet only, so the status bar keeps Calculate while another sheet waits.
 - Switching to Automatic calculates what waits.
-- Changing the option is not a step of undo.
+
+Changing the option is not a step of undo here: Excel keeps it as a setting of the application and the workbook, outside the undo list (not measured, since a script's changes do not reach Excel's undo).
 
 Automatic Except for Data Tables calculates as Automatic and keeps the option with the workbook: Excel then leaves only data tables (What-If Analysis > Data Table) for F9, and the workbook model has no data tables.
 
