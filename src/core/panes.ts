@@ -1,7 +1,7 @@
 // Excel's split window drawn (View > Split): two or four panes, each a scroller of its own over the whole grid. As in Excel,
 // the panes of a row of panes scroll up and down together and those of a column of panes left and right together; the
 // active pane is the sheet's scroller (keys, the editor, scrolling to the active cell), the others draw and scroll.
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { parseCell } from 'xlcalc/a1'
 import { clamp } from '../rect'
 import type { SheetSplit } from '../contract/source'
@@ -290,6 +290,8 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     const thawed = shown.frozen && !v.bookFreeze.value
     shown = { split: next, frozen: v.bookFreeze.value }
     if (prev === next) return
+    // the keys stay with the grid when the pane that had them goes: the new active pane or the single window takes them
+    const keys = typeof document !== 'undefined' && !!document.activeElement && (document.activeElement === s.scroller.value || els.includes(document.activeElement as HTMLElement))
     const rows = [topOf(0), topOf(1)]
     const cols = [leftOf(0), leftOf(1)]
     let id = active.value
@@ -304,6 +306,7 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     }
     place(rows, cols, id)
     deps.measure()
+    if (keys) void nextTick(s.focusGrid)
   }
   watch(split, follow)
 

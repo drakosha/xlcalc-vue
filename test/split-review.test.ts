@@ -1,5 +1,6 @@
 // The split window's edges: a renamed sheet keeps its scroll; windows no pane draws any more stop serving cells; a reference
-// or the fill handle dragged into another pane takes the cell under the pointer there.
+// or the fill handle dragged into another pane takes the cell under the pointer there; the keys follow the active pane when a
+// line goes.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EditOutcome, SheetInfo, SheetOp } from '../src/contract/source'
 import { fakeSource, goTo, mountSheet, settle, type } from './helpers'
@@ -157,5 +158,53 @@ describe('a drag into another pane', () => {
     // the outline from A5 to C5: its left edge at column A
     expect(pane(w, 3).find('[data-xs-fill-frame]').attributes('style')).toContain(`left: ${LEAD}px`)
     vi.restoreAllMocks()
+  })
+})
+
+describe('the keys when a line goes', () => {
+  async function focused() {
+    const f = book({ ...lines(4, 2), topLeft: 'C5', activePane: 'bottomRight' })
+    const w = await mountSheet(f.source)
+    await pane(w, 3).find('[data-cell="6:4"]').trigger('pointerdown', { button: 0, pointerType: 'mouse' })
+    await settle()
+    ;(pane(w, 3).element as HTMLElement).focus()
+    expect(document.activeElement).toBe(pane(w, 3).element)
+    return { f, w }
+  }
+
+  it('go to the pane that becomes active when the bar is double-clicked', async () => {
+    const { w } = await focused()
+    await w.find('[data-xs-split="x"]').trigger('dblclick')
+    await settle()
+    expect(w.findAll('.xs-pane-active').map((p) => p.attributes('data-xs-pane'))).toEqual(['2'])
+    expect(document.activeElement).toBe(pane(w, 2).element)
+  })
+
+  it('go to the pane that becomes active when the bar is dragged off', async () => {
+    const { w } = await focused()
+    const bar = w.find('[data-xs-split="x"]')
+    await bar.trigger('pointerdown', { button: 0, clientX: LEAD + 2 * COL })
+    await bar.trigger('pointermove', { clientX: 10 })
+    await bar.trigger('pointerup')
+    await settle()
+    expect(document.activeElement).toBe(pane(w, 2).element)
+  })
+
+  it('go to the single window when the split is removed or gives way to frozen panes', async () => {
+    const one = await focused()
+    api(one.w).split(false)
+    await settle()
+    expect(document.activeElement).toBe(one.w.find('.xs-scroller').element)
+    document.body.innerHTML = ''
+    const two = await focused()
+    const sheets: SheetInfo[] = [{ name: 'S', maxRow: 300, maxCol: 40, freeze: { rows: 4, cols: 2 } }]
+    two.f.source.freeze = vi.fn(async (): Promise<EditOutcome> => {
+      two.f.source.sheets = async () => sheets
+      return { ok: true, changes: [] }
+    })
+    await api(two.w).freezePanes()
+    await settle()
+    expect(two.w.find('.xs-split').exists()).toBe(false)
+    expect(document.activeElement).toBe(two.w.find('.xs-scroller').element)
   })
 })
