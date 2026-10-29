@@ -255,11 +255,12 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     s.scrollLeft.value = cols[colGroup(id)]!
     if (els[id]) s.scroller.value = els[id]
   }
-  let shown: { sheet: string; split: SheetSplit | null } = { sheet: '', split: null }
+  /** The sheet and split the panes follow, and whether frozen panes had taken the split's place. */
+  let shown: { sheet: string; split: SheetSplit | null; frozen: boolean } = { sheet: '', split: null, frozen: false }
   /** A sheet displayed at its top left corner: the second panes from the split's `topLeft`, its active pane active. */
   function enter(): void {
     const x = split.value
-    shown = { sheet: s.sheetName.value, split: x }
+    shown = { sheet: s.sheetName.value, split: x, frozen: v.bookFreeze.value }
     drag.value = null
     const at = parseCell(x?.topLeft ?? '')
     const rows = [0, x?.y && at ? rowOffset(at.row) : 0]
@@ -270,13 +271,15 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
    * The split changed on the same sheet, as Excel's panes follow it (measured in Excel for Mac): a new line's second panes
    * scroll from the split's `topLeft`; a removed vertical line keeps the left panes' columns, a removed horizontal one the
    * top panes' rows, and with no line left the window keeps the top left pane's scroll. Frozen panes in its place start at
-   * the top left, past the frozen rows and columns.
+   * the top left, past the frozen rows and columns, and the split back from under them at the top left too, since they
+   * were frozen from the sheet's first row and column.
    */
   function follow(): void {
     if (s.sheetName.value !== shown.sheet) return enter()
     const prev = shown.split
     const next = split.value
-    shown = { sheet: shown.sheet, split: next }
+    const thawed = shown.frozen && !v.bookFreeze.value
+    shown = { sheet: shown.sheet, split: next, frozen: v.bookFreeze.value }
     if (prev === next) return
     const rows = [topOf(0), topOf(1)]
     const cols = [leftOf(0), leftOf(1)]
@@ -286,7 +289,7 @@ export function usePanes(s: SheetState, geo: Geometry, v: Viewport, deps: PaneDe
     if (next?.x && !prev?.x) cols[1] = at ? colOffset(at.col) : cols[0]!
     if (!prev && next) id = named(next)
     id = paneAt(next?.y ? rowGroup(id) : 0, next?.x ? colGroup(id) : 0)
-    if (!next && v.bookFreeze.value) {
+    if ((!next && v.bookFreeze.value) || (!prev && thawed)) {
       rows[0] = 0
       cols[0] = 0
     }

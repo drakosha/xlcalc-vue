@@ -231,6 +231,32 @@ describe('a split window on the sheet', () => {
     expect(f.source.freeze).toHaveBeenLastCalledWith('S', { rows: 4, cols: 2 })
   })
 
+  it('gives way to frozen panes and comes back from under them with the top left pane at A1', async () => {
+    const split = { ...lines(3, 2), topLeft: 'C40', activePane: 'bottomRight' as const }
+    const sheets: SheetInfo[] = [{ name: 'S', maxRow: 300, maxCol: 40, split }]
+    const f = fakeSource(sheets)
+    // as a source keeps the split under frozen panes and reports the frozen panes alone
+    f.source.freeze = vi.fn(async (_sheet: string, panes: { rows: number; cols: number } | null): Promise<EditOutcome> => {
+      sheets[0] = panes ? { name: 'S', maxRow: 300, maxCol: 40, freeze: panes } : { name: 'S', maxRow: 300, maxCol: 40, split }
+      return { ok: true, changes: [] }
+    })
+    const w = await mountSheet(f.source)
+    await scroll(w, 0, { top: 200 })
+    await api(w).freezePanes()
+    await settle()
+    // the rows frozen from the first down to the line, the window past them
+    expect(f.source.freeze).toHaveBeenLastCalledWith('S', { rows: 13, cols: 2 })
+    expect(w.find('.xs-split').exists()).toBe(false)
+    const single = w.find('.xs-scroller')
+    expect([(single.element as HTMLElement).scrollTop, (single.element as HTMLElement).scrollLeft]).toEqual([0, 0])
+    ;(single.element as HTMLElement).scrollTop = 400
+    await single.trigger('scroll')
+    await api(w).freezePanes('unfreeze')
+    await settle()
+    expect(w.findAll('.xs-pane')).toHaveLength(4)
+    expect([el(w, 0).scrollTop, el(w, 0).scrollLeft, el(w, 3).scrollTop]).toEqual([0, 0, 39 * ROW])
+  })
+
   it('keeps the panes that are not active on their top row when the heights of rows above them arrive', async () => {
     const f = book({ y: lines(4, 0).y, topLeft: 'A200' }, { maxRow: 400 })
     // rows 1 to 99 are 30 points (40 px) high
