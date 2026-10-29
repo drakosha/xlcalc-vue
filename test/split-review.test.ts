@@ -1,6 +1,6 @@
 // The split window's edges: a renamed sheet keeps its scroll; windows no pane draws any more stop serving cells; a reference
 // or the fill handle dragged into another pane takes the cell under the pointer there; the keys follow the active pane when a
-// line goes.
+// line goes; the scrollbars are measured again once the window is shown.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EditOutcome, SheetInfo, SheetOp } from '../src/contract/source'
 import { fakeSource, goTo, mountSheet, settle, type } from './helpers'
@@ -206,5 +206,42 @@ describe('the keys when a line goes', () => {
     await settle()
     expect(two.w.find('.xs-split').exists()).toBe(false)
     expect(document.activeElement).toBe(two.w.find('.xs-scroller').element)
+  })
+})
+
+describe('the scrollbars', () => {
+  it('are measured again once the split window is shown, so the ones Excel does not draw are clipped', async () => {
+    const observers: ResizeObserverCallback[] = []
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: ResizeObserverCallback) {
+          observers.push(cb)
+        }
+        observe(): void {}
+        unobserve(): void {}
+        disconnect(): void {}
+      },
+    )
+    const w = await mountSheet(book({ ...lines(4, 2), topLeft: 'C5' }).source)
+    const width = () => parseFloat((pane(w, 0).element as HTMLElement).style.width)
+    const hidden = width()
+    // shown: a scroller now has 15 px scrollbars
+    const shown = (cls: string) => ({ get(this: HTMLElement) { return this.classList.contains(cls) ? 100 : 0 }, configurable: true })
+    const client = { get(this: HTMLElement) { return this.classList.contains('xs-pane-scroller') ? 85 : this.classList.contains('xs-split') ? 800 : 0 }, configurable: true }
+    const keys = ['offsetWidth', 'offsetHeight', 'clientWidth', 'clientHeight'] as const
+    const own = keys.map((k) => Object.getOwnPropertyDescriptor(HTMLElement.prototype, k))
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', shown('xs-pane-scroller'))
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', shown('xs-pane-scroller'))
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', client)
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', client)
+    try {
+      for (const cb of observers) cb([], {} as ResizeObserver)
+      await settle()
+      expect(width()).toBe(hidden + 15)
+    } finally {
+      keys.forEach((k, i) => (own[i] ? Object.defineProperty(HTMLElement.prototype, k, own[i]!) : delete (HTMLElement.prototype as unknown as Record<string, unknown>)[k]))
+      vi.unstubAllGlobals()
+    }
   })
 })
