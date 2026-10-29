@@ -215,6 +215,13 @@ describe('selection without Select locked cells, as measured in Excel for Mac', 
 })
 
 describe('Protect Sheet and Unprotect Sheet', () => {
+  it("offers no sheet commands (Hide included) in the tab menu of a source without structure", async () => {
+    const w = await mounted(Object.assign(Object.create(form(null)) as LocalSource, { structure: undefined }))
+    await w.find('.xs-tab').trigger('contextmenu', { button: 2, clientX: 20, clientY: 400 })
+    await settle()
+    expect([...document.querySelectorAll('[data-xs-menu]')].map((b) => b.getAttribute('data-xs-menu'))).toEqual(['tabColor', 'protectSheet'])
+  })
+
   it("protects the sheet from its tab's menu with the boxes checked, then unprotects it", async () => {
     const source = form(null)
     const w = await mounted(source)
