@@ -372,14 +372,6 @@
   border-right-color: transparent;
   border-bottom-color: transparent;
 }
-/* Without headings, the row above the cells that holds the row bar's level buttons. */
-.xs-table th.xs-head-off {
-  position: sticky;
-  top: var(--xs-outline-h);
-  z-index: 4;
-  border-right: 0;
-  background: var(--xs-bg);
-}
 /* The workbook's freeze edge: a darker line, like Excel's freeze line. */
 .xs-table .xs-fz-edge-b {
   border-bottom-color: var(--xs-freeze-line);

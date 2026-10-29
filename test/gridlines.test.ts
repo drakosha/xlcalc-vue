@@ -108,3 +108,21 @@ describe('gridlines and headings', () => {
     }
   })
 })
+
+describe('outline bars without headings', () => {
+  const sheet = (headings: boolean, rows: boolean): SheetInfo =>
+    ({ name: 'S', maxRow: 6, maxCol: 6, ...(headings ? {} : { headings: false }), outline: { rows: rows ? [{ first: 2, last: 3, level: 1, summary: 4, collapsed: false }] : [], columns: [{ first: 2, last: 3, level: 1, summary: 4, collapsed: false }] } }) as unknown as SheetInfo
+  const levels = (w: VueWrapper, axis: string) => w.findAll(`.xs-ol-levels-${axis} [data-xs-outline-level]`).length
+  for (const rows of [false, true])
+    it(`keeps the bars and drops every level button, as Excel for Mac (${rows ? 'row and column groups' : 'column groups'})`, async () => {
+      const on = await mountSheet(fakeSource([sheet(true, rows)]).source)
+      await settle()
+      expect([levels(on, 'columns'), levels(on, 'rows')]).toEqual([2, rows ? 2 : 0])
+      on.unmount()
+      const off = await mountSheet(fakeSource([sheet(false, rows)]).source)
+      await settle()
+      expect([levels(off, 'columns'), levels(off, 'rows'), off.find('.xs-ol-columns').exists(), off.find('.xs-ol-rows').exists()]).toEqual([0, 0, true, rows])
+      // the first cell starts at the grid's left edge unless the row bar takes it
+      expect(off.find('.xs-head').exists()).toBe(false)
+    })
+})

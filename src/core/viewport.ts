@@ -90,8 +90,8 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   const barW = computed(() => outlineSlots.value.rows * slotPx.value)
   const barH = computed(() => outlineSlots.value.cols * slotPx.value)
   /** The header's height (the letters and the column bar) and the width to the left of the cells (the row bar and the numbers). */
-  /** The letters row is drawn without headings too while the row bar's level buttons need it. */
-  const headRow = computed(() => showHeads.value || barW.value > 0)
+  /** The letters row goes with the headings, the level buttons with it, as Excel for Mac draws no level buttons without headings. */
+  const headRow = computed(() => showHeads.value)
   const headH = computed(() => (headRow.value ? HEAD_H : 0) + barH.value)
   /** List mode's totals row at the bottom, as tall as the column letters row. */
   const footH = computed(() => (i.sheet.value?.totals ? HEAD_H : 0))
