@@ -191,6 +191,8 @@ export interface SheetViewApi {
    * read-only sheet or while a cell is being edited.
    */
   createNames(): boolean
+  /** Opens Excel's Workbook Statistics for the displayed sheet once the source's `workbookStatistics` answers; false without it or while no sheet is displayed. */
+  workbookStatistics(): boolean
   /**
    * Excel's zoom of the active sheet: a percentage (rounded and kept within 10 to 400), or `selection` for Zoom to Selection,
    * which fits the selection into the viewport and scrolls it to the top-left corner. Returns the zoom set; it is not

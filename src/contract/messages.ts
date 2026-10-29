@@ -387,6 +387,22 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
   createNamesRight: string
   createNamesInvalid: string
   createNamesReplace: (name: string) => string
+  /** Excel's Workbook Statistics: the window's title, its two sections and the labels of its rows. */
+  statisticsTitle: string
+  statisticsSheet: string
+  statisticsWorkbook: string
+  statisticsEnd: string
+  statisticsSheets: string
+  statisticsCells: string
+  statisticsTables: string
+  statisticsPivotTables: string
+  statisticsFormulas: string
+  statisticsCharts: string
+  statisticsImages: string
+  statisticsFormControls: string
+  statisticsObjects: string
+  statisticsComments: string
+  statisticsNotes: string
   /** Excel's zoom on the status bar (Zoom Out, the slider, Zoom In, the percentage that opens the Zoom dialog), and the dialog's title, choices and limits. */
   zoomOut: string
   zoomIn: string

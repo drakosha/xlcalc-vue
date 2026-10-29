@@ -17,6 +17,7 @@ import { useFormula } from './formula'
 import { useFormulaView } from './formula-view'
 import { useGoTo } from './goto'
 import { useSpecial } from './special'
+import { useStatistics } from './statistics'
 import { useLinks } from './links'
 import { usePoint } from './point'
 import { colPx, MAX_COL_PX, MAX_ROW_PX, MIN_COL_PX, MIN_ROW_PX, ptFromPx, useGeometry, widthFromPx } from './geometry'
@@ -213,6 +214,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   }
   const nameDialogs = useNameDialogs(s, sel, names, { editing: () => editor.value !== null })
   const createNames = useCreateNames(s, sel, names, { editing: () => editor.value !== null, ask: alerts.ask, notify })
+  const statistics = useStatistics(s, notify)
   // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
   const trace = useTrace(s, v, w, notify)
   const tables = useTables(s, w, sel, cmd)
@@ -247,6 +249,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     defineName: nameDialogs.define,
     nameManager: nameDialogs.openManager,
     createNames: createNames.open,
+    workbookStatistics: statistics.open,
     setZoom: (z) => (z === 'selection' ? zoom.fitSelection() : zoom.apply(z)),
     watchWindow: (open) => watches.setOpen(open),
     traceDependents: trace.traceDependents,
@@ -773,6 +776,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     names,
     nameDialogs,
     createNames,
+    statistics,
     zoomer: zoom,
     watches,
     cf,

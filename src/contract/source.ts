@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SelectionLabels, SheetProtection, SpecialCells, StructureOp, StylePatch } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SelectionLabels, SheetProtection, SpecialCells, StructureOp, StylePatch, WorkbookStatistics } from 'xlcalc/contract'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
@@ -141,6 +141,12 @@ export interface SheetSource {
    * writes them with `setNames`. Without it there is no Create from Selection.
    */
   namesFromSelection?(sheet: string, range: string, labels: SelectionLabels, signal?: AbortSignal): Promise<SheetName[]>
+  /**
+   * Excel's Workbook Statistics (Review > Workbook Statistics) with `sheet` active: the sheet's end and counts and the
+   * workbook's (xlcalc's `WorkbookStatistics`), a count the workbook does not hold being null. Without it there is no
+   * Workbook Statistics.
+   */
+  workbookStatistics?(sheet: string, signal?: AbortSignal): Promise<WorkbookStatistics>
   /** The maximum number of cells in one window, 20,000 by default. */
   readonly maxCells?: number
   /** The number of steps `undo` and `redo` can take, as of the last completed call: a toolbar enables its buttons by them. */

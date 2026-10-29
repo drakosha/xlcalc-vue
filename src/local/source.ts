@@ -576,6 +576,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       return book.namesFromSelection(s, sheet, range, labels)
     },
+    /** Excel's Workbook Statistics as the session counts it (xlcalc 0.67's `getWorkbookStatistics`). */
+    async workbookStatistics(sheet, signal) {
+      const s = await open()
+      throwIfAborted(signal)
+      const got = await s.getWorkbookStatistics(sheet)
+      throwIfAborted(signal)
+      return got
+    },
     dependents: reading(book.dependents),
     rules: reading(book.rules),
     setRules: mutation(guard.setRules(book.setRules), refusedBy),
