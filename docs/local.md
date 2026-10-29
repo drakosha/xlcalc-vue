@@ -46,7 +46,7 @@ The workbook's calculation option (xlcalc's `BookInput.calculation`, 0.66.0) is 
 
 `openXlsx` reads a file into a workbook and the values stored in it (`cached`), and `saveXlsx` writes the source's workbook with its values. With `locale` (the language the user chose: a tag whose module is loaded on demand, or a locale object), their issue messages are in that language; without it, in English. A tag xlcalc has no module for fails with the library's message.
 
-A workbook does not hold everything a file may: charts, pictures, pivot tables, the theme, page setup. To save it without losing them, open the file with `keep: true` (xlcalc's `openKept`, 0.57.0 or later) and save with `over`, the same file's bytes (xlcalc's `writeKept`): the edited workbook is written over the original, which keeps those parts as the file has them, and without edits gives the original bytes back. A change the file cannot take, one that would leave such a part pointing at the wrong cells (a sheet with a pivot table deleted, rows moved under a chart whose references the library cannot write back), is rejected with xlcalc's `KeptRefusal` (`error.name === 'KeptRefusal'`, the reason in its message), and nothing is written; the host may then save the workbook anew, without `over`, which loses those parts (with xlcalc 0.59.1 or later; an earlier one writes the hidden names `openKept` adds, `_xlcalc.keep.*`). The source does not list those names. `mode: 'values'` is for a new file only. In Manual, `saveXlsx` calculates first, as Excel recalculates a workbook before saving it, and the file keeps the option ([calculation.md](calculation.md#saving)).
+A workbook does not hold everything a file may: charts, pictures, pivot tables, the theme, page setup. To save it without losing them, open the file with `keep: true` (xlcalc's `openKept`, 0.57.0 or later) and save with `over`, the same file's bytes (xlcalc's `writeKept`): the edited workbook is written over the original, which keeps those parts as the file has them, and without edits gives the original bytes back. A change the file cannot take, one that would leave such a part pointing at the wrong cells (a sheet with a pivot table deleted, rows moved under a chart whose references the library cannot write back), is rejected with xlcalc's `KeptRefusal` (`error.name === 'KeptRefusal'`, the reason in its message and, with xlcalc 0.61.0 or later, its kind in `code`: `links`, `rules`, `moved` and the others of xlcalc's `KeptRefusalCode`), and nothing is written; the host may then save the workbook anew, without `over`, which loses those parts (with xlcalc 0.59.1 or later; an earlier one writes the hidden names `openKept` adds, `_xlcalc.keep.*`). The source does not list those names. `mode: 'values'` is for a new file only. In Manual, `saveXlsx` calculates first, as Excel recalculates a workbook before saving it, and the file keeps the option ([calculation.md](calculation.md#saving)).
 
 ```ts
 import { localSource, openXlsx, saveXlsx } from '@xlcalc/vue/local'
@@ -112,6 +112,17 @@ onUnmounted(() => void source.value?.close())
 ```
 
 A workbook read from a file opens as Excel opens the file, with its stored values passed to the session as `session: { cached }` (xlcalc's `SessionOptions.cached`, 0.27 or later): a circular reference without iterative calculation is not calculated, and its cells and the cells that depend on them keep the values stored in the file, through edits elsewhere, until a value typed into the cycle breaks it (xlcalc's `docs/cycles.md`). Without them those cells contain 0. The session's workbook records the kept values (`held`), so a workbook obtained with `book()` opens with them again, and `saveXlsx` saves them.
+
+### Links to other workbooks
+
+A formula that reads another workbook (`='[Prices.xlsx]Sheet1'!A1`) calculates over the values the workbook stores of it, as Excel calculates a file it opens without updating its links; the other file is never read. A host that has read the other workbook gives the links their values with `setExternalBooks(books)` (xlcalc 0.62.0's, every link at once as `BookInput.externalBooks` lists them): a new link after the others, more values of one, values read again. The workbook is calculated again in one step of undo, the changed cells reach the sheet as an edit's, and typed text then finds a new link by its file name. `saveXlsx` with `over` writes a new link as a part of the file and the values of a changed one into its part; removing a link, or moving it among the others, is refused (`KeptRefusal` with `code: 'links'`), since the file's formulas read a link by its number.
+
+```ts
+const links = (await source.book()).externalBooks ?? []
+// the values the host read from Prices.xlsx, after the workbook's other links
+await source.setExternalBooks([...links, { target: 'Prices.xlsx', sheets: [{ name: 'Sheet1', cells: { A1: 42, B2: 'kg' } }] }])
+await source.edit([{ sheet: 'Plan', cell: 'C3', text: "='[Prices.xlsx]Sheet1'!A1*2" }]) // 84
+```
 
 ## Threads, the workbook and events
 

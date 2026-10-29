@@ -541,6 +541,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | `history` | `SessionHistory` | The steps `undo` and `redo` can take now. |
 | `book()` | `Promise<BookInput>` | The workbook with all changes so far. |
 | `snapshot()` | `Promise<BookSnapshot>` | The workbook and its values captured at one moment, as `writeXlsx` takes them. |
+| `setExternalBooks(books: ExternalBook[])` | `Promise<EditOutcome>` | The links to other workbooks with the values the host read from them (xlcalc 0.62.0): the workbook is calculated again in one step of undo, and typed text finds a new link by its file name. See [local.md](local.md#links-to-other-workbooks). |
 | `close()` | `Promise<void>` | Closes the session, and the pool when the source started it. |
 
 ### Files
@@ -548,7 +549,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | Function | Returns | Meaning |
 | --- | --- | --- |
 | `openXlsx(data: Blob \| ArrayBuffer \| Uint8Array, opts?: XlsxIssuesOptions & { keep?: boolean })` | `Promise<XlsxRead>` (`{ book, cached, issues }`) | Reads a file into a workbook and the values stored in it; with `keep`, through xlcalc's `openKept` (0.57.0 or later), for `saveXlsx` with `over`. |
-| `saveXlsx(source: LocalSource, opts?: XlsxIssuesOptions & ({ mode?: 'formulas' \| 'values' } \| { over: Blob \| ArrayBuffer \| Uint8Array }))` | `Promise<XlsxWritten>` (`{ data, issues }`) | Writes the source's workbook with its values; `values` mode writes no formulas. With `over`, the file opened with `keep`, writes over it through xlcalc's `writeKept`, keeping what the workbook does not hold (charts, pivot tables, the theme); a change the file cannot take rejects with xlcalc's `KeptRefusal`. See [local.md](local.md#files). |
+| `saveXlsx(source: LocalSource, opts?: XlsxIssuesOptions & ({ mode?: 'formulas' \| 'values' } \| { over: Blob \| ArrayBuffer \| Uint8Array }))` | `Promise<XlsxWritten>` (`{ data, issues }`) | Writes the source's workbook with its values; `values` mode writes no formulas. With `over`, the file opened with `keep`, writes over it through xlcalc's `writeKept`, keeping what the workbook does not hold (charts, pivot tables, the theme); a change the file cannot take rejects with xlcalc's `KeptRefusal`, whose `code` (xlcalc 0.61.0) tells its kind. In Manual it calculates first, as Excel does before saving. See [local.md](local.md#files). |
 | `groupIssues(issues: XlsxIssue[])` | `IssueGroup[]` | Issues grouped by kind, in order of first appearance, for a notice of what a file lost. |
 
 `XlsxIssuesOptions` is `{ locale?: string | Locale }`: the language of the issue messages, English by default. `IssueGroup` is `{ code, count, sheets: string[], message }`, where `message` is the first issue's message.

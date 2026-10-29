@@ -1,6 +1,6 @@
 // Public types of the local source: its options and what it offers beyond `SheetSource`.
-import type { AsyncSessionOptions, BookInput, BookSnapshot, Calc, CalcPoolOptions, SessionHistory } from 'xlcalc'
-import type { SheetSource } from '../contract/source'
+import type { AsyncSessionOptions, BookInput, BookSnapshot, Calc, CalcPoolOptions, ExternalBook, SessionHistory } from 'xlcalc'
+import type { EditOutcome, SheetSource } from '../contract/source'
 import type { SpellChecker } from '../contract/workbook'
 
 export interface LocalSourceOptions {
@@ -38,6 +38,12 @@ export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Requ
   book(): Promise<BookInput>
   /** The workbook and its calculated values captured at one moment, as `writeXlsx` takes them. */
   snapshot(): Promise<BookSnapshot>
+  /**
+   * The links to other workbooks with the values a host read from them (xlcalc 0.62.0's `setExternalBooks`): a new link
+   * after the others, more values of one, values read again. The workbook is calculated again in one step of undo, and
+   * typed text finds a new link by its file name; `saveXlsx` with `over` writes them into the file.
+   */
+  setExternalBooks(books: ExternalBook[]): Promise<EditOutcome>
   /** Closes the session, and the pool when the source started it. */
   close(): Promise<void>
 }

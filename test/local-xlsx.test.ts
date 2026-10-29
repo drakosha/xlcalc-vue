@@ -189,3 +189,63 @@ describe('xlsx reading and writing', () => {
     ])
   })
 })
+
+/** A file `writeXlsx` writes of sheet S with a bold #4472C4 style, its parts by name, to patch before `storedZip`. */
+async function partsOfBook(cells: Record<string, { value: string }>): Promise<Record<string, string>> {
+  const s = source({ styles: [{ font: { bold: true, color: '#4472C4' } }], sheets: [{ name: 'S', cells: { ...cells, Z99: { value: 0, style: 0 } } as never }] })
+  return unzipText((await saveXlsx(s)).data)
+}
+/** The cell format a written file gives a cell of sheet S: its `<xf>` in the styles. */
+function xfOf(files: Record<string, string>, cell: string): string | undefined {
+  const xfs = /<cellXfs[^>]*>(.*?)<\/cellXfs>/.exec(files['xl/styles.xml']!)![1]!.match(/<xf\b[^>]*?(?:\/>|>.*?<\/xf>)/g)!
+  const tag = new RegExp(`<c r="${cell}"[^>]*>`).exec(files['xl/worksheets/sheet1.xml']!)?.[0]
+  return tag && xfs[Number(/ s="(\d+)"/.exec(tag)?.[1] ?? 0)]
+}
+
+describe('xlsx over its original file: xlcalc 0.61 to 0.64', () => {
+  it("keeps a quote prefix and a theme color of cells inserted rows moved, where the workbook sees the look of the file's first format (0.64.0)", async () => {
+    const files = await partsOfBook({ A1: { value: '007' }, A2: { value: 'blue' } })
+    // two formats the workbook reads as 0 and 1: plain with a quote prefix, bold in the theme's first accent (#4472C4)
+    files['xl/styles.xml'] = files['xl/styles.xml']!
+      .replace(/<fonts count="2">(.*?)<\/fonts>/, '<fonts count="3">$1<font><b/><sz val="11"/><color theme="4"/><name val="Calibri"/></font></fonts>')
+      .replace(/<cellXfs count="2">(.*?)<\/cellXfs>/, '<cellXfs count="4">$1<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" quotePrefix="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>')
+    files['xl/worksheets/sheet1.xml'] = files['xl/worksheets/sheet1.xml']!.replace('<c r="A1"', '<c r="A1" s="2"').replace('<c r="A2"', '<c r="A2" s="3"')
+    files['xl/theme/theme1.xml'] = '<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="T"><a:themeElements><a:clrScheme name="T"><a:accent1><a:srgbClr val="4472C4"/></a:accent1></a:clrScheme></a:themeElements></a:theme>'
+    files['xl/_rels/workbook.xml.rels'] = files['xl/_rels/workbook.xml.rels']!.replace('</Relationships>', `<Relationship Id="rIdT" Type="${RELS}/theme" Target="theme/theme1.xml"/></Relationships>`)
+    files['[Content_Types].xml'] = files['[Content_Types].xml']!.replace('</Types>', '<Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/></Types>')
+    const file = storedZip(files)
+    const { book, cached } = await openXlsx(file, { keep: true })
+    const s = source(book, { session: { cached } })
+    expect(await s.structure({ op: 'insertRows', sheet: 'S', row: 1, count: 2 })).toMatchObject({ ok: true })
+    const out = unzipText((await saveXlsx(s, { over: file })).data)
+    expect(xfOf(out, 'A3')).toContain('quotePrefix="1"')
+    expect(xfOf(out, 'A4')).toContain('fontId="2"')
+    expect(out['xl/styles.xml']).toContain('<color theme="4"/>')
+  })
+
+  it("rejects a change the file cannot take with xlcalc's KeptRefusal and its code (0.61.0): a link removed", async () => {
+    const linked = source({ sheets: [{ name: 'S', cells: { A1: { value: 'x' } } }] })
+    expect(await linked.setExternalBooks([{ target: 'Report.xlsx', sheets: [{ name: 'Sheet', cells: { I8: 42 } }] }])).toMatchObject({ ok: true })
+    await linked.edit([{ sheet: 'S', cell: 'B1', text: "='[Report.xlsx]Sheet'!$I$8*2" }])
+    const file = (await saveXlsx(linked)).data
+    const { book, cached } = await openXlsx(file, { keep: true })
+    const s = source(book, { session: { cached } })
+    expect(await s.setExternalBooks([])).toMatchObject({ ok: true })
+    const refusal = await saveXlsx(s, { over: file }).catch((e: unknown) => e)
+    expect(refusal).toMatchObject({ name: 'KeptRefusal', code: 'links' })
+  })
+
+  it('writes the links a host gave over the file (0.62.0): a new link with its values, which a file read back has', async () => {
+    const file = (await saveXlsx(source({ sheets: [{ name: 'S', cells: { A1: { value: 1 } } }] }))).data
+    const { book, cached } = await openXlsx(file, { keep: true })
+    const s = source(book, { session: { cached } })
+    await s.setExternalBooks([{ target: 'Rates.xlsx', sheets: [{ name: 'R', cells: { A1: 3 } }] }])
+    await s.edit([{ sheet: 'S', cell: 'B1', text: "='[Rates.xlsx]R'!A1+1" }])
+    const saved = (await saveXlsx(s, { over: file })).data
+    expect(Object.keys(unzipText(saved))).toContain('xl/externalLinks/externalLink1.xml')
+    const back = await openXlsx(saved)
+    // entering a formula over a link marks its sheet's values as not updated, as Excel does (`refreshError`)
+    expect(back.book.externalBooks).toEqual([{ target: 'Rates.xlsx', sheets: [{ name: 'R', cells: { A1: 3 }, refreshError: true }] }])
+    expect(back.book.sheets[0]!.cells.B1).toMatchObject({ formula: '[1]R!A1+1' })
+  })
+})

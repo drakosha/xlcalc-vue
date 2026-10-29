@@ -1,7 +1,7 @@
 // localSource: a sheet source over an xlcalc workbook whose session runs in a Web Worker pool or on the page's thread.
 // The session holds and calculates the workbook, finds as Excel's Find does and returns windows, sheets and edits as Excel
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
-import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
+import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { TableOp } from '../contract/workbook'
 import type { CalculationMode, CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SourceEvent, WindowRequest } from '../contract/source'
@@ -354,6 +354,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     calcMode.report()
     return { ok: true, changes }
   }
+  /** xlcalc's `setExternalBooks` (0.62.0): the links replaced, the workbook calculated again in one step of undo, its changes sent as an edit's. */
+  async function externalBooks(s: AsyncSession, books: ExternalBook[]): Promise<EditOutcome> {
+    if (typeof s.setExternalBooks !== 'function') return failed('Links to other workbooks need xlcalc 0.62.0 or later')
+    return settle(s, await s.setExternalBooks(books), [])
+  }
+
   /** A change of what the sheet shows that is no change of the workbook: after the pending changes, outside undo. */
   const showing = <A extends unknown[]>(run: (s: AsyncSession, ...args: A) => Promise<EditOutcome>) => serial(async (...args: A) => run(await open(), ...args).catch(failedBy))
 
@@ -613,6 +619,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       return calcMode.state()
     },
+    setExternalBooks: mutation(externalBooks, refusedBy),
     calculate: showing(calculate),
     setCalculation: showing(setCalculation),
     async close() {
