@@ -241,8 +241,8 @@ const cancel = () => emit('close')
     </div>
 
     <footer class="xs-fmt-foot">
-      <button type="button" class="xs-button xs-fmt-btn" data-fmt-cancel @click="cancel">{{ m.cancel }}</button>
       <button type="submit" class="xs-button xs-button-main xs-fmt-btn" :disabled="blocked" data-fmt-ok>{{ m.ok }}</button>
+      <button type="button" class="xs-button xs-fmt-btn" data-fmt-cancel @click="cancel">{{ m.cancel }}</button>
     </footer>
   </DialogShell>
 </template>

@@ -59,8 +59,8 @@ function apply(): void {
     </div>
     <p v-if="error" class="xs-dialog-error" role="alert">{{ error }}</p>
     <div class="xs-dialog-foot">
-      <button type="button" class="xs-button" data-xs-dialog-cancel @click="close">{{ m.cancel }}</button>
       <button type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="apply">{{ m.ok }}</button>
+      <button type="button" class="xs-button" data-xs-dialog-cancel @click="close">{{ m.cancel }}</button>
     </div>
   </DialogShell>
 </template>

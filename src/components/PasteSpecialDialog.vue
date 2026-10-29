@@ -77,8 +77,8 @@ const ok = () => ctx.clip.closeSpecial({ paste: kind.value, transpose: transpose
       </div>
     </div>
     <div class="xs-dialog-foot">
-      <button type="button" class="xs-button" data-xs-dialog-cancel @click="ctx.clip.closeSpecial()">{{ m.cancel }}</button>
       <button type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="ok()">{{ m.ok }}</button>
+      <button type="button" class="xs-button" data-xs-dialog-cancel @click="ctx.clip.closeSpecial()">{{ m.cancel }}</button>
     </div>
   </DialogShell>
 </template>

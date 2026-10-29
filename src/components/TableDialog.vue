@@ -44,8 +44,8 @@ const convert = computed(() => (tables.dialog.value?.kind === 'convert' ? tables
         <input v-model="create.headers" type="checkbox" :disabled="!tables.canInsertHeader.value" data-xs-table-headers />{{ m.tableHeaders }}
       </label>
       <div class="xs-dialog-foot">
-        <button type="button" class="xs-button" data-xs-dialog-cancel @click="tables.close()">{{ m.cancel }}</button>
         <button type="button" class="xs-button xs-button-main" data-xs-dialog-ok @click="tables.create()">{{ m.ok }}</button>
+        <button type="button" class="xs-button" data-xs-dialog-cancel @click="tables.close()">{{ m.cancel }}</button>
       </div>
     </template>
     <template v-else-if="convert">
