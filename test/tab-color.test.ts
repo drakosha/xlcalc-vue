@@ -112,4 +112,12 @@ describe('tab color', () => {
     await openTabMenu(ro, 'A')
     expect(ro.find('[data-xs-menu="tabColor"]').exists()).toBe(false)
   })
+
+  it('opens the tab menu for a source with tabColor alone, with Tab Color and no sheet commands', async () => {
+    const b = book([{ name: 'A', maxRow: 2, maxCol: 2 }])
+    delete b.source.structure
+    const w = await mountSheet(b.source)
+    await openTabMenu(w, 'A')
+    expect([...document.querySelectorAll('[data-xs-menu]')].map((x) => x.getAttribute('data-xs-menu'))).toEqual(['tabColor'])
+  })
 })

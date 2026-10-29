@@ -41,7 +41,8 @@ const keyOf = (p: CellPosition) => cellAddress(p.row, p.col)
 
 export function useTrace(s: SheetState, v: Viewport, w: Windows, notify: (text: string) => void) {
   const read = useSheetReads(s)
-  const available = computed(() => typeof s.source().dependents === 'function')
+  // Excel disables formula auditing on a protected sheet.
+  const available = computed(() => typeof s.source().dependents === 'function' && !s.sheet.value?.protection)
   /** Arrows by sheet name, as Excel keeps them on each sheet. */
   const sheets = shallowRef(new Map<string, SheetTrace>())
   const traceOf = (sheet: string) => [...sheets.value].find(([name]) => sameName(name, sheet))?.[1] ?? null
@@ -69,7 +70,7 @@ export function useTrace(s: SheetState, v: Viewport, w: Windows, notify: (text: 
   async function traceDependents(): Promise<boolean> {
     const call = s.sourceMethod('dependents')
     const a = s.selected.value
-    if (!call || !a || !s.sheet.value || busy) return false
+    if (!call || !a || !available.value || busy) return false
     const sheet = s.sheetName.value
     const origin = keyOf(a)
     const before = traceOf(sheet)

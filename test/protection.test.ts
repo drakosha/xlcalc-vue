@@ -85,6 +85,31 @@ describe('a protected sheet', () => {
     expect(lastState(w)?.protection).toBeUndefined()
   })
 
+  it('keeps a hidden formula out of the tooltip, Show Formulas (an empty cell, as in Excel for Mac) and formula auditing', async () => {
+    const w = await mounted(form())
+    expect(w.find('[data-cell="2:1"]').attributes('title')).toBe('3')
+    api(w).showFormulas(true)
+    await settle()
+    expect(w.find('[data-cell="2:1"]').text()).toBe('')
+    expect(w.find('[data-cell="1:2"]').text()).toBe('Ann')
+    await goTo(w, 'A2')
+    // Excel disables Trace Precedents and Trace Dependents on a protected sheet
+    expect(api(w).explain()).toBe(false)
+    await goTo(w, 'B1')
+    expect(await api(w).traceDependents()).toBe(false)
+    await w.find('[data-cell="2:1"]').trigger('contextmenu', { button: 2, clientX: 200, clientY: 100 })
+    await settle()
+    expect(menuItem('precedents')).toBeNull()
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await api(w).unprotectSheet()
+    await until(() => w.find('[data-cell="2:1"]').text() === '=LEN(B1)')
+    expect(w.find('[data-cell="2:1"]').attributes('title')).toBe('=LEN(B1)\n3')
+    await goTo(w, 'B1')
+    expect(await api(w).traceDependents()).toBe(true)
+    await goTo(w, 'A2')
+    expect(api(w).explain()).toBe(true)
+  })
+
   it("shows the source's refusal on a protected sheet as Excel's alert", async () => {
     const w = await mounted(form({ deleteRows: true }))
     const out = api(w).structure({ op: 'deleteRows', sheet: 'Form', row: 1 })
@@ -142,7 +167,61 @@ describe('a protected sheet', () => {
   })
 })
 
+describe('selection without Select locked cells, as measured in Excel for Mac', () => {
+  const lineClick = async (el: ReturnType<VueWrapper['find']>) => {
+    await el.trigger('pointerdown', { button: 0, pointerType: 'mouse' })
+    await el.trigger('pointerup', { button: 0 })
+    await el.trigger('click', { button: 0 })
+    await settle()
+  }
+  it('Ctrl+arrow stays put when the cell it reaches is locked, and goes to an unlocked one', async () => {
+    const w = await mounted(form({ selectLockedCells: false }))
+    await goTo(w, 'B1')
+    await key(w, 'ArrowLeft', { ctrlKey: true })
+    await settle(8)
+    expect(active(w)).toBe('1:2')
+    await key(w, 'ArrowRight', { ctrlKey: true })
+    await settle(8)
+    expect(active(w)).toBe('1:4')
+    await key(w, 'ArrowRight', { ctrlKey: true, shiftKey: true })
+    await settle(8)
+    expect([active(w), lastState(w)?.ref]).toEqual(['1:4', 'D1'])
+  })
+  it('a column letter, a row number, Select All and Ctrl+A select nothing', async () => {
+    const w = await mounted(form({ selectLockedCells: false }))
+    await goTo(w, 'B1')
+    await lineClick(w.find('.xs-head[data-col="2"]'))
+    await lineClick(w.find('.xs-num[data-row="1"]'))
+    await lineClick(w.find('.xs-corner'))
+    await key(w, 'a', { ctrlKey: true, metaKey: true })
+    await settle()
+    expect([active(w), lastState(w)?.ref]).toEqual(['1:2', 'B1'])
+  })
+  it('the Name Box goes to a locked cell; Go To closes without moving to a range with one; Go To Special is disabled', async () => {
+    const w = await mounted(form({ selectLockedCells: false }))
+    await goTo(w, 'C3')
+    expect(active(w)).toBe('3:3')
+    await goTo(w, 'B1')
+    for (const [to, at] of [['C3', '1:2'], ['B1:D1', '1:2'], ['B2:B3', '2:2']] as const) {
+      await key(w, 'F5')
+      await settle()
+      await w.find('[data-xs-goto-ref]').setValue(to)
+      await w.find('[data-xs-goto]').trigger('submit')
+      await settle()
+      expect([to, w.find('[data-xs-goto]').exists(), active(w)]).toEqual([to, false, at])
+    }
+    expect(api(w).goToSpecial()).toBe(false)
+  })
+})
+
 describe('Protect Sheet and Unprotect Sheet', () => {
+  it("offers no sheet commands (Hide included) in the tab menu of a source without structure", async () => {
+    const w = await mounted(Object.assign(Object.create(form(null)) as LocalSource, { structure: undefined }))
+    await w.find('.xs-tab').trigger('contextmenu', { button: 2, clientX: 20, clientY: 400 })
+    await settle()
+    expect([...document.querySelectorAll('[data-xs-menu]')].map((b) => b.getAttribute('data-xs-menu'))).toEqual(['tabColor', 'protectSheet'])
+  })
+
   it("protects the sheet from its tab's menu with the boxes checked, then unprotects it", async () => {
     const source = form(null)
     const w = await mounted(source)

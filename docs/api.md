@@ -106,7 +106,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `sheet` | `string` | The displayed sheet. |
-| `ref` | `string` | The selection as Excel writes it: `B2:D5`, `B:D`, `2:5`, `1:1048576`. |
+| `ref` | `string` | The selection as Excel writes it: `B2:D5`, `B:D`, `2:5`, `1:1048576`; of several ranges, the active cell's (`areas` has them all). |
 | `formula` | `string?` | The active cell's formula as displayed. |
 | `value` | `string?` | The active cell's displayed text. |
 | `style` | `CellStyle?` | The active cell's style; absent while its window is not loaded. |
@@ -130,6 +130,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `calculation` | `CalculationMode?` | The workbook's calculation option, from a source with `calculation`: a ribbon shows the checked item of Calculation Options ([calculation.md](calculation.md)). |
 | `calculationPending` | `true?` | In Manual, cells wait for a calculation: the status bar shows Calculate. |
 | `protection` | `SheetProtection?` | The displayed sheet is protected (`SheetInfo.protection`), with what users may still do: the toolbar disables formatting without `formatCells`, as Excel does ([protection.md](protection.md)). |
+| `areas` | `string[]?` | A selection of several ranges, as Go To Special makes it: each range as Excel writes it, `ref` (the active cell's range) among them; absent for a single range. `SheetToolbar` and `FormatDialog` format every range ([go-to-and-symbol.md](go-to-and-symbol.md#a-selection-of-several-ranges)). |
 
 `SheetLinkEvent` is a window's hyperlink (`href`, `location`, `tooltip`, `target`) with the `sheet` and `cell` it belongs to. `SheetFailure` is `{ error: unknown; text: string }`.
 
@@ -154,17 +155,17 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `showGridlines(on?: boolean)`, `showHeadings(on?: boolean)` | `boolean` | Excel's View > Show > Gridlines and Headings on the displayed sheet, toggled without `on`; whether they show afterwards. Drawn at once and kept through the source's `show`, not an undo step; for a read-only sheet or a source without `show`, in the browser as Show Formulas is ([view.md](view.md#gridlines-and-headings)). |
 | `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
-| `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`. |
+| `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`, or on a protected sheet, as Excel disables formula auditing there. |
 | `goTo()` | `boolean` | Opens Excel's Go To dialog (F5, Ctrl+G); `false` while no sheet is displayed ([go-to-and-symbol.md](go-to-and-symbol.md#go-to)). |
 | `workbookStatistics()` | `boolean` | Opens Excel's Workbook Statistics for the displayed sheet with the source's `workbookStatistics` answer: its end and counts and the workbook's, in the rows Excel for Mac shows. `false` without `workbookStatistics` or while no sheet is displayed ([sheets.md](sheets.md#workbook-statistics)). |
-| `goToSpecial()` | `boolean` | Opens Excel's Go To Special dialog; OK selects the cells it finds, several ranges at once. `false` without the source's `specialCells`, while no sheet is displayed or under a display filter ([go-to-and-symbol.md](go-to-and-symbol.md#go-to-special)). |
+| `goToSpecial()` | `boolean` | Opens Excel's Go To Special dialog; OK selects the cells it finds, several ranges at once. `false` without the source's `specialCells`, while no sheet is displayed, under a display filter or on a protected sheet ([go-to-and-symbol.md](go-to-and-symbol.md#go-to-special)). |
 | `insertSymbol()` | `boolean` | Opens Excel's Symbol dialog: Insert puts the character at the caret of an open edit, otherwise starts editing the active cell with it; `false` on a read-only sheet or without an active cell ([go-to-and-symbol.md](go-to-and-symbol.md#symbol)). A host button that calls it during an edit keeps the edit open only if it does not take focus (`@mousedown.prevent`). |
 | `defineName()` | `boolean` | Opens Excel's New Name dialog (Define Name) for the selection; `false` when names cannot be defined (no `names` or `setNames`, a read-only sheet) or a cell is being edited. See [names.md](names.md). |
 | `nameManager()` | `boolean` | Opens Excel's Name Manager (Ctrl+F3); `false` without the source's `names` or while a cell is being edited. Without `setNames` or on a read-only sheet it only lists the names. |
 | `createNames()` | `boolean` | Opens Excel's Create Names from Selection dialog (Ctrl+Shift+F3, Cmd+Shift+F3 on a Mac) with the boxes Excel checks; OK makes the names through the source's `namesFromSelection` and `setNames` as a single undo step. `false` without `namesFromSelection`, `names` or `setNames`, on a read-only sheet or while a cell is being edited ([names.md](names.md#create-from-selection)). |
 | `setZoom(zoom: number \| 'selection')` | `number` | Excel's zoom of the active sheet: a percentage, rounded and kept within 10 to 400, or `'selection'` for Zoom to Selection. Returns the zoom set; it is not reported by the `zoom` event. |
 | `watchWindow(open?: boolean)` | `boolean` | Opens the Watch Window (`true`, the default) or closes it (`false`); returns whether it is open. |
-| `traceDependents()` | `Promise<boolean>` | Excel's Trace Dependents through the source's `dependents`: arrows from the active cell to its direct dependents, and the next level with each further call; `false` when nothing was added. See [view.md](view.md#trace-dependents). |
+| `traceDependents()` | `Promise<boolean>` | Excel's Trace Dependents through the source's `dependents`: arrows from the active cell to its direct dependents, and the next level with each further call; `false` when nothing was added, or on a protected sheet. See [view.md](view.md#trace-dependents). |
 | `removeArrows()` | `boolean` | Excel's Remove Arrows: every tracer arrow; `false` when there were none. |
 | `insertTable()` | `Promise<boolean>` | Excel's Insert Table and Format as Table (Ctrl+T, Ctrl+L): the Create Table dialog for the selection or the active cell's current region; `false` without the source's `table` or on a read-only sheet. See [tables.md](tables.md). |
 | `convertToRange()` | `Promise<EditOutcome \| null>` | Excel's Convert to Range on the table at the active cell, after Excel's question. |
@@ -315,7 +316,7 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `freeze(sheet, panes: { rows; cols } \| null)` | Freeze Panes in the context menu. | Only the formula bar's lock button hides the workbook's frozen panes. | [view.md](view.md) |
 | `split(sheet, split: SheetSplit \| null)` | Keeps Excel's View > Split (`split()`) with the workbook, null removing it. Not an undo step, as in Excel. `./local` keeps it with the sheet's view and writes it to the file (xlcalc 0.67.0). | No View > Split. | [view.md](view.md#split) |
 | `show(sheet, show: SheetShow)` | Keeps Excel's View > Show (`showGridlines`, `showHeadings`) with the workbook: `SheetShow` is `{ gridlines?; headings? }`, a setting that does not change left out. Not an undo step, as in Excel. | The sheet keeps them in the browser. | [view.md](view.md#gridlines-and-headings) |
-| `tabColor(sheet, color: string \| null)` | Excel's Tab Color on the tab menu (with `structure`): a `#RRGGBB` color, null for No Color, as a single undo step. | Tab colors are drawn but not changed. | [sheets.md](sheets.md#tab-color) |
+| `tabColor(sheet, color: string \| null)` | Excel's Tab Color on the tab menu (with or without `structure`): a `#RRGGBB` color, null for No Color, as a single undo step. | Tab colors are drawn but not changed. | [sheets.md](sheets.md#tab-color) |
 | `protect(sheet, protection: SheetProtection \| null)` | Excel's Protect Sheet with what users may still do (`{}`: selecting cells only), null for Unprotect Sheet, as a single undo step; the sheet tab's menu offers both. A source that has it refuses on a protected sheet what Excel refuses there, with `code: 'protected'`. There is no password. | Neither command; the sheet still disables on a protected sheet what Excel disables. | [protection.md](protection.md) |
 | `functionNames(signal?) => Promise<string[]>` | Formula AutoComplete and Insert Function. | No list, and the fx button is disabled. | [autocomplete.md](autocomplete.md) |
 | `functionSignature(name, signal?) => Promise<SheetFunctionSignature \| null>` | A function's arguments for Excel's argument tooltip while a formula is typed (`SUM(number1, [number2], ...)`), and for Insert Function its syntax, `description` and `category` with `categoryName` (xlcalc 0.42); the name as typed, in any letter case; null for a function the source does not know. | No tooltip; Insert Function lists only the names. | [autocomplete.md](autocomplete.md) |

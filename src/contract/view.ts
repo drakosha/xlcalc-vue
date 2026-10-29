@@ -104,6 +104,8 @@ export interface SheetViewState {
   calculationPending?: true
   /** The sheet is protected (`SheetInfo.protection`), with what users may still do: a toolbar disables formatting without `formatCells`, as Excel does. */
   protection?: SheetProtection
+  /** A selection of several ranges (Go To Special's): each of them as Excel writes it, the active one (`ref`) among them; absent for one range. A toolbar formats every one. */
+  areas?: string[]
 }
 
 /** The `zoom` event: the user changed a sheet's zoom (Ctrl+wheel, a pinch, the status bar, the Zoom dialog), in percent. */

@@ -109,6 +109,8 @@ interface CellViewDeps {
   openRows: () => boolean
   /** What a cell shows under Excel's Show Formulas. */
   formulaText: (data: CellData) => string
+  /** A protected sheet hides the cell's formula (out of the tooltip and Show Formulas). */
+  hidden: (row: number, col: number) => boolean
 }
 
 export function useCellView(
@@ -275,7 +277,10 @@ export function useCellView(
   function cellView(d: number, r: number, c: number, frozen: boolean, row: RowState): CellView {
     const addr = cellAddress(r, c)
     const at = cellRect(r, c)
-    const data = w.cellData(d, c, addr)
+    const cell = w.cellData(d, c, addr)
+    // A protected sheet's hidden formula: the tooltip has the value only, and Show Formulas draws the cell empty, as Excel for Mac does.
+    const secret = cell.formula !== undefined && deps.hidden(r, c)
+    const data = secret ? { ...cell, formula: undefined } : cell
     const span = spanOf(r, c)
     // The merge's last row: by display index (geometry, neighbors) and by sheet row (selection, tables); under a filter merges are one row.
     const d2 = span ? d + span.rs - 1 : d
@@ -289,7 +294,7 @@ export function useCellView(
     const barDraft = pendingText === undefined && !!row.editor && row.editor.bar && row.editor.col === c
     // Show Formulas: the formula or the unformatted constant, without the number format's color; a formula aligns and overflows as text
     const formulas = s.formulaView.value
-    const shownText = pendingText !== undefined ? (pendingText ?? '') : barDraft ? '' : formulas ? deps.formulaText(data) : look?.hideValue ? '' : data.text
+    const shownText = pendingText !== undefined ? (pendingText ?? '') : barDraft ? '' : formulas ? (secret ? '' : deps.formulaText(data)) : look?.hideValue ? '' : data.text
     const value = formulas && data.formula !== undefined ? shownText : data.value
     const hasText = barDraft ? !draftBlank.value : shownText !== ''
 

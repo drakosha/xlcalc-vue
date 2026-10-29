@@ -33,6 +33,13 @@ export interface SelectionLimit {
 export function useSelection(s: SheetState, geo: Geometry, v: Viewport, limit?: SelectionLimit) {
   /** A cell the user may select: any, unless the sheet's protection limits them. */
   const allowed = (row: number, col: number): boolean => !limit?.on() || limit.selectable(row, col)
+  /** Whether every cell of a range can be selected; a range past the cells scanned counts as not. */
+  function selectableIn(r: CellRect): boolean {
+    if (!limit?.on()) return true
+    if ((r.bottom - r.top + 1) * (r.right - r.left + 1) > MAX_SCAN) return false
+    for (let row = r.top; row <= r.bottom; row++) for (let col = r.left; col <= r.right; col++) if (!limit.selectable(row, col)) return false
+    return true
+  }
   /** The selection as Excel holds it: entire columns extend to the last row, entire rows to the last column. */
   const fullRect = computed<CellRect | null>(() => {
     const sa = s.selected.value
@@ -83,17 +90,21 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport, limit?: 
     }
   }
   /** Entire columns (a click on a letter, Shift from the active cell's column) or rows (on a number). */
+  // Without Select locked cells a column letter, a row number and Select All select nothing, as measured in Excel for Mac.
   function pickColumn(col: number, extend = false): void {
+    if (limit?.on()) return
     const from = extend && s.selected.value ? s.selected.value.col : col
     s.selected.value = { row: 1, col: from }
     s.extent.value = { row: MAX_ROWS, col }
   }
   function pickRow(row: number, extend = false): void {
+    if (limit?.on()) return
     const from = extend && s.selected.value ? s.selected.value.row : row
     s.selected.value = { row: from, col: 1 }
     s.extent.value = { row, col: MAX_COLS }
   }
   function selectAll(): void {
+    if (limit?.on()) return
     s.selected.value = { row: 1, col: 1 }
     s.extent.value = { row: MAX_ROWS, col: MAX_COLS }
   }
@@ -374,7 +385,9 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport, limit?: 
     const was = [s.selected.value, s.extent.value]
     const to = await target
     if (!to || mine !== endSeq || sheet !== s.sheetName.value || was[0] !== s.selected.value || was[1] !== s.extent.value) return
-    moveTo(to, extend)
+    // Excel for Mac stays put when the cell Ctrl+arrow reaches cannot be selected; Shift does not extend where cells are limited, as an arrow does not.
+    if (!allowed(to.row, to.col)) return
+    moveTo(to, extend && !limit?.on())
   }
 
   /** Enter and Tab: the active cell moves one step down or right (back with Shift); a single-cell selection collapses to it, a multi-cell one keeps it. */
@@ -453,6 +466,7 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport, limit?: 
     pickCell,
     pickColumn,
     pickRow,
+    selectableIn,
     onLineDown,
     selectAll,
     stretchTo,

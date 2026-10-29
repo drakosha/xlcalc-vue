@@ -1,10 +1,11 @@
 // Excel's Go To (F5, Ctrl+G): the dialog's state, the locations it has left, newest first, and the jump with Excel's message for a bad reference.
 import { computed, ref } from 'vue'
-import { quoteSheetIfNeeded } from 'xlcalc/a1'
+import { quoteSheetIfNeeded, sameName } from 'xlcalc/a1'
 import { shortcutLetter } from './keys'
 import type { AlertAnswer, SheetAlert } from './validation'
 import type { Names } from './names'
 import type { Navigation } from './navigation'
+import { parsePlace } from './place'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 
@@ -40,6 +41,10 @@ export function useGoTo(s: SheetState, sel: Selection, nav: Navigation, deps: Go
   async function jump(text: string): Promise<boolean> {
     const from = here()
     const named = deps.names.find(text.trim(), s.sheetName.value)
+    // Without Select locked cells Go To closes without moving to a range with a cell that cannot be selected, as measured in Excel for Mac (the Name Box goes there).
+    const range = named ? deps.names.rangeOf(named) : parsePlace(text)
+    const rect = range && ('rect' in range ? range.rect : range.range)
+    if (rect && (range.sheet === undefined || sameName(range.sheet, s.sheetName.value)) && !sel.selectableIn(rect)) return true
     if (!(named ? await nav.goName(named) : await nav.goPlace(text))) return false
     if (from) places.value = [from, ...places.value.filter((p) => p.toUpperCase() !== from.toUpperCase())].slice(0, GOTO_PLACES)
     return true

@@ -151,7 +151,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const find = useFind(s, sel, notify)
   const explain = useExplain(s, f)
   const formulaView = useFormulaView(s, f)
-  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows, formulaText: formulaView.textOf })
+  const views = useCellView(s, geo, v, w, sel, f, nav, ed, { editor, hostLinks, find, openRows: () => !!props.openRows, formulaText: formulaView.textOf, hidden: protection.hiddenAt })
   const list = useList(s, w, emit, props)
   /** The active cell's formatting, from its loaded window: the `state` event and the font shortcuts use it. */
   const activeLook = computed(() => (s.selected.value ? w.lookOfRow(s.selected.value.row, s.selected.value.col) : null))
@@ -170,7 +170,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     },
     blocks: protection.blocks,
   })
-  const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0 })
+  const clip = useClip(s, w, sel, v, ed, cmd, totals, { notify, editor, colShown: (col) => geo.widthOf(col) > 0, protection })
   const painter = usePainter(s, sel, v, ed, cmd, { formats: () => protection.can('formatCells') })
   const fill = useFill(s, geo, v, sel, ed, cmd, { editor })
   const outline = useOutline(s, v, sel, cmd, { notify, ask: (op) => menu.askOutline(op) })
@@ -682,6 +682,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       notes.draft.value = null
       rules.state.value = null
       cf.closeAll()
+      protection.draft.value = null
+      createNames.draft.value = null
+      special.open.value = false
       subscribe()
       void init()
     },
@@ -721,6 +724,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(calc.state.value ? { calculation: calc.state.value.mode } : {}),
       ...(calc.pending.value ? { calculationPending: true as const } : {}),
       ...(protection.protection.value ? { protection: protection.protection.value } : {}),
+      ...(s.areas.value ? { areas: s.areas.value.map(rangeAddress) } : {}),
     }
   })
   watch(viewState, (state) => emit('state', state), { immediate: true })

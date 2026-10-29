@@ -4,6 +4,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook, type SheetViewApi, type SheetViewState } from '../src'
 import type { EditOutcome, SheetOp, SheetSource } from '../src/contract/source'
+import { localSource } from '../src/local'
 import { mountSheet, settle } from './helpers'
 
 afterEach(() => {
@@ -194,6 +195,44 @@ describe('the conditions follow the AutoFilter', () => {
     await settle()
     expect(buttons(w)).toEqual([2, 3])
     expect(visibleRows).toHaveBeenLastCalledWith('S', { head: 2, last: 6, cols: { 3: { values: ['a'] } } }, expect.any(AbortSignal))
+  })
+
+  it('undo and redo of an insert move them back and again; one that changes its width leaves none outside it', async () => {
+    const s = localSource({ sheets: [{ name: 'S', cells: { A1: { value: 'Key' }, B1: { value: 'Status' }, C1: { value: 'Qty' }, A2: { value: 'k2' }, B2: { value: 'a' }, C2: { value: 1 }, A3: { value: 'k3' }, B3: { value: 'b' }, C3: { value: 2 }, A4: { value: 'k4' }, B4: { value: 'a' }, C4: { value: 3 } }, autoFilter: { range: 'A1:C4' } }] } as never, { calc: 'inline' })
+    try {
+      const visibleRows = vi.spyOn(s, 'visibleRows')
+      const w = await mountSheet(s)
+      await settle(8)
+      const api = w.vm as unknown as SheetViewApi
+      const conditions = () => (visibleRows.mock.lastCall?.[1].cols ? Object.keys(visibleRows.mock.lastCall[1].cols).map(Number) : [])
+      const state = () => (w.emitted('state') ?? []).at(-1)?.[0] as SheetViewState
+      await filterOut(w, 2, 'b')
+      expect([conditions(), numbers(w).slice(0, 3)]).toEqual([[2], ['1', '2', '4']])
+      await api.structure({ op: 'insertColumns', sheet: 'S', column: 'A' })
+      await settle(8)
+      expect([state().autoFilter, conditions(), state().filtered]).toEqual(['B1:D4', [3], true])
+      await api.undo()
+      await settle(8)
+      expect([state().autoFilter, conditions(), state().filtered]).toEqual(['A1:C4', [2], true])
+      await api.redo()
+      await settle(8)
+      expect([state().autoFilter, conditions(), state().filtered]).toEqual(['B1:D4', [3], true])
+      await api.undo()
+      await settle(8)
+      // an insert inside the AutoFilter widens it; its undo cannot tell the columns apart, so the condition outside it goes
+      await filterOut(w, 3, '3')
+      await api.structure({ op: 'insertColumns', sheet: 'S', column: 'C' })
+      await settle(8)
+      expect([state().autoFilter, conditions()]).toEqual(['A1:D4', [2, 4]])
+      await api.undo()
+      await settle(8)
+      expect([state().autoFilter, conditions()]).toEqual(['A1:C4', [2]])
+      await api.structure({ op: 'insertColumns', sheet: 'S', column: 'D' })
+      await settle(8)
+      expect([state().autoFilter, conditions()]).toEqual(['A1:C4', [2]])
+    } finally {
+      await s.close()
+    }
   })
 
   it('an AutoFilter removed elsewhere (its header row deleted) takes its conditions along', async () => {

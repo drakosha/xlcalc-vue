@@ -94,8 +94,8 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     open.value = { kind, x, y, first: lines.first, last: Math.min(lines.last, kind === 'rows' ? MAX_ROWS : MAX_COLS) }
     return true
   }
-  /** The tab menu: the sheet commands with `structure`, Protect Sheet and Unprotect Sheet with `protect`. */
-  const sheetsAvailable = computed(() => cmd.can('structure') || deps.protection.available.value)
+  /** The tab menu: the sheet commands with `structure`, Tab Color with `tabColor`, Protect Sheet and Unprotect Sheet with `protect`. */
+  const sheetsAvailable = computed(() => cmd.can('structure') || cmd.can('tabColor') || deps.protection.available.value)
   /** Opens a tab's menu: the sheet becomes active, as a right click on a tab makes it in Excel. */
   async function openSheet(index: number, x: number, y: number): Promise<boolean> {
     if (!sheetsAvailable.value || !s.sheets.value[index]) return false
@@ -199,7 +199,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
       { id: 'moveRight', label: m().menuMoveRight, disabled: k < 0 || k >= tabs.length - 1, run: () => void cmd.structure(k + 2 < tabs.length ? { op: 'moveSheet', sheet: name, before: tabs[k + 2]!.sheet.name } : { op: 'moveSheet', sheet: name }) },
     ]
     if (cmd.can('tabColor')) out.push({ id: 'tabColor', label: m().menuTabColor, run: () => (dialog.value = { kind: 'tabColor', sheet: name, color: info.tabColor?.toUpperCase() ?? null }), group: true })
-    out.push({ id: 'hideSheet', label: m().menuHide, run: () => void cmd.structure({ op: 'hideSheet', sheet: name }), group: true })
+    if (cmd.can('structure')) out.push({ id: 'hideSheet', label: m().menuHide, run: () => void cmd.structure({ op: 'hideSheet', sheet: name }), group: true })
     if (hidden.length && cmd.can('structure')) out.push({ id: 'unhideSheet', label: m().menuUnhideSheet, run: () => (dialog.value = { kind: 'unhide', sheets: hidden }) })
     // Excel's Protect Sheet… or, on a protected sheet, Unprotect Sheet (the menu acts on the active sheet, which the tab became)
     const p = deps.protection

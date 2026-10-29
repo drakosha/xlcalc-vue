@@ -4,6 +4,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import type { MemoryBook } from '../src/contract/memory'
+import { localSource } from '../src/local'
 import { mountSheet, settle, until } from './helpers'
 
 afterEach(() => {
@@ -107,5 +108,22 @@ describe('notes shown all the time', () => {
     const w = await mountSheet(memorySource(book()), { messages: ruMessages })
     await context(w, '2:2')
     expect(document.querySelector('[data-xs-menu="showNote"]')!.textContent).toBe('Показать или скрыть примечание')
+  })
+})
+
+describe('Show/Hide Note on a protected sheet', () => {
+  it('shows the note of a locked cell where the protection allows Edit objects, as Edit Note edits it', async () => {
+    const source = localSource({ locale: 'en-US', sheets: [{ name: 'S', cells: { A1: { value: 1, note: { text: 'hi' } } }, protection: { objects: true } }] } as never, { calc: 'inline' })
+    try {
+      const w = await mountSheet(source)
+      await until(() => w.find('[data-cell="1:1"]').text() === '1')
+      await context(w, '1:1')
+      await pick('showNote')
+      await until(() => shown(w).length === 1)
+      expect(document.querySelector('[data-xs-alert]')).toBeNull()
+      expect((await source.book()).sheets[0]!.cells.A1!.note).toMatchObject({ text: 'hi', shown: true })
+    } finally {
+      await source.close()
+    }
   })
 })

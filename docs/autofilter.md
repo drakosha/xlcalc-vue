@@ -28,7 +28,7 @@ Excel does not change an AutoFilter's range when data is typed under it, and sav
 
 ## When the sheet changes
 
-The source moves the AutoFilter with rows and columns (`./local` through xlcalc: rows inserted inside it grow it, deleting its header row removes it, a table over all of it takes its place), and the sheet draws the buttons where the source puts them after it reloads. Columns inserted or deleted through the sheet's own commands move the conditions and the sort with their columns, and those of deleted columns go. Conditions on columns that are no longer in the AutoFilter stop applying, and an AutoFilter that goes takes its conditions along.
+The source moves the AutoFilter with rows and columns (`./local` through xlcalc: rows inserted inside it grow it, deleting its header row removes it, a table over all of it takes its place), and the sheet draws the buttons where the source puts them after it reloads. Columns inserted or deleted through the sheet's own commands move the conditions and the sort with their columns, and those of deleted columns go. An AutoFilter moved otherwise (an undo, a redo, another viewer's change) takes them along when it moved whole; when its width changed, the sheet cannot tell which columns moved, and conditions on columns outside it go. An AutoFilter that goes takes its conditions along.
 
 ```ts
 // A host's ribbon: the Filter button pressed while the sheet has an AutoFilter.

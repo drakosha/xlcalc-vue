@@ -196,8 +196,8 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
         </colgroup>
         <thead>
           <tr v-if="v.barH.value" class="xs-ol-head" :style="{ height: v.barH.value + 'px' }">
-            <th v-if="v.barW.value && v.showNums.value" class="xs-ol-corner"></th>
-            <OutlineLevels v-if="v.barW.value || v.showNums.value" axis="columns" :class="v.showNums.value ? 'xs-ol-over-nums' : ''" />
+            <th v-if="v.barW.value && (v.showNums.value || !v.showHeads.value)" class="xs-ol-corner"></th>
+            <OutlineLevels v-if="v.showHeads.value && (v.barW.value || v.showNums.value)" axis="columns" :class="v.showNums.value ? 'xs-ol-over-nums' : ''" />
             <template v-for="k in cols" :key="k.key">
               <th v-if="k.c === 0" class="xs-ol xs-ol-columns"></th>
               <OutlineCell
@@ -212,9 +212,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
           <tr v-if="v.headRow.value">
             <OutlineLevels v-if="v.barW.value" axis="rows" />
             <th v-if="v.showNums.value" class="xs-corner" :title="m.selectAll" @click="sel.selectAll()"></th>
-            <!-- without headings the row only holds the row bar's level buttons -->
-            <th v-if="!v.showHeads.value" class="xs-head-off" :colspan="cols.length"></th>
-            <template v-for="k in cols" v-else :key="k.key">
+            <template v-for="k in cols" :key="k.key">
               <th v-if="k.c === 0" class="xs-head"></th>
               <th
                 v-else

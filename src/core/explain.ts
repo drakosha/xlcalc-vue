@@ -58,7 +58,8 @@ export function explainLines(text: string, sheet: string): ExplainLine[] {
 }
 
 export function useExplain(s: SheetState, f: Formula) {
-  const available = computed(() => typeof s.source().explain === 'function')
+  // Excel disables formula auditing on a protected sheet, which would otherwise explain a hidden formula.
+  const available = computed(() => typeof s.source().explain === 'function' && !s.sheet.value?.protection)
   const open = ref(false)
   /** The cell the lines belong to (`'Q 4'!B6`), the lines, whether a response is awaited, whether the last one failed. */
   const place = ref('')
@@ -83,7 +84,7 @@ export function useExplain(s: SheetState, f: Formula) {
     timer = null
     const a = s.selected.value
     const call = s.sourceMethod('explain')
-    if (!a || !call || !s.sheet.value) {
+    if (!a || !call || !available.value) {
       place.value = ''
       lines.value = []
       busy.value = false
