@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Built over xlcalc 0.66.0, with what xlcalc 0.61.0 to 0.66.0 added for a sheet. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.66.0 or later (the peer range is `>=0.66.0`, it was `>=0.46.0`). Nothing else breaks for a host; a host that switches over every `SourceEvent` kind gets one kind more.
+Built over xlcalc 0.67.0, with what xlcalc 0.61.0 to 0.67.0 added for a sheet. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.67.0 or later (the peer range is `>=0.67.0`, it was `>=0.46.0`). Nothing else breaks for a host; a host that switches over every `SourceEvent` kind gets one kind more.
 
 - Excel's Tab Color: a sheet's `SheetInfo.tabColor` (`#RRGGBB`) fills its tab, or underlines it while it is active, and the source's new optional `tabColor(sheet, color)` gives the tab menu Tab Color with No Color and Excel's palette, a single undo step. `./local` reads, sets and writes it through xlcalc's `setLayout` (0.66.0); `memorySource` passes a sheet's `tabColor` through.
 - Excel's View > Show: a sheet whose `SheetInfo` has `gridlines: false` or `headings: false` is drawn without gridlines or without row numbers and column letters, and the sheet's `showGridlines(on?)` and `showHeadings(on?)` change them for a ribbon (`state.gridlines`, `state.headings`). The source's new optional `show(sheet, show: SheetShow)` keeps them with the workbook, not as an undo step, as in Excel; without it the sheet keeps them in the browser. `./local` reads them from the sheet's view and writes them to the file.
