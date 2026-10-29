@@ -50,6 +50,7 @@ function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size:
     ...(sheet.hidden ? { hidden: sheet.hidden } : {}),
     ...(outline ? { outline } : {}),
     ...(sheet.view?.zoom ? { zoom: sheet.view.zoom } : {}),
+    ...(sheet.autoFilter ? { autoFilter: { range: sheet.autoFilter.range } } : {}),
     font,
   }
 }
@@ -467,6 +468,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     rules: reading(book.rules),
     setRules: mutation(book.setRules, refusedBy),
     table: mutation(book.table, failedBy),
+    setAutoFilter: mutation(book.setAutoFilter, refusedBy),
     ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
     /**
      * Excel's AutoSum as the session guesses it (xlcalc 0.59), its formula in the workbook's locale; null with an older library.
