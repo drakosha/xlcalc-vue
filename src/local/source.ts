@@ -3,7 +3,7 @@
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
 import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
-import type { ClearKind, TableOp } from '../contract/workbook'
+import type { ClearKind } from '../contract/workbook'
 import type { CalculationMode, CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetShow, SourceEvent, WindowRequest } from '../contract/source'
 import { boxesUnder, findHits, replaceAll } from './find'
 import { loadLocale, tipLocale } from './locale'
@@ -106,6 +106,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
    * an undo step, so the source puts it on the sheets it lists and the workbook it returns, and follows renamed sheets.
    */
   const shows = new Map<string, SheetShow>()
+  /** The settings of `shows` of deleted sheets, by the name key, for an undo that brings a sheet back. */
+  const dropped = new Map<string, SheetShow>()
   const viewed = <T extends { name: string; view?: SheetView }>(sheet: T): T => {
     const own = shows.get(nameKey(sheet.name))
     return own ? { ...sheet, view: { ...sheet.view, ...own } } : sheet
@@ -166,13 +168,21 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   /** The session's changes as cell updates, with the edited cells' updates in place, and the cached values updated, one sheet at a time. */
   function take(changes: CellChange[], edited: Map<string, CellUpdate> = new Map()): CellUpdate[] {
     const out = new Map(edited)
+    // Excel calculates a formula entered, typed, pasted or filled, with the cells its array fills
+    const entered = new Set([...edited.keys(), ...changes.filter((c) => typeof c.formula === 'string').map((c) => cellKey(c.sheet, c.cell))])
     for (const ch of changes) {
       const key = cellKey(ch.sheet, ch.cell)
-      if (!out.has(key) && !calcMode.hold(ch)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
+      if (!out.has(key) && !calcMode.hold(ch, entered)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
     }
     const list = [...out.values()]
-    calcMode.showing(list)
+    calcMode.showing(list, changes)
     calcMode.report()
+    patch(list)
+    return list
+  }
+
+  /** The cached values of the sheets that cells updated, one sheet at a time. */
+  function patch(list: CellUpdate[]): void {
     const bySheet = new Map<Promise<SheetValues>, CellUpdate[]>()
     for (const u of list) {
       const kept = values.get(nameKey(u.sheet))
@@ -189,7 +199,6 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
         }
       })
     }
-    return list
   }
 
   /** A sheet's displayed values: where its cells end, read once, and its columns as the filter needs them. */
@@ -197,7 +206,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const key = nameKey(sheet)
     let got = values.get(key)
     if (!got) {
-      got = s.getUsedRange(sheet).then((used) => new SheetValues(used.rows, (ranges, signal) => s.getCells(sheet, ranges, signal ? { signal } : {})))
+      // in Manual the values shown, as the filter reads them in Excel
+      got = s.getUsedRange(sheet).then((used) => new SheetValues(used.rows, async (ranges, signal) => calcMode.overlayCells(sheet, await s.getCells(sheet, ranges, signal ? { signal } : {}), ranges)))
       values.set(key, got)
       got.catch(() => values.delete(key))
     }
@@ -258,7 +268,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   /** A completed change: its updates, with the edited cells' current state, sent to subscribers, then the formatting it may have changed; a reload where updates cannot carry it. */
   async function settle(s: AsyncSession, got: EditResult, boxes: CellsBox[]): Promise<Extract<EditOutcome, { ok: true }>> {
     const { updates, truncated } = await editedIn(s, boxes)
-    const changes = take(got.changes, updates)
+    const changes = take([...got.changes, ...(await calcMode.spillsOf(s, updates.values()))], updates)
     if (truncated || needsReload(got)) reload()
     else {
       if (changes.length) emit({ kind: 'changed', changes })
@@ -354,7 +364,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     // The step's changes keep the cached values current and the filters' row lists stay as the component holds them; a step that needs more reloads, which drops both.
     // TODO(xlcalc): undoing a structure step does not list the cells it empties (a copy onto empty cells), so the sheet is read again, as after the operation.
     if (got.call === 'editStructure') {
-      calcMode.forget()
+      calcMode.moved(got.moved)
       return reloaded(got.changes)
     }
     const boxes = boxesOf(got.cells ?? [])
@@ -363,41 +373,59 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return first ? { ...out, select: { sheet: first.sheet, range: rangeAddress(first.rect) } } : out
   }
 
-  /** Runs a call that may rename or delete sheets, moving the settings of `shows` to a renamed sheet's new name and dropping a deleted one's. */
-  async function following<R>(s: AsyncSession, run: () => Promise<R>): Promise<R> {
-    if (!shows.size) return run()
+  /**
+   * Runs a call that may rename, delete or bring back sheets, moving the settings of `shows` to a renamed sheet's new
+   * name and keeping a deleted one's in `dropped`, which a step of undo or redo (`step`) that brings the sheet back restores.
+   */
+  async function following<R>(s: AsyncSession, run: () => Promise<R>, step = false): Promise<R> {
+    if (!shows.size && !dropped.size) return run()
     const names = async () => new Set((await s.getLayout()).sheets.map((x) => nameKey(x.name)))
     const before = await names()
     const out = await run()
     const after = await names()
     const gone = [...before].filter((k) => !after.has(k))
     const came = [...after].filter((k) => !before.has(k))
-    const own = gone.length === 1 && came.length === 1 ? shows.get(gone[0]!) : undefined
-    if (own) shows.set(came[0]!, own)
-    for (const k of gone) shows.delete(k)
+    if (gone.length === 1 && came.length === 1) {
+      const own = shows.get(gone[0]!)
+      if (own) shows.set(came[0]!, own)
+      shows.delete(gone[0]!)
+      return out
+    }
+    for (const k of gone) {
+      const own = shows.get(k)
+      if (own) dropped.set(k, own)
+      shows.delete(k)
+    }
+    for (const k of step ? came : []) {
+      const own = dropped.get(k)
+      if (own) shows.set(k, own)
+      dropped.delete(k)
+    }
     return out
   }
 
-  /** A structure operation; one that moves cells (`moves`) leaves the values held in Manual at addresses that no longer hold, so the sheet shows the session's. */
-  async function structure(s: AsyncSession, op: SheetOp, moves = false): Promise<EditOutcome> {
+  /** A structure operation; the values waiting in Manual follow the addresses it moved (`calcMode.moved`). */
+  async function structure(s: AsyncSession, op: SheetOp): Promise<EditOutcome> {
     const got = await s.editStructure(op)
     if (!got.ok) return { ok: false, reason: 'refused', code: got.code, message: got.message }
-    if (moves) calcMode.forget()
+    calcMode.moved(got.moved)
     return reloaded(got.changes)
   }
 
-  /** A structure operation once the sheet's protection allows it; one that moves cells drops Manual's held values. */
-  const guardedStructure = guard.structure((s: AsyncSession, op: SheetOp) => structure(s, op, true))
+  /** A structure operation once the sheet's protection allows it. */
+  const guardedStructure = guard.structure(structure)
 
   /** Calculate Now, or Calculate Sheet: the values held in Manual shown, as an edit's changes are. */
   async function calculate(s: AsyncSession, sheet?: string): Promise<EditOutcome> {
     const changes = await calcMode.calculate(s, sheet)
+    patch(changes)
     if (changes.length) emit({ kind: 'changed', changes })
     calcMode.report()
     return { ok: true, changes }
   }
   async function setCalculation(s: AsyncSession, mode: CalculationMode): Promise<EditOutcome> {
     const changes = await calcMode.setMode(s, mode)
+    patch(changes)
     if (changes.length) emit({ kind: 'changed', changes })
     calcMode.report()
     return { ok: true, changes }
@@ -497,10 +525,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { ok: true, changes }
   }
 
-  /** Excel's View > Show: kept by the source (`shows`), not an undo step; a sheet the workbook does not have is refused. */
+  /** Excel's View > Show: kept by the source (`shows`), not an undo step; subscribers read the sheets again (`reload`). A sheet the workbook does not have is refused. */
   async function show(s: AsyncSession, sheet: string, what: SheetShow): Promise<EditOutcome> {
     if (!(await s.getLayout()).sheets.some((x) => sameName(x.name, sheet))) return failed(`No sheet ${sheet}`)
     shows.set(nameKey(sheet), { ...shows.get(nameKey(sheet)), ...what })
+    emit({ kind: 'reload' })
     return { ok: true, changes: [] }
   }
 
@@ -511,7 +540,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     emit({ kind: 'repaint', ranges: [...ranges, ...(got.repaint ?? []).map((x) => ({ sheet: x.sheet, range: x.range }))] })
     return { ok: true, changes }
   }
-  const book = workbookMethods(locale, { repainted, reloaded }, opts.spelling)
+  /** A change whose values Manual cannot hold by address: they show, and nothing waits, before the sheets are read again. */
+  function restructured(changes: CellChange[]): EditOutcome {
+    calcMode.forget()
+    return reloaded(changes)
+  }
+  const book = workbookMethods(locale, { repainted, reloaded, restructured }, opts.spelling)
   const reading = <A extends unknown[], R>(run: (s: AsyncSession, ...args: A) => Promise<R>) => async (...args: A): Promise<R> => run(await open(), ...args)
 
   const source: LocalSource = {
@@ -548,8 +582,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     paste: mutation(guard.paste(paste), refusedBy),
     fill: mutation(guard.fill(fill), refusedBy),
     pick: mutation(guard.pick(pick), refusedBy),
-    undo: mutation((s) => following(s, () => step(s, 'undo')), failedBy),
-    redo: mutation((s) => following(s, () => step(s, 'redo')), failedBy),
+    undo: mutation((s) => following(s, () => step(s, 'undo'), true), failedBy),
+    redo: mutation((s) => following(s, () => step(s, 'redo'), true), failedBy),
     structure: mutation((s, op: SheetOp) => following(s, () => guardedStructure(s, op)), failedBy),
     layout: mutation(guard.layout(setLayout), failedBy),
     format: mutation(guard.format(format), refusedBy),
@@ -575,12 +609,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     dependents: reading(book.dependents),
     rules: reading(book.rules),
     setRules: mutation(guard.setRules(book.setRules), refusedBy),
-    // a table command is a structure operation of the session, whose changes do not tell a cleared formula: Manual's held values go
-    table: mutation(guard.table(async (s, op: TableOp) => {
-      const out = await book.table(s, op)
-      if (out.ok) calcMode.forget()
-      return out
-    }), failedBy),
+    table: mutation(guard.table(book.table), failedBy),
     setAutoFilter: mutation(guard.setAutoFilter(book.setAutoFilter), refusedBy),
     ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
     /**

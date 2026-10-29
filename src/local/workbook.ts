@@ -7,10 +7,11 @@ import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, Sheet
 import { failed } from './outcome'
 import { misspelt } from '../spelling'
 
-/** How the source completes a change: the windows re-read in place over ranges, or the sheets and windows read again. */
+/** How the source completes a change: the windows re-read in place over ranges, or the sheets and windows read again, with Manual's waiting values dropped first (`restructured`). */
 export interface Completion {
   repainted(got: EditResult, ranges: { sheet: string; range: string }[]): EditOutcome
   reloaded(changes: CellChange[]): EditOutcome
+  restructured(changes: CellChange[]): EditOutcome
 }
 
 /** The thresholds of color scales, data bars and icon sets, whose `value` is a formula. */
@@ -131,7 +132,8 @@ export function workbookMethods(locale: string, done: Completion, checker?: Spel
 
   async function table(s: AsyncSession, op: TableOp): Promise<EditOutcome> {
     const got = await s.editStructure(op)
-    return got.ok ? done.reloaded(got.changes) : { ok: false, reason: 'refused', code: got.code, message: got.message }
+    // a table command's changes do not tell a formula it cleared, so no value waits past it
+    return got.ok ? done.restructured(got.changes) : { ok: false, reason: 'refused', code: got.code, message: got.message }
   }
 
   /**

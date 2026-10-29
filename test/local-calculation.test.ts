@@ -134,6 +134,103 @@ describe('localSource: calculation options', () => {
     expect((await win(s, 'S', 2, 1, 1, 2)).values[0]).toEqual([null, null])
   })
 
+  it('in Manual a change of how a formula cell looks shows at once and makes nothing wait: a number format, a narrow column, Clear Formats, a note', async () => {
+    const s = source({ calculation: 'manual', sheets: [{ name: 'S', cells: { A1: { value: 0.5 }, B1: { formula: 'A1*2', numberFormat: '0.00%' }, C1: { formula: 'A1*1E+11' } } }] })
+    const text = async () => (await win(s, 'S', 1, 1, 1, 3)).text[0]
+    expect(await text()).toEqual(['0.5', '100.00%', '5E+10'])
+    await s.format('S', [{ range: 'C1', numberFormat: '0.0' }])
+    expect((await text())?.[2]).toBe('50000000000.0')
+    await s.layout({ sheet: 'S', columns: 'C', width: 2 })
+    expect((await text())?.[2]).toMatch(/^#+$/)
+    await s.clear('S', ['B1'], 'formats')
+    expect((await text())?.[1]).toBe('1')
+    await s.note('S', 'B1', { text: 'check' })
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: false })
+  })
+
+  it('in Manual a constant cleared by Clear All shows empty, after an edit made it known', async () => {
+    const s = source(twoSheets('manual'))
+    await s.edit([{ sheet: 'One', cell: 'A1', text: '5' }])
+    await s.clear('One', ['A1'], 'all')
+    expect(await row1(s, 'One')).toEqual([null, 2, 3])
+  })
+
+  it('a spilling formula entered in Manual shows with its whole spill, as Excel calculates the entered cell', async () => {
+    const s = source({ calculation: 'manual', sheets: [{ name: 'S', cells: { A1: { value: 1 }, D1: { formula: 'SEQUENCE(3)*A1' } } }] })
+    const col = async () => (await win(s, 'S', 1, 4, 4, 1)).values.map((r) => r[0])
+    await s.edit([{ sheet: 'S', cell: 'D1', text: '=SEQUENCE(3)*10' }])
+    expect(await col()).toEqual([10, 20, 30, null])
+    // a spill that shrinks empties the cells it leaves; one that grows fills the new ones
+    await s.edit([{ sheet: 'S', cell: 'D1', text: '=SEQUENCE(2)' }])
+    expect(await col()).toEqual([1, 2, null, null])
+    await s.paste('S', 'D1', '=SEQUENCE(4)*2')
+    expect(await col()).toEqual([2, 4, 6, 8])
+    await s.fill('S', 'D1', '=SEQUENCE(3)*3', 'D1')
+    expect(await col()).toEqual([3, 6, 9, null])
+    // the same formula entered again over a waiting spill calculates it
+    await s.edit([{ sheet: 'S', cell: 'D1', text: '=SEQUENCE(3)*A1' }])
+    await s.edit([{ sheet: 'S', cell: 'A1', text: '2' }])
+    expect(await col()).toEqual([1, 2, 3, null])
+    await s.edit([{ sheet: 'S', cell: 'D1', text: '=SEQUENCE(3)*A1' }])
+    expect(await col()).toEqual([2, 4, 6, null])
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: false })
+  })
+
+  it('a table command in Manual shows the calculated values and tells that nothing waits', async () => {
+    const s = source({
+      calculation: 'manual',
+      sheets: [{ name: 'S', cells: { A1: { value: 'N' }, B1: { value: 'D' }, A2: { value: 1 }, B2: { formula: 'T[[#This Row],[N]]*2' }, D2: { formula: 'A2*3' } }, tables: [{ name: 'T', range: 'A1:B2', columns: [{ name: 'N' }, { name: 'D', formula: 'T[[#This Row],[N]]*2' }] }] }],
+    })
+    const events: SourceEvent[] = []
+    s.subscribe((e) => events.push(e))
+    await s.edit([{ sheet: 'S', cell: 'A2', text: '5' }])
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: true })
+    events.length = 0
+    expect(await s.table({ op: 'renameTable', table: 'T', name: 'Sales' })).toMatchObject({ ok: true })
+    await Promise.resolve()
+    expect((await win(s, 'S', 2, 1, 1, 4)).values[0]).toEqual([5, 10, null, 15])
+    expect(events.filter((e) => e.kind === 'calculation')).toEqual([{ kind: 'calculation', calculation: { mode: 'manual', pending: false } }])
+  })
+
+  it('in Manual a structure operation that moves no cell keeps the values waiting: a paste, a fill, sheets inserted, hidden, renamed, deleted', async () => {
+    const s = source(twoSheets('manual'))
+    await s.edit([{ sheet: 'One', cell: 'A1', text: '5' }])
+    // the pasted and filled cells show as entered, the waiting ones stay
+    expect(await s.structure({ op: 'copyRange', from: { sheet: 'One', range: 'A1' }, to: { sheet: 'One', range: 'E1' } })).toMatchObject({ ok: true })
+    expect(await s.structure({ op: 'fillRange', sheet: 'One', range: 'B1', to: 'B1:B2' })).toMatchObject({ ok: true })
+    expect((await win(s, 'One', 1, 2, 1, 5)).values).toEqual([
+      [5, 2, 3, null, 5],
+      [null, 0, null, null, null],
+    ])
+    await s.structure({ op: 'insertSheet', name: 'Three' })
+    await s.structure({ op: 'hideSheet', sheet: 'Three' })
+    await s.structure({ op: 'mergeCells', sheet: 'One', range: 'F1:G1' })
+    expect(await row1(s, 'One')).toEqual([5, 2, 3])
+    // a renamed sheet keeps its waiting values, and so does its undo
+    await s.structure({ op: 'renameSheet', sheet: 'One', name: 'Uno' })
+    expect(await row1(s, 'Uno')).toEqual([5, 2, 3])
+    await s.undo()
+    expect(await row1(s, 'One')).toEqual([5, 2, 3])
+    // a deleted sheet's waiting cells go with it
+    await s.structure({ op: 'deleteSheet', sheet: 'Two' })
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: true })
+    const calc = await s.calculate()
+    expect(calc.ok && calc.changes.map((c) => `${c.sheet}!${c.cell}=${c.value}`).sort()).toEqual(['One!B1=10', 'One!C1=11'])
+  })
+
+  it("in Manual the display filter reads the values shown: a column read while cells wait, and one read before a calculation", async () => {
+    const s = source({ calculation: 'manual', sheets: [{ name: 'S', cells: { A1: { value: 'N' }, B1: { value: 'D' }, A2: { value: 1 }, B2: { formula: 'A2*2' }, C2: { formula: 'A2*3' } } }] })
+    const texts = async (col: number) => (await s.columnValues('S', col, { head: 1 })).values.map((v) => v.text)
+    expect(await texts(3)).toEqual(['3'])
+    await s.edit([{ sheet: 'S', cell: 'A2', text: '5' }])
+    expect(await texts(2)).toEqual(['2'])
+    expect((await s.visibleRows('S', { head: 1, cols: { 2: { values: ['2'] } } })).rows).toEqual([1, 2])
+    expect(await texts(3)).toEqual(['3'])
+    await s.calculate()
+    expect(await texts(2)).toEqual(['10'])
+    expect(await texts(3)).toEqual(['15'])
+  })
+
   it('a structure operation in Manual shows the calculated values, the cells having moved', async () => {
     const s = source(twoSheets('manual'))
     await s.edit([{ sheet: 'One', cell: 'A1', text: '5' }])

@@ -45,9 +45,13 @@ describe("localSource: View > Show", () => {
     expect(list[1]!.gridlines).toBeUndefined()
   })
 
-  it('keeps what show sets without an undo step, in the sheets it lists and the workbook it saves', async () => {
+  it('keeps what show sets without an undo step, in the sheets it lists and the workbook it saves, and tells subscribers to read the sheets again', async () => {
     const s = book()
+    const events: SourceEvent['kind'][] = []
+    s.subscribe((e) => events.push(e.kind))
     expect(await s.show('B', { headings: false })).toMatchObject({ ok: true })
+    // another viewer of the workbook (./remote) draws the sheet as set
+    expect(events).toEqual(['reload'])
     expect(await s.show('A', { gridlines: true })).toMatchObject({ ok: true })
     expect(s.history.undo).toBe(0)
     const list = await s.sheets()
@@ -71,6 +75,19 @@ describe("localSource: View > Show", () => {
     expect((await s.sheets())[1]).toMatchObject({ name: 'B', gridlines: false })
     await s.redo()
     expect((await s.sheets())[1]).toMatchObject({ name: 'C', gridlines: false })
+  })
+
+  it('brings a deleted sheet back with them on undo; a new sheet of its name has none', async () => {
+    const s = book()
+    await s.show('B', { gridlines: false, headings: false })
+    await s.structure({ op: 'deleteSheet', sheet: 'B' })
+    await s.undo()
+    expect((await s.sheets())[1]).toMatchObject({ name: 'B', gridlines: false, headings: false })
+    await s.redo()
+    expect((await s.sheets()).map((x) => x.name)).toEqual(['A'])
+    await s.structure({ op: 'insertSheet', name: 'B' })
+    expect((await s.sheets())[1]).toMatchObject({ name: 'B' })
+    expect((await s.sheets())[1]!.gridlines).toBeUndefined()
   })
 })
 
