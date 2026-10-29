@@ -77,12 +77,12 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     return refs
   }
 
-  /** The formulas of the selection's cells except the active one, by window (body, frozen rows, frozen columns) and row by row; each cell once, up to the limit. */
+  /** The formulas of the selection's cells except the active one, by window (body, frozen rows, frozen columns, a split window's panes) and row by row; each cell once, up to the limit. */
   function selectionFormulas(r: CellRect, take: (formula: string) => void): void {
     // Cells change in place: a computed that reads them follows the windows' revision.
     void w.revision.value
     let cells = 0
-    for (const kind of ['body', 'top', 'left'] as const) {
+    for (const kind of ['body', 'top', 'left', 'corner'] as const) {
       const slot = w.slots[kind].value
       const win = slot.win
       if (!win || slot.view !== w.viewKey()) continue

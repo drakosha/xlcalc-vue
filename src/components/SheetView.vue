@@ -27,6 +27,7 @@ import CreateNamesDialog from './CreateNamesDialog.vue'
 import StatisticsDialog from './StatisticsDialog.vue'
 import SheetGrid from './SheetGrid.vue'
 import SheetMenu from './SheetMenu.vue'
+import SheetSplit from './SheetSplit.vue'
 import SheetTabs from './SheetTabs.vue'
 import SpellingDialog from './SpellingDialog.vue'
 import TableDialog from './TableDialog.vue'
@@ -100,7 +101,8 @@ const wait = ctx.w.wait
       <FindBar v-if="ctx.find.isOpen.value" />
       <div class="xs-main">
         <div class="xs-body">
-          <SheetGrid />
+          <SheetSplit v-if="ctx.panes.on.value" />
+          <SheetGrid v-else />
           <!-- A workbook being recalculated: the sheet waits over the grid with a stopwatch and requests again every second. -->
           <div v-if="wait" class="xs-wait" role="status" aria-live="polite" data-xs-wait>
             <IconSpinner class="xs-spin xs-wait-icon" />

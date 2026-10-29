@@ -1,4 +1,5 @@
-// Data windows: three slots (body, frozen rows, frozen columns), loaded as the grid scrolls, patched by edits, re-read in place on a repaint.
+// Data windows: three slots (body, frozen rows, frozen columns), or a slot for each pane of a split window, loaded as the grid
+// scrolls, patched by edits, re-read in place on a repaint.
 // Window rows are display indexes (`d`): with a display filter they are positions in its list, not the sheet's rows.
 import { computed, nextTick, ref, shallowRef, triggerRef, type ShallowRef } from 'vue'
 import { cellAddress, parseCell, parseRange } from 'xlcalc/a1'
@@ -10,6 +11,7 @@ import { isBlank } from '../stats'
 import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
 import { lookStyle } from './conditional'
 import { rowPx, type Geometry } from './geometry'
+import type { Panes } from './panes'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
 
@@ -23,7 +25,8 @@ const PENDING_POLLS_MAX = 200
 /** A repaint that follows the previous one within this interval waits as long for more before requesting. */
 const REPAINT_DELAY_MS = 80
 
-export type SlotKind = 'body' | 'top' | 'left'
+/** The slots: the body, frozen rows and frozen columns; a split window's panes take them, and its top left pane the corner. */
+export type SlotKind = 'body' | 'top' | 'left' | 'corner'
 
 /** A window's range by display rows. */
 interface Area {
@@ -60,7 +63,7 @@ export interface Slot {
   stale: boolean
 }
 
-interface Need {
+export interface Need {
   r1: number
   r2: number
   c1: number
@@ -96,9 +99,9 @@ function shownStyle(w: SheetWindow, addr: string, look: ConditionalAppearance | 
   return lookStyle(id === undefined ? undefined : w.styles[id], look?.style)
 }
 
-export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
-  const slots: Record<SlotKind, ShallowRef<Slot>> = { body: shallowRef(newSlot()), top: shallowRef(newSlot()), left: shallowRef(newSlot()) }
-  const order: SlotKind[] = ['body', 'top', 'left']
+export function useWindows(s: SheetState, v: Viewport, geo: Geometry, panes?: Panes) {
+  const slots: Record<SlotKind, ShallowRef<Slot>> = { body: shallowRef(newSlot()), top: shallowRef(newSlot()), left: shallowRef(newSlot()), corner: shallowRef(newSlot()) }
+  const order: SlotKind[] = ['body', 'top', 'left', 'corner']
   /** Generation of the workbook and sheet: a response sent before a switch must not overwrite fresh data. */
   let epoch = 0
 
@@ -261,8 +264,11 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     return ''
   })
 
-  /** The range a slot must hold: the body under the scroll, frozen rows across the body, frozen columns down it. */
+  /** The range a slot must hold: the body under the scroll, frozen rows across the body, frozen columns down it; a split window's pane what it draws. */
   function needOf(kind: SlotKind): Need | null {
+    const paned = panes?.needs.value
+    if (paned) return paned[kind] ?? null
+    if (kind === 'corner') return null
     if (kind === 'body') return { r1: v.firstRow.value, r2: v.lastRow.value, c1: v.firstCol.value, c2: v.lastCol.value }
     if (kind === 'top') return v.frozenRows.value ? { r1: 1, r2: v.frozenRows.value, c1: 1, c2: v.lastCol.value } : null
     return v.frozenCols.value ? { r1: v.firstRow.value, r2: v.lastRow.value, c1: 1, c2: v.frozenCols.value } : null
@@ -289,12 +295,16 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     // Margins only up to the grid's end; beyond the source's known edge there is nothing to request.
     const lastCol = Math.max(1, Math.min(s.colCount.value, edgeCols()))
     const lastRow = Math.max(1, Math.min(s.rowCount.value, edgeRows()))
-    const col = kind === 'left' ? 1 : Math.max(1, Math.min(need.c1, lastCol) - FETCH_COLS)
-    const cols = kind === 'left' ? Math.min(need.c2, lastCol) : Math.min(MAX_COLS, Math.min(need.c2 + FETCH_COLS, lastCol) - col + 1)
+    // frozen rows and columns are read from the first; a split window's panes scroll as the body does
+    const paned = !!panes?.needs.value
+    const frozenTop = kind === 'top' && !paned
+    const frozenLeft = kind === 'left' && !paned
+    const col = frozenLeft ? 1 : Math.max(1, Math.min(need.c1, lastCol) - FETCH_COLS)
+    const cols = frozenLeft ? Math.min(need.c2, lastCol) : Math.min(MAX_COLS, Math.min(need.c2 + FETCH_COLS, lastCol) - col + 1)
     // The margin above shrinks when the cell limit leaves little room beyond what is drawn (a sheet zoomed out), so the window still covers it.
     const spare = Math.max(0, Math.floor(maxCells / Math.max(1, cols)) - (need.r2 - need.r1 + 1))
-    const row = kind === 'top' ? 1 : Math.max(1, Math.min(need.r1, lastRow) - Math.min(FETCH_ROWS, Math.floor(spare / 2)))
-    const rows = kind === 'top' ? Math.min(need.r2, lastRow) : Math.max(1, rowsFor(maxCells, Math.min(need.r2 + FETCH_ROWS, lastRow) - row + 1, cols))
+    const row = frozenTop ? 1 : Math.max(1, Math.min(need.r1, lastRow) - Math.min(FETCH_ROWS, Math.floor(spare / 2)))
+    const rows = frozenTop ? Math.min(need.r2, lastRow) : Math.max(1, rowsFor(maxCells, Math.min(need.r2 + FETCH_ROWS, lastRow) - row + 1, cols))
     const filter = s.visible.value
     const req: WindowRequest = { sheet: s.sheetName.value, row, rows, col, cols, ...(filter ? { filter: filter.spec } : {}) }
     const view = viewKey()
@@ -336,9 +346,10 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
         const done = fresh
         fresh = null
         const held = anchorNow()
+        const kept = panes?.hold() ?? null
         resetSizes()
         done()
-        takeSizes(got, held)
+        takeSizes(got, held, kept)
       } else takeSizes(got)
       const width = Math.max(got.widths.length, got.text[0]?.length ?? 0)
       // A window shorter than requested, at or beyond the data's edge: the source stops there, and the grid will not request beyond it.
@@ -409,7 +420,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
    * Widths, heights and the default height from a window, changed in place; rows above the viewport keep it steady when their
    * heights change, measured from `held` when the sizes were reset before (a reload).
    */
-  function takeSizes(w: SheetWindow, held?: { anchor: number; before: number }): void {
+  function takeSizes(w: SheetWindow, held?: { anchor: number; before: number }, kept?: (() => void) | null): void {
     const widths = s.bookWidths.value
     let widthsChanged = false
     w.widths.forEach((width, i) => {
@@ -434,8 +445,11 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry) {
     const def = rowPx(w.defaultRowHeight ?? DEFAULT_ROW_HEIGHT)
     if (!held && !rows.length && def === s.defaultRowPx.value) return
     const { anchor, before } = held ?? anchorNow()
+    // a split window's other row of panes stays steady too
+    const keep = held ? kept : panes?.hold()
     geo.setHeights(rows)
     s.defaultRowPx.value = def
+    keep?.()
     const after = geo.rowOffsets.value[anchor - 1] ?? 0
     const el = s.scroller.value
     if (el && after !== before && s.scrollTop.value > 0) {

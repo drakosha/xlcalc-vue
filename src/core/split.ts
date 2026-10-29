@@ -1,15 +1,13 @@
-// Excel's View > Split: the split window placed as Excel places it from the active cell, kept through the source's `split`
-// (a view setting, not an undo step). The sheet keeps and reports the split; it draws a single pane.
+// Excel's View > Split: the split window placed as Excel places it from the active cell, moved and removed with its bars, kept
+// through the source's `split` (a view setting, not an undo step). The panes themselves are drawn and scrolled by `panes`.
 import { computed } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import { errorText } from '../failure'
 import type { SheetSplit } from '../contract/source'
 import type { Geometry } from './geometry'
+import { colGroup, PANE_NAMES, PT, rowGroup, type Panes } from './panes'
 import type { SheetState } from './state'
 import type { Viewport } from './viewport'
-
-/** Points in a CSS pixel: the file's split lines are points on the screen. */
-const PT = 0.75
 
 /** Where a window's split goes: lines after `rows` and `cols` of the window's first row and column (0: no line on that axis). */
 export interface SplitPlace {
@@ -22,6 +20,9 @@ export interface SplitPlace {
  * the left of the active cell, counted from the window's first row and column, so a cell in the first row gives a vertical
  * line alone and one in the first column a horizontal one; the window's first cell active splits it at its middle (`middle`).
  */
+/** Screen pixels to the file's points, to a twentieth of a point as xlsx keeps them. */
+const points = (px: number): number => Math.round(px * PT * 20) / 20
+
 export function splitPlace(active: { d: number; col: number }, first: { d: number; col: number }, middle: () => SplitPlace): SplitPlace {
   const rows = active.d - first.d
   const cols = active.col - first.col
@@ -29,7 +30,7 @@ export function splitPlace(active: { d: number; col: number }, first: { d: numbe
   return { rows: Math.max(0, rows), cols: Math.max(0, cols) }
 }
 
-export function useSplit(s: SheetState, geo: Geometry, v: Viewport, notify: (text: string) => void) {
+export function useSplit(s: SheetState, geo: Geometry, v: Viewport, panes: Panes, notify: (text: string) => void) {
   const split = computed(() => s.sheet.value?.split ?? null)
   /** Split is offered: the source keeps it, the sheet is editable, has no frozen panes (which take its place) and no display filter. */
   const available = computed(() => !!s.sheet.value && s.editable.value && !!s.sourceMethod('split') && !v.bookFreeze.value && !s.visible.value)
@@ -55,14 +56,13 @@ export function useSplit(s: SheetState, geo: Geometry, v: Viewport, notify: (tex
     })
     const at = splitPlace({ d, col: a.col }, first, middle)
     if (at.rows <= 0 && at.cols <= 0) return null
-    const pt = (px: number) => Math.round(px * s.zoom.value * PT * 20) / 20
     const rows = geo.rowOffsets.value
     const cols = geo.offsets.value
     const row = first.d + at.rows
     const col = first.col + at.cols
     const out: SheetSplit = { topLeft: cellAddress(s.rowOf(row), col) }
-    if (at.cols > 0) out.x = pt(v.leadW.value + (cols[col - 1] ?? 0) - (cols[first.col - 1] ?? 0))
-    if (at.rows > 0) out.y = pt(v.headH.value + (rows[row - 1] ?? 0) - (rows[first.d - 1] ?? 0))
+    if (at.cols > 0) out.x = points((v.leadW.value + (cols[col - 1] ?? 0) - (cols[first.col - 1] ?? 0)) * s.zoom.value)
+    if (at.rows > 0) out.y = points((v.headH.value + (rows[row - 1] ?? 0) - (rows[first.d - 1] ?? 0)) * s.zoom.value)
     // the active cell stays in the pane past the lines, unless the window's first cell split it at its middle
     if (d >= row && a.col >= col) out.activePane = at.rows > 0 && at.cols > 0 ? 'bottomRight' : at.rows > 0 ? 'bottomLeft' : 'topRight'
     return out
@@ -76,6 +76,33 @@ export function useSplit(s: SheetState, geo: Geometry, v: Viewport, notify: (tex
     if (next === !!was) return next
     const value = next ? placed() : null
     if (next && !value) return false
+    store(value)
+    return next
+  }
+
+  /**
+   * The lines where a bar was dragged to (screen pixels from the window's edges, null for a line removed): the split there,
+   * with the second panes' scroll as its `topLeft` and the active pane; none once both lines are gone. A read-only sheet
+   * moves its lines on screen only, as the source keeps nothing for it.
+   */
+  function move(lines: { x: number | null; y: number | null }): void {
+    const was = split.value
+    if (!was) return
+    let next: SheetSplit | null = null
+    if (lines.x !== null || lines.y !== null) {
+      const row = s.rowOf(geo.rowAt(panes.topOf(lines.y !== null ? 1 : 0)))
+      const col = geo.colAt(panes.leftOf(lines.x !== null ? 1 : 0))
+      const id = panes.active.value
+      const pane = PANE_NAMES[(lines.y !== null ? rowGroup(id) : 0) * 2 + (lines.x !== null ? colGroup(id) : 0)]!
+      next = { ...(lines.x !== null ? { x: points(lines.x) } : {}), ...(lines.y !== null ? { y: points(lines.y) } : {}), topLeft: cellAddress(row, col), ...(pane !== 'topLeft' ? { activePane: pane } : {}) }
+    }
+    if (available.value) store(next)
+    else put(s.sheetName.value, next)
+  }
+
+  /** Sets the split at once and keeps it through the source; a refusal puts it back. */
+  function store(value: SheetSplit | null): void {
+    const was = split.value
     const sheet = s.sheetName.value
     put(sheet, value)
     const outdated = s.outdated()
@@ -89,10 +116,9 @@ export function useSplit(s: SheetState, geo: Geometry, v: Viewport, notify: (tex
       put(sheet, was)
       notify(text || s.messages.value.editFailed)
     }
-    return next
   }
 
-  return { split, available, toggle }
+  return { split, available, toggle, move }
 }
 
 export type Split = ReturnType<typeof useSplit>
