@@ -396,7 +396,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 | `zoom` | `number?` | The sheet's saved zoom in percent (xlsx `zoomScale`), with which it opens; 100 without it. |
 | `gridlines`, `headings` | `boolean?` | False hides the gridlines, or the row numbers and column letters, as Excel's View > Show does (xlsx `showGridLines`, `showRowColHeaders`); shown by default ([view.md](view.md#gridlines-and-headings)). |
 | `tabColor` | `string?` | Excel's Tab Color, `#RRGGBB`: another tab is filled with it, the active one underlined in it ([sheets.md](sheets.md#tab-color)). |
-| `autoFilter` | `{ range }?` | Excel's AutoFilter outside a table, header row first (`A1:D20`): the filter buttons on its header row, the display filter over its rows below ([autofilter.md](autofilter.md)). `./local` gives xlcalc's `SheetInput.autoFilter`. |
+| `autoFilter` | `{ range }?` | Excel's AutoFilter outside a table, header row first (`A1:D20`): the filter buttons on its header row, the display filter over its rows below ([autofilter.md](autofilter.md)). It is the range the AutoFilter acts on: `./local` gives xlcalc's `getAutoFilterRange`, the stored `SheetInput.autoFilter` down to the last row of its current region, and sends `sheets` when an edit changes it. |
 | `protection` | `SheetProtection?` | Excel's Protect Sheet: the sheet is protected, with what users may still do (xlcalc's `SheetProtection`, the boxes of Excel's dialog; `{}` is its default). A locked cell (`CellStyle.protection` in the window's `styles`) takes no edit and a hidden one's formula is not displayed ([protection.md](protection.md)). |
 
 ### Edits and outcomes
@@ -416,6 +416,7 @@ A window is a rectangular block of cells that the sheet reads from the source as
 - `{ kind: 'reload'; message? }`: the sheets and windows are read again.
 - `{ kind: 'repaint'; ranges: { sheet; range }[] }`: the windows that overlap the ranges are re-read in place.
 - `{ kind: 'calculation'; calculation: SheetCalculation }`: the calculation option changed, or cells began or stopped waiting for a calculation; the status bar follows it.
+- `{ kind: 'sheets' }`: the sheets' information changed without their cells (an AutoFilter's range after data typed under it): the sheets are read again, and the windows and the display filter's rows stay.
 
 `CalculationMode` is `'automatic' | 'autoNoTable' | 'manual'` (Excel's Automatic, Automatic Except for Data Tables and Manual), and `SheetCalculation` is `{ mode: CalculationMode; pending: boolean }`.
 

@@ -208,4 +208,27 @@ describe('the conditions follow the AutoFilter', () => {
     expect(buttons(w)).toEqual([])
     expect(w.find('[data-xs-filter-status]').exists()).toBe(false)
   })
+  it('a range grown by data typed under it (`sheets`) applies at Reapply, as Excel filters the new rows then', async () => {
+    const b = book()
+    const source = memorySource(b)
+    const visibleRows = vi.spyOn(source, 'visibleRows')
+    const window = vi.spyOn(source, 'window')
+    const w = await mountSheet(source, { readOnly: true })
+    await filterOut(w, 2, 'b')
+    expect(visibleRows).toHaveBeenLastCalledWith('S', { head: 2, last: 6, cols: { 2: { values: ['a'] } } }, expect.any(AbortSignal))
+    const lists = visibleRows.mock.calls.length
+    const windows = window.mock.calls.length
+    b.sheets[0]!.autoFilter = { range: 'A2:B8' }
+    source.emit({ kind: 'sheets' })
+    await settle()
+    // the sheet knows the range, and the rows stay as filtered: no list and no window read again
+    expect((w.emitted('state')!.at(-1)![0] as SheetViewState).autoFilter).toBe('A2:B8')
+    expect(visibleRows.mock.calls.length).toBe(lists)
+    expect(window.mock.calls.length).toBe(windows)
+    expect(numbers(w).slice(0, 6)).toEqual(['1', '2', '3', '5', '7', '8'])
+    await key(w, 'l', { ctrlKey: true, altKey: true })
+    await settle()
+    expect(visibleRows).toHaveBeenLastCalledWith('S', { head: 2, last: 8, cols: { 2: { values: ['a'] } } }, expect.any(AbortSignal))
+    expect(numbers(w).slice(0, 5)).toEqual(['1', '2', '3', '5', '8'])
+  })
 })

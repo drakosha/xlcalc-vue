@@ -242,7 +242,11 @@ export interface SheetInfo {
   gridlines?: boolean
   /** False hides the row numbers and column letters (Excel's View > Show > Headings, xlsx `showRowColHeaders`); shown by default. */
   headings?: boolean
-  /** Excel's AutoFilter outside a table (xlcalc's `SheetInput.autoFilter`): its range, header row first (`A1:D20`); the filter buttons are on that row, and the display filter applies to the rows below it. */
+  /**
+   * Excel's AutoFilter outside a table: the range it acts on, header row first (`A1:D20`); the filter buttons are on that
+   * row, and the display filter applies to the rows below it. Data typed under it may grow the range (xlcalc's
+   * `getAutoFilterRange`), and a source that grows it sends `sheets`.
+   */
   autoFilter?: { range: string }
   /**
    * Excel's Protect Sheet: the sheet is protected, with what users may still do (`{}`: selecting cells only, Excel's
@@ -482,3 +486,5 @@ export type SourceEvent =
   | { kind: 'repaint'; ranges: { sheet: string; range: string }[] }
   /** The calculation option changed, or cells began or stopped waiting for a calculation. */
   | { kind: 'calculation'; calculation: SheetCalculation }
+  /** The sheets' information changed without their cells (an AutoFilter's range grown by data typed under it): read the sheets again, keeping the windows and the display filter's rows. */
+  | { kind: 'sheets' }

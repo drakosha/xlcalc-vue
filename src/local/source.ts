@@ -19,6 +19,7 @@ import type { LocalSource, LocalSourceOptions } from './types'
 import { manualCalculation } from './manual'
 import { protectionGuard, protectSheet } from './protect'
 import { validationOf } from './validation'
+import { autoFilterRanges } from './autofilter'
 import { windowOf } from './window'
 import { workbookMethods } from './workbook'
 
@@ -49,8 +50,8 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
 /** The workbook's default font when it has none of its own: Calibri 11, in which xlcalc measures widths and `####`. */
 const CALIBRI_11 = { name: 'Calibri', size: 11 }
 
-/** A sheet of the workbook's layout with where its cells end and the workbook's default font, as the component lists it. */
-function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size: number }): SheetInfo {
+/** A sheet of the workbook's layout with where its cells end, the workbook's default font and the range its AutoFilter acts on, as the component lists it. */
+function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size: number }, autoFilter?: string): SheetInfo {
   const f = sheet.frozen
   const outline = outlineOf(outlineGroups(sheet), sheet.outline)
   return {
@@ -64,7 +65,7 @@ function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size:
     ...(sheet.tabColor ? { tabColor: sheet.tabColor } : {}),
     ...(sheet.view?.gridlines === false ? { gridlines: false } : {}),
     ...(sheet.view?.headings === false ? { headings: false } : {}),
-    ...(sheet.autoFilter ? { autoFilter: { range: sheet.autoFilter.range } } : {}),
+    ...(autoFilter ? { autoFilter: { range: autoFilter } } : {}),
     ...(sheet.protection ? { protection: sheet.protection } : {}),
     font,
   }
@@ -115,6 +116,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
 
   /** Excel's sheet protection, which the session does not enforce: each change to a protected sheet is checked first. */
   const guard = protectionGuard(locale, maxCells)
+  /** The ranges the sheets' AutoFilters act on, which data typed under them grows: an edit that moves one sends `sheets`. */
+  const filters = autoFilterRanges()
 
   /** The source's own changes in sequence: each starts from the state the previous one left. */
   let last: Promise<unknown> = Promise.resolve()
@@ -263,6 +266,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     else {
       if (changes.length) emit({ kind: 'changed', changes })
       if (got.repaint?.length) repaint(got.repaint)
+      if (await filters.moved(s, changes)) emit({ kind: 'sheets' })
     }
     return { ok: true, changes }
   }
@@ -521,11 +525,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     async sheets(signal) {
       const s = await open()
       const layout = await s.getLayout()
-      const used = await Promise.all(layout.sheets.map((x) => s.getUsedRange(x.name)))
+      const [used, ranges] = await Promise.all([Promise.all(layout.sheets.map((x) => s.getUsedRange(x.name))), filters.list(s, layout.sheets)])
       throwIfAborted(signal)
       // xlcalc 0.59 gives the workbook's default font; an older one, or a workbook without it, is Calibri 11
       const font = layout.font ?? CALIBRI_11
-      return layout.sheets.map((x, i) => info(viewed(x), used[i]!, font))
+      return layout.sheets.map((x, i) => info(viewed(x), used[i]!, font, ranges[i]))
     },
     async window(req: WindowRequest, signal) {
       const s = await open()

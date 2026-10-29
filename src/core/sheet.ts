@@ -386,6 +386,21 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (filter.active.value) void filter.refresh()
     w.ensure()
   }
+  /** The source's `sheets` event: the sheets read again with the windows, sizes and the display filter's rows kept; a reload started meanwhile wins. */
+  async function relist(): Promise<void> {
+    const since = reloadSeq
+    const outdated = s.outdated()
+    const name = s.sheetName.value
+    try {
+      const list = await s.source().sheets()
+      const i = list.findIndex((x) => sameName(x.name, name))
+      if (since !== reloadSeq || outdated() || i < 0) return
+      s.sheets.value = look.apply(list)
+      s.active.value = i
+    } catch {
+      // the sheets stay as they were until the next reload
+    }
+  }
   function retry(): void {
     void init()
   }
@@ -637,6 +652,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
           w.repaint(event.ranges)
         }
         else if (event.kind === 'calculation') return calc.told(event.calculation)
+        else if (event.kind === 'sheets') return void relist()
         else {
           if (event.message) notify(event.message)
           void reload()
