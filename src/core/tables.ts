@@ -31,11 +31,11 @@ export const absoluteRange = (r: CellRect): string => {
 }
 
 /**
- * Excel's current region around a cell (`Range.CurrentRegion`): the range grown, a row or column at a time, while the row or
+ * Excel's current region around a cell or a range (`Range.CurrentRegion`): the range grown, a row or column at a time, while the row or
  * column just outside it, corners included, has a non-empty cell. `filled` answers within `area`; cells outside it count as empty.
  */
-export function currentRegion(at: CellPosition, area: CellRect, filled: (row: number, col: number) => boolean): CellRect {
-  const r = cellRect(at.row, at.col)
+export function currentRegion(at: CellPosition | CellRect, area: CellRect, filled: (row: number, col: number) => boolean): CellRect {
+  const r = 'row' in at ? cellRect(at.row, at.col) : { ...at }
   const any = (top: number, left: number, bottom: number, right: number): boolean => {
     for (let row = Math.max(top, area.top); row <= Math.min(bottom, area.bottom); row++)
       for (let col = Math.max(left, area.left); col <= Math.min(right, area.right); col++) if (filled(row, col)) return true

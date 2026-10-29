@@ -28,6 +28,8 @@ export function filterColumns(filter: SheetFilter): number[] {
 }
 
 const headOf = (filter: SheetFilter, maxRow: number) => Math.min(Math.max(0, Math.trunc(filter.head)), maxRow)
+/** The last row the conditions and the sort apply to: an AutoFilter's last row, otherwise the sheet's. */
+const lastOf = (filter: SheetFilter, maxRow: number) => (filter.last === undefined ? maxRow : Math.min(Math.max(headOf(filter, maxRow), Math.trunc(filter.last)), maxRow))
 
 /** The column conditions as a row test, with one column excluded (its own funnel lists the rows the others keep). */
 function conditions(sheet: QuerySheet, filter: SheetFilter, except?: number): (row: number) => boolean {
@@ -47,12 +49,16 @@ const sortKey = (v: CellValue | undefined): CellValue => (v === undefined || v =
 /** Excel's order of values, with text in the order of `locale` (a loaded locale's tag; en-US's without one). */
 const orderOf = (locale: string | undefined, descending = false) => valueComparator({ descending, ...(locale ? { locale } : {}) })
 
-/** The sheet's rows in display order: the header rows as they are, then the rows that match every condition, sorted when requested (stable, empty cells last), with text in `locale`'s order. */
+/**
+ * The sheet's rows in display order: the header rows as they are, then the rows up to `last` that match every condition,
+ * sorted when requested (stable, empty cells last), with text in `locale`'s order, then the rows below `last` as they are.
+ */
 export function visibleList(sheet: QuerySheet, filter: SheetFilter, locale?: string): number[] {
   const head = headOf(filter, sheet.maxRow)
+  const last = lastOf(filter, sheet.maxRow)
   const meets = conditions(sheet, filter)
   const body: number[] = []
-  for (let r = head + 1; r <= sheet.maxRow; r++) if (meets(r)) body.push(r)
+  for (let r = head + 1; r <= last; r++) if (meets(r)) body.push(r)
   const sort = filter.sort
   let rows = body
   if (sort) {
@@ -62,16 +68,16 @@ export function visibleList(sheet: QuerySheet, filter: SheetFilter, locale?: str
     order.sort((i, j) => compare(keys[i]!, keys[j]!))
     rows = order.map((i) => body[i]!)
   }
-  const out: number[] = []
-  for (let r = 1; r <= head; r++) out.push(r)
-  return out.concat(rows)
+  const above = Array.from({ length: head }, (_, i) => i + 1)
+  const below = Array.from({ length: sheet.maxRow - last }, (_, i) => last + 1 + i)
+  return above.concat(rows, below)
 }
 
-/** A column's funnel list: its displayed texts with their counts over the rows the other columns' conditions keep, '' for empty cells, in the sort's order. */
+/** A column's funnel list: its displayed texts with their counts over the rows up to `last` the other columns' conditions keep, '' for empty cells, in the sort's order. */
 export function columnList(sheet: QuerySheet, col: number, filter: SheetFilter, locale?: string): { values: { text: string; count: number }[]; more: number } {
   const meets = conditions(sheet, filter, col)
   const counts = new Map<string, { count: number; value: CellValue }>()
-  for (let r = headOf(filter, sheet.maxRow) + 1; r <= sheet.maxRow; r++) {
+  for (let r = headOf(filter, sheet.maxRow) + 1, last = lastOf(filter, sheet.maxRow); r <= last; r++) {
     if (!meets(r)) continue
     const text = sheet.textAt(r, col)
     const got = counts.get(text)
