@@ -137,7 +137,7 @@ function onContext(e: MouseEvent): void {
 function onPress(e: PointerEvent): void {
   if (pane !== undefined && !active.value && !ctx.editor.value && e.target !== e.currentTarget) root.panes.activate(pane)
 }
-/** After a press with an edit open: the pane becomes active once the press moved the selection to it (a reference pointed at keeps the edit's pane). */
+/** After a press that `onPress` left (an edit was open): the pane becomes active once the press moved the selection to it; a reference pointed at keeps the edit's pane. */
 function follow(was: unknown[]): void {
   if (pane === undefined || active.value || (was[0] === ctx.selected.value && was[1] === ctx.extent.value)) return
   root.panes.activate(pane)
