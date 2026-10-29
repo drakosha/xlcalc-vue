@@ -517,10 +517,11 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return { ok: true, changes }
   }
 
-  /** Excel's View > Show: kept by the source (`shows`), not an undo step; a sheet the workbook does not have is refused. */
+  /** Excel's View > Show: kept by the source (`shows`), not an undo step; subscribers read the sheets again (`reload`). A sheet the workbook does not have is refused. */
   async function show(s: AsyncSession, sheet: string, what: SheetShow): Promise<EditOutcome> {
     if (!(await s.getLayout()).sheets.some((x) => sameName(x.name, sheet))) return failed(`No sheet ${sheet}`)
     shows.set(nameKey(sheet), { ...shows.get(nameKey(sheet)), ...what })
+    emit({ kind: 'reload' })
     return { ok: true, changes: [] }
   }
 
