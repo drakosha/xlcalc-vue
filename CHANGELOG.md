@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+Built over xlcalc 0.68.0. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.68.0 or later (the peer range is `>=0.68.0`).
+
 ## 0.30.0 (2026-10-29)
 
 What xlcalc 0.61.0 to 0.67.0 added for a sheet: sheet protection, the AutoFilter, calculation options, Paste Special in full, Go To Special, Create from Selection, the split window, tab color, gridlines and headings, rotated text, notes shown all the time and Workbook Statistics; the dialogs in Excel for Windows' words. Built over xlcalc 0.67.0. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.67.0 or later (the peer range is `>=0.67.0`, it was `>=0.46.0`). A host that stored a workbook read with `keep: true` opens its file again before saving over it (`KeptRefusal` `layout`, below). Nothing else breaks for a host; a host that switches over every `SourceEvent` kind gets two kinds more (`calculation`, `sheets`).
