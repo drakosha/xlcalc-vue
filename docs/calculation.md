@@ -49,6 +49,12 @@ await source.setCalculation('automatic')
 - Find with Look in Values, the selection's totals on the status bar and Copy read the calculated values of the cells that wait, where Excel reads the values shown. The display filter and its lists read the values shown.
 - In Automatic, F9 recalculates nothing: the session's values are current. Excel recalculates volatile functions such as `RAND` and `NOW` on F9.
 
+## Refresh All
+
+Excel's Data > Refresh All (Ctrl+Alt+F5) asks a workbook's connections again. The sheet sends it to a source with `refreshConnections`: Ctrl+Alt+F5 on the grid, `SheetViewApi.refreshAll()` for a ribbon (`state.canRefreshAll` says whether it is available), and the toolbar's `refreshAll` group. In `@xlcalc/vue/local` it is xlcalc 0.68.0's `refreshConnections`, offered when the host answers calls outside the workbook (`session.externals`): the answers the session kept are dropped and every call of the host's functions and of the functions of connections is asked again, the formulas keeping the value their file stores among them; the cells it changes reach the sheet as an edit's, and answers still on their way arrive later ([local.md](local.md#calls-outside-the-workbook)).
+
+Refresh All is not a step of undo, as Excel does not undo it; the steps the list held stay. In Manual the cells it calculates wait for a calculation as after an edit, since the formulas over a connection take its new data when the workbook is calculated (not measured in Excel).
+
 ## A ribbon's Calculation Options
 
 The sheet has no ribbon; a host adds the menu as one of `SheetToolbar`'s buttons, with the option the `state` event reports:

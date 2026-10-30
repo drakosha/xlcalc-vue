@@ -466,6 +466,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     return settle(s, await s.setExternalBooks(books), [])
   }
 
+  /**
+   * Excel's Refresh All (xlcalc 0.68's `refreshConnections`): the answers kept are dropped and the calls asked again, not a
+   * step of undo; its changes are sent as an edit's, so in Manual the cells it calculated wait for a calculation.
+   */
+  async function refresh(s: AsyncSession, names?: string[]): Promise<EditOutcome> {
+    return settle(s, await s.refreshConnections(names), [])
+  }
+
   /** A change of what the sheet shows that is no change of the workbook: after the pending changes, outside undo. */
   const showing = <A extends unknown[]>(run: (s: AsyncSession, ...args: A) => Promise<EditOutcome>) => serial(async (...args: A) => run(await open(), ...args).catch(failedBy))
 
@@ -792,6 +800,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       return calcMode.state()
     },
     setExternalBooks: mutation(externalBooks, refusedBy),
+    // Refresh All asks the host again: a source without `externals` has no calls to ask
+    ...(opts.session?.externals ? { refreshConnections: mutation(refresh, failedBy) } : {}),
     calculate: showing(calculate),
     setCalculation: showing(setCalculation),
     async close() {

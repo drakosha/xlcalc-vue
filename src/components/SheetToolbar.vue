@@ -3,7 +3,8 @@
 // fill colors, borders, vertical and horizontal alignment, indent, wrapping, Merge & Center with its dropdown (through the
 // sheet, with the source's `structure`), Excel's Number Format box (xlcalc's, in the workbook's locale) and Percent Style,
 // applied to the selection the sheet's `state` event reports, Format Cells for a host that displays the dialog, and AutoSum
-// with its list (through the sheet, with the source's `autoSum`); `items` picks and orders the groups and adds the host's
+// with its list (through the sheet, with the source's `autoSum`), and Data > Refresh All (through the sheet, with the source's
+// `refreshConnections`); `items` picks and orders the groups and adds the host's
 // buttons. In a narrow viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
 import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
@@ -57,6 +58,7 @@ import {
   IconAlignRight,
   IconAlignTop,
   IconAutoSum,
+  IconRefreshAll,
   IconBold,
   IconBorderAll,
   IconBorderBottom,
@@ -446,6 +448,12 @@ function autoSum(fn: AutoSumFunction): void {
   closeAll()
   if (props.state?.canAutoSum) void props.sheet?.autoSum(fn)
 }
+/** Excel's Data > Refresh All through the sheet: every call outside the workbook asked again, not a step of undo. */
+function refreshAll(): void {
+  closeAll()
+  const sheet = props.sheet
+  if (sheet && props.state?.canRefreshAll) void run(() => sheet.refreshAll())
+}
 /** More Functions…: Excel's Insert Function dialog over the sheet. */
 function moreFunctions(): void {
   closeAll()
@@ -724,6 +732,11 @@ function pickNumber(e: Event): void {
               </button>
             </div>
           </span>
+        </span>
+        <span v-else-if="blk.group === 'refreshAll' && sheet && source.refreshConnections" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
+          <button type="button" class="xs-tool" data-tb="refresh-all" :data-tip="m.refreshAll" :aria-label="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">
+            <IconRefreshAll />
+          </button>
         </span>
         <span v-else-if="blk.buttons" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <template v-for="x in blk.buttons" :key="x.id">

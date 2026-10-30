@@ -557,6 +557,7 @@ export const enMessages: SheetMessages = {
   dvOrder: (min, max) => `The ${max} must be greater than or equal to the ${min}.`,
   calculateStatus: 'Calculate',
   calculateHint: 'Calculate Now (F9)',
+  refreshAll: 'Refresh All (Ctrl+Alt+F5)',
   ...enConditional,
   ...enProtection,
 }
@@ -1133,6 +1134,7 @@ export const ruMessages: SheetMessages = {
   dvOrder: (min, max) => `Значение в поле «${max}» должно быть больше или равно значению в поле «${min}».`,
   calculateStatus: 'Вычислить',
   calculateHint: 'Пересчет (F9)',
+  refreshAll: 'Обновить все (Ctrl+Alt+F5)',
   ...ruConditional,
   ...ruProtection,
 }

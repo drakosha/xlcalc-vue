@@ -130,3 +130,73 @@ describe('localSource: answers on their way', () => {
     expect(seen.events).toEqual([])
   })
 })
+
+describe('localSource: Refresh All', () => {
+  /** A resolver answering at once, a new answer each time it is asked: the call's argument times ten plus the asks so far. */
+  function counting() {
+    let asks = 0
+    const resolve: ExternalResolver = ({ args }) => (args[0] as number) * 10 + asks++
+    return { resolve, asks: () => asks }
+  }
+
+  it('asks every call again and sends what changed, not as a step of undo', async () => {
+    const r = counting()
+    const s = source(balances(), { session: { externals: { functions: ['BAL'], resolve: r.resolve } } })
+    await s.ready
+    expect(await row(s)).toEqual([2, 40, 41])
+    await s.edit([{ sheet: 'S', cell: 'D1', text: 'x' }])
+    expect(s.history).toEqual({ undo: 1, redo: 0 })
+    const seen = changes(s)
+    const got = await s.refreshConnections!()
+    expect(got.ok && got.changes.map((c) => `${c.cell}=${JSON.stringify(c.value)}`)).toEqual(['B1=42', 'C1=43'])
+    expect(seen.text()).toEqual(['S!B1=42', 'S!C1=43'])
+    expect(s.history).toEqual({ undo: 1, redo: 0 })
+    // the step of undo is still the edit's
+    await s.undo()
+    expect((await win(s, 'S', 1, 1, 1, 4)).values[0]).toEqual([2, 42, 43, null])
+  })
+
+  it('asks again only the functions named', async () => {
+    const r = counting()
+    const book = balances()
+    book.sheets[0]!.cells.E1 = { formula: 'OTHER(1)' }
+    const s = source(book, { session: { externals: { functions: ['BAL', 'OTHER'], resolve: r.resolve } } })
+    await s.ready
+    const got = await s.refreshConnections!(['OTHER'])
+    expect(got.ok && got.changes.map((c) => `${c.cell}=${JSON.stringify(c.value)}`)).toEqual(['E1=12'])
+  })
+
+  it('answers on their way arrive after it as changes', async () => {
+    const r = held()
+    const calc = createInlineCalc({ timeoutMs: 20 })
+    calcs.push(calc)
+    const s = source(balances(), { calc, session: { externals: { functions: ['BAL'], resolve: r.resolve } } })
+    await s.ready
+    r.release()
+    await new Promise((go) => setTimeout(go, 30))
+    const seen = changes(s)
+    const got = await s.refreshConnections!()
+    expect(got.ok && got.changes.map((c) => [c.cell, c.value])).toEqual([['B1', BUSY], ['C1', BUSY]])
+    expect(r.calls.length).toBe(2)
+    r.release()
+    await seen.until('B1')
+    expect(await row(s)).toEqual([2, 40, 41])
+  })
+
+  it('in Manual the cells it calculated wait for a calculation', async () => {
+    const r = counting()
+    const s = source(balances('manual'), { session: { externals: { functions: ['BAL'], resolve: r.resolve } } })
+    await s.ready
+    const got = await s.refreshConnections!()
+    expect(got.ok && got.changes).toEqual([])
+    expect(await row(s)).toEqual([2, 40, 41])
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: true })
+    await s.calculate()
+    expect(await row(s)).toEqual([2, 42, 43])
+  })
+
+  it('is there only with the host answering calls outside the workbook', async () => {
+    expect(source(balances()).refreshConnections).toBeUndefined()
+    expect(typeof source(balances(), { session: { externals: { functions: ['BAL'] } } }).refreshConnections).toBe('function')
+  })
+})

@@ -151,6 +151,8 @@ const source = localSource(book, {
 
 A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in.
 
+Refresh All (`refreshConnections`, Ctrl+Alt+F5) asks every call again, or with `names` those of the functions named: the source has it only with `session.externals`, as without them nothing answers the calls, and the formulas keeping their file's values would lose them to the answers of a function without its connection. It is not a step of undo ([calculation.md](calculation.md#refresh-all)).
+
 In Manual, an answer shows in a cell the sheet shows waiting, since it ends the calculation that asked (a formula entered, Calculate Now); the cells that read it wait for a calculation as after an edit, and so does a cell whose waiting value is held while the sheet shows its value of the last calculation ([calculation.md](calculation.md#manual)). Not measured in Excel.
 
 ## Threads, the workbook and events
