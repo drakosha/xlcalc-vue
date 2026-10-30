@@ -75,6 +75,8 @@ export interface EditingDeps {
   /** The defined names visible on the sheet, in alphabetical order, and their order, for Formula AutoComplete; none without it. */
   names?: () => readonly string[]
   nameOrder?: (a: string, b: string) => number
+  /** Whether a defined name holds a LAMBDA, which AutoComplete inserts with "(" as a function. */
+  calls?: (name: string) => boolean
   /** The sheet's protection: a locked cell in a range shows Excel's alert and refuses the change (true); none without it. */
   protection?: { refuse: (rect: CellRect) => boolean }
 }
@@ -199,7 +201,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (focus) focusEditor()
   }
   /** Excel's Formula AutoComplete over the draft: the function list below the editor. */
-  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor, scan: f.scanOptions, names: deps.names, nameOrder: deps.nameOrder })
+  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor, scan: f.scanOptions, names: deps.names, nameOrder: deps.nameOrder, calls: deps.calls })
   /** Excel's argument tooltip for the function the caret is in, below the editor; the list takes precedence. */
   const tip = useFunctionTip({ source: s.source, editor, input: inputOf, scan: f.scanOptions, listOpen: () => ac.open.value })
   function onEditorInput(e: Event): void {

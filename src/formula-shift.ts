@@ -25,15 +25,19 @@ function shiftPart(part: string, rows: number, cols: number): string | null {
   return `${colAbs}${col}${rowAbs}${row}`
 }
 
-/** The text of a reference moved by `rows` and `cols`: its address after the sheet's `!`, one corner or two, a spill's `#` kept. */
+/** A range's colon with a trim reference's points around it (`:.`, `.:`, `.:.`), kept as written. */
+const COLON = /(\.?:\.?)/
+
+/** The text of a reference moved by `rows` and `cols`: its address after the sheet's `!`, one corner or two, a spill's `#` and a trim reference's points kept. */
 function shiftRef(text: string, rows: number, cols: number): string {
   const bang = text.lastIndexOf('!')
   const sheet = text.slice(0, bang + 1)
   let address = text.slice(bang + 1)
   const spill = address.endsWith('#') ? '#' : ''
   if (spill) address = address.slice(0, -1)
-  const parts = address.split(':').map((p) => shiftPart(p, rows, cols))
-  return parts.some((p) => p === null) ? text : `${sheet}${parts.join(':')}${spill}`
+  // split keeps the colon with its points at odd places, the corners at even ones
+  const pieces = address.split(COLON).map((p, i) => (i % 2 ? p : shiftPart(p, rows, cols)))
+  return pieces.some((p) => p === null) ? text : `${sheet}${pieces.join('')}${spill}`
 }
 
 /** `formula` (in the locale `opts` parses) with its relative references moved `rows` down and `cols` right; absolute parts, names and table references stay. */

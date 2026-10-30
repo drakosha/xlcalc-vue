@@ -2,7 +2,8 @@
 // Manager, undo, redo, a reload): which are visible on a sheet, the range each refers to, and replacing the list.
 import { computed, onScopeDispose, shallowRef } from 'vue'
 import { sameName } from 'xlcalc/a1'
-import type { CellRect } from 'xlcalc/contract'
+import type { CellRect, ScanOptions } from 'xlcalc/contract'
+import { callAt } from 'xlcalc/text'
 import { failedOutcome } from '../failure'
 import type { CellUpdate, EditOutcome } from '../contract/source'
 import type { SheetName } from '../contract/workbook'
@@ -22,10 +23,24 @@ export interface NamesDeps {
   reloads: () => number
   /** Cells whose values a change of names changed. */
   apply: (changes: CellUpdate[]) => void
+  /** How the workbook's formula text is parsed (its locale), to tell a name holding a LAMBDA; null while it loads. */
+  scan?: () => ScanOptions | null
 }
 
 /** A name's identity in the list: its scope and its name, case-insensitively, as Excel tells names apart. */
 export const nameKey = (n: SheetName): string => `${n.scope?.toLocaleUpperCase() ?? ''}!${n.name.toLocaleUpperCase()}`
+
+/**
+ * Whether a name's formula (in the locale `opts` parses) is a LAMBDA as a whole (`LAMBDA(x,x*2)`, not `LAMBDA(x,x)(1)`), which a
+ * formula calls by the name like a function: xlcalc's `callAt` finds the call just inside the first bracket spanning the text.
+ */
+export function holdsLambda(ref: string, opts: ScanOptions): boolean {
+  const text = `=${ref.trim()}`
+  const open = text.indexOf('(')
+  if (open < 0) return false
+  const call = callAt(text, open + 1, opts)
+  return call?.fn === 'LAMBDA' && call.open === open && call.close === text.length - 1
+}
 
 /** `Sheet!Name` or `'My sheet'!Name`: a name of a sheet's scope typed with its sheet. */
 const SCOPED = /^(?:'((?:[^']|'')+)'|([^'!]+))!(.+)$/
@@ -93,6 +108,12 @@ export function useNames(s: SheetState, deps: NamesDeps) {
   }
   /** The names visible on the active sheet in alphabetical order, for Formula AutoComplete. */
   const formulaNames = computed(() => visibleOn(s.sheetName.value).map((n) => n.name).sort(compare))
+  /** The names visible on the active sheet that hold a LAMBDA, upper-cased: Formula AutoComplete inserts them with "(", as functions. */
+  const lambdaNames = computed(() => {
+    const opts = deps.scan?.()
+    return new Set(opts ? visibleOn(s.sheetName.value).filter((n) => holdsLambda(n.ref, opts)).map((n) => n.name.toUpperCase()) : [])
+  })
+  const called = (name: string): boolean => lambdaNames.value.has(name.toUpperCase())
   /** What Excel's Name Box lists: the names visible on the active sheet that refer to ranges, in alphabetical order. */
   const boxNames = computed(() =>
     visibleOn(s.sheetName.value)
@@ -131,7 +152,7 @@ export function useNames(s: SheetState, deps: NamesDeps) {
     return out
   }
 
-  return { list, available, editable, compare, read, rangeOf, visibleOn, find, formulaNames, boxNames, nameOf, save }
+  return { list, available, editable, compare, read, rangeOf, visibleOn, find, formulaNames, called, boxNames, nameOf, save }
 }
 
 export type Names = ReturnType<typeof useNames>

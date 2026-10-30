@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, ruMessages, type MemoryBook, type SheetViewApi } from '../src'
 import type { EditOutcome, SheetSource } from '../src/contract/source'
 import type { SheetName } from '../src/contract/workbook'
+import { ruRU } from 'xlcalc/locales/ru-RU'
+import { holdsLambda } from '../src/core/names'
 import { absoluteRange, rangeRef } from '../src/core/place'
 import { address, cellText, editorKey, goTo, key, mountSheet, settle, type, until } from './helpers'
 import { book as localBook, closeAll, source as localSource } from './local-fixture'
@@ -372,6 +374,34 @@ describe('names in Formula AutoComplete', () => {
     await type(w, '=Rate+o')
     await settle()
     expect(shown()).toEqual([])
+  })
+
+  it('a name holding a LAMBDA (xlcalc 0.68.0) is inserted with "(", as a formula calls it like a function; one that calls its LAMBDA in place is not', async () => {
+    const lambdas: SheetName[] = [...NAMES, { name: 'Twice', ref: 'LAMBDA(x,x*2)' }, { name: 'Two', ref: 'LAMBDA(x,x*2)(1)' }]
+    const w = await mountSheet(memorySource(book(lambdas)))
+    const field = () => w.find('.xs-editor').element as HTMLTextAreaElement
+    await key(w, '=')
+    await type(w, '=Tw')
+    await settle()
+    expect(shown()).toEqual(['Twice', 'Two'])
+    await editorKey(w, 'Tab')
+    await settle()
+    expect(field().value).toBe('=Twice(')
+    expect(field().selectionStart).toBe(7)
+    await type(w, '=Twice(A1)+Tw')
+    await settle()
+    await editorKey(w, 'ArrowDown')
+    await editorKey(w, 'Tab')
+    await settle()
+    expect(field().value).toBe('=Twice(A1)+Two')
+  })
+
+  it('a ru-RU name holding a LAMBDA with `;` between its parameters is one too', () => {
+    expect(holdsLambda('LAMBDA(x;y;x*y)', { locale: ruRU })).toBe(true)
+    expect(holdsLambda(' lambda(x,x) ', {})).toBe(true)
+    expect(holdsLambda('LAMBDA(x,x)+1', {})).toBe(false)
+    expect(holdsLambda('S!$A$1', {})).toBe(false)
+    expect(holdsLambda('SUM(LAMBDA(x,x)(1))', {})).toBe(false)
   })
 
   it('names are offered without the source’s functionNames too', async () => {

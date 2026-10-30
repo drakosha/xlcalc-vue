@@ -5,6 +5,7 @@
 Built over xlcalc 0.71.1. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.71.0 or later (the peer range is `>=0.71.0`). A name the workbook does not define, or a function xlcalc does not know, is `#NAME?` only where it is computed, as in Excel (`IF(TRUE,1,Nope)` is 1).
 
 - CSV files in `@xlcalc/vue/local`: `openCsv(data, opts)` reads a CSV file into a workbook of one sheet as Excel opens it in the workbook's locale, and `saveCsv(source, opts)` writes a sheet as Excel's CSV UTF-8, through xlcalc's `xlcalc/csv` (0.68.0), loaded only when used ([local.md](docs/local.md#csv-files)).
+- Formulas of xlcalc 0.68.0 in the editor: the trim references `A1:.C9`, `A1.:C9` and `A1.:.C9` are colored and outlined over their ranges as Excel does while typing, Point mode inserts after their `:.`, and a conditional format's or a validation rule's formula moves them as it moves other references, keeping their points; LET's names and LAMBDA's parameters stay plain. Formula AutoComplete inserts a defined name holding a LAMBDA with its `(`, as a function.
 
 ## 0.30.0 (2026-10-29)
 

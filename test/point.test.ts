@@ -389,3 +389,38 @@ describe('Point mode: what an arrow does with no reference inserted yet, as meas
     expect(active(w)).toBe('3:3')
   })
 })
+
+describe('Point mode around trim references and LAMBDA (xlcalc 0.68.0)', () => {
+  it("after a trim reference's `:.` or `.:.` a click inserts the far corner, as after `:`; an arrow inserts the adjacent cell", async () => {
+    const w = await mountSheet(recorded().source)
+    await typeIn(w, '=SUM(A1:.')
+    await press(w, 3, 3)
+    expect(field(w).value).toBe('=SUM(A1:.C3')
+    await editorKey(w, 'Escape')
+    await settle()
+    await typeIn(w, '=SUM(B2.:.')
+    await editorKey(w, 'ArrowDown')
+    await settle()
+    expect(field(w).value).toBe('=SUM(B2.:.A2')
+  })
+
+  it("after a complete trim reference the arrow enters the formula, as after any operand", async () => {
+    const { source, edits } = recorded()
+    const w = await mountSheet(source)
+    await typeIn(w, '=SUM(B2.:C3)')
+    await editorKey(w, 'ArrowDown')
+    await settle()
+    expect(edits).toEqual([[{ sheet: 'S', cell: 'A1', text: '=SUM(B2.:C3)' }]])
+  })
+
+  it("after LET's name or a LAMBDA's parameter and its separator a click inserts a reference", async () => {
+    const w = await mountSheet(recorded().source)
+    await typeIn(w, '=LET(x,')
+    await press(w, 2, 2)
+    expect(field(w).value).toBe('=LET(x,B2')
+    await type(w, '=LET(x,B2,LAMBDA(v,v+x)(')
+    field(w).setSelectionRange(field(w).value.length, field(w).value.length)
+    await press(w, 3, 3)
+    expect(field(w).value).toBe('=LET(x,B2,LAMBDA(v,v+x)(C3')
+  })
+})
