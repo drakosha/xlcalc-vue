@@ -17,6 +17,7 @@ import { columnList, filterActive, filterColumns, visibleList } from '../sheet-q
 import { SheetValues } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
 import { manualCalculation } from './manual'
+import { connections } from './connections'
 import { protectionGuard, protectSheet } from './protect'
 import { validationOf } from './validation'
 import { autoFilterRanges } from './autofilter'
@@ -124,6 +125,20 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   let calc: Calc | null = null
   let session: AsyncSession | null = null
 
+  /** An answer arrived after its call: the session's `settleConnections` after the pending changes, once for the answers so far. */
+  let taking = false
+  function answered(): void {
+    if (taking) return
+    taking = true
+    void serial(async () => {
+      taking = false
+      if (outside.closed) return
+      const s = await open()
+      const got = await s.settleConnections()
+      if (!outside.closed) await settle(s, got, [])
+    })().catch(() => {})
+  }
+
   /** Excel's sheet protection, which the session does not enforce: each change to a protected sheet is checked first. */
   const guard = protectionGuard(locale, maxCells)
   /** The ranges the sheets' AutoFilters act on, which data typed under them grows: an edit that moves one sends `sheets`. */
@@ -139,10 +154,13 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
+  /** The host's answers that arrive after the call that asked for them, taken as they come (`answered`). */
+  const outside = connections(opts.session, () => answered())
+
   const ready = (async () => {
     await Promise.all([loadLocale(locale), loadRegex(opts.regex)])
     calc = typeof opts.calc === 'object' ? opts.calc : await startCalc(opts)
-    session = await calc.createSession(input, opts.session)
+    session = await calc.createSession(input, outside.session)
   })()
   ready.catch(() => {})
   const open = async (): Promise<AsyncSession> => {
@@ -777,6 +795,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     calculate: showing(calculate),
     setCalculation: showing(setCalculation),
     async close() {
+      outside.close()
       await ready.catch(() => {})
       await session?.close()
       if (calc && typeof opts.calc !== 'object') await calc.close()

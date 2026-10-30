@@ -20,6 +20,9 @@ const RECTS_PER_READ = 2000
 /** Whether two values are the same, an error by its code. */
 const sameValue = (a: CellValue, b: CellValue): boolean => a === b || (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null && a.error === b.error)
 
+/** An answer on its way from outside the workbook, which the cell shows until it arrives. */
+const waiting = (v: CellValue): boolean => typeof v === 'object' && v !== null && (v.error === 'BUSY' || v.error === 'GETTING_DATA')
+
 const shownOf = (c: { text?: string; value: CellValue; color?: string; spillOf?: string } | undefined): Shown => ({ text: c?.text ?? '', value: c ? c.value : null, ...(c?.color ? { color: c.color } : {}), ...(c?.spillOf ? { of: c.spillOf } : {}) })
 
 /** A cell as the session reads it, as a change that lists it: its display, whether it has a formula, the array that fills it. */
@@ -91,6 +94,8 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     const sk = nameKey(ch.sheet)
     const was = known.get(sk)?.get(ch.cell)
     if (!was || sameValue(was.value, ch.value)) return false
+    // the answer a cell shows waiting for (xlcalc 0.68) ends the calculation that asked
+    if (waiting(was.value)) return false
     // a cell of the array of a formula entered, filled now or left empty
     if (was.of && entered.has(cellKey(ch.sheet, was.of))) return false
     let mine = held.get(sk)

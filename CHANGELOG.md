@@ -4,6 +4,8 @@
 
 Built over xlcalc 0.71.1. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.71.0 or later (the peer range is `>=0.71.0`). A name the workbook does not define, or a function xlcalc does not know, is `#NAME?` only where it is computed, as in Excel (`IF(TRUE,1,Nope)` is 1).
 
+- `./local` over a workbook whose calls outside it the host answers with promises (xlcalc 0.68.0's `externals.resolve`): a cell whose answer is still on its way when its call ends (past the call's `timeoutMs`) shows `#BUSY!` or `#GETTING_DATA`, and the source takes the answer as it arrives through the session's `settleConnections`, sending the cells it changed as a `changed` event. In Manual the answer shows in a cell the sheet shows waiting, and the cells reading it wait for a calculation. Closing the source ends the waits ([local.md](docs/local.md#calls-outside-the-workbook)).
+
 ## 0.30.0 (2026-10-29)
 
 What xlcalc 0.61.0 to 0.67.0 added for a sheet: sheet protection, the AutoFilter, calculation options, Paste Special in full, Go To Special, Create from Selection, the split window, tab color, gridlines and headings, rotated text, notes shown all the time and Workbook Statistics; the dialogs in Excel for Windows' words. Built over xlcalc 0.67.0. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.67.0 or later (the peer range is `>=0.67.0`, it was `>=0.46.0`). A host that stored a workbook read with `keep: true` opens its file again before saving over it (`KeptRefusal` `layout`, below). Nothing else breaks for a host; a host that switches over every `SourceEvent` kind gets two kinds more (`calculation`, `sheets`).

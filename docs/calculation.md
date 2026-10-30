@@ -13,6 +13,7 @@ In Manual, as Excel for Mac 16.114 behaved when measured:
 - A paste or a fill shows the pasted cells as entered and leaves the waiting cells as they are; so do merging cells whose first cell holds a value and inserting, renaming, moving, hiding and deleting sheets: Excel for Mac 16.114 kept the waiting values through a paste, a fill down, and inserting, deleting, renaming and hiding a sheet; merging and moving a sheet were not measured.
 - Calculate Now (F9, or a click on Calculate) shows the values of every waiting cell; Calculate Sheet (Shift+F9) those of the active sheet only, so the status bar keeps Calculate while another sheet waits.
 - Switching to Automatic calculates what waits.
+- An answer from outside the workbook that arrives after its call (xlcalc 0.68.0's resolver, [local.md](local.md#calls-outside-the-workbook)) shows in a cell that shows `#BUSY!` or `#GETTING_DATA`, ending the calculation that asked; the cells that read it wait as after an edit (not measured).
 
 Changing the option is not a step of undo here: Excel keeps it as a setting of the application and the workbook, outside the undo list (not measured, since a script's changes do not reach Excel's undo).
 

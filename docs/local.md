@@ -138,6 +138,21 @@ await source.setExternalBooks([...links, { target: 'Prices.xlsx', sheets: [{ nam
 await source.edit([{ sheet: 'Plan', cell: 'C3', text: "='[Prices.xlsx]Sheet1'!A1*2" }]) // 84
 ```
 
+### Calls outside the workbook
+
+A host answers the calls of its own functions and of the functions of connections (`CUBEVALUE` and the other cube functions, `RTD`, `WEBSERVICE`, `STOCKHISTORY` and the rest) with xlcalc 0.68.0's `externals.resolve`, passed in `session`. An answer may be a promise. Each call of the session waits for the answers on their way within its `timeoutMs` (the calculator's, `pool: { timeoutMs }`, or the session's for opening it), and without one until they arrive. Past it the call ends with its cells waiting: they show `#BUSY!` (a cube function's `#GETTING_DATA`), and the source takes each answer as it arrives, after its pending changes, through the session's `settleConnections`, sending the cells it changed as a `changed` event, so the sheet shows the answers without the user doing anything. Closing the source ends the waits: an answer still on its way is taken as none, and nothing is sent after `close()`.
+
+```ts
+const source = localSource(book, {
+  pool: { timeoutMs: 200 }, // a call waits 200 ms for the answers, then shows #BUSY! and goes on
+  session: { externals: { functions: ['BALANCE'], resolve: ({ name, args, signal }) => (name === 'BALANCE' ? fetchBalance(args[0], signal) : undefined) } },
+})
+```
+
+A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in.
+
+In Manual, an answer shows in a cell the sheet shows waiting, since it ends the calculation that asked (a formula entered, Calculate Now); the cells that read it wait for a calculation as after an edit, and so does a cell whose waiting value is held while the sheet shows its value of the last calculation ([calculation.md](calculation.md#manual)). Not measured in Excel.
+
 ## Threads, the workbook and events
 
 The pool starts its thread as `new Worker(new URL('./thread.js', import.meta.url))`, which Vite and other bundlers recognize; where a bundler serves the thread script from elsewhere, pass `pool: { spawn }`. Besides the `SheetSource` methods, the source has `ready`, `locale`, `history` (the steps `undo` and `redo` can take, for a toolbar), `book()`, `snapshot()` (the workbook and its values captured at one moment, which is what `writeXlsx` takes; it replaces `result()` of 0.2) and `close()`. It notifies its subscribers of every change it makes: `changed` for edits and widths, `reload` for structure, number formats, rows and columns, frozen panes and their undo, `repaint` with the formatted ranges for a style set by `format` (a style changes no text or size), and `sheets` when an edit changes the range a sheet's AutoFilter acts on ([autofilter.md](autofilter.md#data-typed-under-it)). The values the source caches for the display filter are kept through a style change, a freeze, and an undo or redo of an edit, since these change no cells or list the cells they change. An edit, a paste, a fill, an undo or a redo in a workbook with conditional formats sends `repaint` after its `changed`, with the ranges of the workbook's rules returned by the session: their cells may look different anywhere the rules apply (a color scale changes colors when a single number changes), and a cell update does not carry formatting. The values the source caches for search and the filter are kept then, unless a rule displays numbers with its own number format, and a display filter keeps its rows.
