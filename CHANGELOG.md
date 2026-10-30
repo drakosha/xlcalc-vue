@@ -5,6 +5,7 @@
 Built over xlcalc 0.71.1. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.71.0 or later (the peer range is `>=0.71.0`). A name the workbook does not define, or a function xlcalc does not know, is `#NAME?` only where it is computed, as in Excel (`IF(TRUE,1,Nope)` is 1).
 
 - `./local` over a workbook whose calls outside it the host answers with promises (xlcalc 0.68.0's `externals.resolve`): a cell whose answer is still on its way when its call ends (past the call's `timeoutMs`) shows `#BUSY!` or `#GETTING_DATA`, and the source takes the answer as it arrives through the session's `settleConnections`, sending the cells it changed as a `changed` event. In Manual the answer shows in a cell the sheet shows waiting, and the cells reading it wait for a calculation. Closing the source ends the waits ([local.md](docs/local.md#calls-outside-the-workbook)).
+- `memorySource` displays xlcalc 0.68.0's new error codes as Excel does: `#CONNECT!`, `#BLOCKED!`, `#BUSY!`, `#GETTING_DATA`; they showed `#ERROR!`. The sheet has no other logic of its own by error code: tracer arrows, alignment, the filter's lists and Go To Special's Errors take every code alike.
 
 ## 0.30.0 (2026-10-29)
 

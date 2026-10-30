@@ -2,7 +2,7 @@
 // It has every optional method of 0.2.0 (search, filter, column values, totals), Replace All, frozen panes, clearing, links, notes, names, spelling, a precedent
 // tree from the formulas as given, and can simulate a workbook being recalculated.
 import { cellAddress, outlineGroups, parseCell, parseRange, quoteSheetIfNeeded, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
-import type { CellStyle, CellValue, ConditionalAppearance } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, ErrorCode } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
 import { loadEntry, type Entry } from './entry'
 import type { CellEntry, CellUpdate, EditOptions, EditOutcome, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetPending, SheetSource, SheetWindow, SourceEvent, WindowRequest } from './contract/source'
@@ -19,7 +19,8 @@ import type { MemoryBook, MemoryCell, MemorySheet, MemorySource, MemorySourceOpt
 import type { SpellingRequest } from './contract/workbook'
 import { memoryWorkbook } from './memory-workbook'
 
-const ERROR_TEXT: Record<string, string> = {
+/** Every error code as Excel displays it: a code xlcalc adds fails the type check until it is here. */
+const ERROR_TEXT: Record<ErrorCode, string> = {
   DIV0: '#DIV/0!',
   NA: '#N/A',
   NAME: '#NAME?',
@@ -31,13 +32,17 @@ const ERROR_TEXT: Record<string, string> = {
   SPILL: '#SPILL!',
   CALC: '#CALC!',
   ERROR: '#ERROR!',
+  CONNECT: '#CONNECT!',
+  BLOCKED: '#BLOCKED!',
+  BUSY: '#BUSY!',
+  GETTING_DATA: '#GETTING_DATA',
 }
 
 /** A value as plain text: numbers as JavaScript writes them, booleans and errors as Excel does. */
 function plainText(value: CellValue | undefined): string {
   if (value === null || value === undefined) return ''
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
-  if (typeof value === 'object') return ERROR_TEXT[value.error] ?? '#ERROR!'
+  if (typeof value === 'object') return ERROR_TEXT[value.error] ?? ERROR_TEXT.ERROR
   return String(value)
 }
 
