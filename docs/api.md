@@ -7,7 +7,7 @@ Everything the package exports, with signatures. How the sheet uses each part, k
 | Import | Exports | Runtime dependencies |
 | --- | --- | --- |
 | `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages`, `TOOLBAR_GROUPS` and the types below | `vue` |
-| `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues` | `vue`, `xlcalc` 0.67.0 or later (optional peer) |
+| `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues`, `openCsv`, `saveCsv` | `vue`, `xlcalc` 0.68.0 or later (optional peer) |
 | `@xlcalc/vue/remote` | `remoteSource` | none |
 | `@xlcalc/vue/server` | `serveSource` | none (a server with standard `Request` and `Response`) |
 | `@xlcalc/vue/style.css` | Styles of the sheet, the toolbar and the dialog | |
@@ -584,8 +584,10 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | `openXlsx(data: Blob \| ArrayBuffer \| Uint8Array, opts?: XlsxIssuesOptions & { keep?: boolean })` | `Promise<XlsxRead>` (`{ book, cached, issues }`) | Reads a file into a workbook and the values stored in it; with `keep`, through xlcalc's `openKept`, for `saveXlsx` with `over`. |
 | `saveXlsx(source: LocalSource, opts?: XlsxIssuesOptions & ({ mode?: 'formulas' \| 'values' } \| { over: Blob \| ArrayBuffer \| Uint8Array }))` | `Promise<XlsxWritten>` (`{ data, issues }`) | Writes the source's workbook with its values; `values` mode writes no formulas. With `over`, the file opened with `keep`, writes over it through xlcalc's `writeKept`, keeping what the workbook does not hold (charts, pivot tables, the theme); a change the file cannot take rejects with xlcalc's `KeptRefusal`, whose `code` (xlcalc 0.61.0) tells its kind. In Manual it calculates first, as Excel does before saving. See [local.md](local.md#files). |
 | `groupIssues(issues: XlsxIssue[])` | `IssueGroup[]` | Issues grouped by kind, in order of first appearance, for a notice of what a file lost. |
+| `openCsv(data: Blob \| ArrayBuffer \| Uint8Array \| string, opts?: ReadCsvOptions)` | `Promise<CsvRead>` (`{ book, issues, delimiter, encoding }`) | Reads a CSV file into a workbook of one sheet through xlcalc's `readCsv` (0.68.0), as Excel opens it in `opts.locale` (a tag whose module is loaded on demand, or a locale object; en-US by default): numbers, dates and percentages as typed there, the encoding and the delimiter found. A `File` names the sheet unless `opts.name` does. See [local.md](local.md#csv-files). |
+| `saveCsv(source: LocalSource, opts?: WriteCsvOptions)` | `Promise<CsvWritten>` (`{ data, text, issues }`) | Writes one sheet (`opts.sheet`, the workbook's active one by default) through xlcalc's `writeCsv`, as Excel saves CSV UTF-8: values as displayed in the workbook's locale, its list separator, the byte order mark. In Manual it calculates first. |
 
-`XlsxIssuesOptions` is `{ locale?: string | Locale }`: the language of the issue messages, English by default. `IssueGroup` is `{ code, count, sheets: string[], message }`, where `message` is the first issue's message.
+`XlsxIssuesOptions` is `{ locale?: string | Locale }`: the language of the issue messages, English by default. `ReadCsvOptions`, `WriteCsvOptions`, `CsvRead` and `CsvWritten` are `xlcalc/csv`'s. `IssueGroup` is `{ code, count, sheets: string[], message }`, where `message` is the first issue's message.
 
 ## `@xlcalc/vue/remote` and `@xlcalc/vue/server`
 

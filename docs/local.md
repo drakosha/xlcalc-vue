@@ -1,6 +1,6 @@
 # In-browser calculation: `@xlcalc/vue/local`
 
-`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.67.0 or later, an optional peer dependency of the package that the host installs: the package is built over 0.67.0 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message.
+`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.68.0 or later, an optional peer dependency of the package that the host installs: the package is built over 0.68.0 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics, CSV files). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message.
 
 ## What the source does
 
@@ -55,6 +55,8 @@ const source = localSource(book, { regex: 'pcreEngine' }) // XMATCH("(a+)+$", A1
 The workbook's calculation option (xlcalc's `BookInput.calculation`, 0.66.0) is `calculation`; `setCalculation` changes it and `calculate` is F9 and Shift+F9. xlcalc calculates every edit whatever the option says, so in Manual the source keeps showing the values of the last calculation, puts them back over the session's in each window, and shows the session's on `calculate`; with an xlcalc before 0.66.0 the sheet shows calculated values in Manual too. What the source holds and where it differs from Excel are in [calculation.md](calculation.md#in-xlcalcvuelocal).
 
 ## Files
+
+xlsx files are read and written by `openXlsx` and `saveXlsx`, CSV files by `openCsv` and `saveCsv` ([CSV files](#csv-files)).
 
 `openXlsx` reads a file into a workbook and the values stored in it (`cached`), and `saveXlsx` writes the source's workbook with its values. With `locale` (the language the user chose: a tag whose module is loaded on demand, or a locale object), their issue messages are in that language; without it, in English. A tag xlcalc has no module for fails with the library's message.
 
@@ -136,6 +138,28 @@ const links = (await source.book()).externalBooks ?? []
 // the values the host read from Prices.xlsx, after the workbook's other links
 await source.setExternalBooks([...links, { target: 'Prices.xlsx', sheets: [{ name: 'Sheet1', cells: { A1: 42, B2: 'kg' } }] }])
 await source.edit([{ sheet: 'Plan', cell: 'C3', text: "='[Prices.xlsx]Sheet1'!A1*2" }]) // 84
+```
+
+### CSV files
+
+`openCsv` reads a CSV file into a workbook of one sheet, and `saveCsv` writes a sheet of the source's workbook as a CSV file, through xlcalc's `xlcalc/csv` (0.68.0, its `readCsv` and `writeCsv`), which is loaded only when one of them is called. A CSV file stores no language, so the host gives `locale`, the workbook's: each field is read as text typed into a cell in it, as Excel opens the file, so `1234,5` and `15.03.2026` are a number and a date in ru-RU, and the workbook takes the locale. A tag is loaded on demand, as for `openXlsx`. The result's `delimiter` and `encoding` say how the file was read: a byte order mark, UTF-8, or the locale's Windows code page; a first line `sep=;`, or else the delimiter that splits the first lines evenly. Excel itself always reads at the locale's list separator, which `delimiter: 'locale'` gives. A field Excel takes as a formula stays text unless `formulas: true`, so that a file from elsewhere brings no formulas in; `issues` lists such fields. A `File` names the sheet after itself, without the extension, as Excel names it. The other options are `readCsv`'s (`codesAsText`, `encoding`, `limits`), passed through.
+
+`saveCsv` writes what Excel's CSV UTF-8 writes: each cell's value as it is displayed in the workbook's locale, at its list separator, with the byte order mark, formulas by their values. It writes one sheet, the workbook's active one unless `sheet` names another (the sheet's `state.sheet` is the one on screen), and reports the others in `issues`, as a CSV file holds one sheet. In Manual it calculates first, as `saveXlsx` does. `encoding: 'ansi'` writes Excel's plain CSV in the locale's Windows code page.
+
+```ts
+import { localSource, openCsv, saveCsv } from '@xlcalc/vue/local'
+
+export async function openPrices(file: File): Promise<Uint8Array> {
+  const { book, issues } = await openCsv(file, { locale: 'ru-RU' }) // Prices.csv: a sheet named Prices
+  if (issues.length) console.warn(issues.map((i) => i.message))
+  const source = localSource(book)
+  try {
+    await source.edit([{ sheet: book.sheets[0]!.name, cell: 'D2', text: '=B2*C2' }])
+    return (await saveCsv(source)).data // UTF-8 with its mark, `;` between fields, `1234,5`
+  } finally {
+    await source.close()
+  }
+}
 ```
 
 ## Threads, the workbook and events
