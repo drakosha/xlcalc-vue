@@ -8,6 +8,7 @@ import type { CellEntry, EditOutcome, FindRequest, FormatPatch, LayoutChange, Ou
 import type { ClearKind, SheetRules, TableOp } from '../contract/workbook'
 import { allows, lockedStyle, type ProtectionAllowance } from '../protection'
 import { boxesUnder, replacedCells } from './find'
+import { isPivotOp, pivotSheets } from './pivots'
 
 /** The outcome code of a change a protected sheet does not allow. */
 export const PROTECTED = 'protected'
@@ -153,6 +154,8 @@ export function protectionGuard(locale: string, maxCells: number) {
 
   /** What a structure operation needs; a table's sheet is found by its name. */
   async function structureNeeds(s: AsyncSession, op: StructureOp): Promise<Need[]> {
+    // Use PivotTable and PivotChart: "format, change the layout, refresh, or otherwise modify PivotTables, or create new reports" (Microsoft's Protect a worksheet)
+    if (isPivotOp(op)) return pivotSheets(await layoutOf(s), op).map((sheet) => ({ sheet, allow: ['pivotTables'] }))
     switch (op.op) {
       case 'insertRows':
         return [{ sheet: op.sheet, allow: ['insertRows'] }]
@@ -227,6 +230,8 @@ export function protectionGuard(locale: string, maxCells: number) {
     fill: guard((_s, sheet: string, range: string) => [{ sheet, cells: rects([range]) }]),
     pick: guard((_s, sheet: string, cell: string) => [{ sheet, cells: rects([cell]) }]),
     structure: guard((s, op: SheetOp) => structureNeeds(s, op)),
+    /** Why a protected sheet refuses an operation the source makes itself (Refresh All's of the PivotTables); null when it allows it. */
+    refusal: async (s: AsyncSession, op: StructureOp): Promise<Refusal | null> => check(s, await structureNeeds(s, op)),
     table: guard((s, op: TableOp) => structureNeeds(s, op)),
     // Excel's Group and Ungroup are disabled on a protected sheet, and its outline's buttons refuse
     outline: guard((_s, change: OutlineChange) => [{ sheet: change.sheet, refuse: true }]),

@@ -3,8 +3,8 @@
 // fill colors, borders, vertical and horizontal alignment, indent, wrapping, Merge & Center with its dropdown (through the
 // sheet, with the source's `structure`), Excel's Number Format box (xlcalc's, in the workbook's locale) and Percent Style,
 // applied to the selection the sheet's `state` event reports, Format Cells for a host that displays the dialog, and AutoSum
-// with its list (through the sheet, with the source's `autoSum`), and Data > Refresh All (through the sheet, with the source's
-// `refreshConnections`); `items` picks and orders the groups and adds the host's
+// with its list (through the sheet, with the source's `autoSum`), and Data > Refresh All with its list's Refresh of the
+// PivotTable under the active cell (through the sheet, with the source's `refreshConnections`); `items` picks and orders the groups and adds the host's
 // buttons. In a narrow viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
 import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
@@ -316,7 +316,7 @@ function onTipOut(e: PointerEvent): void {
 
 // ── menus: the color palettes, the borders, and the narrow layout's menu ──
 /** The toolbar's lists, and a host's button's (`host:<id>`). */
-type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'autoSum' | 'fontName' | 'fontSize' | `host:${string}`
+type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'autoSum' | 'refreshAll' | 'fontName' | 'fontSize' | `host:${string}`
 const open = ref<Menu | null>(null)
 const menu = ref(false)
 const toggle = (what: Menu) => {
@@ -453,6 +453,12 @@ function refreshAll(): void {
   closeAll()
   const sheet = props.sheet
   if (sheet && props.state?.canRefreshAll) void run(() => sheet.refreshAll())
+}
+/** The list's Refresh: Excel's Refresh (Alt+F5) of the PivotTable under the active cell through the sheet, one step of undo. */
+function refreshPivot(): void {
+  closeAll()
+  const sheet = props.sheet
+  if (sheet && props.state?.canRefreshPivot) void run(() => sheet.refreshPivot())
 }
 /** More Functions…: Excel's Insert Function dialog over the sheet. */
 function moreFunctions(): void {
@@ -734,9 +740,18 @@ function pickNumber(e: Event): void {
           </span>
         </span>
         <span v-else-if="blk.group === 'refreshAll' && sheet && source.refreshConnections" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <button type="button" class="xs-tool" data-tb="refresh-all" :data-tip="m.refreshAll" :aria-label="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">
-            <IconRefreshAll />
-          </button>
+          <span class="xs-tb-split">
+            <button type="button" class="xs-tool" data-tb="refresh-all" :data-tip="m.refreshAll" :aria-label="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">
+              <IconRefreshAll />
+            </button>
+            <button type="button" class="xs-tool xs-tb-caret" data-tb="refresh-all-menu" :data-tip="m.refreshAllMenu" :aria-label="m.refreshAllMenu" :aria-expanded="open === 'refreshAll'" :disabled="!state?.canRefreshAll && !state?.canRefreshPivot" @click="toggle('refreshAll')">
+              <IconDown />
+            </button>
+            <div v-if="open === 'refreshAll'" class="xs-tb-pop" role="menu" :aria-label="m.refreshAllMenu">
+              <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-all-item" :disabled="!state?.canRefreshAll" @click="refreshAll">{{ m.refreshAllItem }}</button>
+              <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-pivot" :title="m.refreshPivot" :disabled="!state?.canRefreshPivot" @click="refreshPivot">{{ m.menuRefresh }}</button>
+            </div>
+          </span>
         </span>
         <span v-else-if="blk.buttons" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <template v-for="x in blk.buttons" :key="x.id">

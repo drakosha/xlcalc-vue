@@ -504,8 +504,13 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
   /** The status bar's Calculate in Manual while cells wait for a calculation, and its tooltip (a click calculates, as F9). */
   calculateStatus: string
   calculateHint: string
-  /** Excel's Data > Refresh All on the toolbar, with its key. */
+  /** Excel's Data > Refresh All on the toolbar, with its key; its list's button and items, Refresh All and Refresh (of the PivotTable under the active cell) with its key. */
   refreshAll: string
+  refreshAllMenu: string
+  refreshAllItem: string
+  refreshPivot: string
+  /** Refresh in the cell menu of a PivotTable's cell. */
+  menuRefresh: string
 }
 
 /** The Symbol dialog's Subset list: Unicode blocks by Excel's names (`basicLatin` is Basic Latin, `latin1` Latin-1 Supplement). */
