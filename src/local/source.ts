@@ -21,7 +21,7 @@ import { connections, takeAnswers } from './connections'
 import { protectionGuard, protectSheet } from './protect'
 import { validationOf } from './validation'
 import { autoFilterRanges } from './autofilter'
-import { hasPivots, isPivotOp, loadPivot, PIVOT, pivotDefinition, pivotMeeting, pivotRefusals, pivotsOf, type PivotAlert } from './pivots'
+import { hasPivots, isPivotOp, loadPivot, PIVOT, pivotDefinition, pivotMeeting, pivotRefusals, pivotsOf } from './pivots'
 import { windowOf } from './window'
 import { workbookMethods } from './workbook'
 
@@ -503,19 +503,9 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       if (!(await engine())) return pivot.alert('engine')
     }
     const got = await s.editStructure(op)
-    if (!got.ok) return got.code === PIVOT ? pivot.refusal(got, onPivots ? undefined : await cutBy(s, op)) : { ok: false, reason: 'refused', code: got.code, message: got.message }
+    if (!got.ok) return got.code === PIVOT ? pivot.refusal(got, onPivots ? undefined : 'affect') : { ok: false, reason: 'refused', code: got.code, message: got.message }
     calcMode.moved(got.moved)
     return reloaded(got.changes)
-  }
-  /** Excel's alert for an operation that would cut a PivotTable: a paste onto one (a copy, a move onto it) is Excel's paste alert, any other its alert for a change that affects one. */
-  async function cutBy(s: AsyncSession, op: SheetOp): Promise<PivotAlert> {
-    if (op.op === 'copyRange') return 'part'
-    if (op.op !== 'moveRange') return 'affect'
-    const from = parseRange(op.from.range)
-    const at = parseCell(op.to.cell)
-    if (!from || !at) return 'affect'
-    const to = { top: at.row, left: at.col, bottom: at.row + from.bottom - from.top, right: at.col + from.right - from.left }
-    return pivotMeeting(await s.getLayout(), op.to.sheet, to) ? 'part' : 'affect'
   }
 
   /** A structure operation once the sheet's protection allows it. */

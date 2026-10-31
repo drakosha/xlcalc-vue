@@ -77,10 +77,10 @@ describe('localSource: PivotTables', () => {
     expect(await source(filteredPivotBook()).edit([{ sheet: 'Report', cell: 'B1', text: '2030' }])).toEqual(refusedWith('"2030" is not an item of this field'))
   })
 
-  it("pastes a copied or moved range onto it with Excel's paste alert; a move of part of it affects it", async () => {
+  it('refuses a range copied or moved onto it, and a move of part of it, with the alert that it affects a PivotTable', async () => {
     const s = source(pivotBook({ extra: { E1: { value: 1 }, F1: { value: 2 } } }))
-    expect(await s.structure({ op: 'copyRange', from: { sheet: 'Report', range: 'E1:F1' }, to: { sheet: 'Report', range: 'A5' } })).toEqual(refusedWith(PART))
-    expect(await s.structure({ op: 'moveRange', from: { sheet: 'Report', range: 'E1:F1' }, to: { sheet: 'Report', cell: 'A5' } })).toEqual(refusedWith(PART))
+    expect(await s.structure({ op: 'copyRange', from: { sheet: 'Report', range: 'E1:F1' }, to: { sheet: 'Report', range: 'A5' } })).toEqual(refusedWith(AFFECT))
+    expect(await s.structure({ op: 'moveRange', from: { sheet: 'Report', range: 'E1:F1' }, to: { sheet: 'Report', cell: 'A5' } })).toEqual(refusedWith(AFFECT))
     expect(await s.structure({ op: 'moveRange', from: { sheet: 'Report', range: 'A4:B4' }, to: { sheet: 'Report', cell: 'E4' } })).toEqual(refusedWith(AFFECT))
   })
 

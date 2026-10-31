@@ -130,7 +130,7 @@ function keyed(message: string, locale: string): PivotAlert | null {
 
 /**
  * xlcalc's refusal over PivotTables as the outcome the sheet shows in an alert: Excel's alert for its `reason`, or for the
- * kind `by` the operation makes it (Delete is `affect`, a paste onto a PivotTable `part`), else the library's own message.
+ * kind `by` the operation makes it (Delete, and an operation that cuts one, `affect`), else the library's own message.
  */
 export function pivotRefusals(locale: string) {
   const words = locale.toLowerCase().startsWith('ru') ? ALERTS.ru : ALERTS.en
