@@ -5,6 +5,7 @@ Editing uses Excel's keys:
 - typing over a cell, F2 or a double click starts editing the cell;
 - Enter, Tab, Shift+Enter and Shift+Tab commit the entry and move the active cell. Inside a selection of several cells, the selection stays and the active cell moves within it as in Excel: Enter goes down a column and on to the top of the next one, Tab goes along a row and on to the start of the next one, wrapping around at the end;
 - Esc cancels the edit, and Alt+Enter inserts a line break;
+- F4 while a formula is edited cycles a reference between relative, absolute and mixed: `A1`, `$A$1`, `A$1`, `$A1`, `A1` ([F4](#f4-relative-and-absolute-references));
 - Ctrl+Shift+U (or the arrow at the right end of the formula bar) expands the formula bar to five lines and collapses it back to one, as in Excel; while it is collapsed, a multi-line cell shows its first line and the grid does not move;
 - Delete and Backspace clear the selection;
 - Ctrl+` shows the formulas instead of the values, as Excel's Show Formulas does ([view.md](view.md#show-formulas));
@@ -60,6 +61,16 @@ To the left of the input are Excel's Cancel (✕, `SheetMessages`' `cancel`) and
 While a formula is being typed in the cell editor or the formula bar, the mouse inserts references as in Excel's Point mode, wherever xlcalc's `refAt` (measured in Excel) allows a reference: after the formula's first character (`=`, or a leading `+` or `-`), an operator, `(`, the workbook's list separator (`;` in ru-RU), `:`, a sheet's `!`, a decimal point, or a space after an operand (Excel's intersection operator). Clicking a cell inserts its address at the caret (replacing any text selected there), dragging inserts a range (`B2:D5`), clicking a column letter inserts the column (`F:F`), and clicking a row number inserts the row (`3:3`). Another click before anything is typed replaces that reference, and Shift+click extends it from its first corner; the input keeps focus and the active cell stays in place. Elsewhere a click commits the entry as before. Touch input does not insert references.
 
 In a cell editor opened by typing over a cell (Enter mode; F2 switches modes), an arrow key with no reference inserted yet does what Excel does in that position: where a reference can go, it inserts the address of the adjacent cell (Shift+arrow inserts a range from the edited cell, `=C3:D3`); after an operand of a formula that parses in the workbook's locale (`=5`, `=A1`, `=SUM(A1)`), and after any value, it enters the text and moves the selection in that direction, as Enter does; where the formula does not parse (`=A1)`, `=1e`) or inside a string, a quoted sheet name or a table's brackets, it does nothing. Once a reference is inserted, the keys move it as they move the selection on the sheet: an arrow moves it from its first cell, Shift+arrow moves its far corner, Cmd+arrow on a Mac (Ctrl+arrow elsewhere) moves it to the edge of the data by the source's `end` (Shift extends it there), Home moves it to the row's first column, and Page Down and Page Up move it a screen down or up. Once anything is typed after a reference, the next arrow starts from the edited cell again. In an editor opened with F2 and in the formula bar, the arrow keys move the caret.
+
+## F4: relative and absolute references
+
+F4 in the cell editor or the formula bar cycles a reference's `$` as Excel does: `A1`, `$A$1`, `A$1`, `$A1`, back to `A1`; a column or a row alone (`C:D`, `3:5`) only between `C:D` and `$C:$D`. What it acts on was measured in Excel for Mac 16.114 (its Cmd+T, which is F4 there; Microsoft's description of F4 covers a single reference only):
+
+- with the caret in a reference or right after it, that reference; in a typed range of cells (`A1:B2`) only the cell at the caret, from its own state (`=A1:B2` with the caret at the end becomes `=A1:$B$2`), the colon and a trim reference's points (`A1:.B2`) staying; a range of columns or rows cycles whole;
+- with text selected, every reference the selection touches, each from its own state, a range whole: both its ends take the state that follows its first end's (`$A1:B2` becomes `A1:B2`, then `$A$1:$B$2`), and the selection stays over the changed text;
+- on the reference just inserted in Point mode, by the mouse or an arrow, both its ends: `=SUM(B2:D4` becomes `=SUM($B$2:$D$4`. Extending it afterwards with Shift keeps the `$` (`$C$5:$C$6`), and moving it with a plain arrow or a new click inserts a relative reference again, as Excel for Mac does.
+
+The caret goes to the end of what changed, so F4 again cycles the same reference. The references are those xlcalc's `scanReferences` finds in the workbook's locale, with a sheet's name, a 3D reference's sheets and a spill's `#` kept; table references, names and text that is not a formula are left as they are. F4 outside an edit (Excel's Repeat) does nothing.
 
 ## Formulas that cannot be parsed
 

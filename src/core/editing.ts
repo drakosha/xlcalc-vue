@@ -5,6 +5,7 @@ import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
 import { loadEntry, type Entry } from '../entry'
 import { failedOutcome } from '../failure'
+import { cycleRefs } from '../ref-cycle'
 import { cellRect } from '../rect'
 import type { CellEntry, EditOutcome, EditOptions, SheetSource } from '../contract/source'
 import { useAutocomplete } from './autocomplete'
@@ -199,6 +200,16 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     ed.caret = from + piece.length
     ed.caretEnd = undefined
     if (focus) focusEditor()
+  }
+  /** Excel's F4 in the draft: the `$` of the references at the caret or in the selection cycle (`cycleRefs`); nothing while the locale loads. */
+  function cycleAt(ed: EditorState, el: HTMLTextAreaElement): void {
+    const opts = f.scanOptions()
+    const got = opts && cycleRefs(ed.text, el.selectionStart, el.selectionEnd, opts)
+    if (!got) return
+    ed.text = got.text
+    ed.caret = got.from
+    ed.caretEnd = got.to
+    focusEditor()
   }
   /** Excel's Formula AutoComplete over the draft: the function list below the editor. */
   const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor, scan: f.scanOptions, names: deps.names, nameOrder: deps.nameOrder, calls: deps.calls })
@@ -518,7 +529,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       startEdit({ text: e.key, mode: 'enter' })
     }
   }
-  /** Keys in the editor: the function list first when it is open, then an Enter mode arrow (it inserts a reference, enters or does nothing), Enter, Tab, Shift+Enter and Shift+Tab commit and move, Ctrl+Enter (Cmd on a Mac) fills, Esc cancels, Alt+Enter inserts a line break, F2 toggles the arrows' mode, Ctrl+Shift+U the formula bar's height. */
+  /** Keys in the editor: the function list first when it is open, then Point mode's arrows and F4 (an arrow inserts a reference, enters or does nothing), Enter, Tab, Shift+Enter and Shift+Tab commit and move, Ctrl+Enter (Cmd on a Mac) fills, Esc cancels, Alt+Enter inserts a line break, F2 toggles the arrows' mode, F4 cycles the references' `$`, Ctrl+Shift+U the formula bar's height. */
   function onEditorKey(e: KeyboardEvent): void {
     const ed = editor.value
     if (!ed || e.isComposing) return
@@ -543,6 +554,9 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     } else if (e.key === 'F2') {
       e.preventDefault()
       ed.mode = ed.mode === 'enter' ? 'edit' : 'enter'
+    } else if (e.key === 'F4' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault()
+      cycleAt(ed, e.target as HTMLTextAreaElement)
     }
   }
   /** The editor lost focus: moving to the other editor keeps editing, anything else on the page commits in place. */
