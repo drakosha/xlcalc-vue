@@ -1,7 +1,7 @@
 // PivotTables in the local source: xlcalc's PivotTable engine (`xlcalc/pivot`), loaded as its own chunk for a workbook that
 // has PivotTables, since without them nothing needs it; their areas as the sheet lists them; Excel's alerts for a change
 // the library refuses over their cells; and the PivotTables an operation touches, which a protected sheet gates.
-import { LOCALES, registerPivot, type BookInput, type BookLayout, type CellRect, type PivotCache, type PivotRef, type PivotTable, type SheetLayout, type StructureOp } from 'xlcalc'
+import { registerPivot, type BookInput, type BookLayout, type CellRect, type PivotCache, type PivotRef, type PivotRefusalReason, type PivotTable, type SheetLayout, type StructureOp } from 'xlcalc'
 import { parseRange, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
 import type { SheetPivot, SheetPivotTable } from '../contract/source'
 import { pivotFields } from './slicers'
@@ -114,39 +114,14 @@ export type PivotAlert = keyof (typeof ALERTS)['en']
 /** The outcome code of a change a PivotTable's cells do not take, as xlcalc's refusals name it. */
 export const PIVOT = 'pivot'
 
-// Temporary until xlcalc's refusals carry `reason`: its internal message keys and its en-US words for them, after the place.
-const KEYS = { pivotPart: 'part', pivotFormula: 'formula', pivotClear: 'affect', pivotNotLoaded: 'engine' } as const
-const EN_WORDS: Record<keyof typeof KEYS, string> = {
-  pivotPart: "we can't change this part of the PivotTable",
-  pivotFormula: 'cannot enter a formula for an item or field name in a PivotTable report',
-  pivotClear: "we can't make this change for the selected cells because it will affect a PivotTable",
-  pivotNotLoaded: 'registerPivot(pivotEngine) loads it',
-}
-
-/** The alert of xlcalc's message by its key (temporary, see `KEYS`): the locale's own words where it has them, else en-US's. */
-function keyed(message: string, locale: string): PivotAlert | null {
-  const own = (LOCALES.get(locale) as { messages?: Record<string, unknown> } | undefined)?.messages
-  for (const key of Object.keys(KEYS) as (keyof typeof KEYS)[]) {
-    const say = own?.[key]
-    const said = typeof say === 'function' ? String((say as (p: object) => string)({ sheet: 'S', cell: 'A1', pivot: 'P' })) : null
-    const words = said === null ? EN_WORDS[key] : said.slice(said.indexOf(': ') + 2)
-    if (message === words || message.endsWith(`: ${words}`)) return KEYS[key]
-  }
-  return null
-}
-
 /**
- * xlcalc's refusal over PivotTables as the outcome the sheet shows in an alert: Excel's alert for its `reason`, or for the
- * kind `by` the operation makes it (Delete, and an operation that cuts one, `affect`), else the library's own message.
+ * xlcalc's refusal over PivotTables, or its `PivotInputError`, as the outcome the sheet shows in an alert: Excel's alert for
+ * its `reason`, else the library's own message (a name taken, an item a field does not have).
  */
 export function pivotRefusals(locale: string) {
   const words = locale.toLowerCase().startsWith('ru') ? ALERTS.ru : ALERTS.en
   const alert = (kind: PivotAlert) => ({ ok: false as const, reason: 'refused' as const, code: PIVOT, message: words[kind] })
-  const refusal = (r: { message: string; reason?: unknown }, by?: PivotAlert) => {
-    const reason = typeof r.reason === 'string' && r.reason in words ? (r.reason as PivotAlert) : null
-    const kind = reason ?? keyed(r.message, locale) ?? by
-    return kind ? alert(kind) : { ok: false as const, reason: 'refused' as const, code: PIVOT, message: r.message }
-  }
+  const refusal = (r: { message: string; reason?: PivotRefusalReason }) => (r.reason ? alert(r.reason) : { ok: false as const, reason: 'refused' as const, code: PIVOT, message: r.message })
   return { alert, refusal }
 }
 

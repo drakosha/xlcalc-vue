@@ -7,7 +7,7 @@ Everything the package exports, with signatures. How the sheet uses each part, k
 | Import | Exports | Runtime dependencies |
 | --- | --- | --- |
 | `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `PivotFieldsPane`, `memorySource`, `enMessages`, `ruMessages`, `TOOLBAR_GROUPS` and the types below | `vue` |
-| `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues`, `openCsv`, `saveCsv` | `vue`, `xlcalc` 0.71.4 or later (optional peer) |
+| `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues`, `openCsv`, `saveCsv` | `vue`, `xlcalc` 0.73.0 or later (optional peer) |
 | `@xlcalc/vue/remote` | `remoteSource` | none |
 | `@xlcalc/vue/server` | `serveSource` | none (a server with standard `Request` and `Response`) |
 | `@xlcalc/vue/style.css` | Styles of the sheet, the toolbar, the PivotTable Fields pane and the dialog | |
