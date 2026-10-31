@@ -77,7 +77,7 @@ async function start() {
   await settle()
   return f
 }
-const tick = (f: Awaited<ReturnType<typeof start>>, field: number, on = true) => f.pane().apply(check(f.pane().areas.value!, field, on, CACHE))
+const tick = (f: Awaited<ReturnType<typeof start>>, field: number, on = true) => f.pane().apply((a) => check(a, field, on, CACHE))
 
 describe('the PivotTable Fields pane while changes are on their way', () => {
   it('builds each change on the ones before it, though the source has not answered them', async () => {

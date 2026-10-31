@@ -6,7 +6,7 @@
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import type { PivotFieldsPaneProps } from '../contract/view'
 import type { PivotAxisField, PivotDataField, PivotPageField } from 'xlcalc/contract'
-import { check, fieldAt, move, remove, usedFields, type PivotArea, type PivotSpot } from '../core/pivot-layout'
+import { check, fieldAt, move, remove, usedFields, type PivotArea, type PivotAreas, type PivotSpot } from '../core/pivot-layout'
 import { useMessages } from '../messages'
 import { IconClose, IconDown, IconFilter } from './icons'
 import { usePivotPane } from './pivot-pane'
@@ -94,20 +94,38 @@ function onMenuKey(e: KeyboardEvent): void {
   e.preventDefault()
 }
 
-const apply = (next: ReturnType<typeof move>) => pane.apply(next)
-const moveTo = (from: PivotSpot, to: PivotArea, index?: number) => pane.areas.value && pane.cache.value && apply(move(pane.areas.value, from, to, index, pane.cache.value))
+/**
+ * A move as the user made it over the areas shown, made again over the areas it is sent over (`pane.apply`): the field by
+ * what its chip held, the place by the chip it was dropped before (the end without one).
+ */
+function moveTo(from: PivotSpot, to: PivotArea, index?: number): void {
+  const shown = pane.areas.value
+  const cache = pane.cache.value
+  if (!shown || !cache) return
+  const entry = from.area === 'list' ? undefined : entryIn(shown, from.area, from.index)
+  const before = index === undefined ? undefined : entryIn(shown, to, index)
+  pane.apply((a) => {
+    const spot = spotIn(a, from, entry)
+    if (!spot) return null
+    const at = before === undefined ? undefined : placeIn(a, to, before)
+    return move(a, spot, to, at === undefined || at < 0 ? undefined : at, cache)
+  })
+}
+/** A chip removed as the user chose it, found again in the areas it is sent over. */
+function removeAt(spot: PivotSpot): void {
+  const entry = spot.area === 'list' || !pane.areas.value ? undefined : entryIn(pane.areas.value, spot.area, spot.index)
+  pane.apply((a) => {
+    const found = spotIn(a, spot, entry)
+    return found && remove(a, found)
+  })
+}
 
 /** What a chip holds, to find it again: a Filters or Values entry, or an axis's field (Σ Values as `values`). */
 type ChipEntry = PivotPageField | PivotDataField | PivotAxisField
-function entryAt(area: PivotArea, index: number): ChipEntry | undefined {
-  const a = pane.areas.value
-  if (!a) return undefined
-  return area === 'filters' ? a.filters[index] : area === 'values' ? a.values[index] : a[area][index]
-}
-/** The chip's place in the areas now, which may have changed since its menu opened; -1 when it is gone. */
-function placeOf(area: PivotArea, entry: ChipEntry): number {
-  const a = pane.areas.value
-  if (!a) return -1
+const entryIn = (a: PivotAreas, area: PivotArea, index: number): ChipEntry | undefined => (area === 'filters' ? a.filters[index] : area === 'values' ? a.values[index] : a[area][index])
+const entryAt = (area: PivotArea, index: number): ChipEntry | undefined => (pane.areas.value ? entryIn(pane.areas.value, area, index) : undefined)
+/** The chip's place in `a`, which may have changed since the user acted; -1 when it is gone. */
+function placeIn(a: PivotAreas, area: PivotArea, entry: ChipEntry): number {
   if (area === 'filters') return a.filters.findIndex((p) => p.field === (entry as PivotPageField).field)
   if (area === 'values') {
     const v = entry as PivotDataField
@@ -115,6 +133,13 @@ function placeOf(area: PivotArea, entry: ChipEntry): number {
     return same >= 0 ? same : a.values.findIndex((x) => x.field === v.field && (x.function ?? 'sum') === (v.function ?? 'sum'))
   }
   return a[area].indexOf(entry as PivotAxisField)
+}
+const placeOf = (area: PivotArea, entry: ChipEntry): number => (pane.areas.value ? placeIn(pane.areas.value, area, entry) : -1)
+/** A spot found again in `a` by what it held; a field of the list stays as it is. */
+function spotIn(a: PivotAreas, spot: PivotSpot, entry: ChipEntry | undefined): PivotSpot | null {
+  if (spot.area === 'list') return spot
+  const i = entry === undefined ? -1 : placeIn(a, spot.area, entry)
+  return i < 0 ? null : { area: spot.area, index: i }
 }
 
 /**
@@ -154,7 +179,7 @@ function chipItems(area: PivotArea, index: number, at: DOMRect): MenuItem[] {
     { id: 'toRows', label: x.fieldToRows, disabled: area === 'rows', run: found((spot) => moveTo(spot, 'rows')) },
     { id: 'toColumns', label: x.fieldToColumns, disabled: area === 'columns', run: found((spot) => moveTo(spot, 'columns')) },
     { id: 'toValues', label: x.fieldToValues, disabled: area === 'values' || sigma, run: found((spot) => moveTo(spot, 'values')) },
-    { id: 'remove', label: x.fieldRemove, group: true, run: found((spot) => pane.areas.value && apply(remove(pane.areas.value, spot))) },
+    { id: 'remove', label: x.fieldRemove, group: true, run: found((spot) => removeAt(spot)) },
     settings,
   ]
 }
@@ -187,7 +212,8 @@ function onListKey(e: KeyboardEvent, field: number): void {
   if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) onListMenu(e, field)
 }
 function onCheck(field: number, on: boolean): void {
-  if (pane.areas.value && pane.cache.value) apply(check(pane.areas.value, field, on, pane.cache.value))
+  const cache = pane.cache.value
+  if (cache) pane.apply((a) => check(a, field, on, cache))
 }
 function onFilter(e: MouseEvent, field: number): void {
   pane.dialog({ dialog: 'fieldFilter', field, at: rectOf((e.currentTarget as HTMLElement).getBoundingClientRect()) })
@@ -237,7 +263,7 @@ function onUp(e: PointerEvent): void {
   setTimeout(() => (dragged = false))
   const over = dropAt(e.clientX, e.clientY)
   if (over) moveTo(d.from, over.area, over.index)
-  else if (d.from.area !== 'list' && pane.areas.value) apply(remove(pane.areas.value, d.from))
+  else if (d.from.area !== 'list') removeAt(d.from)
 }
 function onCancel(e: PointerEvent): void {
   if (press && e.pointerId === press.id) endDrag()

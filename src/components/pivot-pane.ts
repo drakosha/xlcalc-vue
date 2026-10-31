@@ -8,6 +8,9 @@ import type { PivotDialogRequest, PivotFieldsPaneProps } from '../contract/view'
 import { areasOf, patchOf, type PivotAreas } from '../core/pivot-layout'
 import { allows } from '../protection'
 
+/** A change of the pane's areas, made over the areas given; null for no change. */
+export type AreasChange = (a: PivotAreas) => PivotAreas | null
+
 export function usePivotPane(props: PivotFieldsPaneProps) {
   const definition = shallowRef<SheetPivotTable | null>(null)
   /** The last layout sent or queued and not yet answered: what the next change builds on, and what shows meanwhile. */
@@ -78,17 +81,19 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
 
   let sending = Promise.resolve()
   /**
-   * The layout sent as one `editPivotTable`, after the changes before it: its patch from the PivotTable as read after them.
-   * It shows until the source answers; the last one answered, the PivotTable shows as read again, refused or not.
+   * The layout sent as one `editPivotTable`, after the changes before it. It shows until the source answers; the last one
+   * answered, the PivotTable shows as read again, refused or not. With `change` the layout is made again over the PivotTable
+   * as the answers before it left it, since xlcalc may have put fields on the axes itself (dates grouped, Σ Values).
    */
-  function send(next: PivotAreas): Promise<void> {
+  function send(next: PivotAreas, change?: AreasChange): Promise<void> {
     requested.value = next
     inFlight++
     sending = sending
       .then(async () => {
         const d = definition.value
         const t = target.value
-        const set = d && patchOf(d.table, next)
+        const fresh = d && (change ? change(areasOf(d.table)) : next)
+        const set = d && fresh && patchOf(d.table, fresh)
         if (!d || !t || !set || !props.sheet) return
         try {
           // a field of dates put on the rows or columns is grouped as Excel's field list groups it (xlcalc's `groupDates`)
@@ -105,11 +110,14 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
     return sending
   }
 
-  /** A change of the areas: sent at once, or kept for Update with Defer Layout Update on. */
-  function apply(next: PivotAreas | null): void {
-    if (!next || !editable.value) return
+  /** A change of the areas, made over the areas shown: sent at once, or kept for Update with Defer Layout Update on. */
+  function apply(change: AreasChange): void {
+    const shown = areas.value
+    if (!shown || !editable.value) return
+    const next = change(shown)
+    if (!next) return
     if (defer.value) draft.value = next
-    else void send(next)
+    else void send(next, change)
   }
   /** Update: the layout kept since Defer Layout Update was checked, in one step of undo; a change made meanwhile is a new draft. */
   function update(): Promise<void> {

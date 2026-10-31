@@ -96,6 +96,23 @@ describe('the PivotTable Fields pane', () => {
     expect(chips('rows')).toEqual(['Years (Date)', 'Quarters (Date)', 'Months (Date)', 'Date'])
   })
 
+  it('a field checked while a field of dates is being grouped goes after the periods xlcalc put on Rows', async () => {
+    const s = localSource(salesBook(), { calc: 'inline' })
+    sources.push(s)
+    expect(await s.structure(addSales({ values: [{ field: 3 }] }))).toMatchObject({ ok: true })
+    // the source answers a structure call after 300 ms, as a big workbook's layout takes time
+    const slow = new Proxy(s, {
+      get: (o, k) => (k === 'structure' ? async (...a: Parameters<LocalSource['structure']>) => (await new Promise((r) => setTimeout(r, 300)), o.structure(...a)) : Reflect.get(o, k)),
+    })
+    const w = await mountSheet(slow, { style: 'height: 400px' })
+    await goTo(w, 'R!A4')
+    await until(() => !!pane())
+    await setBox(4, true)
+    await setBox(0, true)
+    await until(() => chips('rows').length === 5, 3000)
+    expect(chips('rows')).toEqual(['Years (Date)', 'Quarters (Date)', 'Months (Date)', 'Date', 'Region'])
+  })
+
   it("a field's menu in an area moves it, and Value Field Settings opens the sheet's dialog", async () => {
     const { w } = await report()
     await chipMenu('rows', 0)
