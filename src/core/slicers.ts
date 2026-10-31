@@ -21,6 +21,8 @@ export type SlicerDialog =
   | {
       kind: 'settings'
       slicer: string
+      /** Name, which the source refuses empty or taken by another slicer or timeline. */
+      name: string
       field: string
       cache: string
       caption: string
@@ -282,6 +284,7 @@ export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, deps: S
     dialog.value = {
       kind: 'settings',
       slicer: x.name,
+      name: x.name,
       field: x.field,
       cache: x.cache,
       caption: x.caption ?? x.name,
@@ -295,13 +298,15 @@ export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, deps: S
     }
     return true
   }
-  /** OK in Slicer Settings: the caption and header, the sorting and the items with no data, in one operation. */
+  /** OK in Slicer Settings: the name, the caption and header, the sorting and the items with no data, in one operation; a new name keeps it selected. */
   async function applySettings(): Promise<void> {
     const d = dialog.value
     if (d?.kind !== 'settings') return
     dialog.value = null
     const o = { kind: 'slicer' as const, name: d.slicer }
-    await send(opOf(o, { set: { caption: d.caption, showCaption: d.showCaption }, cache: { sort: d.descending ? 'descending' : 'ascending', customListSort: d.customListSort, noData: { hide: d.hide, mark: d.mark, last: d.last }, showMissing: d.showMissing } }))
+    const name = d.name !== d.slicer ? { name: d.name } : {}
+    const out = await send(opOf(o, { set: { ...name, caption: d.caption, showCaption: d.showCaption }, cache: { sort: d.descending ? 'descending' : 'ascending', customListSort: d.customListSort, noData: { hide: d.hide, mark: d.mark, last: d.last }, showMissing: d.showMissing } }))
+    if (out?.ok && 'name' in name && picked.value?.kind === 'slicer' && picked.value.name === d.slicer) picked.value = { kind: 'slicer', name: d.name }
   }
   /** Opens Report Connections: every PivotTable of the workbook over the same pivot cache, those it filters checked. */
   function openConnections(): boolean {

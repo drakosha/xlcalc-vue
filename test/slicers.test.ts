@@ -181,6 +181,26 @@ describe('slicers and timelines on the sheet', () => {
     expect(q<HTMLInputElement>('[data-xs-connection="Report!PivotTable1"]')!.checked).toBe(true)
   })
 
+  it("Slicer Settings renames the slicer, keeping it selected; a name a timeline has is xlcalc's refusal", async () => {
+    const { w, api } = await report()
+    const rename = async (to: string) => {
+      await press(q(`[data-xs-object^="slicer:"] .xs-slicer-head`)!, 'pointerdown')
+      expect(api.slicerSettings()).toBe(true)
+      await settle()
+      const name = q<HTMLInputElement>('[data-xs-slicer-name]')!
+      expect(name.disabled).toBe(false)
+      name.value = to
+      name.dispatchEvent(new Event('input'))
+      await click(q('[data-xs-dialog-ok]')!)
+    }
+    await rename('Regions')
+    await until(() => !!q('[data-xs-object="slicer:Regions"]'))
+    expect(lastState(w)?.object).toEqual({ kind: 'slicer', name: 'Regions' })
+    await rename('Date')
+    await until(() => !!q('[data-xs-alert-message]'))
+    expect(q('[data-xs-object="slicer:Regions"]')).not.toBeNull()
+  })
+
   it('on a protected sheet the items are disabled without Use PivotTable and PivotChart, and the handles without Edit objects', async () => {
     await report(slicerBook({ protection: {} }))
     expect(item(0).disabled).toBe(true)

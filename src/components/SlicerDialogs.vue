@@ -36,7 +36,7 @@ function ok(): void {
       <p class="xs-slicer-dialog-line">{{ m.slicerFormulaName }} {{ settings.cache }}</p>
       <label class="xs-dialog-field">
         <span>{{ m.slicerName }}</span>
-        <input class="xs-field" type="text" :value="settings.slicer" disabled data-xs-slicer-name />
+        <input v-model="settings.name" class="xs-field" type="text" autocomplete="off" data-xs-slicer-name @keydown.enter.prevent="ok" />
       </label>
       <fieldset class="xs-dialog-choices">
         <legend>{{ m.slicerHeader }}</legend>
