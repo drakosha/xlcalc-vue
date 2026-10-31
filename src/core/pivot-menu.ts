@@ -3,7 +3,7 @@
 // Field Settings… and PivotTable Options…; and the PivotTable Fields pane's requests for a field's dialogs and menu.
 import { cellAddress } from 'xlcalc/a1'
 import type { PivotDialogRequest } from '../contract/view'
-import { axisFields, fieldKind, fieldName, filtered, PIVOT_FUNCTIONS, ungroupedField, valueName, withHidden } from '../pivot-model'
+import { axisFields, cellField, fieldKind, fieldName, filtered, PIVOT_FUNCTIONS, ungroupedField, valueName, withHidden } from '../pivot-model'
 import type { MenuItem } from './menu'
 import { SHOW_AS, type PivotDialogs } from './pivot-dialogs'
 import type { PivotFilterMenus } from './pivot-filter'
@@ -25,11 +25,11 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
     const x = m()
     const out: MenuItem[] = []
     const value = part.value
-    const isValue = (part.kind === 'value' || part.kind === 'valueHeader') && value !== undefined && !!t.def.table.values?.[value]
+    const isValue = (part.kind === 'value' || part.kind === 'valueName') && value !== undefined && !!t.def.table.values?.[value]
     if (isValue) out.push({ id: 'pivotNumberFormat', label: x.pivotMenuNumberFormat, run: () => dialogs.openNumberFormat(t, value), group: true })
     out.push(...refresh)
     if (refresh.length) out.push({ id: 'pivotDelete', label: x.pivotMenuDelete, run: () => void dialogs.send({ op: 'deletePivotTable', sheet: t.sheet, pivot: t.pivot }) })
-    const field = part.field
+    const field = cellField(part)
     const onAxis = field !== undefined && (part.axis === 'rows' || part.axis === 'columns')
     if (onAxis) {
       const dates = fieldKind(t, field) === 'dates'
@@ -119,7 +119,7 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
   async function keep(only: boolean): Promise<void> {
     const here = dialogs.here.value
     const got = await dialogs.picked()
-    const field = here?.part.field
+    const field = cellField(here?.part)
     if (!got || field === undefined) return
     const chosen = new Set(got.parts.filter((p) => p.kind === 'item' && p.field === field && p.item !== undefined).map((p) => p.item!))
     const items = got.t.def.table.fields[field]?.items ?? []

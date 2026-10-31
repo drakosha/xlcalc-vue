@@ -10,7 +10,7 @@ import type { PivotOptionsTab } from '../contract/messages'
 import type { EditOutcome, SheetOp, SheetPivotCell } from '../contract/source'
 import type { PivotDesignChange } from '../contract/view'
 import { loadEntry } from '../entry'
-import { axisFields, designPatch, grandOf, grandPatch, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
+import { axisFields, cellField, designPatch, grandOf, grandPatch, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
 import type { Commands } from './commands'
 import type { Pivots } from './pivots'
 import type { Protection } from './protection'
@@ -473,8 +473,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   async function group(): Promise<boolean> {
     const got = await picked()
     if (!got) return false
-    const items = got.parts.filter((x) => x.kind === 'item' && x.field !== undefined && x.item !== undefined)
-    const field = items[0]?.field
+    const items = got.parts.filter((x) => x.kind === 'item' && cellField(x) !== undefined && x.item !== undefined)
+    const field = cellField(items[0])
     if (field === undefined || items.some((x) => x.field !== field)) return false
     const unique = [...new Set(items.map((x) => x.item!))]
     if (fieldKind(got.t, field) !== 'text' && unique.length === 1) return openGroup(got.t, field)
@@ -484,15 +484,15 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   /** Group Field: Grouping over the active cell's field. */
   async function groupField(): Promise<boolean> {
     const got = await active()
-    const field = got?.part?.field
+    const field = cellField(got?.part)
     return got && field !== undefined ? openGroup(got.t, field) : false
   }
   /** Excel's Ungroup: the groups selected of a field grouped by hand, or the active cell's field of dates or numbers. */
   async function ungroup(): Promise<EditOutcome | null> {
     const got = await picked()
-    const part = got?.parts.find((x) => x.field !== undefined)
+    const part = got?.parts.find((x) => cellField(x) !== undefined)
     if (!got || !part) return null
-    const field = ungroupedField(got.t, part.field!)
+    const field = ungroupedField(got.t, cellField(part)!)
     if (field === null) return null
     const base = { op: 'ungroupPivotField' as const, sheet: got.t.sheet, pivot: got.t.pivot, field }
     if (!got.t.def.cache.fields[field]?.group?.discrete) return send(base)
@@ -575,7 +575,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     if (c === 'options') openOptions(got.t)
     else if (c === 'calculatedField') openCalcField(got.t)
     else {
-      const f = got.part?.field
+      const f = cellField(got.part)
       return f !== undefined && got.part?.axis !== 'pages' ? openCalcItem(got.t, f) : false
     }
     return true

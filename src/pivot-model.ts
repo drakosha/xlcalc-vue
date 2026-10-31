@@ -2,7 +2,7 @@
 // field holds, the Design tab's commands and their checked items, filters by comparison, and dates as xlcalc's ISO text.
 import type { PivotDataField, PivotFieldPatch, PivotFilter, PivotFilterType, PivotFunction, PivotLayout, PivotTablePatch } from 'xlcalc/contract'
 import type { PivotCompare } from './contract/messages'
-import type { SheetPivotCells, SheetPivotTable } from './contract/source'
+import type { SheetPivotCell, SheetPivotCells, SheetPivotTable } from './contract/source'
 import type { PivotDesignChange } from './contract/view'
 
 /** A PivotTable the dialogs act on: its sheet and name, its definition and what its cells show. */
@@ -17,6 +17,8 @@ export interface PivotTarget {
 export const PIVOT_FUNCTIONS: readonly PivotFunction[] = ['sum', 'count', 'average', 'max', 'min', 'product', 'countNums', 'stdDev', 'stdDevp', 'var', 'varp']
 
 /** A field's name on the PivotTable: its own, or its cache field's. */
+/** A cell's cache field, none for Σ Values (`values`) or a cell of no field. */
+export const cellField = (c: SheetPivotCell | null | undefined): number | undefined => (typeof c?.field === 'number' ? c.field : undefined)
 export const fieldName = (t: PivotTarget, field: number): string => t.def.table.fields[field]?.name ?? t.def.cache.fields[field]?.name ?? ''
 
 /** A value field's name as the PivotTable shows it. */
