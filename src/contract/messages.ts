@@ -511,6 +511,8 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   refreshPivot: string
   /** Refresh in the cell menu of a PivotTable's cell. */
   menuRefresh: string
+  /** Excel's alert at the first key typed, or F2, on a PivotTable's value cell. */
+  pivotPartAlert: string
 }
 
 /** The Symbol dialog's Subset list: Unicode blocks by Excel's names (`basicLatin` is Basic Latin, `latin1` Latin-1 Supplement). */

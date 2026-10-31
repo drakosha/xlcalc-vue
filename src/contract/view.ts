@@ -114,7 +114,10 @@ export interface SheetViewState {
    * PivotTable Analyze and Design tabs while it is there.
    */
   pivot?: string
-  /** Refresh is available (`SheetViewApi.refreshPivot`): the active cell is in a PivotTable, the source has `structure`, and the sheet is editable. */
+  /**
+   * Refresh is available (`SheetViewApi.refreshPivot`): the active cell is in a PivotTable, the source has `structure`, and
+   * the sheet is editable and not protected, as Excel refreshes no PivotTable on a protected sheet whatever it allows.
+   */
   canRefreshPivot?: true
   /**
    * The PivotTable Fields pane is shown: the active cell is in a PivotTable, the source has `pivotTable`, and Excel's Field
@@ -333,7 +336,7 @@ export interface SheetViewApi {
   /**
    * Excel's PivotTable Analyze > Refresh (Alt+F5) of the PivotTable under the active cell through the source's `structure`
    * (`refreshPivots` naming it): its cache read again from its source, with every PivotTable over it, as a single undo step;
-   * the sheet reloads afterwards. null when nothing was sent (no PivotTable there, no `structure`, a read-only sheet).
+   * the sheet reloads afterwards. null when nothing was sent (no PivotTable there, no `structure`, a read-only or protected sheet).
    */
   refreshPivot(): Promise<EditOutcome | null>
   /**

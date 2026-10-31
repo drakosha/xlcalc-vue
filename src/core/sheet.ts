@@ -132,7 +132,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     return true
   }
   const alerts = useValidationAlert()
-  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare, calls: names.called, protection })
+  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare, calls: names.called, protection, pivots: { refuseEdit: (row, col) => pivots.refuseEdit(row, col) } })
   const point = usePoint(s, sel, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, scan: f.scanOptions, commit: ed.commit, paneAt: panes.cellAtPoint })
   // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, otherwise in as typed, past the rule.
   const validation = useValidation({
@@ -193,7 +193,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     openLink: (link) => emit('openLink', link),
   })
   const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
-  const pivots = usePivots(s, cmd, protection, { dialog: (request) => emit('pivotDialog', request) })
+  const pivots = usePivots(s, cmd, protection, { dialog: (request) => emit('pivotDialog', request), ask: alerts.ask })
   const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), cellPivots: () => pivots.items(), cellPivotsLast: () => pivots.lastItems(), protection })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask, blocked: () => protection.blocks('merge') })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })

@@ -13,6 +13,10 @@ const PART = "We can't change this part of the PivotTable."
 const AFFECT = "We can't make this change for the selected cells because it will affect a PivotTable. Use the field list to change the report. If you are trying to insert or delete cells, move the PivotTable and try again."
 const FORMULA = 'Cannot enter a formula for an item or field name in a PivotTable report.'
 const PROTECTED = "The cell or chart you're trying to change is on a protected sheet. To make a change, unprotect the sheet. You might be requested to enter a password."
+// Excel 16.0 for Windows' alerts for Refresh All (Ctrl+Alt+F5) on a protected sheet, without and with Use PivotTable and PivotChart
+const PIVOT_PROTECTED = 'Cannot edit PivotTable on protected sheet.'
+const PIVOT_SHARED =
+  'That command cannot be performed while a protected sheet contains another PivotTable report based on the same source data.\n\nTo remove protection from the sheet that has the other report, click the sheet tab, and then click Unprotect Sheet (Review tab, Protect group). Then try the command again.'
 const refusedWith = (message: string) => ({ ok: false, reason: 'refused', code: 'pivot', message })
 const ok = (out: EditOutcome) => expect(out).toMatchObject({ ok: true })
 const valueAt = async (s: ReturnType<typeof source>, cell: string) => {
@@ -86,8 +90,12 @@ describe('localSource: PivotTables', () => {
 
   it("words the alerts in the workbook's language", async () => {
     const s = source(pivotBook({ locale: 'ru-RU' }))
-    expect(await s.edit([{ sheet: 'Report', cell: 'B4', text: '100' }])).toMatchObject({ code: 'pivot', message: 'Нельзя изменить эту часть сводной таблицы.' })
-    expect(await s.edit([{ sheet: 'Report', cell: 'B4', text: null }])).toMatchObject({ code: 'pivot', message: expect.stringMatching(/^Нельзя внести это изменение/) })
+    expect(await s.edit([{ sheet: 'Report', cell: 'B4', text: '100' }])).toMatchObject({ code: 'pivot', message: 'Мы не можем изменить эту часть сводной таблицы.' })
+    expect(await s.edit([{ sheet: 'Report', cell: 'A4', text: '=1+1' }])).toMatchObject({ code: 'pivot', message: 'Нельзя задавать формулу для имени поля или элемента в отчете сводной таблицы.' })
+    expect(await s.edit([{ sheet: 'Report', cell: 'B4', text: null }])).toMatchObject({
+      code: 'pivot',
+      message: 'Мы не можем изменить выделенные ячейки, так как это повлияет на сводную таблицу. Для изменения отчета используйте список полей. Если вы пытаетесь вставить или удалить ячейки, переместить сводную таблицу и повторите попытку.',
+    })
   })
 
   it('renames a label typed over, as Excel does, in one undo step', async () => {
@@ -122,18 +130,32 @@ describe('localSource: PivotTables', () => {
     expect(await source({ sheets: [{ name: 'S', cells: {} }] }).refreshConnections()).toEqual({ ok: true, changes: [] })
   })
 
-  it('refreshes and changes a PivotTable on a protected sheet only with Use PivotTable and PivotChart, as Microsoft documents the box', async () => {
+  it('changes a PivotTable on a protected sheet only with Use PivotTable and PivotChart, as Microsoft documents the box', async () => {
     const locked = source(pivotBook({ protection: {} }))
     const refused = { ok: false, reason: 'refused', code: 'protected', message: PROTECTED }
-    expect(await locked.structure({ op: 'refreshPivots', pivots: [{ sheet: 'Report', name: 'PivotTable1' }] })).toEqual(refused)
-    expect(await locked.refreshConnections!()).toEqual(refused)
     expect(await locked.structure({ op: 'editPivotTable', sheet: 'Report', pivot: 'PivotTable1', set: { grandTotals: { rows: false } } })).toEqual(refused)
     expect(await locked.structure({ op: 'addPivotTable', sheet: 'Report', cell: 'F3', source: { type: 'range', sheet: 'Data', range: 'A1:D4' } })).toEqual(refused)
     const allowed = source(pivotBook({ protection: { pivotTables: true } }))
-    ok(await allowed.structure({ op: 'refreshPivots', pivots: [{ sheet: 'Report', name: 'PivotTable1' }] }))
-    ok(await allowed.refreshConnections!())
     ok(await allowed.structure({ op: 'editPivotTable', sheet: 'Report', pivot: 'PivotTable1', set: { grandTotals: { rows: false } } }))
     expect(await valueAt(allowed, 'A6')).toBeNull()
+  })
+
+  it("refuses Refresh and Refresh All on a protected sheet whatever it allows, with Excel for Windows' alerts", async () => {
+    const refresh: SheetOp = { op: 'refreshPivots', pivots: [{ sheet: 'Report', name: 'PivotTable1' }] }
+    const refusedBy = (message: string) => ({ ok: false, reason: 'refused', code: 'protected', message })
+    const locked = source(pivotBook({ protection: {} }))
+    ok(await locked.edit([{ sheet: 'Data', cell: 'B2', text: '15' }]))
+    expect(await locked.structure(refresh)).toEqual(refusedBy(PIVOT_PROTECTED))
+    expect(await locked.refreshConnections!()).toEqual(refusedBy(PIVOT_PROTECTED))
+    expect(await valueAt(locked, 'B4')).toBe(15)
+    const allowed = source(pivotBook({ protection: { pivotTables: true } }))
+    ok(await allowed.edit([{ sheet: 'Data', cell: 'B2', text: '15' }]))
+    expect(await allowed.structure(refresh)).toEqual(refusedBy(PIVOT_SHARED))
+    expect(await allowed.refreshConnections!()).toEqual(refusedBy(PIVOT_SHARED))
+    expect(await valueAt(allowed, 'B4')).toBe(15)
+    const ru = source(pivotBook({ locale: 'ru-RU', protection: {} }))
+    expect(await ru.structure(refresh)).toEqual(refusedBy('Нельзя изменять "сводной таблицы" на защищенном листе.'))
+    expect(await source(pivotBook({ locale: 'ru-RU', protection: { pivotTables: true } })).refreshConnections!()).toMatchObject({ message: expect.stringMatching(/^Эта команда не может быть выполнена, пока защищенный лист/) })
   })
 
   it('renames an unlocked label on a protected sheet only with Use PivotTable reports', async () => {

@@ -24,10 +24,10 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
   const areas = computed<PivotAreas | null>(() => draft.value ?? requested.value ?? saved.value)
   const fields = computed(() => definition.value?.cache.fields ?? [])
   /**
-   * Changes go through the sheet where it takes them: an editable sheet with `structure` (Refresh is available there), whose
-   * protection allows Use PivotTable and PivotChart, as the cell menu's Refresh is disabled otherwise.
+   * Changes go through the sheet where it takes them: an editable sheet with `structure` (Insert PivotTable is available
+   * there), whose protection allows Use PivotTable and PivotChart.
    */
-  const editable = computed(() => !!props.sheet && !!props.state?.canRefreshPivot && allows(props.state.protection, 'pivotTables'))
+  const editable = computed(() => !!props.sheet && !!props.state?.canInsertPivot && allows(props.state.protection, 'pivotTables'))
 
   /** Changes sent and not yet answered. */
   let inFlight = 0
