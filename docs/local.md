@@ -142,20 +142,22 @@ await source.edit([{ sheet: 'Plan', cell: 'C3', text: "='[Prices.xlsx]Sheet1'!A1
 
 ### Calls outside the workbook
 
-A host answers the calls of its own functions and of the functions of connections (`CUBEVALUE` and the other cube functions, `RTD`, `WEBSERVICE`, `STOCKHISTORY` and the rest) with xlcalc 0.68.0's `externals.resolve`, passed in `session`. An answer may be a promise. Each call of the session waits for the answers on their way within its `timeoutMs` (the calculator's, `pool: { timeoutMs }`, or the session's for opening it), and without one until they arrive. Past it the call ends with its cells waiting: they show `#BUSY!` (a cube function's `#GETTING_DATA`), and the source takes each answer as it arrives, after its pending changes, through the session's `settleConnections`, sending the cells it changed as a `changed` event, so the sheet shows the answers without the user doing anything. Closing the source ends the waits: an answer still on its way is taken as none, and nothing is sent after `close()`.
+A host answers the calls of its own functions and of the functions of connections (`CUBEVALUE` and the other cube functions, `RTD`, `WEBSERVICE`, `STOCKHISTORY` and the rest) with xlcalc 0.68.0's `externals.resolve`, passed in `session`. An answer may be a promise. Each call of the session waits for the answers on their way within its `timeoutMs`, and without one until they arrive. Past it the call ends with its cells waiting: they show `#BUSY!` (a cube function's `#GETTING_DATA`), and the source takes each answer as it arrives, after its pending changes, through the session's `settleConnections`, sending the cells it changed as a `changed` event, so the sheet shows the answers without the user doing anything. Closing the source ends the waits: an answer still on its way is taken as none, a call it would lead to is not asked of the host, and nothing is sent after `close()`.
+
+The deadline of every call is the calculator's `timeoutMs`: `pool: { timeoutMs }` for the pool the source starts, or the host's own calculator in `calc` (`createInlineCalc({ timeoutMs })`). `session: { timeoutMs }` bounds only the opening of the workbook; the edits after it then wait for their answers as long as they take.
 
 ```ts
 const source = localSource(book, {
-  pool: { timeoutMs: 200 }, // a call waits 200 ms for the answers, then shows #BUSY! and goes on
+  pool: { timeoutMs: 200 }, // each call waits 200 ms for the answers, then shows #BUSY! and goes on
   session: { externals: { functions: ['BALANCE'], resolve: ({ name, args, signal }) => (name === 'BALANCE' ? fetchBalance(args[0], signal) : undefined) } },
 })
 ```
 
-A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in.
+A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in. When taking an answer runs past it, the source takes it once more with a deadline of a minute: a call stopped at its deadline leaves the answers in the session, and another with the same deadline does not take them (xlcalc 0.71.1). A failure there, or any other, is written to the console (`console.error`) and the sheet reads its windows again, so it shows what the session holds.
 
-Refresh All (`refreshConnections`, Ctrl+Alt+F5) asks every call again, or with `names` those of the functions named: the source has it only with `session.externals`, as without them nothing answers the calls, and the formulas keeping their file's values would lose them to the answers of a function without its connection. It is not a step of undo ([calculation.md](calculation.md#refresh-all)).
+Refresh All (`refreshConnections`, Ctrl+Alt+F5) asks every call again, or with `names` those of the functions named: the source has it only with `externals.resolve`, as values given in advance (`externals.values`) answer nothing anew, and the formulas keeping their file's values would lose them to the answers of a function without its connection. It is not a step of undo ([calculation.md](calculation.md#refresh-all)). A known gap of xlcalc (0.71.1, no version fixes it yet): when Refresh All asks a call again while its earlier answer is still on its way, that earlier answer, arriving later, can take the place of the new one.
 
-In Manual, an answer shows in a cell the sheet shows waiting, since it ends the calculation that asked (a formula entered, Calculate Now); the cells that read it wait for a calculation as after an edit, and so does a cell whose waiting value is held while the sheet shows its value of the last calculation ([calculation.md](calculation.md#manual)). Not measured in Excel.
+In Manual only the cells that asked show their answers: a cell whose own formula calls the function, shown waiting for it since a formula entered or Calculate Now calculated it, takes the answer, as it ends that calculation. Every other cell waits for a calculation as after an edit: one that shows `#BUSY!` read from a cell that asked, one that reads the answer, and one whose waiting value is held while the sheet shows its value of the last calculation ([calculation.md](calculation.md#manual)). Not measured in Excel.
 
 ## Threads, the workbook and events
 

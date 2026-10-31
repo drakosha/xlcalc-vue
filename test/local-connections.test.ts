@@ -2,8 +2,8 @@
 // localSource over a workbook whose calls outside it the host answers with promises (xlcalc 0.68's `externals.resolve`):
 // a cell waiting past its call's `timeoutMs` shows #BUSY! and takes its answer when it arrives, without the user doing anything;
 // Refresh All asks again; a formula the engine cannot calculate keeps the value its file stores.
-import { afterEach, describe, expect, it } from 'vitest'
-import { createInlineCalc, type BookInput, type Calc, type ExternalCall, type ExternalResolver } from 'xlcalc'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createInlineCalc, type AsyncSession, type BookInput, type Calc, type ExternalCall, type ExternalResolver } from 'xlcalc'
 import type { CellUpdate, SourceEvent } from '../src/contract/source'
 import { writeXlsx } from 'xlcalc/xlsx'
 import { openXlsx, type LocalSource } from '../src/local'
@@ -93,6 +93,9 @@ describe('localSource: answers on their way', () => {
     await s.ready
     r.release()
     await new Promise((go) => setTimeout(go, 30))
+    // B1 asked and shows its answer; C1 read #BUSY! from it and waits for F9
+    expect(await row(s)).toEqual([2, 40, BUSY])
+    await s.calculate()
     expect(await row(s)).toEqual([2, 40, 41])
     const seen = changes(s)
     // a formula entered calculates and waits, shown as #BUSY!
@@ -121,6 +124,31 @@ describe('localSource: answers on their way', () => {
     expect(seen.events).toEqual([])
   })
 
+  it('closing the source ends a wait that an answer leads to, while opening or during an edit', async () => {
+    let asked = 0
+    const resolve: ExternalResolver = () => {
+      asked++
+      return new Promise(() => {})
+    }
+    // C1 asks once B1 is answered: closing answers B1 with none, and C1 is not asked of the host
+    const chained: BookInput = { sheets: [{ name: 'S', cells: { B1: { formula: 'BAL(1)' }, C1: { formula: 'BAL(B1)' } } }] }
+    const s = source(chained, { session: { externals: { functions: ['BAL'], resolve } } })
+    await new Promise((go) => setTimeout(go, 20))
+    const closed = await Promise.race([s.close().then(() => 'closed'), new Promise((go) => setTimeout(() => go('hung'), 1000))])
+    expect(closed).toBe('closed')
+    expect(asked).toBe(1)
+    // an edit waiting for an answer when the source closes ends too
+    const r = held()
+    const t = source(balances(), { session: { timeoutMs: 20, externals: { functions: ['BAL'], resolve: r.resolve } } })
+    await t.ready
+    r.release()
+    await new Promise((go) => setTimeout(go, 20))
+    const edit = t.edit([{ sheet: 'S', cell: 'A1', text: '3' }])
+    await new Promise((go) => setTimeout(go, 20))
+    const done = await Promise.race([Promise.all([t.close(), edit]).then(() => 'closed'), new Promise((go) => setTimeout(() => go('hung'), 1000))])
+    expect(done).toBe('closed')
+  })
+
   it('closing the source while a cell waits sends nothing after it', async () => {
     const r = held()
     const s = source(balances(), { session: { timeoutMs: 20, externals: { functions: ['BAL'], resolve: r.resolve } } })
@@ -130,6 +158,88 @@ describe('localSource: answers on their way', () => {
     r.release()
     await new Promise((go) => setTimeout(go, 20))
     expect(seen.events).toEqual([])
+  })
+})
+
+describe('localSource: answers in Manual', () => {
+  /** In Manual: A1 2, B1 =BAL(A1)*2, C1 =B1+1, D1 =IFERROR(B1,0); a text argument is answered at once with #N/A. */
+  const manualBook = (): BookInput => ({
+    calculation: 'manual',
+    sheets: [{ name: 'S', cells: { A1: { value: 2 }, B1: { formula: 'BAL(A1)*2' }, C1: { formula: 'B1+1' }, D1: { formula: 'IFERROR(B1,0)' } } }],
+  })
+  const row4 = async (s: LocalSource) => (await win(s, 'S', 1, 1, 1, 4)).values[0]
+  function open() {
+    const r = held()
+    const calc = createInlineCalc({ timeoutMs: 20 })
+    calcs.push(calc)
+    const resolve: ExternalResolver = (call) => (typeof call.args[0] === 'string' ? { error: 'NA' } : r.resolve(call))
+    return { r, s: source(manualBook(), { calc, session: { externals: { functions: ['BAL'], resolve } } }) }
+  }
+
+  it('an answer before the first change shows in the cell that asked; the cells reading it wait for F9', async () => {
+    const { r, s } = open()
+    await s.ready
+    expect(await row4(s)).toEqual([2, BUSY, BUSY, 0])
+    const seen = changes(s)
+    r.release()
+    await seen.until('B1')
+    expect(seen.text()).toEqual(['S!B1=40'])
+    expect(await row4(s)).toEqual([2, 40, BUSY, 0])
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: true })
+    await s.calculate()
+    expect(await row4(s)).toEqual([2, 40, 41, 40])
+  })
+
+  it('a cell showing #BUSY! it read from another waits for F9 after an edit too', async () => {
+    const { s } = open()
+    await s.ready
+    await s.edit([{ sheet: 'S', cell: 'A1', text: 'abc' }])
+    expect(await row4(s)).toEqual(['abc', BUSY, BUSY, 0])
+    expect(await s.calculation()).toEqual({ mode: 'manual', pending: true })
+    await s.calculate()
+    expect(await row4(s)).toEqual(['abc', { error: 'NA' }, { error: 'NA' }, 0])
+  })
+})
+
+describe('localSource: an answer whose calculation runs past the deadline', () => {
+  it('is taken again with a longer deadline, rather than leaving its cell waiting', async () => {
+    const calc = createInlineCalc({ timeoutMs: 1 })
+    calcs.push(calc)
+    let go: (v: number[][]) => void = () => {}
+    const resolve: ExternalResolver = () => new Promise<number[][]>((done) => (go = done))
+    const cells: BookInput['sheets'][number]['cells'] = { A1: { formula: 'BAL(1)' } }
+    for (let r = 1; r <= 3000; r++) cells[`Z${r}`] = { formula: `SUM($A$1:$A$3000)+${r}` }
+    const s = source({ sheets: [{ name: 'S', cells }] }, { calc, session: { timeoutMs: 5000, externals: { functions: ['BAL'], resolve } } })
+    await s.ready
+    expect((await win(s, 'S', 1, 1, 1, 1)).values[0]![0]).toEqual(BUSY)
+    const seen = changes(s)
+    go(Array.from({ length: 3000 }, (_, i) => [i]))
+    await seen.until('A1')
+    expect((await win(s, 'S', 1, 1, 1, 1)).values[0]![0]).toBe(0)
+  }, 30000)
+})
+
+describe('localSource: answers that cannot be taken', () => {
+  it('are logged, and the sheet reads its windows again', async () => {
+    const r = held()
+    const inline = createInlineCalc()
+    calcs.push(inline)
+    // a session whose settleConnections fails as a host's calculator might
+    const calc: Calc = {
+      compute: (...a) => inline.compute(...a),
+      close: async () => {},
+      createSession: async (...a) => Object.assign(await inline.createSession(...a), { settleConnections: () => Promise.reject(new Error('lost')) }) as AsyncSession,
+    }
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const s = source(balances(), { calc, session: { timeoutMs: 20, externals: { functions: ['BAL'], resolve: r.resolve } } })
+    await s.ready
+    const seen = changes(s)
+    r.release()
+    await new Promise((go) => setTimeout(go, 30))
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(String(log.mock.calls[0]![1])).toContain('lost')
+    expect(seen.events.map((e) => e.kind)).toEqual(['reload'])
+    log.mockRestore()
   })
 })
 
@@ -197,9 +307,11 @@ describe('localSource: Refresh All', () => {
     expect(await row(s)).toEqual([2, 42, 43])
   })
 
-  it('is there only with the host answering calls outside the workbook', async () => {
+  it('is there only with a resolver to ask again', async () => {
     expect(source(balances()).refreshConnections).toBeUndefined()
-    expect(typeof source(balances(), { session: { externals: { functions: ['BAL'] } } }).refreshConnections).toBe('function')
+    // values given in advance answer nothing anew: Refresh All would only drop a cube's value the file stores
+    expect(source(balances(), { session: { externals: { functions: ['BAL'], values: { 'BAL(2)': 5 } } } }).refreshConnections).toBeUndefined()
+    expect(typeof source(balances(), { session: { externals: { functions: ['BAL'], resolve: counting().resolve } } }).refreshConnections).toBe('function')
   })
 })
 

@@ -94,8 +94,6 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     const sk = nameKey(ch.sheet)
     const was = known.get(sk)?.get(ch.cell)
     if (!was || sameValue(was.value, ch.value)) return false
-    // the answer a cell shows waiting for (xlcalc 0.68) ends the calculation that asked
-    if (waiting(was.value)) return false
     // a cell of the array of a formula entered, filled now or left empty
     if (was.of && entered.has(cellKey(ch.sheet, was.of))) return false
     let mine = held.get(sk)
@@ -142,6 +140,32 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
       if (!cells.length) continue
       const got = await s.getCells(sheet, cells)
       for (const addr of cells) out.push(changeOf(sheet, addr, got[addr]))
+    }
+    return out
+  }
+
+  /**
+   * The cells whose answers from outside the workbook `changes` bring (xlcalc 0.68's `settleConnections`) and that the sheet
+   * shows waiting for them: their own call (`calls`, by the formula) asked as a formula entered or Calculate Now calculated
+   * them, so the answer ends that calculation. A cell showing #BUSY! it read from another waits for a calculation.
+   */
+  async function asked(s: AsyncSession, changes: CellChange[], calls: (formula: string) => boolean): Promise<Set<string>> {
+    const out = new Set<string>()
+    if (!manual() || !known) return out
+    const bySheet = new Map<string, { sheet: string; cells: string[] }>()
+    for (const ch of changes) {
+      const was = known.get(nameKey(ch.sheet))?.get(ch.cell)
+      if (!was || !waiting(was.value)) continue
+      const mine = bySheet.get(nameKey(ch.sheet)) ?? { sheet: ch.sheet, cells: [] }
+      bySheet.set(nameKey(ch.sheet), mine)
+      mine.cells.push(ch.cell)
+    }
+    for (const { sheet, cells } of bySheet.values()) {
+      const got = await s.getCells(sheet, cells)
+      for (const addr of cells) {
+        const formula = got[addr]?.formula
+        if (formula && calls(formula)) out.add(cellKey(sheet, addr))
+      }
     }
     return out
   }
@@ -235,7 +259,7 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     return (mode === 'automatic' ? rest : { ...rest, calculation: mode }) as B
   }
 
-  return { state, report, capture, hold, showing, spillsOf, forget, moved, overlay, overlayCells, calculate, setMode, book, manual }
+  return { state, report, capture, hold, asked, showing, spillsOf, forget, moved, overlay, overlayCells, calculate, setMode, book, manual }
 }
 
 export type ManualCalculation = ReturnType<typeof manualCalculation>
