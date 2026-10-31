@@ -11,7 +11,6 @@ import type { PivotDesignChange } from '../contract/view'
 import { loadEntry } from '../entry'
 import { axisFields, designPatch, grandOf, grandPatch, renamedValueField, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
 import type { Commands } from './commands'
-import { valuesPatch } from './pivot-layout'
 import type { Pivots } from './pivots'
 import type { Protection } from './protection'
 import type { Selection } from './selection'
@@ -519,7 +518,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     open({ kind: 'calcItem', t, field, draft: { name, formula: '= 0', pick: field, item: 0 } })
     return true
   }
-  /** Add or Modify, and OK with a name: the calculated field or item set (a new calculated field then placed on Values, as Excel's OK does). */
+  /** Add or Modify, and OK with a name: the calculated field or item set (a new calculated field placed on Values too, as Excel's OK does). */
   async function applyCalc(closing: boolean): Promise<EditOutcome | null> {
     const d = state.value
     if ((d?.kind !== 'calcField' && d?.kind !== 'calcItem') || !d.draft.name.trim()) {
@@ -531,16 +530,9 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     const t = d.t
     if (closing) close()
     if (d.kind === 'calcItem') return kept(await send({ op: 'setPivotCalculatedItem', sheet: t.sheet, pivot: t.pivot, field: d.field, name, formula }))
+    // Excel's OK puts a new calculated field on Values after the others with Sum, in the same step (xlcalc's `values`); Modify leaves them
     const known = calcNames(t).some((x) => x.toLowerCase() === name.toLowerCase())
-    const out = await send({ op: 'setPivotCalculatedField', sheet: t.sheet, pivot: t.pivot, name, formula })
-    if (!out?.ok || known) return kept(out)
-    // Excel's OK puts a new calculated field on Values after the others, with Sum, Σ Values on Columns from the second
-    // (Excel for Windows 16.0, measured): xlcalc's operation does not, so the PivotTable is edited after it
-    const again = await target(t.sheet, t.pivot)
-    const index = again?.t.def.cache.fields.findIndex((f) => f.name.toLowerCase() === name.toLowerCase()) ?? -1
-    if (!again || index < 0) return out
-    const set = valuesPatch(again.t.def.table, [...(again.t.def.table.values ?? []), { field: index }])
-    return kept(set ? await edit(again.t, set) : out)
+    return kept(await send({ op: 'setPivotCalculatedField', sheet: t.sheet, pivot: t.pivot, name, formula, ...(known ? {} : { values: true }) }))
   }
   /** After Add or Modify the dialog stays open over the PivotTable read again, its names and formulas listed anew. */
   async function kept(out: EditOutcome | null): Promise<EditOutcome | null> {

@@ -79,6 +79,12 @@ describe('Insert Calculated Field and Calculated Item', () => {
     expect(cellText(w, 4, 3)).toBe('14')
     const got = (await s.pivotTable('R', 'PivotTable1'))!
     expect(got.cache.fields.at(-1)).toMatchObject({ name: 'Double', formula: 'Amount*2' })
+    expect(got.table.values).toMatchObject([{ field: 3 }, { field: 5, name: 'Sum of Double' }])
+    // one step of undo takes the field and its place on Values away
+    expect(await s.undo()).toMatchObject({ ok: true })
+    const back = (await s.pivotTable('R', 'PivotTable1'))!
+    expect(back.cache.fields.map((f) => f.name)).not.toContain('Double')
+    expect(back.table.values).toMatchObject([{ field: 3 }])
   })
 
   it('adds a calculated item of the field under the active cell, and Delete removes it', async () => {
