@@ -1,6 +1,6 @@
-// The texts of Insert PivotTable and the PivotTable Fields pane, English and Russian, as Microsoft's documentation of Excel
-// for Windows words them where it names them and as Excel 365 for Windows shows them elsewhere; not yet measured in Excel.
-// src/messages.ts includes them in its sets.
+// The texts of Insert PivotTable and the PivotTable Fields pane, English and Russian, as Excel 16.0 for Windows shows them,
+// measured in both; the Values area's Σ Values, the list's arrow and menu, the dialog's two alerts and Show Field List were
+// not measured and are Microsoft's documentation's words or Excel 365 for Windows'. src/messages.ts includes them in its sets.
 import type { PivotFieldsMessages } from './contract/messages'
 
 export const enPivotFields: PivotFieldsMessages = {
@@ -35,8 +35,8 @@ export const enPivotFields: PivotFieldsMessages = {
   fieldToColumns: 'Move to Column Labels',
   fieldToValues: 'Move to Values',
   fieldRemove: 'Remove Field',
-  fieldSettings: 'Field Settings…',
-  valueFieldSettings: 'Value Field Settings…',
+  fieldSettings: 'Field Settings...',
+  valueFieldSettings: 'Value Field Settings...',
   fieldAddFilters: 'Add to Report Filter',
   fieldAddRows: 'Add to Row Labels',
   fieldAddColumns: 'Add to Column Labels',
@@ -48,11 +48,11 @@ export const enPivotFields: PivotFieldsMessages = {
 export const ruPivotFields: PivotFieldsMessages = {
   pivotInsert: 'Сводная таблица',
   pivotCreateTitle: 'Сводная таблица из таблицы или диапазона',
-  pivotCreateSource: 'Выберите таблицу или диапазон',
+  pivotCreateSource: 'Выбрать таблицу или диапазон',
   pivotCreateRange: 'Таблица или диапазон:',
   pivotCreatePlace: 'Укажите, куда следует поместить сводную таблицу',
-  pivotNewSheet: 'На новый лист',
-  pivotExistingSheet: 'На существующий лист',
+  pivotNewSheet: 'Новый лист',
+  pivotExistingSheet: 'Существующий лист',
   pivotLocation: 'Расположение:',
   pivotSourceBad: 'Недопустимая ссылка на источник данных.',
   pivotLocationBad: 'Недопустимая ссылка на место назначения.',
@@ -77,8 +77,8 @@ export const ruPivotFields: PivotFieldsMessages = {
   fieldToColumns: 'Переместить в названия столбцов',
   fieldToValues: 'Переместить в значения',
   fieldRemove: 'Удалить поле',
-  fieldSettings: 'Параметры поля…',
-  valueFieldSettings: 'Параметры поля значений…',
+  fieldSettings: 'Параметры поля...',
+  valueFieldSettings: 'Параметры полей значений...',
   fieldAddFilters: 'Добавить в фильтр отчета',
   fieldAddRows: 'Добавить в названия строк',
   fieldAddColumns: 'Добавить в названия столбцов',
