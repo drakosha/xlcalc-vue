@@ -306,7 +306,10 @@ export interface SheetInfo {
  * `TableRange1`); `filters` its Filters area above it, as wide as its filters, without the blank row between (`PageRange`);
  * `headers` the table's rows above its values: the value fields' and column fields' headers and the column labels;
  * `rowLabels` the row labels left of the values, down to the grand total; `values` the values with their totals
- * (`DataBodyRange`). An area the PivotTable does not show is absent (`values` without a value field).
+ * (`DataBodyRange`), which Excel gives a PivotTable without value fields too: the cells under the header rows, the labels
+ * themselves with no field on columns. These are xlcalc's `PivotLocation.areas`; an area the PivotTable does not show is
+ * absent (`headers` and `rowLabels` of one not laid out or in `#SPILL!`). The sheet refuses typing at the first key on a
+ * cell of `values` outside `rowLabels` and `headers`.
  */
 export interface SheetPivot {
   /** Unique among the sheet's PivotTables: an operation on the PivotTable names it by the sheet and this name (xlcalc's `PivotRef`). */

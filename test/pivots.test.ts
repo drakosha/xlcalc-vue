@@ -6,7 +6,7 @@ import { defineComponent, h, ref } from 'vue'
 import { SheetToolbar, SheetView, type SheetViewApi, type SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
 import { cellText, editorKey, editorOpen, goTo, key, mountSheet, settle, type, until } from './helpers'
-import { pivotBook } from './pivot-fixture'
+import { addSales, pivotBook, salesBook } from './pivot-fixture'
 
 let sources: LocalSource[] = []
 afterEach(async () => {
@@ -106,6 +106,36 @@ describe('PivotTables on the sheet', () => {
     await type(w, 'x')
     await editorKey(w, 'Enter')
     await until(() => cellText(w, 5, 1) === 'x')
+  })
+
+  it('without value fields: the labels in its values area take typing, its empty cells refuse at the first key', async () => {
+    const s = open(salesBook())
+    expect(await s.structure(addSales({ rows: [0], columns: [1] }))).toMatchObject({ ok: true })
+    const pivots = (await s.sheets())[1]!.pivots!
+    // xlcalc's areas: the values area is Excel's DataBodyRange, empty cells right of the labels
+    expect(pivots[0]).toMatchObject({ range: 'A3:D8', headers: 'A3:D4', rowLabels: 'A5:A8', values: 'B5:D8' })
+    const w = await mountSheet(s)
+    await goTo(w, 'R!C6')
+    await key(w, '9')
+    await settle()
+    expect(alertText()).toBe("We can't change this part of the PivotTable.")
+    document.querySelector<HTMLButtonElement>('[data-xs-alert-button="ok"]')!.click()
+    await settle()
+    await goTo(w, 'A5')
+    await key(w, 'F2')
+    expect(alertText()).toBeNull()
+    expect(editorOpen(w)).toBe(true)
+  })
+
+  it('a PivotTable with row fields alone has its labels as its values area, and typing over them renames', async () => {
+    const s = open(salesBook())
+    expect(await s.structure(addSales({ rows: [0] }))).toMatchObject({ ok: true })
+    expect((await s.sheets())[1]!.pivots![0]).toMatchObject({ rowLabels: 'A4:A7', values: 'A4:A7' })
+    const w = await mountSheet(s)
+    await goTo(w, 'R!A4')
+    await key(w, 'F2')
+    expect(alertText()).toBeNull()
+    expect(editorOpen(w)).toBe(true)
   })
 
   it("the toolbar's Refresh All list has Refresh, enabled on a PivotTable's cell", async () => {

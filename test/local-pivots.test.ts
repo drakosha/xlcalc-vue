@@ -41,12 +41,13 @@ describe('localSource: PivotTables', () => {
     expect(await s.pivotTable('Data', 'PivotTable1')).toBeNull()
   })
 
-  it('lists a PivotTable not laid out, or shrunk to its top-left cell (#SPILL!), by its table alone', async () => {
+  it('lists a PivotTable not laid out, or shrunk to its top-left cell (#SPILL!), by its table and values alone', async () => {
+    const fields = [{ name: 'Region' }, { name: 'Amount' }, { name: 'Kind' }, { name: 'Year' }]
     // added without the engine: Excel's empty PivotTable of three columns and 18 rows, without saved lines
     const placeholder = pivotBook({ table: { location: { range: 'A3:C20', firstHeaderRow: 1, firstDataRow: 1, firstDataColumn: 0 }, rowLines: undefined, columnLines: undefined } })
-    expect((await source(placeholder).sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1', range: 'A3:C20' }])
+    expect((await source(placeholder).sheets())[1]!.pivots).toEqual([{ name: 'PivotTable1', range: 'A3:C20', values: 'A4:C20', cache: 1, fields }])
     const spilled = pivotBook({ table: { location: { range: 'A3', firstHeaderRow: 0, firstDataRow: 0, firstDataColumn: 0 } } })
-    expect((await source(spilled).sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1', range: 'A3' }])
+    expect((await source(spilled).sheets())[1]!.pivots).toEqual([{ name: 'PivotTable1', range: 'A3', values: 'A3', cache: 1, fields }])
   })
 
   it("refuses a value or a formula typed, pasted or filled over its cells with Excel's alert; a formula has its own", async () => {
