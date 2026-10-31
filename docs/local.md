@@ -159,7 +159,7 @@ const source = localSource(book, {
 })
 ```
 
-A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in. When taking an answer runs past it, the source takes it once more with a deadline of a minute: a call stopped at its deadline leaves the answers in the session, and another with the same deadline does not take them (xlcalc 0.71.1). A failure there, or any other, is written to the console (`console.error`) and the sheet reads its windows again, so it shows what the session holds.
+A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in. When taking an answer runs past it, the source takes it once more with a deadline of a minute. A known gap of xlcalc 0.71.2: a stopped call can leave the session half calculated, some cells reading the answer and others still `#BUSY!`, and no later call completes it; give a `timeoutMs` that the calculation after an answer fits in. A failure there, or any other, is written to the console (`console.error`) and the sheet reads its windows again, so it shows what the session holds.
 
 Refresh All (`refreshConnections`, Ctrl+Alt+F5) asks every call again, or with `names` those of the functions named: the source has it only with `externals.resolve`, as values given in advance (`externals.values`) answer nothing anew, and the formulas keeping their file's values would lose them to the answers of a function without its connection. It is not a step of undo ([calculation.md](calculation.md#refresh-all)).
 
