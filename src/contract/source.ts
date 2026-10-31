@@ -165,6 +165,13 @@ export interface SheetSource {
    * their values, returned as `changes` and sent as a `changed` event; not a step of undo. Without it there is no F9.
    */
   calculate?(sheet?: string): Promise<EditOutcome>
+  /**
+   * Excel's Data > Refresh All (Ctrl+Alt+F5): the workbook's calls outside itself asked again, of the functions `names`
+   * (upper-case) or of every one (xlcalc's `refreshConnections`), and the cells they change returned as `changes` and sent as
+   * a `changed` event; answers still on their way arrive as `changed` events. Not a step of undo, as in Excel. Without it
+   * there is no Refresh All.
+   */
+  refreshConnections?(names?: string[]): Promise<EditOutcome>
 }
 
 /**

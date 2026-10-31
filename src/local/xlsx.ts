@@ -1,8 +1,8 @@
 // An xlsx file into a workbook and a workbook with its values into a file, through `xlcalc/xlsx`, which loads only when used.
 import type { Locale } from 'xlcalc'
-import type { XlsxIssue, XlsxRead, XlsxWritten } from 'xlcalc/xlsx'
+import type { XlsxIssue, XlsxWritten } from 'xlcalc/xlsx'
 import { loadLocale } from './locale'
-import type { LocalSource } from './types'
+import type { LocalSource, OpenedXlsx } from './types'
 
 /** The language of the issue messages: a tag (`ru-RU`, whose module is loaded on demand) or a locale object; en-US by default. */
 export interface XlsxIssuesOptions {
@@ -21,13 +21,16 @@ type FileData = Blob | ArrayBuffer | Uint8Array
 const bytesOf = async (data: FileData) => (data instanceof Blob ? new Uint8Array(await data.arrayBuffer()) : data)
 
 /**
- * Reads a file into a workbook; `issues` lists what the workbook cannot keep, in `locale`'s language. With `keep`, through
- * xlcalc's `openKept` (0.57.0 or later), so that `saveXlsx` with `over` can write the workbook over this file.
+ * Reads a file into a workbook; `issues` lists what the workbook cannot keep, in `locale`'s language, and `file` names a
+ * `File` for the session (`CELL("filename")`, `INFO`). With `keep`, through xlcalc's `openKept` (0.57.0 or later), so that
+ * `saveXlsx` with `over` can write the workbook over this file.
  */
-export async function openXlsx(data: FileData, opts: XlsxIssuesOptions & { keep?: boolean } = {}): Promise<XlsxRead> {
+export async function openXlsx(data: FileData, opts: XlsxIssuesOptions & { keep?: boolean } = {}): Promise<OpenedXlsx> {
   const [bytes, read] = await Promise.all([bytesOf(data), issuesIn(opts)])
-  if (opts.keep) return (await import('xlcalc/xlsx/keep')).openKept(bytes, read)
-  return (await import('xlcalc/xlsx')).readXlsx(bytes, read)
+  const got = opts.keep ? (await import('xlcalc/xlsx/keep')).openKept(bytes, read) : (await import('xlcalc/xlsx')).readXlsx(bytes, read)
+  // a browser does not tell a file's folder: the name alone
+  const name = typeof File === 'function' && data instanceof File && data.name ? data.name : undefined
+  return name ? { ...(await got), file: { name } } : got
 }
 
 /**

@@ -17,6 +17,7 @@ import { columnList, filterActive, filterColumns, visibleList } from '../sheet-q
 import { SheetValues } from './query'
 import type { LocalSource, LocalSourceOptions } from './types'
 import { manualCalculation } from './manual'
+import { connections, takeAnswers } from './connections'
 import { protectionGuard, protectSheet } from './protect'
 import { validationOf } from './validation'
 import { autoFilterRanges } from './autofilter'
@@ -124,6 +125,30 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   let calc: Calc | null = null
   let session: AsyncSession | null = null
 
+  /**
+   * An answer arrived after its call: the session's `settleConnections` after the pending changes, once for the answers so
+   * far; in Manual the values shown are captured first, so that only the cells that asked show their answers. A failure
+   * other than closing is logged and the sheet reads its windows again.
+   */
+  let taking = false
+  function answered(): void {
+    if (taking) return
+    taking = true
+    void serial(async () => {
+      taking = false
+      if (outside.closed) return
+      const s = await open()
+      await calcMode.capture(s)
+      const got = await takeAnswers(s)
+      if (outside.closed) return
+      await settle(s, got, [], await calcMode.asked(s, got.changes, outside.calls))
+    })().catch((e: unknown) => {
+      if (outside.closed) return
+      console.error('localSource: the answers from outside the workbook could not be taken', e)
+      reload()
+    })
+  }
+
   /** Excel's sheet protection, which the session does not enforce: each change to a protected sheet is checked first. */
   const guard = protectionGuard(locale, maxCells)
   /** The ranges the sheets' AutoFilters act on, which data typed under them grows: an edit that moves one sends `sheets`. */
@@ -139,10 +164,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     }
   }
 
+  /** The host's answers that arrive after the call that asked for them, taken as they come (`answered`). */
+  const outside = connections(opts.session, () => answered())
+
   const ready = (async () => {
     await Promise.all([loadLocale(locale), loadRegex(opts.regex)])
     calc = typeof opts.calc === 'object' ? opts.calc : await startCalc(opts)
-    session = await calc.createSession(input, opts.session)
+    // a formula over a function the engine does not know keeps the value its file stores (or its cell holds), as Excel shows it until it calculates the cell
+    session = await calc.createSession(input, { unknownFunctions: 'held', ...outside.session })
   })()
   ready.catch(() => {})
   const open = async (): Promise<AsyncSession> => {
@@ -177,13 +206,13 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   }
 
   /** The session's changes as cell updates, with the edited cells' updates in place, and the cached values updated, one sheet at a time. */
-  function take(changes: CellChange[], edited: Map<string, CellUpdate> = new Map()): CellUpdate[] {
+  function take(changes: CellChange[], edited: Map<string, CellUpdate> = new Map(), answered: Set<string> = new Set()): CellUpdate[] {
     const out = new Map(edited)
-    // Excel calculates a formula entered, typed, pasted or filled, with the cells its array fills
-    const entered = new Set([...edited.keys(), ...changes.filter((c) => typeof c.formula === 'string').map((c) => cellKey(c.sheet, c.cell))])
+    // Excel calculates a formula entered, typed, pasted or filled, with the cells its array fills; an answer, the cell that asked
+    const entered = new Set([...edited.keys(), ...answered, ...changes.filter((c) => typeof c.formula === 'string').map((c) => cellKey(c.sheet, c.cell))])
     for (const ch of changes) {
       const key = cellKey(ch.sheet, ch.cell)
-      if (!out.has(key) && !calcMode.hold(ch, entered)) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
+      if (!out.has(key) && (answered.has(key) || !calcMode.hold(ch, entered))) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
     }
     const list = [...out.values()]
     calcMode.showing(list, changes)
@@ -277,9 +306,9 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   }
 
   /** A completed change: its updates, with the edited cells' current state, sent to subscribers, then the formatting it may have changed; a reload where updates cannot carry it. */
-  async function settle(s: AsyncSession, got: EditResult, boxes: CellsBox[]): Promise<Extract<EditOutcome, { ok: true }>> {
+  async function settle(s: AsyncSession, got: EditResult, boxes: CellsBox[], answered?: Set<string>): Promise<Extract<EditOutcome, { ok: true }>> {
     const { updates, truncated } = await editedIn(s, boxes)
-    const changes = take([...got.changes, ...(await calcMode.spillsOf(s, updates.values()))], updates)
+    const changes = take([...got.changes, ...(await calcMode.spillsOf(s, updates.values()))], updates, answered)
     if (truncated || needsReload(got)) reload()
     else {
       if (changes.length) emit({ kind: 'changed', changes })
@@ -446,6 +475,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   async function externalBooks(s: AsyncSession, books: ExternalBook[]): Promise<EditOutcome> {
     if (typeof s.setExternalBooks !== 'function') return failed('Links to other workbooks need xlcalc 0.62.0 or later')
     return settle(s, await s.setExternalBooks(books), [])
+  }
+
+  /**
+   * Excel's Refresh All (xlcalc 0.68's `refreshConnections`): the answers kept are dropped and the calls asked again, not a
+   * step of undo; its changes are sent as an edit's, so in Manual the cells it calculated wait for a calculation.
+   */
+  async function refresh(s: AsyncSession, names?: string[]): Promise<EditOutcome> {
+    return settle(s, await s.refreshConnections(names), [])
   }
 
   /** A change of what the sheet shows that is no change of the workbook: after the pending changes, outside undo. */
@@ -774,9 +811,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       return calcMode.state()
     },
     setExternalBooks: mutation(externalBooks, refusedBy),
+    // Refresh All asks the host's resolver again: values given in advance answer nothing anew
+    ...(outside.resolves ? { refreshConnections: mutation(refresh, failedBy) } : {}),
     calculate: showing(calculate),
     setCalculation: showing(setCalculation),
     async close() {
+      outside.close()
       await ready.catch(() => {})
       await session?.close()
       if (calc && typeof opts.calc !== 'object') await calc.close()

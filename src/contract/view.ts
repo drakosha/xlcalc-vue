@@ -102,6 +102,8 @@ export interface SheetViewState {
   calculation?: CalculationMode
   /** In Manual, cells wait for a calculation: the status bar shows Calculate. */
   calculationPending?: true
+  /** Refresh All is available (`SheetViewApi.refreshAll`): the source has `refreshConnections` and the sheet is editable. */
+  canRefreshAll?: true
   /** The sheet is protected (`SheetInfo.protection`), with what users may still do: a toolbar disables formatting without `formatCells`, as Excel does. */
   protection?: SheetProtection
   /** A selection of several ranges (Go To Special's): each of them as Excel writes it, the active one (`ref`) among them; absent for one range. A toolbar formats every one. */
@@ -307,6 +309,8 @@ export interface SheetViewApi {
   calculate(scope?: 'workbook' | 'sheet'): Promise<EditOutcome | null>
   /** Excel's Calculation Options through the source's `setCalculation`; null when nothing was sent (no `setCalculation`, a read-only sheet). */
   setCalculation(mode: CalculationMode): Promise<EditOutcome | null>
+  /** Excel's Data > Refresh All (Ctrl+Alt+F5) through the source's `refreshConnections`; null when nothing was sent (no `refreshConnections`, a read-only sheet). */
+  refreshAll(): Promise<EditOutcome | null>
   /**
    * Opens Excel's Protect Sheet dialog for the displayed sheet: what users may still do, without a password; OK protects it
    * through the source's `protect`, as a single undo step. false without `protect`, on a read-only sheet, or on a protected one.
@@ -341,9 +345,9 @@ export type ToolbarSource = SheetSource
  * A group of `SheetToolbar`'s buttons, as `items` names it: Undo and Redo, Format Painter, Bold, Italic and Underline (`fontStyle`), the
  * Font and Font Size boxes with Increase and Decrease Font Size (`font`), the Number Format box with its buttons (`number`),
  * font and fill color, borders, Top, Middle and Bottom Align, horizontal alignment with indent and Wrap Text (`align`),
- * Merge & Center, Format Cells, and AutoSum.
+ * Merge & Center, Format Cells, AutoSum, and Data > Refresh All.
  */
-export type ToolbarGroup = 'undo' | 'formatPainter' | 'fontStyle' | 'font' | 'number' | 'colors' | 'borders' | 'verticalAlign' | 'align' | 'merge' | 'formatCells' | 'autoSum'
+export type ToolbarGroup = 'undo' | 'formatPainter' | 'fontStyle' | 'font' | 'number' | 'colors' | 'borders' | 'verticalAlign' | 'align' | 'merge' | 'formatCells' | 'autoSum' | 'refreshAll'
 
 /** A host's button on `SheetToolbar`, drawn as the toolbar's own and, where it does not fit, moved into its menu. */
 export interface ToolbarButton {

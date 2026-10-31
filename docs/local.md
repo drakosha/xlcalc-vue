@@ -96,10 +96,10 @@ let fileName = 'book.xlsx'
 async function open(event: Event): Promise<void> {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
-  // cached: the values stored in the file, which a circular reference keeps; issues: what the workbook cannot keep
-  const { book, cached, issues } = await openXlsx(file)
+  // cached: the values stored in the file, which a circular reference keeps; file: its name, for CELL and INFO; issues: what the workbook cannot keep
+  const { book, cached, issues, file: named } = await openXlsx(file)
   void source.value?.close()
-  source.value = localSource(book, { session: { cached } })
+  source.value = localSource(book, { session: { cached, file: named } })
   fileName = file.name
   lost.value = groupIssues(issues).map((group) => `${group.message} (${group.count})`)
 }
@@ -127,6 +127,8 @@ onUnmounted(() => void source.value?.close())
 
 A workbook read from a file opens as Excel opens the file, with its stored values passed to the session as `session: { cached }` (xlcalc's `SessionOptions.cached`): a circular reference without iterative calculation is not calculated, and its cells and the cells that depend on them keep the values stored in the file, through edits elsewhere, until a value typed into the cycle breaks it (xlcalc's `docs/cycles.md`). Without them those cells contain 0. The session's workbook records the kept values (`held`), so a workbook obtained with `book()` opens with them again, and `saveXlsx` saves them.
 
+A formula over a function the engine cannot calculate keeps the value its file stores too, as Excel shows it until it calculates the cell (xlcalc 0.68.0, its `docs/formulas.md`, Values a file stores): one over a function of connections (`CUBEVALUE`, `WEBSERVICE`, `STOCKHISTORY` and the others) always, and one over an add-in's function, which xlcalc does not know, because the source opens the session with `unknownFunctions: 'held'` unless the host's `session` says otherwise (`'name'` makes it `#NAME?` at once, as Excel without the add-in calculates it). The cells reading it are calculated from that value. Once the cell is edited or a cell it reads changes, it is calculated: `#NAME?` for an unknown function, the answer without the connection for a function of connections, or the host's answer ([below](#calls-outside-the-workbook)). `openXlsx` names a `File` it reads (`file: { name }`, xlcalc's `BookFile`; a browser does not tell the folder), and with `session: { file }` `CELL("filename")` gives `[Budget.xlsx]Sheet1` and `INFO` knows the file, where without it they are those of a workbook not saved yet. The sheet shows no list of the session's diagnostics, so `CellIssue.fromFile` reaches the host only through xlcalc.
+
 ### Links to other workbooks
 
 A formula that reads another workbook (`='[Prices.xlsx]Sheet1'!A1`) calculates over the values the workbook stores of it, as Excel calculates a file it opens without updating its links; the other file is never read. A host that has read the other workbook gives the links their values with `setExternalBooks(books)` (xlcalc 0.62.0's, every link at once as `BookInput.externalBooks` lists them): a new link after the others, more values of one, values read again. The workbook is calculated again in one step of undo, the changed cells reach the sheet as an edit's, and typed text then finds a new link by its file name. `saveXlsx` with `over` writes a new link as a part of the file and the values of a changed one into its part; removing a link, or moving it among the others, is refused (`KeptRefusal` with `code: 'links'`), since the file's formulas read a link by its number.
@@ -137,6 +139,25 @@ const links = (await source.book()).externalBooks ?? []
 await source.setExternalBooks([...links, { target: 'Prices.xlsx', sheets: [{ name: 'Sheet1', cells: { A1: 42, B2: 'kg' } }] }])
 await source.edit([{ sheet: 'Plan', cell: 'C3', text: "='[Prices.xlsx]Sheet1'!A1*2" }]) // 84
 ```
+
+### Calls outside the workbook
+
+A host answers the calls of its own functions and of the functions of connections (`CUBEVALUE` and the other cube functions, `RTD`, `WEBSERVICE`, `STOCKHISTORY` and the rest) with xlcalc 0.68.0's `externals.resolve`, passed in `session`. An answer may be a promise. Each call of the session waits for the answers on their way within its `timeoutMs`, and without one until they arrive. Past it the call ends with its cells waiting: they show `#BUSY!` (a cube function's `#GETTING_DATA`), and the source takes each answer as it arrives, after its pending changes, through the session's `settleConnections`, sending the cells it changed as a `changed` event, so the sheet shows the answers without the user doing anything. Closing the source ends the waits: an answer still on its way is taken as none, a call it would lead to is not asked of the host, and nothing is sent after `close()`.
+
+The deadline of every call is the calculator's `timeoutMs`: `pool: { timeoutMs }` for the pool the source starts, or the host's own calculator in `calc` (`createInlineCalc({ timeoutMs })`). `session: { timeoutMs }` bounds only the opening of the workbook; the edits after it then wait for their answers as long as they take.
+
+```ts
+const source = localSource(book, {
+  pool: { timeoutMs: 200 }, // each call waits 200 ms for the answers, then shows #BUSY! and goes on
+  session: { externals: { functions: ['BALANCE'], resolve: ({ name, args, signal }) => (name === 'BALANCE' ? fetchBalance(args[0], signal) : undefined) } },
+})
+```
+
+A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in. When taking an answer runs past it, the source takes it once more with a deadline of a minute: a call stopped at its deadline leaves the answers in the session, and another with the same deadline does not take them (xlcalc 0.71.1). A failure there, or any other, is written to the console (`console.error`) and the sheet reads its windows again, so it shows what the session holds.
+
+Refresh All (`refreshConnections`, Ctrl+Alt+F5) asks every call again, or with `names` those of the functions named: the source has it only with `externals.resolve`, as values given in advance (`externals.values`) answer nothing anew, and the formulas keeping their file's values would lose them to the answers of a function without its connection. It is not a step of undo ([calculation.md](calculation.md#refresh-all)). A known gap of xlcalc (0.71.1, no version fixes it yet): when Refresh All asks a call again while its earlier answer is still on its way, that earlier answer, arriving later, can take the place of the new one.
+
+In Manual only the cells that asked show their answers: a cell whose own formula calls the function, shown waiting for it since a formula entered or Calculate Now calculated it, takes the answer, as it ends that calculation. Every other cell waits for a calculation as after an edit: one that shows `#BUSY!` read from a cell that asked, one that reads the answer, and one whose waiting value is held while the sheet shows its value of the last calculation ([calculation.md](calculation.md#manual)). Not measured in Excel.
 
 ## Threads, the workbook and events
 

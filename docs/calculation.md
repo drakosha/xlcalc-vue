@@ -13,6 +13,7 @@ In Manual, as Excel for Mac 16.114 behaved when measured:
 - A paste or a fill shows the pasted cells as entered and leaves the waiting cells as they are; so do merging cells whose first cell holds a value and inserting, renaming, moving, hiding and deleting sheets: Excel for Mac 16.114 kept the waiting values through a paste, a fill down, and inserting, deleting, renaming and hiding a sheet; merging and moving a sheet were not measured.
 - Calculate Now (F9, or a click on Calculate) shows the values of every waiting cell; Calculate Sheet (Shift+F9) those of the active sheet only, so the status bar keeps Calculate while another sheet waits.
 - Switching to Automatic calculates what waits.
+- An answer from outside the workbook that arrives after its call (xlcalc 0.68.0's resolver, [local.md](local.md#calls-outside-the-workbook)) shows in the cell that asked, when that cell shows `#BUSY!` or `#GETTING_DATA` for it, ending the calculation that asked; every other cell, one showing `#BUSY!` it read from that cell too, waits as after an edit (not measured).
 
 Changing the option is not a step of undo here: Excel keeps it as a setting of the application and the workbook, outside the undo list (not measured, since a script's changes do not reach Excel's undo).
 
@@ -47,6 +48,12 @@ await source.setCalculation('automatic')
 - An operation in Manual that moves cells (inserting or deleting rows and columns, moving a range, a merge that moves a value into its first cell), a table command, and their undo show the calculated values of every cell: the values waiting are held by address, which the operation moves. A deleted sheet that undo brings back shows its calculated values. Excel keeps the old values until F9.
 - Find with Look in Values, the selection's totals on the status bar and Copy read the calculated values of the cells that wait, where Excel reads the values shown. The display filter and its lists read the values shown.
 - In Automatic, F9 recalculates nothing: the session's values are current. Excel recalculates volatile functions such as `RAND` and `NOW` on F9.
+
+## Refresh All
+
+Excel's Data > Refresh All (Ctrl+Alt+F5) asks a workbook's connections again. The sheet sends it to a source with `refreshConnections`: Ctrl+Alt+F5 on the grid, `SheetViewApi.refreshAll()` for a ribbon (`state.canRefreshAll` says whether it is available), and the toolbar's `refreshAll` group. In `@xlcalc/vue/local` it is xlcalc 0.68.0's `refreshConnections`, offered when the host answers calls as the workbook calculates (`externals.resolve`): the answers the session kept are dropped and every call of the host's functions and of the functions of connections is asked again, the formulas keeping the value their file stores among them; the cells it changes reach the sheet as an edit's, and answers still on their way arrive later ([local.md](local.md#calls-outside-the-workbook)).
+
+Refresh All is not a step of undo, as Excel does not undo it; the steps the list held stay. In Manual the cells it calculates wait for a calculation as after an edit, since the formulas over a connection take its new data when the workbook is calculated (not measured in Excel).
 
 ## A ribbon's Calculation Options
 

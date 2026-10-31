@@ -298,6 +298,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     ...cf.api,
     calculate: calc.calculate,
     setCalculation: calc.setMode,
+    refreshAll: calc.refreshAll,
     protectSheet: protection.open,
     unprotectSheet: protection.unprotect,
   }
@@ -550,7 +551,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
     if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e) || goto.key(e) || fill.key(e) || formulaView.key(e))) return
-    // Excel's Create Table (Ctrl+T, Ctrl+L), Spelling (F7), AutoSum, Paste Special and Calculate (F9, Shift+F9)
+    // Excel's Create Table (Ctrl+T, Ctrl+L), Spelling (F7), AutoSum, Paste Special, Calculate (F9, Shift+F9) and Refresh All (Ctrl+Alt+F5)
     if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e) || clip.specialKey(e) || calc.key(e))) return
     // Excel's Data > Filter (Ctrl+Shift+L) and Alt+Down on an AutoFilter's header cell
     if (!e.isComposing && autoFilter.key(e)) return
@@ -732,6 +733,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
       ...(calc.state.value ? { calculation: calc.state.value.mode } : {}),
       ...(calc.pending.value ? { calculationPending: true as const } : {}),
+      ...(calc.canRefresh.value ? { canRefreshAll: true as const } : {}),
       ...(protection.protection.value ? { protection: protection.protection.value } : {}),
       ...(s.areas.value ? { areas: s.areas.value.map(rangeAddress) } : {}),
     }
