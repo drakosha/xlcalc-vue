@@ -5,6 +5,7 @@
 import { computed, onMounted, provide } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import AutoFilterButtons from './AutoFilterButtons.vue'
+import PivotButtons from './PivotButtons.vue'
 import CellEditor from './CellEditor.vue'
 import { cellOfData } from '../core/selection'
 import type { PaneId } from '../core/panes'
@@ -332,6 +333,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
       </table>
       <SheetMarks v-if="ctx.sheet.value && !empty" />
       <AutoFilterButtons v-if="ctx.sheet.value && !empty" />
+      <PivotButtons v-if="ctx.sheet.value && !empty && ctx.pivotDialogs.views.value.length" />
       <TraceArrows v-if="ctx.sheet.value && !empty" />
       <SheetObjects v-if="ctx.sheet.value && !empty && (ctx.slicers.slicers.value.length || ctx.slicers.timelines.value.length)" />
       <ShownNotes v-if="ctx.notes.shown.value.length" />

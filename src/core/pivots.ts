@@ -14,7 +14,7 @@ import type { Protection } from './protection'
 import type { SheetState } from './state'
 
 export interface PivotsDeps {
-  /** Sends a dialog request to the host (`SheetView`'s `pivotDialog` event). */
+  /** Opens the sheet's dialog for a request, or sends one it does not open to the host (`SheetView`'s `pivotDialog` event). */
   dialog: (request: PivotDialogRequest) => void
   /** Shows an alert. */
   ask: (alert: SheetAlert) => Promise<AlertAnswer>

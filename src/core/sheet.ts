@@ -41,6 +41,9 @@ import { useCalculation } from './calculation'
 import { usePivots } from './pivots'
 import { usePivotCreate } from './pivot-create'
 import { useSlicers } from './slicers'
+import { usePivotDialogs } from './pivot-dialogs'
+import { usePivotFilter } from './pivot-filter'
+import { usePivotMenu } from './pivot-menu'
 import { useAutoFilter } from './autofilter'
 import { usePainter } from './painter'
 import { useSpellCheck } from './spell-check'
@@ -194,7 +197,11 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     openLink: (link) => emit('openLink', link),
   })
   const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
-  const pivots = usePivots(s, cmd, protection, { dialog: (request) => emit('pivotDialog', request), ask: alerts.ask })
+  // the PivotTable Fields pane's requests for a field's dialogs open the sheet's; others go on to the host
+  const pivots = usePivots(s, cmd, protection, { dialog: (request) => (pivotMenu.handles(request) ? void pivotMenu.request(request) : emit('pivotDialog', request)), ask: alerts.ask })
+  const pivotDialogs = usePivotDialogs(s, cmd, { pivots, protection, sel })
+  const pivotFilter = usePivotFilter(s, pivotDialogs)
+  const pivotMenu = usePivotMenu(s, pivotDialogs, pivotFilter)
   const slicers = useSlicers(s, cmd, pivots, {
     ask: alerts.ask,
     geo,
@@ -204,7 +211,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       return pv.cellAt(pv.leadW.value + b.width / 2, pv.headH.value + b.height / 2)
     },
   })
-  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), cellPivots: () => pivots.items(), cellPivotsLast: () => pivots.lastItems(), object: { items: slicers.items, name: () => slicers.selected.value?.name ?? '' }, protection })
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), cellPivots: () => pivotMenu.items(pivots.items()), cellPivotsLast: () => pivots.lastItems(), object: { items: slicers.items, name: () => slicers.selected.value?.name ?? '' }, protection })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask, blocked: () => protection.blocks('merge') })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
   const special = useSpecial(s, sel, { ask: alerts.ask, notify })
@@ -322,6 +329,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     insertTimeline: () => slicers.openInsert(true),
     slicerSettings: slicers.openSettings,
     reportConnections: slicers.openConnections,
+    pivotCommand: pivotDialogs.command,
+    groupPivot: pivotDialogs.group,
+    ungroupPivot: pivotDialogs.ungroup,
+    pivotDesign: pivotDialogs.design,
     protectSheet: protection.open,
     unprotectSheet: protection.unprotect,
   }
@@ -577,7 +588,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     // Excel's Create Table (Ctrl+T, Ctrl+L), Spelling (F7), AutoSum, Paste Special, Calculate (F9, Shift+F9), Refresh All (Ctrl+Alt+F5) and Refresh (Alt+F5)
     if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e) || clip.specialKey(e) || calc.key(e) || pivots.key(e))) return
     // Excel's Data > Filter (Ctrl+Shift+L) and Alt+Down on an AutoFilter's header cell
-    if (!e.isComposing && autoFilter.key(e)) return
+    if (!e.isComposing && (autoFilter.key(e) || pivotFilter.key(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -718,6 +729,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       protection.draft.value = null
       createNames.draft.value = null
       special.open.value = false
+      pivotDialogs.state.value = null
+      pivotFilter.menu.value = null
+      pivotFilter.dialog.value = null
       subscribe()
       void init()
     },
@@ -763,6 +777,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(pivotCreate.available.value ? { canInsertPivot: true as const } : {}),
       ...(slicers.canInsert.value ? { canInsertSlicer: true as const } : {}),
       ...(slicers.selected.value ? { object: slicers.selected.value } : {}),
+      ...(pivotDialogs.can.value ? { canEditPivot: true as const } : {}),
       ...(protection.protection.value ? { protection: protection.protection.value } : {}),
       ...(s.areas.value ? { areas: s.areas.value.map(rangeAddress) } : {}),
     }
@@ -799,6 +814,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     tables,
     pivots,
     pivotCreate,
+    pivotDialogs,
+    pivotFilter,
     spell,
     views,
     list,

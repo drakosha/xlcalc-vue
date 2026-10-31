@@ -1,9 +1,9 @@
 // The PivotTable Fields pane and Insert PivotTable on SheetView over localSource: the pane follows the active cell and the
 // Field List, a checked field goes where Excel puts it, the field menus move fields, Defer Layout Update waits for Update,
-// each change is one undo step, the dialogs a menu opens go to the host, and Insert PivotTable creates one on a new sheet or a place.
+// each change is one undo step, the dialogs a menu opens are the sheet's own, and Insert PivotTable creates one on a new sheet or a place.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { PivotDialogRequest, SheetViewApi, SheetViewState } from '../src'
+import type { SheetViewApi, SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
 import { cellText, goTo, mountSheet, settle, until } from './helpers'
 import { pivotBook } from './pivot-fixture'
@@ -84,7 +84,7 @@ describe('the PivotTable Fields pane', () => {
     expect(chips('rows')).toEqual(['Kind'])
   })
 
-  it("a field's menu in an area moves it, and Value Field Settings goes to the host as pivotDialog", async () => {
+  it("a field's menu in an area moves it, and Value Field Settings opens the sheet's dialog", async () => {
     const { w } = await report()
     await chipMenu('rows', 0)
     expect(item('moveUp')?.disabled).toBe(true)
@@ -96,7 +96,9 @@ describe('the PivotTable Fields pane', () => {
     await chipMenu('values', 0)
     item('valueFieldSettings')!.click()
     await settle()
-    expect((w.emitted('pivotDialog') ?? []).at(-1)?.[0]).toMatchObject({ dialog: 'valueFieldSettings', sheet: 'Report', pivot: 'PivotTable1', field: 1, value: 0 } satisfies Partial<PivotDialogRequest>)
+    await until(() => document.querySelector<HTMLInputElement>('[data-pv-name]')?.value === 'Sum of Amount')
+    expect(document.querySelector('[data-pv-source]')?.textContent).toBe('Amount')
+    expect(w.emitted('pivotDialog')).toBeUndefined()
   })
 
   it("a field's menu in the list adds it to an area", async () => {
@@ -170,7 +172,9 @@ describe('the PivotTable Fields pane: what it takes', () => {
     await chipMenu('values', 1)
     item('valueFieldSettings')!.click()
     await settle()
-    expect((w.emitted('pivotDialog') ?? []).at(-1)?.[0]).toMatchObject({ dialog: 'valueFieldSettings', field: 1, value: 0 })
+    // the saved PivotTable's first value field, Sum of Amount, whatever the deferred layout's order
+    await until(() => document.querySelector<HTMLInputElement>('[data-pv-name]')?.value === 'Sum of Amount')
+    expect(w.emitted('pivotDialog')).toBeUndefined()
   })
 
   it('a drag from the list ends without toggling the box, on Esc anywhere, and only for its own pointer', async () => {

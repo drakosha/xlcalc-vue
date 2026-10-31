@@ -266,3 +266,8 @@
 .xs-touch .xs-tool.xs-tb-wide {
   min-width: 56px;
 }
+.xs-tb-pivot {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}

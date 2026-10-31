@@ -44,10 +44,39 @@ function giveBack(): void {
   else ctx.focusGrid()
 }
 
-const enabled = () => [...(box.value?.querySelectorAll<HTMLButtonElement>('[role=menuitem]:not(:disabled)') ?? [])]
+/** The submenu open beside its item (a PivotTable's Sort, Summarize Values By…), by the item's id. */
+const subOpen = ref<string | null>(null)
+watch(menu.open, () => (subOpen.value = null))
+/** Every item, those of the submenus too, by id. */
+const findItem = (id: string | undefined): MenuItem | undefined => menu.items.value.flatMap((x) => [x, ...(x.sub ?? [])]).find((x) => x.id === id)
+/** The items the keys move over: the open submenu's, or the menu's own. */
+const enabled = () => {
+  const sub = subOpen.value ? box.value?.querySelector(`[data-xs-submenu="${subOpen.value}"]`) : null
+  const scope = sub ?? box.value
+  return [...(scope?.querySelectorAll<HTMLButtonElement>(sub ? '[role=menuitem]:not(:disabled)' : ':scope > [role=menuitem]:not(:disabled), :scope > .xs-menu-subwrap > [role=menuitem]:not(:disabled)') ?? [])]
+}
+async function openSub(item: MenuItem, focus: boolean): Promise<void> {
+  subOpen.value = item.id
+  if (!focus) return
+  await nextTick()
+  enabled()[0]?.focus({ preventScroll: true })
+}
 function onMenuKey(e: KeyboardEvent): void {
   const list = enabled()
   const at = list.indexOf(document.activeElement as HTMLButtonElement)
+  const here = findItem(list[at]?.dataset.xsMenu)
+  if (e.key === 'ArrowRight' && here?.sub) {
+    e.preventDefault()
+    e.stopPropagation()
+    return void openSub(here, true)
+  }
+  if (e.key === 'ArrowLeft' && subOpen.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    const parent = subOpen.value
+    subOpen.value = null
+    return void box.value?.querySelector<HTMLElement>(`[data-xs-menu="${parent}"]`)?.focus({ preventScroll: true })
+  }
   let next: number
   if (e.key === 'ArrowDown') next = (at + 1) % list.length
   else if (e.key === 'ArrowUp') next = at <= 0 ? list.length - 1 : at - 1
@@ -59,7 +88,8 @@ function onMenuKey(e: KeyboardEvent): void {
   e.preventDefault()
   e.stopPropagation()
   if (next >= 0) return void list[next]?.focus({ preventScroll: true })
-  const item = e.key === 'Tab' ? undefined : menu.items.value.find((x) => x.id === list[at]?.dataset.xsMenu)
+  const item = e.key === 'Tab' ? undefined : here
+  if (item?.sub) return void openSub(item, true)
   if (item) menu.choose(item)
   else menu.close()
 }
@@ -69,6 +99,7 @@ let pressedIn = false
 function onItemClick(e: MouseEvent, item: MenuItem): void {
   const chosen = e.detail === 0 || pressedIn
   pressedIn = false
+  if (item.sub) return void (subOpen.value = subOpen.value === item.id ? null : item.id)
   if (chosen) menu.choose(item)
 }
 
@@ -99,7 +130,41 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
     <div class="xs-menu-caption">{{ menu.caption.value }}</div>
     <template v-for="item in menu.items.value" :key="item.id">
       <div v-if="item.group" class="xs-menu-sep" role="separator"></div>
-      <button type="button" role="menuitem" tabindex="-1" class="xs-menu-item" :data-xs-menu="item.id" :disabled="item.disabled" @click="onItemClick($event, item)">{{ item.label }}</button>
+      <div v-if="item.sub" class="xs-menu-subwrap">
+        <button
+          type="button"
+          role="menuitem"
+          tabindex="-1"
+          :class="['xs-menu-item', 'xs-menu-more', { 'xs-menu-checked': item.checked }]"
+          :data-xs-menu="item.id"
+          :disabled="item.disabled"
+          aria-haspopup="menu"
+          :aria-expanded="subOpen === item.id"
+          @click="onItemClick($event, item)"
+          @mouseenter="openSub(item, false)"
+        >
+          {{ item.label }}
+        </button>
+        <div v-if="subOpen === item.id" class="xs-menu xs-submenu" role="menu" :aria-label="item.label" :data-xs-submenu="item.id">
+          <template v-for="x in item.sub" :key="x.id">
+            <div v-if="x.group" class="xs-menu-sep" role="separator"></div>
+            <button type="button" role="menuitem" tabindex="-1" :class="['xs-menu-item', { 'xs-menu-checked': x.checked }]" :data-xs-menu="x.id" :disabled="x.disabled" @click="onItemClick($event, x)">{{ x.label }}</button>
+          </template>
+        </div>
+      </div>
+      <button
+        v-else
+        type="button"
+        role="menuitem"
+        tabindex="-1"
+        :class="['xs-menu-item', { 'xs-menu-checked': item.checked }]"
+        :data-xs-menu="item.id"
+        :disabled="item.disabled"
+        @click="onItemClick($event, item)"
+        @mouseenter="subOpen = null"
+      >
+        {{ item.label }}
+      </button>
     </template>
   </div>
   <DialogShell v-if="menu.dialog.value" class="xs-dialog" :focus="dialogFocus" :aria-labelledby="titleId" data-xs-dialog @close="closeDialog">

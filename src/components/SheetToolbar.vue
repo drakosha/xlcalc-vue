@@ -47,6 +47,7 @@ import {
 import type { StylePatch } from 'xlcalc/contract'
 import ColourSwatches from './ColourSwatches.vue'
 import ToolbarBox from './ToolbarBox.vue'
+import ToolbarPivot from './ToolbarPivot.vue'
 import { hasListener } from './dom'
 import { IconDown } from './icons'
 import { useOutsidePress } from './popup'
@@ -763,6 +764,9 @@ function pickNumber(e: Event): void {
               <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-pivot" :title="m.refreshPivot" :disabled="!state?.canRefreshPivot" @click="refreshPivot">{{ m.menuRefresh }}</button>
             </div>
           </span>
+        </span>
+        <span v-else-if="(blk.group === 'pivotAnalyze' || blk.group === 'pivotDesign') && sheet && state?.pivot && source.pivotCells" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
+          <ToolbarPivot :group="blk.group" :sheet="sheet" :state="state" :source="source" :m="m" />
         </span>
         <span v-else-if="blk.buttons" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <template v-for="x in blk.buttons" :key="x.id">

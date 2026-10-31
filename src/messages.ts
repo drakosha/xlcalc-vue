@@ -3,6 +3,7 @@ import { computed, type ComputedRef } from 'vue'
 import type { SheetMessages } from './contract/messages'
 import { enConditional, ruConditional } from './messages-conditional'
 import { enPivotFields, ruPivotFields } from './messages-pivot-fields'
+import { enPivot, ruPivot } from './messages-pivot'
 import { enProtection, ruProtection } from './messages-protection'
 import { enSlicers, ruSlicers } from './messages-slicers'
 
@@ -571,6 +572,7 @@ export const enMessages: SheetMessages = {
   ...enProtection,
   ...enPivotFields,
   ...enSlicers,
+  ...enPivot,
 }
 
 /** Russian plural: one, few, many. */
@@ -1157,6 +1159,7 @@ export const ruMessages: SheetMessages = {
   ...ruProtection,
   ...ruPivotFields,
   ...ruSlicers,
+  ...ruPivot,
 }
 
 /** A component's texts: the English set overridden by the part a host passed. */
