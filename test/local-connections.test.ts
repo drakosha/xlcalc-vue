@@ -1,10 +1,12 @@
 // @vitest-environment node
 // localSource over a workbook whose calls outside it the host answers with promises (xlcalc 0.68's `externals.resolve`):
-// a cell waiting past its call's `timeoutMs` shows #BUSY! and takes its answer when it arrives, without the user doing anything.
+// a cell waiting past its call's `timeoutMs` shows #BUSY! and takes its answer when it arrives, without the user doing anything;
+// Refresh All asks again; a formula the engine cannot calculate keeps the value its file stores.
 import { afterEach, describe, expect, it } from 'vitest'
 import { createInlineCalc, type BookInput, type Calc, type ExternalCall, type ExternalResolver } from 'xlcalc'
 import type { CellUpdate, SourceEvent } from '../src/contract/source'
-import type { LocalSource } from '../src/local'
+import { writeXlsx } from 'xlcalc/xlsx'
+import { openXlsx, type LocalSource } from '../src/local'
 import { closeAll, source, win } from './local-fixture'
 
 let calcs: Calc[] = []
@@ -198,5 +200,39 @@ describe('localSource: Refresh All', () => {
   it('is there only with the host answering calls outside the workbook', async () => {
     expect(source(balances()).refreshConnections).toBeUndefined()
     expect(typeof source(balances(), { session: { externals: { functions: ['BAL'] } } }).refreshConnections).toBe('function')
+  })
+})
+
+describe('localSource: the values a file stores', () => {
+  /** A1 2, B1 =MYADDIN(A1)*2 (an add-in's function), C1 =B1+1, D1 a cube's value; the file stores 40, 41 and 7. */
+  const addIn = (): BookInput => ({
+    sheets: [{ name: 'S', cells: { A1: { value: 2 }, B1: { formula: 'MYADDIN(A1)*2' }, C1: { formula: 'B1+1' }, D1: { formula: 'CUBEVALUE("Sales","[Measures].[Amount]")' } } }],
+  })
+  const cached = { sheets: [{ name: 'S', cells: { B1: { value: 40 }, C1: { value: 41 }, D1: { value: 7 } } }] }
+  const row4 = async (s: LocalSource) => (await win(s, 'S', 1, 1, 1, 4)).values[0]
+
+  it("a formula over a function the engine does not know keeps the file's value until it is calculated, as Excel shows it", async () => {
+    const s = source(addIn(), { session: { cached } })
+    expect(await row4(s)).toEqual([2, 40, 41, 7])
+    // an edit of what it reads calculates it, as Excel without the add-in
+    await s.edit([{ sheet: 'S', cell: 'A1', text: '3' }])
+    expect(await row4(s)).toEqual([3, { error: 'NAME' }, { error: 'NAME' }, 7])
+  })
+
+  it("the host's unknownFunctions wins", async () => {
+    const s = source(addIn(), { session: { cached, unknownFunctions: 'name' } })
+    expect(await row4(s)).toEqual([2, { error: 'NAME' }, { error: 'NAME' }, 7])
+  })
+
+  it("a file read by openXlsx keeps its values, and CELL and INFO know the file's name", async () => {
+    const book = addIn()
+    book.sheets[0]!.cells.E1 = { formula: 'CELL("filename",A1)' }
+    const { data } = await writeXlsx({ book, result: { sheets: [{ name: 'S', cells: { ...cached.sheets[0]!.cells, E1: { value: '' } } }] } })
+    const read = await openXlsx(new File([data as BlobPart], 'Budget.xlsx'))
+    expect(read.file).toEqual({ name: 'Budget.xlsx' })
+    const s = source(read.book, { session: { cached: read.cached, file: read.file } })
+    expect((await win(s, 'S', 1, 1, 1, 5)).values[0]).toEqual([2, 40, 41, 7, '[Budget.xlsx]S'])
+    // bytes have no name
+    expect((await openXlsx(data)).file).toBeUndefined()
   })
 })

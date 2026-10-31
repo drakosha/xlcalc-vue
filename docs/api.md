@@ -550,7 +550,7 @@ The options, `LocalSourceOptions`:
 | --- | --- | --- |
 | `calc` | `'pool' \| 'inline' \| Calc` | Where the workbook is calculated: in Web Workers (the default where `Worker` exists), on the page's main thread in slices (the default elsewhere), or by the host's calculator, which the source does not close. |
 | `pool` | `CalcPoolOptions` | Options for the pool the source starts, such as `spawn` for a bundler that relocates the thread script. |
-| `session` | `AsyncSessionOptions` | Options for the workbook's session; `{ cached }` from `openXlsx` keeps a file's stored values. |
+| `session` | `AsyncSessionOptions` | Options for the workbook's session; `{ cached, file }` from `openXlsx` keeps a file's stored values and tells `CELL` and `INFO` its name, `externals` answers calls outside the workbook ([local.md](local.md#calls-outside-the-workbook)). `unknownFunctions` is `'held'` unless given: a formula over a function xlcalc does not know keeps the value its file stores. |
 | `maxCells` | `number` | The maximum number of cells in one window, 20,000 by default. |
 | `notice` | `string` | A notice included in every window. |
 | `spelling` | `SpellChecker` | The host's word checker; enables `spelling` and `learnWord`. |
@@ -584,11 +584,11 @@ await source.close() // when the sheet is removed, as in onUnmounted
 
 | Function | Returns | Meaning |
 | --- | --- | --- |
-| `openXlsx(data: Blob \| ArrayBuffer \| Uint8Array, opts?: XlsxIssuesOptions & { keep?: boolean })` | `Promise<XlsxRead>` (`{ book, cached, issues }`) | Reads a file into a workbook and the values stored in it; with `keep`, through xlcalc's `openKept`, for `saveXlsx` with `over`. |
+| `openXlsx(data: Blob \| ArrayBuffer \| Uint8Array, opts?: XlsxIssuesOptions & { keep?: boolean })` | `Promise<OpenedXlsx>` (`{ book, cached, issues, file? }`) | Reads a file into a workbook and the values stored in it; `file` (xlcalc's `BookFile`) is a `File`'s name, for the session's `file`. With `keep`, through xlcalc's `openKept`, for `saveXlsx` with `over`. |
 | `saveXlsx(source: LocalSource, opts?: XlsxIssuesOptions & ({ mode?: 'formulas' \| 'values' } \| { over: Blob \| ArrayBuffer \| Uint8Array }))` | `Promise<XlsxWritten>` (`{ data, issues }`) | Writes the source's workbook with its values; `values` mode writes no formulas. With `over`, the file opened with `keep`, writes over it through xlcalc's `writeKept`, keeping what the workbook does not hold (charts, pivot tables, the theme); a change the file cannot take rejects with xlcalc's `KeptRefusal`, whose `code` (xlcalc 0.61.0) tells its kind. In Manual it calculates first, as Excel does before saving. See [local.md](local.md#files). |
 | `groupIssues(issues: XlsxIssue[])` | `IssueGroup[]` | Issues grouped by kind, in order of first appearance, for a notice of what a file lost. |
 
-`XlsxIssuesOptions` is `{ locale?: string | Locale }`: the language of the issue messages, English by default. `IssueGroup` is `{ code, count, sheets: string[], message }`, where `message` is the first issue's message.
+`OpenedXlsx` is xlcalc's `XlsxRead` with `file?: BookFile`. `XlsxIssuesOptions` is `{ locale?: string | Locale }`: the language of the issue messages, English by default. `IssueGroup` is `{ code, count, sheets: string[], message }`, where `message` is the first issue's message.
 
 ## `@xlcalc/vue/remote` and `@xlcalc/vue/server`
 

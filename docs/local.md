@@ -96,10 +96,10 @@ let fileName = 'book.xlsx'
 async function open(event: Event): Promise<void> {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
-  // cached: the values stored in the file, which a circular reference keeps; issues: what the workbook cannot keep
-  const { book, cached, issues } = await openXlsx(file)
+  // cached: the values stored in the file, which a circular reference keeps; file: its name, for CELL and INFO; issues: what the workbook cannot keep
+  const { book, cached, issues, file: named } = await openXlsx(file)
   void source.value?.close()
-  source.value = localSource(book, { session: { cached } })
+  source.value = localSource(book, { session: { cached, file: named } })
   fileName = file.name
   lost.value = groupIssues(issues).map((group) => `${group.message} (${group.count})`)
 }
@@ -126,6 +126,8 @@ onUnmounted(() => void source.value?.close())
 ```
 
 A workbook read from a file opens as Excel opens the file, with its stored values passed to the session as `session: { cached }` (xlcalc's `SessionOptions.cached`): a circular reference without iterative calculation is not calculated, and its cells and the cells that depend on them keep the values stored in the file, through edits elsewhere, until a value typed into the cycle breaks it (xlcalc's `docs/cycles.md`). Without them those cells contain 0. The session's workbook records the kept values (`held`), so a workbook obtained with `book()` opens with them again, and `saveXlsx` saves them.
+
+A formula over a function the engine cannot calculate keeps the value its file stores too, as Excel shows it until it calculates the cell (xlcalc 0.68.0, its `docs/formulas.md`, Values a file stores): one over a function of connections (`CUBEVALUE`, `WEBSERVICE`, `STOCKHISTORY` and the others) always, and one over an add-in's function, which xlcalc does not know, because the source opens the session with `unknownFunctions: 'held'` unless the host's `session` says otherwise (`'name'` makes it `#NAME?` at once, as Excel without the add-in calculates it). The cells reading it are calculated from that value. Once the cell is edited or a cell it reads changes, it is calculated: `#NAME?` for an unknown function, the answer without the connection for a function of connections, or the host's answer ([below](#calls-outside-the-workbook)). `openXlsx` names a `File` it reads (`file: { name }`, xlcalc's `BookFile`; a browser does not tell the folder), and with `session: { file }` `CELL("filename")` gives `[Budget.xlsx]Sheet1` and `INFO` knows the file, where without it they are those of a workbook not saved yet. The sheet shows no list of the session's diagnostics, so `CellIssue.fromFile` reaches the host only through xlcalc.
 
 ### Links to other workbooks
 

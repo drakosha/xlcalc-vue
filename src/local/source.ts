@@ -160,7 +160,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   const ready = (async () => {
     await Promise.all([loadLocale(locale), loadRegex(opts.regex)])
     calc = typeof opts.calc === 'object' ? opts.calc : await startCalc(opts)
-    session = await calc.createSession(input, outside.session)
+    // a formula over a function the engine does not know keeps the value its file stores (or its cell holds), as Excel shows it until it calculates the cell
+    session = await calc.createSession(input, { unknownFunctions: 'held', ...outside.session })
   })()
   ready.catch(() => {})
   const open = async (): Promise<AsyncSession> => {
