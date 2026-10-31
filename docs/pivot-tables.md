@@ -47,7 +47,7 @@ The source's `structure` takes every operation of xlcalc on PivotTables, slicers
 
 ## Files
 
-`openXlsx` reads a file's PivotTables, caches, slicers and timelines, and `saveXlsx` writes them; what the workbook does not hold of them is reported by the issues `pivotTable` and `pivotUnread`, and a cache's source on a deleted sheet, written as Excel writes it, by `pivotSourceLinked`; `groupIssues` groups them as the others. Writing over the original file (`over`) rejects slicers and timelines added or deleted with xlcalc's `KeptRefusal` `code: 'slicers'` ([local.md](local.md#files)).
+`openXlsx` reads a file's PivotTables, caches, slicers and timelines, and `saveXlsx` writes them; what the workbook does not hold of them (a part of a cache or a PivotTable, PivotTables the model cannot take, which xlcalc words as `pivotUnread`, and a cache's source on a deleted sheet, written as Excel writes it, `pivotSourceLinked`) is reported under the issue code `pivotTable`, which `groupIssues` groups as the others: one group, with the first issue's message. Writing over the original file (`over`) rejects slicers and timelines added or deleted with xlcalc's `KeptRefusal` `code: 'slicers'` ([local.md](local.md#files)).
 
 ## Not yet
 
