@@ -24,7 +24,7 @@ describe('localSource: the PivotTable engine', () => {
     expect(imported.count).toBe(1)
     expect((await s.book()).pivotCaches?.[0]?.stale).toBeUndefined()
     expect((await win(s, 'Report', 4, 1, 1, 2)).values).toEqual([['North', 15]])
-    expect((await s.sheets())[1]!.pivots).toEqual([{ name: 'PivotTable1', range: 'A3:B6', headers: 'A3:B3', rowLabels: 'A4:A6', values: 'B4:B6' }])
+    expect((await s.sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1', range: 'A3:B6', headers: 'A3:B3', rowLabels: 'A4:A6', values: 'B4:B6' }])
     // a label typed over renames it, and Refresh All refreshes it from the source
     expect(await s.edit([{ sheet: 'Report', cell: 'A4', text: 'Nord' }])).toMatchObject({ ok: true })
     expect(await s.edit([{ sheet: 'Data', cell: 'B2', text: '100' }])).toMatchObject({ ok: true })

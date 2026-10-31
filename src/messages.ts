@@ -4,6 +4,7 @@ import type { SheetMessages } from './contract/messages'
 import { enConditional, ruConditional } from './messages-conditional'
 import { enPivotFields, ruPivotFields } from './messages-pivot-fields'
 import { enProtection, ruProtection } from './messages-protection'
+import { enSlicers, ruSlicers } from './messages-slicers'
 
 /** `n` and its English noun, singular for one. */
 const countEn = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -566,6 +567,7 @@ export const enMessages: SheetMessages = {
   ...enConditional,
   ...enProtection,
   ...enPivotFields,
+  ...enSlicers,
 }
 
 /** Russian plural: one, few, many. */
@@ -1148,6 +1150,7 @@ export const ruMessages: SheetMessages = {
   ...ruConditional,
   ...ruProtection,
   ...ruPivotFields,
+  ...ruSlicers,
 }
 
 /** A component's texts: the English set overridden by the part a host passed. */

@@ -123,6 +123,10 @@ export interface SheetViewState {
   fieldList?: true
   /** Insert PivotTable is available (`SheetViewApi.insertPivotTable`): the source has `structure` and the sheet is editable. */
   canInsertPivot?: true
+  /** Insert Slicer and Insert Timeline are available (`SheetViewApi.insertSlicer`, `insertTimeline`): the active cell is in a PivotTable, the source has `structure`, and the sheet is editable. */
+  canInsertSlicer?: true
+  /** The slicer or timeline selected on the sheet, by its kind and name: a ribbon shows Excel's Slicer or Timeline tab while it is. */
+  object?: SheetObjectRef
   /** The sheet is protected (`SheetInfo.protection`), with what users may still do: a toolbar disables formatting without `formatCells`, as Excel does. */
   protection?: SheetProtection
   /** A selection of several ranges (Go To Special's): each of them as Excel writes it, the active one (`ref`) among them; absent for one range. A toolbar formats every one. */
@@ -354,12 +358,32 @@ export interface SheetViewApi {
    */
   pivotDialog(request: PivotDialogRequest): boolean
   /**
+   * Opens Excel's Insert Slicers dialog over the PivotTable under the active cell: the fields of its cache to check; OK adds
+   * a slicer of each through the source's `structure` (`addSlicer`). false when Insert Slicer is not available (`canInsertSlicer`).
+   */
+  insertSlicer(): boolean
+  /**
+   * Opens Excel's Insert Timelines dialog over the PivotTable under the active cell: its fields of dates; without one, Excel's
+   * alert instead. OK adds a timeline of each field checked (`addTimeline`). false when it is not available (`canInsertSlicer`).
+   */
+  insertTimeline(): boolean
+  /** Opens Excel's Slicer Settings for the selected slicer (`state.object`); false without one, or where it cannot be changed. */
+  slicerSettings(): boolean
+  /** Opens Excel's Report Connections for the selected slicer or timeline: the PivotTables of its pivot cache it filters; false without one. */
+  reportConnections(): boolean
+  /**
    * Opens Excel's Protect Sheet dialog for the displayed sheet: what users may still do, without a password; OK protects it
    * through the source's `protect`, as a single undo step. false without `protect`, on a read-only sheet, or on a protected one.
    */
   protectSheet(): boolean
   /** Excel's Unprotect Sheet on the displayed sheet through the source's `protect`; null when nothing was sent (no `protect`, a read-only sheet, an unprotected one). */
   unprotectSheet(): Promise<EditOutcome | null>
+}
+
+/** A slicer or a timeline of the displayed sheet by its kind and its name, unique among the workbook's slicers and timelines. */
+export interface SheetObjectRef {
+  kind: 'slicer' | 'timeline'
+  name: string
 }
 
 /**

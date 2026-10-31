@@ -12,7 +12,7 @@ describe('PivotTables in files', () => {
   it('writes the PivotTable and reads it back with its areas', async () => {
     const { data } = await saveXlsx(source(pivotBook()))
     const { book } = await openXlsx(data)
-    expect((await source(book).sheets())[1]!.pivots).toEqual([{ name: 'PivotTable1', range: 'A3:B6', headers: 'A3:B3', rowLabels: 'A4:A6', values: 'B4:B6' }])
+    expect((await source(book).sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1', range: 'A3:B6', headers: 'A3:B3', rowLabels: 'A4:A6', values: 'B4:B6' }])
   })
 
   it("groups a PivotTable's issues as the others, under xlcalc's code pivotTable: a cache's source on a deleted sheet", async () => {

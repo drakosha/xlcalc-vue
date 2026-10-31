@@ -12,6 +12,7 @@ import { sheetContextKey, useSheetContext } from './context'
 import { refInto } from './dom'
 import NoteBox from './NoteBox.vue'
 import ShownNotes from './ShownNotes.vue'
+import SheetObjects from './SheetObjects.vue'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
 import OutlineLevels from './OutlineLevels.vue'
@@ -135,6 +136,8 @@ function onContext(e: MouseEvent): void {
  * scroller itself); with an edit open, only a press that moves the selection does (`follow`).
  */
 function onPress(e: PointerEvent): void {
+  // a press off the slicers and timelines leaves the one selected, as a click on a cell does in Excel
+  if (!(e.target as Element).closest?.('[data-xs-object]')) ctx.slicers.select(null)
   if (pane !== undefined && !active.value && !ctx.editor.value && e.target !== e.currentTarget) root.panes.activate(pane)
 }
 /** After a press that `onPress` left (an edit was open): the pane becomes active once the press moved the selection to it; a reference pointed at keeps the edit's pane. */
@@ -330,6 +333,7 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
       <SheetMarks v-if="ctx.sheet.value && !empty" />
       <AutoFilterButtons v-if="ctx.sheet.value && !empty" />
       <TraceArrows v-if="ctx.sheet.value && !empty" />
+      <SheetObjects v-if="ctx.sheet.value && !empty && (ctx.slicers.slicers.value.length || ctx.slicers.timelines.value.length)" />
       <ShownNotes v-if="ctx.notes.shown.value.length" />
       <NoteBox v-if="ctx.notes.draft.value && active" />
       <NoteBox v-else-if="ctx.notes.peek.value && !ctx.notes.draft.value" peek />

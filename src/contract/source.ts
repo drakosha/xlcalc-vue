@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, PivotCache, PivotTable, SelectionLabels, SheetProtection, SpecialCells, StructureOp, SplitPanes, StylePatch, WorkbookStatistics } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, PivotCache, PivotRef, PivotTable, SelectionLabels, SheetProtection, Slicer, SlicerCache, SpecialCells, StructureOp, SplitPanes, StylePatch, Timeline, TimelineCache, WorkbookStatistics } from 'xlcalc/contract'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
@@ -286,6 +286,12 @@ export interface SheetInfo {
    * (Refresh); a sheet without them has none. A change that lays one out again elsewhere sends `reload` or `sheets`.
    */
   pivots?: SheetPivot[]
+  /**
+   * The sheet's slicers and timelines over PivotTables, drawn over the cells at their places with the choice they hold; a
+   * sheet without them has none. An operation on them, a refresh or an undo sends `reload` or `sheets`, and they are read again.
+   */
+  slicers?: SheetSlicer[]
+  timelines?: SheetTimeline[]
 }
 
 /**
@@ -303,6 +309,53 @@ export interface SheetPivot {
   headers?: string
   rowLabels?: string
   values?: string
+  /** The `id` of its pivot cache: the PivotTables a slicer or a timeline can filter together share it (Report Connections). */
+  cache?: number
+  /** The fields of its cache that Insert Slicer offers, in the cache's order, a field of dates marked for Insert Timeline. */
+  fields?: SheetPivotField[]
+}
+
+/** A field of a PivotTable's cache by its name in the source, as a slicer or a timeline names it; `dates` when it holds dates. */
+export interface SheetPivotField {
+  name: string
+  dates?: true
+}
+
+/**
+ * A slicer on a sheet: xlcalc's `Slicer` (its name, its cache's name, `caption`, `showCaption`, `place`, `columns`,
+ * `rowHeight` in EMU, `startItem`, `locked`, `style`) with what its cache holds: the source field, the PivotTables it
+ * filters, their pivot cache, the sorting and display of the items, and the items in the slicer's order. A slicer
+ * without `place` is not drawn.
+ */
+export interface SheetSlicer extends Slicer, Pick<SlicerCache, 'sort' | 'customListSort' | 'noData' | 'showMissing'> {
+  field: string
+  pivots: PivotRef[]
+  /** The pivot cache's `id`; absent for a table's slicer, whose items the sheet does not change. */
+  pivotCache?: number
+  items: SheetSlicerItem[]
+}
+
+/**
+ * An item of a slicer, in the slicer's order (with data first unless its cache says otherwise): `item` its index in the
+ * cache field's items, which `editSlicer` names it by; `label` as the slicer shows it; `selected` false when not chosen;
+ * `noData` when no record of it passes the other filters and the slicer marks such items.
+ */
+export interface SheetSlicerItem {
+  item: number
+  label: string
+  selected?: false
+  noData?: true
+}
+
+/**
+ * A timeline on a sheet: xlcalc's `Timeline` (its name, its cache's name, `caption`, `place`, `level`, `selectionLevel`,
+ * what it shows, `scrollPosition`, `style`) with what its cache holds: the date field, the PivotTables it filters, their
+ * pivot cache, the dates chosen (`selection`, none for all periods) and the dates it spans (`bounds`, whole years).
+ */
+export interface SheetTimeline extends Timeline, Pick<TimelineCache, 'selection' | 'bounds'> {
+  field: string
+  pivots: PivotRef[]
+  pivotCache: number
 }
 
 /**

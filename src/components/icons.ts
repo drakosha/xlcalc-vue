@@ -23,6 +23,8 @@ export const IconSpinner = icon(['M21 12a9 9 0 1 1-6.22-8.56'])
 export const IconSearch = icon(['M11 3a8 8 0 1 0 0 16a8 8 0 1 0 0-16', 'm21 21-4.3-4.3'])
 export const IconFilter = icon(['M22 3H2l8 9.46V19l4 2v-8.54L22 3z'])
 export const IconFilterOff = icon(['M13.013 3H2l8 9.46V19l4 2v-8.54l.9-1.055', 'm22 3-5 5', 'm17 3 5 5'])
+/** A slicer's Multi-Select: a list with checks. */
+export const IconMultiSelect = icon(['M10 6h11', 'M10 12h11', 'M10 18h11', 'm3 6 1.5 1.5L7 5', 'm3 12 1.5 1.5L7 11', 'm3 18 1.5 1.5L7 17'])
 export const IconUp = icon(['m18 15-6-6-6 6'])
 export const IconDown = icon(['m6 9 6 6 6-6'])
 export const IconSortAsc = icon(['m3 8 4-4 4 4', 'M7 4v16', 'M11 12h4', 'M11 16h7', 'M11 20h10'])

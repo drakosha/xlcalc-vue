@@ -9,6 +9,7 @@ import { registerLocale } from 'xlcalc'
 import { ruRU } from 'xlcalc/locales/ru-RU'
 import { writeXlsx } from 'xlcalc/xlsx'
 import { pivotBook } from '../test/pivot-fixture.ts'
+import { slicerBook } from '../test/slicer-fixture.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const config = resolve(root, 'vite.example.config.ts')
@@ -248,6 +249,69 @@ async function pivotScenario(browser: Browser, base: string): Promise<void> {
   await context.close()
 }
 
+/** A file with a slicer and a timeline through the pool: drawn over the cells, a click and a run of periods filtering the PivotTable, a move, the menu. */
+async function slicerScenario(browser: Browser, base: string): Promise<void> {
+  const file = resolve(out, 'local-slicers.xlsx')
+  writeFileSync(file, (await writeXlsx({ book: slicerBook({ freeze: true }) })).data)
+  const context = await browser.newContext({ viewport: { width: 1920, height: 1200 } })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto(`${base}local.html?rows=34`)
+  await page.locator('[data-open]').setInputFiles(file)
+  await shows(page, '1:1', 'Region')
+  await page.locator('.xs-address').fill('Report!B4')
+  await page.locator('.xs-address').press('Enter')
+  await shows(page, '4:1', 'North')
+  const slicer = page.locator('[data-xs-object="slicer:Region"]:not([data-xs-part="r"])')
+  await slicer.waitFor()
+  await page.screenshot({ path: resolve(out, 'local-1920-slicers.png') })
+  await slicer.locator('[data-xs-slicer-item="1"]').click()
+  await shows(page, '4:1', 'South')
+  const timeline = page.locator('[data-xs-object="timeline:Date"]:not([data-xs-part="r"])')
+  const from = await timeline.locator('[data-xs-period="0"]').boundingBox()
+  const to = await timeline.locator('[data-xs-period="1"]').boundingBox()
+  await page.mouse.move(from!.x + 5, from!.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(to!.x + 5, to!.y + 20, { steps: 4 })
+  await page.mouse.up()
+  await page.waitForFunction(() => document.querySelector('[data-xs-timeline-label]')?.textContent === 'К1 — К2 2024 г.', undefined, { timeout: 10_000 })
+  await shows(page, '4:1', 'South')
+  await page.screenshot({ path: resolve(out, 'local-1920-slicers-chosen.png') })
+  const head = await slicer.locator('.xs-slicer-head').boundingBox()
+  await page.mouse.move(head!.x + 30, head!.y + 10)
+  await page.mouse.down()
+  await page.mouse.move(head!.x + 30, head!.y + 210, { steps: 5 })
+  await page.mouse.up()
+  await page.waitForFunction((y) => Math.abs(document.querySelector('[data-xs-object="slicer:Region"]:not([data-xs-part="r"]) .xs-slicer-head')!.getBoundingClientRect().y - y) < 4, head!.y + 200, { timeout: 10_000 })
+  await slicer.click({ button: 'right', position: { x: 30, y: 10 } })
+  await page.locator('[data-xs-menu="objectRemove"]').waitFor()
+  await page.screenshot({ path: resolve(out, 'local-1920-slicers-menu.png') })
+  await page.keyboard.press('Escape')
+  await page.locator('.xs-scroller').first().evaluate((el) => el.scrollBy(0, 200))
+  await page.waitForTimeout(200)
+  await page.screenshot({ path: resolve(out, 'local-1920-slicers-scrolled.png') })
+  // the timeline's part in the frozen rows dragged down into the scrolled rows: the box stays under the pointer
+  const frozenPart = page.locator('[data-xs-object="timeline:Date"][data-xs-part="r"]')
+  const top = (await frozenPart.boundingBox())!
+  await page.mouse.move(top.x + 60, top.y + 8)
+  await page.mouse.down()
+  await page.mouse.move(top.x + 60, top.y + 408, { steps: 6 })
+  await page.mouse.up()
+  await page.waitForFunction(
+    (y) => {
+      const el = document.querySelector('[data-xs-object="timeline:Date"]:not([data-xs-part="r"])')
+      return !!el && Math.abs(el.getBoundingClientRect().y - y) < 4
+    },
+    top.y + 400,
+    { timeout: 10_000 },
+  )
+  await page.screenshot({ path: resolve(out, 'local-1920-slicers-dragged.png') })
+  if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`)
+  console.log('[slicers] a file with a slicer and a timeline: South chosen, К1 — К2 2024 г. dragged over the timeline, the slicer moved and its menu opened, the timeline dragged from the frozen rows into the scrolled ones under the pointer')
+  await context.close()
+}
+
 async function production(browser: Browser): Promise<void> {
   await build({ configFile: config, logLevel: 'error' })
   const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error' })
@@ -322,6 +386,7 @@ async function production(browser: Browser): Promise<void> {
     }
     await fileScenario(browser, base)
     await pivotScenario(browser, base)
+    await slicerScenario(browser, base)
   } finally {
     await new Promise<void>((done) => server.httpServer.close(() => done()))
   }

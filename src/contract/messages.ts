@@ -1,8 +1,8 @@
 // The interface texts' keys and their arguments; the English and Russian sets are in src/messages.ts.
-import type { ConditionalFormat, IconSetName, SheetProtection } from 'xlcalc/contract'
+import type { ConditionalFormat, IconSetName, SheetProtection, TimelineLevel } from 'xlcalc/contract'
 import type { QuickRule } from './conditional'
 
-export interface SheetMessages extends ConditionalMessages, ProtectionMessages, PivotFieldsMessages {
+export interface SheetMessages extends ConditionalMessages, ProtectionMessages, PivotFieldsMessages, SlicerMessages {
   back: string
   backEmpty: string
   address: string
@@ -737,4 +737,60 @@ export interface PivotFieldsMessages {
   /** The cell menu of a PivotTable's cell: Show Field List and Hide Field List. */
   menuShowFieldList: string
   menuHideFieldList: string
+}
+
+/**
+ * The texts of slicers and timelines in Excel for Windows' words: the slicer's header buttons with their keys, the
+ * timeline's levels, periods and selection label, the menu of a slicer or a timeline, and the dialogs Insert Slicers,
+ * Insert Timelines, Slicer Settings and Report Connections.
+ */
+export interface SlicerMessages {
+  /** The slicer's header buttons with their keys, Clear Filter also the timeline's. */
+  slicerMultiSelect: string
+  slicerClearFilter: string
+  /** The timeline's label for no dates chosen, and the level picker's levels. */
+  timelineAllPeriods: string
+  timelineLevel: (level: TimelineLevel) => string
+  /** A quarter's tile (1 to 4), and the twelve months' short names, for the tiles and the selection label. */
+  timelineQuarter: (n: number) => string
+  timelineMonths: string[]
+  /** The selection label: one day; one period of a year; whole years; periods within a year; periods across years. */
+  timelineDay: (day: number, month: string, year: number) => string
+  timelinePeriod: (period: string, year: number) => string
+  timelineYears: (from: string, to: string) => string
+  timelineInYear: (from: string, to: string, year: number) => string
+  timelineAcross: (from: string, fromYear: number, to: string, toYear: number) => string
+  /** The menu of a slicer or a timeline: sorting, Clear Filter from, Multi-Select and Remove with its name, the dialogs. */
+  menuSortAZ: string
+  menuSortZA: string
+  menuClearFilterFrom: (name: string) => string
+  menuMultiSelect: (name: string) => string
+  menuRemoveObject: (name: string) => string
+  menuReportConnections: string
+  menuSlicerSettings: string
+  /** The dialogs Insert Slicers and Insert Timelines, and Excel's alert over a PivotTable without dates. */
+  insertSlicersTitle: string
+  insertTimelinesTitle: string
+  timelineNoDates: string
+  /** Slicer Settings: the title, the names, the Header group, Item Sorting and Filtering with its options. */
+  slicerSettingsTitle: string
+  slicerSourceName: string
+  slicerFormulaName: string
+  slicerName: string
+  slicerHeader: string
+  slicerDisplayHeader: string
+  slicerCaption: string
+  slicerSorting: string
+  slicerAscending: string
+  slicerDescending: string
+  slicerCustomLists: string
+  slicerHideNoData: string
+  slicerMarkNoData: string
+  slicerNoDataLast: string
+  slicerShowMissing: string
+  /** Report Connections: the title with the slicer's or timeline's name, the line above the list, and the list's columns. */
+  reportConnectionsTitle: (name: string) => string
+  reportConnectionsPrompt: string
+  reportConnectionsName: string
+  reportConnectionsSheet: string
 }

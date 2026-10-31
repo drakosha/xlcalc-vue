@@ -1,9 +1,11 @@
 // PivotTables in the local source: xlcalc's PivotTable engine (`xlcalc/pivot`), loaded as its own chunk for a workbook that
 // has PivotTables, since without them nothing needs it; their areas as the sheet lists them; Excel's alerts for a change
 // the library refuses over their cells; and the PivotTables an operation touches, which a protected sheet gates.
-import { LOCALES, registerPivot, type BookInput, type BookLayout, type CellRect, type PivotRef, type PivotTable, type SheetLayout, type StructureOp } from 'xlcalc'
+import { LOCALES, registerPivot, type BookInput, type BookLayout, type CellRect, type PivotCache, type PivotRef, type PivotTable, type SheetLayout, type StructureOp } from 'xlcalc'
 import { parseRange, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
 import type { SheetPivot, SheetPivotTable } from '../contract/source'
+import { pivotFields } from './slicers'
+import { objectLocks, objectNeeds } from '../protection'
 
 /** Whether the workbook holds PivotTables or their caches, which the engine refreshes and lays out. */
 export const hasPivots = (book: BookInput | BookLayout): boolean => !!book.pivotCaches?.length || book.sheets.some((s) => !!s.pivotTables?.length)
@@ -44,8 +46,8 @@ function areasOf(t: PivotTable): { table: CellRect; filters?: CellRect; headers?
   }
 }
 
-/** A sheet's PivotTables as `SheetInfo.pivots` lists them; none for a sheet without them. */
-export function pivotsOf(sheet: SheetLayout): SheetPivot[] {
+/** A sheet's PivotTables as `SheetInfo.pivots` lists them, with their cache's id and fields; none for a sheet without them. */
+export function pivotsOf(sheet: SheetLayout, caches: PivotCache[] = []): SheetPivot[] {
   const out: SheetPivot[] = []
   for (const t of sheet.pivotTables ?? []) {
     const a = areasOf(t)
@@ -58,6 +60,8 @@ export function pivotsOf(sheet: SheetLayout): SheetPivot[] {
       ...(a.headers ? { headers: range(a.headers) } : {}),
       ...(a.rowLabels ? { rowLabels: range(a.rowLabels) } : {}),
       ...(a.values ? { values: range(a.values) } : {}),
+      cache: t.cache,
+      fields: pivotFields(caches.find((c) => c.id === t.cache)),
     })
   }
   return out
@@ -86,7 +90,8 @@ export function pivotMeeting(layout: BookLayout, sheet: string, rect: CellRect):
  * Excel for Windows' alerts over a PivotTable's cells, as xlcalc's refusal `reason` names them: a value typed or pasted
  * (`part`), a formula over a label (`formula`), a cleared cell or an operation that would insert or delete cells in it
  * (`affect`); the English ones are those Excel 16.0 for Windows answered xlcalc's set `edit` with, the Russian ones were
- * not measured. `engine` is the source's own: the PivotTable engine could not be loaded, so nothing needing it is done.
+ * not measured. `engine` is the source's own: the PivotTable engine could not be loaded, so nothing needing it is done;
+ * so is `moveLocked`: a slicer or a timeline with Disable resizing and moving on, which Excel's interface does not move.
  */
 const ALERTS = {
   en: {
@@ -94,12 +99,14 @@ const ALERTS = {
     affect: "We can't make this change for the selected cells because it will affect a PivotTable. Use the field list to change the report. If you are trying to insert or delete cells, move the PivotTable and try again.",
     formula: 'Cannot enter a formula for an item or field name in a PivotTable report.',
     engine: "PivotTables can't be refreshed or changed now: this page could not load what they need. Reload the page and try again.",
+    moveLocked: "This slicer or timeline can't be moved or resized: Disable resizing and moving is on.",
   },
   ru: {
     part: 'Нельзя изменить эту часть сводной таблицы.',
     affect: 'Нельзя внести это изменение в выделенные ячейки, так как оно повлияет на сводную таблицу. Используйте список полей, чтобы изменить отчет. Если вы пытаетесь вставить или удалить ячейки, переместите сводную таблицу и повторите попытку.',
     formula: 'Нельзя ввести формулу для имени элемента или поля в отчете сводной таблицы.',
     engine: 'Сводные таблицы сейчас нельзя обновить или изменить: страница не смогла загрузить то, что для этого нужно. Обновите страницу и повторите попытку.',
+    moveLocked: 'Этот срез или эту временную шкалу нельзя переместить или изменить в размере: для них отключено изменение размеров и перемещение.',
   },
 }
 export type PivotAlert = keyof (typeof ALERTS)['en']
@@ -166,15 +173,16 @@ export function pivotNeeds(layout: BookLayout, op: StructureOp): PivotNeed[] {
   const over = (caches: (number | undefined)[]) => layout.sheets.filter((x) => x.pivotTables?.some((t) => caches.includes(t.cache))).map((x) => x.name)
   const pivots = (sheets: string[]): PivotNeed[] => sheets.map((sheet) => ({ sheet, allow: 'pivotTables' }))
   const filtered = (refs: readonly PivotRef[] | undefined) => (refs ?? []).map((p) => p.sheet)
-  /** The sheet of a slicer or a timeline, and the PivotTables its cache filters. */
+  /** A slicer or a timeline: its sheet, whether it is locked, and the PivotTables its cache filters. */
   const objectOf = (kind: 'slicers' | 'timelines', name: string) => {
     const sheet = layout.sheets.find((x) => x[kind]?.some((o) => sameName(o.name, name)))
-    const cache = sheet?.[kind]?.find((o) => sameName(o.name, name))?.cache
+    const o = sheet?.[kind]?.find((x) => sameName(x.name, name)) as { cache: string; locked?: boolean } | undefined
     const caches: readonly { name: string; pivots: PivotRef[] }[] = (kind === 'slicers' ? layout.slicerCaches : layout.timelineCaches) ?? []
-    return { sheet: sheet?.name, pivots: caches.find((c) => sameName(c.name, cache ?? ''))?.pivots }
+    const at = { sheet: sheet?.name ?? '', locked: objectLocks(o ?? {}).sheet }
+    return { at, found: !!sheet, pivots: caches.find((c) => sameName(c.name, o?.cache ?? ''))?.pivots ?? [] }
   }
   const cachePivots = (kind: 'slicers' | 'timelines', cache: string | { pivots: PivotRef[] }) =>
-    typeof cache === 'string' ? ((kind === 'slicers' ? layout.slicerCaches : layout.timelineCaches) ?? []).find((c) => sameName(c.name, cache))?.pivots : cache.pivots
+    (typeof cache === 'string' ? ((kind === 'slicers' ? layout.slicerCaches : layout.timelineCaches) ?? []).find((c) => sameName(c.name, cache))?.pivots : cache.pivots) ?? []
   switch (op.op) {
     case 'refreshPivots':
       return pivots(op.pivots ? over(op.pivots.map((p) => cacheOf(p.sheet, p.name))) : layout.sheets.filter((x) => x.pivotTables?.length).map((x) => x.name))
@@ -193,23 +201,37 @@ export function pivotNeeds(layout: BookLayout, op: StructureOp): PivotNeed[] {
     case 'renamePivotTable':
     case 'deletePivotTable':
       return pivots([op.sheet])
+    // a slicer's or a timeline's change: the rule the sheet asks too (`objectNeeds`)
     case 'addSlicer':
     case 'addTimeline': {
-      const kind = op.op === 'addSlicer' ? 'slicers' : 'timelines'
-      return [{ sheet: op.sheet, allow: 'objects' }, ...pivots([op.sheet, ...filtered(cachePivots(kind, op.cache))])]
+      return objectNeeds('add', { sheet: op.sheet, locked: true }, cachePivots(op.op === 'addSlicer' ? 'slicers' : 'timelines', op.cache))
     }
     case 'editSlicer':
     case 'editTimeline': {
       const o = op.op === 'editSlicer' ? objectOf('slicers', op.slicer) : objectOf('timelines', op.timeline)
+      if (!o.found) return []
       // Report Connections may name more PivotTables, which take its choice
-      return pivots([...filtered(o.pivots), ...filtered((op.cache as { pivots?: PivotRef[] } | undefined)?.pivots)])
+      const pivots = [...o.pivots, ...((op.cache as { pivots?: PivotRef[] } | undefined)?.pivots ?? [])]
+      return objectNeeds(op.set?.place ? 'place' : 'choose', o.at, pivots)
     }
     case 'deleteSlicer':
     case 'deleteTimeline': {
       const o = op.op === 'deleteSlicer' ? objectOf('slicers', op.slicer) : objectOf('timelines', op.timeline)
-      return o.sheet ? [{ sheet: o.sheet, allow: 'objects' }, ...pivots([o.sheet, ...filtered(o.pivots)])] : []
+      return o.found ? objectNeeds('remove', o.at, o.pivots) : []
     }
     default:
       return []
   }
+}
+
+/** Whether an operation moves or resizes a slicer or a timeline whose position is locked (Disable resizing and moving), which nothing moves. */
+export function movesLocked(layout: BookLayout, op: StructureOp): boolean {
+  if ((op.op !== 'editSlicer' && op.op !== 'editTimeline') || !op.set?.place) return false
+  const kind = op.op === 'editSlicer' ? 'slicers' : 'timelines'
+  const name = op.op === 'editSlicer' ? op.slicer : op.timeline
+  for (const sheet of layout.sheets) {
+    const o = (sheet[kind] as { name: string; locked?: boolean }[] | undefined)?.find((x) => sameName(x.name, name))
+    if (o) return objectLocks(o).position
+  }
+  return false
 }
