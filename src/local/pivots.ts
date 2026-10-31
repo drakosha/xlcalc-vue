@@ -1,9 +1,10 @@
 // PivotTables in the local source: xlcalc's PivotTable engine (`xlcalc/pivot`), loaded as its own chunk for a workbook that
 // has PivotTables, since without them nothing needs it; their areas as the sheet lists them; Excel's alerts for a change
 // the library refuses over their cells; and the PivotTables an operation touches, which a protected sheet gates.
-import { LOCALES, registerPivot, type BookInput, type BookLayout, type CellRect, type PivotRef, type PivotTable, type SheetLayout, type StructureOp } from 'xlcalc'
+import { LOCALES, registerPivot, type BookInput, type BookLayout, type CellRect, type PivotCache, type PivotRef, type PivotTable, type SheetLayout, type StructureOp } from 'xlcalc'
 import { parseRange, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
 import type { SheetPivot, SheetPivotTable } from '../contract/source'
+import { pivotFields } from './slicers'
 
 /** Whether the workbook holds PivotTables or their caches, which the engine refreshes and lays out. */
 export const hasPivots = (book: BookInput | BookLayout): boolean => !!book.pivotCaches?.length || book.sheets.some((s) => !!s.pivotTables?.length)
@@ -44,8 +45,8 @@ function areasOf(t: PivotTable): { table: CellRect; filters?: CellRect; headers?
   }
 }
 
-/** A sheet's PivotTables as `SheetInfo.pivots` lists them; none for a sheet without them. */
-export function pivotsOf(sheet: SheetLayout): SheetPivot[] {
+/** A sheet's PivotTables as `SheetInfo.pivots` lists them, with their cache's id and fields; none for a sheet without them. */
+export function pivotsOf(sheet: SheetLayout, caches: PivotCache[] = []): SheetPivot[] {
   const out: SheetPivot[] = []
   for (const t of sheet.pivotTables ?? []) {
     const a = areasOf(t)
@@ -58,6 +59,8 @@ export function pivotsOf(sheet: SheetLayout): SheetPivot[] {
       ...(a.headers ? { headers: range(a.headers) } : {}),
       ...(a.rowLabels ? { rowLabels: range(a.rowLabels) } : {}),
       ...(a.values ? { values: range(a.values) } : {}),
+      cache: t.cache,
+      fields: pivotFields(caches.find((c) => c.id === t.cache)),
     })
   }
   return out

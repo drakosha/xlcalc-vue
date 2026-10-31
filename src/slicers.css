@@ -1,0 +1,249 @@
+/* Slicers and timelines over the cells, in a plain neutral look (their styles are kept for Excel and not drawn): a frame,
+   a header, buttons for the items, a strip of periods. A host restyles them through the --xs-slicer-* variables. */
+.xs-object {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--xs-slicer-frame, #c4c7cc);
+  background: var(--xs-slicer-bg, var(--xs-bg));
+  color: var(--xs-fg);
+  font-size: 12px;
+  cursor: move;
+  outline: none;
+}
+.xs-object-on {
+  border-color: var(--xs-accent);
+}
+.xs-object-drag {
+  opacity: 0.85;
+}
+.xs-object-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--xs-accent);
+  background: var(--xs-bg);
+}
+.xs-object-handle-nw { left: -4px; top: -4px; cursor: nwse-resize; }
+.xs-object-handle-n { left: calc(50% - 4px); top: -4px; cursor: ns-resize; }
+.xs-object-handle-ne { right: -4px; top: -4px; cursor: nesw-resize; }
+.xs-object-handle-e { right: -4px; top: calc(50% - 4px); cursor: ew-resize; }
+.xs-object-handle-se { right: -4px; bottom: -4px; cursor: nwse-resize; }
+.xs-object-handle-s { left: calc(50% - 4px); bottom: -4px; cursor: ns-resize; }
+.xs-object-handle-sw { left: -4px; bottom: -4px; cursor: nesw-resize; }
+.xs-object-handle-w { left: -4px; top: calc(50% - 4px); cursor: ew-resize; }
+
+.xs-slicer,
+.xs-timeline {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.xs-slicer-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  padding: 4px 4px 4px 8px;
+}
+.xs-slicer-caption {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.xs-slicer-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: var(--xs-fg);
+  cursor: pointer;
+}
+.xs-slicer-tool .xs-icon {
+  width: 14px;
+  height: 14px;
+}
+.xs-slicer-tool:hover:not(:disabled),
+.xs-slicer-tool.xs-on {
+  border-color: var(--xs-slicer-frame, #c4c7cc);
+  background: var(--xs-head-bg);
+}
+.xs-slicer-tool:disabled {
+  color: var(--xs-muted);
+  opacity: 0.5;
+  cursor: default;
+}
+.xs-slicer-items {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+  padding: 2px 8px 8px;
+  overflow-y: auto;
+  align-content: start;
+  cursor: default;
+}
+.xs-slicer-item {
+  min-width: 0;
+  padding: 0 6px;
+  overflow: hidden;
+  border: 1px solid var(--xs-slicer-frame, #c4c7cc);
+  border-radius: 2px;
+  background: var(--xs-slicer-off, var(--xs-bg));
+  color: var(--xs-fg);
+  font: inherit;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.xs-slicer-item.xs-on {
+  border-color: var(--xs-slicer-on-line, #8faadc);
+  background: var(--xs-slicer-on, #dbe5f5);
+}
+.xs-slicer-item.xs-nodata {
+  color: var(--xs-slicer-nodata, #a0a4ab);
+  border-style: dashed;
+}
+.xs-slicer-item.xs-nodata.xs-on {
+  background: var(--xs-slicer-on-nodata, #eef2f8);
+}
+.xs-slicer-item:disabled {
+  cursor: default;
+}
+
+.xs-timeline-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 8px;
+  padding: 0 8px 4px;
+}
+.xs-timeline-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.xs-timeline-level {
+  position: relative;
+}
+.xs-timeline-level-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 2px;
+  border: none;
+  background: none;
+  color: var(--xs-accent);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.xs-timeline-level-button .xs-icon {
+  width: 12px;
+  height: 12px;
+}
+.xs-timeline-levels {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+  border: 1px solid var(--xs-slicer-frame, #c4c7cc);
+  background: var(--xs-bg);
+  box-shadow: var(--xs-shadow-pop);
+}
+.xs-timeline-level-item {
+  padding: 3px 10px;
+  border: none;
+  background: none;
+  color: var(--xs-fg);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.xs-timeline-level-item:hover,
+.xs-timeline-level-item.xs-on {
+  background: var(--xs-head-bg);
+}
+.xs-timeline-strip {
+  flex: 1;
+  min-height: 0;
+  margin: 0 8px 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: default;
+}
+.xs-timeline-noscroll {
+  scrollbar-width: none;
+}
+.xs-timeline-grid {
+  display: grid;
+  grid-auto-rows: auto;
+  user-select: none;
+  touch-action: pan-x;
+}
+.xs-timeline-group {
+  padding: 0 2px 2px;
+  overflow: hidden;
+  border-left: 1px solid var(--xs-grid);
+  color: var(--xs-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.xs-timeline-period {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-left: 1px solid var(--xs-grid);
+  cursor: pointer;
+}
+.xs-timeline-tile {
+  font-size: 11px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.xs-timeline-fill {
+  align-self: stretch;
+  height: 14px;
+  margin-top: 2px;
+  background: var(--xs-slicer-off-period, #eceef1);
+}
+.xs-timeline-period.xs-on .xs-timeline-fill {
+  background: var(--xs-slicer-on-period, #7ea1d8);
+}
+
+/* The dialogs: Insert Slicers' list of fields, Slicer Settings' lines, Report Connections' table. */
+.xs-slicer-fields {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.xs-slicer-dialog-line {
+  margin: 0 0 6px;
+}
+.xs-slicer-connections {
+  width: 100%;
+  border-collapse: collapse;
+}
+.xs-slicer-connections th,
+.xs-slicer-connections td {
+  padding: 2px 8px 2px 0;
+  text-align: left;
+}

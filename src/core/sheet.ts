@@ -40,6 +40,7 @@ import { useAutoSum } from './autosum'
 import { useCalculation } from './calculation'
 import { usePivots } from './pivots'
 import { usePivotCreate } from './pivot-create'
+import { useSlicers } from './slicers'
 import { useAutoFilter } from './autofilter'
 import { usePainter } from './painter'
 import { useSpellCheck } from './spell-check'
@@ -194,7 +195,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   })
   const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
   const pivots = usePivots(s, cmd, protection, { dialog: (request) => emit('pivotDialog', request) })
-  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), cellPivots: () => pivots.items(), cellPivotsLast: () => pivots.lastItems(), protection })
+  const slicers = useSlicers(s, cmd, pivots, protection, { ask: alerts.ask })
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), cellPivots: () => pivots.items(), cellPivotsLast: () => pivots.lastItems(), object: { items: slicers.items, name: () => slicers.selected.value?.name ?? '' }, protection })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask, blocked: () => protection.blocks('merge') })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
   const special = useSpecial(s, sel, { ask: alerts.ask, notify })
@@ -308,6 +310,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     insertPivotTable: pivotCreate.open,
     fieldList: pivots.fieldList,
     pivotDialog: pivots.dialog,
+    insertSlicer: () => slicers.openInsert(false),
+    insertTimeline: () => slicers.openInsert(true),
+    slicerSettings: slicers.openSettings,
+    reportConnections: slicers.openConnections,
     protectSheet: protection.open,
     unprotectSheet: protection.unprotect,
   }
@@ -747,6 +753,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(pivots.canRefresh.value ? { canRefreshPivot: true as const } : {}),
       ...(pivots.fieldListShown.value ? { fieldList: true as const } : {}),
       ...(pivotCreate.available.value ? { canInsertPivot: true as const } : {}),
+      ...(slicers.canInsert.value ? { canInsertSlicer: true as const } : {}),
+      ...(slicers.selected.value ? { object: slicers.selected.value } : {}),
       ...(protection.protection.value ? { protection: protection.protection.value } : {}),
       ...(s.areas.value ? { areas: s.areas.value.map(rangeAddress) } : {}),
     }
@@ -801,6 +809,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     outline,
     protection,
     menu,
+    slicers,
     goto,
     special,
     symbolOpen,

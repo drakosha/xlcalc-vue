@@ -22,8 +22,8 @@ const valueAt = async (s: ReturnType<typeof source>, cell: string) => {
 
 describe('localSource: PivotTables', () => {
   it("lists each sheet's PivotTables with their areas", async () => {
-    expect((await source(pivotBook()).sheets()).map((x) => x.pivots)).toEqual([undefined, [{ name: 'PivotTable1', range: 'A3:B6', headers: 'A3:B3', rowLabels: 'A4:A6', values: 'B4:B6' }]])
-    expect((await source(filteredPivotBook()).sheets())[1]!.pivots).toEqual([{ name: 'PivotTable1', range: 'A3:D7', filters: 'A1:B1', headers: 'A3:D4', rowLabels: 'A5:A7', values: 'B5:D7' }])
+    expect((await source(pivotBook()).sheets()).map((x) => x.pivots)).toEqual([undefined, [{ name: 'PivotTable1', range: 'A3:B6', headers: 'A3:B3', rowLabels: 'A4:A6', values: 'B4:B6', cache: 1, fields: [{ name: 'Region' }, { name: 'Amount' }, { name: 'Kind' }, { name: 'Year' }] }]])
+    expect((await source(filteredPivotBook()).sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1', range: 'A3:D7', filters: 'A1:B1', headers: 'A3:D4', rowLabels: 'A5:A7', values: 'B5:D7' }])
   })
 
   it("reads a PivotTable's definition with its cache's fields, without the saved lines and rows; null for none", async () => {
@@ -40,9 +40,9 @@ describe('localSource: PivotTables', () => {
   it('lists a PivotTable not laid out, or shrunk to its top-left cell (#SPILL!), by its table alone', async () => {
     // added without the engine: Excel's empty PivotTable of three columns and 18 rows, without saved lines
     const placeholder = pivotBook({ table: { location: { range: 'A3:C20', firstHeaderRow: 1, firstDataRow: 1, firstDataColumn: 0 }, rowLines: undefined, columnLines: undefined } })
-    expect((await source(placeholder).sheets())[1]!.pivots).toEqual([{ name: 'PivotTable1', range: 'A3:C20' }])
+    expect((await source(placeholder).sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1', range: 'A3:C20' }])
     const spilled = pivotBook({ table: { location: { range: 'A3', firstHeaderRow: 0, firstDataRow: 0, firstDataColumn: 0 } } })
-    expect((await source(spilled).sheets())[1]!.pivots).toEqual([{ name: 'PivotTable1', range: 'A3' }])
+    expect((await source(spilled).sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1', range: 'A3' }])
   })
 
   it("refuses a value or a formula typed, pasted or filled over its cells with Excel's alert; a formula over a label has its own", async () => {

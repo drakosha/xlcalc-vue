@@ -84,4 +84,4 @@ The source's `structure` takes every operation of xlcalc on PivotTables, slicers
 
 ## Not yet
 
-The PivotTable's style is kept for Excel and not drawn: its cells show their own formats only. Slicers and timelines are not drawn, and the sheet has no field buttons on a PivotTable's headers.
+The PivotTable's style is kept for Excel and not drawn: its cells show their own formats only. The sheet has no field buttons on a PivotTable's headers. Slicers and timelines are drawn and used on the sheet, with Insert Slicer and Insert Timeline ([slicers.md](slicers.md)).

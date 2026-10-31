@@ -34,6 +34,7 @@ import SheetSplit from './SheetSplit.vue'
 import SheetTabs from './SheetTabs.vue'
 import SpellingDialog from './SpellingDialog.vue'
 import TableDialog from './TableDialog.vue'
+import SlicerDialogs from './SlicerDialogs.vue'
 import { IconClose, IconRetry, IconSpinner } from './icons'
 
 const props = withDefaults(defineProps<SheetViewProps>(), {
@@ -144,6 +145,7 @@ const wait = ctx.w.wait
       <ProtectDialog />
       <TableDialog />
       <PivotTableDialog />
+      <SlicerDialogs v-if="ctx.slicers.dialog.value" />
       <SpellingDialog />
       <LinkDialog />
       <ValidationDialog />

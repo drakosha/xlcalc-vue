@@ -29,7 +29,7 @@ const PRESS_TAIL_MS = 800
 /** Excel's limit of the Column Width box, in characters; the Row Height box's limit is the tallest row, `MAX_ROW_HEIGHT`. */
 const MAX_WIDTH_CHARS = 255
 
-export type MenuKind = 'rows' | 'columns' | 'sheet' | 'cells'
+export type MenuKind = 'rows' | 'columns' | 'sheet' | 'cells' | 'object'
 
 export interface MenuItem {
   id: string
@@ -74,6 +74,8 @@ export interface MenuDeps {
   /** The cell menu's items on a PivotTable's cell: Refresh, which Excel lists after Paste, and Show Field List, last. */
   cellPivots?: () => MenuItem[]
   cellPivotsLast?: () => MenuItem[]
+  /** The menu of the selected slicer or timeline, with its name for the caption. */
+  object?: { items: () => MenuItem[]; name: () => string }
   /** The sheet's protection: what it disables in the menus of rows and columns, and the tab menu's Protect Sheet and Unprotect Sheet. */
   protection: Protection
 }
@@ -115,9 +117,15 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     open.value = { kind: 'cells', x, y, first: 0, last: 0 }
   }
 
+  /** Opens the menu of the selected slicer or timeline at the pointer. */
+  function openObject(x: number, y: number): void {
+    open.value = { kind: 'object', x, y, first: 0, last: 0 }
+  }
+
   const items = computed<MenuItem[]>(() => {
     const o = open.value
     if (!o) return []
+    if (o.kind === 'object') return deps.object?.items() ?? []
     if (o.kind === 'cells') return cellItems()
     return o.kind === 'sheet' ? sheetItems(o.first) : lineItems(o.kind, o.first, o.last)
   })
@@ -344,6 +352,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     if (!o) return ''
     if (o.kind === 'sheet') return s.sheets.value[o.first]?.name ?? ''
     if (o.kind === 'cells') return sel.selectionRef.value
+    if (o.kind === 'object') return deps.object?.name() ?? ''
     return rangeAddress(o.kind === 'rows' ? { top: o.first, left: 1, bottom: o.last, right: MAX_COLS } : { top: 1, left: o.first, bottom: MAX_ROWS, right: o.last })
   })
 
@@ -359,6 +368,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     openLines,
     openSheet,
     openCells,
+    openObject,
     linesAvailable,
     sheetsAvailable,
     applySize,

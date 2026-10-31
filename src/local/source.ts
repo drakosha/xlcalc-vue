@@ -1,7 +1,7 @@
 // localSource: a sheet source over an xlcalc workbook whose session runs in a Web Worker pool or on the page's thread.
 // The session holds and calculates the workbook, finds as Excel's Find does and returns windows, sheets and edits as Excel
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
-import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView, type SplitPanes } from 'xlcalc'
+import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type BookLayout, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView, type SplitPanes } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { ClearKind } from '../contract/workbook'
 import type { CalculationMode, CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetShow, SourceEvent, WindowRequest } from '../contract/source'
@@ -22,6 +22,7 @@ import { protectionGuard, protectSheet } from './protect'
 import { validationOf } from './validation'
 import { autoFilterRanges } from './autofilter'
 import { hasPivots, isPivotOp, loadPivot, PIVOT, pivotDefinition, pivotMeeting, pivotRefusals, pivotsOf } from './pivots'
+import { slicersOf, timelinesOf } from './slicers'
 import { windowOf } from './window'
 import { workbookMethods } from './workbook'
 
@@ -57,7 +58,7 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
 const CALIBRI_11 = { name: 'Calibri', size: 11 }
 
 /** A sheet of the workbook's layout with where its cells end, the workbook's default font and the range its AutoFilter acts on, as the component lists it. */
-function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size: number }, autoFilter?: string): SheetInfo {
+function info(layout: BookLayout, sheet: SheetLayout, used: SheetExtent, font: { name: string; size: number }, locale: string, autoFilter?: string): SheetInfo {
   const f = sheet.frozen
   const outline = outlineOf(outlineGroups(sheet), sheet.outline)
   return {
@@ -75,7 +76,9 @@ function info(sheet: SheetLayout, used: SheetExtent, font: { name: string; size:
     ...(sheet.protection ? { protection: sheet.protection } : {}),
     // frozen panes take the place of a split, as in Excel
     ...(sheet.view?.split && !f ? { split: sheet.view.split } : {}),
-    ...(sheet.pivotTables?.length ? { pivots: pivotsOf(sheet) } : {}),
+    ...(sheet.pivotTables?.length ? { pivots: pivotsOf(sheet, layout.pivotCaches) } : {}),
+    ...(sheet.slicers?.length ? { slicers: slicersOf(layout, sheet, locale) } : {}),
+    ...(sheet.timelines?.length ? { timelines: timelinesOf(layout, sheet) } : {}),
     font,
   }
 }
@@ -679,7 +682,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       // xlcalc 0.59 gives the workbook's default font; an older one, or a workbook without it, is Calibri 11
       const font = layout.font ?? CALIBRI_11
-      return layout.sheets.map((x, i) => info(viewed(x), used[i]!, font, ranges[i]))
+      return layout.sheets.map((x, i) => info(layout, viewed(x), used[i]!, font, locale, ranges[i]))
     },
     async pivotTable(sheet, name, signal) {
       const s = await open()
