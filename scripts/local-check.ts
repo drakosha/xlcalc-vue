@@ -214,7 +214,7 @@ async function fileScenario(browser: Browser, base: string): Promise<void> {
   await context.close()
 }
 
-/** A file with a PivotTable through the pool: the engine loaded in the thread, Alt+F5 refreshing it, and Excel's alert over its values. */
+/** A file with a PivotTable through the pool: the engine loaded in the thread, Alt+F5 refreshing it, and Excel's alert at a key typed over its values. */
 async function pivotScenario(browser: Browser, base: string): Promise<void> {
   const file = resolve(out, 'local-pivot.xlsx')
   writeFileSync(file, (await writeXlsx({ book: pivotBook() })).data)
@@ -237,14 +237,15 @@ async function pivotScenario(browser: Browser, base: string): Promise<void> {
   await shows(page, '4:2', '15')
   await page.keyboard.press('Alt+F5')
   await shows(page, '4:2', '105')
+  // the sheet's alert, in the page's language, comes at the first key, before Enter, as in Excel for Windows
   await page.keyboard.type('7')
-  await page.keyboard.press('Enter')
-  await page.waitForFunction(() => document.querySelector('[data-xs-alert="notice"]')?.textContent?.includes('PivotTable'), undefined, { timeout: 10_000 })
+  await page.waitForFunction(() => /PivotTable|сводной таблицы/.test(document.querySelector('[data-xs-alert="notice"]')?.textContent ?? ''), undefined, { timeout: 10_000 })
+  if (await page.locator('.xs-editor:not(.xs-editor-idle)').count()) throw new Error('an editor opened over the value')
   await page.screenshot({ path: resolve(out, 'local-1920-pivot.png') })
   await page.locator('[data-xs-alert-button="ok"]').click()
   await shows(page, '4:2', '105')
   if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`)
-  console.log('[pivot] a file with a PivotTable: Alt+F5 refreshed it through the pool (15 → 105), a value typed over it refused with Excel\'s alert')
+  console.log('[pivot] a file with a PivotTable: Alt+F5 refreshed it through the pool (15 → 105), a key typed over its value refused with Excel\'s alert')
   await context.close()
 }
 
