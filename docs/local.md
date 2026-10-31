@@ -1,6 +1,6 @@
 # In-browser calculation: `@xlcalc/vue/local`
 
-`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.71.2 or later, an optional peer dependency of the package that the host installs: the package is built over 0.71.2 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics, CSV files). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message.
+`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.71.3 or later, an optional peer dependency of the package that the host installs: the package is built over 0.71.3 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics, CSV files). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message.
 
 ## What the source does
 
@@ -159,7 +159,7 @@ const source = localSource(book, {
 })
 ```
 
-A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in. When taking an answer runs past it, the source takes it once more with a deadline of a minute. A known gap of xlcalc 0.71.2: a stopped call can leave the session half calculated, some cells reading the answer and others still `#BUSY!`, and no later call completes it; give a `timeoutMs` that the calculation after an answer fits in. A failure there, or any other, is written to the console (`console.error`) and the sheet reads its windows again, so it shows what the session holds.
+A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in. When taking an answer runs past it, the session stays as it was, its cells still waiting (xlcalc 0.71.3), and the source takes the answers once more with a deadline of a minute, without asking the host again. A failure there, or any other, is written to the console (`console.error`) and the sheet reads its windows again, so it shows what the session holds.
 
 Refresh All (`refreshConnections`, Ctrl+Alt+F5) asks every call again, or with `names` those of the functions named: the source has it only with `externals.resolve`, as values given in advance (`externals.values`) answer nothing anew, and the formulas keeping their file's values would lose them to the answers of a function without its connection. It is not a step of undo ([calculation.md](calculation.md#refresh-all)).
 

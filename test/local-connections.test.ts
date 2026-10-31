@@ -204,8 +204,7 @@ describe('localSource: answers in Manual', () => {
 })
 
 describe('localSource: an answer whose calculation runs past the deadline', () => {
-  // xlcalc 0.71.2 can leave a stopped settle half done, so the retry finds nothing to take; 0.71.3 fixes it
-  it.skip('is taken again with a longer deadline, rather than leaving its cell waiting', async () => {
+  it('is taken again with a longer deadline, rather than leaving its cell waiting', async () => {
     const calc = createInlineCalc({ timeoutMs: 1 })
     calcs.push(calc)
     let go: (v: number[][]) => void = () => {}
