@@ -22,7 +22,8 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
   const saved = computed<PivotAreas | null>(() => (definition.value ? areasOf(definition.value.table) : null))
   /** What the pane shows, and what a change builds on: the draft, else the layout on its way, else the PivotTable's. */
   const areas = computed<PivotAreas | null>(() => draft.value ?? requested.value ?? saved.value)
-  const fields = computed(() => definition.value?.cache.fields ?? [])
+  const cache = computed(() => definition.value?.cache ?? null)
+  const fields = computed(() => cache.value?.fields ?? [])
   /**
    * Changes go through the sheet where it takes them: an editable sheet with `structure` (Insert PivotTable is available
    * there), whose protection allows Use PivotTable and PivotChart.
@@ -90,7 +91,8 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
         const set = d && patchOf(d.table, next)
         if (!d || !t || !set || !props.sheet) return
         try {
-          await props.sheet.structure({ op: 'editPivotTable', sheet: t.sheet, pivot: t.pivot, set })
+          // a field of dates put on the rows or columns is grouped as Excel's field list groups it (xlcalc's `groupDates`)
+          await props.sheet.structure({ op: 'editPivotTable', sheet: t.sheet, pivot: t.pivot, set, groupDates: true })
         } finally {
           await read()
         }
@@ -138,7 +140,7 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
     if (t) props.sheet?.pivotDialog({ ...request, sheet: t.sheet, pivot: t.pivot })
   }
 
-  return { definition, areas, fields, target, editable, defer, waiting, failed, apply, update, setDefer, savedValue, dialog }
+  return { definition, areas, cache, fields, target, editable, defer, waiting, failed, apply, update, setDefer, savedValue, dialog }
 }
 
 export type PivotPane = ReturnType<typeof usePivotPane>

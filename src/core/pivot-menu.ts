@@ -4,7 +4,6 @@
 import { cellAddress } from 'xlcalc/a1'
 import type { PivotDialogRequest } from '../contract/view'
 import { axisFields, fieldKind, fieldName, filtered, PIVOT_FUNCTIONS, ungroupedField, valueName, withHidden } from '../pivot-model'
-import { valuesPatch } from './pivot-layout'
 import type { MenuItem } from './menu'
 import { SHOW_AS, type PivotDialogs } from './pivot-dialogs'
 import type { PivotFilterMenus } from './pivot-filter'
@@ -96,11 +95,11 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
     return out
   }
 
-  /** Remove "Sum of Amount": the value field gone, Σ Values kept on its axis as Excel keeps it. */
+  /** Remove "Sum of Amount": the value field gone; xlcalc takes Σ Values off its axis with the second to last. */
   async function removeValue(index: number): Promise<void> {
     const here = dialogs.here.value
-    const set = here && valuesPatch(here.t.def.table, (here.t.def.table.values ?? []).filter((_, i) => i !== index))
-    if (here && set) await dialogs.edit(here.t, set)
+    const left = (here?.t.def.table.values ?? []).filter((_, i) => i !== index)
+    if (here) await dialogs.edit(here.t, { values: left.length ? left : null })
   }
 
   /** Remove "Region": the field off its axis, as Excel's item does. */

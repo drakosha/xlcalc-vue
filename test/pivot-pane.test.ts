@@ -4,14 +4,15 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { defineComponent, h, type PropType } from 'vue'
-import type { PivotCacheField, PivotTable, PivotTablePatch } from 'xlcalc/contract'
+import type { PivotCache, PivotTable, PivotTablePatch } from 'xlcalc/contract'
 import type { SheetPivotTable, SheetSource, SourceEvent } from '../src/contract/source'
 import type { SheetViewApi, SheetViewState } from '../src/contract/view'
 import { usePivotPane, type PivotPane } from '../src/components/pivot-pane'
 import { check } from '../src/core/pivot-layout'
 import { settle } from './helpers'
 
-const FIELDS: PivotCacheField[] = ['Region', 'Kind', 'City', 'Team'].map((name) => ({ name, facts: { types: ['string'] } }))
+const CACHE: PivotCache = { id: 1, source: { type: 'range', sheet: 'Data', range: 'A1:D9' }, fields: ['Region', 'Kind', 'City', 'Team'].map((name) => ({ name, facts: { types: ['string'] } })) }
+const FIELDS = CACHE.fields
 
 /** A PivotTable the source holds, the sheet's `structure` calls held until `answer`, and the source's events. */
 function fixture() {
@@ -23,7 +24,7 @@ function fixture() {
     sheets: async () => [],
     window: async () => ({ row: 1, col: 1, text: [], values: [] }),
     structure: async () => ({ ok: true, changes: [] }),
-    pivotTable: async (): Promise<SheetPivotTable> => ({ table: structuredClone(table), cache: { id: 1, source: { type: 'range', sheet: 'Data', range: 'A1:D9' }, fields: FIELDS } }),
+    pivotTable: async (): Promise<SheetPivotTable> => ({ table: structuredClone(table), cache: CACHE }),
     subscribe: (l: (e: SourceEvent) => void) => ((listener = l), () => (listener = null)),
   } as unknown as SheetSource
   const sheet = {
@@ -76,7 +77,7 @@ async function start() {
   await settle()
   return f
 }
-const tick = (f: Awaited<ReturnType<typeof start>>, field: number, on = true) => f.pane().apply(check(f.pane().areas.value!, field, on, FIELDS))
+const tick = (f: Awaited<ReturnType<typeof start>>, field: number, on = true) => f.pane().apply(check(f.pane().areas.value!, field, on, CACHE))
 
 describe('the PivotTable Fields pane while changes are on their way', () => {
   it('builds each change on the ones before it, though the source has not answered them', async () => {

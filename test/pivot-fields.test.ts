@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { SheetViewApi, SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
 import { cellText, goTo, mountSheet, settle, until } from './helpers'
-import { pivotBook } from './pivot-fixture'
+import { addSales, pivotBook, salesBook } from './pivot-fixture'
 
 let sources: LocalSource[] = []
 afterEach(async () => {
@@ -82,6 +82,18 @@ describe('the PivotTable Fields pane', () => {
     await setBox(0, false)
     await until(() => chips('rows').length === 1)
     expect(chips('rows')).toEqual(['Kind'])
+  })
+
+  it("a checked field of dates over several years is grouped by years, quarters and months, as Excel's field list does", async () => {
+    const s = localSource(salesBook(), { calc: 'inline' })
+    sources.push(s)
+    expect(await s.structure(addSales({ values: [{ field: 3 }] }))).toMatchObject({ ok: true })
+    const w = await mountSheet(s, { style: 'height: 400px' })
+    await goTo(w, 'R!A4')
+    await until(() => !!pane())
+    await setBox(4, true)
+    await until(() => chips('rows').length > 1)
+    expect(chips('rows')).toEqual(['Years (Date)', 'Quarters (Date)', 'Months (Date)', 'Date'])
   })
 
   it("a field's menu in an area moves it, and Value Field Settings opens the sheet's dialog", async () => {

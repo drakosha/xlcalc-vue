@@ -6,7 +6,7 @@
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import type { PivotFieldsPaneProps } from '../contract/view'
 import type { PivotAxisField, PivotDataField, PivotPageField } from 'xlcalc/contract'
-import { check, fieldAt, fieldKind, move, remove, usedFields, type PivotArea, type PivotSpot } from '../core/pivot-layout'
+import { check, fieldAt, move, remove, usedFields, type PivotArea, type PivotSpot } from '../core/pivot-layout'
 import { useMessages } from '../messages'
 import { IconClose, IconDown, IconFilter } from './icons'
 import { usePivotPane } from './pivot-pane'
@@ -95,7 +95,7 @@ function onMenuKey(e: KeyboardEvent): void {
 }
 
 const apply = (next: ReturnType<typeof move>) => pane.apply(next)
-const moveTo = (from: PivotSpot, to: PivotArea, index?: number) => pane.areas.value && apply(move(pane.areas.value, from, to, index, pane.fields.value))
+const moveTo = (from: PivotSpot, to: PivotArea, index?: number) => pane.areas.value && pane.cache.value && apply(move(pane.areas.value, from, to, index, pane.cache.value))
 
 /** What a chip holds, to find it again: a Filters or Values entry, or an axis's field (Σ Values as `values`). */
 type ChipEntry = PivotPageField | PivotDataField | PivotAxisField
@@ -187,7 +187,7 @@ function onListKey(e: KeyboardEvent, field: number): void {
   if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) onListMenu(e, field)
 }
 function onCheck(field: number, on: boolean): void {
-  if (pane.areas.value) apply(check(pane.areas.value, field, on, pane.fields.value))
+  if (pane.areas.value && pane.cache.value) apply(check(pane.areas.value, field, on, pane.cache.value))
 }
 function onFilter(e: MouseEvent, field: number): void {
   pane.dialog({ dialog: 'fieldFilter', field, at: rectOf((e.currentTarget as HTMLElement).getBoundingClientRect()) })
@@ -266,10 +266,6 @@ function onListClick(e: MouseEvent): void {
 onBeforeUnmount(endDrag)
 
 const dropBefore = (area: PivotArea, index: number) => drag.value?.over?.area === area && drag.value.over.index === index
-const kindOf = (i: number) => {
-  const f = pane.fields.value[i]
-  return f ? fieldKind(f) : 'text'
-}
 </script>
 
 <template>
@@ -288,7 +284,6 @@ const kindOf = (i: number) => {
         :key="f.i"
         class="xs-pf-field"
         :data-xs-pf-field="f.i"
-        :data-kind="kindOf(f.i)"
         @pointerdown="onDown($event, { area: 'list', field: f.i }, f.name)"
         @contextmenu="onListMenu($event, f.i)"
         @click.capture="onListClick"
