@@ -21,6 +21,8 @@ describe('shiftFormula', () => {
     // trim references (xlcalc 0.68.0) move as their ranges do, their points kept
     expect(shiftFormula('SUM(A1:.B2)+SUM(A1.:$B2)+SUM(Data!A1.:.B2)+SUM(C:.C)', 1, 1, {})).toBe('SUM(B2:.C3)+SUM(B2.:$B3)+SUM(Data!B2.:.C3)+SUM(D:.D)')
     expect(shiftFormula('LET(x,A1,LAMBDA(v,v+x)(B1))', 1, 0, {})).toBe('LET(x,A2,LAMBDA(v,v+x)(B2))')
+    // a linked workbook's table (xlcalc 0.69.0) stays as written, as a table of the workbook does
+    expect(shiftFormula('[1]!Sales[[#This Row],[Qty]]+Sales[Qty]+A1', 1, 1, {})).toBe('[1]!Sales[[#This Row],[Qty]]+Sales[Qty]+B2')
     expect(shiftFormula('СЧЁТЕСЛИ($A$1:$C$20;A1)=1', 1, 2, { locale: ruRU })).toBe('СЧЁТЕСЛИ($A$1:$C$20;C2)=1')
     expect(shiftFormula("SUM(C:C)+'Other sheet'!B2+3:4+E2#", 1, 1, {})).toBe("SUM(D:D)+'Other sheet'!C3+4:5+F3#")
   })

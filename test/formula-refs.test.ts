@@ -97,6 +97,17 @@ describe('trim references and functions of your own (xlcalc 0.68.0)', () => {
   })
 })
 
+describe("a linked workbook's references (xlcalc 0.69.0)", () => {
+  it("a structured reference to a linked workbook's table stays text, as a reference to its cells does: the workbook's own references around it are colored", async () => {
+    const formula = "SUM([1]!Sales[[#This Row],[Qty]],'[1]Sheet1'!A1,B2)+[1]!Sales[Qty]+C3"
+    const w = await mountSheet(memorySource({ sheets: [{ name: 'S', cells: { A6: { value: 0, formula }, F9: 'x' } }] }), { readOnly: true })
+    await goTo(w, 'A6')
+    expect(refs(w)).toEqual(['B2', 'C3'])
+    expect(tinted(w, '2:2') && tinted(w, '3:3')).toBe(true)
+    expect(tinted(w, '1:1')).toBe(false)
+  })
+})
+
 describe('a formula in ru-RU', () => {
   // An array constant's rows (`2:3`) and decimal commas are not references in ru-RU's formula text.
   const formula = 'СУММ({1;2:3;4};A1)+ЕСЛИ(B2>0,5;C2;D2)'
