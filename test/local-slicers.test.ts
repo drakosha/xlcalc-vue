@@ -76,3 +76,32 @@ describe('localSource: slicers and timelines', () => {
     expect(added.place).toBeDefined()
   })
 })
+
+describe('localSource: slicers in the protection and in their labels', () => {
+  it('a time alone in the cache, as Excel writes one, still lists the sheets', async () => {
+    const book = slicerBook()
+    book.pivotCaches![0]!.fields.find((x) => x.name === 'Date')!.items = [{ date: '1899-12-30T08:30:00' }, { date: '2024-01-15T00:00:00' }]
+    book.slicerCaches!.push({ name: 'Slicer_Date', field: 'Date', cache: 1, pivots: [{ sheet: 'Report', name: 'PivotTable1' }], items: [{ item: 0 }, { item: 1 }] })
+    book.sheets[1]!.slicers!.push({ name: 'Date1', cache: 'Slicer_Date', place: { from: 'P3', to: 'R12' } })
+    const labels = (await source(book).sheets())[1]!.slicers![1]!.items.map((x) => x.label)
+    expect(labels).toHaveLength(2)
+    expect(labels[0]).toMatch(/8:30/)
+    expect(labels[1]).toBe('1/15/2024')
+  })
+
+  it('moving a slicer or a timeline on a protected sheet needs Edit objects, as both are locked; a choice does not', async () => {
+    const place = { from: 'E5', to: 'G14' }
+    const pivots = source(slicerBook({ protection: { pivotTables: true } }))
+    expect(await pivots.structure({ op: 'editSlicer', slicer: 'Region', set: { place } })).toMatchObject({ ok: false, code: 'protected' })
+    expect(await pivots.structure({ op: 'editTimeline', timeline: 'Date', set: { place } })).toMatchObject({ ok: false, code: 'protected' })
+    expect(await pivots.structure({ op: 'editSlicer', slicer: 'Region', cache: { items: [{ item: 0, selected: false }, { item: 1, selected: true }] } })).toMatchObject({ ok: true })
+    const objects = source(slicerBook({ protection: { pivotTables: true, objects: true } }))
+    expect(await objects.structure({ op: 'editTimeline', timeline: 'Date', set: { place } })).toMatchObject({ ok: true })
+  })
+
+  it('a slicer with Disable resizing and moving is not moved on any sheet; its choice still changes', async () => {
+    const s = source(slicerBook({ positionLocked: true }))
+    expect(await s.structure({ op: 'editSlicer', slicer: 'Region', set: { place: { from: 'E5', to: 'G14' } } })).toMatchObject({ ok: false, code: 'pivot', message: expect.stringMatching(/Disable resizing and moving/) })
+    expect(await s.structure({ op: 'editSlicer', slicer: 'Region', cache: { items: [{ item: 0, selected: false }, { item: 1, selected: true }] } })).toMatchObject({ ok: true })
+  })
+})

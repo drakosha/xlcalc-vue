@@ -1,6 +1,6 @@
 // The component's base state: the workbook's sheets, the active one, its extent, sizes from the windows, and the viewport.
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
-import { MAX_COLS, MAX_ROWS } from 'xlcalc/a1'
+import { MAX_COLS, MAX_ROWS, parseCell } from 'xlcalc/a1'
 import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { DEFAULT_ROW_HEIGHT } from 'xlcalc/text'
 import { errorText } from '../failure'
@@ -85,17 +85,29 @@ export function createState(props: SheetViewProps) {
   const userWidths = shallowRef<Record<number, number>>({})
   const heights = shallowRef(new Map<number, number>())
   const defaultRowPx = ref(rowPx(DEFAULT_ROW_HEIGHT))
-  /** Rows the grid displays: a filter's list as is; an editable sheet continues beyond the data and fills the viewport (zoomed out, it holds more rows), up to Excel's last row. */
+  /** The last row and column the sheet's slicers and timelines reach: the grid covers them, as Excel scrolls to them. */
+  const objectsReach = computed(() => {
+    let rows = 0
+    let cols = 0
+    for (const o of [...(sheet.value?.slicers ?? []), ...(sheet.value?.timelines ?? [])]) {
+      const to = o.place && parseCell(o.place.to)
+      if (!to) continue
+      rows = Math.max(rows, to.row)
+      cols = Math.max(cols, to.col)
+    }
+    return { rows: Math.min(MAX_ROWS, rows), cols: Math.min(MAX_COLS, cols) }
+  })
+  /** Rows the grid displays: a filter's list as is; a read-only sheet its data and its objects; an editable sheet continues beyond them and fills the viewport (zoomed out, it holds more rows), up to Excel's last row. */
   const rowCount = computed(() => {
     if (visible.value) return visible.value.rows.length
     const fill = defaultRowPx.value > 0 ? Math.ceil(viewH.value / defaultRowPx.value) + 1 : 0
-    return editable.value ? Math.min(MAX_ROWS, Math.max(dataRows.value + SPARE_ROWS, MIN_ROWS, reach.value.rows, fill)) : dataRows.value
+    return editable.value ? Math.min(MAX_ROWS, Math.max(dataRows.value + SPARE_ROWS, MIN_ROWS, reach.value.rows, objectsReach.value.rows, fill)) : Math.max(dataRows.value, objectsReach.value.rows)
   })
   /** The last sheet row a selection of entire columns reaches. */
   const lastRow = computed(() => (visible.value ? Math.max(1, dataRows.value) : Math.max(1, rowCount.value)))
   /** An editable sheet fills the viewport with columns at least, up to Excel's last column. */
   const colCount = computed(() =>
-    editable.value ? Math.min(MAX_COLS, Math.max(dataCols.value + SPARE_COLS, MIN_COLS, reach.value.cols, Math.ceil(viewW.value / colPx(null)) + 1)) : dataCols.value,
+    editable.value ? Math.min(MAX_COLS, Math.max(dataCols.value + SPARE_COLS, MIN_COLS, reach.value.cols, objectsReach.value.cols, Math.ceil(viewW.value / colPx(null)) + 1)) : Math.max(dataCols.value, objectsReach.value.cols),
   )
 
   /** Excel's Show Formulas on the displayed sheet: cells show their formulas, and columns are drawn twice as wide. */

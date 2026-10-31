@@ -19,20 +19,55 @@ export interface DrawnBox {
 interface RowMap {
   rowOf: (d: number) => number
   indexOf: (r: number) => number | undefined
+  /** The display filter shows rows in another order than the sheet's: a box takes its height from its sheet rows. */
+  filtered?: boolean
 }
 
-/** Where a place's corners are drawn; null for a corner on a row the display filter leaves out, or a place that is not one. */
+/** The left edge of a column, also of one beyond the columns drawn (by their widths, the default for most). */
+function colEdge(geo: Geometry, col: number): number {
+  const offsets = geo.offsets.value
+  const count = offsets.length - 1
+  if (col - 1 <= count) return offsets[col - 1] ?? 0
+  let x = offsets[count] ?? 0
+  for (let c = count + 1; c < col; c++) x += geo.widthOf(c)
+  return x
+}
+/** The top edge of a display row, also of one beyond the rows drawn. */
+function rowEdge(geo: Geometry, d: number): number {
+  const offsets = geo.rowOffsets.value
+  const count = offsets.length - 1
+  if (d - 1 <= count) return offsets[d - 1] ?? 0
+  let y = offsets[count] ?? 0
+  for (let r = count + 1; r < d; r++) y += geo.heightOf(r)
+  return y
+}
+/** An offset into a cell in EMU as pixels, no more than the cell's size: an anchor's offset lies within its cell (ECMA-376's `colOff`, `rowOff`). */
+const within = (emu: number | undefined, size: number) => Math.min(Math.max(0, (emu ?? 0) / EMU_PX), size)
+
+/**
+ * Where a place's corners are drawn; null for a place that is not one, or whose top-left row the display filter leaves out.
+ * Under the display filter the box keeps the height of its sheet rows from its top-left row.
+ */
 export function boxOfPlace(place: DrawingPlace, geo: Geometry, rows: RowMap): DrawnBox | null {
   const from = parseCell(place.from)
   const to = parseCell(place.to)
   if (!from || !to) return null
   const d1 = rows.indexOf(from.row)
-  const d2 = rows.indexOf(to.row)
-  if (d1 === undefined || d2 === undefined) return null
-  const x = (geo.offsets.value[from.col - 1] ?? 0) + (place.fromOffset?.[0] ?? 0) / EMU_PX
-  const y = (geo.rowOffsets.value[d1 - 1] ?? 0) + (place.fromOffset?.[1] ?? 0) / EMU_PX
-  const x2 = (geo.offsets.value[to.col - 1] ?? 0) + (place.toOffset?.[0] ?? 0) / EMU_PX
-  const y2 = (geo.rowOffsets.value[d2 - 1] ?? 0) + (place.toOffset?.[1] ?? 0) / EMU_PX
+  if (d1 === undefined) return null
+  const x = colEdge(geo, from.col) + within(place.fromOffset?.[0], geo.widthOf(from.col))
+  const y = rowEdge(geo, d1) + within(place.fromOffset?.[1], geo.heightOf(d1))
+  const x2 = colEdge(geo, to.col) + within(place.toOffset?.[0], geo.widthOf(to.col))
+  let y2: number
+  if (rows.filtered) {
+    // the sheet rows from its top-left row down to its bottom-right one, those the filter leaves out as hidden rows
+    const heightOf = (r: number) => {
+      const d = rows.indexOf(r)
+      return d === undefined ? 0 : geo.heightOf(d)
+    }
+    let h = 0
+    for (let r = from.row; r < to.row; r++) h += heightOf(r)
+    y2 = rowEdge(geo, d1) + h + within(place.toOffset?.[1], heightOf(to.row))
+  } else y2 = rowEdge(geo, to.row) + within(place.toOffset?.[1], geo.heightOf(to.row))
   return { x, y, width: Math.max(0, x2 - x), height: Math.max(0, y2 - y) }
 }
 

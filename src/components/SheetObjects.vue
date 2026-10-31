@@ -19,8 +19,13 @@ const MIN_PX = 40
 const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const
 type Handle = (typeof HANDLES)[number]
 
-/** A move or a resize under way: the box it started from and how far the pointer went, in unzoomed px. */
-const drag = ref<{ key: string; o: SheetObjectRef; handle: Handle | null; from: DrawnBox; x: number; y: number; dx: number; dy: number; moved: boolean } | null>(null)
+/**
+ * A move or a resize under way: the box it started from, the pane's scroller, the point pressed and how far the pointer
+ * went, both in the offsets' space of the cells under it, so the box follows the pointer from frozen panes into the scrolled ones.
+ */
+const drag = ref<{ key: string; o: SheetObjectRef; handle: Handle | null; from: DrawnBox; el: HTMLElement; x: number; y: number; dx: number; dy: number; moved: boolean } | null>(null)
+/** A pointer's point in the offsets' space of the grid under it, as a press on a cell finds its cell. */
+const pointOf = (e: PointerEvent, el: HTMLElement) => v.cellAtPoint(e.clientX, e.clientY, el.getBoundingClientRect())
 
 /** The box a drag leaves: moved by the pointer, or its edges of the handle moved, no smaller than `MIN_PX`. */
 function dragged(d: NonNullable<typeof drag.value>): DrawnBox {
@@ -41,12 +46,12 @@ function dragged(d: NonNullable<typeof drag.value>): DrawnBox {
   return b
 }
 
-const rows = { rowOf: ctx.rowOf, indexOf: ctx.indexOf }
+const rows = computed(() => ({ rowOf: ctx.rowOf, indexOf: ctx.indexOf, filtered: !!ctx.visible.value }))
 /** Every slicer and timeline with a place, as its pane draws its parts. */
 const drawn = computed(() => {
   const list = [...slicers.slicers.value.map((x) => ({ o: { kind: 'slicer' as const, name: x.name }, place: x.place, slicer: x, timeline: null })), ...slicers.timelines.value.map((x) => ({ o: { kind: 'timeline' as const, name: x.name }, place: x.place, slicer: null, timeline: x }))]
   return list.flatMap((x) => {
-    const at = x.place && boxOfPlace(x.place, geo, rows)
+    const at = x.place && boxOfPlace(x.place, geo, rows.value)
     if (!at) return []
     const key = `${x.o.kind}:${x.o.name}`
     const d = drag.value
@@ -64,15 +69,18 @@ function onDown(e: PointerEvent, x: (typeof drawn.value)[number], handle: Handle
   void nextTick(() => (e.currentTarget as HTMLElement | null)?.closest<HTMLElement>('[data-xs-object]')?.focus({ preventScroll: true }))
   if (e.button !== 0 || (!handle && (e.target as HTMLElement).closest('button, [data-xs-periods], input'))) return
   if (!slicers.canEdit(x.slicer ?? x.timeline)) return
+  const el = (e.currentTarget as HTMLElement).closest<HTMLElement>('.xs-scroller')
+  if (!el) return
   ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-  drag.value = { key: x.key, o: x.o, handle, from: x.box, x: e.clientX, y: e.clientY, dx: 0, dy: 0, moved: false }
+  const p = pointOf(e, el)
+  drag.value = { key: x.key, o: x.o, handle, from: x.box, el, x: p.x, y: p.y, dx: 0, dy: 0, moved: false }
 }
 function onMove(e: PointerEvent): void {
   const d = drag.value
   if (!d) return
-  const z = ctx.zoom.value
-  d.dx = (e.clientX - d.x) / z
-  d.dy = (e.clientY - d.y) / z
+  const p = pointOf(e, d.el)
+  d.dx = p.x - d.x
+  d.dy = p.y - d.y
   d.moved ||= Math.abs(d.dx) + Math.abs(d.dy) > 2
 }
 /** The release: a box moved or resized goes to its new place, as one step of undo. */
@@ -80,7 +88,7 @@ function onUp(): void {
   const d = drag.value
   if (!d) return
   if (!d.moved) return void (drag.value = null)
-  const place = placeOfBox(dragged(d), geo, rows)
+  const place = placeOfBox(dragged(d), geo, rows.value)
   void slicers.place(d.o, place).finally(() => (drag.value = null))
 }
 function onContext(e: MouseEvent, o: SheetObjectRef): void {
@@ -88,9 +96,10 @@ function onContext(e: MouseEvent, o: SheetObjectRef): void {
   slicers.select(o)
   ctx.menu.openObject(e.clientX, e.clientY)
 }
-/** The keys of a selected object: Delete removes it, Esc returns to the grid, Alt+S and Alt+C as Excel's header buttons. */
+/** The keys of a selected object: Delete removes it, Esc returns to the grid, Alt+S and Alt+C as Excel's header buttons, Ctrl+Z and Ctrl+Y as on the grid. */
 function onKey(e: KeyboardEvent, o: SheetObjectRef): void {
   const alt = e.altKey && !e.ctrlKey && !e.metaKey
+  if (ctx.ed.historyKeyDown(e)) return
   if (e.key === 'Delete' || e.key === 'Backspace') void slicers.remove(o)
   else if (e.key === 'Escape') {
     slicers.select(null)
@@ -100,6 +109,14 @@ function onKey(e: KeyboardEvent, o: SheetObjectRef): void {
   else return
   e.preventDefault()
 }
+// the box of the object just inserted takes the keys, so Delete removes it, as in Excel
+const boxes = new Map<string, HTMLElement>()
+const setBox = (key: string) => (el: unknown) => (el instanceof HTMLElement ? boxes.set(key, el) : boxes.delete(key))
+watch(slicers.focusRequest, async () => {
+  await nextTick()
+  const o = slicers.selected.value
+  if (o) [...boxes].find(([k]) => k.startsWith(`${o.kind}:${o.name}:`))?.[1].focus({ preventScroll: true })
+})
 // a drag of a box that was removed meanwhile ends
 watch(drawn, (list) => {
   if (drag.value && !list.some((x) => x.key === drag.value!.key)) drag.value = null
@@ -110,6 +127,7 @@ watch(drawn, (list) => {
   <div
     v-for="x in drawn"
     :key="`${x.key}:${x.part.key}`"
+    :ref="setBox(`${x.key}:${x.part.key}`)"
     :class="['xs-object', `xs-object-${x.o.kind}`, { 'xs-object-on': isSelected(x.o), 'xs-object-drag': drag?.key === x.key }]"
     :style="{ top: `${x.part.top}px`, left: `${x.part.left}px`, width: `${x.box.width}px`, height: `${x.box.height}px`, zIndex: x.part.z, clipPath: x.part.clip || undefined }"
     :tabindex="isSelected(x.o) ? 0 : -1"

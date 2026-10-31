@@ -9,6 +9,7 @@ import type { SheetTimeline } from '../contract/source'
 import { inSelection, selectionLabel, timelinePeriods } from '../timeline'
 import { useSheetContext } from './context'
 import { IconDown, IconFilterOff } from './icons'
+import { useOutsidePress } from './popup'
 
 const props = defineProps<{ timeline: SheetTimeline }>()
 const ctx = useSheetContext()
@@ -34,7 +35,10 @@ const ref_ = () => ({ kind: 'timeline' as const, name: props.timeline.name })
 
 // ── choosing periods: a press starts a run, a drag extends it, the release sends it ──
 const run = ref<{ from: number; to: number } | null>(null)
-let anchor = -1
+/** The day a Shift+click extends from: the last period pressed, by its first day, so it holds after a change of level. */
+let anchor: string | null = null
+/** The period of the level that holds a day; -1 for none. */
+const periodOf = (day: string) => periods.value.findIndex((p) => p.start.slice(0, 10) <= day.slice(0, 10) && p.end.slice(0, 10) >= day.slice(0, 10))
 const chosen = (i: number) => (run.value ? i >= Math.min(run.value.from, run.value.to) && i <= Math.max(run.value.from, run.value.to) : inSelection(periods.value[i]!, props.timeline.selection))
 const indexAt = (e: PointerEvent) => Number(document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-xs-period]')?.dataset.xsPeriod ?? NaN)
 function onDown(e: PointerEvent): void {
@@ -42,8 +46,10 @@ function onDown(e: PointerEvent): void {
   const i = Number((e.target as HTMLElement).closest<HTMLElement>('[data-xs-period]')?.dataset.xsPeriod ?? NaN)
   if (e.button !== 0 || Number.isNaN(i) || !usable.value) return
   ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-  run.value = { from: e.shiftKey && anchor >= 0 ? anchor : i, to: i }
-  if (!e.shiftKey) anchor = i
+  // Shift+click extends from the last period pressed, or from the dates chosen before
+  const from = e.shiftKey ? periodOf(anchor ?? props.timeline.selection?.start ?? '') : -1
+  run.value = { from: from >= 0 ? from : i, to: i }
+  if (!e.shiftKey || from < 0) anchor = periods.value[i]!.start
 }
 function onMove(e: PointerEvent): void {
   if (!run.value) return
@@ -61,6 +67,15 @@ function onUp(): void {
 
 // ── the level picker ──
 const picking = ref(false)
+const picker = ref<HTMLElement | null>(null)
+// a press outside the list closes it, as Esc does
+useOutsidePress(picker, () => (picking.value = false), () => picking.value)
+function onPickerKey(e: KeyboardEvent): void {
+  if (e.key !== 'Escape' || !picking.value) return
+  e.preventDefault()
+  e.stopPropagation()
+  picking.value = false
+}
 function pickLevel(to: TimelineLevel): void {
   picking.value = false
   void slicers.level(props.timeline, to)
@@ -82,13 +97,13 @@ watch(level, () => requestAnimationFrame(scrollToStart))
   <div class="xs-timeline" :data-xs-timeline="timeline.name">
     <div v-if="timeline.showHeader !== false" class="xs-slicer-head">
       <span class="xs-slicer-caption">{{ timeline.caption ?? timeline.name }}</span>
-      <button type="button" class="xs-slicer-tool" :title="m.timelineClearFilter" :aria-label="m.timelineClearFilter" :disabled="!timeline.selection || !usable" data-xs-timeline-clear @click="slicers.clear(ref_())">
+      <button type="button" class="xs-slicer-tool" :title="m.slicerClearFilter" :aria-label="m.slicerClearFilter" :disabled="!timeline.selection || !usable" data-xs-timeline-clear @click="slicers.clear(ref_())">
         <IconFilterOff />
       </button>
     </div>
     <div class="xs-timeline-bar">
       <span v-if="timeline.showSelectionLabel !== false" class="xs-timeline-label" data-xs-timeline-label>{{ label }}</span>
-      <span v-if="timeline.showLevel !== false" class="xs-timeline-level">
+      <span v-if="timeline.showLevel !== false" ref="picker" class="xs-timeline-level" @keydown="onPickerKey">
         <button type="button" class="xs-timeline-level-button" :aria-expanded="picking" :disabled="!slicers.canChoose(timeline)" data-xs-timeline-level @click="picking = !picking">
           {{ m.timelineLevel(level) }}<IconDown />
         </button>

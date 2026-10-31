@@ -195,7 +195,15 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   })
   const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
   const pivots = usePivots(s, cmd, protection, { dialog: (request) => emit('pivotDialog', request) })
-  const slicers = useSlicers(s, cmd, pivots, protection, { ask: alerts.ask })
+  const slicers = useSlicers(s, cmd, pivots, {
+    ask: alerts.ask,
+    geo,
+    middle: () => {
+      const pv = split.split.value ? (panes.viewports[panes.active.value] ?? v) : v
+      const b = pv.viewBox.value
+      return pv.cellAt(pv.leadW.value + b.width / 2, pv.headH.value + b.height / 2)
+    },
+  })
   const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), cellPivots: () => pivots.items(), cellPivotsLast: () => pivots.lastItems(), object: { items: slicers.items, name: () => slicers.selected.value?.name ?? '' }, protection })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask, blocked: () => protection.blocks('merge') })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })

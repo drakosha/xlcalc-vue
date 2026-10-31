@@ -69,7 +69,7 @@ On a protected sheet, Use PivotTable and PivotChart (`SheetProtection.pivotTable
 
 - Refresh, Refresh All of the PivotTables, and every operation on a PivotTable need Use PivotTable and PivotChart on each sheet whose PivotTables it lays out again: a refresh or a change of the cache (grouping, calculated fields and items) every PivotTable over the cache, a move both sheets.
 - A slicer's or a timeline's choice and its Report Connections refilter PivotTables: the box on the sheets of the PivotTables it filters, and of those it connects.
-- Adding or deleting a slicer or a timeline needs Edit objects on its sheet too.
+- Adding a slicer or a timeline, and moving, resizing or deleting a locked one, needs Edit objects on its sheet too ([slicers.md](slicers.md#protection)).
 - Text typed over a label renames it, a change of the PivotTable: besides an unlocked cell, it needs the box.
 
 Without them the source refuses with Excel's protected sheet alert (`EditOutcome` code `protected`), and the cell menu's Refresh is disabled. Refresh All with a sheet that does not allow it asks the calls outside the workbook and refuses to refresh the PivotTables. The alert Excel shows for these was not measured, and Excel's own refusal may differ from Microsoft's description.

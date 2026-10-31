@@ -430,6 +430,15 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     return letter === 'y' && !e.shiftKey ? 'redo' : null
   }
 
+  /** Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z on an editable sheet with the source's undo and redo, from the grid or a box over it; true when handled. */
+  function historyKeyDown(e: KeyboardEvent): boolean {
+    const history = historyKey(e)
+    if (!history || !s.editable.value || !s.source()[history]) return false
+    e.preventDefault()
+    void stepHistory(history)
+    return true
+  }
+
   /** A range clipped to the data: beyond it there is nothing to clear. */
   function dataRect(r: CellRect): CellRect | null {
     const out = { top: r.top, left: r.left, bottom: Math.min(r.bottom, s.dataRows.value), right: Math.min(r.right, s.dataCols.value) }
@@ -492,12 +501,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value || e.isComposing) return
     const ctrl = isMod(e)
-    const history = historyKey(e)
-    if (history && s.editable.value && s.source()[history]) {
-      e.preventDefault()
-      void stepHistory(history)
-      return
-    }
+    if (historyKeyDown(e)) return
     if (isShortcut(e) && shortcutLetter(e) === 'a') {
       e.preventDefault()
       sel.selectAll()
@@ -574,7 +578,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pendingAt, forget, lockIn, lockAt, blocked, editText, startEdit, inputOf, focusEditor, insertFunction, insertText, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pendingAt, forget, lockIn, lockAt, blocked, editText, startEdit, inputOf, focusEditor, insertFunction, insertText, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, historyKeyDown, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

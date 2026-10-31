@@ -21,7 +21,7 @@ import { connections, takeAnswers } from './connections'
 import { protectionGuard, protectSheet } from './protect'
 import { validationOf } from './validation'
 import { autoFilterRanges } from './autofilter'
-import { hasPivots, isPivotOp, loadPivot, PIVOT, pivotDefinition, pivotMeeting, pivotRefusals, pivotsOf } from './pivots'
+import { hasPivots, isPivotOp, loadPivot, PIVOT, pivotDefinition, movesLocked, pivotMeeting, pivotRefusals, pivotsOf } from './pivots'
 import { slicersOf, timelinesOf } from './slicers'
 import { windowOf } from './window'
 import { workbookMethods } from './workbook'
@@ -504,6 +504,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     if (onPivots) {
       pivotsMaybe = true
       if (!(await engine())) return pivot.alert('engine')
+      if ((op.op === 'editSlicer' || op.op === 'editTimeline') && op.set?.place && movesLocked(await s.getLayout(), op)) return pivot.alert('moveLocked')
     }
     const got = await s.editStructure(op)
     if (!got.ok) return got.code === PIVOT ? pivot.refusal(got, onPivots ? undefined : 'affect') : { ok: false, reason: 'refused', code: got.code, message: got.message }

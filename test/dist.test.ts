@@ -40,8 +40,8 @@ describe('dist/index.js', () => {
   })
   it('includes no engine: xlcalc/a1 and xlcalc/text are a few dozen kilobytes', () => {
     expect(js.length).toBeGreaterThan(10_000)
-    // the component with its dialogs, bars and panels is about 630 KB unminified (176 KB gzip); the engine would be megabytes
-    expect(js.length).toBeLessThan(800_000)
+    // the component with its dialogs, bars, panels, PivotTable Fields pane, slicers and timelines is about 800 KB unminified; the engine would be megabytes
+    expect(js.length).toBeLessThan(1_000_000)
     expect(js).toContain('//#region node_modules/xlcalc/dist/a1.js')
     // xlcalc/text's modules, here the one of stepDecimals (Increase and Decrease Decimal)
     expect(js).toContain('//#region node_modules/xlcalc/dist/numfmt/decimals.js')

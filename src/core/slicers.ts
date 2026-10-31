@@ -7,9 +7,11 @@ import type { DrawingPlace, PivotRef, TimelineLevel } from 'xlcalc/contract'
 import type { EditOutcome, SheetOp, SheetSlicer, SheetTimeline } from '../contract/source'
 import type { SheetObjectRef } from '../contract/view'
 import type { Commands } from './commands'
+import { placeOfBox } from './drawing'
+import type { Geometry } from './geometry'
 import type { MenuItem } from './menu'
 import type { Pivots } from './pivots'
-import type { Protection } from './protection'
+import { allows, objectLocks, objectNeeds, type ObjectChange } from '../protection'
 import type { SheetState } from './state'
 import type { AlertAnswer, SheetAlert } from './validation'
 
@@ -34,13 +36,21 @@ export type SlicerDialog =
 
 export interface SlicersDeps {
   ask: (alert: SheetAlert) => Promise<AlertAnswer>
+  geo: Geometry
+  /** The middle of the cells the active pane shows, in the offsets' space of the grid. */
+  middle: () => { x: number; y: number }
 }
+
+/** Excel's size of a new slicer (144 × 198.75 pt) and timeline (262.5 × 108 pt), in px. */
+const NEW_SIZE = { slicer: { width: 192, height: 265 }, timeline: { width: 350, height: 144 } }
+/** How far each next slicer or timeline of one insert lies down and to the right of the one before (not measured in Excel). */
+const CASCADE_PX = 20
 
 /** A slicer's or timeline's operation by its kind. */
 const opOf = (o: SheetObjectRef, edit: { set?: Record<string, unknown>; cache?: Record<string, unknown> }): SheetOp =>
   (o.kind === 'slicer' ? { op: 'editSlicer', slicer: o.name, ...edit } : { op: 'editTimeline', timeline: o.name, ...edit }) as SheetOp
 
-export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, protection: Protection, deps: SlicersDeps) {
+export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, deps: SlicersDeps) {
   const m = () => s.messages.value
   const slicers = computed(() => s.sheet.value?.slicers ?? [])
   const timelines = computed(() => s.sheet.value?.timelines ?? [])
@@ -52,19 +62,34 @@ export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, protect
   const selected = computed(() => (find(picked.value) ? picked.value : null))
   const select = (o: SheetObjectRef | null) => (picked.value = o)
   watch(() => s.sheetName.value, () => (picked.value = null))
+  // a cell made active by any means (a click, the Name Box, Go To, the keys) leaves the object, as in Excel
+  watch(
+    () => [s.selected.value?.row, s.selected.value?.col, s.extent.value?.row, s.extent.value?.col].join(),
+    () => (picked.value = null),
+  )
+  /** Asks the selected object's box for the keys (after an insert), which the view gives it once drawn. */
+  const focusRequest = ref(0)
 
   /** Multi-Select on, by slicer: a toggle of the slicer's header, which Excel does not keep in the file. */
   const multi = ref<Record<string, boolean>>({})
   /** The item a Shift+click extends from, by slicer: the last one clicked. */
   const anchors = new Map<string, number>()
 
-  // ── what the protection allows: the source refuses the rest (`pivotNeeds` of ./local); the sheet disables it as Excel would ──
-  /** A choice, the PivotTables it filters, a timeline's level and the slicer's settings: with `structure` and Use PivotTable and PivotChart (the source checks the PivotTables' sheets). */
-  const canChoose = (o: SheetSlicer | SheetTimeline | null): boolean => !!o && cmd.can('structure') && protection.can('pivotTables') && !('items' in o && o.pivotCache === undefined)
-  /** Moving and resizing too, on a protected sheet only an unlocked slicer or with Edit objects, as Microsoft's Protect a worksheet describes a locked object (not measured). */
-  const canEdit = (o: SheetSlicer | SheetTimeline | null): boolean => canChoose(o) && (!protection.protection.value || (!!o && 'items' in o && o.locked === false) || protection.can('objects'))
-  /** Removing one and inserting one: Edit objects and Use PivotTable and PivotChart, as the source requires. */
-  const canRemove = (o: SheetSlicer | SheetTimeline | null): boolean => !!o && cmd.can('structure') && protection.can('objects') && protection.can('pivotTables')
+  // ── what the protection allows: `objectNeeds`, the rule the local source checks, over the sheets' protection ──
+  /** Whether every protected sheet a change touches allows it, the sheets of the PivotTables it filters among them. */
+  const sheetsAllow = (needs: ReturnType<typeof objectNeeds>) => needs.every((n) => allows(s.sheets.value.find((x) => x.name === n.sheet)?.protection, n.allow))
+  function allowed(change: ObjectChange, o: SheetSlicer | SheetTimeline): boolean {
+    return sheetsAllow(objectNeeds(change, { sheet: s.sheetName.value, locked: objectLocks(o).sheet }, o.pivots))
+  }
+  /** A choice, a timeline's level, the slicer's settings and Report Connections: with `structure` and the PivotTables' sheets allowing them; a table's slicer takes none. */
+  const canChoose = (o: SheetSlicer | SheetTimeline | null): boolean => !!o && cmd.can('structure') && !('items' in o && o.pivotCache === undefined) && allowed('choose', o)
+  /**
+   * Moving and resizing: as a choice, not with Disable resizing and moving on, on a protected sheet with Edit objects
+   * unless it is unlocked; not while the display filter shows rows in another order than the sheet's.
+   */
+  const canEdit = (o: SheetSlicer | SheetTimeline | null): boolean => canChoose(o) && !objectLocks(o!).position && !s.visible.value && allowed('place', o!)
+  /** Removing one: Edit objects and Use PivotTable and PivotChart. */
+  const canRemove = (o: SheetSlicer | SheetTimeline | null): boolean => !!o && cmd.can('structure') && allowed('remove', o)
 
   const send = (op: SheetOp): Promise<EditOutcome | null> => cmd.structure(op)
 
@@ -147,7 +172,7 @@ export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, protect
   /** The menu's Refresh: the PivotTables it filters, refreshed from their source. */
   async function refresh(o: SheetObjectRef): Promise<EditOutcome | null> {
     const x = find(o)
-    return x && x.pivots.length && cmd.can('structure') && protection.can('pivotTables') ? send({ op: 'refreshPivots', pivots: x.pivots }) : null
+    return x && x.pivots.length && canChoose(x) ? send({ op: 'refreshPivots', pivots: x.pivots }) : null
   }
   /** The menu's Sort A to Z and Sort Z to A. */
   async function sort(sl: SheetSlicer, dir: 'ascending' | 'descending'): Promise<EditOutcome | null> {
@@ -155,30 +180,41 @@ export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, protect
   }
 
   /** The menu of the selected slicer or timeline, with Excel's items the sheet has. */
+  /**
+   * The items of Excel for Windows' menu of a slicer the sheet has, in its order and groups (measured): Refresh; Sort A to Z,
+   * Sort Z to A; Clear Filter from, Multi-Select, Report Connections…, Remove; Slicer Settings…. A timeline's has those of
+   * them it can have, in the same order (not measured). Remove names the slicer by its name, as Microsoft's page says.
+   */
   function items(): MenuItem[] {
     const o = selected.value
     const x = find(o)
     if (!o || !x) return []
     const caption = x.caption ?? x.name
-    const out: MenuItem[] = [{ id: 'objectRefresh', label: m().menuRefresh, disabled: !x.pivots.length || !cmd.can('structure') || !protection.can('pivotTables'), run: () => void refresh(o) }]
-    if ('items' in x) {
+    const slicer = 'items' in x ? x : null
+    const out: MenuItem[] = [{ id: 'objectRefresh', label: m().menuRefresh, disabled: !x.pivots.length || !canChoose(x), run: () => void refresh(o) }]
+    if (slicer)
       out.push(
-        { id: 'slicerSortAZ', label: m().menuSortAZ, disabled: !canChoose(x), run: () => void sort(x, 'ascending'), group: true },
-        { id: 'slicerSortZA', label: m().menuSortZA, disabled: !canChoose(x), run: () => void sort(x, 'descending') },
-        { id: 'objectClear', label: m().menuClearFilterFrom(caption), disabled: !filtered(x) || !canChoose(x), run: () => void clear(o), group: true },
-        { id: 'slicerMulti', label: m().menuMultiSelect, run: () => toggleMulti(x.name) },
+        { id: 'slicerSortAZ', label: m().menuSortAZ, disabled: !canChoose(slicer), run: () => void sort(slicer, 'ascending'), group: true },
+        { id: 'slicerSortZA', label: m().menuSortZA, disabled: !canChoose(slicer), run: () => void sort(slicer, 'descending') },
       )
-    } else out.push({ id: 'objectClear', label: m().menuClearFilterFrom(caption), disabled: !x.selection || !canChoose(x), run: () => void clear(o), group: true })
-    out.push({ id: 'objectRemove', label: m().menuRemoveObject(caption), disabled: !canRemove(x), run: () => void remove(o) })
-    out.push({ id: 'reportConnections', label: m().menuReportConnections, disabled: !canChoose(x), run: () => void openConnections(), group: true })
-    if ('items' in x) out.push({ id: 'slicerSettings', label: m().menuSlicerSettings, disabled: !canChoose(x), run: () => void openSettings() })
+    out.push({ id: 'objectClear', label: m().menuClearFilterFrom(caption), disabled: !(slicer ? filtered(slicer) : 'selection' in x && x.selection) || !canChoose(x), run: () => void clear(o), group: true })
+    if (slicer) out.push({ id: 'slicerMulti', label: m().menuMultiSelect(x.name), run: () => toggleMulti(x.name) })
+    out.push(
+      { id: 'reportConnections', label: m().menuReportConnections, disabled: !canChoose(x), run: () => void openConnections() },
+      { id: 'objectRemove', label: m().menuRemoveObject(x.name), disabled: !canRemove(x), run: () => void remove(o) },
+    )
+    if (slicer) out.push({ id: 'slicerSettings', label: m().menuSlicerSettings, disabled: !canChoose(slicer), run: () => void openSettings(), group: true })
     return out
   }
 
   // ── the dialogs ──
   const dialog = ref<SlicerDialog | null>(null)
   /** Insert Slicer and Insert Timeline: the active cell in a PivotTable, with `structure`, on a sheet that allows objects. */
-  const canInsert = computed(() => !!pivots.active.value && cmd.can('structure') && protection.can('objects') && protection.can('pivotTables'))
+  const canInsert = computed(() => {
+    const p = pivots.active.value
+    const at = { sheet: s.sheetName.value, locked: true }
+    return !!p && cmd.can('structure') && sheetsAllow(objectNeeds('add', at, [at]))
+  })
   /** Opens Insert Slicers or Insert Timelines over the PivotTable under the active cell; without a field of dates, Excel's alert. */
   function openInsert(timeline: boolean): boolean {
     const p = pivots.active.value
@@ -191,28 +227,52 @@ export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, protect
     dialog.value = { kind: 'insert', timeline, pivot: { sheet: s.sheetName.value, name: p.name }, fields: fields.map((f) => ({ name: f.name, checked: false })) }
     return true
   }
-  /** The names before an insert, to select the slicer or timeline it adds once the sheets are read again. */
-  let inserting: { kind: SheetObjectRef['kind']; before: Set<string> } | null = null
+  /**
+   * An insert under way: the names there were before it and the field of the last slicer or timeline it adds, which is
+   * selected once the sheets are read again with it, and its box focused, as Excel leaves the last one inserted.
+   */
+  let inserting: { kind: SheetObjectRef['kind']; before: Set<string>; field: string } | null = null
   const namesOf = (kind: SheetObjectRef['kind']) => new Set((kind === 'timeline' ? timelines.value : slicers.value).map((x) => x.name))
-  watch([slicers, timelines], () => {
-    const added = inserting && [...namesOf(inserting.kind)].find((x) => !inserting!.before.has(x))
-    if (!inserting || !added) return
-    picked.value = { kind: inserting.kind, name: added }
+  function pickInserted(): void {
+    const i = inserting
+    const added = i && (i.kind === 'timeline' ? timelines.value : slicers.value).filter((x) => !i.before.has(x.name) && x.field === i.field).at(-1)
+    if (!i || !added) return
     inserting = null
-  })
-  /** OK in Insert Slicers or Insert Timelines: a slicer or timeline of each field checked, the last one selected, as Excel leaves it. */
+    picked.value = { kind: i.kind, name: added.name }
+    focusRequest.value++
+  }
+  watch([slicers, timelines], pickInserted)
+  /**
+   * Where Excel puts a new slicer or timeline: at the middle of the cells the active pane shows, in Excel's size, and each
+   * next one of the same insert `CASCADE_PX` lower and to the right. The library cannot know the window, so the sheet sends it.
+   */
+  function placeOf(kind: SheetObjectRef['kind'], i: number) {
+    const size = NEW_SIZE[kind]
+    const mid = deps.middle()
+    const box = { x: Math.max(0, mid.x - size.width / 2) + i * CASCADE_PX, y: Math.max(0, mid.y - size.height / 2) + i * CASCADE_PX, ...size }
+    return placeOfBox(box, deps.geo, { rowOf: s.rowOf, indexOf: s.indexOf })
+  }
+  /** OK in Insert Slicers or Insert Timelines: a slicer or timeline of each field checked, the last one selected. */
   async function insert(): Promise<void> {
     const d = dialog.value
     if (d?.kind !== 'insert') return
     dialog.value = null
     const sheet = s.sheetName.value
     const kind = d.timeline ? 'timeline' : 'slicer'
-    s.focusGrid()
-    for (const f of d.fields.filter((x) => x.checked)) {
-      inserting = { kind, before: namesOf(kind) }
-      const out = await send(d.timeline ? { op: 'addTimeline', sheet, timeline: {}, cache: { field: f.name, pivots: [d.pivot] } } : { op: 'addSlicer', sheet, slicer: {}, cache: { field: f.name, pivots: [d.pivot] } })
+    const fields = d.fields.filter((x) => x.checked).map((x) => x.name)
+    if (!fields.length) return s.focusGrid()
+    inserting = { kind, before: namesOf(kind), field: fields.at(-1)! }
+    let last: string | null = null
+    for (const [i, field] of fields.entries()) {
+      const place = placeOf(kind, i)
+      const out = await send(d.timeline ? { op: 'addTimeline', sheet, timeline: { place }, cache: { field, pivots: [d.pivot] } } : { op: 'addSlicer', sheet, slicer: { place }, cache: { field, pivots: [d.pivot] } })
       if (!out?.ok) break
+      last = field
     }
+    // a refused insert selects the last one added, or none
+    if (inserting && last !== inserting.field) inserting = last === null ? null : { ...inserting, field: last }
+    if (inserting) pickInserted()
+    else if (last === null) s.focusGrid()
   }
   /** Opens Slicer Settings for the selected slicer. */
   function openSettings(): boolean {
@@ -268,7 +328,7 @@ export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, protect
     s.focusGrid()
   }
 
-  return { slicers, timelines, find, selected, select, multi, toggleMulti, canEdit, canChoose, canRemove, shownItems, filtered, choose, clear, period, level, place, remove, refresh, sort, items, dialog, canInsert, openInsert, insert, openSettings, applySettings, openConnections, applyConnections, close }
+  return { slicers, timelines, find, selected, select, focusRequest, multi, toggleMulti, canEdit, canChoose, canRemove, shownItems, filtered, choose, clear, period, level, place, remove, refresh, sort, items, dialog, canInsert, openInsert, insert, openSettings, applySettings, openConnections, applyConnections, close }
 }
 
 export type Slicers = ReturnType<typeof useSlicers>

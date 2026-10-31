@@ -745,11 +745,10 @@ export interface PivotFieldsMessages {
  * Insert Timelines, Slicer Settings and Report Connections.
  */
 export interface SlicerMessages {
-  /** The slicer's header buttons, with their keys. */
+  /** The slicer's header buttons with their keys, Clear Filter also the timeline's. */
   slicerMultiSelect: string
   slicerClearFilter: string
-  /** The timeline's Clear Filter, its label for no dates chosen, and the level picker's levels. */
-  timelineClearFilter: string
+  /** The timeline's label for no dates chosen, and the level picker's levels. */
   timelineAllPeriods: string
   timelineLevel: (level: TimelineLevel) => string
   /** A quarter's tile (1 to 4), and the twelve months' short names, for the tiles and the selection label. */
@@ -761,11 +760,11 @@ export interface SlicerMessages {
   timelineYears: (from: string, to: string) => string
   timelineInYear: (from: string, to: string, year: number) => string
   timelineAcross: (from: string, fromYear: number, to: string, toYear: number) => string
-  /** The menu of a slicer or a timeline: sorting, Clear Filter from and Remove with its name, Multi-Select, the dialogs. */
+  /** The menu of a slicer or a timeline: sorting, Clear Filter from, Multi-Select and Remove with its name, the dialogs. */
   menuSortAZ: string
   menuSortZA: string
   menuClearFilterFrom: (name: string) => string
-  menuMultiSelect: string
+  menuMultiSelect: (name: string) => string
   menuRemoveObject: (name: string) => string
   menuReportConnections: string
   menuSlicerSettings: string

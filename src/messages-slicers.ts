@@ -1,5 +1,6 @@
-// The texts of slicers and timelines, English and Russian, from Excel's own string tables and Microsoft's pages on slicers
-// and timelines (not yet measured in Excel for Windows; docs/slicers.md lists the source of each). src/messages.ts includes them.
+// The texts of slicers and timelines, English and Russian, as Excel for Windows 16.0 shows them (measured); the Multi-Select
+// tooltip, the English alert without a field of dates and the labels of periods from Excel's string tables (docs/slicers.md
+// lists the source of each). src/messages.ts includes them.
 import type { SlicerMessages } from './contract/messages'
 
 const EN_LEVELS = { years: 'YEARS', quarters: 'QUARTERS', months: 'MONTHS', days: 'DAYS' }
@@ -8,7 +9,6 @@ const RU_LEVELS = { years: 'ГОДЫ', quarters: 'КВАРТАЛЫ', months: 'М
 export const enSlicers: SlicerMessages = {
   slicerMultiSelect: 'Multi-Select (Alt+S)',
   slicerClearFilter: 'Clear Filter (Alt+C)',
-  timelineClearFilter: 'Clear Filter',
   timelineAllPeriods: 'All Periods',
   timelineLevel: (level) => EN_LEVELS[level],
   timelineQuarter: (n) => `Q${n}`,
@@ -21,7 +21,7 @@ export const enSlicers: SlicerMessages = {
   menuSortAZ: 'Sort A to Z',
   menuSortZA: 'Sort Z to A',
   menuClearFilterFrom: (name) => `Clear Filter from "${name}"`,
-  menuMultiSelect: 'Multi-Select',
+  menuMultiSelect: (name) => `Multi-Select "${name}"`,
   menuRemoveObject: (name) => `Remove "${name}"`,
   menuReportConnections: 'Report Connections…',
   menuSlicerSettings: 'Slicer Settings…',
@@ -52,7 +52,6 @@ export const enSlicers: SlicerMessages = {
 export const ruSlicers: SlicerMessages = {
   slicerMultiSelect: 'Выбор нескольких объектов (ALT+S)',
   slicerClearFilter: 'Очистить фильтр (Alt+C)',
-  timelineClearFilter: 'Очистить фильтр',
   timelineAllPeriods: 'Все периоды',
   timelineLevel: (level) => RU_LEVELS[level],
   timelineQuarter: (n) => `К${n}`,
@@ -65,10 +64,10 @@ export const ruSlicers: SlicerMessages = {
   menuSortAZ: 'От А до Я',
   menuSortZA: 'Сортировка от Я до А',
   menuClearFilterFrom: (name) => `Снять фильтрацию с: "${name}"`,
-  menuMultiSelect: 'Выбор нескольких объектов',
+  menuMultiSelect: (name) => `Выбор нескольких объектов "${name}"`,
   menuRemoveObject: (name) => `Удалить "${name}"`,
   menuReportConnections: 'Подключения к отчетам…',
-  menuSlicerSettings: 'Параметры среза…',
+  menuSlicerSettings: 'Настройка среза…',
   insertSlicersTitle: 'Вставка срезов',
   insertTimelinesTitle: 'Вставка временных шкал',
   timelineNoDates: 'Нам не удается создать временную шкалу для этого отчета, потому что в нем нет поля с форматом «Дата».',
