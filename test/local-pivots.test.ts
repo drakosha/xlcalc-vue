@@ -167,3 +167,11 @@ describe('localSource: PivotTables', () => {
     ok(await both.structure({ op: 'deleteSlicer', slicer: 'Region' }))
   })
 })
+
+describe('localSource: PivotTables and AutoFill', () => {
+  it('keeps every PivotTable of the workbook when a range is filled elsewhere', async () => {
+    const s = source(pivotBook({ extra: { E1: { value: 1 }, E2: { value: 2 } } }))
+    expect(await s.structure({ op: 'fillRange', sheet: 'Report', range: 'E1:E2', to: 'E1:E5' })).toMatchObject({ ok: true })
+    expect((await s.sheets()).find((sh) => sh.name === 'Report')?.pivots?.map((p) => p.name)).toEqual(['PivotTable1'])
+  })
+})
