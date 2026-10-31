@@ -1,7 +1,7 @@
 // Synthetic workbooks with a PivotTable as a file read gives them: the cache with its records, the PivotTable laid out by
 // xlcalc's engine (addPivotTable over Data!A1:D4) and the values of its cells. Built without the engine, so a test file can
 // tell whether the source loads it.
-import type { BookInput, PivotCache, PivotTable, SheetInput } from 'xlcalc'
+import type { BookInput, PivotCache, PivotTable, PivotTablePatch, SheetInput } from 'xlcalc'
 
 /** Region, Amount, Kind and Year over three rows. */
 const DATA: SheetInput = {
@@ -89,3 +89,17 @@ export function filteredPivotBook(): BookInput {
   }
   return { sheets: [DATA, report], pivotCaches: [cache()] }
 }
+
+/** Region, Kind, Year, Amount and Date over four rows on Data, and an empty sheet R for a PivotTable added at R!A3. */
+export function salesBook(locale?: string): BookInput {
+  const rows: [string, string, number, number, number][] = [['North', 'a', 2024, 10, 45383], ['South', 'b', 2025, 20, 45425], ['North', 'b', 2025, 5, 45717], ['East', 'a', 2024, 7, 45725]]
+  const cells: SheetInput['cells'] = { A1: { value: 'Region' }, B1: { value: 'Kind' }, C1: { value: 'Year' }, D1: { value: 'Amount' }, E1: { value: 'Date' } }
+  rows.forEach((r, i) => {
+    const n = i + 2
+    Object.assign(cells, { [`A${n}`]: { value: r[0] }, [`B${n}`]: { value: r[1] }, [`C${n}`]: { value: r[2] }, [`D${n}`]: { value: r[3] }, [`E${n}`]: { value: r[4], numberFormat: 'm/d/yyyy' } })
+  })
+  return { ...(locale ? { locale } : {}), sheets: [{ name: 'Data', cells }, { name: 'R', cells: {} }] }
+}
+
+/** The operation adding PivotTable1 at R!A3 over salesBook's data with `definition`. */
+export const addSales = (definition: PivotTablePatch) => ({ op: 'addPivotTable' as const, sheet: 'R', cell: 'A3', source: { type: 'range' as const, sheet: 'Data', range: 'A1:E5' }, definition })

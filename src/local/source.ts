@@ -23,6 +23,7 @@ import { validationOf } from './validation'
 import { autoFilterRanges } from './autofilter'
 import { hasPivots, isPivotOp, loadPivot, PIVOT, pivotDefinition, movesLocked, pivotMeeting, pivotRefusals, pivotsOf } from './pivots'
 import { slicersOf, timelinesOf } from './slicers'
+import { pivotCellsOf } from './pivot-cells'
 import { windowOf } from './window'
 import { workbookMethods } from './workbook'
 
@@ -690,6 +691,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       const layout = await s.getLayout()
       throwIfAborted(signal)
       return pivotDefinition(layout, sheet, name)
+    },
+    async pivotCells(sheet, name, cells, signal) {
+      const s = await open()
+      const layout = await s.getLayout()
+      throwIfAborted(signal)
+      return pivotCellsOf(layout, sheet, name, cells, locale)
     },
     async window(req: WindowRequest, signal) {
       const s = await open()

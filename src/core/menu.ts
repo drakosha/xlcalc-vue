@@ -38,6 +38,10 @@ export interface MenuItem {
   disabled?: boolean
   /** A separator above it, between groups. */
   group?: boolean
+  /** Its submenu, which opens beside it (a PivotTable's Sort, Filter, Summarize Values By, Show Values As); `run` is not called. */
+  sub?: MenuItem[]
+  /** Shown checked, as the item in force in its list. */
+  checked?: boolean
 }
 
 /** The open menu: where it is and what it acts on (the selected rows or columns, a sheet by its index; the cell menu acts on the selection). */
@@ -227,7 +231,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     return out
   }
   function choose(item: MenuItem): void {
-    if (item.disabled) return
+    if (item.disabled || item.sub) return
     close()
     item.run()
   }

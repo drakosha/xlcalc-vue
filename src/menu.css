@@ -185,3 +185,42 @@ fieldset.xs-dialog-choices {
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
+/* A submenu (a PivotTable's Sort, Summarize Values By…): beside its item, which shows an arrow; an item in force shows a check. */
+.xs-menu-subwrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.xs-menu-subwrap > .xs-menu-item {
+  white-space: nowrap;
+}
+.xs-menu-more::after {
+  margin-left: auto;
+  padding-left: 16px;
+  content: '›';
+}
+.xs-menu.xs-submenu {
+  position: absolute;
+  top: -5px;
+  left: 100%;
+}
+.xs-menu-checked,
+.xs-submenu > .xs-menu-item {
+  position: relative;
+  padding-left: 26px;
+}
+.xs-menu-checked::before {
+  position: absolute;
+  left: 9px;
+  content: '✓';
+}
+.xs-submenu > .xs-menu-item {
+  white-space: nowrap;
+}
+/* On a phone a submenu opens under its item, within the menu. */
+.xs-narrow .xs-menu.xs-submenu {
+  position: static;
+  padding-left: 12px;
+  border: 0;
+  box-shadow: none;
+}

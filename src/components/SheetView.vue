@@ -18,6 +18,14 @@ import InsertFunction from './InsertFunction.vue'
 import PasteSpecialDialog from './PasteSpecialDialog.vue'
 import PivotFieldsPane from './PivotFieldsPane.vue'
 import PivotTableDialog from './PivotTableDialog.vue'
+import PivotCalcDialog from './PivotCalcDialog.vue'
+import PivotFieldDialog from './PivotFieldDialog.vue'
+import PivotFilterDialog from './PivotFilterDialog.vue'
+import PivotFilterMenu from './PivotFilterMenu.vue'
+import PivotGroupDialog from './PivotGroupDialog.vue'
+import PivotNumberFormat from './PivotNumberFormat.vue'
+import PivotOptionsDialog from './PivotOptionsDialog.vue'
+import PivotValueDialog from './PivotValueDialog.vue'
 import ProtectDialog from './ProtectDialog.vue'
 import LinkDialog from './LinkDialog.vue'
 import ValidationAlert from './ValidationAlert.vue'
@@ -68,7 +76,7 @@ const emit = defineEmits<{
   zoom: [change: SheetZoomEvent]
   /** The user added or deleted watches in the Watch Window: the whole list, which the host keeps (the `watches` prop). */
   watches: [list: SheetWatch[]]
-  /** The PivotTable Fields pane asks for a dialog over a field (Field Settings, Value Field Settings, its sort and filter menu). */
+  /** A request for a dialog over a PivotTable's field the sheet does not open itself: of another kind, or without the source's `pivotCells` or `structure`. */
   pivotDialog: [request: PivotDialogRequest]
 }>()
 defineSlots<{
@@ -146,6 +154,14 @@ const wait = ctx.w.wait
       <TableDialog />
       <PivotTableDialog />
       <SlicerDialogs v-if="ctx.slicers.dialog.value" />
+      <PivotValueDialog />
+      <PivotFieldDialog />
+      <PivotOptionsDialog />
+      <PivotGroupDialog />
+      <PivotCalcDialog />
+      <PivotNumberFormat />
+      <PivotFilterMenu />
+      <PivotFilterDialog />
       <SpellingDialog />
       <LinkDialog />
       <ValidationDialog />

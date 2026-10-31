@@ -182,6 +182,13 @@ export interface SheetSource {
    * `sheets` event. Without it there is no PivotTable Fields pane.
    */
   pivotTable?(sheet: string, name: string, signal?: AbortSignal): Promise<SheetPivotTable | null>
+  /**
+   * What the cells of the PivotTable `name` on `sheet` show, as it was last laid out: its fields' items as labels, the
+   * header cells with Excel's filter buttons, and what each of `cells` is (an item, a total, a value, a header), for the
+   * cell menu, the filter buttons and the dialogs over a PivotTable; null when the sheet has no such PivotTable. Without
+   * it a PivotTable's cells have no buttons and its cell menu no commands but Refresh and Field List.
+   */
+  pivotCells?(sheet: string, name: string, cells?: string[], signal?: AbortSignal): Promise<SheetPivotCells | null>
 }
 
 /**
@@ -366,6 +373,59 @@ export interface SheetTimeline extends Timeline, Pick<TimelineCache, 'selection'
 export interface SheetPivotTable {
   table: Omit<PivotTable, 'rowLines' | 'columnLines'>
   cache: Omit<PivotCache, 'records'>
+}
+
+/**
+ * What a PivotTable's cells show (`SheetSource.pivotCells`): `labels`, per cache field on an axis, its items' labels in the
+ * order of the PivotTable field's `items` (a caption, or the value as the PivotTable shows it), null for a field on no
+ * axis; `buttons`, the cells with Excel's filter button (Row Labels and Column Labels in compact form, each field's header
+ * otherwise, the item of a field of the Filters area), none with Display field captions and filter drop downs off;
+ * `cells`, what each cell asked for is, null outside the PivotTable.
+ */
+export interface SheetPivotCells {
+  labels: (string[] | null)[]
+  /** Per value field (`values`), the code of its number format as Format Cells shows it in the workbook's locale (a built-in one's too); null without one. */
+  formats: (string | null)[]
+  /** The cache's calculated fields and items, with their formulas as Excel's dialogs show them: in the workbook's locale, with `=`. */
+  calculated: SheetPivotCalculated[]
+  buttons: SheetPivotButton[]
+  cells?: (SheetPivotCell | null)[]
+}
+
+/**
+ * A calculated field (`field` its own index in the cache) or a calculated item (`item` its index in the field's `items` of
+ * the cache), by its name, with its formula in the workbook's locale (`=Amount*0,5` in ru-RU, `=East+West`).
+ */
+export interface SheetPivotCalculated {
+  field: number
+  item?: number
+  name: string
+  formula: string
+}
+
+/** A filter button of a PivotTable: its cell, and the field (by its index in the cache) on the axis it filters first. */
+export interface SheetPivotButton {
+  cell: string
+  axis: PivotAxis
+  field: number
+}
+
+/** The areas of a PivotTable's fields: the rows, the columns and the Filters area (`pages`). */
+export type PivotAxis = 'rows' | 'columns' | 'pages'
+
+/**
+ * A cell of a PivotTable (`SheetPivotCells.cells`): `kind` is an item's label (`item`), a subtotal's label or a grand
+ * total's (`subtotal`, `grand`), a value with its totals (`value`), a header (`header`: Row Labels, Column Labels or a
+ * field's name), a value field's name (`valueHeader`), a field of the Filters area's name or item (`pageField`, `pageItem`),
+ * or none of them (`blank`). `field` is the cache field of the label, header or line, `item` its index in the PivotTable
+ * field's `items`, `value` the value field's index in `values`.
+ */
+export interface SheetPivotCell {
+  kind: 'item' | 'subtotal' | 'grand' | 'value' | 'header' | 'valueHeader' | 'pageField' | 'pageItem' | 'blank'
+  axis?: PivotAxis
+  field?: number
+  item?: number
+  value?: number
 }
 
 /**

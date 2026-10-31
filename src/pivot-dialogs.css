@@ -1,0 +1,151 @@
+/* The dialogs and the filter menu over a PivotTable (Pivot*Dialog.vue, PivotFilterMenu.vue) over the Format Cells dialog's
+   layout (format-dialog.css) and the funnel's list (filter.css), in the sheet's --xs-* variables. */
+.xs-pv-names {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 14px 8px;
+}
+.xs-pv-source {
+  margin: 0;
+}
+.xs-pv-hint,
+.xs-pf-hint,
+.xs-pf-lead {
+  margin: 0 0 6px;
+  color: var(--xs-muted);
+  font-size: 12px;
+}
+.xs-pf-lead {
+  color: var(--xs-fg);
+}
+.xs-field.xs-pv-list {
+  width: 100%;
+  height: auto;
+  padding: 2px;
+}
+.xs-pv-bases,
+.xs-pc-lists {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.xs-pc-lists {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.xs-pc-lists .xs-button {
+  align-self: flex-start;
+}
+.xs-fmt-foot .xs-pv-format {
+  margin-right: auto;
+}
+.xs-pfd-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 22px;
+}
+.xs-pfd-pick {
+  margin-top: 6px;
+}
+.xs-po-name {
+  max-width: 360px;
+}
+.xs-po-row,
+.xs-pg-row,
+.xs-pf-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.xs-po-num {
+  width: 56px;
+}
+.xs-po-text {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+.xs-po-area {
+  min-height: 80px;
+  resize: vertical;
+}
+.xs-dialog.xs-pg,
+.xs-dialog.xs-pc,
+.xs-dialog.xs-pfd-filter {
+  width: min(520px, 100%);
+}
+.xs-pg-row .xs-fmt-check {
+  min-width: 130px;
+}
+.xs-pc-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 8px;
+}
+.xs-pf-row .xs-field {
+  min-width: 0;
+}
+.xs-pf-by {
+  margin-left: 22px;
+}
+
+/* ── the filter menu: Excel's items over the funnel's list ── */
+.xs-pfm {
+  width: max-content;
+  min-width: 280px;
+  max-width: calc(100vw - 8px);
+}
+.xs-pfm-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.xs-pfm-field .xs-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.xs-pfm-items {
+  display: flex;
+  flex-direction: column;
+}
+.xs-pfm-item {
+  gap: 6px;
+  white-space: nowrap;
+}
+.xs-pfm-item .xs-icon {
+  width: 14px;
+  height: 14px;
+}
+.xs-pfm-sub {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.xs-pfm-more::after {
+  margin-left: auto;
+  content: '›';
+}
+.xs-menu.xs-pfm-flyout {
+  position: absolute;
+  top: -5px;
+  left: 100%;
+}
+.xs-pfm-flyout > .xs-menu-item,
+.xs-pfm-flyout .xs-pfm-sub > .xs-menu-item {
+  white-space: nowrap;
+}
+.xs-pfm-values {
+  max-height: 220px;
+}
+.xs-narrow .xs-menu.xs-pfm-flyout {
+  position: static;
+  padding-left: 12px;
+  border: 0;
+  box-shadow: none;
+}
+.xs-touch .xs-pfm-item,
+.xs-touch .xs-pfm-flyout .xs-menu-item {
+  min-height: var(--xs-touch-target);
+}

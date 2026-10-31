@@ -157,6 +157,11 @@ export function check(a: PivotAreas, field: number, on: boolean, fields: PivotCa
 
 const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y)
 
+/** The patch that gives the PivotTable these value fields, Σ Values kept on an axis as Excel keeps it (`settle`); null for no change. */
+export function valuesPatch(t: Pick<PivotTable, 'rows' | 'columns' | 'pages' | 'values' | 'valuesOnRows' | 'valuesPosition'>, values: PivotDataField[]): PivotTablePatch | null {
+  return patchOf(t, settle({ ...areasOf(t), values }))
+}
+
 /**
  * The `editPivotTable` patch from the PivotTable's areas to `next`: each area changed set whole (null for an empty one), and
  * with Σ Values moved, `valuesOnRows` where it lies (`valuesPosition` dropped, its place now on the axis); null for no change.
