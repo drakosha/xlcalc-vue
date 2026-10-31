@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// A workbook sheet over a SheetSource: the formula bar, the grid with windows, styles, editing and zoom, the Trace Precedents panel, the Watch Window, the tabs, and messages.
+// A workbook sheet over a SheetSource: the formula bar, the grid with windows, styles, editing and zoom, the Trace Precedents panel,
+// the PivotTable Fields pane, the Watch Window, the tabs, and messages.
 import { getCurrentInstance, provide } from 'vue'
-import type { ListSort, SheetFailure, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
+import type { ListSort, PivotDialogRequest, SheetFailure, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
 import { useSheet, type SheetEmit } from '../core/sheet'
 import { sheetContextKey } from './context'
 import { hasListener } from './dom'
@@ -15,6 +16,8 @@ import GoToSpecialDialog from './GoToSpecialDialog.vue'
 import SymbolDialog from './SymbolDialog.vue'
 import InsertFunction from './InsertFunction.vue'
 import PasteSpecialDialog from './PasteSpecialDialog.vue'
+import PivotFieldsPane from './PivotFieldsPane.vue'
+import PivotTableDialog from './PivotTableDialog.vue'
 import ProtectDialog from './ProtectDialog.vue'
 import LinkDialog from './LinkDialog.vue'
 import ValidationAlert from './ValidationAlert.vue'
@@ -49,6 +52,7 @@ const props = withDefaults(defineProps<SheetViewProps>(), {
   zoom: undefined,
   watches: undefined,
   noteAuthor: undefined,
+  pivotFields: true,
 })
 const emit = defineEmits<{
   state: [state: SheetViewState | null]
@@ -63,6 +67,8 @@ const emit = defineEmits<{
   zoom: [change: SheetZoomEvent]
   /** The user added or deleted watches in the Watch Window: the whole list, which the host keeps (the `watches` prop). */
   watches: [list: SheetWatch[]]
+  /** The PivotTable Fields pane asks for a dialog over a field (Field Settings, Value Field Settings, its sort and filter menu). */
+  pivotDialog: [request: PivotDialogRequest]
 }>()
 defineSlots<{
   /** The workbook cannot be displayed: the source's error and a retry function. */
@@ -112,6 +118,7 @@ const wait = ctx.w.wait
           </div>
         </div>
         <ExplainPanel v-if="ctx.explain.open.value" />
+        <PivotFieldsPane v-if="pivotFields && ctx.viewState.value?.fieldList" :source="source" :sheet="ctx.api" :state="ctx.viewState.value" :messages="messages" />
       </div>
       <SheetTabs />
       <WatchWindow v-if="ctx.watches.open.value" />
@@ -136,6 +143,7 @@ const wait = ctx.w.wait
       <ZoomDialog v-if="ctx.zoomer.dialogOpen.value" />
       <ProtectDialog />
       <TableDialog />
+      <PivotTableDialog />
       <SpellingDialog />
       <LinkDialog />
       <ValidationDialog />

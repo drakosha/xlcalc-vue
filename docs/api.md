@@ -6,11 +6,11 @@ Everything the package exports, with signatures. How the sheet uses each part, k
 
 | Import | Exports | Runtime dependencies |
 | --- | --- | --- |
-| `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `memorySource`, `enMessages`, `ruMessages`, `TOOLBAR_GROUPS` and the types below | `vue` |
+| `@xlcalc/vue` | `SheetView`, `SheetToolbar`, `FormatDialog`, `PivotFieldsPane`, `memorySource`, `enMessages`, `ruMessages`, `TOOLBAR_GROUPS` and the types below | `vue` |
 | `@xlcalc/vue/local` | `localSource`, `openXlsx`, `saveXlsx`, `groupIssues`, `openCsv`, `saveCsv` | `vue`, `xlcalc` 0.71.2 or later (optional peer) |
 | `@xlcalc/vue/remote` | `remoteSource` | none |
 | `@xlcalc/vue/server` | `serveSource` | none (a server with standard `Request` and `Response`) |
-| `@xlcalc/vue/style.css` | Styles of the sheet, the toolbar and the dialog | |
+| `@xlcalc/vue/style.css` | Styles of the sheet, the toolbar, the PivotTable Fields pane and the dialog | |
 
 The main entry point bundles xlcalc's engine-free subpaths `xlcalc/a1` and `xlcalc/text` (addresses, references in formula text, the range of a paste), and a workbook in ru-RU loads the ru-RU formula text as a separate chunk. With a source without `editText`, `xlcalc/entry` (parsing of typed entries, without the engine) is loaded as another chunk, bundled in full separately from the main entry point, when the first cell needs its text; `memorySource` loads it for Find and Replace.
 
@@ -82,6 +82,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `zoom` | `Record<string, number>` | none | Excel's zoom by sheet name, in percent (10 to 400), as the host kept it from the `zoom` event; a sheet without one opens at the workbook's saved zoom (`SheetInfo.zoom`), otherwise 100%. A new object applies its changed entries, to the active sheet at once. See [view.md](view.md#zoom). |
 | `watches` | `SheetWatch[]` | none | The Watch Window's list, as the host kept it from the `watches` event; a new array replaces the list. See [view.md](view.md#watch-window). |
 | `noteAuthor` | `string` | none | The author's name for a new note, shown in bold on its first line, as Excel takes the user name from its Options; without it a new note has no author. |
+| `pivotFields` | `boolean` | `true` | Draws Excel's PivotTable Fields pane to the right of the grid (below it on a phone) while `state.fieldList` is on; `false` for a host that places `PivotFieldsPane` itself. See [pivot-tables.md](pivot-tables.md#the-pivottable-fields-pane). |
 
 ### Events
 
@@ -94,6 +95,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `rowOpen` | `{ sheet: string; row: number }` | List mode, with `openRows`: a row was opened from its first column or by Enter. |
 | `zoom` | `SheetZoomEvent` | The user changed a sheet's zoom: Ctrl+wheel, a pinch (once it ends), the status bar, the Zoom dialog. `SheetZoomEvent` is `{ sheet: string; zoom: number }`, in percent. `setZoom` and the `zoom` prop are not reported. |
 | `watches` | `SheetWatch[]` | The user added or deleted watches in the Watch Window: the whole list. `SheetWatch` is `{ sheet: string; cell: string }`. |
+| `pivotDialog` | `PivotDialogRequest` | The PivotTable Fields pane (or `pivotDialog()`) asks for a dialog over a field of a PivotTable: Field Settings, Value Field Settings, or the field's sort and filter menu. The sheet draws none of them yet; a host opens its own. See [pivot-tables.md](pivot-tables.md#dialogs-the-pane-asks-for). |
 
 ### Slot
 
@@ -132,6 +134,8 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `canRefreshAll` | `true?` | Data > Refresh All is available (`refreshAll()`): the source has `refreshConnections` and the sheet is editable. |
 | `pivot` | `string?` | The name of the PivotTable under the active cell (`SheetInfo.pivots`, its Filters area too): a ribbon shows Excel's PivotTable Analyze and Design tabs while it is there ([pivot-tables.md](pivot-tables.md)). |
 | `canRefreshPivot` | `true?` | Refresh is available (`refreshPivot()`): the active cell is in a PivotTable, the source has `structure`, and the sheet is editable. |
+| `fieldList` | `true?` | The PivotTable Fields pane is shown: the active cell is in a PivotTable, the source has `pivotTable`, and Excel's Field List is on (`fieldList()`). |
+| `canInsertPivot` | `true?` | Insert > PivotTable is available (`insertPivotTable()`): the source has `structure` and the sheet is editable. |
 | `protection` | `SheetProtection?` | The displayed sheet is protected (`SheetInfo.protection`), with what users may still do: the toolbar disables formatting without `formatCells`, as Excel does ([protection.md](protection.md)). |
 | `areas` | `string[]?` | A selection of several ranges, as Go To Special makes it: each range as Excel writes it, `ref` (the active cell's range) among them; absent for a single range. `SheetToolbar` and `FormatDialog` format every range ([go-to-and-symbol.md](go-to-and-symbol.md#a-selection-of-several-ranges)). |
 
@@ -195,6 +199,9 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `calculate(scope?: 'workbook' \| 'sheet')` | `Promise<EditOutcome \| null>` | Excel's Calculate Now (F9, `'workbook'`, the default) or Calculate Sheet (Shift+F9, `'sheet'`, the active sheet) through the source's `calculate`; `null` without it or on a read-only sheet. See [calculation.md](calculation.md). |
 | `setCalculation(mode: CalculationMode)` | `Promise<EditOutcome \| null>` | Excel's Calculation Options (`'automatic'`, `'autoNoTable'`, `'manual'`) through the source's `setCalculation`; `null` without it or on a read-only sheet. |
 | `refreshPivot()` | `Promise<EditOutcome \| null>` | Excel's PivotTable Analyze > Refresh (Alt+F5) of the PivotTable under the active cell through the source's `structure` (`refreshPivots` naming it), one step of undo, after which the sheet reloads; `null` without a PivotTable there, without `structure` or on a read-only sheet. See [pivot-tables.md](pivot-tables.md#refresh-and-refresh-all). |
+| `insertPivotTable()` | `Promise<boolean>` | Excel's Insert > PivotTable: opens its dialog (PivotTable from table or range) with the table at the active cell, the selection or the active cell's current region; OK creates the PivotTable on a new sheet at A3 or at the location given through the source's `structure` (`addPivotTable`), one step of undo, and selects its top-left cell. `false` without `structure` or on a read-only sheet. See [pivot-tables.md](pivot-tables.md#insert-pivottable). |
+| `fieldList(show?: boolean)` | `boolean` | Excel's PivotTable Analyze > Field List, toggled without `show`: whether the PivotTable Fields pane shows while the active cell is in a PivotTable; on by default. Returns whether it is on. |
+| `pivotDialog(request: PivotDialogRequest)` | `boolean` | Asks for a dialog over a PivotTable's field, as the pane's menus do; the sheet sends it as its `pivotDialog` event. `false` on a read-only sheet. |
 | `refreshAll()` | `Promise<EditOutcome \| null>` | Excel's Data > Refresh All (Ctrl+Alt+F5) through the source's `refreshConnections`: every call outside the workbook asked again, not a step of undo, and in `./local` the PivotTables refreshed, one step of undo; `null` without it or on a read-only sheet. See [calculation.md](calculation.md#refresh-all). |
 | `protectSheet()` | `boolean` | Opens Excel's Protect Sheet dialog for the displayed sheet, without a password; OK protects it through the source's `protect`, as a single undo step. `false` without `protect`, on a read-only sheet, or on a protected one ([protection.md](protection.md)). |
 | `unprotectSheet()` | `Promise<EditOutcome \| null>` | Excel's Unprotect Sheet on the displayed sheet through the source's `protect`; `null` when nothing was sent (no `protect`, a read-only sheet, an unprotected one). |
@@ -267,12 +274,27 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 
 | Type or value | Meaning |
 | --- | --- |
-| `ToolbarGroup` | `'undo' \| 'formatPainter' \| 'fontStyle' \| 'font' \| 'number' \| 'colors' \| 'borders' \| 'verticalAlign' \| 'align' \| 'merge' \| 'formatCells' \| 'autoSum' \| 'refreshAll'`: Undo and Redo; Format Painter; Bold, Italic and Underline; the Font and Font Size boxes with Increase and Decrease Font Size; the Number Format box with Accounting Number Format, Percent Style, Comma Style and Increase and Decrease Decimal; font and fill color; borders; Top, Middle and Bottom Align; horizontal alignment with Decrease and Increase Indent and Wrap Text; Merge & Center; Format Cells; AutoSum; Data > Refresh All with its list's Refresh All and Refresh, with `sheet` and the source's `refreshConnections`. |
+| `ToolbarGroup` | `'undo' \| 'formatPainter' \| 'fontStyle' \| 'font' \| 'number' \| 'colors' \| 'borders' \| 'verticalAlign' \| 'align' \| 'merge' \| 'formatCells' \| 'autoSum' \| 'pivotTable' \| 'refreshAll'`: Undo and Redo; Format Painter; Bold, Italic and Underline; the Font and Font Size boxes with Increase and Decrease Font Size; the Number Format box with Accounting Number Format, Percent Style, Comma Style and Increase and Decrease Decimal; font and fill color; borders; Top, Middle and Bottom Align; horizontal alignment with Decrease and Increase Indent and Wrap Text; Merge & Center; Format Cells; AutoSum; Insert > PivotTable, with `sheet` and the source's `structure`; Data > Refresh All with its list's Refresh All and Refresh, with `sheet` and the source's `refreshConnections`. |
 | `ToolbarButton` | `{ id: string; label: string; icon?: Component \| string; run?: () => void; menu?: readonly ToolbarMenuItem[]; disabled?: boolean; pressed?: boolean }`: a host's button. `label` is its tooltip and accessible name, and its text without `icon`; `icon` is a Vue component (it gets the class `xs-icon`) or SVG markup, drawn at the toolbar's icon size; `pressed` shows it pressed, with `aria-pressed`. With `menu`, a click opens the list (`data-tb-host-menu="<id>"`); with `run` too the button is split, its part running `run` and its arrow opening the list. Its hook is `data-tb-host="<id>"`. |
 | `ToolbarMenuItem` | `{ id: string; label: string; run: () => void; disabled?: boolean }`: an item of a host's button's list, hook `data-tb-host-item="<id>"`. |
 | `ToolbarItem` | `ToolbarGroup \| ToolbarButton`. |
 | `FormatPainterMode` | `'once' \| 'keep'`: Format Painter's brush paints one range, or until it is turned off. |
 | `TOOLBAR_GROUPS` | `readonly ToolbarGroup[]`: every group in the default order, for a host that adds its buttons (`[...TOOLBAR_GROUPS, button]`). |
+
+## `PivotFieldsPane`
+
+Excel's PivotTable Fields pane over the PivotTable under the active cell, for a host that places it itself (`SheetView`'s `pivotFields` off); `SheetView` draws it next to the grid by default. It fills its container's height; a host shows it while `state.fieldList` is on. See [pivot-tables.md](pivot-tables.md#the-pivottable-fields-pane).
+
+| Prop (`PivotFieldsPaneProps`) | Type | Meaning |
+| --- | --- | --- |
+| `source` | `SheetSource` | The sheet's source: the pane reads the PivotTable through its `pivotTable` and again on its `reload` and `sheets` events. |
+| `sheet` | `SheetViewApi \| null` | The sheet's template ref: the pane's changes go through its `structure`, its close button is `fieldList(false)`, and its menus' dialogs go to `pivotDialog`. Without it the pane only shows the PivotTable. |
+| `state` | `SheetViewState \| null` | The payload of the sheet's `state` event: the pane shows the PivotTable of `pivot` while `fieldList` is on. |
+| `messages` | `Partial<SheetMessages>` | Interface texts. |
+
+| Type | Meaning |
+| --- | --- |
+| `PivotDialogRequest` | `{ dialog: 'fieldSettings' \| 'valueFieldSettings' \| 'fieldFilter'; sheet: string; pivot: string; field: number; value?: number; at?: { left; top; width; height } }`: Field Settings… of a field on Filters, Columns or Rows, Value Field Settings… of a value field (`value` its index in the PivotTable's `values` as the source holds it), or the field's sort and filter menu (the arrow beside it in the list). `field` is the index of the cache field; `at` is the pane's control in the viewport's coordinates, where a menu opens. |
 
 ## `FormatDialog`
 
@@ -349,6 +371,7 @@ A workbook calculated on the host's server reaches the sheet through `@xlcalc/vu
 | `calculation(signal?) => Promise<SheetCalculation>` | Excel's calculation options: the workbook's option and, in Manual, whether cells wait for a calculation (the status bar's Calculate), read with the sheets; a `calculation` event tells a change. With `calculate`, F9 and Shift+F9. | The workbook calculates automatically; no Calculate. | [calculation.md](calculation.md) |
 | `setCalculation(mode: CalculationMode)` | Changes the option, which the workbook keeps; not a step of undo, as in Excel. Automatic calculates what waits. | The option cannot be changed. | [calculation.md](calculation.md) |
 | `calculate(sheet?)` | Excel's Calculate Now (F9), or with `sheet` Calculate Sheet (Shift+F9): the waiting cells show their values, as `changes` and as a `changed` event; not a step of undo. | No F9, and Calculate does nothing. | [calculation.md](calculation.md) |
+| `pivotTable(sheet, name, signal?) => Promise<SheetPivotTable \| null>` | A PivotTable's definition as xlcalc holds it, for the PivotTable Fields pane and the dialogs over a PivotTable: `SheetPivotTable`, `{ table, cache }`, xlcalc's `PivotTable` without its saved lines (`rowLines`, `columnLines`) and its `PivotCache` without the rows it saved (`records`); null when the sheet has no such PivotTable. Read again after `reload` or `sheets`. `./local` reads it from the session's layout. | No PivotTable Fields pane. | [pivot-tables.md](pivot-tables.md#the-pivottable-fields-pane) |
 | `refreshConnections(names?: string[])` | Excel's Data > Refresh All (Ctrl+Alt+F5): the workbook's calls outside itself asked again, of the functions `names` (upper-case) or of every one, the changed cells as `changes` and as a `changed` event, and the answers still on their way as later `changed` events; not a step of undo, as in Excel. Without `names`, the workbook's PivotTables refreshed after the calls (xlcalc's `refreshPivots`), one step of undo. `./local` gives xlcalc's `refreshConnections` (0.68.0) when the host gives a resolver (`session.externals.resolve`), and has the method for every workbook: without a resolver it asks no calls, and refreshes the PivotTables the workbook has then ([pivot-tables.md](pivot-tables.md#refresh-and-refresh-all)). | No Refresh All. | [calculation.md](calculation.md#refresh-all) |
 | `autoSum(sheet, cell, signal?, fn?: AutoSumFunction) => Promise<SheetAutoSum \| null>` | Excel's AutoSum (Alt+=): the range it offers at the cell and its `SUM`, or with `fn` (one of `autoSumFunctions`) the same range under that function; null when the source guesses nothing. The sheet passes `fn` only for a function other than Sum. | No AutoSum. | [editing.md](editing.md#autosum) |
 | `workbookStatistics(sheet, signal?) => Promise<WorkbookStatistics>` | Excel's Workbook Statistics with the sheet active: xlcalc's `WorkbookStatistics`, `{ sheet: { end, cells, tables, formulas, notes, pivotTables, charts, images, formControls, objects, comments }, workbook: { sheets, ... } }`, a count the workbook does not hold being null. `./local` gives xlcalc's `getWorkbookStatistics` (0.67.0). | No Workbook Statistics. | [sheets.md](sheets.md#workbook-statistics) |
@@ -472,7 +495,7 @@ Formulas in these types are written as the source displays formulas: in its loca
 
 ## Interface texts: `SheetMessages`
 
-`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`, those of the conditional formatting dialogs (`cf…`) in its `ConditionalMessages`, and those of sheet protection (Excel's alert, Protect Sheet, Format Cells' Protection tab) in its `ProtectionMessages`, both of which `SheetMessages` extends.
+`enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`, those of the conditional formatting dialogs (`cf…`) in its `ConditionalMessages`, those of sheet protection (Excel's alert, Protect Sheet, Format Cells' Protection tab) in its `ProtectionMessages`, and those of Insert PivotTable and the PivotTable Fields pane in its `PivotFieldsMessages`, all of which `SheetMessages` extends.
 
 ```ts
 import { ruMessages } from '@xlcalc/vue'
@@ -670,6 +693,7 @@ A workbook on a server: `serveSource` serves a source to viewers over HTTP, and 
 | `--xs-outline-button`, `--xs-outline-tick` | `13px`, `5px` | The outline button size and the bracket tick length. |
 | `--xs-outline-button-bg`, `--xs-outline-button-fg`, `--xs-outline-button-border` | `var(--xs-bg)`, `#3c4043`, `#9aa0a6` | The outline buttons. |
 | `--xs-explain-w`, `--xs-explain-h` | `340px`, `45%` | The Trace Precedents panel: its width, and its height on a phone. |
+| `--xs-pf-w`, `--xs-pf-h` | `300px`, `50%` | The PivotTable Fields pane next to the grid: its width, and its height on a phone. |
 | `--xs-watch-w`, `--xs-watch-h` | `560px`, `200px` | The Watch Window's size when it opens (within the sheet's box); on a phone its height is at most 45 %. |
 | `--xs-prompt-bg`, `--xs-prompt-fg`, `--xs-prompt-line` | `#ffffe1`, `#1f2328`, `#767676` | The data validation input message. |
 | `--xs-alert-stop`, `--xs-alert-warning`, `--xs-alert-information` | `#d13438`, `#ffb900`, `#0f6cbd` | The validation alert's icons. |

@@ -2,6 +2,7 @@
 import { computed, type ComputedRef } from 'vue'
 import type { SheetMessages } from './contract/messages'
 import { enConditional, ruConditional } from './messages-conditional'
+import { enPivotFields, ruPivotFields } from './messages-pivot-fields'
 import { enProtection, ruProtection } from './messages-protection'
 
 /** `n` and its English noun, singular for one. */
@@ -564,6 +565,7 @@ export const enMessages: SheetMessages = {
   menuRefresh: 'Refresh',
   ...enConditional,
   ...enProtection,
+  ...enPivotFields,
 }
 
 /** Russian plural: one, few, many. */
@@ -1145,6 +1147,7 @@ export const ruMessages: SheetMessages = {
   menuRefresh: 'Обновить',
   ...ruConditional,
   ...ruProtection,
+  ...ruPivotFields,
 }
 
 /** A component's texts: the English set overridden by the part a host passed. */

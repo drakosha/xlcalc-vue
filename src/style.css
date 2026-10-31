@@ -1,6 +1,7 @@
-/* The sheet's styles: colors, fonts and spacing are --xs-* variables, so a host restyles it (or switches it to a dark theme) by overriding them; the toolbar and the Format Cells dialog share them. */
+/* The sheet's styles: colors, fonts and spacing are --xs-* variables, so a host restyles it (or switches it to a dark theme) by overriding them; the toolbar, the PivotTable Fields pane and the Format Cells dialog share them. */
 .xs-sheet,
 .xs-toolbar,
+.xs-pf,
 .xs-fmt-back {
   --xs-bg: #ffffff;
   --xs-fg: #1f2328;

@@ -3,7 +3,7 @@
 // the library refuses over their cells; and the PivotTables an operation touches, which a protected sheet gates.
 import { LOCALES, registerPivot, type BookInput, type BookLayout, type CellRect, type PivotRef, type PivotTable, type SheetLayout, type StructureOp } from 'xlcalc'
 import { parseRange, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
-import type { SheetPivot } from '../contract/source'
+import type { SheetPivot, SheetPivotTable } from '../contract/source'
 
 /** Whether the workbook holds PivotTables or their caches, which the engine refreshes and lays out. */
 export const hasPivots = (book: BookInput | BookLayout): boolean => !!book.pivotCaches?.length || book.sheets.some((s) => !!s.pivotTables?.length)
@@ -61,6 +61,16 @@ export function pivotsOf(sheet: SheetLayout): SheetPivot[] {
     })
   }
   return out
+}
+
+/** The PivotTable `name` on `sheet` without its saved lines, with its cache without its rows (`SheetSource.pivotTable`); null when there is none. */
+export function pivotDefinition(layout: BookLayout, sheet: string, name: string): SheetPivotTable | null {
+  const found = layout.sheets.find((x) => sameName(x.name, sheet))?.pivotTables?.find((t) => sameName(t.name, name))
+  const cache = found && layout.pivotCaches?.find((c) => c.id === found.cache)
+  if (!found || !cache) return null
+  const { rowLines: _rows, columnLines: _columns, ...table } = found
+  const { records: _records, ...fields } = cache
+  return { table, cache: fields }
 }
 
 /** The PivotTable whose table or Filters area meets `rect` on `sheet`; null when none does. */

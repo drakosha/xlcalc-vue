@@ -2,7 +2,7 @@
 import type { ConditionalFormat, IconSetName, SheetProtection } from 'xlcalc/contract'
 import type { QuickRule } from './conditional'
 
-export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
+export interface SheetMessages extends ConditionalMessages, ProtectionMessages, PivotFieldsMessages {
   back: string
   backEmpty: string
   address: string
@@ -684,4 +684,57 @@ export interface ProtectionMessages {
   fmtLocked: string
   fmtHidden: string
   fmtProtectionNote: string
+}
+
+/** The texts of Insert PivotTable and the PivotTable Fields pane, in Excel for Windows' words. */
+export interface PivotFieldsMessages {
+  /** Insert > PivotTable on the toolbar. */
+  pivotInsert: string
+  /** The PivotTable from table or range dialog: its title, the source's heading and box, the place's heading, its choices and box. */
+  pivotCreateTitle: string
+  pivotCreateSource: string
+  pivotCreateRange: string
+  pivotCreatePlace: string
+  pivotNewSheet: string
+  pivotExistingSheet: string
+  pivotLocation: string
+  /** Excel's alerts for a source or a location the dialog does not take. */
+  pivotSourceBad: string
+  pivotLocationBad: string
+  /** The pane: its title, the heading over the fields, the search box, the heading over the areas, and the areas. */
+  fieldListTitle: string
+  fieldListChoose: string
+  fieldListSearch: string
+  fieldListDrag: string
+  areaFilters: string
+  areaColumns: string
+  areaRows: string
+  areaValues: string
+  /** The value fields' place on Columns or Rows when there are several (Σ Values). */
+  fieldListValues: string
+  /** The arrow beside a field in the list, which opens its sort and filter menu. */
+  fieldListFilter: string
+  /** Defer Layout Update and its Update button. */
+  fieldListDefer: string
+  fieldListUpdate: string
+  /** A field's menu in an area. */
+  fieldMoveUp: string
+  fieldMoveDown: string
+  fieldMoveFirst: string
+  fieldMoveLast: string
+  fieldToFilters: string
+  fieldToRows: string
+  fieldToColumns: string
+  fieldToValues: string
+  fieldRemove: string
+  fieldSettings: string
+  valueFieldSettings: string
+  /** A field's menu in the list. */
+  fieldAddFilters: string
+  fieldAddRows: string
+  fieldAddColumns: string
+  fieldAddValues: string
+  /** The cell menu of a PivotTable's cell: Show Field List and Hide Field List. */
+  menuShowFieldList: string
+  menuHideFieldList: string
 }

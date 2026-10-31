@@ -21,6 +21,7 @@
 // entire column is rejected at once by the app's limit on cells one change writes, leaving the workbook unchanged.
 // Then Excel's typo dialog: `=(1+2` with Enter offers `=(1+2)`, Yes writes 3; No says a parenthesis is missing and reopens the editor.
 // Then, on the desktop, Merge & Center over A1:B1 with two values: Excel's warning, Enter for OK, one centered cell, Ctrl+Z.
+// Then Insert PivotTable and the PivotTable Fields pane (scripts/spa-pivot.ts): fields checked, on the desktop one dragged onto Columns.
 // On the phone every target is at least 44 px and the page never scrolls horizontally. Run: npm run check:spa; SPA_URL=<url> checks a published app instead.
 // DEMO=1 npm run check:spa runs it on the demo build (`--mode demo`, served under /demo/), checking that /demo/ opens it and
 // that it contains no source maps.
@@ -36,6 +37,7 @@ import { ruRU } from 'xlcalc/locales/ru-RU'
 import { numberFormatCategory } from 'xlcalc/text'
 import { readXlsx, writeXlsx } from 'xlcalc/xlsx'
 import { longPress } from './touch.ts'
+import { pivotScenario } from './spa-pivot.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const config = resolve(root, 'vite.example.config.ts')
@@ -1340,6 +1342,8 @@ try {
   await typoScenario(browser, base, desktop)
   await typoScenario(browser, base, phone)
   await mergeScenario(browser, base, desktop)
+  await pivotScenario(browser, base, desktop, out)
+  await pivotScenario(browser, base, phone, out)
 } finally {
   await browser.close()
   if (server) await new Promise<void>((done) => server.httpServer.close(() => done()))

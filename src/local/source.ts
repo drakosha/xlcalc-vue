@@ -21,7 +21,7 @@ import { connections, takeAnswers } from './connections'
 import { protectionGuard, protectSheet } from './protect'
 import { validationOf } from './validation'
 import { autoFilterRanges } from './autofilter'
-import { hasPivots, isPivotOp, loadPivot, PIVOT, pivotMeeting, pivotRefusals, pivotsOf, type PivotAlert } from './pivots'
+import { hasPivots, isPivotOp, loadPivot, PIVOT, pivotDefinition, pivotMeeting, pivotRefusals, pivotsOf, type PivotAlert } from './pivots'
 import { windowOf } from './window'
 import { workbookMethods } from './workbook'
 
@@ -690,6 +690,12 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       // xlcalc 0.59 gives the workbook's default font; an older one, or a workbook without it, is Calibri 11
       const font = layout.font ?? CALIBRI_11
       return layout.sheets.map((x, i) => info(viewed(x), used[i]!, font, ranges[i]))
+    },
+    async pivotTable(sheet, name, signal) {
+      const s = await open()
+      const layout = await s.getLayout()
+      throwIfAborted(signal)
+      return pivotDefinition(layout, sheet, name)
     },
     async window(req: WindowRequest, signal) {
       const s = await open()
