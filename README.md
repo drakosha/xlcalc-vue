@@ -2,7 +2,7 @@
 
 A Vue 3 spreadsheet component for [xlcalc](https://github.com/drakosha/xlcalc) workbooks: Excel in the browser, with the workbook's styles, formulas, editing, context menus, Find and Replace, data validation and outline. Wherever the component could behave differently from Excel, it follows Excel's behavior as measured by xlcalc.
 
-The component accesses its data only through a `SheetSource`. Two sources are included: `memorySource`, an in-memory workbook for examples and tests, and `localSource` from `@xlcalc/vue/local`, which calculates an xlcalc workbook in a Web Worker and reads and writes xlsx files. A workbook calculated on the host's server is served to every viewer by `@xlcalc/vue/server` and reached from the browser by `@xlcalc/vue/remote`. MIT license.
+The component accesses its data only through a `SheetSource`. Two sources are included: `memorySource`, an in-memory workbook for examples and tests, and `localSource` from `@xlcalc/vue/local`, which calculates an xlcalc workbook in a Web Worker and reads and writes xlsx and CSV files. A workbook calculated on the host's server is served to every viewer by `@xlcalc/vue/server` and reached from the browser by `@xlcalc/vue/remote`. MIT license.
 
 ## Install
 
@@ -64,7 +64,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Formula AutoComplete](docs/autocomplete.md)
 - [Defined names](docs/names.md): the Name Box, Define Name, the Name Manager.
 - [The formatting toolbar and Format Cells](docs/toolbar.md)
-- [In-browser calculation](docs/local.md): how `@xlcalc/vue/local` works, xlsx files.
+- [In-browser calculation](docs/local.md): how `@xlcalc/vue/local` works, xlsx and CSV files.
 - [A workbook on a server](docs/remote.md): `@xlcalc/vue/server` and `@xlcalc/vue/remote`, access by viewer, several viewers editing one workbook.
 - [List mode](docs/list-mode.md): the host's list (a view or a report) displayed on the sheet, sorted by the host, with drill-down and a totals row.
 - [Example app](docs/example-app.md) and [browser tests](docs/checks.md)

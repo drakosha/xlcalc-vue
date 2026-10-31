@@ -1,6 +1,6 @@
 # In-browser calculation: `@xlcalc/vue/local`
 
-`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.67.0 or later, an optional peer dependency of the package that the host installs: the package is built over 0.67.0 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message.
+`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.71.2 or later, an optional peer dependency of the package that the host installs: the package is built over 0.71.2 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics, CSV files). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message.
 
 ## What the source does
 
@@ -55,6 +55,8 @@ const source = localSource(book, { regex: 'pcreEngine' }) // XMATCH("(a+)+$", A1
 The workbook's calculation option (xlcalc's `BookInput.calculation`, 0.66.0) is `calculation`; `setCalculation` changes it and `calculate` is F9 and Shift+F9. xlcalc calculates every edit whatever the option says, so in Manual the source keeps showing the values of the last calculation, puts them back over the session's in each window, and shows the session's on `calculate`; with an xlcalc before 0.66.0 the sheet shows calculated values in Manual too. What the source holds and where it differs from Excel are in [calculation.md](calculation.md#in-xlcalcvuelocal).
 
 ## Files
+
+xlsx files are read and written by `openXlsx` and `saveXlsx`, CSV files by `openCsv` and `saveCsv` ([CSV files](#csv-files)).
 
 `openXlsx` reads a file into a workbook and the values stored in it (`cached`), and `saveXlsx` writes the source's workbook with its values. With `locale` (the language the user chose: a tag whose module is loaded on demand, or a locale object), their issue messages are in that language; without it, in English. A tag xlcalc has no module for fails with the library's message.
 
@@ -155,9 +157,33 @@ const source = localSource(book, {
 
 A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in. When taking an answer runs past it, the source takes it once more with a deadline of a minute: a call stopped at its deadline leaves the answers in the session, and another with the same deadline does not take them (xlcalc 0.71.1). A failure there, or any other, is written to the console (`console.error`) and the sheet reads its windows again, so it shows what the session holds.
 
-Refresh All (`refreshConnections`, Ctrl+Alt+F5) asks every call again, or with `names` those of the functions named: the source has it only with `externals.resolve`, as values given in advance (`externals.values`) answer nothing anew, and the formulas keeping their file's values would lose them to the answers of a function without its connection. It is not a step of undo ([calculation.md](calculation.md#refresh-all)). A known gap of xlcalc (0.71.1, no version fixes it yet): when Refresh All asks a call again while its earlier answer is still on its way, that earlier answer, arriving later, can take the place of the new one.
+Refresh All (`refreshConnections`, Ctrl+Alt+F5) asks every call again, or with `names` those of the functions named: the source has it only with `externals.resolve`, as values given in advance (`externals.values`) answer nothing anew, and the formulas keeping their file's values would lose them to the answers of a function without its connection. It is not a step of undo ([calculation.md](calculation.md#refresh-all)).
 
 In Manual only the cells that asked show their answers: a cell whose own formula calls the function, shown waiting for it since a formula entered or Calculate Now calculated it, takes the answer, as it ends that calculation. Every other cell waits for a calculation as after an edit: one that shows `#BUSY!` read from a cell that asked, one that reads the answer, and one whose waiting value is held while the sheet shows its value of the last calculation ([calculation.md](calculation.md#manual)). Not measured in Excel.
+
+### CSV files
+
+`openCsv` reads a CSV file into a workbook of one sheet, and `saveCsv` writes a sheet of the source's workbook as a CSV file, through xlcalc's `xlcalc/csv` (0.68.0, its `readCsv` and `writeCsv`), which is loaded only when one of them is called. A CSV file stores no language, so the host gives `locale`, the workbook's: each field is read as text typed into a cell in it, as Excel opens the file, so `1234,5` and `15.03.2026` are a number and a date in ru-RU, and the workbook takes the locale. A tag is loaded on demand, as for `openXlsx`. The result's `delimiter` and `encoding` say how the file was read. The encoding is found as Excel for Windows finds it: a byte order mark, UTF-8, or the locale's Windows code page. Fields are split at the locale's list separator, as Excel splits them (`,` in en-US, `;` in ru-RU: a ru-RU file opened in en-US is one column, as in Excel); a first line `sep=;` names the separator in any case, a `.tsv` name reads at tabs, and `delimiter` names another (xlcalc's guess from the first lines is not used: Excel does not guess). A `File` names the sheet after itself, without the extension, as Excel names it.
+
+One difference from Excel is deliberate: a field Excel takes as a formula (`=`, a `+` or `-` that begins no number, `@` before a call) stays text, and `issues` lists those fields with code `formula`. Excel would make them formulas, and a formula in a file from elsewhere could call the host's functions and the functions of connections (`WEBSERVICE`, `CUBEVALUE`, `RTD`), which xlcalc answers through the host's `externals.resolve`: opening a file would send requests the user did not ask for (CSV injection). `formulas: true` reads them as Excel does, in the locale's formula text, for files the host trusts. The other options are `readCsv`'s (`codesAsText`, `encoding`, `limits`), passed through.
+
+`saveCsv` writes what Excel's CSV UTF-8 writes: each cell's value as it is displayed in the workbook's locale, at its list separator, with the byte order mark, formulas by their values. It writes one sheet, the workbook's active one unless `sheet` names another (the sheet's `state.sheet` is the one on screen), and reports the others in `issues`, as a CSV file holds one sheet. In Manual it calculates first, as `saveXlsx` does. `encoding: 'ansi'` writes Excel's plain CSV in the locale's Windows code page.
+
+```ts
+import { localSource, openCsv, saveCsv } from '@xlcalc/vue/local'
+
+export async function openPrices(file: File): Promise<Uint8Array> {
+  const { book, issues } = await openCsv(file, { locale: 'ru-RU' }) // Prices.csv: a sheet named Prices
+  if (issues.length) console.warn(issues.map((i) => i.message))
+  const source = localSource(book)
+  try {
+    await source.edit([{ sheet: book.sheets[0]!.name, cell: 'D2', text: '=B2*C2' }])
+    return (await saveCsv(source)).data // UTF-8 with its mark, `;` between fields, `1234,5`
+  } finally {
+    await source.close()
+  }
+}
+```
 
 ## Threads, the workbook and events
 

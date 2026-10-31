@@ -20,6 +20,12 @@ describe('localSource: functionNames', () => {
     expect(names.filter((n) => n.startsWith('СТАНДОТКЛОН'))).toEqual(['СТАНДОТКЛОН', 'СТАНДОТКЛОН.В', 'СТАНДОТКЛОН.Г', 'СТАНДОТКЛОНА', 'СТАНДОТКЛОНП', 'СТАНДОТКЛОНПА'])
   })
 
+  it("in ru-RU the forecast functions under Excel for Windows' names (xlcalc 0.70.0), one with a Cyrillic Е", async () => {
+    const names = await source().functionNames()
+    expect(names.filter((n) => n.startsWith('ПРЕДСКАЗ')).sort()).toEqual(['ПРЕДСКАЗ', 'ПРЕДСКАЗ.ETS', 'ПРЕДСКАЗ.ETS.СЕЗОННОСТЬ', 'ПРЕДСКАЗ.ETS.СТАТ', 'ПРЕДСКАЗ.ЕTS.ДОВИНТЕРВАЛ', 'ПРЕДСКАЗ.ЛИНЕЙН'].sort())
+    expect(names.some((n) => n.startsWith('FORECAST'))).toBe(false)
+  })
+
   it('in en-US: the English names in order', async () => {
     const names = await source({ ...book(), locale: 'en-US' }).functionNames()
     expect(names).toContain('SUM')

@@ -389,3 +389,91 @@ describe('Point mode: what an arrow does with no reference inserted yet, as meas
     expect(active(w)).toBe('3:3')
   })
 })
+
+describe('Point mode around trim references and LAMBDA (xlcalc 0.68.0)', () => {
+  it("after a trim reference's `:.` or `.:.` a click inserts the far corner, as after `:`; an arrow inserts the adjacent cell", async () => {
+    const w = await mountSheet(recorded().source)
+    await typeIn(w, '=SUM(A1:.')
+    await press(w, 3, 3)
+    expect(field(w).value).toBe('=SUM(A1:.C3')
+    await editorKey(w, 'Escape')
+    await settle()
+    await typeIn(w, '=SUM(B2.:.')
+    await editorKey(w, 'ArrowDown')
+    await settle()
+    expect(field(w).value).toBe('=SUM(B2.:.A2')
+  })
+
+  it("after a complete trim reference the arrow enters the formula, as after any operand", async () => {
+    const { source, edits } = recorded()
+    const w = await mountSheet(source)
+    await typeIn(w, '=SUM(B2.:C3)')
+    await editorKey(w, 'ArrowDown')
+    await settle()
+    expect(edits).toEqual([[{ sheet: 'S', cell: 'A1', text: '=SUM(B2.:C3)' }]])
+  })
+
+  it("after LET's name or a LAMBDA's parameter and its separator a click inserts a reference", async () => {
+    const w = await mountSheet(recorded().source)
+    await typeIn(w, '=LET(x,')
+    await press(w, 2, 2)
+    expect(field(w).value).toBe('=LET(x,B2')
+    await type(w, '=LET(x,B2,LAMBDA(v,v+x)(')
+    field(w).setSelectionRange(field(w).value.length, field(w).value.length)
+    await press(w, 3, 3)
+    expect(field(w).value).toBe('=LET(x,B2,LAMBDA(v,v+x)(C3')
+  })
+})
+
+describe('F4 (Excel for Mac 16.114, measured with Cmd+T)', () => {
+  const press4 = async (w: VueWrapper) => {
+    await editorKey(w, 'F4')
+    await settle()
+  }
+
+  it('on a pointed range both ends cycle; Shift extends it keeping its $, a new click points without them', async () => {
+    const w = await mountSheet(recorded().source)
+    await typeIn(w, '=SUM(')
+    await press(w, 2, 2, { through: [[3, 3], [4, 4]] })
+    await press4(w)
+    expect(field(w).value).toBe('=SUM($B$2:$D$4')
+    await press4(w)
+    expect(field(w).value).toBe('=SUM(B$2:D$4')
+    await press(w, 6, 3, { shiftKey: true })
+    expect(field(w).value).toBe('=SUM(B$2:C$6')
+    await press(w, 5, 1)
+    expect(field(w).value).toBe('=SUM(A5')
+  })
+
+  it('on a reference inserted with an arrow: Shift+arrow keeps its $, a plain arrow drops them', async () => {
+    const w = await mountSheet(recorded().source)
+    await goTo(w, 'B2')
+    await typeIn(w, '=')
+    await editorKey(w, 'ArrowRight')
+    await settle()
+    await press4(w)
+    expect(field(w).value).toBe('=$C$2')
+    await editorKey(w, 'ArrowDown', { shiftKey: true })
+    await settle()
+    expect(field(w).value).toBe('=$C$2:$C$3')
+    await editorKey(w, 'ArrowLeft')
+    await settle()
+    expect(field(w).value).toBe('=B2')
+  })
+
+  it('in typed text: the reference at the caret, a typed range at its cell; a selection cycles each reference it covers and stays selected', async () => {
+    const { source, edits } = recorded()
+    const w = await mountSheet(source)
+    await typeIn(w, '=A1+B2:C3')
+    await press4(w)
+    expect(field(w).value).toBe('=A1+B2:$C$3')
+    expect(field(w).selectionStart).toBe(11)
+    field(w).setSelectionRange(0, field(w).value.length)
+    await press4(w)
+    expect(field(w).value).toBe('=$A$1+$B$2:$C$3')
+    expect([field(w).selectionStart, field(w).selectionEnd]).toEqual([0, 15])
+    await editorKey(w, 'Enter')
+    await settle()
+    expect(edits).toEqual([[{ sheet: 'S', cell: 'A1', text: '=$A$1+$B$2:$C$3' }]])
+  })
+})

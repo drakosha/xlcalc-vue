@@ -113,7 +113,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const look = useSheetLook(s, notify)
 
   // The workbook's defined names, read once per source and again after a change; the Name Box, Formula AutoComplete and the names' dialogs use them.
-  const names = useNames(s, { reload, reloads: () => reloads, apply: (changes) => w.applyChanges(changes) })
+  const names = useNames(s, { reload, reloads: () => reloads, apply: (changes) => w.applyChanges(changes), scan: f.scanOptions })
   const nav = useNavigation(s, sel, f, { pickSheet, notify, names })
   const watches = useWatch(s, sel, nav, { given: () => props.watches, changed: (list) => emit('watches', list), notify })
   const cellInput = ref<HTMLTextAreaElement | null>(null)
@@ -129,7 +129,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     return true
   }
   const alerts = useValidationAlert()
-  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare, protection })
+  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare, calls: names.called, protection })
   const point = usePoint(s, sel, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, scan: f.scanOptions, commit: ed.commit, paneAt: panes.cellAtPoint })
   // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, otherwise in as typed, past the rule.
   const validation = useValidation({
