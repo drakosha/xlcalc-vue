@@ -49,7 +49,7 @@ export const enConditional: ConditionalMessages = {
       redText: 'Red Text',
       redBorder: 'Red Border',
     })[p],
-  cfCustomFormat: 'Custom Format…',
+  cfCustomFormat: 'Custom Format...',
   cfPeriod: (p) =>
     ({
       yesterday: 'Yesterday',
@@ -73,8 +73,8 @@ export const enConditional: ConditionalMessages = {
   cfShowFor: 'Show formatting rules for:',
   cfShowSelection: 'Current Selection',
   cfShowSheet: 'This Worksheet',
-  cfNewRule: 'New Rule…',
-  cfEditRule: 'Edit Rule…',
+  cfNewRule: 'New Rule...',
+  cfEditRule: 'Edit Rule...',
   cfDeleteRule: 'Delete Rule',
   cfDuplicateRule: 'Duplicate Rule',
   cfMoveUp: 'Move Up',
@@ -190,7 +190,7 @@ export const enConditional: ConditionalMessages = {
   cfInRange: 'values in the selected range',
   cfFormulaLabel: 'Format values where this formula is true:',
   cfPreview: 'Preview:',
-  cfFormatButton: 'Format…',
+  cfFormatButton: 'Format...',
   cfNotSet: '(not set)',
   cfClear: 'Clear',
 }
@@ -241,7 +241,7 @@ export const ruConditional: ConditionalMessages = {
       redText: 'Красный текст',
       redBorder: 'Красная граница',
     })[p],
-  cfCustomFormat: 'Пользовательский формат…',
+  cfCustomFormat: 'Пользовательский формат...',
   cfPeriod: (p) =>
     ({
       yesterday: 'Вчера',
@@ -265,8 +265,8 @@ export const ruConditional: ConditionalMessages = {
   cfShowFor: 'Показать правила форматирования для:',
   cfShowSelection: 'Текущий фрагмент',
   cfShowSheet: 'Этот лист',
-  cfNewRule: 'Создать правило…',
-  cfEditRule: 'Изменить правило…',
+  cfNewRule: 'Создать правило...',
+  cfEditRule: 'Изменить правило...',
   cfDeleteRule: 'Удалить правило',
   cfDuplicateRule: 'Дублировать правило',
   cfMoveUp: 'Вверх',
@@ -384,7 +384,7 @@ export const ruConditional: ConditionalMessages = {
   cfInRange: 'значения в выделенном диапазоне',
   cfFormulaLabel: 'Форматировать значения, для которых следующая формула является истинной:',
   cfPreview: 'Образец:',
-  cfFormatButton: 'Формат…',
+  cfFormatButton: 'Формат...',
   cfNotSet: '(не задано)',
   cfClear: 'Очистить',
 }

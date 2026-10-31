@@ -5,7 +5,7 @@ import type { ProtectionMessages } from './contract/messages'
 
 export const enProtection: ProtectionMessages = {
   protectedAlert: "The cell or chart you're trying to change is on a protected sheet. To make a change, unprotect the sheet. You might be requested to enter a password.",
-  menuProtectSheet: 'Protect Sheet…',
+  menuProtectSheet: 'Protect Sheet...',
   menuUnprotectSheet: 'Unprotect Sheet',
   protectTitle: 'Protect Sheet',
   protectContents: 'Protect worksheet and contents of locked cells',
@@ -36,7 +36,7 @@ export const enProtection: ProtectionMessages = {
 
 export const ruProtection: ProtectionMessages = {
   protectedAlert: 'Ячейка или диаграмма, которую вы пытаетесь изменить, находится на защищенном листе. Чтобы внести изменения, снимите защиту листа. Может потребоваться пароль.',
-  menuProtectSheet: 'Защитить лист…',
+  menuProtectSheet: 'Защитить лист...',
   menuUnprotectSheet: 'Снять защиту листа',
   protectTitle: 'Защитить лист',
   protectContents: 'Защитить лист и содержимое защищаемых ячеек',

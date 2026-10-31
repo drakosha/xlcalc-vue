@@ -114,7 +114,7 @@ describe('slicers and timelines on the sheet', () => {
     const box = q('[data-xs-object="slicer:Region"]')!
     box.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 300, clientY: 100 }))
     await settle()
-    expect([...document.querySelectorAll('[data-xs-menu]')].map((x) => x.textContent!.trim())).toEqual(['Refresh', 'Sort A to Z', 'Sort Z to A', 'Clear Filter from "Region"', 'Multi-Select "Region"', 'Report Connections…', 'Remove "Region"', 'Slicer Settings…'])
+    expect([...document.querySelectorAll('[data-xs-menu]')].map((x) => x.textContent!.trim())).toEqual(['Refresh', 'Sort A to Z', 'Sort Z to A', 'Clear Filter from "Region"', 'Multi-Select "Region"', 'Report Connections...', 'Remove "Region"', 'Slicer Settings...'])
     expect(q<HTMLButtonElement>('[data-xs-menu="objectClear"]')!.disabled).toBe(true)
     await click(q('[data-xs-menu="objectRemove"]')!)
     await until(() => !q('[data-xs-object="slicer:Region"]'))
@@ -219,7 +219,7 @@ describe("a timeline's periods and label", () => {
 describe('the texts of slicers and timelines', () => {
   it("are Excel for Windows' as measured, in English and Russian", () => {
     const words = (m: typeof enMessages) => [m.menuMultiSelect('Region'), m.menuClearFilterFrom('Region'), m.menuRemoveObject('Region'), m.menuSlicerSettings, m.menuReportConnections, m.slicerClearFilter, m.insertSlicersTitle, m.insertTimelinesTitle, m.timelineLevel('quarters')]
-    expect(words(enMessages)).toEqual(['Multi-Select "Region"', 'Clear Filter from "Region"', 'Remove "Region"', 'Slicer Settings…', 'Report Connections…', 'Clear Filter (Alt+C)', 'Insert Slicers', 'Insert Timelines', 'QUARTERS'])
-    expect(words(ruMessages)).toEqual(['Выбор нескольких объектов "Region"', 'Снять фильтрацию с: "Region"', 'Удалить "Region"', 'Настройка среза…', 'Подключения к отчетам…', 'Очистить фильтр (Alt+C)', 'Вставка срезов', 'Вставка временных шкал', 'КВАРТАЛЫ'])
+    expect(words(enMessages)).toEqual(['Multi-Select "Region"', 'Clear Filter from "Region"', 'Remove "Region"', 'Slicer Settings...', 'Report Connections...', 'Clear Filter (Alt+C)', 'Insert Slicers', 'Insert Timelines', 'QUARTERS'])
+    expect(words(ruMessages)).toEqual(['Выбор нескольких объектов "Region"', 'Снять фильтрацию с: "Region"', 'Удалить "Region"', 'Настройка среза...', 'Подключения к отчетам...', 'Очистить фильтр (Alt+C)', 'Вставка срезов', 'Вставка временных шкал', 'КВАРТАЛЫ'])
   })
 })
