@@ -333,7 +333,7 @@ export interface SheetPivotField {
 
 /**
  * A slicer on a sheet: xlcalc's `Slicer` (its name, its cache's name, `caption`, `showCaption`, `place`, `columns`,
- * `rowHeight` in EMU, `startItem`, `locked`, `style`) with what its cache holds: the source field, the PivotTables it
+ * `rowHeight` in EMU, `startItem`, `locked` for Excel's Locked, `positionLocked` for Disable resizing and moving, `style`) with what its cache holds: the source field, the PivotTables it
  * filters, their pivot cache, the sorting and display of the items, and the items in the slicer's order. A slicer
  * without `place` is not drawn.
  */

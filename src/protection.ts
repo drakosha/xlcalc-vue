@@ -50,8 +50,7 @@ export type ObjectChange = 'choose' | 'place' | 'add' | 'remove'
  */
 export function objectLocks(object: object): { position: boolean; sheet: boolean } {
   const o = object as { locked?: boolean; positionLocked?: boolean }
-  // temporary: xlcalc 0.71 reads Disable resizing and moving as `locked` and no Locked; its next release gives `positionLocked` and Locked as `locked`
-  return { position: o.locked === true || o.positionLocked === true, sheet: true }
+  return { position: o.positionLocked === true, sheet: o.locked !== false }
 }
 
 /**

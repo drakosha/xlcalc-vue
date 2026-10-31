@@ -99,6 +99,13 @@ describe('localSource: slicers in the protection and in their labels', () => {
     expect(await objects.structure({ op: 'editTimeline', timeline: 'Date', set: { place } })).toMatchObject({ ok: true })
   })
 
+  it('a slicer or a timeline with Locked off moves on a protected sheet without Edit objects (xlcalc 0.72 `locked`)', async () => {
+    const place = { from: 'E5', to: 'G14' }
+    const s = source(slicerBook({ protection: { pivotTables: true }, unlocked: true }))
+    expect(await s.structure({ op: 'editSlicer', slicer: 'Region', set: { place } })).toMatchObject({ ok: true })
+    expect(await s.structure({ op: 'editTimeline', timeline: 'Date', set: { place: { from: 'H20', to: 'N26' } } })).toMatchObject({ ok: true })
+  })
+
   it('a slicer with Disable resizing and moving is not moved on any sheet; its choice still changes', async () => {
     const s = source(slicerBook({ positionLocked: true }))
     expect(await s.structure({ op: 'editSlicer', slicer: 'Region', set: { place: { from: 'E5', to: 'G14' } } })).toMatchObject({ ok: false, code: 'pivot', message: expect.stringMatching(/Disable resizing and moving/) })
