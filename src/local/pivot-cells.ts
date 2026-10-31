@@ -34,19 +34,23 @@ function labelsOf(t: PivotTable, f: PivotCacheField, index: number, locale: stri
 }
 
 /**
- * The filter buttons from xlcalc's `pivotCells`: a field's name filters that field; Row Labels, Column Labels and a value
- * field's name at the corner, which name no field, stand for the axis whose labels lie under them, the rows where the
- * button is in the row labels' columns.
+ * The filter buttons from xlcalc's `pivotCells`, each with the field its menu is about. A field's name filters that field;
+ * Σ Values' name filters none. Row Labels and Column Labels name no field: their axis is the one whose labels lie under
+ * them (the rows over the row labels' columns), their field its first, as Excel's menu starts (none when the axis holds
+ * Σ Values alone). A value field's name at the corner filters none. TODO(xlcalc): its next release gives Row Labels' and
+ * Column Labels' axis and draws no button at the corner (Excel shows none there); this is the one place to take them.
  */
 function buttonsOf(t: PivotTable, got: PivotCells): SheetPivotButton[] {
   const labels = t.location.areas?.rowLabels ? parseRange(t.location.areas.rowLabels) : null
+  const first = (axis: 'rows' | 'columns') => (axis === 'rows' ? t.rows : t.columns)?.find((f): f is number => f !== 'values')
   return got.buttons.flatMap((cell): SheetPivotButton[] => {
     const c = got.cells[cell]
-    if (c?.kind === 'field' && c.axis && typeof c.field === 'number') return [{ cell, axis: c.axis, field: c.field }]
     const at = parseCell(cell)
-    if (!at) return []
-    const rows = !!labels && at.col >= labels.left && at.col <= labels.right
-    return [{ cell, axis: rows ? 'rows' : 'columns' }]
+    if (!c || !at) return []
+    if (c.kind === 'field' && c.axis && typeof c.field === 'number') return [{ cell, axis: c.axis, field: c.field }]
+    const axis = c.axis ?? (labels && at.col >= labels.left && at.col <= labels.right ? 'rows' : 'columns')
+    const field = c.kind === 'blank' && axis !== 'pages' ? first(axis) : undefined
+    return [{ cell, axis, ...(field !== undefined ? { field } : {}) }]
   })
 }
 

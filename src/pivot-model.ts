@@ -2,7 +2,7 @@
 // field holds, the Design tab's commands and their checked items, filters by comparison, and dates as xlcalc's ISO text.
 import type { PivotDataField, PivotFieldPatch, PivotFilter, PivotFilterType, PivotFunction, PivotLayout, PivotTablePatch } from 'xlcalc/contract'
 import type { PivotCompare } from './contract/messages'
-import type { SheetPivotCell, SheetPivotCells, SheetPivotTable } from './contract/source'
+import type { PivotAxis, SheetPivotCell, SheetPivotCells, SheetPivotTable } from './contract/source'
 import type { PivotDesignChange } from './contract/view'
 
 /** A PivotTable the dialogs act on: its sheet and name, its definition and what its cells show. */
@@ -19,6 +19,16 @@ export const PIVOT_FUNCTIONS: readonly PivotFunction[] = ['sum', 'count', 'avera
 /** A field's name on the PivotTable: its own, or its cache field's. */
 /** A cell's cache field, none for Σ Values (`values`) or a cell of no field. */
 export const cellField = (c: SheetPivotCell | null | undefined): number | undefined => (typeof c?.field === 'number' ? c.field : undefined)
+/**
+ * The field a cell's menu and commands are about: the cell's own, or on Row Labels and Column Labels, which name no field
+ * (xlcalc's `blank`), the field of the filter button on it as the source chose it (`SheetPivotButton`); none for others.
+ */
+export function cellTarget(t: PivotTarget, cell: string, c: SheetPivotCell | null | undefined): { axis?: PivotAxis; field?: number } {
+  const own = cellField(c)
+  if (own !== undefined) return { ...(c?.axis ? { axis: c.axis } : {}), field: own }
+  const b = c?.kind === 'blank' ? t.cells.buttons.find((x) => x.cell === cell && x.field !== undefined) : undefined
+  return b ? { axis: b.axis, field: b.field } : {}
+}
 export const fieldName = (t: PivotTarget, field: number): string => t.def.table.fields[field]?.name ?? t.def.cache.fields[field]?.name ?? ''
 
 /** A value field's name as the PivotTable shows it. */

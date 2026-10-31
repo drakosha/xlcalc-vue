@@ -7,10 +7,10 @@ import { cellAddress } from 'xlcalc/a1'
 import { renamedValueField } from 'xlcalc/text'
 import type { Locale, NumberFormat, PivotDataField, PivotFunction, PivotGroupBy, PivotGrouping, PivotShowAs, PivotTablePatch } from 'xlcalc/contract'
 import type { PivotOptionsTab } from '../contract/messages'
-import type { EditOutcome, SheetOp, SheetPivotCell } from '../contract/source'
+import type { EditOutcome, PivotAxis, SheetOp, SheetPivotCell } from '../contract/source'
 import type { PivotDesignChange } from '../contract/view'
 import { loadEntry } from '../entry'
-import { axisFields, cellField, designPatch, grandOf, grandPatch, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
+import { axisFields, cellField, cellTarget, designPatch, grandOf, grandPatch, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
 import type { Commands } from './commands'
 import type { Pivots } from './pivots'
 import type { Protection } from './protection'
@@ -173,12 +173,14 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     return got && { t: got.t, parts: got.parts.filter((x): x is SheetPivotCell => !!x) }
   }
   /** The PivotTable under the active cell with that cell's part, read now. */
-  async function active(): Promise<{ t: PivotTarget; part: SheetPivotCell | null } | null> {
+  async function active(): Promise<{ t: PivotTarget; part: SheetPivotCell | null; at: { axis?: PivotAxis; field?: number } } | null> {
     const p = deps.pivots.active.value
     const a = s.selected.value
     if (!p || !a || !can.value) return null
-    const got = await target(s.sheetName.value, p.name, [cellAddress(a.row, a.col)])
-    return got && { t: got.t, part: got.parts[0] ?? null }
+    const cell = cellAddress(a.row, a.col)
+    const got = await target(s.sheetName.value, p.name, [cell])
+    const part = got?.parts[0] ?? null
+    return got && { t: got.t, part, at: cellTarget(got.t, cell, part) }
   }
 
   // ── sending ──
@@ -204,6 +206,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   function pickFunction(fn: PivotFunction): void {
     const d = state.value
     if (d?.kind !== 'value' || d.draft.fn === fn) return
+    // TODO(xlcalc): 0.73.1 takes the locale's tag alone (an object throws); its next release takes the Locale object `deps.locale()` gives, which the main entry needs as it registers no locale
     d.draft.name = renamedValueField(d.draft.name, d.draft.fn, fn, sourceName(d.t, d.index), s.locale.value)
     d.draft.fn = fn
   }
@@ -484,7 +487,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   /** Group Field: Grouping over the active cell's field. */
   async function groupField(): Promise<boolean> {
     const got = await active()
-    const field = cellField(got?.part)
+    const field = got?.at.field
     return got && field !== undefined ? openGroup(got.t, field) : false
   }
   /** Excel's Ungroup: the groups selected of a field grouped by hand, or the active cell's field of dates or numbers. */
@@ -575,8 +578,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     if (c === 'options') openOptions(got.t)
     else if (c === 'calculatedField') openCalcField(got.t)
     else {
-      const f = cellField(got.part)
-      return f !== undefined && got.part?.axis !== 'pages' ? openCalcItem(got.t, f) : false
+      const f = got.at.field
+      return f !== undefined && got.at.axis !== 'pages' ? openCalcItem(got.t, f) : false
     }
     return true
   }

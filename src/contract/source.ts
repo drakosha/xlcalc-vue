@@ -408,9 +408,9 @@ export interface SheetPivotCalculated {
 }
 
 /**
- * A filter button of a PivotTable: its cell, the axis it filters, and the field (by its index in the cache) of a field's
- * name; without `field` it stands for its axis (Row Labels, Column Labels, a value field's name at the corner beside the
- * row fields), whose menu starts at the axis's first field.
+ * A filter button of a PivotTable: its cell, the axis it filters, and the field (by its index in the cache) its menu is
+ * about: a field's name its own, Row Labels and Column Labels their axis's first field. Without `field` (Σ Values' name, a
+ * value field's name at the corner, an axis holding Σ Values alone) it opens no menu.
  */
 export interface SheetPivotButton {
   cell: string
