@@ -4,13 +4,14 @@
 // source's `pivotTable` and `pivotCells` for the cell menu, the filter buttons and the dialogs.
 import { computed, markRaw, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
-import type { NumberFormat, PivotDataField, PivotFunction, PivotGroupBy, PivotGrouping, PivotShowAs, PivotTablePatch } from 'xlcalc/contract'
+import type { Locale, NumberFormat, PivotDataField, PivotFunction, PivotGroupBy, PivotGrouping, PivotShowAs, PivotTablePatch } from 'xlcalc/contract'
 import type { PivotOptionsTab } from '../contract/messages'
 import type { EditOutcome, SheetOp, SheetPivotCell } from '../contract/source'
 import type { PivotDesignChange } from '../contract/view'
 import { loadEntry } from '../entry'
-import { axisFields, designPatch, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
+import { axisFields, designPatch, grandOf, grandPatch, renamedValueField, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
 import type { Commands } from './commands'
+import { valuesPatch } from './pivot-layout'
 import type { Pivots } from './pivots'
 import type { Protection } from './protection'
 import type { Selection } from './selection'
@@ -92,8 +93,8 @@ export interface CalcDraft {
 
 /** The open dialog over a PivotTable, with what it edits. */
 export type PivotDialogState =
-  | { kind: 'value'; t: PivotTarget; index: number; tab: 'summarize' | 'showAs'; draft: ValueDraft; start: ValueDraft; format: boolean }
-  | { kind: 'numberFormat'; t: PivotTarget; index: number; code: string }
+  | { kind: 'value'; t: PivotTarget; index: number; tab: 'summarize' | 'showAs'; draft: ValueDraft; format: boolean }
+  | { kind: 'numberFormat'; t: PivotTarget; index: number; format?: NumberFormat }
   | { kind: 'field'; t: PivotTarget; field: number; tab: 'subtotals' | 'layout'; draft: FieldDraft }
   | { kind: 'options'; t: PivotTarget; tab: PivotOptionsTab; draft: OptionsDraft; start: OptionsDraft }
   | { kind: 'group'; t: PivotTarget; field: number; draft: GroupDraft }
@@ -101,6 +102,8 @@ export type PivotDialogState =
   | { kind: 'calcItem'; t: PivotTarget; field: number; draft: CalcDraft }
 
 export interface PivotDialogsDeps {
+  /** The workbook's locale as xlcalc's text functions take it, an object once its module is loaded. */
+  locale: () => string | Locale
   pivots: Pivots
   protection: Protection
   sel: Selection
@@ -163,7 +166,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   async function picked(): Promise<{ t: PivotTarget; parts: SheetPivotCell[] } | null> {
     const p = deps.pivots.active.value
     const r = deps.sel.fullRect.value
-    if (!p || !r) return null
+    if (!p || !r || !can.value) return null
     const cells: string[] = []
     for (let row = r.top; row <= r.bottom && cells.length < MAX_PICKED; row++) for (let col = r.left; col <= r.right && cells.length < MAX_PICKED; col++) cells.push(cellAddress(row, col))
     const got = await target(s.sheetName.value, p.name, cells)
@@ -192,17 +195,32 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   function openValue(t: PivotTarget, index: number, tab: 'summarize' | 'showAs' = 'summarize'): boolean {
     const d = valueDraft(t, index)
     if (!d) return false
-    open({ kind: 'value', t, index, tab, draft: d, start: { ...d }, format: false })
+    open({ kind: 'value', t, index, tab, draft: d, format: false })
     return true
   }
-  /** OK: the value field as the dialog sets it; a name left as it was goes with a new function. */
+  /** The source field's name of a value field, which its default name goes by. */
+  const sourceName = (t: PivotTarget, index: number) => t.def.cache.fields[t.def.table.values?.[index]?.field ?? -1]?.name ?? ''
+  /** Another function picked in the list: Custom Name changes at once as Excel's does (`renamedValueField`). */
+  function pickFunction(fn: PivotFunction): void {
+    const d = state.value
+    if (d?.kind !== 'value' || d.draft.fn === fn) return
+    d.draft.name = renamedValueField(d.draft.name, d.draft.fn, fn, sourceName(d.t, d.index), s.locale.value)
+    d.draft.fn = fn
+  }
+  /** Another base field: its base item starts again at the list's first, (previous). */
+  function pickBaseField(field: number): void {
+    const d = state.value
+    if (d?.kind !== 'value') return
+    d.draft.baseField = field
+    d.draft.baseItem = 'previous'
+  }
+  /** OK: the value field as the dialog sets it, named as Custom Name holds it (xlcalc's name for an empty box). */
   async function applyValue(): Promise<void> {
     const d = state.value
     if (d?.kind !== 'value') return
     const v = d.t.def.table.values![d.index]!
     const x = d.draft
-    const renamed = x.name.trim() && (x.name !== d.start.name || x.fn === d.start.fn) ? x.name.trim() : undefined
-    const base = withFunction(v, x.fn, renamed)
+    const base = withFunction(v, x.fn, x.name.trim() || undefined)
     const { showAs: _s, baseField: _f, baseItem: _i, numberFormat: _n, ...rest } = base
     const next: PivotDataField = {
       ...rest,
@@ -217,7 +235,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   /** Summarize Values By and Show Values As from the cell menu: one value field changed at once. */
   async function setFunction(t: PivotTarget, index: number, fn: PivotFunction): Promise<void> {
     const v = t.def.table.values?.[index]
-    if (v && (v.function ?? 'sum') !== fn) await edit(t, withValue(t, index, withFunction(v, fn)))
+    const from = v?.function ?? 'sum'
+    if (v && from !== fn) await edit(t, withValue(t, index, withFunction(v, fn, renamedValueField(v.name ?? '', from, fn, sourceName(t, index), s.locale.value))))
   }
   async function setShowAs(t: PivotTarget, index: number, calc: PivotShowAs): Promise<void> {
     if (BASE_FIELD.has(calc)) {
@@ -235,21 +254,21 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   function openNumberFormat(t: PivotTarget, index: number): void {
     const d = state.value
     const v = t.def.table.values?.[index]
-    const code = d?.kind === 'value' ? d.draft.numberFormat : v?.numberFormat
     if (d?.kind === 'value') d.format = true
-    else open({ kind: 'numberFormat', t, index, code: code === undefined ? 'General' : String(code) })
+    else open({ kind: 'numberFormat', t, index, ...(v?.numberFormat !== undefined ? { format: v.numberFormat } : {}) })
   }
-  async function applyNumberFormat(code: string): Promise<void> {
+  /** OK of Number Format…: the format chosen or typed, a built-in one by its id; null when OK left the format as it was. */
+  async function applyNumberFormat(format: NumberFormat | null): Promise<void> {
     const d = state.value
     if (d?.kind === 'value') {
-      d.draft.numberFormat = code
+      if (format !== null) d.draft.numberFormat = format
       d.format = false
       return
     }
     if (d?.kind !== 'numberFormat') return
     const v = d.t.def.table.values?.[d.index]
     close()
-    if (v) await edit(d.t, withValue(d.t, d.index, { ...v, numberFormat: code }))
+    if (v && format !== null) await edit(d.t, withValue(d.t, d.index, { ...v, numberFormat: format }))
   }
 
   // ── Field Settings ──
@@ -322,8 +341,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
       empty: tb.empty?.text ?? '',
       autofitColumns: tb.autofitColumns !== false,
       preserveFormatting: tb.preserveFormatting !== false,
-      grandRows: tb.grandTotals?.rows !== false,
-      grandColumns: tb.grandTotals?.columns !== false,
+      grandRows: grandOf(t).rows,
+      grandColumns: grandOf(t).columns,
       subtotalHiddenItems: !!tb.subtotalHiddenItems,
       multipleFieldFilters: !!tb.multipleFieldFilters,
       customListSort: tb.customListSort !== false,
@@ -359,7 +378,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     if (x.emptyOn !== a.emptyOn || x.empty !== a.empty) set.empty = { show: x.emptyOn, ...(x.empty ? { text: x.empty } : {}) }
     flag('autofitColumns', (v) => (set.autofitColumns = v ? null : false))
     flag('preserveFormatting', (v) => (set.preserveFormatting = v ? null : false))
-    if (x.grandRows !== a.grandRows || x.grandColumns !== a.grandColumns) set.grandTotals = x.grandRows && x.grandColumns ? null : { rows: x.grandRows, columns: x.grandColumns }
+    if (x.grandRows !== a.grandRows || x.grandColumns !== a.grandColumns) set.grandTotals = grandPatch(x.grandRows, x.grandColumns)
     flag('subtotalHiddenItems', (v) => (set.subtotalHiddenItems = v || null))
     flag('multipleFieldFilters', (v) => (set.multipleFieldFilters = v || null))
     flag('customListSort', (v) => (set.customListSort = v ? null : false))
@@ -389,7 +408,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     const range = cf.group?.range ?? t.def.cache.fields.find((x) => x.group?.base === field && x.group.range)?.group?.range
     const facts = cf.facts
     const entry = await loadEntry()
-    const locale = s.locale.value
+    const locale = deps.locale()
     const dates = kind === 'dates'
     const text = (v: number | { date: string } | undefined, plusDay = false): string => {
       if (v === undefined) return ''
@@ -423,7 +442,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     if (d?.kind !== 'group') return
     const x = d.draft
     const entry = await loadEntry()
-    const locale = s.locale.value
+    const locale = deps.locale()
     const num = (text: string) => {
       const got = entry.parseEntry(text, { locale })
       return got.ok && typeof got.input?.value === 'number' ? got.input.value : null
@@ -434,8 +453,9 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     let group: PivotGrouping
     if (x.dates) {
       if (!x.periods.length) return
-      const days = x.periods.length === 1 && x.periods[0] === 'days' ? num(x.days) : null
-      if (days !== null && (days < 1 || !Number.isInteger(days))) return void (x.error = m().pivotBadNumber)
+      const daysOnly = x.periods.length === 1 && x.periods[0] === 'days'
+      const days = daysOnly ? num(x.days) : null
+      if (daysOnly && (days === null || days < 1 || !Number.isInteger(days))) return void (x.error = m().pivotBadNumber)
       group = { by: 'dates', periods: [...x.periods], ...(days && days > 1 ? { days } : {}), ...(start !== undefined ? { start: isoOfSerial(start) } : {}), ...(end !== undefined ? { end: isoOfSerial(end) } : {}) }
     } else {
       const by = num(x.by)
@@ -471,16 +491,13 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     const got = await picked()
     const part = got?.parts.find((x) => x.field !== undefined)
     if (!got || !part) return null
-    const cf = got.t.def.cache.fields[part.field!]
-    const g = cf?.group
-    const base = { op: 'ungroupPivotField' as const, sheet: got.t.sheet, pivot: got.t.pivot }
-    if (g?.discrete) {
-      const items = [...new Set(got.parts.filter((x) => x.field === part.field && x.item !== undefined).map((x) => x.item!))]
-      return send({ ...base, field: part.field!, ...(items.length ? { items } : {}) })
-    }
-    const field = groupedField(got.t, part.field!)
-    const grouped = got.t.def.cache.fields[field]?.group?.range || got.t.def.cache.fields.some((x) => x.group?.base === field)
-    return grouped ? send({ ...base, field }) : null
+    const field = ungroupedField(got.t, part.field!)
+    if (field === null) return null
+    const base = { op: 'ungroupPivotField' as const, sheet: got.t.sheet, pivot: got.t.pivot, field }
+    if (!got.t.def.cache.fields[field]?.group?.discrete) return send(base)
+    // the groups selected of a field grouped by hand, each item of theirs a group of its own again
+    const items = [...new Set(got.parts.filter((x) => x.field === field && x.item !== undefined).map((x) => x.item!))]
+    return send({ ...base, ...(items.length ? { items } : {}) })
   }
 
   // ── Calculated Field and Item ──
@@ -510,18 +527,20 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
       return null
     }
     const name = d.draft.name.trim()
-    const formula = d.draft.formula.trim().startsWith('=') ? d.draft.formula.trim() : `=${d.draft.formula.trim()}`
+    const formula = await canonical(d.draft.formula)
     const t = d.t
     if (closing) close()
     if (d.kind === 'calcItem') return kept(await send({ op: 'setPivotCalculatedItem', sheet: t.sheet, pivot: t.pivot, field: d.field, name, formula }))
     const known = calcNames(t).some((x) => x.toLowerCase() === name.toLowerCase())
     const out = await send({ op: 'setPivotCalculatedField', sheet: t.sheet, pivot: t.pivot, name, formula })
     if (!out?.ok || known) return kept(out)
-    // Excel's OK puts a new calculated field on Values: xlcalc's operation does not, so the PivotTable is edited after it
+    // Excel's OK puts a new calculated field on Values after the others, with Sum, Σ Values on Columns from the second
+    // (Excel for Windows 16.0, measured): xlcalc's operation does not, so the PivotTable is edited after it
     const again = await target(t.sheet, t.pivot)
     const index = again?.t.def.cache.fields.findIndex((f) => f.name.toLowerCase() === name.toLowerCase()) ?? -1
     if (!again || index < 0) return out
-    return kept(await edit(again.t, { values: [...(again.t.def.table.values ?? []), { field: index }] }))
+    const set = valuesPatch(again.t.def.table, [...(again.t.def.table.values ?? []), { field: index }])
+    return kept(set ? await edit(again.t, set) : out)
   }
   /** After Add or Modify the dialog stays open over the PivotTable read again, its names and formulas listed anew. */
   async function kept(out: EditOutcome | null): Promise<EditOutcome | null> {
@@ -532,6 +551,18 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     }
     return out
   }
+  /**
+   * A formula typed in the workbook's locale as xlcalc's operations take it (`=Amount*0,5` in ru-RU as `=Amount*0.5`), read
+   * by xlcalc's entry parsing; as typed in an en-US workbook, or where the parsing refuses it (a field's name in quotes), for
+   * xlcalc to answer.
+   */
+  async function canonical(text: string): Promise<string> {
+    const typed = text.trim().startsWith('=') ? text.trim() : `=${text.trim()}`
+    if (s.locale.value.toLowerCase().startsWith('en')) return typed
+    const got = (await loadEntry()).parseEntry(typed, { locale: deps.locale() })
+    return got.ok && got.input?.formula !== undefined ? `=${got.input.formula}` : typed
+  }
+
   /** Delete: the calculated field or item named in the box. */
   async function deleteCalc(): Promise<EditOutcome | null> {
     const d = state.value
@@ -562,6 +593,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
 
   return {
     can,
+    locale: deps.locale,
     state,
     close,
     views,
@@ -571,6 +603,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     edit,
     send,
     openValue,
+    pickFunction,
+    pickBaseField,
     applyValue,
     setFunction,
     setShowAs,

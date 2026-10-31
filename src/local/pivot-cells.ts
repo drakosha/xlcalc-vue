@@ -1,9 +1,10 @@
 // What a PivotTable's cells show, from the layout xlcalc saved with it (`PivotLocation`, `rowLines`, `columnLines`): the
 // labels of its fields' items, the cells with Excel's filter buttons, and what a cell is (an item, a total, a value, a
-// header), for the sheet's cell menu, filter buttons and dialogs. TODO(xlcalc): the library is to tell what a cell is itself.
-import { dateToSerial, displayValue, type BookLayout, type CellValue, type PivotAxisField, type PivotCacheField, type PivotLine, type PivotTable, type PivotValue } from 'xlcalc'
+// header), for the sheet's cell menu, filter buttons and dialogs. TODO(xlcalc): xlcalc 0.72's pivotCellAt and pivotCells in
+// xlcalc/text are to take the place of `cellOf` and `buttonsOf`, the one place this is worked out here.
+import { builtinFormatCode, dateToSerial, displayValue, toLocal, type BookLayout, type CellValue, type PivotAxisField, type PivotCacheField, type PivotLine, type PivotTable, type PivotValue } from 'xlcalc'
 import { cellAddress, parseCell, sameName } from 'xlcalc/a1'
-import type { PivotAxis, SheetPivotButton, SheetPivotCell, SheetPivotCells } from '../contract/source'
+import type { PivotAxis, SheetPivotButton, SheetPivotCalculated, SheetPivotCell, SheetPivotCells } from '../contract/source'
 
 /** Excel's short date (built-in format 14), in which a PivotTable shows a date without a format of its own. */
 const SHORT_DATE = 14
@@ -88,13 +89,25 @@ function cellOf(t: PivotTable, row: number, col: number): SheetPivotCell | null 
   const columnLines = t.columnLines ?? []
   const cols = rowColumns(t)
   if (r >= dataRow && c < dataCol) {
-    // the row labels: the deepest field of the line in this column, or one before it whose label stands repeated
     const line = rowLines[r - dataRow]
     if (!line) return null
+    // no row field: the value fields' names left of their values
+    if (!rows.length) return t.values?.length ? { kind: 'valueHeader', value: line.value ?? 0 } : { kind: 'blank' }
     const items = lineItems(rowLines)[r - dataRow]!
-    if (line.type) return labelOf(rows, line, items, (line.repeat ?? 0) + line.items.length - 1, 'rows')
-    const here = cols.flatMap((cc, p) => (cc === c && p < items.length ? [p] : []))
-    return here.length ? labelOf(rows, line, items, here.at(-1)!, 'rows') : { kind: 'blank' }
+    const start = line.repeat ?? 0
+    const last = start + line.items.length - 1
+    // a total's label stands in its field's column (the grand total's in the first), the cells beside it blank
+    if (line.type === 'grand') return c === 0 ? labelOf(rows, line, items, 0, 'rows') : { kind: 'blank' }
+    if (line.type) return cols[last] === c ? labelOf(rows, line, items, last, 'rows') : { kind: 'blank' }
+    // the deepest field of the line in this column; before the line's own fields, a label repeated (Repeat Item Labels)
+    const here = cols.flatMap((cc, p) => (cc === c && p >= start && p < items.length ? [p] : []))
+    if (here.length) return labelOf(rows, line, items, here.at(-1)!, 'rows')
+    const repeated = cols.flatMap((cc, p) => {
+      const f = rows[p]
+      const repeats = f !== 'values' && f !== undefined && (t.fields[f]?.repeatLabels ?? t.repeatLabels) && layoutOf(t, f) !== 'compact'
+      return cc === c && p < start && repeats ? [p] : []
+    })
+    return repeated.length ? labelOf(rows, line, items, repeated.at(-1)!, 'rows') : { kind: 'blank' }
   }
   if (r >= dataRow) {
     // a value: its value field from the line of the axis the value fields lie across
@@ -123,12 +136,11 @@ function cellOf(t: PivotTable, row: number, col: number): SheetPivotCell | null 
   }
   if (r === dataRow - 1 && c < dataCol) {
     // Row Labels in compact form, the row fields' names in the others
-    const p = cols.indexOf(c)
-    const f = rows[p]
+    const f = rows.find((x, p) => cols[p] === c && x !== 'values')
     return f === undefined || f === 'values' ? { kind: 'blank' } : { kind: 'header', axis: 'rows', field: f }
   }
   // the top left: one value field's name
-  return r === 0 && c === 0 && t.values?.length === 1 && columns.length ? { kind: 'valueHeader', value: 0 } : { kind: 'blank' }
+  return r === 0 && c === 0 && t.values?.length === 1 && columns.length && rows.length ? { kind: 'valueHeader', value: 0 } : { kind: 'blank' }
 }
 
 function rectOf(t: PivotTable) {
@@ -169,6 +181,23 @@ function buttonsOf(t: PivotTable): SheetPivotButton[] {
   return out
 }
 
+/** A formula of the cache as Excel's dialog shows it: in the workbook's locale, with `=`; as stored where it does not translate. */
+function shown(formula: string, locale: string): string {
+  const got = toLocal(formula, locale)
+  return `=${got.ok ? got.formula : formula}`
+}
+/** The cache's calculated fields and items; an item's formula without its field's name before each item (`Region[East]` as `East`). */
+function calculatedOf(cache: { fields: PivotCacheField[]; calculatedItems?: { field: number; item: number; formula: string }[] }, locale: string): SheetPivotCalculated[] {
+  const out: SheetPivotCalculated[] = []
+  cache.fields.forEach((f, field) => f.formula !== undefined && out.push({ field, name: f.name, formula: shown(f.formula, locale) }))
+  for (const c of cache.calculatedItems ?? []) {
+    const name = cache.fields[c.field]?.name ?? ''
+    const plain = c.formula.split(`${name}[`).join('').replace(/\]/g, '')
+    out.push({ field: c.field, item: c.item, name: String(cache.fields[c.field]?.items?.[c.item] ?? ''), formula: shown(plain, locale) })
+  }
+  return out
+}
+
 /** `SheetSource.pivotCells` over the session's layout; null when the sheet has no PivotTable `name`. */
 export function pivotCellsOf(layout: BookLayout, sheet: string, name: string, cells: string[] | undefined, locale: string): SheetPivotCells | null {
   const t = layout.sheets.find((x) => sameName(x.name, sheet))?.pivotTables?.find((p) => sameName(p.name, name))
@@ -180,5 +209,6 @@ export function pivotCellsOf(layout: BookLayout, sheet: string, name: string, ce
     const a = parseCell(cell)
     return a ? cellOf(t, a.row, a.col) : null
   }
-  return { labels, buttons: buttonsOf(t), ...(cells ? { cells: cells.map(at) } : {}) }
+  const formats = (t.values ?? []).map((v) => (v.numberFormat === undefined ? null : typeof v.numberFormat === 'string' ? v.numberFormat : (builtinFormatCode(v.numberFormat, locale) ?? null)))
+  return { labels, formats, calculated: calculatedOf(cache, locale), buttons: buttonsOf(t), ...(cells ? { cells: cells.map(at) } : {}) }
 }

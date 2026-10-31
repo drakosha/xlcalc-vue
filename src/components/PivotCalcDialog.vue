@@ -16,14 +16,12 @@ const d = computed(() => (dialogs.state.value?.kind === 'calcField' || dialogs.s
 const listId = `${useId()}-names`
 const formulaBox = ref<HTMLInputElement | null>(null)
 
-/** The calculated fields of the cache, or the calculated items of the field, with their formulas as Excel's box shows them. */
+/** The calculated fields of the cache, or the calculated items of the field, with their formulas as Excel's box shows them (the source's). */
 const known = computed(() => {
   const x = d.value
   if (!x) return []
-  const cache = x.t.def.cache
-  if (x.kind === 'calcField') return cache.fields.flatMap((f) => (f.formula !== undefined ? [{ name: f.name, formula: `=${f.formula}` }] : []))
-  const values = cache.fields[x.field]?.items ?? []
-  return (cache.calculatedItems ?? []).filter((c) => c.field === x.field).map((c) => ({ name: String(values[c.item] ?? ''), formula: `=${c.formula.replace(new RegExp(`${fieldName(x.t, x.field)}\\[([^\\]]*)\\]`, 'g'), '$1')}` }))
+  const isItem = x.kind === 'calcItem'
+  return x.t.cells.calculated.filter((c) => (isItem ? c.item !== undefined && c.field === x.field : c.item === undefined))
 })
 const existing = computed(() => known.value.find((k) => k.name.toLowerCase() === d.value?.draft.name.trim().toLowerCase()))
 // a name of the list picked shows its formula, as Excel's Name box does

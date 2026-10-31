@@ -96,7 +96,9 @@ describe('Value Field Settings and Field Settings', () => {
 })
 
 describe('PivotTable Options and the Design commands', () => {
-  it('Options: a text for empty cells and the grand totals off in one step, then the new name', async () => {
+  // Excel's RowGrand ("Show grand totals for rows") is xlsx colGrandTotals, the column at the right: xlcalc's grandTotals.columns, as
+  // its docs/development.md (PivotTables, the case no-row-grand) records Excel for Windows writing it
+  it('Options: a text for empty cells and the grand totals for rows off in one step, then the new name', async () => {
     const { w, s } = await sales({ rows: [0], columns: [1], values: [{ field: 3 }] })
     expect(await api(w).pivotCommand('options')).toBe(true)
     await settle()
@@ -104,24 +106,60 @@ describe('PivotTable Options and the Design commands', () => {
     await set('[data-po="empty"]', 'none')
     q<HTMLButtonElement>('[data-po-tab="totals"]')!.click()
     await set('[data-po="grandRows"]', false)
-    await set('[data-po="grandColumns"]', false)
     await ok()
     await until(() => lastState(w)?.pivot === 'Sales')
     expect(cellText(w, 5, 3)).toBe('none')
+    // the grand total column at the right goes, the grand total row stays
     expect(cellText(w, 4, 4)).toBe('')
-    expect(cellText(w, 8, 1)).toBe('')
-    expect((await s.pivotTable('R', 'Sales'))?.table).toMatchObject({ empty: { show: true, text: 'none' }, grandTotals: { rows: false, columns: false } })
+    expect(cellText(w, 8, 1)).toBe('Grand Total')
+    expect((await s.pivotTable('R', 'Sales'))?.table).toMatchObject({ empty: { show: true, text: 'none' }, grandTotals: { rows: true, columns: false } })
+    expect(await api(w).pivotCommand('options')).toBe(true)
+    await settle()
+    q<HTMLButtonElement>('[data-po-tab="totals"]')!.click()
+    expect(q<HTMLInputElement>('[data-po="grandRows"]')!.checked).toBe(false)
+    expect(q<HTMLInputElement>('[data-po="grandColumns"]')!.checked).toBe(true)
   })
 
   it('Design: Report Layout, Grand Totals, Subtotals and Blank Rows, and the toolbar shows them while the active cell is in a PivotTable', async () => {
     const { w, s } = await sales({ rows: [0, 1], values: [{ field: 3 }] })
     expect(await api(w).pivotDesign({ layout: 'tabular' })).toMatchObject({ ok: true })
     await until(() => cellText(w, 3, 2) === 'Kind')
-    expect(await api(w).pivotDesign({ grandTotals: 'columns' })).toMatchObject({ ok: true })
     expect(await api(w).pivotDesign({ subtotals: 'none' })).toMatchObject({ ok: true })
     expect(await api(w).pivotDesign({ blankLine: true })).toMatchObject({ ok: true })
     const t = (await s.pivotTable('R', 'PivotTable1'))!.table
-    expect(t).toMatchObject({ layout: 'tabular', grandTotals: { rows: false, columns: true } })
+    expect(t).toMatchObject({ layout: 'tabular' })
     expect(t.fields[0]).toMatchObject({ subtotals: [], blankLine: true })
+  })
+
+  it("Design's On for Rows Only keeps the grand total column at the right and takes away the grand total row", async () => {
+    const { w, s } = await sales({ rows: [0], columns: [1], values: [{ field: 3 }] })
+    expect(await api(w).pivotDesign({ grandTotals: 'rows' })).toMatchObject({ ok: true })
+    await until(() => cellText(w, 8, 1) === '')
+    expect(cellText(w, 4, 4)).toBe('Grand Total')
+    expect((await s.pivotTable('R', 'PivotTable1'))?.table.grandTotals).toEqual({ rows: false, columns: true })
+  })
+})
+
+describe('Number Format of a value field', () => {
+  it("keeps a built-in format's id when OK leaves it as it was, and sends the format picked", async () => {
+    const { w, s } = await sales({ rows: [0], values: [{ field: 3, numberFormat: 4 }] })
+    await until(() => cellText(w, 5, 2) === '15.00')
+    await menuAt(w, '4:2')
+    await choose('pivotNumberFormat')
+    expect(q<HTMLInputElement>('[data-pnf-code]')!.value).toBe('#,##0.00')
+    await ok()
+    await settle()
+    expect((await s.pivotTable('R', 'PivotTable1'))?.table.values?.[0]?.numberFormat).toBe(4)
+    await api(w).pivotDialog({ dialog: 'valueFieldSettings', sheet: 'R', pivot: 'PivotTable1', field: 3, value: 0 })
+    await until(() => !!q('[data-pivot-value]'))
+    await ok()
+    await settle()
+    expect((await s.pivotTable('R', 'PivotTable1'))?.table.values?.[0]?.numberFormat).toBe(4)
+    expect(cellText(w, 5, 2)).toBe('15.00')
+    await menuAt(w, '4:2')
+    await choose('pivotNumberFormat')
+    await set('[data-pnf-code]', '0.0')
+    await ok()
+    await until(() => cellText(w, 5, 2) === '15.0')
   })
 })

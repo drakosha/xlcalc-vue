@@ -18,7 +18,7 @@ const sizeOf = computed(() => (v.touch.value ? 24 : 16))
 /** Whether the button's field, or in compact form any field of its axis, has a filter. */
 const on = (t: PivotTarget, b: SheetPivotButton) => (b.axis === 'pages' || t.cells.buttons.filter((y) => y.axis === b.axis).length > 1 ? [b.field] : axisFields(t, b.axis)).some((x) => filtered(t, x))
 const buttons = computed(() => {
-  if (!ctx.editable.value) return []
+  if (!ctx.pivotDialogs.can.value) return []
   const out: { key: string; t: PivotTarget; b: SheetPivotButton; style: Record<string, string>; on: boolean }[] = []
   for (const t of ctx.pivotDialogs.views.value) {
     for (const b of t.cells.buttons) {

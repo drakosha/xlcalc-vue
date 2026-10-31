@@ -1,8 +1,10 @@
 // The cell menu of a PivotTable's cell, as Excel for Windows lists it after Refresh: Number Format… on a value, Sort,
 // Filter, Subtotal "Region", Group…, Ungroup…, Remove, Summarize Values By and Show Values As, Value Field Settings…,
 // Field Settings… and PivotTable Options…; and the PivotTable Fields pane's requests for a field's dialogs and menu.
+import { cellAddress } from 'xlcalc/a1'
 import type { PivotDialogRequest } from '../contract/view'
-import { axisFields, fieldKind, fieldName, filtered, PIVOT_FUNCTIONS, valueName, withHidden } from '../pivot-model'
+import { axisFields, fieldKind, fieldName, filtered, PIVOT_FUNCTIONS, ungroupedField, valueName, withHidden } from '../pivot-model'
+import { valuesPatch } from './pivot-layout'
 import type { MenuItem } from './menu'
 import { SHOW_AS, type PivotDialogs } from './pivot-dialogs'
 import type { PivotFilterMenus } from './pivot-filter'
@@ -17,7 +19,9 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
   /** The menu's items over the cell under the active cell, before and after Refresh; none while it is read or without the commands. */
   function items(refresh: MenuItem[]): MenuItem[] {
     const here = dialogs.here.value
-    if (!here || !dialogs.can.value) return refresh
+    const a = s.selected.value
+    // the part read for another cell (the menu opened before the active cell's was read) offers nothing yet
+    if (!here || !a || here.cell !== cellAddress(a.row, a.col) || !dialogs.can.value) return refresh
     const { t, part } = here
     const x = m()
     const out: MenuItem[] = []
@@ -56,18 +60,15 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
       })
       const subs = t.def.table.fields[field]?.subtotals
       out.push({ id: 'pivotSubtotal', label: x.pivotMenuSubtotal(fieldName(t, field)), checked: subs?.length !== 0, run: () => void dialogs.edit(t, { fields: [{ field, subtotals: subs?.length === 0 ? null : [] }] }), group: true })
-      const kind = fieldKind(t, field)
       out.push({ id: 'pivotGroup', label: x.pivotMenuGroup, run: () => void dialogs.group(), group: true })
-      const g = t.def.cache.fields[field]?.group
-      const grouped = !!g || t.def.cache.fields.some((f) => f.group?.base === field)
-      out.push({ id: 'pivotUngroup', label: x.pivotMenuUngroup, disabled: !grouped && kind === 'text', run: () => void dialogs.ungroup() })
+      out.push({ id: 'pivotUngroup', label: x.pivotMenuUngroup, disabled: ungroupedField(t, field) === null, run: () => void dialogs.ungroup() })
     }
     if (field !== undefined && part.axis) {
       out.push({ id: 'pivotRemove', label: x.pivotMenuRemove(fieldName(t, field)), run: () => void remove(field), group: true })
     }
     if (isValue) {
       const v = t.def.table.values![value]!
-      out.push({ id: 'pivotRemoveValue', label: x.pivotMenuRemove(valueName(t, value)), run: () => void dialogs.edit(t, { values: t.def.table.values!.filter((_, i) => i !== value) }), group: true })
+      out.push({ id: 'pivotRemoveValue', label: x.pivotMenuRemove(valueName(t, value)), run: () => void removeValue(value), group: true })
       out.push({
         id: 'pivotSummarize',
         label: x.pivotMenuSummarize,
@@ -93,6 +94,13 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
     }
     out.push({ id: 'pivotOptions', label: x.pivotMenuOptions, run: () => dialogs.openOptions(t), group: !isValue && !(field !== undefined && part.axis) })
     return out
+  }
+
+  /** Remove "Sum of Amount": the value field gone, Σ Values kept on its axis as Excel keeps it. */
+  async function removeValue(index: number): Promise<void> {
+    const here = dialogs.here.value
+    const set = here && valuesPatch(here.t.def.table, (here.t.def.table.values ?? []).filter((_, i) => i !== index))
+    if (here && set) await dialogs.edit(here.t, set)
   }
 
   /** Remove "Region": the field off its axis, as Excel's item does. */
@@ -132,8 +140,8 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
     filter.openMenu(t, axis, r.field, r.at ? { left: r.at.left, top: r.at.top + r.at.height } : AT_GRID)
     return true
   }
-  /** Whether the sheet opens a request itself; one it does not know goes on to the host. */
-  const handles = (r: PivotDialogRequest) => r.dialog === 'fieldSettings' || r.dialog === 'valueFieldSettings' || r.dialog === 'fieldFilter'
+  /** Whether the sheet opens a request itself (a kind it knows, with the source's `pivotCells` and `structure`); any other goes on to the host. */
+  const handles = (r: PivotDialogRequest) => (r.dialog === 'fieldSettings' || r.dialog === 'valueFieldSettings' || r.dialog === 'fieldFilter') && !!s.sourceMethod('pivotCells') && !!s.sourceMethod('structure')
 
   return { items, request, handles }
 }

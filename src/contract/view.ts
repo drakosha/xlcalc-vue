@@ -362,8 +362,8 @@ export interface SheetViewApi {
   fieldList(show?: boolean): boolean
   /**
    * Opens a dialog over a field of a PivotTable, as the PivotTable Fields pane asks for it: Field Settings, Value Field
-   * Settings, or the field's sort and filter menu at `at`; a request of another kind goes to the host as the `pivotDialog`
-   * event. false while the sheet is read-only.
+   * Settings, or the field's sort and filter menu at `at`; a request of another kind, or one the sheet cannot open (a source
+   * without `pivotCells` or `structure`), goes to the host as the `pivotDialog` event. false while the sheet is read-only.
    */
   pivotDialog(request: PivotDialogRequest): boolean
   /**

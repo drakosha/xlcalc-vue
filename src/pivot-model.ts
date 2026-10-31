@@ -46,9 +46,22 @@ export function groupedField(t: PivotTarget, field: number): number {
   return g?.base !== undefined && g.range ? g.base : field
 }
 
-/** Whether a field has filters or hidden items, for Clear Filter From. */
+/**
+ * The field Ungroup takes away for an item of `field`, as xlcalc ungroups: a field grouped by hand (a group field), a field of
+ * numbers grouped in place, or a date's period field standing for its date field; null for any other, a field grouped by
+ * hand's base among them, where Excel does not offer Ungroup.
+ */
+export function ungroupedField(t: PivotTarget, field: number): number | null {
+  const g = t.def.cache.fields[field]?.group
+  if (g?.discrete) return field
+  if (g?.range) return g.base ?? field
+  return null
+}
+
+/** Whether a field has filters or hidden items, or a Filters area's field one item chosen, for its funnel and Clear Filter From. */
 export function filtered(t: PivotTarget, field: number): boolean {
-  return !!t.def.table.filters?.some((x) => x.field === field) || !!t.def.table.fields[field]?.items?.some((x) => x.hidden)
+  const tb = t.def.table
+  return !!tb.filters?.some((x) => x.field === field) || !!tb.fields[field]?.items?.some((x) => x.hidden) || !!tb.pages?.some((p) => p.field === field && p.item !== undefined)
 }
 
 /** The PivotTable field's items without what hides them: every item shown. */
@@ -144,14 +157,27 @@ export function withHidden(t: PivotTarget, field: number, hidden: boolean[]): Pi
   return { fields: [{ field, items }], ...(left.length !== (t.def.table.filters?.length ?? 0) ? { filters: left.length ? left : null } : {}) }
 }
 
+// ── grand totals ──
+/**
+ * Excel's Show grand totals for rows and for columns (RowGrand, ColumnGrand), as xlcalc holds them: RowGrand is xlsx
+ * `colGrandTotals`, the grand total column at the right, xlcalc's `grandTotals.columns`, and ColumnGrand the grand total row
+ * at the bottom, `grandTotals.rows` (xlcalc's docs/development.md, PivotTables: the case `no-row-grand`, where Excel for
+ * Windows' RowGrand false wrote `colGrandTotals="0"` and the column at the right went).
+ */
+export function grandOf(t: PivotTarget): { rows: boolean; columns: boolean } {
+  const g = t.def.table.grandTotals
+  return { rows: g?.columns !== false, columns: g?.rows !== false }
+}
+/** The patch of Excel's two boxes, null for both on (xlcalc's default). */
+export const grandPatch = (rows: boolean, columns: boolean): PivotTablePatch['grandTotals'] => (rows && columns ? null : { rows: columns, columns: rows })
+
 // ── Design tab ──
 /** What the Design tab's lists show checked: the subtotals of every field on the rows and columns, the grand totals, the form. */
 export function designOf(t: PivotTarget) {
   const tb = t.def.table
   const fields = [...axisFields(t, 'rows'), ...axisFields(t, 'columns')].map((f) => tb.fields[f] ?? {})
   const subtotals = fields.length && fields.every((f) => f.subtotals?.length === 0) ? 'none' : fields.length && fields.every((f) => f.subtotalTop === false) ? 'bottom' : 'top'
-  const rows = tb.grandTotals?.rows !== false
-  const columns = tb.grandTotals?.columns !== false
+  const { rows, columns } = grandOf(t)
   const grandTotals = rows && columns ? 'on' : rows ? 'rows' : columns ? 'columns' : 'off'
   return { subtotals, grandTotals, layout: tb.layout ?? 'compact', repeatLabels: !!tb.repeatLabels, blankLine: axisFields(t, 'rows').some((f) => tb.fields[f]?.blankLine) } as const
 }
@@ -166,7 +192,7 @@ export function designPatch(t: PivotTarget, change: PivotDesignChange): PivotTab
   }
   if ('grandTotals' in change) {
     const g = change.grandTotals
-    return { grandTotals: g === 'on' ? null : { rows: g === 'rows', columns: g === 'columns' } }
+    return { grandTotals: grandPatch(g === 'on' || g === 'rows', g === 'on' || g === 'columns') }
   }
   if ('layout' in change) return { layout: change.layout === 'compact' ? null : (change.layout as PivotLayout), fields: t.def.table.fields.map((_, field) => ({ field, layout: null })) }
   if ('repeatLabels' in change) return { repeatLabels: change.repeatLabels || null, fields: t.def.table.fields.map((_, field) => ({ field, repeatLabels: null })) }
@@ -177,10 +203,36 @@ export function designPatch(t: PivotTarget, change: PivotDesignChange): PivotTab
 /** The value fields with the one at `index` replaced. */
 export const withValue = (t: PivotTarget, index: number, next: PivotDataField): PivotTablePatch => ({ values: (t.def.table.values ?? []).map((v, i) => (i === index ? next : v)) })
 
+/** The words of a value field's name by its function, as xlcalc names a new value field (its pivot words, en-US and ru-RU). */
+const EN_WORDS: Record<PivotFunction, string> = { sum: 'Sum', count: 'Count', average: 'Average', max: 'Max', min: 'Min', product: 'Product', countNums: 'Count', stdDev: 'StdDev', stdDevp: 'StdDevp', var: 'Var', varp: 'Varp' }
+const RU_WORDS: Record<PivotFunction, string> = {
+  sum: 'Сумма',
+  count: 'Количество',
+  average: 'Среднее',
+  max: 'Максимум',
+  min: 'Минимум',
+  product: 'Произведение',
+  countNums: 'Количество чисел',
+  stdDev: 'Стандартное отклонение',
+  stdDevp: 'Стандартное отклонение (несмещённое)',
+  var: 'Дисперсия',
+  varp: 'Дисперсия (несмещённая)',
+}
+/** A value field name's prefix by its function: `Sum of `, `Сумма по полю `. */
+const prefixOf = (fn: PivotFunction, locale: string) => (locale === 'ru-RU' ? `${RU_WORDS[fn]} по полю ` : `${EN_WORDS[fn]} of `)
+
 /**
- * A value field summarized by another function: its name goes with the function, xlcalc naming it as Excel does, unless
- * `name` is given. TODO(xlcalc): the library does not tell whether a name is its own default, which Excel keeps custom.
+ * The name Value Field Settings' Custom Name takes when another function is picked, as Excel for Windows 16.0 does (measured
+ * in en-US and ru-RU): a name beginning with the old function's prefix, in any case, gets the new prefix in Excel's case
+ * and keeps the rest as typed; any other name becomes the new function's name of the source field (`Count of Qty`).
+ * TODO(xlcalc): its engine-free valueFieldName in xlcalc/text is to take the place of these words.
  */
+export function renamedValueField(name: string, from: PivotFunction, to: PivotFunction, source: string, locale: string): string {
+  const old = prefixOf(from, locale)
+  return name.slice(0, old.length).toLowerCase() === old.toLowerCase() ? prefixOf(to, locale) + name.slice(old.length) : prefixOf(to, locale) + source
+}
+
+/** A value field summarized by another function, with the name given; xlcalc names it as Excel does without one. */
 export function withFunction(v: PivotDataField, fn: PivotFunction, name?: string): PivotDataField {
   const { name: _old, function: _fn, ...rest } = v
   return { ...rest, ...(fn !== 'sum' ? { function: fn } : {}), ...(name ? { name } : {}) }

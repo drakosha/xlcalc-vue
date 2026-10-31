@@ -198,8 +198,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   })
   const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
   // the PivotTable Fields pane's requests for a field's dialogs open the sheet's; others go on to the host
-  const pivots = usePivots(s, cmd, protection, { dialog: (request) => (pivotMenu.handles(request) ? void pivotMenu.request(request) : emit('pivotDialog', request)), ask: alerts.ask })
-  const pivotDialogs = usePivotDialogs(s, cmd, { pivots, protection, sel })
+  const pivots = usePivots(s, cmd, protection, { dialog: (request) => (pivotMenu.handles(request) ? void pivotMenu.request(request).then((done) => done || emit('pivotDialog', request)) : emit('pivotDialog', request)), ask: alerts.ask })
+  const pivotDialogs = usePivotDialogs(s, cmd, { pivots, protection, sel, locale: () => f.scanOptions()?.locale ?? s.locale.value })
   const pivotFilter = usePivotFilter(s, pivotDialogs)
   const pivotMenu = usePivotMenu(s, pivotDialogs, pivotFilter)
   const slicers = useSlicers(s, cmd, pivots, {

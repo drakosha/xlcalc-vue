@@ -3,6 +3,7 @@
 // Values As (its 15 calculations with their base field and base item), and Number Format (Format Cells' Number tab); OK
 // sends the value field as one `editPivotTable`.
 import { computed } from 'vue'
+import type { PivotFunction } from 'xlcalc/contract'
 import { fieldName, PIVOT_FUNCTIONS } from '../pivot-model'
 import { BASE_FIELD, BASE_ITEM, SHOW_AS } from '../core/pivot-dialogs'
 import { useSheetContext } from './context'
@@ -45,7 +46,7 @@ const baseItem = computed({
       <fieldset v-show="d.tab === 'summarize'" class="xs-fmt-box">
         <legend>{{ m.pivotSummarizeBy }}</legend>
         <p class="xs-pv-hint">{{ m.pivotSummarizeHint }}</p>
-        <select v-model="d.draft.fn" class="xs-field xs-pv-list" :size="PIVOT_FUNCTIONS.length" :aria-label="m.pivotSummarizeBy" data-pv-function>
+        <select :value="d.draft.fn" class="xs-field xs-pv-list" :size="PIVOT_FUNCTIONS.length" :aria-label="m.pivotSummarizeBy" data-pv-function @change="dialogs.pickFunction(($event.target as HTMLSelectElement).value as PivotFunction)">
           <option v-for="fn in PIVOT_FUNCTIONS" :key="fn" :value="fn">{{ m.pivotFunction(fn) }}</option>
         </select>
       </fieldset>
@@ -59,7 +60,7 @@ const baseItem = computed({
         <div class="xs-pv-bases">
           <label class="xs-fmt-field">
             <span>{{ m.pivotBaseField }}</span>
-            <select v-model.number="d.draft.baseField" class="xs-field xs-pv-list" size="8" :disabled="!BASE_FIELD.has(d.draft.showAs)" data-pv-base-field>
+            <select :value="d.draft.baseField" class="xs-field xs-pv-list" size="8" :disabled="!BASE_FIELD.has(d.draft.showAs)" data-pv-base-field @change="dialogs.pickBaseField(Number(($event.target as HTMLSelectElement).value))">
               <option v-for="b in bases" :key="b.i" :value="b.i">{{ b.name }}</option>
             </select>
           </label>

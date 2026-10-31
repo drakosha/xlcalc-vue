@@ -3,7 +3,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, expect } from 'vitest'
 import type { PivotTablePatch } from 'xlcalc'
-import type { SheetViewApi, SheetViewState } from '../src'
+import type { SheetSource, SheetViewApi, SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
 import { goTo, mountSheet, settle, until } from './helpers'
 import { addSales, salesBook } from './pivot-fixture'
@@ -15,14 +15,23 @@ afterEach(async () => {
   sources = []
 })
 
-/** The sheet over R with PivotTable1 laid out at A3 by `definition`, the active cell at `at`. */
-export async function sales(definition: PivotTablePatch, at = 'R!B4', locale?: string): Promise<{ w: VueWrapper; s: LocalSource }> {
+/**
+ * The sheet over R with PivotTable1 laid out at A3 by `definition`, the active cell at `at`: in `locale` (the sheet's too),
+ * with the sheet's `props`, its source as `wrap` gives it; it waits for the PivotTable's commands unless `editable` is false.
+ */
+export async function sales(
+  definition: PivotTablePatch,
+  at = 'R!B4',
+  locale?: string,
+  opts: { props?: Record<string, unknown>; wrap?: (s: LocalSource) => SheetSource; editable?: boolean } = {},
+): Promise<{ w: VueWrapper; s: LocalSource }> {
   const s = localSource(salesBook(locale), { calc: 'inline' })
   sources.push(s)
   expect(await s.structure(addSales(definition))).toMatchObject({ ok: true })
-  const w = await mountSheet(s, { style: 'height: 500px', pivotFields: false })
+  const w = await mountSheet(opts.wrap ? opts.wrap(s) : s, { style: 'height: 500px', pivotFields: false, ...(locale ? { locale } : {}), ...opts.props })
   await goTo(w, at)
-  await until(() => lastState(w)?.canEditPivot === true)
+  if (opts.editable !== false) await until(() => lastState(w)?.canEditPivot === true)
+  else await until(() => !!lastState(w)?.pivot)
   return { w, s }
 }
 export const api = (w: VueWrapper) => w.vm as unknown as SheetViewApi

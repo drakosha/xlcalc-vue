@@ -384,8 +384,23 @@ export interface SheetPivotTable {
  */
 export interface SheetPivotCells {
   labels: (string[] | null)[]
+  /** Per value field (`values`), the code of its number format as Format Cells shows it in the workbook's locale (a built-in one's too); null without one. */
+  formats: (string | null)[]
+  /** The cache's calculated fields and items, with their formulas as Excel's dialogs show them: in the workbook's locale, with `=`. */
+  calculated: SheetPivotCalculated[]
   buttons: SheetPivotButton[]
   cells?: (SheetPivotCell | null)[]
+}
+
+/**
+ * A calculated field (`field` its own index in the cache) or a calculated item (`item` its index in the field's `items` of
+ * the cache), by its name, with its formula in the workbook's locale (`=Amount*0,5` in ru-RU, `=East+West`).
+ */
+export interface SheetPivotCalculated {
+  field: number
+  item?: number
+  name: string
+  formula: string
 }
 
 /** A filter button of a PivotTable: its cell, and the field (by its index in the cache) on the axis it filters first. */

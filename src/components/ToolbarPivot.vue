@@ -24,7 +24,7 @@ async function toggle(menu: string): Promise<void> {
   const st = props.state
   if (!open.value || props.group !== 'pivotDesign' || !st?.pivot || !props.source.pivotTable) return
   const def = await props.source.pivotTable(st.sheet, st.pivot)
-  if (def) design.value = designOf({ sheet: st.sheet, pivot: st.pivot, def, cells: { labels: [], buttons: [] } } satisfies PivotTarget)
+  if (def) design.value = designOf({ sheet: st.sheet, pivot: st.pivot, def, cells: { labels: [], formats: [], calculated: [], buttons: [] } } satisfies PivotTarget)
 }
 function run(call: () => unknown): void {
   open.value = null

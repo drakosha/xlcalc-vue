@@ -76,7 +76,7 @@ const emit = defineEmits<{
   zoom: [change: SheetZoomEvent]
   /** The user added or deleted watches in the Watch Window: the whole list, which the host keeps (the `watches` prop). */
   watches: [list: SheetWatch[]]
-  /** A request for a dialog over a PivotTable's field of a kind the sheet does not open itself (it opens Field Settings, Value Field Settings and the filter menu). */
+  /** A request for a dialog over a PivotTable's field the sheet does not open itself: of another kind, or without the source's `pivotCells` or `structure`. */
   pivotDialog: [request: PivotDialogRequest]
 }>()
 defineSlots<{
