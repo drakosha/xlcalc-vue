@@ -68,7 +68,8 @@ export function usePivotCreate(s: SheetState, cmd: Commands, deps: PivotCreateDe
     const got = await deps.tables.guess(signal)
     if (!got) return null
     const { rect, cells } = got
-    return rect.top === rect.bottom && rect.left === rect.right && !cells.size ? '' : rangeRef(s.sheetName.value, rect)
+    // an empty cell alone has no region: the cells read around it may hold data elsewhere
+    return rect.top === rect.bottom && rect.left === rect.right && !cells.has(cellAddress(rect.top, rect.left)) ? '' : rangeRef(s.sheetName.value, rect)
   }
 
   /** Excel's Insert > PivotTable: the dialog with the source it proposes, a new sheet chosen; false where the sheet cannot take a PivotTable. */

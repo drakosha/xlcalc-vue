@@ -17,8 +17,12 @@ export interface PivotAreas {
 /** A field in an area by its place, or a field of the list by its cache index (`list`). */
 export type PivotSpot = { area: PivotArea; index: number } | { area: 'list'; field: number }
 
+// ── where a field goes and how it is summarized: one place, for xlcalc's coming suggestPivotField to take over ──
+
 /** Where Excel puts a field checked in the list, and how a value field summarizes it. */
 export type FieldKind = 'number' | 'date' | 'text'
+
+const insertAt = <T>(list: T[], at: number, item: T): T[] => [...list.slice(0, at), item, ...list.slice(at)]
 
 /**
  * The kind of a cache field by the values it holds (`facts`): numbers alone are a number field, which Excel's check puts on
@@ -35,7 +39,23 @@ export function fieldKind(f: PivotCacheField): FieldKind {
 /** Excel's function for a new value field: Sum over numbers alone, Count over anything else, blanks included. */
 export const valueFunction = (f: PivotCacheField | undefined): PivotFunction => (f && fieldKind(f) === 'number' ? 'sum' : 'count')
 
+/** The area a field checked in the list goes to: a number field onto Values, a date or text field onto Rows. */
+const checkedArea = (f: PivotCacheField | undefined): PivotArea => (f && fieldKind(f) === 'number' ? 'values' : 'rows')
+
+// ── Σ Values upkeep: one place, for xlcalc's coming editPivotTable that keeps the marker itself to take over ──
+
 const hasValuesField = (axis: PivotAxisField[]) => axis.includes('values')
+
+/**
+ * Σ Values follows the value fields, as Excel's field list does: gone below two; with two or more and none on an axis, on
+ * Rows (`onRows`) or Columns at `at`, at the end without it.
+ */
+function settle(a: PivotAreas, place: { onRows?: boolean; at?: number } = {}): PivotAreas {
+  if (a.values.length < 2) return { ...a, rows: a.rows.filter((f) => f !== 'values'), columns: a.columns.filter((f) => f !== 'values') }
+  if (hasValuesField(a.rows) || hasValuesField(a.columns)) return a
+  const key = place.onRows ? 'rows' : 'columns'
+  return { ...a, [key]: insertAt(a[key], Math.min(place.at ?? a[key].length, a[key].length), 'values') }
+}
 
 /**
  * A PivotTable's areas as the pane shows them: Σ Values where xlcalc holds it on an axis, or, for several value fields
@@ -43,22 +63,10 @@ const hasValuesField = (axis: PivotAxisField[]) => axis.includes('values')
  */
 export function areasOf(t: Pick<PivotTable, 'rows' | 'columns' | 'pages' | 'values' | 'valuesOnRows' | 'valuesPosition'>): PivotAreas {
   const areas: PivotAreas = { filters: [...(t.pages ?? [])], columns: [...(t.columns ?? [])], rows: [...(t.rows ?? [])], values: [...(t.values ?? [])] }
-  if (areas.values.length < 2) {
-    areas.rows = areas.rows.filter((f) => f !== 'values')
-    areas.columns = areas.columns.filter((f) => f !== 'values')
-  } else if (!hasValuesField(areas.rows) && !hasValuesField(areas.columns)) {
-    const axis = t.valuesOnRows ? areas.rows : areas.columns
-    axis.splice(Math.min(t.valuesPosition ?? axis.length, axis.length), 0, 'values')
-  }
-  return areas
+  return settle(areas, { onRows: t.valuesOnRows, at: t.valuesPosition })
 }
 
-/** Σ Values follows the value fields: on Columns at the end once there are two, gone below two, as Excel's field list does. */
-function settle(a: PivotAreas): PivotAreas {
-  if (a.values.length < 2) return { ...a, rows: a.rows.filter((f) => f !== 'values'), columns: a.columns.filter((f) => f !== 'values') }
-  if (hasValuesField(a.rows) || hasValuesField(a.columns)) return a
-  return { ...a, columns: [...a.columns, 'values'] }
-}
+// ── the changes ──
 
 /** The field a spot holds: a cache field's index, or `values` for Σ Values. */
 export function fieldAt(a: PivotAreas, spot: PivotSpot): number | 'values' | null {
@@ -90,8 +98,6 @@ function without(a: PivotAreas, spot: PivotSpot): PivotAreas {
   return { ...a, [spot.area]: a[spot.area].filter((_, i) => i !== spot.index) }
 }
 
-const insertAt = <T>(list: T[], at: number, item: T): T[] => [...list.slice(0, at), item, ...list.slice(at)]
-
 /**
  * A field moved from a spot to an area at `index` (its end without it), as a drag in Excel's field list moves it: within an
  * area it changes places; onto Values it becomes a value field (leaving its axis when it came from one, staying there when it
@@ -122,13 +128,16 @@ export function move(a: PivotAreas, from: PivotSpot, to: PivotArea, index: numbe
     const value: PivotDataField = { field, function: valueFunction(fields[field]) }
     return settle({ ...rest, values: insertAt(rest.values, Math.min(index ?? rest.values.length, rest.values.length), value) })
   }
+  // where the field lies on the axis it goes to already (from the list, or from Values): places after it count without it
+  const was = to === 'filters' ? rest.filters.findIndex((p) => p.field === field) : rest[to].indexOf(field)
+  const at = index !== undefined && was >= 0 && index > was ? index - 1 : index
   rest = offAxes(rest, field)
   if (to === 'filters') {
     const page: PivotPageField = { field }
-    return settle({ ...rest, filters: insertAt(rest.filters, Math.min(index ?? rest.filters.length, rest.filters.length), page) })
+    return settle({ ...rest, filters: insertAt(rest.filters, Math.min(at ?? rest.filters.length, rest.filters.length), page) })
   }
   const axis = rest[to]
-  return settle({ ...rest, [to]: insertAt(axis, Math.min(index ?? axis.length, axis.length), field) })
+  return settle({ ...rest, [to]: insertAt(axis, Math.min(at ?? axis.length, axis.length), field) })
 }
 
 /** A field's chip removed from its area (Remove Field, or dragged out of the areas); Σ Values removes every value field. */
@@ -143,8 +152,7 @@ export function remove(a: PivotAreas, spot: PivotSpot): PivotAreas {
  */
 export function check(a: PivotAreas, field: number, on: boolean, fields: PivotCacheField[]): PivotAreas {
   if (!on) return settle(without(a, { area: 'list', field }))
-  const f = fields[field]
-  return move(a, { area: 'list', field }, f && fieldKind(f) === 'number' ? 'values' : 'rows', undefined, fields) ?? a
+  return move(a, { area: 'list', field }, checkedArea(fields[field]), undefined, fields) ?? a
 }
 
 const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y)

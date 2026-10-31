@@ -294,7 +294,7 @@ Excel's PivotTable Fields pane over the PivotTable under the active cell, for a 
 
 | Type | Meaning |
 | --- | --- |
-| `PivotDialogRequest` | `{ dialog: 'fieldSettings' \| 'valueFieldSettings' \| 'fieldFilter'; sheet: string; pivot: string; field: number; value?: number; at?: { left; top; width; height } }`: Field Settings… of a field on Filters, Columns or Rows, Value Field Settings… of a value field (`value` its index in the PivotTable's `values`), or the field's sort and filter menu (the arrow beside it in the list). `field` is the index of the cache field; `at` is the pane's control in the viewport's coordinates, where a menu opens. |
+| `PivotDialogRequest` | `{ dialog: 'fieldSettings' \| 'valueFieldSettings' \| 'fieldFilter'; sheet: string; pivot: string; field: number; value?: number; at?: { left; top; width; height } }`: Field Settings… of a field on Filters, Columns or Rows, Value Field Settings… of a value field (`value` its index in the PivotTable's `values` as the source holds it), or the field's sort and filter menu (the arrow beside it in the list). `field` is the index of the cache field; `at` is the pane's control in the viewport's coordinates, where a menu opens. |
 
 ## `FormatDialog`
 

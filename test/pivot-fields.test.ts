@@ -15,10 +15,10 @@ afterEach(async () => {
   sources = []
 })
 
-async function report(): Promise<{ w: VueWrapper; s: LocalSource }> {
-  const s = localSource(pivotBook(), { calc: 'inline' })
+async function report(book = pivotBook(), props: Record<string, unknown> = {}): Promise<{ w: VueWrapper; s: LocalSource }> {
+  const s = localSource(book, { calc: 'inline' })
   sources.push(s)
-  const w = await mountSheet(s, { style: 'height: 400px' })
+  const w = await mountSheet(s, { style: 'height: 400px', ...props })
   await goTo(w, 'Report!B4')
   await until(() => !!pane())
   await until(() => chips('rows').length === 1)
@@ -130,9 +130,77 @@ describe('the PivotTable Fields pane', () => {
   })
 })
 
+describe('the PivotTable Fields pane: what it takes', () => {
+  it('takes no change on a read-only sheet, nor on a protected one without Use PivotTable and PivotChart', async () => {
+    await report(pivotBook(), { readOnly: true })
+    expect(box(2).disabled).toBe(true)
+    document.body.innerHTML = ''
+    await report(pivotBook({ protection: {} }))
+    expect(box(2).disabled).toBe(true)
+    expect(document.querySelector<HTMLInputElement>('[data-xs-pf-defer]')!.disabled).toBe(true)
+    document.body.innerHTML = ''
+    await report(pivotBook({ protection: { pivotTables: true } }))
+    expect(box(2).disabled).toBe(false)
+  })
+
+  it("a field's menu acts on the field where it is when an item is chosen", async () => {
+    const { s } = await report()
+    await setBox(2, true)
+    await until(() => chips('rows').length === 2)
+    await chipMenu('rows', 1)
+    // Region leaves Rows from elsewhere while the menu is open: Kind is first now
+    await s.structure({ op: 'editPivotTable', sheet: 'Report', pivot: 'PivotTable1', set: { rows: [2] } })
+    await until(() => chips('rows').length === 1)
+    item('remove')!.click()
+    await until(() => chips('rows').length === 0)
+  })
+
+  it("asks Value Field Settings with the value field's index in the PivotTable, not in a deferred layout", async () => {
+    const { w } = await report()
+    const defer = document.querySelector<HTMLInputElement>('[data-xs-pf-defer]')!
+    defer.checked = true
+    defer.dispatchEvent(new Event('change'))
+    await setBox(3, true)
+    expect(chips('values')).toEqual(['Sum of Amount', 'Year'])
+    await chipMenu('values', 1)
+    expect(item('valueFieldSettings')?.disabled).toBe(true)
+    item('moveUp')!.click()
+    await settle()
+    expect(chips('values')).toEqual(['Year', 'Sum of Amount'])
+    await chipMenu('values', 1)
+    item('valueFieldSettings')!.click()
+    await settle()
+    expect((w.emitted('pivotDialog') ?? []).at(-1)?.[0]).toMatchObject({ dialog: 'valueFieldSettings', field: 1, value: 0 })
+  })
+
+  it('a drag from the list ends without toggling the box, on Esc anywhere, and only for its own pointer', async () => {
+    await report()
+    const row = document.querySelector<HTMLElement>('[data-xs-pf-field="2"]')!
+    const at = (x: number, id = 1) => ({ clientX: x, clientY: x, pointerId: id, bubbles: true, button: 0 })
+    const ghost = () => document.querySelector('.xs-pf-ghost')
+    row.dispatchEvent(new PointerEvent('pointerdown', at(5)))
+    window.dispatchEvent(new PointerEvent('pointermove', at(60)))
+    await settle()
+    expect(ghost()).not.toBeNull()
+    window.dispatchEvent(new PointerEvent('pointerup', at(60, 2)))
+    await settle()
+    expect(ghost()).not.toBeNull()
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await settle()
+    expect(ghost()).toBeNull()
+    row.dispatchEvent(new PointerEvent('pointerdown', at(5)))
+    window.dispatchEvent(new PointerEvent('pointermove', at(60)))
+    window.dispatchEvent(new PointerEvent('pointerup', at(5)))
+    row.querySelector('label')!.click()
+    await settle()
+    expect(box(2).checked).toBe(false)
+    expect(chips('rows')).toEqual(['Region'])
+  })
+})
+
 describe('Insert PivotTable', () => {
-  async function data(): Promise<VueWrapper> {
-    const s = localSource(pivotBook(), { calc: 'inline' })
+  async function data(book = pivotBook()): Promise<VueWrapper> {
+    const s = localSource(book, { calc: 'inline' })
     sources.push(s)
     const w = await mountSheet(s, { style: 'height: 400px' })
     await goTo(w, 'Data!B2')
@@ -156,6 +224,15 @@ describe('Insert PivotTable', () => {
     await until(() => !!pane())
     expect([0, 1, 2, 3].map((i) => box(i).checked)).toEqual([false, false, false, false])
     expect([...document.querySelectorAll('[role="tab"]')].map((x) => x.textContent?.trim())).toEqual(['Sheet3', 'Data', 'Report'])
+  })
+
+  it('proposes nothing for an empty cell alone, whatever data lies elsewhere', async () => {
+    const w = await data(pivotBook({ extra: { H12: { value: 1 } } }))
+    // within the sheet's data, with the PivotTable and H12 read around it
+    await goTo(w, 'Report!E9')
+    await api(w).insertPivotTable()
+    await settle()
+    expect(field('source').value).toBe('')
   })
 
   it("puts it at an existing sheet's location, and keeps the dialog with Excel's alert for a source or a place it does not take", async () => {

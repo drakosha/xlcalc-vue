@@ -365,7 +365,7 @@ export interface SheetViewApi {
 /**
  * A dialog over a field of a PivotTable that the PivotTable Fields pane asks for: `fieldSettings` (Field Settings… of a field
  * on the Filters, Columns or Rows area), `valueFieldSettings` (Value Field Settings… of a value field, `value` its index in
- * the PivotTable's `values`), `fieldFilter` (the field's sort and filter menu, the arrow beside it in the field list). `field`
+ * the PivotTable's `values` as the source holds it), `fieldFilter` (the field's sort and filter menu, the arrow beside it in the field list). `field`
  * is the index of the cache field; `at` is where the pane's control is, in the viewport's coordinates, for a menu.
  */
 export interface PivotDialogRequest {

@@ -60,6 +60,15 @@ describe('the PivotTable Fields pane: moves', () => {
     expect(a).toMatchObject({ rows: [2], values: [{ field: 0, function: 'count' }] })
   })
 
+  it('a field dropped onto the axis it lies on already lands where it was dropped, counted without it', async () => {
+    const a = areasOf({ rows: [0, 2, 3], values: [{ field: 2, function: 'count' }] })
+    // from the list: Region dropped before Kind's place lands between Date and Qty
+    expect(move(a, { area: 'list', field: 0 }, 'rows', 2, FIELDS)!.rows).toEqual([2, 0, 3])
+    // from Values onto Rows, where Date lies first: dropped at the end
+    expect(move(a, { area: 'values', index: 0 }, 'rows', 3, FIELDS)).toMatchObject({ rows: [0, 3, 2], values: [] })
+    expect(move(a, { area: 'list', field: 3 }, 'rows', 0, FIELDS)!.rows).toEqual([3, 0, 2])
+  })
+
   it('Σ Values goes between Columns and Rows only; removing it removes every value field', () => {
     const a = two()
     expect(move(a, { area: 'columns', index: 0 }, 'rows', 0, FIELDS)).toMatchObject({ rows: ['values', 0], columns: [] })

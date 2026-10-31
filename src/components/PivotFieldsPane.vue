@@ -5,6 +5,7 @@
 // Each change is one `editPivotTable` through the sheet; the dialogs a menu opens are asked of the sheet (`pivotDialog`).
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import type { PivotFieldsPaneProps } from '../contract/view'
+import type { PivotAxisField, PivotDataField, PivotPageField } from 'xlcalc/contract'
 import { check, fieldAt, fieldKind, move, remove, usedFields, type PivotArea, type PivotSpot } from '../core/pivot-layout'
 import { useMessages } from '../messages'
 import { IconClose, IconDown, IconFilter } from './icons'
@@ -96,28 +97,64 @@ function onMenuKey(e: KeyboardEvent): void {
 const apply = (next: ReturnType<typeof move>) => pane.apply(next)
 const moveTo = (from: PivotSpot, to: PivotArea, index?: number) => pane.areas.value && apply(move(pane.areas.value, from, to, index, pane.fields.value))
 
-/** Excel's menu of a field in an area: its moves within the area, to the other areas, Remove Field, and its settings. */
+/** What a chip holds, to find it again: a Filters or Values entry, or an axis's field (Σ Values as `values`). */
+type ChipEntry = PivotPageField | PivotDataField | PivotAxisField
+function entryAt(area: PivotArea, index: number): ChipEntry | undefined {
+  const a = pane.areas.value
+  if (!a) return undefined
+  return area === 'filters' ? a.filters[index] : area === 'values' ? a.values[index] : a[area][index]
+}
+/** The chip's place in the areas now, which may have changed since its menu opened; -1 when it is gone. */
+function placeOf(area: PivotArea, entry: ChipEntry): number {
+  const a = pane.areas.value
+  if (!a) return -1
+  if (area === 'filters') return a.filters.findIndex((p) => p.field === (entry as PivotPageField).field)
+  if (area === 'values') {
+    const v = entry as PivotDataField
+    const same = a.values.findIndex((x) => JSON.stringify(x) === JSON.stringify(v))
+    return same >= 0 ? same : a.values.findIndex((x) => x.field === v.field && (x.function ?? 'sum') === (v.function ?? 'sum'))
+  }
+  return a[area].indexOf(entry as PivotAxisField)
+}
+
+/**
+ * Excel's menu of a field in an area: its moves within the area, to the other areas, Remove Field, and its settings. Each item
+ * finds the field again when chosen, so a change that came meanwhile (the source's answer, an undo) moves the right one.
+ */
 function chipItems(area: PivotArea, index: number, at: DOMRect): MenuItem[] {
   const a = pane.areas.value!
   const n = chips(area).length
-  const spot: PivotSpot = { area, index }
-  const field = fieldAt(a, spot)
+  const entry = entryAt(area, index)!
+  const field = fieldAt(a, { area, index })
   const sigma = field === 'values'
   const x = m.value
+  /** Runs a change at the chip's place now; nothing when it is gone. */
+  const found = (run: (spot: PivotSpot, i: number) => void) => () => {
+    const i = placeOf(area, entry)
+    if (i >= 0) run({ area, index: i }, i)
+  }
+  const value = area === 'values' ? pane.savedValue(entry as PivotDataField) : null
   const settings: MenuItem =
     area === 'values'
-      ? { id: 'valueFieldSettings', label: x.valueFieldSettings, group: true, run: () => pane.dialog({ dialog: 'valueFieldSettings', field: a.values[index]!.field, value: index, at: rectOf(at) }) }
+      ? {
+          id: 'valueFieldSettings',
+          label: x.valueFieldSettings,
+          group: true,
+          // a value field only the draft or a change on its way has is not yet the PivotTable's, which the host's dialog reads
+          disabled: value === null,
+          run: () => value !== null && pane.dialog({ dialog: 'valueFieldSettings', field: (entry as PivotDataField).field, value, at: rectOf(at) }),
+        }
       : { id: 'fieldSettings', label: x.fieldSettings, group: true, disabled: sigma, run: () => typeof field === 'number' && pane.dialog({ dialog: 'fieldSettings', field, at: rectOf(at) }) }
   return [
-    { id: 'moveUp', label: x.fieldMoveUp, disabled: index === 0, run: () => moveTo(spot, area, index - 1) },
-    { id: 'moveDown', label: x.fieldMoveDown, disabled: index === n - 1, run: () => moveTo(spot, area, index + 2) },
-    { id: 'moveFirst', label: x.fieldMoveFirst, disabled: index === 0, run: () => moveTo(spot, area, 0) },
-    { id: 'moveLast', label: x.fieldMoveLast, disabled: index === n - 1, run: () => moveTo(spot, area) },
-    { id: 'toFilters', label: x.fieldToFilters, group: true, disabled: area === 'filters' || sigma, run: () => moveTo(spot, 'filters') },
-    { id: 'toRows', label: x.fieldToRows, disabled: area === 'rows', run: () => moveTo(spot, 'rows') },
-    { id: 'toColumns', label: x.fieldToColumns, disabled: area === 'columns', run: () => moveTo(spot, 'columns') },
-    { id: 'toValues', label: x.fieldToValues, disabled: area === 'values' || sigma, run: () => moveTo(spot, 'values') },
-    { id: 'remove', label: x.fieldRemove, group: true, run: () => apply(remove(a, spot)) },
+    { id: 'moveUp', label: x.fieldMoveUp, disabled: index === 0, run: found((spot, i) => moveTo(spot, area, i - 1)) },
+    { id: 'moveDown', label: x.fieldMoveDown, disabled: index === n - 1, run: found((spot, i) => moveTo(spot, area, i + 2)) },
+    { id: 'moveFirst', label: x.fieldMoveFirst, disabled: index === 0, run: found((spot) => moveTo(spot, area, 0)) },
+    { id: 'moveLast', label: x.fieldMoveLast, disabled: index === n - 1, run: found((spot) => moveTo(spot, area)) },
+    { id: 'toFilters', label: x.fieldToFilters, group: true, disabled: area === 'filters' || sigma, run: found((spot) => moveTo(spot, 'filters')) },
+    { id: 'toRows', label: x.fieldToRows, disabled: area === 'rows', run: found((spot) => moveTo(spot, 'rows')) },
+    { id: 'toColumns', label: x.fieldToColumns, disabled: area === 'columns', run: found((spot) => moveTo(spot, 'columns')) },
+    { id: 'toValues', label: x.fieldToValues, disabled: area === 'values' || sigma, run: found((spot) => moveTo(spot, 'values')) },
+    { id: 'remove', label: x.fieldRemove, group: true, run: found((spot) => pane.areas.value && apply(remove(pane.areas.value, spot))) },
     settings,
   ]
 }
@@ -161,7 +198,7 @@ const DRAG_PX = 4
 const root = ref<HTMLElement | null>(null)
 const drag = ref<{ from: PivotSpot; label: string; x: number; y: number; over: { area: PivotArea; index: number } | null } | null>(null)
 let press: { from: PivotSpot; label: string; x: number; y: number; id: number } | null = null
-/** A drag just ended: the click it ends with opens no menu. */
+/** A drag just ended: the click it ends with neither opens a menu nor toggles a field's box. */
 let dragged = false
 
 function onDown(e: PointerEvent, from: PivotSpot, label: string): void {
@@ -170,7 +207,8 @@ function onDown(e: PointerEvent, from: PivotSpot, label: string): void {
   dragged = false
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', endDrag)
+  window.addEventListener('pointercancel', onCancel)
+  document.addEventListener('keydown', onKey, true)
 }
 /** The area under the point and the place among its chips: before the first chip whose middle is below it, or at the end. */
 function dropAt(x: number, y: number): { area: PivotArea; index: number } | null {
@@ -191,6 +229,7 @@ function onMove(e: PointerEvent): void {
   drag.value = { from: press.from, label: press.label, x: e.clientX, y: e.clientY, over: dropAt(e.clientX, e.clientY) }
 }
 function onUp(e: PointerEvent): void {
+  if (!press || e.pointerId !== press.id) return
   const d = drag.value
   endDrag()
   if (!d) return
@@ -200,18 +239,29 @@ function onUp(e: PointerEvent): void {
   if (over) moveTo(d.from, over.area, over.index)
   else if (d.from.area !== 'list' && pane.areas.value) apply(remove(pane.areas.value, d.from))
 }
+function onCancel(e: PointerEvent): void {
+  if (press && e.pointerId === press.id) endDrag()
+}
 function endDrag(): void {
   press = null
   drag.value = null
   window.removeEventListener('pointermove', onMove)
   window.removeEventListener('pointerup', onUp)
-  window.removeEventListener('pointercancel', endDrag)
+  window.removeEventListener('pointercancel', onCancel)
+  document.removeEventListener('keydown', onKey, true)
 }
+/** Esc ends a drag without a change, wherever the focus is. */
 function onKey(e: KeyboardEvent): void {
-  if (e.key === 'Escape' && drag.value) {
-    e.preventDefault()
-    endDrag()
-  }
+  if (e.key !== 'Escape' || !drag.value) return
+  e.preventDefault()
+  e.stopPropagation()
+  endDrag()
+}
+/** The click that ends a drag over the field's own row does not toggle its box. */
+function onListClick(e: MouseEvent): void {
+  if (!dragged) return
+  e.preventDefault()
+  e.stopPropagation()
 }
 onBeforeUnmount(endDrag)
 
@@ -223,7 +273,7 @@ const kindOf = (i: number) => {
 </script>
 
 <template>
-  <aside ref="root" class="xs-pf" :class="{ 'xs-pf-dragging': !!drag }" :aria-label="m.fieldListTitle" data-xs-pf @keydown="onKey">
+  <aside ref="root" class="xs-pf" :class="{ 'xs-pf-dragging': !!drag }" :aria-label="m.fieldListTitle" data-xs-pf>
     <div class="xs-pf-head">
       <span class="xs-pf-title">{{ m.fieldListTitle }}</span>
       <button type="button" class="xs-tool" :title="m.close" :aria-label="m.close" data-xs-pf-close @click="sheet?.fieldList(false)">
@@ -241,6 +291,7 @@ const kindOf = (i: number) => {
         :data-kind="kindOf(f.i)"
         @pointerdown="onDown($event, { area: 'list', field: f.i }, f.name)"
         @contextmenu="onListMenu($event, f.i)"
+        @click.capture="onListClick"
       >
         <label class="xs-pf-check">
           <input type="checkbox" :checked="used.has(f.i)" :disabled="!pane.editable.value" @change="onCheck(f.i, ($event.target as HTMLInputElement).checked)" @keydown="onListKey($event, f.i)" />
