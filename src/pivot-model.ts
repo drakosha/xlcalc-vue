@@ -203,36 +203,7 @@ export function designPatch(t: PivotTarget, change: PivotDesignChange): PivotTab
 /** The value fields with the one at `index` replaced. */
 export const withValue = (t: PivotTarget, index: number, next: PivotDataField): PivotTablePatch => ({ values: (t.def.table.values ?? []).map((v, i) => (i === index ? next : v)) })
 
-/** The words of a value field's name by its function, as xlcalc names a new value field (its pivot words, en-US and ru-RU). */
-const EN_WORDS: Record<PivotFunction, string> = { sum: 'Sum', count: 'Count', average: 'Average', max: 'Max', min: 'Min', product: 'Product', countNums: 'Count', stdDev: 'StdDev', stdDevp: 'StdDevp', var: 'Var', varp: 'Varp' }
-const RU_WORDS: Record<PivotFunction, string> = {
-  sum: 'Сумма',
-  count: 'Количество',
-  average: 'Среднее',
-  max: 'Максимум',
-  min: 'Минимум',
-  product: 'Произведение',
-  countNums: 'Количество чисел',
-  stdDev: 'Стандартное отклонение',
-  stdDevp: 'Стандартное отклонение (несмещённое)',
-  var: 'Дисперсия',
-  varp: 'Дисперсия (несмещённая)',
-}
-/** A value field name's prefix by its function: `Sum of `, `Сумма по полю `. */
-const prefixOf = (fn: PivotFunction, locale: string) => (locale === 'ru-RU' ? `${RU_WORDS[fn]} по полю ` : `${EN_WORDS[fn]} of `)
-
-/**
- * The name Value Field Settings' Custom Name takes when another function is picked, as Excel for Windows 16.0 does (measured
- * in en-US and ru-RU): a name beginning with the old function's prefix, in any case, gets the new prefix in Excel's case
- * and keeps the rest as typed; any other name becomes the new function's name of the source field (`Count of Qty`).
- * TODO(xlcalc): its engine-free valueFieldName in xlcalc/text is to take the place of these words.
- */
-export function renamedValueField(name: string, from: PivotFunction, to: PivotFunction, source: string, locale: string): string {
-  const old = prefixOf(from, locale)
-  return name.slice(0, old.length).toLowerCase() === old.toLowerCase() ? prefixOf(to, locale) + name.slice(old.length) : prefixOf(to, locale) + source
-}
-
-/** A value field summarized by another function, with the name given; xlcalc names it as Excel does without one. */
+/** A value field summarized by another function, with the name given; without one xlcalc names it as Excel does (its `renamedValueField`). */
 export function withFunction(v: PivotDataField, fn: PivotFunction, name?: string): PivotDataField {
   const { name: _old, function: _fn, ...rest } = v
   return { ...rest, ...(fn !== 'sum' ? { function: fn } : {}), ...(name ? { name } : {}) }

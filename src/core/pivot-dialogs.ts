@@ -4,12 +4,13 @@
 // source's `pivotTable` and `pivotCells` for the cell menu, the filter buttons and the dialogs.
 import { computed, markRaw, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
+import { renamedValueField } from 'xlcalc/text'
 import type { Locale, NumberFormat, PivotDataField, PivotFunction, PivotGroupBy, PivotGrouping, PivotShowAs, PivotTablePatch } from 'xlcalc/contract'
 import type { PivotOptionsTab } from '../contract/messages'
 import type { EditOutcome, SheetOp, SheetPivotCell } from '../contract/source'
 import type { PivotDesignChange } from '../contract/view'
 import { loadEntry } from '../entry'
-import { axisFields, designPatch, grandOf, grandPatch, renamedValueField, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
+import { axisFields, designPatch, grandOf, grandPatch, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
 import type { Commands } from './commands'
 import type { Pivots } from './pivots'
 import type { Protection } from './protection'
@@ -199,7 +200,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   }
   /** The source field's name of a value field, which its default name goes by. */
   const sourceName = (t: PivotTarget, index: number) => t.def.cache.fields[t.def.table.values?.[index]?.field ?? -1]?.name ?? ''
-  /** Another function picked in the list: Custom Name changes at once as Excel's does (`renamedValueField`). */
+  /** Another function picked in the list: Custom Name changes at once as Excel's does (xlcalc's `renamedValueField`). */
   function pickFunction(fn: PivotFunction): void {
     const d = state.value
     if (d?.kind !== 'value' || d.draft.fn === fn) return
@@ -235,7 +236,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   async function setFunction(t: PivotTarget, index: number, fn: PivotFunction): Promise<void> {
     const v = t.def.table.values?.[index]
     const from = v?.function ?? 'sum'
-    if (v && from !== fn) await edit(t, withValue(t, index, withFunction(v, fn, renamedValueField(v.name ?? '', from, fn, sourceName(t, index), s.locale.value))))
+    // without a name xlcalc's editPivotTable renames the value field as Excel does
+    if (v && from !== fn) await edit(t, withValue(t, index, withFunction(v, fn)))
   }
   async function setShowAs(t: PivotTarget, index: number, calc: PivotShowAs): Promise<void> {
     if (BASE_FIELD.has(calc)) {

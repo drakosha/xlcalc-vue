@@ -45,6 +45,14 @@ describe('Value Field Settings: Custom Name follows the function picked, as Exce
     expect(nameBox().value).toBe('Количество по полю Amount2')
   })
 
+  it("Summarize Values By leaves the name to xlcalc's editPivotTable, which keeps the rest of a prefixed name", async () => {
+    const { w, s } = await sales({ rows: [0], values: [{ field: 3, name: 'Sum of Amount2' }] })
+    await menuAt(w, '4:2')
+    await choose('pivotFn-count', 'pivotSummarize')
+    await until(() => cellText(w, 3, 2) === 'Count of Amount2')
+    expect((await s.pivotTable('R', 'PivotTable1'))?.table.values?.[0]).toMatchObject({ name: 'Count of Amount2', function: 'count' })
+  })
+
   it('resets the base item to (previous) when another base field is picked', async () => {
     const { w } = await sales({ rows: [0], columns: [1], values: [{ field: 3, showAs: 'difference', baseField: 0, baseItem: 1 }] })
     await openValue(w)
