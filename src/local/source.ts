@@ -21,6 +21,7 @@ import { connections, takeAnswers } from './connections'
 import { protectionGuard, protectSheet } from './protect'
 import { validationOf } from './validation'
 import { autoFilterRanges } from './autofilter'
+import { hasPivots, loadPivot } from './pivots'
 import { windowOf } from './window'
 import { workbookMethods } from './workbook'
 
@@ -168,7 +169,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   const outside = connections(opts.session, () => answered())
 
   const ready = (async () => {
-    await Promise.all([loadLocale(locale), loadRegex(opts.regex)])
+    // the PivotTable engine before the session opens, so that its PivotTables refresh, lay out and take typed labels
+    await Promise.all([loadLocale(locale), loadRegex(opts.regex), hasPivots(input) ? loadPivot() : null])
     calc = typeof opts.calc === 'object' ? opts.calc : await startCalc(opts)
     // a formula over a function the engine does not know keeps the value its file stores (or its cell holds), as Excel shows it until it calculates the cell
     session = await calc.createSession(input, { unknownFunctions: 'held', ...outside.session })

@@ -50,6 +50,10 @@ Match mode 3 of `XLOOKUP` and `XMATCH` finds a regular expression; xlcalc reads 
 const source = localSource(book, { regex: 'pcreEngine' }) // XMATCH("(a+)+$", A1, 3) over a long text is #VALUE! at once, as in Excel
 ```
 
+## PivotTables
+
+A workbook's PivotTables (xlcalc 0.71.0's `SheetInput.pivotTables`, read from a file by `openXlsx`) calculate as cells without xlcalc's PivotTable engine, and `GETPIVOTDATA` reads them; refreshing them, laying them out again and typing over their labels need the engine, `xlcalc/pivot`. The source loads it before the workbook is calculated when the workbook has PivotTables or pivot caches, as a chunk of its own that a host showing workbooks without them never downloads, and registers it with `registerPivot`: xlcalc keeps it for every session of the page from then on, a pool's threads too. A workbook without PivotTables has nothing for the engine to do; a PivotTable added to it through `structure` (`addPivotTable`) keeps its cells empty, its cache marked `stale`, as xlcalc does without the engine.
+
 ## Calculation options
 
 The workbook's calculation option (xlcalc's `BookInput.calculation`, 0.66.0) is `calculation`; `setCalculation` changes it and `calculate` is F9 and Shift+F9. xlcalc calculates every edit whatever the option says, so in Manual the source keeps showing the values of the last calculation, puts them back over the session's in each window, and shows the session's on `calculate`; with an xlcalc before 0.66.0 the sheet shows calculated values in Manual too. What the source holds and where it differs from Excel are in [calculation.md](calculation.md#in-xlcalcvuelocal).
