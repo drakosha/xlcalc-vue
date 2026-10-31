@@ -13,9 +13,11 @@ const FIELDS: PivotCacheField[] = [
 ]
 
 describe('the PivotTable Fields pane: where a field goes', () => {
-  it('a field of numbers alone is a number field, Sum; dates a date field; anything else, blanks among numbers too, Count', () => {
-    expect(FIELDS.map(fieldKind)).toEqual(['text', 'number', 'date', 'text'])
-    expect(FIELDS.map(valueFunction)).toEqual(['count', 'sum', 'count', 'count'])
+  it('a field of numbers alone, blanks allowed, is a number field, Sum; dates a date field; anything else Count', () => {
+    expect(FIELDS.map(fieldKind)).toEqual(['text', 'number', 'date', 'number'])
+    expect(FIELDS.map(valueFunction)).toEqual(['count', 'sum', 'count', 'sum'])
+    const kinds = (types: NonNullable<PivotCacheField['facts']>['types']) => fieldKind({ name: 'F', facts: { types } })
+    expect([kinds(['blank']), kinds(['number', 'string']), kinds(['number', 'boolean']), kinds(['number', 'date'])]).toEqual(['text', 'text', 'text', 'text'])
   })
 
   it('checking puts a number field on Values and others on Rows; unchecking removes it from every area', () => {

@@ -25,18 +25,18 @@ export type FieldKind = 'number' | 'date' | 'text'
 const insertAt = <T>(list: T[], at: number, item: T): T[] => [...list.slice(0, at), item, ...list.slice(at)]
 
 /**
- * The kind of a cache field by the values it holds (`facts`): numbers alone are a number field, which Excel's check puts on
- * Values; dates alone (blanks allowed) a date field; anything else text. Microsoft's Create a PivotTable: "non-numeric fields
- * are added to Rows, date and time hierarchies are added to Columns, and numeric fields are added to Values".
+ * The kind of a cache field by the values it holds (`facts`), as xlcalc measured Excel for Windows' field list check: numbers
+ * alone (blanks allowed) are a number field, which the check puts on Values with Sum; dates alone (blanks allowed) a date
+ * field; anything else, blanks alone and numbers mixed with text, logicals, errors or dates included, text, put on Rows.
  */
 export function fieldKind(f: PivotCacheField): FieldKind {
   const types = f.facts?.types ?? []
-  if (types.length && types.every((t) => t === 'number')) return 'number'
+  if (types.includes('number') && types.every((t) => t === 'number' || t === 'blank')) return 'number'
   if (types.includes('date') && types.every((t) => t === 'date' || t === 'blank')) return 'date'
   return 'text'
 }
 
-/** Excel's function for a new value field: Sum over numbers alone, Count over anything else, blanks included. */
+/** Excel's function for a new value field: Sum over a number field, Count over any other dropped onto Values. */
 export const valueFunction = (f: PivotCacheField | undefined): PivotFunction => (f && fieldKind(f) === 'number' ? 'sum' : 'count')
 
 /** The area a field checked in the list goes to: a number field onto Values, a date or text field onto Rows. */
