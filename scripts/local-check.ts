@@ -291,8 +291,24 @@ async function slicerScenario(browser: Browser, base: string): Promise<void> {
   await page.locator('.xs-scroller').first().evaluate((el) => el.scrollBy(0, 200))
   await page.waitForTimeout(200)
   await page.screenshot({ path: resolve(out, 'local-1920-slicers-scrolled.png') })
+  // the timeline's part in the frozen rows dragged down into the scrolled rows: the box stays under the pointer
+  const frozenPart = page.locator('[data-xs-object="timeline:Date"][data-xs-part="r"]')
+  const top = (await frozenPart.boundingBox())!
+  await page.mouse.move(top.x + 60, top.y + 8)
+  await page.mouse.down()
+  await page.mouse.move(top.x + 60, top.y + 408, { steps: 6 })
+  await page.mouse.up()
+  await page.waitForFunction(
+    (y) => {
+      const el = document.querySelector('[data-xs-object="timeline:Date"]:not([data-xs-part="r"])')
+      return !!el && Math.abs(el.getBoundingClientRect().y - y) < 4
+    },
+    top.y + 400,
+    { timeout: 10_000 },
+  )
+  await page.screenshot({ path: resolve(out, 'local-1920-slicers-dragged.png') })
   if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`)
-  console.log('[slicers] a file with a slicer and a timeline: South chosen, К1 — К2 2024 г. dragged over the timeline, the slicer moved and its menu opened')
+  console.log('[slicers] a file with a slicer and a timeline: South chosen, К1 — К2 2024 г. dragged over the timeline, the slicer moved and its menu opened, the timeline dragged from the frozen rows into the scrolled ones under the pointer')
   await context.close()
 }
 
