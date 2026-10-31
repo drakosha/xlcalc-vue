@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Built over xlcalc 0.71.1. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.71.0 or later (the peer range is `>=0.71.0`). A name the workbook does not define, or a function xlcalc does not know, is `#NAME?` only where it is computed, as in Excel (`IF(TRUE,1,Nope)` is 1).
+Built over xlcalc 0.71.2. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.71.2 or later (the peer range is `>=0.71.2`). A name the workbook does not define, or a function xlcalc does not know, is `#NAME?` only where it is computed, as in Excel (`IF(TRUE,1,Nope)` is 1).
 
 ## 0.30.0 (2026-10-29)
 
