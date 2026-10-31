@@ -14,12 +14,15 @@ async function loaded(locale: string | Locale | undefined): Promise<void> {
 
 /**
  * Reads a CSV file into a workbook of one sheet as Excel opens it in `locale` (xlcalc's `readCsv`): each field as text typed
- * into a cell there, the encoding and the delimiter found. A `File` names the sheet after itself unless `name` is given.
+ * into a cell there, at the locale's list separator unless `delimiter` says otherwise (a `sep=` line still names it, and a
+ * `.tsv` file is read at tabs). A `File` names the sheet after itself unless `name` is given. Formulas stay text unless
+ * `formulas` is true, unlike Excel: a file from elsewhere would otherwise call the host's functions and connections.
  */
 export async function openCsv(data: CsvData, opts: ReadCsvOptions = {}): Promise<CsvRead> {
-  const named = opts.name === undefined && typeof File !== 'undefined' && data instanceof File ? { name: data.name } : {}
+  const name = opts.name ?? (typeof File !== 'undefined' && data instanceof File ? data.name : undefined)
+  const delimiter = opts.delimiter ?? (name && /\.tsv$/i.test(name) ? undefined : 'locale')
   const [bytes, { readCsv }] = await Promise.all([data instanceof Blob ? data.arrayBuffer() : data, import('xlcalc/csv'), loaded(opts.locale)])
-  return readCsv(bytes, { ...opts, ...named })
+  return readCsv(bytes, { ...opts, ...(name === undefined ? {} : { name }), ...(delimiter === undefined ? {} : { delimiter }) })
 }
 
 /**

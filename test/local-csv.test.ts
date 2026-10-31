@@ -40,6 +40,16 @@ describe('openCsv', () => {
     expect((await openCsv('a,b\r\n1.5,2', { name: 'x.csv' })).book.sheets[0]!.cells).toMatchObject({ A2: { value: 1.5 } })
   })
 
+  it("splits at the locale's list separator as Excel does, unless the host names another; a sep= line and a .tsv name still decide", async () => {
+    const cells = async (data: string, opts = {}) => (await openCsv(data, opts)).book.sheets[0]!.cells
+    expect(await cells('a;b\r\n1;2')).toEqual({ A1: { value: 'a;b' }, A2: { value: '1;2' } })
+    expect(await cells('a,b', { locale: 'ru-RU' })).toEqual({ A1: { value: 'a,b' } })
+    expect(await cells('a;b', { delimiter: ';' })).toEqual({ A1: { value: 'a' }, B1: { value: 'b' } })
+    expect(await cells('sep=;\r\na;b')).toEqual({ A1: { value: 'a' }, B1: { value: 'b' } })
+    expect(await cells('a\tb', { name: 'x.tsv' })).toEqual({ A1: { value: 'a' }, B1: { value: 'b' } })
+    expect((await openCsv(new File(['a\tb'], 'x.TSV'))).book.sheets[0]!.cells).toEqual({ A1: { value: 'a' }, B1: { value: 'b' } })
+  })
+
   it('keeps a formula as text unless `formulas` is true, as xlcalc reads a file from elsewhere', async () => {
     expect((await openCsv('=1+2,3')).book.sheets[0]!.cells.A1).toEqual({ value: '=1+2' })
     expect((await openCsv('=1+2,3', { formulas: true })).book.sheets[0]!.cells.A1).toEqual({ formula: '1+2' })
