@@ -8,6 +8,7 @@ import { build, createServer, preview } from 'vite'
 import { registerLocale } from 'xlcalc'
 import { ruRU } from 'xlcalc/locales/ru-RU'
 import { writeXlsx } from 'xlcalc/xlsx'
+import { pivotBook } from '../test/pivot-fixture.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const config = resolve(root, 'vite.example.config.ts')
@@ -213,6 +214,40 @@ async function fileScenario(browser: Browser, base: string): Promise<void> {
   await context.close()
 }
 
+/** A file with a PivotTable through the pool: the engine loaded in the thread, Alt+F5 refreshing it, and Excel's alert over its values. */
+async function pivotScenario(browser: Browser, base: string): Promise<void> {
+  const file = resolve(out, 'local-pivot.xlsx')
+  writeFileSync(file, (await writeXlsx({ book: pivotBook() })).data)
+  const context = await browser.newContext({ viewport: { width: 1920, height: 1200 } })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  const go = async (place: string) => {
+    await page.locator('.xs-address').fill(place)
+    await page.locator('.xs-address').press('Enter')
+  }
+  await page.goto(`${base}local.html?rows=34`)
+  await page.locator('[data-open]').setInputFiles(file)
+  await shows(page, '1:1', 'Region')
+  await page.locator('[data-cell="2:2"]').click()
+  await page.keyboard.type('100')
+  await page.keyboard.press('Enter')
+  await shows(page, '2:2', '100')
+  await go('Report!B4')
+  await shows(page, '4:2', '15')
+  await page.keyboard.press('Alt+F5')
+  await shows(page, '4:2', '105')
+  await page.keyboard.type('7')
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => document.querySelector('[data-xs-alert="notice"]')?.textContent?.includes('PivotTable'), undefined, { timeout: 10_000 })
+  await page.screenshot({ path: resolve(out, 'local-1920-pivot.png') })
+  await page.locator('[data-xs-alert-button="ok"]').click()
+  await shows(page, '4:2', '105')
+  if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`)
+  console.log('[pivot] a file with a PivotTable: Alt+F5 refreshed it through the pool (15 → 105), a value typed over it refused with Excel\'s alert')
+  await context.close()
+}
+
 async function production(browser: Browser): Promise<void> {
   await build({ configFile: config, logLevel: 'error' })
   const server = await preview({ configFile: config, preview: { port: 0 }, logLevel: 'error' })
@@ -286,6 +321,7 @@ async function production(browser: Browser): Promise<void> {
       await context.close()
     }
     await fileScenario(browser, base)
+    await pivotScenario(browser, base)
   } finally {
     await new Promise<void>((done) => server.httpServer.close(() => done()))
   }

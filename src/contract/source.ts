@@ -23,7 +23,10 @@ export interface SheetSource {
   undo?(): Promise<EditOutcome>
   /** Redoes the last undone change. */
   redo?(): Promise<EditOutcome>
-  /** A structure operation; without it there is no structure menu. */
+  /**
+   * A structure operation; without it there is no structure menu. xlcalc's operations on PivotTables are among them: the
+   * sheet sends Excel's Refresh (Alt+F5) of the PivotTable under the active cell as `refreshPivots` naming it.
+   */
   structure?(op: SheetOp): Promise<EditOutcome>
   /** Column widths and row heights set with the mouse; without it a changed width lasts until the page reloads. */
   layout?(edit: LayoutChange): Promise<EditOutcome>
@@ -168,8 +171,9 @@ export interface SheetSource {
   /**
    * Excel's Data > Refresh All (Ctrl+Alt+F5): the workbook's calls outside itself asked again, of the functions `names`
    * (upper-case) or of every one (xlcalc's `refreshConnections`), and the cells they change returned as `changes` and sent as
-   * a `changed` event; answers still on their way arrive as `changed` events. Not a step of undo, as in Excel. Without it
-   * there is no Refresh All.
+   * a `changed` event; answers still on their way arrive as `changed` events. Without `names` its PivotTables are refreshed
+   * from their sources too, after the calls (xlcalc's `refreshPivots`), and the sheets are read again. Asking the calls again
+   * is not a step of undo, as in Excel; refreshing the PivotTables is one, as xlcalc's. Without it there is no Refresh All.
    */
   refreshConnections?(names?: string[]): Promise<EditOutcome>
 }
@@ -271,6 +275,28 @@ export interface SheetInfo {
   protection?: SheetProtection
   /** Excel's split window (View > Split) where the sheet has no frozen panes, which take its place. */
   split?: SheetSplit
+  /**
+   * The sheet's PivotTables as last laid out, from which the sheet finds the PivotTable under a cell for its commands
+   * (Refresh); a sheet without them has none. A change that lays one out again elsewhere sends `reload` or `sheets`.
+   */
+  pivots?: SheetPivot[]
+}
+
+/**
+ * A PivotTable on a sheet by its areas, each a range as Excel writes it: `range` the table without its Filters area (Excel's
+ * `TableRange1`); `filters` its Filters area above it, as wide as its filters, without the blank row between (`PageRange`);
+ * `headers` the table's rows above its values: the value fields' and column fields' headers and the column labels;
+ * `rowLabels` the row labels left of the values, down to the grand total; `values` the values with their totals
+ * (`DataBodyRange`). An area the PivotTable does not show is absent (`values` without a value field).
+ */
+export interface SheetPivot {
+  /** Unique among the sheet's PivotTables: an operation on the PivotTable names it by the sheet and this name (xlcalc's `PivotRef`). */
+  name: string
+  range: string
+  filters?: string
+  headers?: string
+  rowLabels?: string
+  values?: string
 }
 
 /**
@@ -474,7 +500,8 @@ export type EditOutcome =
        * The source's code for the reason, for a host that reacts to it rather than to the text. `memorySource` and
        * `@xlcalc/vue/local` give xlcalc's codes: an outline command's `outline_deep`, `not_grouped` or `detail`, and in
        * `./local` the code of any structure operation xlcalc refuses. `protected`: a protected sheet does not allow it, with
-       * Excel's alert as the message; the component displays it as Excel does, in an alert.
+       * Excel's alert as the message; `pivot`: a PivotTable's cells do not take it, or an operation on a PivotTable failed,
+       * with Excel's alert or the reason as the message. The component displays both as Excel does, in an alert.
        */
       code?: string
       at?: number

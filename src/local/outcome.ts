@@ -1,6 +1,6 @@
 // The session's responses as the sheet source returns them: rejections as outcomes, cells as updates, whether the
 // component must read the sheets and windows again, and the ranges that contain edited cells.
-import type { CellRect, CellRef, CellTextsRefusal, EditResult, PasteTextRefusal, ViewportCell } from 'xlcalc'
+import type { CellRect, CellRef, CellTextRefused, CellTextsRefusal, EditResult, PasteTextRefusal, ViewportCell } from 'xlcalc'
 import { cellAddress, nameKey, parseCell } from 'xlcalc/a1'
 import { cellRect, unionRect } from '../rect'
 import type { CellUpdate, EditOutcome } from '../contract/source'
@@ -19,7 +19,7 @@ export function outcomeOf(e: unknown, input: 'refused' | 'failed'): EditOutcome 
 const INVALID = new Set(['syntax', 'empty', 'too_long', 'too_deep'])
 
 /** A text the session did not accept: a value a rule rejects, with the rule's alert; a formula that cannot be parsed, as invalid at its position with the correction Excel suggests; the rest as refused. */
-export function refusalOf(r: CellTextsRefusal | PasteTextRefusal): EditOutcome {
+export function refusalOf(r: CellTextsRefusal | CellTextRefused | PasteTextRefusal): EditOutcome {
   if (r.code === 'validation') return alertRefusalOf(r)
   if (!INVALID.has(r.code)) return { ok: false, reason: 'refused', message: r.message }
   // a paste's rejections have none of these codes

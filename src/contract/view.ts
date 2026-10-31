@@ -104,6 +104,13 @@ export interface SheetViewState {
   calculationPending?: true
   /** Refresh All is available (`SheetViewApi.refreshAll`): the source has `refreshConnections` and the sheet is editable. */
   canRefreshAll?: true
+  /**
+   * The PivotTable under the active cell (`SheetInfo.pivots`, its Filters area too), by its name: a ribbon shows Excel's
+   * PivotTable Analyze and Design tabs while it is there.
+   */
+  pivot?: string
+  /** Refresh is available (`SheetViewApi.refreshPivot`): the active cell is in a PivotTable, the source has `structure`, and the sheet is editable. */
+  canRefreshPivot?: true
   /** The sheet is protected (`SheetInfo.protection`), with what users may still do: a toolbar disables formatting without `formatCells`, as Excel does. */
   protection?: SheetProtection
   /** A selection of several ranges (Go To Special's): each of them as Excel writes it, the active one (`ref`) among them; absent for one range. A toolbar formats every one. */
@@ -311,6 +318,12 @@ export interface SheetViewApi {
   setCalculation(mode: CalculationMode): Promise<EditOutcome | null>
   /** Excel's Data > Refresh All (Ctrl+Alt+F5) through the source's `refreshConnections`; null when nothing was sent (no `refreshConnections`, a read-only sheet). */
   refreshAll(): Promise<EditOutcome | null>
+  /**
+   * Excel's PivotTable Analyze > Refresh (Alt+F5) of the PivotTable under the active cell through the source's `structure`
+   * (`refreshPivots` naming it): its cache read again from its source, with every PivotTable over it, as a single undo step;
+   * the sheet reloads afterwards. null when nothing was sent (no PivotTable there, no `structure`, a read-only sheet).
+   */
+  refreshPivot(): Promise<EditOutcome | null>
   /**
    * Opens Excel's Protect Sheet dialog for the displayed sheet: what users may still do, without a password; OK protects it
    * through the source's `protect`, as a single undo step. false without `protect`, on a read-only sheet, or on a protected one.

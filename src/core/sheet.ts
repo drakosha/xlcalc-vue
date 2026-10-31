@@ -38,6 +38,7 @@ import { useSheetLook } from './sheet-look'
 import { cellRect } from '../rect'
 import { useAutoSum } from './autosum'
 import { useCalculation } from './calculation'
+import { usePivots } from './pivots'
 import { useAutoFilter } from './autofilter'
 import { usePainter } from './painter'
 import { useSpellCheck } from './spell-check'
@@ -190,7 +191,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     openLink: (link) => emit('openLink', link),
   })
   const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
-  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), protection })
+  const pivots = usePivots(s, cmd, protection)
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), cellPivots: () => pivots.items(), protection })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask, blocked: () => protection.blocks('merge') })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
   const special = useSpecial(s, sel, { ask: alerts.ask, notify })
@@ -299,6 +301,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     calculate: calc.calculate,
     setCalculation: calc.setMode,
     refreshAll: calc.refreshAll,
+    refreshPivot: pivots.refresh,
     protectSheet: protection.open,
     unprotectSheet: protection.unprotect,
   }
@@ -551,8 +554,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
     if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e) || goto.key(e) || fill.key(e) || formulaView.key(e))) return
-    // Excel's Create Table (Ctrl+T, Ctrl+L), Spelling (F7), AutoSum, Paste Special, Calculate (F9, Shift+F9) and Refresh All (Ctrl+Alt+F5)
-    if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e) || clip.specialKey(e) || calc.key(e))) return
+    // Excel's Create Table (Ctrl+T, Ctrl+L), Spelling (F7), AutoSum, Paste Special, Calculate (F9, Shift+F9), Refresh All (Ctrl+Alt+F5) and Refresh (Alt+F5)
+    if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e) || clip.specialKey(e) || calc.key(e) || pivots.key(e))) return
     // Excel's Data > Filter (Ctrl+Shift+L) and Alt+Down on an AutoFilter's header cell
     if (!e.isComposing && autoFilter.key(e)) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
@@ -734,6 +737,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(calc.state.value ? { calculation: calc.state.value.mode } : {}),
       ...(calc.pending.value ? { calculationPending: true as const } : {}),
       ...(calc.canRefresh.value ? { canRefreshAll: true as const } : {}),
+      ...(pivots.active.value ? { pivot: pivots.active.value.name } : {}),
+      ...(pivots.canRefresh.value ? { canRefreshPivot: true as const } : {}),
       ...(protection.protection.value ? { protection: protection.protection.value } : {}),
       ...(s.areas.value ? { areas: s.areas.value.map(rangeAddress) } : {}),
     }

@@ -1,6 +1,6 @@
 // Excel's context menus: on row numbers and column letters (insert, delete, sizes, hide, unhide, group, ungroup), on the
-// sheet tabs (insert, delete, rename, move, tab color, hide, unhide) and the "+" after them, on cells (cut, copy, paste, the display
-// filter's Reapply, Freeze Panes and its variants, Trace Precedents, then the notes' and hyperlinks' items); a right click
+// sheet tabs (insert, delete, rename, move, tab color, hide, unhide) and the "+" after them, on cells (cut, copy, paste, a PivotTable's
+// Refresh, the display filter's Reapply, Freeze Panes and its variants, Trace Precedents, then the notes' and hyperlinks' items); a right click
 // opens one, and so does a long press on a touch screen. Its small dialogs ask for a size, confirm a sheet's deletion,
 // list hidden sheets, ask whether to group rows or columns, and offer a tab's colors.
 import { computed, nextTick, onScopeDispose, ref, shallowRef } from 'vue'
@@ -70,6 +70,8 @@ export interface MenuDeps {
   /** The cell menu's items for notes and for hyperlinks, which Excel lists before and after Define Name at the menu's end. */
   cellNotes: () => MenuItem[]
   cellLinks: () => MenuItem[]
+  /** The cell menu's items on a PivotTable's cell (Refresh), which Excel lists after Paste. */
+  cellPivots?: () => MenuItem[]
   /** The sheet's protection: what it disables in the menus of rows and columns, and the tab menu's Protect Sheet and Unprotect Sheet. */
   protection: Protection
 }
@@ -129,6 +131,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
           { id: 'paste', label: m().menuPaste, disabled: !clip.canPaste.value, run: () => void clip.paste() },
           { id: 'pasteSpecial', label: m().menuPasteSpecial, disabled: !clip.canPasteSpecial.value, run: () => void clip.openSpecial() },
         ]
+    out.push(...(deps.cellPivots?.() ?? []))
     if (deps.filter.active.value && deps.filter.available.value) out.push({ id: 'reapply', label: m().menuReapply, run: () => void deps.filter.reapply(), group: true })
     // the display filter's rows on screen are not the sheet's rows, which panes freeze
     if (cmd.can('freeze') && !s.visible.value) {

@@ -356,8 +356,8 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     // Cancel: the cell keeps its contents and stays active, as Excel leaves it.
     if (answer === 'cancel') return outcome
     const m = s.messages.value
-    if (outcome.code === 'protected' && deps.alert) {
-      // a protected sheet's refusal: Excel's alert, in the source's words
+    if ((outcome.code === 'protected' || outcome.code === 'pivot') && deps.alert) {
+      // a protected sheet's or a PivotTable's refusal: Excel's alert, in the source's words
       await deps.alert({ severity: 'notice', message: outcome.message || m.protectedAlert })
       if (!outdated()) s.focusGrid()
     } else if (outcome.reason === 'conflict') {

@@ -558,6 +558,10 @@ export const enMessages: SheetMessages = {
   calculateStatus: 'Calculate',
   calculateHint: 'Calculate Now (F9)',
   refreshAll: 'Refresh All (Ctrl+Alt+F5)',
+  refreshAllMenu: 'Refresh All options',
+  refreshAllItem: 'Refresh All',
+  refreshPivot: 'Refresh (Alt+F5)',
+  menuRefresh: 'Refresh',
   ...enConditional,
   ...enProtection,
 }
@@ -1135,6 +1139,10 @@ export const ruMessages: SheetMessages = {
   calculateStatus: 'Вычислить',
   calculateHint: 'Пересчет (F9)',
   refreshAll: 'Обновить все (Ctrl+Alt+F5)',
+  refreshAllMenu: 'Параметры обновления',
+  refreshAllItem: 'Обновить все',
+  refreshPivot: 'Обновить (Alt+F5)',
+  menuRefresh: 'Обновить',
   ...ruConditional,
   ...ruProtection,
 }
