@@ -135,7 +135,10 @@ export async function type(w: VueWrapper, text: string): Promise<void> {
   ;(el.element as HTMLTextAreaElement).value = text
   await el.trigger('input')
 }
+/** Types a place into the Name Box and presses Enter, once a sheet is displayed: before the sheets are read there is no sheet to go to. */
 export async function goTo(w: VueWrapper, place: string): Promise<void> {
+  const view = w.findComponent(SheetView)
+  await until(() => !!(view.emitted('state') ?? []).at(-1)?.[0])
   const input = w.find('.xs-address')
   await input.setValue(place)
   await input.trigger('keydown', { key: 'Enter' })
