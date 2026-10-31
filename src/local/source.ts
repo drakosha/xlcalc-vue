@@ -55,7 +55,7 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
 const CALIBRI_11 = { name: 'Calibri', size: 11 }
 
 /** A sheet of the workbook's layout with where its cells end, the workbook's default font and the range its AutoFilter acts on, as the component lists it. */
-function info(layout: BookLayout, sheet: SheetLayout, used: SheetExtent, font: { name: string; size: number }, locale: string, autoFilter?: string): SheetInfo {
+function info(layout: BookLayout, sheet: SheetLayout, used: SheetExtent, font: { name: string; size: number }, autoFilter?: string): SheetInfo {
   const f = sheet.frozen
   const outline = outlineOf(outlineGroups(sheet), sheet.outline)
   return {
@@ -74,7 +74,7 @@ function info(layout: BookLayout, sheet: SheetLayout, used: SheetExtent, font: {
     // frozen panes take the place of a split, as in Excel
     ...(sheet.view?.split && !f ? { split: sheet.view.split } : {}),
     ...(sheet.pivotTables?.length ? { pivots: pivotsOf(sheet, layout.pivotCaches) } : {}),
-    ...(sheet.slicers?.length ? { slicers: slicersOf(layout, sheet, locale) } : {}),
+    ...(sheet.slicers?.length ? { slicers: slicersOf(layout, sheet) } : {}),
     ...(sheet.timelines?.length ? { timelines: timelinesOf(layout, sheet) } : {}),
     font,
   }
@@ -663,7 +663,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       // xlcalc 0.59 gives the workbook's default font; an older one, or a workbook without it, is Calibri 11
       const font = layout.font ?? CALIBRI_11
-      return layout.sheets.map((x, i) => info(layout, viewed(x), used[i]!, font, locale, ranges[i]))
+      return layout.sheets.map((x, i) => info(layout, viewed(x), used[i]!, font, ranges[i]))
     },
     async pivotTable(sheet, name, signal) {
       const s = await open()
