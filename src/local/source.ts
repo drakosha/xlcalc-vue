@@ -1,8 +1,8 @@
 // localSource: a sheet source over an xlcalc workbook whose session runs in a Web Worker pool or on the page's thread.
 // The session holds and calculates the workbook, finds as Excel's Find does and returns windows, sheets and edits as Excel
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
-import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, parseEntry, toLocal, type AsyncSession, type BookInput, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView, type SplitPanes } from 'xlcalc'
-import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, rectContains, sameName } from 'xlcalc/a1'
+import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView, type SplitPanes } from 'xlcalc'
+import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { ClearKind } from '../contract/workbook'
 import type { CalculationMode, CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetShow, SourceEvent, WindowRequest } from '../contract/source'
 import { boxesUnder, findHits, replaceAll } from './find'
@@ -21,7 +21,7 @@ import { connections, takeAnswers } from './connections'
 import { protectionGuard, protectSheet } from './protect'
 import { validationOf } from './validation'
 import { autoFilterRanges } from './autofilter'
-import { hasPivots, isPivotOp, loadPivot, PIVOT, pivotAlerts, pivotMeeting, pivotsOf } from './pivots'
+import { hasPivots, isPivotOp, loadPivot, PIVOT, pivotMeeting, pivotRefusals, pivotsOf, type PivotAlert } from './pivots'
 import { windowOf } from './window'
 import { workbookMethods } from './workbook'
 
@@ -158,8 +158,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   /** Excel's sheet protection, which the session does not enforce: each change to a protected sheet is checked first. */
   const guard = protectionGuard(locale, maxCells)
   /** The workbook has PivotTables, for which the engine is loaded; Excel's alerts over their cells. */
-  const pivots = hasPivots(input)
-  const pivotAlert = pivotAlerts(locale)
+  /**
+   * Whether the workbook may hold PivotTables, so that a cell typed alone is looked for among them: it has had one since it
+   * opened or since an operation on PivotTables; the layout says where they are.
+   */
+  let pivotsMaybe = hasPivots(input)
+  const pivot = pivotRefusals(locale)
+  /** Loads the PivotTable engine before anything needs it; false when it cannot be loaded, which leaves the workbook as it is. */
+  const engine = (): Promise<boolean> => loadPivot().then(() => true, () => false)
   /** The ranges the sheets' AutoFilters act on, which data typed under them grows: an edit that moves one sends `sheets`. */
   const filters = autoFilterRanges()
 
@@ -178,7 +184,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
 
   const ready = (async () => {
     // the PivotTable engine before the session opens, so that its PivotTables refresh, lay out and take typed labels
-    await Promise.all([loadLocale(locale), loadRegex(opts.regex), hasPivots(input) ? loadPivot() : null])
+    await Promise.all([loadLocale(locale), loadRegex(opts.regex), hasPivots(input) ? engine() : null])
     calc = typeof opts.calc === 'object' ? opts.calc : await startCalc(opts)
     // a formula over a function the engine does not know keeps the value its file stores (or its cell holds), as Excel shows it until it calculates the cell
     session = await calc.createSession(input, { unknownFunctions: 'held', ...outside.session })
@@ -377,32 +383,21 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const options = { refuseInvalid: !opts?.accept, ...(opts?.inPlace ? { inPlace: true } : {}) }
     const one = cells.length === 1 ? cells[0]! : null
     // text typed over a PivotTable's label names it, which xlcalc does for a cell typed alone (`setCellText`)
-    if (one && one.text !== null && pivots && (await pivotAt(s, one.sheet, one.cell))) {
+    if (one && one.text !== null && (await pivotAt(s, one.sheet, one.cell))) {
+      await engine()
       const got = await s.setCellText(one.sheet, one.cell, one.text, options)
-      return got.ok ? settle(s, got, boxes) : got.code === PIVOT ? pivotEntry(s, one.sheet, one.cell, one.text) : refusalOf(got)
+      return got.ok ? settle(s, got, boxes) : got.code === PIVOT ? pivot.refusal(got) : refusalOf(got)
     }
     const texts = cells.map((c) => ({ sheet: c.sheet, cell: c.cell, text: c.text ?? '' }))
     const got = await s.setCellTexts(texts, options)
     if (got.ok) return settle(s, got, boxes)
-    return got.code === PIVOT && 'sheet' in got ? pivotEntry(s, got.sheet, got.cell, texts.find((x) => sameName(x.sheet, got.sheet) && x.cell === got.cell)?.text ?? '') : refusalOf(got)
+    return got.code === PIVOT ? pivot.refusal(got) : refusalOf(got)
   }
 
-  /** Whether a PivotTable's table or Filters area holds the cell; with it, its values area. */
+  /** Whether a PivotTable's table or Filters area holds the cell, read from the layout once the workbook may have one. */
   async function pivotAt(s: AsyncSession, sheet: string, cell: string) {
     const at = parseCell(cell)
-    return at ? pivotMeeting(await s.getLayout(), sheet, { top: at.row, left: at.col, bottom: at.row, right: at.col }) : null
-  }
-  /**
-   * An entry xlcalc refused over a PivotTable's cell (`pivot`) as Excel's alert: a formula over a label, outside the values,
-   * is Excel's alert for a formula there, any other entry Excel's "We can't change this part of the PivotTable."
-   * TODO(xlcalc): the refusal does not tell which of Excel's alerts it is, so the formula and the label are told here.
-   */
-  async function pivotEntry(s: AsyncSession, sheet: string, cell: string, text: string): Promise<EditOutcome> {
-    const entry = parseEntry(text, { locale })
-    const formula = !entry.ok || entry.input?.formula !== undefined
-    const at = parseCell(cell)
-    const values = formula && at ? (await pivotAt(s, sheet, cell))?.values : undefined
-    return pivotAlert(formula && at && !(values && rectContains(values, { top: at.row, left: at.col, bottom: at.row, right: at.col })) ? 'formula' : 'part')
+    return at && pivotsMaybe ? pivotMeeting(await s.getLayout(), sheet, { top: at.row, left: at.col, bottom: at.row, right: at.col }) : null
   }
   /** Clearing cells, which xlcalc refuses over a PivotTable with an `InputError`: Excel's alert for a change that affects a PivotTable. */
   async function pivotClearing<R>(s: AsyncSession, ranges: { sheet: string; range: string }[], run: () => Promise<R>): Promise<R | Refused> {
@@ -416,14 +411,14 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
         return !!x && !!pivotMeeting(layout, r.sheet, x)
       })
       if (!meets) throw e
-      return pivotAlert('affect')
+      return pivot.refusal(e as Error, 'affect')
     }
   }
 
   /** Clipboard text as Excel pastes it at a cell, as a single undo step; the selection covers the filled range. */
   async function paste(s: AsyncSession, sheet: string, cell: string, text: string): Promise<EditOutcome> {
     const got = await s.pasteText(sheet, cell, text)
-    if (!got.ok) return got.code === PIVOT ? pivotAlert('part') : refusalOf(got)
+    if (!got.ok) return got.code === PIVOT ? pivot.refusal(got) : refusalOf(got)
     const out = await settle(s, got, [{ sheet, rect: parseRange(got.range)! }])
     return { ...out, select: { sheet, range: got.range } }
   }
@@ -448,7 +443,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const rect = parseRange(range)
     if (!rect) return failed(`Not a range: ${range}`)
     const got = await s.fillCellText(sheet, range, text, { active, refuseInvalid: !opts?.accept, ...(opts?.inPlace ? { inPlace: true } : {}) })
-    if (!got.ok) return got.code === PIVOT && 'sheet' in got ? pivotEntry(s, got.sheet, got.cell, text) : refusalOf(got)
+    if (!got.ok) return got.code === PIVOT ? pivot.refusal(got) : refusalOf(got)
     const out = await settle(s, got, [{ sheet, rect }])
     return { ...out, select: { sheet, range: rangeAddress(rect) } }
   }
@@ -502,11 +497,25 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
 
   /** A structure operation; the values waiting in Manual follow the addresses it moved (`calcMode.moved`). */
   async function structure(s: AsyncSession, op: SheetOp): Promise<EditOutcome> {
+    const onPivots = isPivotOp(op)
+    if (onPivots) {
+      pivotsMaybe = true
+      if (!(await engine())) return pivot.alert('engine')
+    }
     const got = await s.editStructure(op)
-    // an operation that would cut a PivotTable: Excel's alert; one on a PivotTable keeps xlcalc's reason
-    if (!got.ok) return got.code === PIVOT && !isPivotOp(op) ? pivotAlert('affect') : { ok: false, reason: 'refused', code: got.code, message: got.message }
+    if (!got.ok) return got.code === PIVOT ? pivot.refusal(got, onPivots ? undefined : await cutBy(s, op)) : { ok: false, reason: 'refused', code: got.code, message: got.message }
     calcMode.moved(got.moved)
     return reloaded(got.changes)
+  }
+  /** Excel's alert for an operation that would cut a PivotTable: a paste onto one (a copy, a move onto it) is Excel's paste alert, any other its alert for a change that affects one. */
+  async function cutBy(s: AsyncSession, op: SheetOp): Promise<PivotAlert> {
+    if (op.op === 'copyRange') return 'part'
+    if (op.op !== 'moveRange') return 'affect'
+    const from = parseRange(op.from.range)
+    const at = parseCell(op.to.cell)
+    if (!from || !at) return 'affect'
+    const to = { top: at.row, left: at.col, bottom: at.row + from.bottom - from.top, right: at.col + from.right - from.left }
+    return pivotMeeting(await s.getLayout(), op.to.sheet, to) ? 'part' : 'affect'
   }
 
   /** A structure operation once the sheet's protection allows it. */
@@ -534,8 +543,10 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   }
 
   /**
-   * Excel's Refresh All (xlcalc 0.68's `refreshConnections`): the answers kept are dropped and the calls asked again, not a
-   * step of undo; its changes are sent as an edit's, so in Manual the cells it calculated wait for a calculation.
+   * Excel's Refresh All: with the host's resolver, xlcalc 0.68's `refreshConnections`, the answers kept dropped and the calls
+   * asked again, not a step of undo, its changes sent as an edit's (in Manual the cells it calculated wait for a
+   * calculation); then, without `names`, the PivotTables the layout has, one step of undo. Answers that arrive after the
+   * calls return are not in the PivotTables until the next refresh.
    */
   async function refresh(s: AsyncSession, names?: string[]): Promise<EditOutcome> {
     const asked = outside.resolves ? await settle(s, await s.refreshConnections(names), []) : { ok: true as const, changes: [] }
@@ -881,8 +892,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     },
     setExternalBooks: mutation(externalBooks, refusedBy),
     // Refresh All asks the host's resolver again: values given in advance answer nothing anew
-    // a workbook with PivotTables refreshes them too
-    ...(outside.resolves || pivots ? { refreshConnections: mutation(refresh, failedBy) } : {}),
+    // every workbook may have PivotTables to refresh, which the layout tells at the call; the calls are asked only with a resolver
+    refreshConnections: mutation(refresh, failedBy),
     calculate: showing(calculate),
     setCalculation: showing(setCalculation),
     async close() {

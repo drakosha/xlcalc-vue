@@ -8,7 +8,7 @@ import type { CellEntry, EditOutcome, FindRequest, FormatPatch, LayoutChange, Ou
 import type { ClearKind, SheetRules, TableOp } from '../contract/workbook'
 import { allows, lockedStyle, type ProtectionAllowance } from '../protection'
 import { boxesUnder, replacedCells } from './find'
-import { isPivotOp, pivotSheets } from './pivots'
+import { isPivotOp, pivotMeeting, pivotNeeds } from './pivots'
 
 /** The outcome code of a change a protected sheet does not allow. */
 export const PROTECTED = 'protected'
@@ -154,8 +154,8 @@ export function protectionGuard(locale: string, maxCells: number) {
 
   /** What a structure operation needs; a table's sheet is found by its name. */
   async function structureNeeds(s: AsyncSession, op: StructureOp): Promise<Need[]> {
-    // Use PivotTable and PivotChart: "format, change the layout, refresh, or otherwise modify PivotTables, or create new reports" (Microsoft's Protect a worksheet)
-    if (isPivotOp(op)) return pivotSheets(await layoutOf(s), op).map((sheet) => ({ sheet, allow: ['pivotTables'] }))
+    // Use PivotTable reports and Edit objects, as Microsoft's Protect a worksheet describes them (`pivotNeeds`)
+    if (isPivotOp(op)) return pivotNeeds(await layoutOf(s), op).map((n) => ({ sheet: n.sheet, allow: [n.allow] }))
     switch (op.op) {
       case 'insertRows':
         return [{ sheet: op.sheet, allow: ['insertRows'] }]
@@ -222,7 +222,15 @@ export function protectionGuard(locale: string, maxCells: number) {
   /** Each source method with the protection Excel checks before it. */
   return {
     forget,
-    edit: guard((_s, entries: CellEntry[]) => entries.map((e) => ({ sheet: e.sheet, cells: rects([e.cell]) }))),
+    /** Text typed over a PivotTable's cell renames its label, a change of the PivotTable: Use PivotTable reports, besides an unlocked cell. */
+    edit: guard(async (s, entries: CellEntry[]) => {
+      const book = await layoutOf(s)
+      return entries.map((e): Need => {
+        const cells = rects([e.cell])
+        const renames = e.text !== null && cells.some((r) => pivotMeeting(book, e.sheet, r))
+        return { sheet: e.sheet, cells, ...(renames ? { allow: ['pivotTables'] } : {}) }
+      })
+    }),
     paste: guard((_s, sheet: string, cell: string, text: string) => {
       const r = pasteRect(cell, text)
       return r ? [{ sheet, cells: [r] }] : []

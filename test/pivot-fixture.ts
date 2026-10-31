@@ -29,8 +29,8 @@ const cache = (): PivotCache => ({
 const items = () => ({ items: [{ item: 0 }, { item: 1 }] })
 const STYLE: PivotTable['style'] = { name: 'PivotStyleLight16', rowHeaders: true, columnHeaders: true, lastColumn: true }
 
-/** Sum of Amount by Region at Report!A3:B6 (PivotTable1), with `extra` cells on Report. */
-export function pivotBook(opts: { locale?: string; protection?: SheetInput['protection']; extra?: SheetInput['cells'] } = {}): BookInput {
+/** Sum of Amount by Region at Report!A3:B6 (PivotTable1), with `extra` cells on Report, and `table` over its definition. */
+export function pivotBook(opts: { locale?: string; protection?: SheetInput['protection']; extra?: SheetInput['cells']; styles?: BookInput['styles']; table?: Partial<PivotTable> } = {}): BookInput {
   const table: PivotTable = {
     name: 'PivotTable1',
     cache: 1,
@@ -42,6 +42,7 @@ export function pivotBook(opts: { locale?: string; protection?: SheetInput['prot
     values: [{ field: 1, name: 'Sum of Amount' }],
     rowLines: [{ items: [0] }, { items: [1] }, { items: [0], type: 'grand' }],
     columnLines: [{ items: [] }],
+    ...opts.table,
   }
   const report: SheetInput = {
     name: 'Report',
@@ -55,7 +56,7 @@ export function pivotBook(opts: { locale?: string; protection?: SheetInput['prot
     pivotTables: [table],
     ...(opts.protection ? { protection: opts.protection } : {}),
   }
-  return { ...(opts.locale ? { locale: opts.locale } : {}), sheets: [DATA, report], pivotCaches: [cache()] }
+  return { ...(opts.locale ? { locale: opts.locale } : {}), ...(opts.styles ? { styles: opts.styles } : {}), sheets: [DATA, report], pivotCaches: [cache()] }
 }
 
 /** Sum of Amount by Region down and Kind across at Report!A3:D7, Year in its Filters area at A1:B1 (PivotTable1). */

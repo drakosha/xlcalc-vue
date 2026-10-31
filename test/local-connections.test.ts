@@ -307,11 +307,12 @@ describe('localSource: Refresh All', () => {
     expect(await row(s)).toEqual([2, 42, 43])
   })
 
-  it('is there only with a resolver to ask again', async () => {
-    expect(source(balances()).refreshConnections).toBeUndefined()
-    // values given in advance answer nothing anew: Refresh All would only drop a cube's value the file stores
-    expect(source(balances(), { session: { externals: { functions: ['BAL'], values: { 'BAL(2)': 5 } } } }).refreshConnections).toBeUndefined()
-    expect(typeof source(balances(), { session: { externals: { functions: ['BAL'], resolve: counting().resolve } } }).refreshConnections).toBe('function')
+  it('asks the calls again only with a resolver: without one it asks nothing, the PivotTables being all it refreshes', async () => {
+    // values given in advance answer nothing anew: asking would only drop a cube's value the file stores
+    const s = source(balances(), { session: { externals: { functions: ['BAL'], values: { 'BAL(2)': 5 } } } })
+    const before = await row(s)
+    expect(await s.refreshConnections()).toEqual({ ok: true, changes: [] })
+    expect(await row(s)).toEqual(before)
   })
 })
 
