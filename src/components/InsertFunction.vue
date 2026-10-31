@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Excel's Insert Function dialog: a search box, the category box (recently used, all, the source's categories), the functions, and the syntax and description of the selected one.
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+// Excel's Insert Function dialog: a search box with Go, the category box (recently used, all, the source's categories), the functions, and the syntax and description of the selected one.
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue'
 import { FUNCTION_CATEGORIES } from 'xlcalc/text'
 import { stepIndex } from '../core/list-keys'
 import type { SheetFunctionSignature } from '../contract/source'
@@ -25,6 +25,7 @@ const query = ref('')
 const index = ref(0)
 const list = ref<HTMLElement | null>(null)
 const ctrl = new AbortController()
+const searchId = `${useId()}-search`
 
 /** The categories of the source's functions, in Excel's order, by their names in the locale. */
 const categories = computed(() => {
@@ -52,6 +53,10 @@ watch([category, query], () => (index.value = 0))
 watch(query, (q) => {
   if (q.trim() && category.value === 'recent') category.value = 'all'
 })
+/** Go: the search over every function, whatever the category, as Excel's Go searches them all. */
+function go(): void {
+  if (query.value.trim()) category.value = 'all'
+}
 keepActiveInView(list, index, () => index.value)
 
 onMounted(async () => {
@@ -87,17 +92,13 @@ function onKey(e: KeyboardEvent): void {
 <template>
   <DialogShell class="xs-ifn" full focus="[data-xs-if-search]" :aria-label="m.insertFunctionTitle" data-xs-keep-edit data-xs-insert-function @keydown="onKey" @close="emit('close')">
     <p class="xs-modal-title">{{ m.insertFunctionTitle }}</p>
-    <input
-      v-model="query"
-      class="xs-field xs-field-l"
-      type="text"
-      enterkeyhint="search"
-      autocomplete="off"
-      spellcheck="false"
-      :placeholder="m.insertFunctionSearch"
-      :aria-label="m.insertFunctionSearch"
-      data-xs-if-search
-    />
+    <div class="xs-ifn-field">
+      <label :for="searchId">{{ m.insertFunctionSearch }}</label>
+      <span class="xs-ifn-search">
+        <input :id="searchId" v-model="query" class="xs-field xs-field-l" type="text" enterkeyhint="search" autocomplete="off" spellcheck="false" data-xs-if-search />
+        <button type="button" class="xs-button" data-xs-if-go @click="go()">{{ m.insertFunctionGo }}</button>
+      </span>
+    </div>
     <label class="xs-ifn-field">
       <span>{{ m.insertFunctionCategory }}</span>
       <select v-model="category" class="xs-field xs-field-l" data-xs-if-category>

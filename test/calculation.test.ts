@@ -141,6 +141,13 @@ describe('Refresh All on the sheet', () => {
     await until(() => w.find('[data-tb="refresh-all"]').exists() && w.find('[data-tb="refresh-all"]').attributes('disabled') === undefined)
     const button = w.find('[data-tb="refresh-all"]')
     expect(button.attributes('data-tip')).toBe('Refresh All (Ctrl+Alt+F5)')
+    expect(button.attributes('data-tip-more')).toBe('Get the latest data by refreshing all sources in the workbook.')
+    // the list's own name in Excel is its button's, Refresh All
+    expect(w.find('[data-tb="refresh-all-menu"]').attributes('aria-label')).toBe('Refresh All')
+    // its ScreenTip has the description under the name, as Office's
+    button.element.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }))
+    await until(() => w.find('[data-tb-tip]').exists())
+    expect(w.findAll('[data-tb-tip] > *').map((x) => x.text())).toEqual(['Refresh All (Ctrl+Alt+F5)', 'Get the latest data by refreshing all sources in the workbook.'])
     await button.trigger('click')
     await until(() => (source.refreshConnections as ReturnType<typeof vi.fn>).mock.calls.length === 1)
     w.unmount()
