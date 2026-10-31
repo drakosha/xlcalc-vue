@@ -89,8 +89,9 @@ export function usePivotCreate(s: SheetState, cmd: Commands, deps: PivotCreateDe
 
   /**
    * OK: the PivotTable over the source, on a new sheet before the active one at A3 or at the location's top-left cell, as one
-   * undo step; the dialog stays with Excel's alert for a source or a location it does not take. The source's refusal (data
-   * already where the PivotTable would be laid out, no row under the headers) is shown as the sheet shows any refusal.
+   * undo step; the dialog stays with Excel's alert for a source or a location it does not take. Over cells that hold
+   * something the source makes it showing `#SPILL!`, as Excel 365; its refusal (a place over another PivotTable, no row
+   * under the headers) is shown as the sheet shows any refusal.
    */
   async function ok(): Promise<boolean> {
     const d = draft.value

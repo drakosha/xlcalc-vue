@@ -278,4 +278,24 @@ describe('Insert PivotTable', () => {
     expect(lastState(w)?.pivot).toBe('PivotTable2')
     expect(lastState(w)?.fieldList).toBe(true)
   })
+
+  it('puts it over cells that hold something as Excel 365 does, showing #SPILL! without asking', async () => {
+    const w = await data(pivotBook({ extra: { G5: { value: 'kept' } } }))
+    await api(w).insertPivotTable()
+    await settle()
+    field('source').value = 'Data!A1:D4'
+    field('source').dispatchEvent(new Event('input'))
+    const existing = document.querySelector<HTMLInputElement>('[data-xs-pivot-place="existing"]')!
+    existing.checked = true
+    existing.dispatchEvent(new Event('change'))
+    await settle()
+    field('location').value = 'Report!F3'
+    field('location').dispatchEvent(new Event('input'))
+    document.querySelector<HTMLButtonElement>('[data-xs-dialog-ok]')!.click()
+    await until(() => lastState(w)?.sheet === 'Report' && lastState(w)?.ref === 'F3')
+    expect(document.querySelector('[data-xs-alert]')).toBeNull()
+    await until(() => cellText(w, 3, 6) === '#SPILL!')
+    expect(cellText(w, 5, 7)).toBe('kept')
+    expect(lastState(w)?.pivot).toBe('PivotTable2')
+  })
 })

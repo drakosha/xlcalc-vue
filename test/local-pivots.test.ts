@@ -79,6 +79,21 @@ describe('localSource: PivotTables', () => {
     expect(await s.structure({ op: 'refreshPivots', pivots: [{ sheet: 'Report', name: 'Nope' }] })).toMatchObject({ ok: false, code: 'pivot', message: expect.stringMatching(/Nope/) })
   })
 
+  it('deletes a PivotTable whose cells are all cleared, as Excel does, in one undo step, and reads the sheets again', async () => {
+    const s = source(pivotBook())
+    const events: string[] = []
+    s.subscribe((e) => events.push(e.kind))
+    const cells = ['A3', 'B3', 'A4', 'B4', 'A5', 'B5', 'A6', 'B6'].map((cell) => ({ sheet: 'Report', cell, text: null }))
+    ok(await s.edit(cells))
+    expect(events).toContain('reload')
+    expect((await s.sheets())[1]!.pivots).toBeUndefined()
+    expect(await valueAt(s, 'B6')).toBeNull()
+    ok(await s.undo())
+    expect((await s.sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1' }])
+    ok(await s.clear('Report', ['A3:B6'], 'all'))
+    expect((await s.sheets())[1]!.pivots).toBeUndefined()
+  })
+
   it("keeps xlcalc's own reason where Excel's alert is not one of those: a name taken, an item a filter does not have", async () => {
     const s = source(pivotBook())
     expect(await s.edit([{ sheet: 'Report', cell: 'B3', text: 'Region' }])).toEqual(refusedWith('PivotTable field name already exists: "Region"'))
