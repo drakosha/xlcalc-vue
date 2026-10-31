@@ -89,9 +89,9 @@ export function pivotMeeting(layout: BookLayout, sheet: string, rect: CellRect):
 /**
  * Excel for Windows' alerts over a PivotTable's cells, as xlcalc's refusal `reason` names them: a value typed or pasted
  * (`part`), a formula over a label (`formula`), a cleared cell or an operation that would insert or delete cells in it
- * (`affect`); the English ones are those Excel 16.0 for Windows answered xlcalc's set `edit` with, the Russian ones were
- * not measured. `engine` is the source's own: the PivotTable engine could not be loaded, so nothing needing it is done;
- * so is `moveLocked`: a slicer or a timeline with Disable resizing and moving on, which Excel's interface does not move.
+ * (`affect`), in Excel 16.0 for Windows' words in en-US and ru-RU (Russian `переместить` is Excel's). `engine` is the
+ * source's own: the PivotTable engine could not be loaded, so nothing needing it is done; so is `moveLocked`: a slicer or
+ * a timeline with Disable resizing and moving on, which Excel's interface does not move.
  */
 const ALERTS = {
   en: {
@@ -102,9 +102,9 @@ const ALERTS = {
     moveLocked: "This slicer or timeline can't be moved or resized: Disable resizing and moving is on.",
   },
   ru: {
-    part: 'Нельзя изменить эту часть сводной таблицы.',
-    affect: 'Нельзя внести это изменение в выделенные ячейки, так как оно повлияет на сводную таблицу. Используйте список полей, чтобы изменить отчет. Если вы пытаетесь вставить или удалить ячейки, переместите сводную таблицу и повторите попытку.',
-    formula: 'Нельзя ввести формулу для имени элемента или поля в отчете сводной таблицы.',
+    part: 'Мы не можем изменить эту часть сводной таблицы.',
+    affect: 'Мы не можем изменить выделенные ячейки, так как это повлияет на сводную таблицу. Для изменения отчета используйте список полей. Если вы пытаетесь вставить или удалить ячейки, переместить сводную таблицу и повторите попытку.',
+    formula: 'Нельзя задавать формулу для имени поля или элемента в отчете сводной таблицы.',
     engine: 'Сводные таблицы сейчас нельзя обновить или изменить: страница не смогла загрузить то, что для этого нужно. Обновите страницу и повторите попытку.',
     moveLocked: 'Этот срез или эту временную шкалу нельзя переместить или изменить в размере: для них отключено изменение размеров и перемещение.',
   },
@@ -154,19 +154,20 @@ export function pivotRefusals(locale: string) {
 const PIVOT_OPS = new Set<StructureOp['op']>(['addPivotTable', 'editPivotTable', 'renamePivotTable', 'movePivotTable', 'deletePivotTable', 'refreshPivots', 'groupPivotField', 'ungroupPivotField', 'renamePivotGroup', 'setPivotCalculatedField', 'setPivotCalculatedItem', 'addSlicer', 'editSlicer', 'deleteSlicer', 'addTimeline', 'editTimeline', 'deleteTimeline'])
 export const isPivotOp = (op: StructureOp): boolean => PIVOT_OPS.has(op.op)
 
-/** What a protected sheet must allow for an operation on PivotTables: a box of Protect Sheet on a sheet. */
+/** What a protected sheet must allow for an operation on PivotTables: a box of Protect Sheet on a sheet, or `refresh`, which none allows. */
 export interface PivotNeed {
   sheet: string
-  allow: 'pivotTables' | 'objects'
+  allow: 'pivotTables' | 'objects' | 'refresh'
 }
 
 /**
- * What an operation on PivotTables needs of protected sheets, by Microsoft's Protect a worksheet (not measured in Excel): Use
- * PivotTable reports ("Format, change the layout, refresh, or otherwise modify PivotTable reports, or create new reports")
- * on each sheet whose PivotTables it lays out again, every sheet with a PivotTable over the cache for a refresh or a change
- * of the cache, and Refresh All every sheet with one; a slicer's or a timeline's choice refilters the PivotTables it names;
- * adding or deleting a slicer or a timeline also needs Edit objects on its sheet, as slicers and timelines are objects
- * locked when added.
+ * What an operation on PivotTables needs of protected sheets. A refresh is refused on a protected sheet with a PivotTable
+ * over the cache (every sheet with one for Refresh All), whatever its boxes allow, as Excel 16.0 for Windows refused Refresh
+ * All there with and without Use PivotTable and PivotChart (`refresh`). The rest by Microsoft's Protect a worksheet (not
+ * measured in Excel): Use PivotTable reports ("Format, change the layout, refresh, or otherwise modify PivotTable reports, or
+ * create new reports") on each sheet whose PivotTables it lays out again, every sheet with a PivotTable over the cache for a
+ * change of the cache; a slicer's or a timeline's choice refilters the PivotTables it names; adding or deleting a slicer or
+ * a timeline also needs Edit objects on its sheet, as slicers and timelines are objects locked when added.
  */
 export function pivotNeeds(layout: BookLayout, op: StructureOp): PivotNeed[] {
   const cacheOf = (sheet: string, name: string) => layout.sheets.find((x) => sameName(x.name, sheet))?.pivotTables?.find((t) => sameName(t.name, name))?.cache
@@ -185,7 +186,7 @@ export function pivotNeeds(layout: BookLayout, op: StructureOp): PivotNeed[] {
     (typeof cache === 'string' ? ((kind === 'slicers' ? layout.slicerCaches : layout.timelineCaches) ?? []).find((c) => sameName(c.name, cache))?.pivots : cache.pivots) ?? []
   switch (op.op) {
     case 'refreshPivots':
-      return pivots(op.pivots ? over(op.pivots.map((p) => cacheOf(p.sheet, p.name))) : layout.sheets.filter((x) => x.pivotTables?.length).map((x) => x.name))
+      return (op.pivots ? over(op.pivots.map((p) => cacheOf(p.sheet, p.name))) : layout.sheets.filter((x) => x.pivotTables?.length).map((x) => x.name)).map((sheet) => ({ sheet, allow: 'refresh' }))
     case 'groupPivotField':
     case 'ungroupPivotField':
     case 'renamePivotGroup':

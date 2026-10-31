@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { SheetToolbar, SheetView, type SheetViewApi, type SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
-import { cellText, editorKey, goTo, key, mountSheet, settle, type, until } from './helpers'
+import { cellText, editorKey, editorOpen, goTo, key, mountSheet, settle, type, until } from './helpers'
 import { pivotBook } from './pivot-fixture'
 
 let sources: LocalSource[] = []
@@ -61,26 +61,45 @@ describe('PivotTables on the sheet', () => {
     expect(await (w.vm as unknown as SheetViewApi).refreshPivot()).toMatchObject({ ok: true })
   })
 
-  it("disables Refresh on a protected sheet without Use PivotTable and PivotChart, and shows the source's refusal as Excel's alert", async () => {
-    const { w } = await report(pivotBook({ protection: {} }))
-    await context(w, '4:2')
-    expect(menuItem('refreshPivot')?.disabled).toBe(true)
-    document.body.click()
-    await key(w, 'F5', { altKey: true })
-    await until(() => alertText() !== null)
-    expect(alertText()).toMatch(/protected sheet/)
+  it('refuses Refresh on a protected sheet with or without Use PivotTable and PivotChart, as Excel for Windows does', async () => {
+    for (const [protection, said] of [
+      [{}, 'Cannot edit PivotTable on protected sheet.'],
+      [{ pivotTables: true }, /^That command cannot be performed while a protected sheet contains another PivotTable report/],
+    ] as const) {
+      const { w } = await report(pivotBook({ protection }))
+      expect(lastState(w)?.pivot).toBe('PivotTable1')
+      expect(lastState(w)?.canRefreshPivot).toBeUndefined()
+      await context(w, '4:2')
+      expect(menuItem('refreshPivot')?.disabled).toBe(true)
+      document.body.click()
+      // Alt+F5 does nothing, without an alert
+      await key(w, 'F5', { altKey: true })
+      await settle()
+      expect(alertText()).toBeNull()
+      expect(await (w.vm as unknown as SheetViewApi).refreshPivot()).toBeNull()
+      // Ctrl+Alt+F5 (Refresh All) shows the source's refusal as Excel's alert
+      await key(w, 'F5', { altKey: true, ctrlKey: true })
+      await until(() => alertText() !== null)
+      expect(alertText()).toMatch(said)
+      document.querySelector<HTMLButtonElement>('[data-xs-alert-button="ok"]')!.click()
+      await settle()
+      expect(cellText(w, 4, 2)).toBe('15')
+      w.unmount()
+    }
   })
 
-  it("typing over a value shows Excel's alert and keeps the value; over a label it renames", async () => {
+  it("typing or F2 on a value shows Excel's alert at once and opens no editor; over a label typing renames", async () => {
     const { w } = await report()
-    await goTo(w, 'B4')
-    await key(w, 'F2')
-    await type(w, '9')
-    await editorKey(w, 'Enter')
-    await until(() => alertText() !== null)
-    expect(alertText()).toBe("We can't change this part of the PivotTable.")
-    document.querySelector<HTMLButtonElement>('[data-xs-alert-button="ok"]')!.click()
-    await settle()
+    for (const k of ['9', 'F2']) {
+      await goTo(w, 'B4')
+      await key(w, k)
+      await settle()
+      expect(alertText()).toBe("We can't change this part of the PivotTable.")
+      expect(editorOpen(w)).toBe(false)
+      document.querySelector<HTMLButtonElement>('[data-xs-alert-button="ok"]')!.click()
+      await settle()
+      expect(alertText()).toBeNull()
+    }
     expect(cellText(w, 4, 2)).toBe('15')
     await goTo(w, 'A5')
     await key(w, 'F2')

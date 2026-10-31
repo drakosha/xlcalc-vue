@@ -80,6 +80,8 @@ export interface EditingDeps {
   calls?: (name: string) => boolean
   /** The sheet's protection: a locked cell in a range shows Excel's alert and refuses the change (true); none without it. */
   protection?: { refuse: (rect: CellRect) => boolean }
+  /** The sheet's PivotTables: a value cell shows Excel's alert and refuses an edit to start there (true); none without it. */
+  pivots?: { refuseEdit: (row: number, col: number) => boolean }
 }
 
 export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula, editor: Ref<EditorState | null>, deps: EditingDeps) {
@@ -149,10 +151,10 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }
   }
 
-  /** Opens the editor on the active cell; for a locked cell, explains why instead. False when nothing opened. */
+  /** Opens the editor on the active cell; for a locked cell or a PivotTable's value, explains why instead. False when nothing opened. */
   function startEdit(opts: { text?: string; mode: 'enter' | 'edit'; place?: 'cell' | 'bar'; caret?: number; caretEnd?: number; focus?: boolean }): boolean {
     const a = s.selected.value
-    if (!s.editable.value || !a || blocked(cellRect(a.row, a.col))) return false
+    if (!s.editable.value || !a || blocked(cellRect(a.row, a.col)) || deps.pivots?.refuseEdit(a.row, a.col)) return false
     const initial = editText(a.row, a.col)
     const text = opts.text ?? initial
     editor.value = { sheet: s.sheetName.value, row: a.row, col: a.col, text, initial, mode: opts.mode, place: opts.place ?? 'cell', caret: opts.caret ?? text.length, caretEnd: opts.caretEnd, inPlace: opts.text === undefined }

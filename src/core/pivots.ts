@@ -1,11 +1,13 @@
 // PivotTables on the sheet: the PivotTable under the active cell (`SheetInfo.pivots`), Excel's Refresh (Alt+F5) of it
 // through the source's `structure`, Excel's Field List (the PivotTable Fields pane shown while the active cell is in a
-// PivotTable), the dialogs the pane asks for, and their items in the cell menu. What a PivotTable's cells take is the source's to say.
+// PivotTable), the dialogs the pane asks for, their items in the cell menu, and Excel's alert before typing into a value
+// cell. What else a PivotTable's cells take is the source's to say.
 import { computed, ref } from 'vue'
 import { parseRange, rectContains } from 'xlcalc/a1'
 import type { EditOutcome } from '../contract/source'
 import type { PivotDialogRequest } from '../contract/view'
 import { cellRect } from '../rect'
+import type { AlertAnswer, SheetAlert } from './validation'
 import type { Commands } from './commands'
 import type { MenuItem } from './menu'
 import type { Protection } from './protection'
@@ -14,6 +16,8 @@ import type { SheetState } from './state'
 export interface PivotsDeps {
   /** Sends a dialog request to the host (`SheetView`'s `pivotDialog` event). */
   dialog: (request: PivotDialogRequest) => void
+  /** Shows an alert. */
+  ask: (alert: SheetAlert) => Promise<AlertAnswer>
 }
 
 export function usePivots(s: SheetState, cmd: Commands, protection: Protection, deps: PivotsDeps) {
@@ -29,8 +33,20 @@ export function usePivots(s: SheetState, cmd: Commands, protection: Protection, 
     }
     return pivots.find((p) => holds(p.range) || holds(p.filters)) ?? null
   })
-  /** Refresh needs the source's `structure` on an editable sheet; a protected sheet's refusal is the source's. */
-  const canRefresh = computed(() => !!active.value && cmd.can('structure'))
+  /** The cell menu's Refresh is there with the source's `structure` on an editable sheet. */
+  const hasRefresh = computed(() => !!active.value && cmd.can('structure'))
+  /** Refresh is refused on a protected sheet whatever it allows, as in Excel 16.0 for Windows, where Alt+F5 does nothing and Refresh is disabled. */
+  const canRefresh = computed(() => hasRefresh.value && !protection.protection.value)
+
+  /** The values areas of the sheet's PivotTables. */
+  const values = computed(() => (s.sheet.value?.pivots ?? []).flatMap((p) => (p.values ? (parseRange(p.values) ?? []) : [])))
+  /** Typing or F2 on a PivotTable's value cell: Excel's alert at the first key, and true; no editor opens. */
+  function refuseEdit(row: number, col: number): boolean {
+    const here = cellRect(row, col)
+    if (!values.value.some((r) => rectContains(r, here))) return false
+    void deps.ask({ severity: 'notice', message: s.messages.value.pivotPartAlert })
+    return true
+  }
 
   /** Excel's Field List: on by default, as Excel's; the pane shows while it is on and the active cell is in a PivotTable the source can read. */
   const fieldListOn = ref(true)
@@ -54,18 +70,18 @@ export function usePivots(s: SheetState, cmd: Commands, protection: Protection, 
     return cmd.structure({ op: 'refreshPivots', pivots: [{ sheet: s.sheetName.value, name: p.name }] })
   }
 
-  /** Alt+F5 refreshes the PivotTable under the active cell, as in Excel for Windows; true when handled. */
+  /** Alt+F5 refreshes the PivotTable under the active cell, as in Excel for Windows, and does nothing on a protected sheet; true when handled. */
   function key(e: KeyboardEvent): boolean {
-    if (e.key !== 'F5' || !e.altKey || e.ctrlKey || e.shiftKey || e.metaKey || !canRefresh.value) return false
+    if (e.key !== 'F5' || !e.altKey || e.ctrlKey || e.shiftKey || e.metaKey || !hasRefresh.value) return false
     e.preventDefault()
-    void refresh()
+    if (canRefresh.value) void refresh()
     return true
   }
 
-  /** The cell menu's Refresh on a PivotTable's cell, disabled where the sheet's protection does not allow PivotTables. */
+  /** The cell menu's Refresh on a PivotTable's cell, disabled on a protected sheet. */
   function items(): MenuItem[] {
-    if (!canRefresh.value) return []
-    return [{ id: 'refreshPivot', label: s.messages.value.menuRefresh, disabled: !protection.can('pivotTables'), run: () => void refresh(), group: true }]
+    if (!hasRefresh.value) return []
+    return [{ id: 'refreshPivot', label: s.messages.value.menuRefresh, disabled: !canRefresh.value, run: () => void refresh(), group: true }]
   }
   /** Show Field List or Hide Field List, which Excel lists last in the cell menu of a PivotTable's cell. */
   function lastItems(): MenuItem[] {
@@ -74,7 +90,7 @@ export function usePivots(s: SheetState, cmd: Commands, protection: Protection, 
     return [{ id: 'fieldList', label: fieldListOn.value ? m.menuHideFieldList : m.menuShowFieldList, run: () => void fieldList(), group: true }]
   }
 
-  return { active, canRefresh, refresh, key, items, lastItems, fieldList, fieldListShown, dialog }
+  return { active, canRefresh, refresh, refuseEdit, key, items, lastItems, fieldList, fieldListShown, dialog }
 }
 
 export type Pivots = ReturnType<typeof usePivots>

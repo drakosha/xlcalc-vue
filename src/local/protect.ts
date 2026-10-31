@@ -1,7 +1,7 @@
 // Excel's sheet protection in the local source: the session does not enforce it, so each change that reaches a protected
 // sheet is checked first and refused as Excel refuses it, with Excel's alert in the workbook's language. What Excel allows
 // was measured in Excel for Mac 16.114 through its object model (docs/local.md, Protection).
-import type { AsyncSession, BookLayout, CellRect, CellStyle, SheetLayout, StructureOp } from 'xlcalc'
+import type { AsyncSession, BookLayout, CellRect, CellStyle, SheetLayout, SheetProtection, StructureOp } from 'xlcalc'
 import { cellAddress, colNumber, MAX_COLS, MAX_ROWS, parseCell, parseLines, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import { parseClipboard } from 'xlcalc/text'
 import type { CellEntry, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, SheetOp } from '../contract/source'
@@ -13,16 +13,26 @@ import { isPivotOp, pivotMeeting, pivotNeeds } from './pivots'
 /** The outcome code of a change a protected sheet does not allow. */
 export const PROTECTED = 'protected'
 
-/** Excel's alerts in English and in Russian: the protected sheet's, as Excel for Windows words it (also for deleting a row or
- * a column with a locked cell, which has no text of its own there), and Excel for Mac's for a table's command. */
+/**
+ * Excel's alerts in English and in Russian: the protected sheet's, as Excel for Windows words it (also for deleting a row or
+ * a column with a locked cell, which has no text of its own there), Excel for Mac's for a table's command, and Excel 16.0
+ * for Windows' for Refresh All of a PivotTable on a protected sheet without Use PivotTable and PivotChart (`pivot`) and
+ * with it (`pivotShared`, which names another report even when the sheet has one), word for word.
+ */
 const TEXTS = {
   en: {
     alert: "The cell or chart you're trying to change is on a protected sheet. To make a change, unprotect the sheet. You might be requested to enter a password.",
     tables: "Table features aren't available because the sheet is protected.",
+    pivot: 'Cannot edit PivotTable on protected sheet.',
+    pivotShared:
+      'That command cannot be performed while a protected sheet contains another PivotTable report based on the same source data.\n\nTo remove protection from the sheet that has the other report, click the sheet tab, and then click Unprotect Sheet (Review tab, Protect group). Then try the command again.',
   },
   ru: {
     alert: 'Ячейка или диаграмма, которую вы пытаетесь изменить, находится на защищенном листе. Чтобы внести изменения, снимите защиту листа. Может потребоваться пароль.',
     tables: 'Функции таблицы невозможно использовать на защищенном листе.',
+    pivot: 'Нельзя изменять "сводной таблицы" на защищенном листе.',
+    pivotShared:
+      'Эта команда не может быть выполнена, пока защищенный лист содержит другой отчет сводной таблицы на основе того же источника данных.\n\nЧтобы снять защиту с листа, содержащего другой отчет, щелкните ярлычок листа и выберите команду "снять защиту листа" (вкладка "Рецензирование", группа "защита"). Повторите выполнение команды.',
   },
 }
 
@@ -35,7 +45,8 @@ interface Need {
   boxes?: { rect: CellRect; only: Set<string> }[]
   allow?: ProtectionAllowance[]
   refuse?: true
-  message?: string
+  /** The alert, by the sheet's protection where it depends on what it allows; the protected sheet's otherwise. */
+  message?: string | ((p: SheetProtection) => string)
 }
 
 /** A sheet's rows or columns that have a style of their own, from its layout. */
@@ -143,9 +154,10 @@ export function protectionGuard(locale: string, maxCells: number) {
       const sheet = book.sheets.find((x) => sameName(x.name, need.sheet))
       const p = sheet?.protection
       if (!sheet || !p) continue
-      if (need.refuse || need.allow?.some((a) => !allows(p, a))) return refusal(need.message)
-      for (const rect of need.cells ?? []) if (await lockedIn(s, sheet, book.styles ?? [], rect, maxCells)) return refusal(need.message)
-      for (const b of need.boxes ?? []) if (await lockedIn(s, sheet, book.styles ?? [], b.rect, maxCells, b.only)) return refusal(need.message)
+      const message = typeof need.message === 'function' ? need.message(p) : need.message
+      if (need.refuse || need.allow?.some((a) => !allows(p, a))) return refusal(message)
+      for (const rect of need.cells ?? []) if (await lockedIn(s, sheet, book.styles ?? [], rect, maxCells)) return refusal(message)
+      for (const b of need.boxes ?? []) if (await lockedIn(s, sheet, book.styles ?? [], b.rect, maxCells, b.only)) return refusal(message)
     }
     return null
   }
@@ -154,8 +166,9 @@ export function protectionGuard(locale: string, maxCells: number) {
 
   /** What a structure operation needs; a table's sheet is found by its name. */
   async function structureNeeds(s: AsyncSession, op: StructureOp): Promise<Need[]> {
-    // Use PivotTable reports and Edit objects, as Microsoft's Protect a worksheet describes them (`pivotNeeds`)
-    if (isPivotOp(op)) return pivotNeeds(await layoutOf(s), op).map((n) => ({ sheet: n.sheet, allow: [n.allow] }))
+    // a refresh refused whatever the sheet allows, Use PivotTable reports and Edit objects otherwise (`pivotNeeds`)
+    if (isPivotOp(op))
+      return pivotNeeds(await layoutOf(s), op).map((n): Need => (n.allow === 'refresh' ? { sheet: n.sheet, refuse: true, message: (p) => (allows(p, 'pivotTables') ? words.pivotShared : words.pivot) } : { sheet: n.sheet, allow: [n.allow] }))
     switch (op.op) {
       case 'insertRows':
         return [{ sheet: op.sheet, allow: ['insertRows'] }]

@@ -282,7 +282,7 @@ HostIcon.props = ['button']
 /** How long the pointer rests on a button before its tip shows, and how long after a tip hides the next one shows at once, as Office's do. */
 const TIP_DELAY = 400
 const TIP_WARM = 600
-const tip = ref<{ el: HTMLElement; text: string; left: number; top: number } | null>(null)
+const tip = ref<{ el: HTMLElement; text: string; more?: string; left: number; top: number } | null>(null)
 const tipEl = ref<HTMLElement | null>(null)
 let tipTimer: ReturnType<typeof setTimeout> | undefined
 let warmUntil = 0
@@ -295,7 +295,7 @@ function showTip(el: HTMLElement): void {
   const text = el.dataset.tip
   if (!text || open.value !== null || !el.isConnected) return
   const r = el.getBoundingClientRect()
-  tip.value = { el, text, left: r.left, top: r.bottom + 4 }
+  tip.value = { el, text, more: el.dataset.tipMore, left: r.left, top: r.bottom + 4 }
   // Kept inside the viewport: a tip near the right edge moves left
   void nextTick(() => {
     const box = tipEl.value?.getBoundingClientRect()
@@ -752,14 +752,14 @@ function pickNumber(e: Event): void {
         </span>
         <span v-else-if="blk.group === 'refreshAll' && sheet && source.refreshConnections" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span class="xs-tb-split">
-            <button type="button" class="xs-tool" data-tb="refresh-all" :data-tip="m.refreshAll" :aria-label="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">
+            <button type="button" class="xs-tool" data-tb="refresh-all" :data-tip="m.refreshAll" :data-tip-more="m.refreshAllTip" :aria-label="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">
               <IconRefreshAll />
             </button>
             <button type="button" class="xs-tool xs-tb-caret" data-tb="refresh-all-menu" :data-tip="m.refreshAllMenu" :aria-label="m.refreshAllMenu" :aria-expanded="open === 'refreshAll'" :disabled="!state?.canRefreshAll && !state?.canRefreshPivot" @click="toggle('refreshAll')">
               <IconDown />
             </button>
             <div v-if="open === 'refreshAll'" class="xs-tb-pop" role="menu" :aria-label="m.refreshAllMenu">
-              <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-all-item" :disabled="!state?.canRefreshAll" @click="refreshAll">{{ m.refreshAllItem }}</button>
+              <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-all-item" :title="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">{{ m.refreshAllItem }}</button>
               <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-pivot" :title="m.refreshPivot" :disabled="!state?.canRefreshPivot" @click="refreshPivot">{{ m.menuRefresh }}</button>
             </div>
           </span>
@@ -807,7 +807,10 @@ function pickNumber(e: Event): void {
         <IconMore />
       </button>
     </div>
-    <div v-if="tip" ref="tipEl" class="xs-tb-tip" role="tooltip" data-tb-tip :style="{ left: `${tip.left}px`, top: `${tip.top}px` }">{{ tip.text }}</div>
+    <div v-if="tip" ref="tipEl" :class="['xs-tb-tip', { 'xs-tb-tip-more': tip.more }]" role="tooltip" data-tb-tip :style="{ left: `${tip.left}px`, top: `${tip.top}px` }">
+      <template v-if="tip.more"><b>{{ tip.text }}</b><span>{{ tip.more }}</span></template>
+      <template v-else>{{ tip.text }}</template>
+    </div>
   </div>
 </template>
 

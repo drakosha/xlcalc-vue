@@ -37,7 +37,7 @@ function fixture() {
       }),
     pivotDialog: () => true,
   } as unknown as SheetViewApi
-  const state: SheetViewState = { sheet: 'Report', ref: 'A3', pivot: 'PivotTable1', fieldList: true, canRefreshPivot: true }
+  const state: SheetViewState = { sheet: 'Report', ref: 'A3', pivot: 'PivotTable1', fieldList: true, canInsertPivot: true }
   let pane!: PivotPane
   const Harness = defineComponent({
     props: { source: { type: Object as PropType<SheetSource>, required: true } },

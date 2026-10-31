@@ -160,6 +160,15 @@
   white-space: nowrap;
   pointer-events: none;
 }
+/* A ScreenTip with a description under its name, as Office's for Refresh All. */
+.xs-tb-tip-more {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 240px;
+  padding: 6px 8px;
+  white-space: normal;
+}
 
 /* ── a menu below a button: palettes and borders ── */
 .xs-tb-pop {

@@ -144,10 +144,11 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   goRefHint: (key: string) => string
   /** Excel's Enter button to the left of the formula bar (its Cancel button is `cancel`): enters the edit and keeps the selection. */
   barEnter: string
-  /** Excel's Insert Function: the fx button, then the dialog's title, search box, category box with its first two items, and the list's label. */
+  /** Excel's Insert Function: the fx button, then the dialog's title, search box with its Go button, category box with its first two items, and the list's label. */
   insertFunction: string
   insertFunctionTitle: string
   insertFunctionSearch: string
+  insertFunctionGo: string
   insertFunctionCategory: string
   insertFunctionRecent: string
   insertFunctionAll: string
@@ -504,13 +505,19 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   /** The status bar's Calculate in Manual while cells wait for a calculation, and its tooltip (a click calculates, as F9). */
   calculateStatus: string
   calculateHint: string
-  /** Excel's Data > Refresh All on the toolbar, with its key; its list's button and items, Refresh All and Refresh (of the PivotTable under the active cell) with its key. */
+  /**
+   * Excel's Data > Refresh All on the toolbar, with its key, and its ScreenTip's description; its list's button and items,
+   * Refresh All and Refresh (of the PivotTable under the active cell) with its key.
+   */
   refreshAll: string
+  refreshAllTip: string
   refreshAllMenu: string
   refreshAllItem: string
   refreshPivot: string
   /** Refresh in the cell menu of a PivotTable's cell. */
   menuRefresh: string
+  /** Excel's alert at the first key typed, or F2, on a PivotTable's value cell. */
+  pivotPartAlert: string
 }
 
 /** The Symbol dialog's Subset list: Unicode blocks by Excel's names (`basicLatin` is Basic Latin, `latin1` Latin-1 Supplement). */
