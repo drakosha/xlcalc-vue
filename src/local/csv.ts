@@ -14,8 +14,8 @@ async function loaded(locale: string | Locale | undefined): Promise<void> {
 
 /**
  * Reads a CSV file into a workbook of one sheet as Excel opens it in `locale` (xlcalc's `readCsv`): each field as text typed
- * into a cell there, at the locale's list separator unless `delimiter` says otherwise (a `sep=` line still names it, and a
- * `.tsv` file is read at tabs). A `File` names the sheet after itself unless `name` is given. Formulas stay text unless
+ * into a cell there, at the locale's list separator unless `delimiter` says otherwise (without `delimiter`, a `sep=` line names it
+ * and a `.tsv` file is read at tabs). A `File` names the sheet after itself unless `name` is given. Formulas stay text unless
  * `formulas` is true, unlike Excel: a file from elsewhere would otherwise call the host's functions and connections.
  */
 export async function openCsv(data: CsvData, opts: ReadCsvOptions = {}): Promise<CsvRead> {

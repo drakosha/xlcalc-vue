@@ -65,4 +65,8 @@ describe('F4 over a selection', () => {
     expect(presses('=$A1:B2', 0, 7)).toEqual(['=A1:B2', '=$A$1:$B$2', '=A$1:B$2', '=$A1:$B2'])
     expect(cycleRefs('=A1+B2+C3', 3, 6, {})).toEqual({ text: '=A1+$B$2+C3', from: 3, to: 8 })
   })
+  it('widens a selection whose ends fall inside references to the whole references it changed', () => {
+    expect(cycleRefs('=A1+B2', 2, 5, {})).toEqual({ text: '=$A$1+$B$2', from: 1, to: 10 })
+    expect(cycleRefs('=A1', 0, 2, {})).toEqual({ text: '=$A$1', from: 0, to: 5 })
+  })
 })

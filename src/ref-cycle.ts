@@ -67,17 +67,19 @@ export function cycleRefs(text: string, from: number, to: number, opts: ScanOpti
   if (from !== to) {
     let out = ''
     let at = 0
+    let first = from
     for (const r of refs) {
       if (r.end <= from || r.at >= to) continue
       const next = cycleWhole(r.text)
       if (next === null) continue
+      if (!at) first = Math.min(from, r.at)
       out += text.slice(at, r.at) + next
       at = r.end
     }
     if (!at) return null
     out += text.slice(at)
-    // the selection keeps its start and takes in what grew or shrank within it
-    return { text: out, from, to: to + out.length - text.length }
+    // the selection widens to the whole references it touched and takes in what grew or shrank within it
+    return { text: out, from: first, to: Math.max(to, at) + out.length - text.length }
   }
   const r = refs.find((x) => x.at <= from && from <= x.end)
   if (!r) return null
