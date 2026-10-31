@@ -1,6 +1,6 @@
 # In-browser calculation: `@xlcalc/vue/local`
 
-`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.70.0 or later, an optional peer dependency of the package that the host installs: the package is built over 0.70.0 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics, CSV files). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message.
+`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.71.0 or later, an optional peer dependency of the package that the host installs: the package is built over 0.71.1 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics, CSV files). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message.
 
 ## What the source does
 

@@ -1,5 +1,5 @@
 // Insert Function, Formula AutoComplete and the argument tooltip over localSource, in en-US and ru-RU: the categories xlcalc
-// 0.68.0 added (User Defined, Cube, Web) in the order of Excel's dialog, the functions of 0.68.0 to 0.70.0 with their syntax and
+// 0.68.0 added (User Defined, Cube, Web) in the order of Excel's dialog, the functions of 0.68.0 to 0.71.0 with their syntax and
 // descriptions from `xlcalc/function-text`, and ru-RU's forecast functions under Excel for Windows' names.
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -54,7 +54,7 @@ describe('Insert Function over localSource', () => {
     await pick(w, 'logical', 'LAMBDA')
     expect(items(w)).toEqual(expect.arrayContaining(['BYCOL', 'BYROW', 'LAMBDA', 'LET', 'MAKEARRAY', 'MAP', 'REDUCE', 'SCAN']))
     await pick(w, 'lookup', 'GROUPBY')
-    expect(items(w)).toEqual(expect.arrayContaining(['FORMULATEXT', 'GROUPBY', 'INDIRECT', 'OFFSET', 'PIVOTBY', 'TRIMRANGE']))
+    expect(items(w)).toEqual(expect.arrayContaining(['FORMULATEXT', 'GETPIVOTDATA', 'GROUPBY', 'INDIRECT', 'OFFSET', 'PIVOTBY', 'TRIMRANGE']))
     expect(about(w)).not.toBe('')
     await pick(w, 'information', 'SHEETS')
     expect(items(w)).toEqual(expect.arrayContaining(['CELL', 'INFO', 'ISFORMULA', 'ISOMITTED', 'SHEET', 'SHEETS']))
@@ -74,6 +74,10 @@ describe('Insert Function over localSource', () => {
     expect(about(w)).not.toBe('')
     await pick(w, 'lookup', 'ДВССЫЛ')
     expect(syntax(w)).toBe('ДВССЫЛ(ссылка_на_ячейку;[a1])')
+    // GETPIVOTDATA calculates from xlcalc 0.71.0
+    await pick(w, 'lookup', 'ПОЛУЧИТЬ.ДАННЫЕ.СВОДНОЙ.ТАБЛИЦЫ')
+    expect(syntax(w)).toMatch(/^ПОЛУЧИТЬ\.ДАННЫЕ\.СВОДНОЙ\.ТАБЛИЦЫ\(/)
+    expect(about(w)).not.toBe('')
     await pick(w, 'statistical', 'ПРЕДСКАЗ.ЕTS.ДОВИНТЕРВАЛ')
     expect(items(w)).toEqual(expect.arrayContaining(['ПРЕДСКАЗ.ETS', 'ПРЕДСКАЗ.ЕTS.ДОВИНТЕРВАЛ', 'ПРЕДСКАЗ.ETS.СЕЗОННОСТЬ', 'ПРЕДСКАЗ.ETS.СТАТ', 'ПРЕДСКАЗ.ЛИНЕЙН']))
     expect(items(w)).not.toContain('FORECAST.ETS')
@@ -99,6 +103,17 @@ describe('Formula AutoComplete and the argument tooltip over localSource in ru-R
     await editorKey(w, 'Tab')
     await until(() => tip() !== null)
     expect(tip()).toMatch(/^ПРЕДСКАЗ\.ЕTS\.ДОВИНТЕРВАЛ\(целевая_дата;/)
+  })
+
+  it('GETPIVOTDATA (xlcalc 0.71.0) is offered by its Russian name and has its tooltip', async () => {
+    const w = await mountSheet(sheet('ru-RU'), { locale: 'ru-RU' })
+    await key(w, '=')
+    await type(w, '=ПОЛУЧИТЬ.Д')
+    await until(() => shown().length > 0)
+    expect(shown()).toEqual(['ПОЛУЧИТЬ.ДАННЫЕ.СВОДНОЙ.ТАБЛИЦЫ'])
+    await editorKey(w, 'Tab')
+    await until(() => tip() !== null)
+    expect(tip()).toMatch(/^ПОЛУЧИТЬ\.ДАННЫЕ\.СВОДНОЙ\.ТАБЛИЦЫ\(/)
   })
 
   it("an English name typed in a ru-RU workbook gets the Russian tooltip, as for LAMBDA's family", async () => {
