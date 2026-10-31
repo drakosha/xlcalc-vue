@@ -26,6 +26,17 @@ describe('localSource: PivotTables', () => {
     expect((await source(filteredPivotBook()).sheets())[1]!.pivots).toEqual([{ name: 'PivotTable1', range: 'A3:D7', filters: 'A1:B1', headers: 'A3:D4', rowLabels: 'A5:A7', values: 'B5:D7' }])
   })
 
+  it("reads a PivotTable's definition with its cache's fields, without the saved lines and rows; null for none", async () => {
+    const s = source(pivotBook())
+    const got = await s.pivotTable('report', 'pivottable1')
+    expect(got?.table).toMatchObject({ name: 'PivotTable1', rows: [0], values: [{ field: 1, name: 'Sum of Amount' }] })
+    expect(got?.table).not.toHaveProperty('rowLines')
+    expect(got?.cache.fields.map((f) => f.name)).toEqual(['Region', 'Amount', 'Kind', 'Year'])
+    expect(got?.cache).not.toHaveProperty('records')
+    expect(await s.pivotTable('Report', 'PivotTable9')).toBeNull()
+    expect(await s.pivotTable('Data', 'PivotTable1')).toBeNull()
+  })
+
   it('lists a PivotTable not laid out, or shrunk to its top-left cell (#SPILL!), by its table alone', async () => {
     // added without the engine: Excel's empty PivotTable of three columns and 18 rows, without saved lines
     const placeholder = pivotBook({ table: { location: { range: 'A3:C20', firstHeaderRow: 1, firstDataRow: 1, firstDataColumn: 0 }, rowLines: undefined, columnLines: undefined } })

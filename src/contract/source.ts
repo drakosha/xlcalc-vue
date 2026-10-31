@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SelectionLabels, SheetProtection, SpecialCells, StructureOp, SplitPanes, StylePatch, WorkbookStatistics } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, PivotCache, PivotTable, SelectionLabels, SheetProtection, SpecialCells, StructureOp, SplitPanes, StylePatch, WorkbookStatistics } from 'xlcalc/contract'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
@@ -176,6 +176,12 @@ export interface SheetSource {
    * is not a step of undo, as in Excel; refreshing the PivotTables is one, as xlcalc's. Without it there is no Refresh All.
    */
   refreshConnections?(names?: string[]): Promise<EditOutcome>
+  /**
+   * The PivotTable `name` on `sheet` as xlcalc holds it, with its pivot cache's source and fields, for the PivotTable Fields
+   * pane and the dialogs over a PivotTable; null when the sheet has no such PivotTable. Read again after a `reload` or
+   * `sheets` event. Without it there is no PivotTable Fields pane.
+   */
+  pivotTable?(sheet: string, name: string, signal?: AbortSignal): Promise<SheetPivotTable | null>
 }
 
 /**
@@ -297,6 +303,16 @@ export interface SheetPivot {
   headers?: string
   rowLabels?: string
   values?: string
+}
+
+/**
+ * A PivotTable's definition (`SheetSource.pivotTable`): xlcalc's `PivotTable` without its saved lines, its fields on the
+ * axes and its value fields by the index of a cache field, and its pivot cache without the rows it saved: the source, and
+ * the fields with their items and the kinds of value each holds (`PivotCacheField.facts`), in the cache's order.
+ */
+export interface SheetPivotTable {
+  table: Omit<PivotTable, 'rowLines' | 'columnLines'>
+  cache: Omit<PivotCache, 'records'>
 }
 
 /**

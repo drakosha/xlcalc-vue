@@ -8,7 +8,7 @@ import { useCellView } from './cell-view'
 import { useConditional } from './cf-commands'
 import { useClip } from './clip'
 import { useCommands, type SheetTarget } from './commands'
-import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
+import type { ListSort, PivotDialogRequest, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
 import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
 import { useExtras } from './extras'
@@ -39,6 +39,7 @@ import { cellRect } from '../rect'
 import { useAutoSum } from './autosum'
 import { useCalculation } from './calculation'
 import { usePivots } from './pivots'
+import { usePivotCreate } from './pivot-create'
 import { useAutoFilter } from './autofilter'
 import { usePainter } from './painter'
 import { useSpellCheck } from './spell-check'
@@ -64,6 +65,7 @@ export interface SheetEmit {
   (e: 'rowOpen', row: { sheet: string; row: number }): void
   (e: 'zoom', change: SheetZoomEvent): void
   (e: 'watches', list: SheetWatch[]): void
+  (e: 'pivotDialog', request: PivotDialogRequest): void
 }
 
 /** How long a message stays. */
@@ -191,8 +193,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     openLink: (link) => emit('openLink', link),
   })
   const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
-  const pivots = usePivots(s, cmd, protection)
-  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), cellPivots: () => pivots.items(), protection })
+  const pivots = usePivots(s, cmd, protection, { dialog: (request) => emit('pivotDialog', request) })
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), cellPivots: () => pivots.items(), cellPivotsLast: () => pivots.lastItems(), protection })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask, blocked: () => protection.blocks('merge') })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
   const special = useSpecial(s, sel, { ask: alerts.ask, notify })
@@ -229,6 +231,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
   const trace = useTrace(s, v, w, notify)
   const tables = useTables(s, w, sel, cmd)
+  const pivotCreate = usePivotCreate(s, cmd, { tables, nextSheetName: () => menu.nextSheetName(), goPlace: (text) => nav.goPlace(text) })
   const autoFilter = useAutoFilter(s, sel, cmd, filter, notify)
   const autoSum = useAutoSum(s, ed, { editing: () => editor.value !== null })
   const spell = useSpellCheck(s, sel, ed, notify)
@@ -302,6 +305,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     setCalculation: calc.setMode,
     refreshAll: calc.refreshAll,
     refreshPivot: pivots.refresh,
+    insertPivotTable: pivotCreate.open,
+    fieldList: pivots.fieldList,
+    pivotDialog: pivots.dialog,
     protectSheet: protection.open,
     unprotectSheet: protection.unprotect,
   }
@@ -739,6 +745,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(calc.canRefresh.value ? { canRefreshAll: true as const } : {}),
       ...(pivots.active.value ? { pivot: pivots.active.value.name } : {}),
       ...(pivots.canRefresh.value ? { canRefreshPivot: true as const } : {}),
+      ...(pivots.fieldListShown.value ? { fieldList: true as const } : {}),
+      ...(pivotCreate.available.value ? { canInsertPivot: true as const } : {}),
       ...(protection.protection.value ? { protection: protection.protection.value } : {}),
       ...(s.areas.value ? { areas: s.areas.value.map(rangeAddress) } : {}),
     }
@@ -773,6 +781,8 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     explain,
     trace,
     tables,
+    pivots,
+    pivotCreate,
     spell,
     views,
     list,

@@ -98,6 +98,20 @@ function headerText(c: ReadCell | undefined): string {
   return /^#+$/.test(c.text) ? (c.editText ?? String(c.value ?? '')) : c.text
 }
 
+/** Every table's name in the workbook: each sheet's first window lists its tables. */
+export async function tableNames(s: SheetState, signal: AbortSignal): Promise<string[]> {
+  const source = s.source()
+  const lists = await Promise.all(
+    s.sheets.value.map((x) =>
+      source.window({ sheet: x.name, row: 1, rows: 1, col: 1, cols: 1 }, signal).then(
+        (got) => ('pending' in got ? [] : (got.tables ?? []).map((t) => t.name)),
+        () => [],
+      ),
+    ),
+  )
+  return lists.flat()
+}
+
 export function useTables(s: SheetState, w: Windows, sel: Selection, cmd: Commands) {
   const read = useSheetReads(s)
   const dialog = ref<TableDialog | null>(null)
@@ -156,24 +170,11 @@ export function useTables(s: SheetState, w: Windows, sel: Selection, cmd: Comman
     return r?.kind === 'cells' ? r : null
   }
 
-  /** Every table's name in the workbook: each sheet's first window lists its tables. */
-  async function tableNames(signal: AbortSignal): Promise<string[]> {
-    const source = s.source()
-    const lists = await Promise.all(
-      s.sheets.value.map((x) =>
-        source.window({ sheet: x.name, row: 1, rows: 1, col: 1, cols: 1 }, signal).then(
-          (got) => ('pending' in got ? [] : (got.tables ?? []).map((t) => t.name)),
-          () => [],
-        ),
-      ),
-    )
-    return lists.flat()
-  }
   /** Excel's name for a new table, `Table1`, `Table2`: the first number from the count of tables on that no table and no defined name has. */
   async function nextName(signal: AbortSignal): Promise<string> {
     const prefix = m().tableNamePrefix
     const names = s.sourceMethod('names')
-    const [tables, defined] = await Promise.all([tableNames(signal), names ? names(signal).catch(() => []) : []])
+    const [tables, defined] = await Promise.all([tableNames(s, signal), names ? names(signal).catch(() => []) : []])
     const used = new Set([...tables, ...defined.map((n) => n.name)].map((x) => x.toLocaleLowerCase()))
     let n = tables.length + 1
     while (used.has(`${prefix}${n}`.toLocaleLowerCase())) n++
@@ -259,7 +260,7 @@ export function useTables(s: SheetState, w: Windows, sel: Selection, cmd: Comman
     return true
   }
 
-  return { available, canInsertHeader, activeTable, dialog, openCreate, create, convert, remove, close, key }
+  return { available, canInsertHeader, activeTable, dialog, guess, openCreate, create, convert, remove, close, key }
 }
 
 export type Tables = ReturnType<typeof useTables>
