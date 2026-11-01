@@ -204,8 +204,6 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await page.locator('[data-cell="1:1"]').click()
     await page.locator('[data-cell="3:1"]').click({ modifiers: ['Shift'] })
   }
-  // On a phone Bold is in the toolbar's menu, after the Font boxes as in Excel's ribbon; the menu stays open for step 4
-  if (size.phone) await press(page, size, '[data-tb="more"]')
   await press(page, size, '[data-tb="bold"]')
   await page.waitForSelector('[data-tb="bold"][aria-pressed="true"]')
   const weight = await page.evaluate(() => getComputedStyle(document.querySelector('[data-cell="3:1"] .xs-in > *')!).fontWeight)
@@ -214,6 +212,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
 
   // 4. Percentage from the number format list (in the menu on a phone).
   if (size.phone) {
+    await press(page, size, '[data-tb="more"]')
     await page.waitForSelector('[data-tb-menu]:not([style*="none"]) [data-tb="number"]')
     await checkTargets(page, at('toolbar menu'))
     await checkNoSideScroll(page, at('toolbar menu'))
@@ -301,7 +300,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   expect(at('reopened A3'), { formula: cellOf(book, 'A3').formula, bold: cellOf(book, 'A3').style?.font?.bold, format: cellOf(book, 'A3').numberFormat }, { formula: 'SUM(A1:A2)', bold: true, format: 10 })
   expect(at('reopened borders'), bordersOf(book), OUTSIDE)
   await page.locator('[data-cell="2:1"]').click()
-  await page.waitForSelector('[data-tb="bold"][aria-pressed="true"]', { state: 'attached' })
+  await page.waitForSelector('[data-tb="bold"][aria-pressed="true"]')
   await boxNames(page, PERCENT, at('the box on the opened percentage'))
   const seen = await page.evaluate(() => [...((window as any).__seen as Set<string>)])
   if (!seen.includes('Пересчёт…')) throw new Error(`${at('status')}: never showed the recalculation: ${JSON.stringify(seen)}`)
