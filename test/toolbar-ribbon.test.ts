@@ -1,8 +1,8 @@
 // The toolbar against Excel for Windows' ribbon: its default order (Home's groups, then the commands of other tabs in their
-// tabs' order) and the Borders split button with its menu in Excel's order.
+// tabs' order), the Borders split button with its menu in Excel's order, and the labels as Excel names them.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SheetToolbar, TOOLBAR_GROUPS, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
+import { SheetToolbar, TOOLBAR_GROUPS, enMessages, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/contract/source'
 import { settle } from './helpers'
 
@@ -87,5 +87,42 @@ describe("the Borders split button, as Excel's", () => {
   it('is disabled, both parts, where the selection cannot be formatted', () => {
     const w = mount(SheetToolbar, { props: { source: source(), state: null }, attachTo: document.body })
     expect(['border-last', 'borders'].map((x) => w.find(`[data-tb="${x}"]`).attributes('disabled'))).toEqual(['', ''])
+  })
+})
+
+describe("the toolbar's labels, as Excel for Windows names them", () => {
+  it('in Russian', () => {
+    const ru = ruMessages
+    expect([ru.underline, ru.fontSize, ru.fontColor, ru.wrapText, ru.autoSumCount, ru.pivotUngroup]).toEqual([
+      'Подчеркнутый (Ctrl+U)',
+      'Размер',
+      'Цвет шрифта',
+      'Переносить текст',
+      'Счетчик',
+      'Разгруппировать...',
+    ])
+    expect([ru.alignTop, ru.alignMiddle, ru.alignBottom, ru.alignLeft, ru.alignCenter, ru.alignRight]).toEqual([
+      'Выровнять по верхнему краю',
+      'Выровнять по середине',
+      'Выровнять по нижнему краю',
+      'Выровнять по левому краю',
+      'Выровнять по центру',
+      'Выровнять по правому краю',
+    ])
+  })
+
+  it('in English', () => {
+    const en = enMessages
+    expect([en.underline, en.fontSize, en.fontColor, en.fillColor, en.wrapText, en.autoSumCount, en.pivotUngroup, en.borders]).toEqual([
+      'Underline (Ctrl+U)',
+      'Font Size',
+      'Font Color',
+      'Fill Color',
+      'Wrap Text',
+      'Count Numbers',
+      'Ungroup...',
+      'Borders',
+    ])
+    expect([en.alignTop, en.alignMiddle, en.alignBottom, en.alignLeft, en.alignCenter, en.alignRight]).toEqual(['Top Align', 'Middle Align', 'Bottom Align', 'Align Left', 'Center', 'Align Right'])
   })
 })
