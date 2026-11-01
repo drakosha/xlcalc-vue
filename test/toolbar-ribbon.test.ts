@@ -213,7 +213,7 @@ describe('rows: 2, as Excel’s ribbon', () => {
     expect(host.findAll('[data-tb-host]').map((b) => b.attributes('data-tb-host'))).toEqual(['a', 'b', 'c'])
   })
 
-  it('moves whole groups from the end into More where they do not fit, the menu drawing their blocks on one line', async () => {
+  it('moves whole groups into More where they do not fit, the menu drawing their blocks on one line', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1440)
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-tb-row') ? 700 : 0
@@ -232,6 +232,23 @@ describe('rows: 2, as Excel’s ribbon', () => {
       ['number', true],
     ])
     expect(w.find('[data-tb-menu] [data-tb="wrap"]').exists()).toBe(true)
+  })
+
+  it('moves a group too wide for what is left into More and keeps the later groups that fit, in order', async () => {
+    const WIDTH: Record<string, number> = { undo: 150, font: 600 }
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1440)
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('xs-tb-row') ? 700 : 0
+    })
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const key = this.dataset.tbBlock
+      const width = key ? (WIDTH[key] ?? 150) : this.dataset.tb === 'more' ? 44 : 0
+      return { width, height: 64, top: 0, left: 0, right: width, bottom: 64, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
+    })
+    const w = mount(SheetToolbar, { props: { source: source(), state, rows: 2, items: ['undo', 'font', 'fontStyle', 'verticalAlign', 'align', 'number'] }, attachTo: document.body })
+    await vi.waitFor(() => expect(w.find('[data-tb-menu]').exists()).toBe(true))
+    expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['undo', 'verticalAlign', 'number'])
+    expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['font', 'fontStyle'])
   })
 
   it('below 600 px keeps one row, as with rows: 1', async () => {

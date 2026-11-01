@@ -274,7 +274,7 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `hostDialog` | `boolean` | The host opens its own dialog on `formatCells`, as when it listens: for a host whose listener the toolbar cannot see, such as a custom element's. |
 | `fonts` | `readonly string[]` | The Font box's list, in place of Excel's common fonts (Aptos, Arial, Calibri and others): a browser does not tell which fonts are installed. |
 | `items` | `readonly ToolbarItem[]` | The groups to draw, in order, and the host's buttons among them; without it every group in the default order, `TOOLBAR_GROUPS`. An unknown or repeated group is skipped. See [toolbar.md](toolbar.md#choosing-the-buttons). |
-| `rows` | `number` | How many lines the items may take at 600 px and wider before the rest go into the menu under More; 1 by default, one line below 600 px. 2 lays the toolbar out as Excel's ribbon: one sequence of groups, each two rows tall, whole groups going into More from the end; other values wrap the items onto that many lines, `Infinity` all of them. See [toolbar.md](toolbar.md#two-rows-as-excels-ribbon). |
+| `rows` | `number` | How many lines the items may take at 600 px and wider before the rest go into the menu under More; 1 by default, one line below 600 px. 2 lays the toolbar out as Excel's ribbon: one sequence of groups, each two rows tall, whole groups that do not fit going into More; other values wrap the items onto that many lines, `Infinity` all of them. See [toolbar.md](toolbar.md#two-rows-as-excels-ribbon). |
 
 | Event | Payload | When |
 | --- | --- | --- |

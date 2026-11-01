@@ -32,6 +32,7 @@ import {
   COMMA_STYLE,
   decimalStep,
   fitLines,
+  fitRow,
   PERCENT_STYLE,
   ribbonGroups,
   shownFont,
@@ -268,30 +269,43 @@ const lines = computed(() => (narrow.value ? 1 : Math.max(1, Math.floor(props.ro
 const ribbon = computed(() => lines.value === 2)
 /** The groups drawn between separators: a block each, or with `ribbon` Excel's two-row groups. */
 const groups = computed(() => ribbonGroups(blocks.value, ribbon.value))
-/** How many groups from the start stay in the row, as measured; null while measuring, when all are drawn there. */
-const fit = ref<number | null>(null)
+/** The keys of the groups that stay in the row, as measured; null while measuring, when all are drawn there. */
+const kept = ref<ReadonlySet<string> | null>(null)
 /** The keys of the kept groups that start a line after the first, drawn without the separator before them. */
 const breaks = ref<ReadonlySet<string>>(new Set())
 /** The row on its lines and the menu with the blocks of the groups that do not fit on them, each on one line (no menu when all fit). */
 const parts = computed(() => {
   const all = groups.value
-  const n = fit.value ?? all.length
-  const row = { place: 'row', groups: all.slice(0, n) }
-  if (n >= all.length) return [row]
-  const rest = all.slice(n).flatMap((g) => g.stacks.flatMap((st) => st.lines.flat().map((p) => p.block)))
-  return [row, { place: 'menu', groups: ribbonGroups([...new Set(rest)], false) }]
+  const on = kept.value
+  if (!on || all.every((g) => on.has(g.key))) return [{ place: 'row', groups: all }]
+  const rest = all.filter((g) => !on.has(g.key)).flatMap((g) => g.stacks.flatMap((st) => st.lines.flat().map((p) => p.block)))
+  return [
+    { place: 'row', groups: all.filter((g) => on.has(g.key)) },
+    { place: 'menu', groups: ribbonGroups([...new Set(rest)], false) },
+  ]
 })
 /** The More button: while the row is measured too, so that its width counts. */
-const moreShown = computed(() => parts.value.length > 1 || fit.value === null)
-/** Measures the row drawn with every group: all stay when they fit on its lines (one with `ribbon`), otherwise those from the start that fit with More at the end. */
+const moreShown = computed(() => parts.value.length > 1 || kept.value === null)
+/**
+ * Measures the row drawn with every group. On one line (and in the ribbon's one sequence) the groups that fit beside More stay
+ * in order, a group too wide for what is left going into More while later ones still take the row; on more lines all stay when
+ * they fit, otherwise those from the start that fit with More at the end of the last line.
+ */
 function measureRow(): void {
   const row = root.value?.querySelector<HTMLElement>('.xs-tb-row')
-  if (!row || fit.value !== null) return
+  if (!row || kept.value !== null) return
   const widthOf = (el: Element | null) => el?.getBoundingClientRect().width ?? 0
-  const widths = groups.value.map((g) => widthOf(row.querySelector(`:scope > [data-tb-block="${g.key}"]`)))
-  const out = fitLines(widths, row.clientWidth, ribbon.value ? 1 : lines.value, widthOf(row.querySelector('[data-tb="more"]')))
-  breaks.value = new Set(out.breaks.map((i) => groups.value[i]!.key))
-  fit.value = out.fit
+  const keys = groups.value.map((g) => g.key)
+  const widths = keys.map((key) => widthOf(row.querySelector(`:scope > [data-tb-block="${key}"]`)))
+  const more = widthOf(row.querySelector('[data-tb="more"]'))
+  if (ribbon.value || lines.value === 1) {
+    breaks.value = new Set()
+    kept.value = new Set(fitRow(widths, row.clientWidth, more).map((i) => keys[i]!))
+    return
+  }
+  const out = fitLines(widths, row.clientWidth, lines.value, more)
+  breaks.value = new Set(out.breaks.map((i) => keys[i]!))
+  kept.value = new Set(keys.slice(0, out.fit))
 }
 /** Whether a piece of a block draws the controls of this slot: all of them where the block is drawn whole. */
 const has = (piece: RibbonPiece<Block>, slot: RibbonSlot) => !piece.slot || piece.slot === slot
@@ -300,7 +314,7 @@ const has = (piece: RibbonPiece<Block>, slot: RibbonSlot) => !piece.slot || piec
 watch(
   [narrow, width, touch, groups, lines, () => props.messages, () => props.sheet, () => props.source, () => props.hostDialog, () => numbers.choices.value.length > 0],
   () => {
-    fit.value = null
+    kept.value = null
     breaks.value = new Set()
     void nextTick(measureRow)
   },

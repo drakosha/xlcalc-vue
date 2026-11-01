@@ -39,6 +39,21 @@ export function fitLines(widths: readonly number[], room: number, rows: number, 
   return all.fit === widths.length ? all : pack(room - more)
 }
 
+/**
+ * Which blocks of these widths, in order, stay on one line of `room` px: all when they fit, otherwise each that still fits with
+ * `more` px left for the More button, so a block too wide for what is left goes into More while later narrower ones keep the row.
+ */
+export function fitRow(widths: readonly number[], room: number, more: number): number[] {
+  const all = widths.map((_, i) => i)
+  if (widths.reduce((a, w) => a + w, 0) <= room) return all
+  let used = 0
+  return all.filter((i) => {
+    const fits = used + widths[i]! <= room - more
+    if (fits) used += widths[i]!
+    return fits
+  })
+}
+
 /** A place in Excel's two-row group: row 1 or 2 (`a1`, `a2`) of its first column of rows, or of the second (`b1`, `b2`). */
 export type RibbonSlot = 'a1' | 'a2' | 'b1' | 'b2'
 /**

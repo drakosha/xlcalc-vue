@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { SheetToolbar, TOOLBAR_GROUPS, type SheetViewApi, type SheetViewState, type ToolbarItem } from '../src'
 import type { EditOutcome, SheetSource } from '../src/contract/source'
-import { fitLines } from '../src/toolbar'
+import { fitLines, fitRow } from '../src/toolbar'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -161,6 +161,20 @@ describe("SheetToolbar's items", () => {
     expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['undo', 'fontStyle'])
   })
 
+  it("on a phone moves a group too wide for what is left into More and keeps the later ones that fit: Bold, Italic and Underline stay in the row after the Font boxes", async () => {
+    // At about a phone's widths: 44 px targets, the Font group wider than the row
+    const WIDTH: Record<string, number> = { undo: 88, formatPainter: 44, font: 390, fontStyle: 132, borders: 88 }
+    narrowLayout(374, (key) => WIDTH[key] ?? 132)
+    const sheet = { formatPainter: vi.fn() } as unknown as SheetViewApi
+    const w = mount(SheetToolbar, { props: { source: source(), state, sheet }, attachTo: document.body })
+    await nextTick()
+    await nextTick()
+    expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['undo', 'formatPainter', 'fontStyle'])
+    expect(hooks(w, '.xs-tb-row')).toEqual(['undo', 'redo', 'format-painter', 'bold', 'italic', 'underline', 'more'])
+    const menu = w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))
+    expect(menu.slice(0, 4)).toEqual(['font', 'borders', 'colors', 'verticalAlign'])
+  })
+
   it('in a narrow viewport keeps every item in the row when all fit, with no More button', async () => {
     narrowLayout(380, (key) => (key === 'undo' ? 100 : 90))
     const run = vi.fn()
@@ -190,6 +204,15 @@ describe('fitLines', () => {
 
   it('with Infinity wraps every block', () => {
     expect(fitLines([60, 60, 60, 60], 100, Infinity, 30)).toEqual({ fit: 4, breaks: [1, 2, 3] })
+  })
+})
+
+describe('fitRow', () => {
+  it('keeps all when they fit, otherwise each in order that fits beside More, a wide one going into More and later narrow ones staying', () => {
+    expect(fitRow([40, 40, 20], 100, 30)).toEqual([0, 1, 2])
+    expect(fitRow([40, 100, 20, 10, 30], 100, 30)).toEqual([0, 2, 3])
+    expect(fitRow([120, 40], 100, 30)).toEqual([1])
+    expect(fitRow([], 100, 30)).toEqual([])
   })
 })
 
