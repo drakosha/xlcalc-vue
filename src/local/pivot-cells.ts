@@ -41,9 +41,9 @@ function buttonsOf(t: PivotTable, got: PivotCells): SheetPivotButton[] {
   return got.buttons.flatMap((cell): SheetPivotButton[] => {
     const c = got.cells[cell]
     if (!c?.axis) return []
-    const own = typeof c.field === 'number' && c.kind !== 'valuesField' ? c.field : undefined
-    // Row Labels and Column Labels name no field: they stand for the fields of their axis without a button of their own
-    const labels = c.kind === 'blank' && own === undefined && c.axis !== 'pages'
+    const own = typeof c.field === 'number' ? c.field : undefined
+    // Row Labels and Column Labels name no field: they stand for the fields of their axis without a button of their own; a cell of Σ Values names `values` and filters none
+    const labels = c.kind === 'blank' && c.field === undefined && c.axis !== 'pages'
     const field = labels ? first(c.axis as 'rows' | 'columns') : own
     return [{ cell, axis: c.axis, ...(field !== undefined ? { field } : {}), ...(labels ? { labels: true as const } : {}) }]
   })
