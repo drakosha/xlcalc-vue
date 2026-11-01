@@ -5,6 +5,8 @@ export type PivotUi = typeof import('./pivot-ui')
 
 const ui = shallowRef<PivotUi | null>(null)
 let loading: Promise<PivotUi> | null = null
+/** A load has failed: only a new request of the user's tries again, not what the sheet shows. */
+let failedOnce = false
 
 /** The parts for a part of the sheet that never asks for them first (the grid's buttons and boxes). */
 export const pivotUi: Readonly<ShallowRef<PivotUi | null>> = ui
@@ -15,6 +17,7 @@ export function loadPivotUi(): Promise<PivotUi> {
     (m) => (ui.value = m),
     (e: unknown) => {
       loading = null
+      failedOnce = true
       throw e
     },
   )
@@ -22,15 +25,24 @@ export function loadPivotUi(): Promise<PivotUi> {
 }
 
 /**
- * The parts, loaded as soon as one of `wants()` holds: what the user asked for meanwhile is kept in the sheet's state (a
- * dialog's draft, a menu) and drawn when they arrive. `failed` runs when they cannot be loaded, to drop what waits for them;
- * the next change of `wants()` with one holding tries again.
+ * The parts, loaded as soon as `shown()` holds (the sheet has a PivotTable, a slicer or a timeline) or one of `requests()`
+ * appears (a dialog, a menu, a draft the user asked for): a request made meanwhile stays in the sheet's state and is drawn
+ * when they arrive. When they cannot be loaded, `failed` drops the requests that waited; after that only a new request
+ * tries again, so moving about a PivotTable neither loads them again nor moves the focus.
  */
-export function usePivotUi(wants: () => readonly unknown[], failed?: () => void): Readonly<ShallowRef<PivotUi | null>> {
+export function usePivotUi(shown: () => boolean, requests: () => readonly unknown[] = () => [], failed?: () => void): Readonly<ShallowRef<PivotUi | null>> {
+  const load = () => void loadPivotUi().catch(() => failed?.())
   watch(
-    wants,
-    (list) => {
-      if (!ui.value && list.some(Boolean)) loadPivotUi().catch(() => failed?.())
+    shown,
+    (on) => {
+      if (on && !ui.value && !failedOnce) load()
+    },
+    { immediate: true },
+  )
+  watch(
+    requests,
+    (now, before) => {
+      if (!ui.value && now.some((r, i) => r && r !== before?.[i])) load()
     },
     { immediate: true },
   )

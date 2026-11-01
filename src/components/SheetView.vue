@@ -92,17 +92,9 @@ const notice = ctx.w.notice
 const wait = ctx.w.wait
 /** The parts over PivotTables, slicers and timelines, loaded when the sheet has one or the user opens one's dialog or menu. */
 const pivotUi = usePivotUi(
-  () => [
-    ctx.pivotDialogs.views.value.length,
-    ctx.slicers.slicers.value.length,
-    ctx.slicers.timelines.value.length,
-    ctx.viewState.value?.pivot,
-    ctx.pivotCreate.draft.value,
-    ctx.pivotDialogs.state.value,
-    ctx.pivotFilter.menu.value,
-    ctx.pivotFilter.dialog.value,
-    ctx.slicers.dialog.value,
-  ],
+  // the sheet's own list first, so the chunk loads while the PivotTables' definitions and cells are read
+  () => !!(ctx.sheet.value?.pivots?.length || ctx.pivotDialogs.views.value.length || ctx.slicers.slicers.value.length || ctx.slicers.timelines.value.length || ctx.viewState.value?.pivot),
+  () => [ctx.pivotCreate.draft.value, ctx.pivotDialogs.state.value, ctx.pivotFilter.menu.value, ctx.pivotFilter.dialog.value, ctx.slicers.dialog.value],
   // a dialog or menu that cannot be drawn does not keep the sheet waiting for it
   () => {
     if (ctx.pivotCreate.draft.value) ctx.pivotCreate.close()

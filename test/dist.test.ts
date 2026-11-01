@@ -47,6 +47,18 @@ describe('dist/index.js', () => {
     // xlcalc/text's modules, here the one of stepDecimals (Increase and Decrease Decimal)
     expect(js).toContain('//#region node_modules/xlcalc/dist/numfmt/decimals.js')
   })
+  it('exports the public API and, for its chunk, only minified internal names that are not API', async () => {
+    const names = [...js.matchAll(/^export \{([^}]*)\}/gm)].flatMap((m) => m[1]!.split(',').map((x) => x.trim().split(/\s+as\s+/).at(-1)!))
+    const pub = ['FormatDialog', 'PivotFieldsPane', 'SheetToolbar', 'SheetView', 'TOOLBAR_GROUPS', 'enMessages', 'memorySource', 'ruMessages']
+    // the list is the source's: a new or renamed public export is added here on purpose
+    expect(Object.keys(await import('../src/index')).sort()).toEqual(pub)
+    expect(names.filter((n) => !/^[\w$]{1,2}$/.test(n)).sort()).toEqual(pub)
+    // what the PivotTable chunk takes from the main entry point
+    const pivot = readFileSync(join(out, chunk('pivot-ui')), 'utf8')
+    const taken = [...pivot.matchAll(/import \{([^}]*)\} from "\.\/index\.js"/g)].flatMap((m) => m[1]!.split(',').map((x) => x.trim().split(/\s+as\s+/)[0]!))
+    expect(taken.length).toBeGreaterThan(0)
+    expect(new Set(names.filter((n) => !pub.includes(n)))).toEqual(new Set(taken))
+  })
   it('has no string xlcalc in its code, which a host may look for as a sign of the engine', () => {
     expect(code(js)).not.toMatch(/xlcalc/)
   })

@@ -128,7 +128,7 @@ const emit = defineEmits<{
 
 const m = useMessages(() => props.messages)
 /** The PivotTable Analyze and Design groups' parts, loaded once the active cell is in a PivotTable (with the sheet, they usually are). */
-const pivotUi = usePivotUi(() => [props.sheet && props.state?.pivot && props.source.pivotCells])
+const pivotUi = usePivotUi(() => !!(props.sheet && props.state?.pivot && props.source.pivotCells))
 const instance = getCurrentInstance()
 /** Whether the host currently opens its own dialog on `formatCells`, instead of the sheet's. */
 const dialogToHost = () => props.hostDialog || hasListener(instance, 'onFormatCells')
