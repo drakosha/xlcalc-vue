@@ -166,23 +166,21 @@ export async function pivotDialogsScenario(browser: Browser, base: string, size:
     }
     await page.locator('[data-pivot-options] [data-xs-dialog-cancel]').click()
 
-    // Grouping of dates: Дата on Rows in place of Регион
+    // Grouping of dates: Дата checked onto Rows in place of Регион is grouped by years, quarters and months, as Excel's field list does
+    // the period fields named in the workbook's language, as Excel names them in ru-RU
+    const named = (book: BookInput, ru: string) => !!book.pivotCaches?.[0]?.fields.some((f) => f.name === `${ru} (Дата)`)
     await page.locator('[data-xs-pf-field="0"] input').click()
     await waitPivot(page, at('Регион unchecked'), (t) => !t.rows?.length)
     await page.locator('[data-xs-pf-field="2"] input').click()
-    await waitPivot(page, at('Дата checked'), (t) => t.rows?.[0] === 2)
-    // a date may show as ### in the narrow column: the cell is read from the workbook
-    await page.waitForFunction(async () => {
-      const book = await (window as any).__spa.book()
-      return typeof book.sheets[0]?.cells?.A4?.value === 'number'
-    }, null, { timeout: 30_000 })
+    await waitPivot(page, at('Дата checked'), (t, book) => t.rows?.at(-1) === 2 && named(book, 'Годы') && named(book, 'Кварталы'))
+    // Group… on a year opens Grouping over Дата; months and years alone take the quarters away
     await menuAt('4:1')
     await page.locator('[data-xs-menu="pivotGroup"]').click()
     await page.waitForSelector('[data-pivot-group]')
     await page.locator('[data-pg-periods]').selectOption(['months', 'years'])
     await shot('grouping')
     await page.locator('[data-pivot-group] [data-xs-dialog-ok]').click()
-    await waitPivot(page, at('Grouping'), (_t, book) => !!book.pivotCaches?.[0]?.fields.some((f) => f.name === 'Годы (Дата)' || f.name === 'Years (Дата)'))
+    await waitPivot(page, at('Grouping'), (_t, book) => named(book, 'Годы') && !named(book, 'Кварталы'))
 
     // Fields, Items, & Sets > Calculated Field…, and Design > Report Layout
     await page.locator('[data-cell="4:2"]').click()

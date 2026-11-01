@@ -45,6 +45,14 @@ describe('Value Field Settings: Custom Name follows the function picked, as Exce
     expect(nameBox().value).toBe('Количество по полю Amount2')
   })
 
+  it("Summarize Values By leaves the name to xlcalc's editPivotTable, which keeps the rest of a prefixed name", async () => {
+    const { w, s } = await sales({ rows: [0], values: [{ field: 3, name: 'Sum of Amount2' }] })
+    await menuAt(w, '4:2')
+    await choose('pivotFn-count', 'pivotSummarize')
+    await until(() => cellText(w, 3, 2) === 'Count of Amount2')
+    expect((await s.pivotTable('R', 'PivotTable1'))?.table.values?.[0]).toMatchObject({ name: 'Count of Amount2', function: 'count' })
+  })
+
   it('resets the base item to (previous) when another base field is picked', async () => {
     const { w } = await sales({ rows: [0], columns: [1], values: [{ field: 3, showAs: 'difference', baseField: 0, baseItem: 1 }] })
     await openValue(w)
@@ -143,6 +151,19 @@ describe('Grouping and Ungroup', () => {
 })
 
 describe('the filter buttons and the commands, gated by canEditPivot', () => {
+  it("Row Labels, which xlcalc names no field, has the menu and the commands of the rows' first field, as before (not measured in Excel)", async () => {
+    const { w } = await sales({ rows: [0], values: [{ field: 3 }] }, 'R!A3')
+    await menuAt(w, '3:1')
+    expect(['pivotSort', 'pivotFilter', 'pivotRemove', 'pivotFieldSettings', 'pivotOptions'].map((id) => !!menuItem(id))).toEqual([true, true, true, true, true])
+    expect(menuItem('pivotRemove')?.textContent?.trim()).toBe('Remove "Region"')
+    expect(await api(w).pivotCommand('calculatedItem')).toBe(true)
+    await settle()
+    expect(q('[data-pivot-calc]')).not.toBeNull()
+    document.body.innerHTML = ''
+    const dates = await sales({ rows: [4], values: [{ field: 3 }] }, 'R!A3')
+    expect(await api(dates.w).pivotCommand('groupField')).toBe(true)
+  })
+
   it("a Filters area's button shows the funnel with one item chosen", async () => {
     const { w, s } = await sales({ rows: [0], pages: [{ field: 1 }], values: [{ field: 3 }] }, 'R!B4')
     await until(() => !!q('[data-pivot-button="B1"]'))

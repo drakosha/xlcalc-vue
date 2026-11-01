@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { SheetViewApi, SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
 import { cellText, goTo, mountSheet, settle, until } from './helpers'
-import { pivotBook } from './pivot-fixture'
+import { addSales, pivotBook, salesBook } from './pivot-fixture'
 
 let sources: LocalSource[] = []
 afterEach(async () => {
@@ -82,6 +82,42 @@ describe('the PivotTable Fields pane', () => {
     await setBox(0, false)
     await until(() => chips('rows').length === 1)
     expect(chips('rows')).toEqual(['Kind'])
+  })
+
+  it("a checked field of dates over several years is grouped by years, quarters and months, as Excel's field list does", async () => {
+    const s = localSource(salesBook(), { calc: 'inline' })
+    sources.push(s)
+    expect(await s.structure(addSales({ values: [{ field: 3 }] }))).toMatchObject({ ok: true })
+    const w = await mountSheet(s, { style: 'height: 400px' })
+    await goTo(w, 'R!A4')
+    await until(() => !!pane())
+    await setBox(4, true)
+    await until(() => chips('rows').length > 1)
+    expect(chips('rows')).toEqual(['Years (Date)', 'Quarters (Date)', 'Months (Date)', 'Date'])
+  })
+
+  it('a field checked while a field of dates is being grouped goes after the periods xlcalc put on Rows', async () => {
+    const s = localSource(salesBook(), { calc: 'inline' })
+    sources.push(s)
+    expect(await s.structure(addSales({ values: [{ field: 3 }] }))).toMatchObject({ ok: true })
+    // the source answers a structure call after 300 ms, as a big workbook's layout takes time
+    const slow = new Proxy(s, {
+      get: (o, k) => (k === 'structure' ? async (...a: Parameters<LocalSource['structure']>) => (await new Promise((r) => setTimeout(r, 300)), o.structure(...a)) : Reflect.get(o, k)),
+    })
+    const w = await mountSheet(slow, { style: 'height: 400px' })
+    await goTo(w, 'R!A4')
+    await until(() => !!pane())
+    await setBox(4, true)
+    await setBox(0, true)
+    await until(() => chips('rows').length === 5, 3000)
+    expect(chips('rows')).toEqual(['Years (Date)', 'Quarters (Date)', 'Months (Date)', 'Date', 'Region'])
+  })
+
+  it('shows Σ Values for two value fields a workbook gives without it, where xlcalc takes it in (the engine loaded before the session)', async () => {
+    const { s } = await report(pivotBook({ table: { values: [{ field: 1, name: 'Sum of Amount' }, { field: 3, name: 'Sum of Year' }] } }))
+    expect((await s.pivotTable('Report', 'PivotTable1'))?.table.columns).toEqual(['values'])
+    await until(() => chips('columns').length === 1)
+    expect(chips('columns')).toEqual(['Σ Values'])
   })
 
   it("a field's menu in an area moves it, and Value Field Settings opens the sheet's dialog", async () => {
@@ -265,5 +301,25 @@ describe('Insert PivotTable', () => {
     await until(() => lastState(w)?.sheet === 'Report' && lastState(w)?.ref === 'F3')
     expect(lastState(w)?.pivot).toBe('PivotTable2')
     expect(lastState(w)?.fieldList).toBe(true)
+  })
+
+  it('puts it over cells that hold something as Excel 365 does, showing #SPILL! without asking', async () => {
+    const w = await data(pivotBook({ extra: { G5: { value: 'kept' } } }))
+    await api(w).insertPivotTable()
+    await settle()
+    field('source').value = 'Data!A1:D4'
+    field('source').dispatchEvent(new Event('input'))
+    const existing = document.querySelector<HTMLInputElement>('[data-xs-pivot-place="existing"]')!
+    existing.checked = true
+    existing.dispatchEvent(new Event('change'))
+    await settle()
+    field('location').value = 'Report!F3'
+    field('location').dispatchEvent(new Event('input'))
+    document.querySelector<HTMLButtonElement>('[data-xs-dialog-ok]')!.click()
+    await until(() => lastState(w)?.sheet === 'Report' && lastState(w)?.ref === 'F3')
+    expect(document.querySelector('[data-xs-alert]')).toBeNull()
+    await until(() => cellText(w, 3, 6) === '#SPILL!')
+    expect(cellText(w, 5, 7)).toBe('kept')
+    expect(lastState(w)?.pivot).toBe('PivotTable2')
   })
 })

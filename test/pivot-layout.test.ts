@@ -1,47 +1,49 @@
 // @vitest-environment node
-// The PivotTable Fields pane's model: Σ Values among the axes' fields, where a checked field goes, moves between and within
-// the areas as Excel's field list makes them, and the editPivotTable patch of a change.
+// The PivotTable Fields pane's model: where a checked field goes and its function by xlcalc's suggestPivotField, moves
+// between and within the areas as Excel's field list makes them, Σ Values moved by the user, and the editPivotTable patch
+// of a change, in which xlcalc keeps Σ Values as the value fields come and go.
 import { describe, expect, it } from 'vitest'
-import type { PivotCacheField } from 'xlcalc/contract'
-import { areasOf, check, fieldKind, move, patchOf, remove, usedFields, valueFunction } from '../src/core/pivot-layout'
+import type { PivotCache } from 'xlcalc/contract'
+import { areasOf, check, move, patchOf, remove, usedFields } from '../src/core/pivot-layout'
 
-const FIELDS: PivotCacheField[] = [
-  { name: 'Region', facts: { types: ['string'] } },
-  { name: 'Amount', facts: { types: ['number'] } },
-  { name: 'Date', facts: { types: ['date'] } },
-  { name: 'Qty', facts: { types: ['number', 'blank'] } },
-]
+const CACHE: PivotCache = {
+  id: 1,
+  source: { type: 'range', sheet: 'Data', range: 'A1:D9' },
+  fields: [
+    { name: 'Region', facts: { types: ['string'] } },
+    { name: 'Amount', facts: { types: ['number'] } },
+    { name: 'Date', facts: { types: ['date'] } },
+    { name: 'Qty', facts: { types: ['number', 'blank'] } },
+  ],
+}
+const FIELDS = CACHE
 
 describe('the PivotTable Fields pane: where a field goes', () => {
-  it('a field of numbers alone, blanks allowed, is a number field, Sum; dates a date field; anything else Count', () => {
-    expect(FIELDS.map(fieldKind)).toEqual(['text', 'number', 'date', 'number'])
-    expect(FIELDS.map(valueFunction)).toEqual(['count', 'sum', 'count', 'sum'])
-    const kinds = (types: NonNullable<PivotCacheField['facts']>['types']) => fieldKind({ name: 'F', facts: { types } })
-    expect([kinds(['blank']), kinds(['number', 'string']), kinds(['number', 'boolean']), kinds(['number', 'date'])]).toEqual(['text', 'text', 'text', 'text'])
-  })
-
-  it('checking puts a number field on Values and others on Rows; unchecking removes it from every area', () => {
+  it("checking puts a field where xlcalc's suggestPivotField says, Sum or Count; unchecking removes it from every area", () => {
     let a = areasOf({})
-    a = check(a, 1, true, FIELDS)
-    a = check(a, 0, true, FIELDS)
-    a = check(a, 2, true, FIELDS)
-    expect(a).toEqual({ filters: [], columns: [], rows: [0, 2], values: [{ field: 1, function: 'sum' }] })
-    a = move(a, { area: 'list', field: 0 }, 'values', undefined, FIELDS)!
+    a = check(a, 1, true, CACHE)
+    a = check(a, 0, true, CACHE)
+    a = check(a, 2, true, CACHE)
+    a = check(a, 3, true, CACHE)
+    expect(a).toEqual({ filters: [], columns: [], rows: [0, 2], values: [{ field: 1, function: 'sum' }, { field: 3, function: 'sum' }] })
+    a = move(a, { area: 'list', field: 0 }, 'values', undefined, CACHE)!
     expect(a.rows).toEqual([0, 2])
-    expect(a.columns).toEqual(['values'])
-    expect([...usedFields(a)].sort()).toEqual([0, 1, 2])
-    a = check(a, 0, false, FIELDS)
-    expect(a).toEqual({ filters: [], columns: [], rows: [2], values: [{ field: 1, function: 'sum' }] })
+    expect(a.values.at(-1)).toEqual({ field: 0, function: 'count' })
+    // Σ Values is xlcalc's to place: the pane's change carries the value fields alone
+    expect(a.columns).toEqual([])
+    expect([...usedFields(a)].sort()).toEqual([0, 1, 2, 3])
+    a = check(a, 0, false, CACHE)
+    expect(a).toEqual({ filters: [], columns: [], rows: [2], values: [{ field: 1, function: 'sum' }, { field: 3, function: 'sum' }] })
   })
 })
 
 describe('the PivotTable Fields pane: moves', () => {
-  const two = () => areasOf({ rows: [0], values: [{ field: 1, name: 'Sum of Amount' }, { field: 3, name: 'Sum of Qty' }] })
+  // two value fields as xlcalc holds them: Σ Values at the end of the columns
+  const two = () => areasOf({ rows: [0], columns: ['values'], values: [{ field: 1, name: 'Sum of Amount' }, { field: 3, name: 'Sum of Qty' }] })
 
-  it('shows Σ Values on Columns for two value fields kept without it, at valuesPosition or on Rows with valuesOnRows', () => {
+  it('shows Σ Values where xlcalc holds it', () => {
     expect(two().columns).toEqual(['values'])
-    expect(areasOf({ rows: [0, 2], valuesOnRows: true, valuesPosition: 1, values: [{ field: 1 }, { field: 3 }] }).rows).toEqual([0, 'values', 2])
-    expect(areasOf({ columns: ['values'], values: [{ field: 1 }] }).columns).toEqual([])
+    expect(areasOf({ rows: [0, 'values', 2], values: [{ field: 1 }, { field: 3 }] }).rows).toEqual([0, 'values', 2])
   })
 
   it('moves within an area by place, Move Up and Move Down included', () => {
@@ -77,17 +79,18 @@ describe('the PivotTable Fields pane: moves', () => {
     expect(move(a, { area: 'columns', index: 0 }, 'filters', 0, FIELDS)).toBeNull()
     expect(move(a, { area: 'columns', index: 0 }, 'values', 0, FIELDS)).toBeNull()
     expect(remove(a, { area: 'columns', index: 0 })).toEqual({ filters: [], columns: [], rows: [0], values: [] })
-    expect(remove(a, { area: 'values', index: 1 })).toMatchObject({ columns: [], values: [{ field: 1 }] })
+    // the second to last value field removed: xlcalc takes Σ Values away with it
+    expect(remove(a, { area: 'values', index: 1 })).toMatchObject({ columns: ['values'], values: [{ field: 1 }] })
   })
 })
 
 describe('the PivotTable Fields pane: the patch', () => {
-  it('sets the areas changed whole, an empty one as null, Σ Values with valuesOnRows; none for no change', () => {
-    const t = { rows: [0], values: [{ field: 1, name: 'Sum of Amount' }, { field: 3, name: 'Sum of Qty' }] }
+  it('sets the areas changed whole, an empty one as null, Σ Values where the user moved it; none for no change', () => {
+    const t = { rows: [0], columns: ['values' as const], values: [{ field: 1, name: 'Sum of Amount' }, { field: 3, name: 'Sum of Qty' }] }
     expect(patchOf(t, areasOf(t))).toBeNull()
     const onRows = move(areasOf(t), { area: 'columns', index: 0 }, 'rows', undefined, FIELDS)!
-    expect(patchOf(t, onRows)).toEqual({ rows: [0, 'values'], columns: null, valuesOnRows: true })
-    expect(patchOf({ ...t, valuesPosition: 0 }, onRows)).toEqual({ rows: [0, 'values'], columns: null, valuesOnRows: true, valuesPosition: null })
+    expect(patchOf(t, onRows)).toEqual({ rows: [0, 'values'], columns: null })
     expect(patchOf(t, check(areasOf(t), 2, true, FIELDS))).toEqual({ rows: [0, 2] })
+    expect(patchOf(t, remove(areasOf(t), { area: 'values', index: 1 }))).toEqual({ values: [{ field: 1, name: 'Sum of Amount' }] })
   })
 })

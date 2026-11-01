@@ -1,8 +1,8 @@
 // PivotTables in the local source: xlcalc's PivotTable engine (`xlcalc/pivot`), loaded as its own chunk for a workbook that
-// has PivotTables, since without them nothing needs it; their areas as the sheet lists them; Excel's alerts for a change
+// has PivotTables, since without them nothing needs it; their areas as xlcalc gives them; Excel's alerts for a change
 // the library refuses over their cells; and the PivotTables an operation touches, which a protected sheet gates.
-import { LOCALES, registerPivot, type BookInput, type BookLayout, type CellRect, type PivotCache, type PivotRef, type PivotTable, type SheetLayout, type StructureOp } from 'xlcalc'
-import { parseRange, rangeAddress, rectsMeet, sameName } from 'xlcalc/a1'
+import { registerPivot, type BookInput, type BookLayout, type CellRect, type PivotAreas, type PivotCache, type PivotRef, type PivotRefusalReason, type PivotTable, type SheetLayout, type StructureOp } from 'xlcalc'
+import { parseRange, rectsMeet, sameName } from 'xlcalc/a1'
 import type { SheetPivot, SheetPivotTable } from '../contract/source'
 import { pivotFields } from './slicers'
 import { objectLocks, objectNeeds } from '../protection'
@@ -23,48 +23,24 @@ export function loadPivot(): Promise<void> {
   return loading
 }
 
-/**
- * A PivotTable's areas from xlcalc's `PivotLocation`, the one place they are worked out (xlcalc is to give them ready-made):
- * the filters take `pageRows` rows above the table with a blank row between, each column of filters a field's name and its
- * item and a gap (`pageColumns`), as xlcalc lays them out; the table's headers end above `firstDataRow`, its values start at
- * `firstDataColumn`. A PivotTable not laid out (no saved lines: added without the engine) or shrunk to its top-left cell
- * (`#SPILL!`, no header row) has its table alone.
- */
-function areasOf(t: PivotTable): { table: CellRect; filters?: CellRect; headers?: CellRect; rowLabels?: CellRect; values?: CellRect } | null {
-  const x = parseRange(t.location.range)
-  if (!x) return null
-  const { firstDataRow: dataRow, firstDataColumn: dataCol, pageRows = 0, pageColumns } = t.location
-  const top = x.top + dataRow
-  const left = x.left + dataCol
-  const laid = !!t.rowLines && dataRow > 0 && top <= x.bottom
-  return {
-    table: x,
-    ...(pageRows > 0 && x.top - pageRows - 1 >= 1 ? { filters: { top: x.top - pageRows - 1, bottom: x.top - 2, left: x.left, right: x.left + 3 * Math.max(1, pageColumns ?? 1) - 2 } } : {}),
-    ...(laid ? { headers: { ...x, bottom: top - 1 } } : {}),
-    ...(laid && dataCol > 0 ? { rowLabels: { ...x, top, right: Math.min(x.right, left - 1) } } : {}),
-    ...(laid && t.values?.length && left <= x.right ? { values: { ...x, top, left } } : {}),
-  }
-}
+/** A PivotTable's areas as xlcalc gives them with its place (`PivotLocation.areas`, on every PivotTable a layout holds). */
+const areasOf = (t: PivotTable): PivotAreas => t.location.areas ?? { table: t.location.range, data: t.location.range }
 
 /** A sheet's PivotTables as `SheetInfo.pivots` lists them, with their cache's id and fields; none for a sheet without them. */
 export function pivotsOf(sheet: SheetLayout, caches: PivotCache[] = []): SheetPivot[] {
-  const out: SheetPivot[] = []
-  for (const t of sheet.pivotTables ?? []) {
+  return (sheet.pivotTables ?? []).map((t) => {
     const a = areasOf(t)
-    if (!a) continue
-    const range = (r: CellRect | undefined) => r && rangeAddress(r)
-    out.push({
+    return {
       name: t.name,
-      range: rangeAddress(a.table),
-      ...(a.filters ? { filters: range(a.filters) } : {}),
-      ...(a.headers ? { headers: range(a.headers) } : {}),
-      ...(a.rowLabels ? { rowLabels: range(a.rowLabels) } : {}),
-      ...(a.values ? { values: range(a.values) } : {}),
+      range: a.table,
+      ...(a.page ? { filters: a.page } : {}),
+      ...(a.columnHeaders ? { headers: a.columnHeaders } : {}),
+      ...(a.rowLabels ? { rowLabels: a.rowLabels } : {}),
+      values: a.data,
       cache: t.cache,
       fields: pivotFields(caches.find((c) => c.id === t.cache)),
-    })
-  }
-  return out
+    }
+  })
 }
 
 /** The PivotTable `name` on `sheet` without its saved lines, with its cache without its rows (`SheetSource.pivotTable`); null when there is none. */
@@ -81,14 +57,18 @@ export function pivotDefinition(layout: BookLayout, sheet: string, name: string)
 export function pivotMeeting(layout: BookLayout, sheet: string, rect: CellRect): PivotTable | null {
   for (const t of layout.sheets.find((x) => sameName(x.name, sheet))?.pivotTables ?? []) {
     const a = areasOf(t)
-    if (a && (rectsMeet(a.table, rect) || (a.filters && rectsMeet(a.filters, rect)))) return t
+    const meets = (range: string | undefined) => {
+      const x = range ? parseRange(range) : null
+      return !!x && rectsMeet(x, rect)
+    }
+    if (meets(a.table) || meets(a.page)) return t
   }
   return null
 }
 
 /**
- * Excel for Windows' alerts over a PivotTable's cells, as xlcalc's refusal `reason` names them: a value typed or pasted
- * (`part`), a formula over a label (`formula`), a cleared cell or an operation that would insert or delete cells in it
+ * Excel for Windows' alerts over a PivotTable's cells, as xlcalc's refusal `reason` names them: a value typed (`part`), a
+ * formula over its cells (`formula`), a cleared cell, a paste or an operation that would insert or delete cells in it
  * (`affect`), in Excel 16.0 for Windows' words in en-US and ru-RU (Russian `переместить` is Excel's). `engine` is the
  * source's own: the PivotTable engine could not be loaded, so nothing needing it is done; so is `moveLocked`: a slicer or
  * a timeline with Disable resizing and moving on, which Excel's interface does not move.
@@ -114,39 +94,14 @@ export type PivotAlert = keyof (typeof ALERTS)['en']
 /** The outcome code of a change a PivotTable's cells do not take, as xlcalc's refusals name it. */
 export const PIVOT = 'pivot'
 
-// Temporary until xlcalc's refusals carry `reason`: its internal message keys and its en-US words for them, after the place.
-const KEYS = { pivotPart: 'part', pivotFormula: 'formula', pivotClear: 'affect', pivotNotLoaded: 'engine' } as const
-const EN_WORDS: Record<keyof typeof KEYS, string> = {
-  pivotPart: "we can't change this part of the PivotTable",
-  pivotFormula: 'cannot enter a formula for an item or field name in a PivotTable report',
-  pivotClear: "we can't make this change for the selected cells because it will affect a PivotTable",
-  pivotNotLoaded: 'registerPivot(pivotEngine) loads it',
-}
-
-/** The alert of xlcalc's message by its key (temporary, see `KEYS`): the locale's own words where it has them, else en-US's. */
-function keyed(message: string, locale: string): PivotAlert | null {
-  const own = (LOCALES.get(locale) as { messages?: Record<string, unknown> } | undefined)?.messages
-  for (const key of Object.keys(KEYS) as (keyof typeof KEYS)[]) {
-    const say = own?.[key]
-    const said = typeof say === 'function' ? String((say as (p: object) => string)({ sheet: 'S', cell: 'A1', pivot: 'P' })) : null
-    const words = said === null ? EN_WORDS[key] : said.slice(said.indexOf(': ') + 2)
-    if (message === words || message.endsWith(`: ${words}`)) return KEYS[key]
-  }
-  return null
-}
-
 /**
- * xlcalc's refusal over PivotTables as the outcome the sheet shows in an alert: Excel's alert for its `reason`, or for the
- * kind `by` the operation makes it (Delete, and an operation that cuts one, `affect`), else the library's own message.
+ * xlcalc's refusal over PivotTables, or its `PivotInputError`, as the outcome the sheet shows in an alert: Excel's alert for
+ * its `reason`, else the library's own message (a name taken, an item a field does not have).
  */
 export function pivotRefusals(locale: string) {
   const words = locale.toLowerCase().startsWith('ru') ? ALERTS.ru : ALERTS.en
   const alert = (kind: PivotAlert) => ({ ok: false as const, reason: 'refused' as const, code: PIVOT, message: words[kind] })
-  const refusal = (r: { message: string; reason?: unknown }, by?: PivotAlert) => {
-    const reason = typeof r.reason === 'string' && r.reason in words ? (r.reason as PivotAlert) : null
-    const kind = reason ?? keyed(r.message, locale) ?? by
-    return kind ? alert(kind) : { ok: false as const, reason: 'refused' as const, code: PIVOT, message: r.message }
-  }
+  const refusal = (r: { message: string; reason?: PivotRefusalReason }) => (r.reason ? alert(r.reason) : { ok: false as const, reason: 'refused' as const, code: PIVOT, message: r.message })
   return { alert, refusal }
 }
 

@@ -4,14 +4,14 @@
 // source's `pivotTable` and `pivotCells` for the cell menu, the filter buttons and the dialogs.
 import { computed, markRaw, ref, shallowRef, watch } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
+import { renamedValueField } from 'xlcalc/text'
 import type { Locale, NumberFormat, PivotDataField, PivotFunction, PivotGroupBy, PivotGrouping, PivotShowAs, PivotTablePatch } from 'xlcalc/contract'
 import type { PivotOptionsTab } from '../contract/messages'
-import type { EditOutcome, SheetOp, SheetPivotCell } from '../contract/source'
+import type { EditOutcome, PivotAxis, SheetOp, SheetPivotCell } from '../contract/source'
 import type { PivotDesignChange } from '../contract/view'
 import { loadEntry } from '../entry'
-import { axisFields, designPatch, grandOf, grandPatch, renamedValueField, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
+import { axisFields, cellField, cellTarget, designPatch, grandOf, grandPatch, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
 import type { Commands } from './commands'
-import { valuesPatch } from './pivot-layout'
 import type { Pivots } from './pivots'
 import type { Protection } from './protection'
 import type { Selection } from './selection'
@@ -173,12 +173,14 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     return got && { t: got.t, parts: got.parts.filter((x): x is SheetPivotCell => !!x) }
   }
   /** The PivotTable under the active cell with that cell's part, read now. */
-  async function active(): Promise<{ t: PivotTarget; part: SheetPivotCell | null } | null> {
+  async function active(): Promise<{ t: PivotTarget; part: SheetPivotCell | null; at: { axis?: PivotAxis; field?: number } } | null> {
     const p = deps.pivots.active.value
     const a = s.selected.value
     if (!p || !a || !can.value) return null
-    const got = await target(s.sheetName.value, p.name, [cellAddress(a.row, a.col)])
-    return got && { t: got.t, part: got.parts[0] ?? null }
+    const cell = cellAddress(a.row, a.col)
+    const got = await target(s.sheetName.value, p.name, [cell])
+    const part = got?.parts[0] ?? null
+    return got && { t: got.t, part, at: cellTarget(got.t, cell, part) }
   }
 
   // ── sending ──
@@ -200,11 +202,13 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   }
   /** The source field's name of a value field, which its default name goes by. */
   const sourceName = (t: PivotTarget, index: number) => t.def.cache.fields[t.def.table.values?.[index]?.field ?? -1]?.name ?? ''
-  /** Another function picked in the list: Custom Name changes at once as Excel's does (`renamedValueField`). */
+  /** Another function picked in the list: Custom Name changes at once as Excel's does (xlcalc's `renamedValueField`). */
   function pickFunction(fn: PivotFunction): void {
     const d = state.value
     if (d?.kind !== 'value' || d.draft.fn === fn) return
-    d.draft.name = renamedValueField(d.draft.name, d.draft.fn, fn, sourceName(d.t, d.index), s.locale.value)
+    // the workbook's Locale object, which the main entry registers nowhere; en-US's words until its module has loaded
+    const locale = deps.locale()
+    d.draft.name = renamedValueField(d.draft.name, d.draft.fn, fn, sourceName(d.t, d.index), typeof locale === 'string' ? undefined : locale)
     d.draft.fn = fn
   }
   /** Another base field: its base item starts again at the list's first, (previous). */
@@ -236,7 +240,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   async function setFunction(t: PivotTarget, index: number, fn: PivotFunction): Promise<void> {
     const v = t.def.table.values?.[index]
     const from = v?.function ?? 'sum'
-    if (v && from !== fn) await edit(t, withValue(t, index, withFunction(v, fn, renamedValueField(v.name ?? '', from, fn, sourceName(t, index), s.locale.value))))
+    // without a name xlcalc's editPivotTable renames the value field as Excel does
+    if (v && from !== fn) await edit(t, withValue(t, index, withFunction(v, fn)))
   }
   async function setShowAs(t: PivotTarget, index: number, calc: PivotShowAs): Promise<void> {
     if (BASE_FIELD.has(calc)) {
@@ -472,8 +477,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   async function group(): Promise<boolean> {
     const got = await picked()
     if (!got) return false
-    const items = got.parts.filter((x) => x.kind === 'item' && x.field !== undefined && x.item !== undefined)
-    const field = items[0]?.field
+    const items = got.parts.filter((x) => x.kind === 'item' && cellField(x) !== undefined && x.item !== undefined)
+    const field = cellField(items[0])
     if (field === undefined || items.some((x) => x.field !== field)) return false
     const unique = [...new Set(items.map((x) => x.item!))]
     if (fieldKind(got.t, field) !== 'text' && unique.length === 1) return openGroup(got.t, field)
@@ -483,15 +488,15 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   /** Group Field: Grouping over the active cell's field. */
   async function groupField(): Promise<boolean> {
     const got = await active()
-    const field = got?.part?.field
+    const field = got?.at.field
     return got && field !== undefined ? openGroup(got.t, field) : false
   }
   /** Excel's Ungroup: the groups selected of a field grouped by hand, or the active cell's field of dates or numbers. */
   async function ungroup(): Promise<EditOutcome | null> {
     const got = await picked()
-    const part = got?.parts.find((x) => x.field !== undefined)
+    const part = got?.parts.find((x) => cellField(x) !== undefined)
     if (!got || !part) return null
-    const field = ungroupedField(got.t, part.field!)
+    const field = ungroupedField(got.t, cellField(part)!)
     if (field === null) return null
     const base = { op: 'ungroupPivotField' as const, sheet: got.t.sheet, pivot: got.t.pivot, field }
     if (!got.t.def.cache.fields[field]?.group?.discrete) return send(base)
@@ -519,7 +524,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     open({ kind: 'calcItem', t, field, draft: { name, formula: '= 0', pick: field, item: 0 } })
     return true
   }
-  /** Add or Modify, and OK with a name: the calculated field or item set (a new calculated field then placed on Values, as Excel's OK does). */
+  /** Add or Modify, and OK with a name: the calculated field or item set (a new calculated field placed on Values too, as Excel's OK does). */
   async function applyCalc(closing: boolean): Promise<EditOutcome | null> {
     const d = state.value
     if ((d?.kind !== 'calcField' && d?.kind !== 'calcItem') || !d.draft.name.trim()) {
@@ -531,16 +536,9 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     const t = d.t
     if (closing) close()
     if (d.kind === 'calcItem') return kept(await send({ op: 'setPivotCalculatedItem', sheet: t.sheet, pivot: t.pivot, field: d.field, name, formula }))
+    // Excel's OK puts a new calculated field on Values after the others with Sum, in the same step (xlcalc's `values`); Modify leaves them
     const known = calcNames(t).some((x) => x.toLowerCase() === name.toLowerCase())
-    const out = await send({ op: 'setPivotCalculatedField', sheet: t.sheet, pivot: t.pivot, name, formula })
-    if (!out?.ok || known) return kept(out)
-    // Excel's OK puts a new calculated field on Values after the others, with Sum, Σ Values on Columns from the second
-    // (Excel for Windows 16.0, measured): xlcalc's operation does not, so the PivotTable is edited after it
-    const again = await target(t.sheet, t.pivot)
-    const index = again?.t.def.cache.fields.findIndex((f) => f.name.toLowerCase() === name.toLowerCase()) ?? -1
-    if (!again || index < 0) return out
-    const set = valuesPatch(again.t.def.table, [...(again.t.def.table.values ?? []), { field: index }])
-    return kept(set ? await edit(again.t, set) : out)
+    return kept(await send({ op: 'setPivotCalculatedField', sheet: t.sheet, pivot: t.pivot, name, formula, ...(known ? {} : { values: true }) }))
   }
   /** After Add or Modify the dialog stays open over the PivotTable read again, its names and formulas listed anew. */
   async function kept(out: EditOutcome | null): Promise<EditOutcome | null> {
@@ -581,8 +579,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     if (c === 'options') openOptions(got.t)
     else if (c === 'calculatedField') openCalcField(got.t)
     else {
-      const f = got.part?.field
-      return f !== undefined && got.part?.axis !== 'pages' ? openCalcItem(got.t, f) : false
+      const f = got.at.field
+      return f !== undefined && got.at.axis !== 'pages' ? openCalcItem(got.t, f) : false
     }
     return true
   }

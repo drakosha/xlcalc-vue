@@ -1,7 +1,9 @@
 // The PivotTable Fields pane's model: a PivotTable's four areas (Filters, Columns, Rows, Values) with Σ Values among the
-// axes' fields, the changes the pane makes to them as Excel's field list makes them, and the `editPivotTable` patch that
-// carries a change in one step of undo. Pure, over xlcalc's PivotTable model.
-import type { PivotAxisField, PivotCacheField, PivotDataField, PivotFunction, PivotPageField, PivotTable, PivotTablePatch } from 'xlcalc/contract'
+// axes' fields, the changes the pane makes to them as Excel's field list makes them (where a field goes and its function
+// by xlcalc's `suggestPivotField`), and the `editPivotTable` patch that carries a change in one step of undo, in which
+// xlcalc keeps Σ Values. Pure, over xlcalc's PivotTable model.
+import type { PivotAxisField, PivotCache, PivotDataField, PivotPageField, PivotTable, PivotTablePatch } from 'xlcalc/contract'
+import { suggestPivotField } from 'xlcalc/text'
 
 /** The pane's areas, in Excel's order. */
 export type PivotArea = 'filters' | 'columns' | 'rows' | 'values'
@@ -17,53 +19,11 @@ export interface PivotAreas {
 /** A field in an area by its place, or a field of the list by its cache index (`list`). */
 export type PivotSpot = { area: PivotArea; index: number } | { area: 'list'; field: number }
 
-// ── where a field goes and how it is summarized: one place, for xlcalc's coming suggestPivotField to take over ──
-
-/** Where Excel puts a field checked in the list, and how a value field summarizes it. */
-export type FieldKind = 'number' | 'date' | 'text'
-
 const insertAt = <T>(list: T[], at: number, item: T): T[] => [...list.slice(0, at), item, ...list.slice(at)]
 
-/**
- * The kind of a cache field by the values it holds (`facts`), as xlcalc measured Excel for Windows' field list check: numbers
- * alone (blanks allowed) are a number field, which the check puts on Values with Sum; dates alone (blanks allowed) a date
- * field; anything else, blanks alone and numbers mixed with text, logicals, errors or dates included, text, put on Rows.
- */
-export function fieldKind(f: PivotCacheField): FieldKind {
-  const types = f.facts?.types ?? []
-  if (types.includes('number') && types.every((t) => t === 'number' || t === 'blank')) return 'number'
-  if (types.includes('date') && types.every((t) => t === 'date' || t === 'blank')) return 'date'
-  return 'text'
-}
-
-/** Excel's function for a new value field: Sum over a number field, Count over any other dropped onto Values. */
-export const valueFunction = (f: PivotCacheField | undefined): PivotFunction => (f && fieldKind(f) === 'number' ? 'sum' : 'count')
-
-/** The area a field checked in the list goes to: a number field onto Values, a date or text field onto Rows. */
-const checkedArea = (f: PivotCacheField | undefined): PivotArea => (f && fieldKind(f) === 'number' ? 'values' : 'rows')
-
-// ── Σ Values upkeep: one place, for xlcalc's coming editPivotTable that keeps the marker itself to take over ──
-
-const hasValuesField = (axis: PivotAxisField[]) => axis.includes('values')
-
-/**
- * Σ Values follows the value fields, as Excel's field list does: gone below two; with two or more and none on an axis, on
- * Rows (`onRows`) or Columns at `at`, at the end without it.
- */
-function settle(a: PivotAreas, place: { onRows?: boolean; at?: number } = {}): PivotAreas {
-  if (a.values.length < 2) return { ...a, rows: a.rows.filter((f) => f !== 'values'), columns: a.columns.filter((f) => f !== 'values') }
-  if (hasValuesField(a.rows) || hasValuesField(a.columns)) return a
-  const key = place.onRows ? 'rows' : 'columns'
-  return { ...a, [key]: insertAt(a[key], Math.min(place.at ?? a[key].length, a[key].length), 'values') }
-}
-
-/**
- * A PivotTable's areas as the pane shows them: Σ Values where xlcalc holds it on an axis, or, for several value fields
- * without it, on Rows (`valuesOnRows`) or Columns at `valuesPosition`, at the end without it.
- */
-export function areasOf(t: Pick<PivotTable, 'rows' | 'columns' | 'pages' | 'values' | 'valuesOnRows' | 'valuesPosition'>): PivotAreas {
-  const areas: PivotAreas = { filters: [...(t.pages ?? [])], columns: [...(t.columns ?? [])], rows: [...(t.rows ?? [])], values: [...(t.values ?? [])] }
-  return settle(areas, { onRows: t.valuesOnRows, at: t.valuesPosition })
+/** A PivotTable's areas as the pane shows them: Σ Values where xlcalc holds it, on an axis while there are two value fields or more. */
+export function areasOf(t: Pick<PivotTable, 'rows' | 'columns' | 'pages' | 'values'>): PivotAreas {
+  return { filters: [...(t.pages ?? [])], columns: [...(t.columns ?? [])], rows: [...(t.rows ?? [])], values: [...(t.values ?? [])] }
 }
 
 // ── the changes ──
@@ -104,7 +64,7 @@ function without(a: PivotAreas, spot: PivotSpot): PivotAreas {
  * came from the list), summarized as Excel summarizes a new one; onto an axis it leaves the axis it was on, and a value field
  * dragged there leaves Values. Σ Values goes only between Columns and Rows. Null when nothing changes.
  */
-export function move(a: PivotAreas, from: PivotSpot, to: PivotArea, index: number | undefined, fields: PivotCacheField[]): PivotAreas | null {
+export function move(a: PivotAreas, from: PivotSpot, to: PivotArea, index: number | undefined, cache: PivotCache): PivotAreas | null {
   const field = fieldAt(a, from)
   if (field === null) return null
   if (field === 'values' && (to === 'filters' || to === 'values')) return null
@@ -125,8 +85,8 @@ export function move(a: PivotAreas, from: PivotSpot, to: PivotArea, index: numbe
   let rest = from.area === 'list' ? a : without(a, from)
   if (to === 'values') {
     if (from.area !== 'list') rest = offAxes(rest, field)
-    const value: PivotDataField = { field, function: valueFunction(fields[field]) }
-    return settle({ ...rest, values: insertAt(rest.values, Math.min(index ?? rest.values.length, rest.values.length), value) })
+    const value: PivotDataField = { field, function: suggestPivotField(cache, field).function }
+    return { ...rest, values: insertAt(rest.values, Math.min(index ?? rest.values.length, rest.values.length), value) }
   }
   // where the field lies on the axis it goes to already (from the list, or from Values): places after it count without it
   const was = to === 'filters' ? rest.filters.findIndex((p) => p.field === field) : rest[to].indexOf(field)
@@ -134,39 +94,32 @@ export function move(a: PivotAreas, from: PivotSpot, to: PivotArea, index: numbe
   rest = offAxes(rest, field)
   if (to === 'filters') {
     const page: PivotPageField = { field }
-    return settle({ ...rest, filters: insertAt(rest.filters, Math.min(at ?? rest.filters.length, rest.filters.length), page) })
+    return { ...rest, filters: insertAt(rest.filters, Math.min(at ?? rest.filters.length, rest.filters.length), page) }
   }
   const axis = rest[to]
-  return settle({ ...rest, [to]: insertAt(axis, Math.min(at ?? axis.length, axis.length), field) })
+  return { ...rest, [to]: insertAt(axis, Math.min(at ?? axis.length, axis.length), field) }
 }
 
 /** A field's chip removed from its area (Remove Field, or dragged out of the areas); Σ Values removes every value field. */
 export function remove(a: PivotAreas, spot: PivotSpot): PivotAreas {
-  if (fieldAt(a, spot) === 'values') return settle({ ...offAxes(a, 'values'), values: [] })
-  return settle(without(a, spot))
+  if (fieldAt(a, spot) === 'values') return { ...offAxes(a, 'values'), values: [] }
+  return without(a, spot)
 }
 
-/**
- * A field checked in the list: a number field onto Values, a date or text field onto Rows, as Excel puts it; unchecked, it
- * leaves every area.
- */
-export function check(a: PivotAreas, field: number, on: boolean, fields: PivotCacheField[]): PivotAreas {
-  if (!on) return settle(without(a, { area: 'list', field }))
-  return move(a, { area: 'list', field }, checkedArea(fields[field]), undefined, fields) ?? a
+/** A field checked in the list: where Excel's field list puts it (xlcalc's `suggestPivotField`); unchecked, it leaves every area. */
+export function check(a: PivotAreas, field: number, on: boolean, cache: PivotCache): PivotAreas {
+  if (!on) return without(a, { area: 'list', field })
+  return move(a, { area: 'list', field }, suggestPivotField(cache, field).axis, undefined, cache) ?? a
 }
 
 const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y)
 
-/** The patch that gives the PivotTable these value fields, Σ Values kept on an axis as Excel keeps it (`settle`); null for no change. */
-export function valuesPatch(t: Pick<PivotTable, 'rows' | 'columns' | 'pages' | 'values' | 'valuesOnRows' | 'valuesPosition'>, values: PivotDataField[]): PivotTablePatch | null {
-  return patchOf(t, settle({ ...areasOf(t), values }))
-}
-
 /**
- * The `editPivotTable` patch from the PivotTable's areas to `next`: each area changed set whole (null for an empty one), and
- * with Σ Values moved, `valuesOnRows` where it lies (`valuesPosition` dropped, its place now on the axis); null for no change.
+ * The `editPivotTable` patch from the PivotTable's areas to `next`: each area changed set whole (null for an empty one), Σ
+ * Values among the axis's fields where the user put it; xlcalc puts it there and takes it away as the value fields come and
+ * go. Null for no change.
  */
-export function patchOf(t: Pick<PivotTable, 'rows' | 'columns' | 'pages' | 'values' | 'valuesOnRows' | 'valuesPosition'>, next: PivotAreas): PivotTablePatch | null {
+export function patchOf(t: Pick<PivotTable, 'rows' | 'columns' | 'pages' | 'values'>, next: PivotAreas): PivotTablePatch | null {
   const now = areasOf(t)
   const set: PivotTablePatch = {}
   const list = <T>(x: T[]) => (x.length ? x : null)
@@ -174,10 +127,5 @@ export function patchOf(t: Pick<PivotTable, 'rows' | 'columns' | 'pages' | 'valu
   if (!same(now.columns, next.columns)) set.columns = list(next.columns)
   if (!same(now.filters, next.filters)) set.pages = list(next.filters)
   if (!same(now.values, next.values)) set.values = list(next.values)
-  if (set.rows !== undefined || set.columns !== undefined) {
-    const onRows = hasValuesField(next.rows)
-    if (!!t.valuesOnRows !== onRows) set.valuesOnRows = onRows || null
-    if (t.valuesPosition !== undefined) set.valuesPosition = null
-  }
   return Object.keys(set).length ? set : null
 }

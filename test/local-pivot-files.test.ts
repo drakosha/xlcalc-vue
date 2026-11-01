@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { groupIssues, openXlsx, saveXlsx } from '../src/local'
 import { closeAll, source } from './local-fixture'
 import { pivotBook } from './pivot-fixture'
+import { unzipText } from './zip'
 
 afterEach(closeAll)
 
@@ -13,6 +14,11 @@ describe('PivotTables in files', () => {
     const { data } = await saveXlsx(source(pivotBook()))
     const { book } = await openXlsx(data)
     expect((await source(book).sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1', range: 'A3:B6', headers: 'A3:B3', rowLabels: 'A4:A6', values: 'B4:B6' }])
+  })
+
+  it("marks the filter buttons' cells (pivotButton) in the file it writes, so Excel draws them before a refresh", async () => {
+    const files = unzipText((await saveXlsx(source(pivotBook()))).data)
+    expect(files['xl/styles.xml']).toMatch(/pivotButton="1"/)
   })
 
   it("groups a PivotTable's issues as the others, under xlcalc's code pivotTable: a cache's source on a deleted sheet", async () => {

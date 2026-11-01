@@ -128,6 +128,20 @@ describe('the filter menu of a PivotTable', () => {
     await until(() => cellText(w, 1, 2) === '(All)')
   })
 
+  it("opens no field's menu, and shows no funnel, for a button that filters no field: Σ Values alone on the rows, Σ Values' name", async () => {
+    const { s } = await sales({ columns: [0], rows: ['values'], values: [{ field: 3 }, { field: 2 }] }, 'R!B5')
+    // Region on the columns filtered: its own button lights, Row Labels over Σ Values does not
+    expect(await s.structure({ op: 'editPivotTable', sheet: 'R', pivot: 'PivotTable1', set: { fields: [{ field: 0, items: [{ item: 0, hidden: true }, { item: 1 }, { item: 2 }] }] } })).toMatchObject({ ok: true })
+    await until(() => !!q('[data-pivot-button="B3"]')?.classList.contains('xs-on'))
+    await button('A4')
+    expect(menu()).toBeNull()
+    expect(q('[data-pivot-button="A4"]')?.classList.contains('xs-on')).toBe(false)
+    document.body.innerHTML = ''
+    await sales({ rows: [0], columns: ['values', 1], values: [{ field: 3 }, { field: 2 }], layout: 'outline' }, 'R!B6')
+    await button('B3')
+    expect(menu()).toBeNull()
+  })
+
   it("Select field picks among the row fields of Row Labels in compact form, and Esc closes the menu", async () => {
     const { w } = await sales({ rows: [0, 1], values: [{ field: 3 }] })
     await button('A3')

@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, PivotCache, PivotRef, PivotTable, SelectionLabels, SheetProtection, Slicer, SlicerCache, SpecialCells, StructureOp, SplitPanes, StylePatch, Timeline, TimelineCache, WorkbookStatistics } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, PivotCache, PivotCell, PivotRef, PivotTable, SelectionLabels, SheetProtection, Slicer, SlicerCache, SpecialCells, StructureOp, SplitPanes, StylePatch, Timeline, TimelineCache, WorkbookStatistics } from 'xlcalc/contract'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
@@ -306,7 +306,10 @@ export interface SheetInfo {
  * `TableRange1`); `filters` its Filters area above it, as wide as its filters, without the blank row between (`PageRange`);
  * `headers` the table's rows above its values: the value fields' and column fields' headers and the column labels;
  * `rowLabels` the row labels left of the values, down to the grand total; `values` the values with their totals
- * (`DataBodyRange`). An area the PivotTable does not show is absent (`values` without a value field).
+ * (`DataBodyRange`), which Excel gives a PivotTable without value fields too: the cells under the header rows, the labels
+ * themselves with no field on columns. These are xlcalc's `PivotLocation.areas`; an area the PivotTable does not show is
+ * absent (`headers` and `rowLabels` of one not laid out or in `#SPILL!`). The sheet refuses typing at the first key on a
+ * cell of `values` outside `rowLabels` and `headers`.
  */
 export interface SheetPivot {
   /** Unique among the sheet's PivotTables: an operation on the PivotTable names it by the sheet and this name (xlcalc's `PivotRef`). */
@@ -330,7 +333,7 @@ export interface SheetPivotField {
 
 /**
  * A slicer on a sheet: xlcalc's `Slicer` (its name, its cache's name, `caption`, `showCaption`, `place`, `columns`,
- * `rowHeight` in EMU, `startItem`, `locked`, `style`) with what its cache holds: the source field, the PivotTables it
+ * `rowHeight` in EMU, `startItem`, `locked` for Excel's Locked, `positionLocked` for Disable resizing and moving, `style`) with what its cache holds: the source field, the PivotTables it
  * filters, their pivot cache, the sorting and display of the items, and the items in the slicer's order. A slicer
  * without `place` is not drawn.
  */
@@ -378,8 +381,9 @@ export interface SheetPivotTable {
 /**
  * What a PivotTable's cells show (`SheetSource.pivotCells`): `labels`, per cache field on an axis, its items' labels in the
  * order of the PivotTable field's `items` (a caption, or the value as the PivotTable shows it), null for a field on no
- * axis; `buttons`, the cells with Excel's filter button (Row Labels and Column Labels in compact form, each field's header
- * otherwise, the item of a field of the Filters area), none with Display field captions and filter drop downs off;
+ * axis; `buttons`, the cells where Excel draws a filter button, as xlcalc's `pivotCells` gives them (Row Labels and Column
+ * Labels, the fields' names over their labels, a Filters area field's item), none with Display field captions and filter
+ * drop downs off;
  * `cells`, what each cell asked for is, null outside the PivotTable.
  */
 export interface SheetPivotCells {
@@ -403,30 +407,29 @@ export interface SheetPivotCalculated {
   formula: string
 }
 
-/** A filter button of a PivotTable: its cell, and the field (by its index in the cache) on the axis it filters first. */
+/**
+ * A filter button of a PivotTable: its cell, the axis it filters, and the field (by its index in the cache) its menu is
+ * about: a field's name and a Filters area's item their own, Row Labels and Column Labels their axis's first field.
+ * Without `field` (Σ Values' name, an axis holding Σ Values alone) it opens no menu.
+ */
 export interface SheetPivotButton {
   cell: string
   axis: PivotAxis
-  field: number
+  field?: number
 }
 
 /** The areas of a PivotTable's fields: the rows, the columns and the Filters area (`pages`). */
 export type PivotAxis = 'rows' | 'columns' | 'pages'
 
 /**
- * A cell of a PivotTable (`SheetPivotCells.cells`): `kind` is an item's label (`item`), a subtotal's label or a grand
- * total's (`subtotal`, `grand`), a value with its totals (`value`), a header (`header`: Row Labels, Column Labels or a
- * field's name), a value field's name (`valueHeader`), a field of the Filters area's name or item (`pageField`, `pageItem`),
- * or none of them (`blank`). `field` is the cache field of the label, header or line, `item` its index in the PivotTable
- * field's `items`, `value` the value field's index in `values`.
+ * A cell of a PivotTable (`SheetPivotCells.cells`): xlcalc's `PivotCell`, what Excel's `Range.PivotCell` tells of it. `kind`
+ * is a value with its totals (`value`), an item's label (`item`), a subtotal's or a grand total's (`subtotal`, `grand`), a
+ * value field's name (`valueName`), a field's name (`field`, in the Filters area too), Σ Values (`valuesField`), a Filters
+ * area's item (`pageItem`) or none of them (`blank`: Row Labels and Column Labels too). `field` is the cache field of the
+ * label, name or line (`values` for Σ Values), `item` its index in the PivotTable field's `items`, `value` the value
+ * field's index in `values`; `rowItems` and `columnItems` the items of a value's or a label's row and column.
  */
-export interface SheetPivotCell {
-  kind: 'item' | 'subtotal' | 'grand' | 'value' | 'header' | 'valueHeader' | 'pageField' | 'pageItem' | 'blank'
-  axis?: PivotAxis
-  field?: number
-  item?: number
-  value?: number
-}
+export type SheetPivotCell = PivotCell
 
 /**
  * Excel's split window, xlcalc's `SplitPanes`: the vertical line `x` points from the window's left edge and the horizontal

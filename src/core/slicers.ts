@@ -4,10 +4,11 @@
 // of the source's `structure` (xlcalc's `editSlicer`, `editTimeline` and the others), one step of undo.
 import { computed, ref, shallowRef, watch } from 'vue'
 import type { DrawingPlace, PivotRef, TimelineLevel } from 'xlcalc/contract'
+import { DEFAULT_SLICER_SIZE, DEFAULT_TIMELINE_SIZE } from 'xlcalc/text'
 import type { EditOutcome, SheetOp, SheetSlicer, SheetTimeline } from '../contract/source'
 import type { SheetObjectRef } from '../contract/view'
 import type { Commands } from './commands'
-import { placeOfBox } from './drawing'
+import { EMU_PX, placeOfBox } from './drawing'
 import type { Geometry } from './geometry'
 import type { MenuItem } from './menu'
 import type { Pivots } from './pivots'
@@ -21,6 +22,8 @@ export type SlicerDialog =
   | {
       kind: 'settings'
       slicer: string
+      /** Name, which the source refuses empty or taken by another slicer or timeline. */
+      name: string
       field: string
       cache: string
       caption: string
@@ -41,8 +44,9 @@ export interface SlicersDeps {
   middle: () => { x: number; y: number }
 }
 
-/** Excel's size of a new slicer (144 × 198.75 pt) and timeline (262.5 × 108 pt), in px. */
-const NEW_SIZE = { slicer: { width: 192, height: 265 }, timeline: { width: 350, height: 144 } }
+/** Excel's size of a new slicer and timeline, xlcalc's in EMU, in px. */
+const px = (size: { width: number; height: number }) => ({ width: size.width / EMU_PX, height: size.height / EMU_PX })
+const NEW_SIZE = { slicer: px(DEFAULT_SLICER_SIZE), timeline: px(DEFAULT_TIMELINE_SIZE) }
 /** How far each next slicer or timeline of one insert lies down and to the right of the one before (not measured in Excel). */
 const CASCADE_PX = 20
 
@@ -282,6 +286,7 @@ export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, deps: S
     dialog.value = {
       kind: 'settings',
       slicer: x.name,
+      name: x.name,
       field: x.field,
       cache: x.cache,
       caption: x.caption ?? x.name,
@@ -295,13 +300,16 @@ export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, deps: S
     }
     return true
   }
-  /** OK in Slicer Settings: the caption and header, the sorting and the items with no data, in one operation. */
+  /** OK in Slicer Settings: the name, the caption and header, the sorting and the items with no data, in one operation; a new name keeps it selected. */
   async function applySettings(): Promise<void> {
     const d = dialog.value
-    if (d?.kind !== 'settings') return
+    // an empty name is never sent: OK waits for one, as Excel takes no slicer without a name (its alert not measured)
+    if (d?.kind !== 'settings' || !d.name.trim()) return
     dialog.value = null
     const o = { kind: 'slicer' as const, name: d.slicer }
-    await send(opOf(o, { set: { caption: d.caption, showCaption: d.showCaption }, cache: { sort: d.descending ? 'descending' : 'ascending', customListSort: d.customListSort, noData: { hide: d.hide, mark: d.mark, last: d.last }, showMissing: d.showMissing } }))
+    const name = d.name !== d.slicer ? { name: d.name } : {}
+    const out = await send(opOf(o, { set: { ...name, caption: d.caption, showCaption: d.showCaption }, cache: { sort: d.descending ? 'descending' : 'ascending', customListSort: d.customListSort, noData: { hide: d.hide, mark: d.mark, last: d.last }, showMissing: d.showMissing } }))
+    if (out?.ok && 'name' in name && picked.value?.kind === 'slicer' && picked.value.name === d.slicer) picked.value = { kind: 'slicer', name: d.name }
   }
   /** Opens Report Connections: every PivotTable of the workbook over the same pivot cache, those it filters checked. */
   function openConnections(): boolean {

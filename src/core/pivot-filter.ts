@@ -220,7 +220,7 @@ export function usePivotFilter(s: SheetState, dialogs: PivotDialogs) {
       if (!b) continue
       e.preventDefault()
       const r = s.scroller.value?.querySelector<HTMLElement>(`[data-pivot-button="${cell}"]`)?.getBoundingClientRect()
-      openMenu(t, b.axis, b.field, r ? { left: r.left, top: r.bottom } : { left: 80, top: 80 })
+      if (b.field !== undefined) openMenu(t, b.axis, b.field, r ? { left: r.left, top: r.bottom } : { left: 80, top: 80 })
       return true
     }
     return false

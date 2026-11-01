@@ -41,23 +41,27 @@ describe('localSource: PivotTables', () => {
     expect(await s.pivotTable('Data', 'PivotTable1')).toBeNull()
   })
 
-  it('lists a PivotTable not laid out, or shrunk to its top-left cell (#SPILL!), by its table alone', async () => {
+  it('lists a PivotTable not laid out, or shrunk to its top-left cell (#SPILL!), by its table and values alone', async () => {
+    const fields = [{ name: 'Region' }, { name: 'Amount' }, { name: 'Kind' }, { name: 'Year' }]
     // added without the engine: Excel's empty PivotTable of three columns and 18 rows, without saved lines
     const placeholder = pivotBook({ table: { location: { range: 'A3:C20', firstHeaderRow: 1, firstDataRow: 1, firstDataColumn: 0 }, rowLines: undefined, columnLines: undefined } })
-    expect((await source(placeholder).sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1', range: 'A3:C20' }])
+    expect((await source(placeholder).sheets())[1]!.pivots).toEqual([{ name: 'PivotTable1', range: 'A3:C20', values: 'A4:C20', cache: 1, fields }])
     const spilled = pivotBook({ table: { location: { range: 'A3', firstHeaderRow: 0, firstDataRow: 0, firstDataColumn: 0 } } })
-    expect((await source(spilled).sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1', range: 'A3' }])
+    expect((await source(spilled).sheets())[1]!.pivots).toEqual([{ name: 'PivotTable1', range: 'A3', values: 'A3', cache: 1, fields }])
   })
 
-  it("refuses a value or a formula typed, pasted or filled over its cells with Excel's alert; a formula over a label has its own", async () => {
+  it("refuses a value or a formula typed, pasted or filled over its cells with Excel's alert; a formula has its own", async () => {
     const s = source(pivotBook())
     expect(await s.edit([{ sheet: 'Report', cell: 'B4', text: '100' }])).toEqual(refusedWith(PART))
-    expect(await s.edit([{ sheet: 'Report', cell: 'B4', text: '=1+1' }])).toEqual(refusedWith(PART))
+    // a formula sent over a value: Excel's object model refuses it as a formula (xlcalc's set alerts-held); the sheet's own typing never sends it
+    expect(await s.edit([{ sheet: 'Report', cell: 'B4', text: '=1+1' }])).toEqual(refusedWith(FORMULA))
     expect(await s.edit([{ sheet: 'Report', cell: 'A4', text: '="East"' }])).toEqual(refusedWith(FORMULA))
-    expect(await s.edit([{ sheet: 'Report', cell: 'B4', text: '1' }, { sheet: 'Report', cell: 'C4', text: '2' }])).toEqual(refusedWith(PART))
-    // a formula over an empty header cell, which holds no label: xlcalc's and Excel's alert for a part
-    expect(await source(filteredPivotBook()).edit([{ sheet: 'Report', cell: 'C3', text: '=1' }])).toEqual(refusedWith(PART))
-    expect(await s.paste('Report', 'B5', '7\t8')).toEqual(refusedWith(PART))
+    // texts entered into several cells at once, and a paste, affect it (xlcalc's sets alerts and alerts-held)
+    expect(await s.edit([{ sheet: 'Report', cell: 'B4', text: '1' }, { sheet: 'Report', cell: 'C4', text: '2' }])).toEqual(refusedWith(AFFECT))
+    // a formula over an empty header cell, which holds no label, is a formula over its cells all the same
+    expect(await source(filteredPivotBook()).edit([{ sheet: 'Report', cell: 'C3', text: '=1' }])).toEqual(refusedWith(FORMULA))
+    expect(await s.paste('Report', 'B5', '7\t8')).toEqual(refusedWith(AFFECT))
+    // Ctrl+Enter with the active cell in it enters that cell alone, a value over a value
     expect(await s.fill('Report', 'B4:C5', '9', 'B4')).toEqual(refusedWith(PART))
     expect(await valueAt(s, 'B4')).toBe(15)
     // the cells beside it take anything
@@ -73,6 +77,21 @@ describe('localSource: PivotTables', () => {
     expect(await valueAt(s, 'B6')).toBe(35)
     // an operation on the PivotTable keeps the library's reason
     expect(await s.structure({ op: 'refreshPivots', pivots: [{ sheet: 'Report', name: 'Nope' }] })).toMatchObject({ ok: false, code: 'pivot', message: expect.stringMatching(/Nope/) })
+  })
+
+  it('deletes a PivotTable whose cells are all cleared, as Excel does, in one undo step, and reads the sheets again', async () => {
+    const s = source(pivotBook())
+    const events: string[] = []
+    s.subscribe((e) => events.push(e.kind))
+    const cells = ['A3', 'B3', 'A4', 'B4', 'A5', 'B5', 'A6', 'B6'].map((cell) => ({ sheet: 'Report', cell, text: null }))
+    ok(await s.edit(cells))
+    expect(events).toContain('reload')
+    expect((await s.sheets())[1]!.pivots).toBeUndefined()
+    expect(await valueAt(s, 'B6')).toBeNull()
+    ok(await s.undo())
+    expect((await s.sheets())[1]!.pivots).toMatchObject([{ name: 'PivotTable1' }])
+    ok(await s.clear('Report', ['A3:B6'], 'all'))
+    expect((await s.sheets())[1]!.pivots).toBeUndefined()
   })
 
   it("keeps xlcalc's own reason where Excel's alert is not one of those: a name taken, an item a filter does not have", async () => {

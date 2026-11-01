@@ -1,7 +1,7 @@
 // localSource: a sheet source over an xlcalc workbook whose session runs in a Web Worker pool or on the page's thread.
 // The session holds and calculates the workbook, finds as Excel's Find does and returns windows, sheets and edits as Excel
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
-import { createInlineCalc, FUNCTION_NAMES, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type BookLayout, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView, type SplitPanes } from 'xlcalc'
+import { createInlineCalc, FUNCTION_NAMES, PivotInputError, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type BookLayout, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView, type SplitPanes } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { ClearKind } from '../contract/workbook'
 import type { CalculationMode, CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetShow, SourceEvent, WindowRequest } from '../contract/source'
@@ -36,10 +36,6 @@ interface RowList {
 /** How many filters' row lists a sheet keeps, for viewers that share the source with different filters. */
 const LISTS_PER_SHEET = 8
 
-type Refused = Extract<EditOutcome, { ok: false }>
-/** A refusal among a call's answers, which carry no `ok` or a true one. */
-const refused = (x: unknown): x is Refused => (x as { ok?: unknown } | null)?.ok === false
-
 /** The regular expressions' level the options ask for, registered with xlcalc before a calculation (a pool's threads take it too). */
 async function loadRegex(level: LocalSourceOptions['regex']): Promise<void> {
   if (!level) return
@@ -59,7 +55,7 @@ async function startCalc(opts: LocalSourceOptions): Promise<Calc> {
 const CALIBRI_11 = { name: 'Calibri', size: 11 }
 
 /** A sheet of the workbook's layout with where its cells end, the workbook's default font and the range its AutoFilter acts on, as the component lists it. */
-function info(layout: BookLayout, sheet: SheetLayout, used: SheetExtent, font: { name: string; size: number }, locale: string, autoFilter?: string): SheetInfo {
+function info(layout: BookLayout, sheet: SheetLayout, used: SheetExtent, font: { name: string; size: number }, autoFilter?: string): SheetInfo {
   const f = sheet.frozen
   const outline = outlineOf(outlineGroups(sheet), sheet.outline)
   return {
@@ -78,7 +74,7 @@ function info(layout: BookLayout, sheet: SheetLayout, used: SheetExtent, font: {
     // frozen panes take the place of a split, as in Excel
     ...(sheet.view?.split && !f ? { split: sheet.view.split } : {}),
     ...(sheet.pivotTables?.length ? { pivots: pivotsOf(sheet, layout.pivotCaches) } : {}),
-    ...(sheet.slicers?.length ? { slicers: slicersOf(layout, sheet, locale) } : {}),
+    ...(sheet.slicers?.length ? { slicers: slicersOf(layout, sheet) } : {}),
     ...(sheet.timelines?.length ? { timelines: timelinesOf(layout, sheet) } : {}),
     font,
   }
@@ -354,8 +350,8 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     })
   }
   /** An exception as the outcome of a change of typed input (the workbook rejects it) or of another change (it failed). */
-  const refusedBy = (e: unknown) => outcomeOf(e, 'refused')
-  const failedBy = (e: unknown) => outcomeOf(e, 'failed')
+  const refusedBy = (e: unknown) => (e instanceof PivotInputError ? pivot.refusal(e) : outcomeOf(e, 'refused'))
+  const failedBy = (e: unknown) => (e instanceof PivotInputError ? pivot.refusal(e) : outcomeOf(e, 'failed'))
 
   /** A change the windows cannot carry: the cached values are updated, then the sheets and windows are read again. */
   function reloaded(changes: CellChange[]): EditOutcome {
@@ -381,8 +377,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const boxes = boxesOf(cells)
     if (cells.every((c) => c.text === null)) {
       const ranges = cells.map((c) => ({ sheet: c.sheet, range: c.cell }))
-      const got = await pivotClearing(s, ranges, () => s.clearCells(ranges, 'contents'))
-      return refused(got) ? got : settle(s, got, boxes)
+      return settle(s, await s.clearCells(ranges, 'contents'), boxes)
     }
     const options = { refuseInvalid: !opts?.accept, ...(opts?.inPlace ? { inPlace: true } : {}) }
     const one = cells.length === 1 ? cells[0]! : null
@@ -403,22 +398,6 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const at = parseCell(cell)
     return at && pivotsMaybe ? pivotMeeting(await s.getLayout(), sheet, { top: at.row, left: at.col, bottom: at.row, right: at.col }) : null
   }
-  /** Clearing cells, which xlcalc refuses over a PivotTable with an `InputError`: Excel's alert for a change that affects a PivotTable. */
-  async function pivotClearing<R>(s: AsyncSession, ranges: { sheet: string; range: string }[], run: () => Promise<R>): Promise<R | Refused> {
-    try {
-      return await run()
-    } catch (e) {
-      if ((e as Error)?.name !== 'InputError') throw e
-      const layout = await s.getLayout()
-      const meets = ranges.some((r) => {
-        const x = parseRange(r.range)
-        return !!x && !!pivotMeeting(layout, r.sheet, x)
-      })
-      if (!meets) throw e
-      return pivot.refusal(e as Error, 'affect')
-    }
-  }
-
   /** Clipboard text as Excel pastes it at a cell, as a single undo step; the selection covers the filled range. */
   async function paste(s: AsyncSession, sheet: string, cell: string, text: string): Promise<EditOutcome> {
     const got = await s.pasteText(sheet, cell, text)
@@ -508,7 +487,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       if ((op.op === 'editSlicer' || op.op === 'editTimeline') && op.set?.place && movesLocked(await s.getLayout(), op)) return pivot.alert('moveLocked')
     }
     const got = await s.editStructure(op)
-    if (!got.ok) return got.code === PIVOT ? pivot.refusal(got, onPivots ? undefined : 'affect') : { ok: false, reason: 'refused', code: got.code, message: got.message }
+    if (!got.ok) return got.code === PIVOT ? pivot.refusal(got) : { ok: false, reason: 'refused', code: got.code, message: got.message }
     calcMode.moved(got.moved)
     return reloaded(got.changes)
   }
@@ -684,7 +663,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
       throwIfAborted(signal)
       // xlcalc 0.59 gives the workbook's default font; an older one, or a workbook without it, is Calibri 11
       const font = layout.font ?? CALIBRI_11
-      return layout.sheets.map((x, i) => info(layout, viewed(x), used[i]!, font, locale, ranges[i]))
+      return layout.sheets.map((x, i) => info(layout, viewed(x), used[i]!, font, ranges[i]))
     },
     async pivotTable(sheet, name, signal) {
       const s = await open()
@@ -737,7 +716,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     clear: mutation(
       guard.clear(async (s, sheet: string, ranges: string[], what: ClearKind) => {
         const kind = await guard.clearKind(s, sheet, what)
-        return pivotClearing<EditOutcome>(s, ranges.map((range) => ({ sheet, range })), () => book.clear(s, sheet, ranges, kind))
+        return book.clear(s, sheet, ranges, kind)
       }),
       failedBy,
     ),

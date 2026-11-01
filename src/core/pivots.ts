@@ -38,12 +38,22 @@ export function usePivots(s: SheetState, cmd: Commands, protection: Protection, 
   /** Refresh is refused on a protected sheet whatever it allows, as in Excel 16.0 for Windows, where Alt+F5 does nothing and Refresh is disabled. */
   const canRefresh = computed(() => hasRefresh.value && !protection.protection.value)
 
-  /** The values areas of the sheet's PivotTables. */
-  const values = computed(() => (s.sheet.value?.pivots ?? []).flatMap((p) => (p.values ? (parseRange(p.values) ?? []) : [])))
+  /**
+   * The cells of the sheet's PivotTables that take no typing: the values area without the labels it holds (a PivotTable
+   * without value fields has its labels there), its values and empty cells, as xlcalc refuses them (`part`). A PivotTable
+   * shrunk to its top-left cell (`#SPILL!`), whose values area is that cell, takes typing there, as xlcalc does.
+   */
+  const values = computed(() =>
+    (s.sheet.value?.pivots ?? []).flatMap((p) => {
+      const area = (range: string | undefined) => (range ? parseRange(range) : null)
+      const data = p.values === p.range ? null : area(p.values)
+      return data ? [{ data, labels: [area(p.rowLabels), area(p.headers)].filter((r) => !!r) }] : []
+    }),
+  )
   /** Typing or F2 on a PivotTable's value cell: Excel's alert at the first key, and true; no editor opens. */
   function refuseEdit(row: number, col: number): boolean {
     const here = cellRect(row, col)
-    if (!values.value.some((r) => rectContains(r, here))) return false
+    if (!values.value.some((v) => rectContains(v.data, here) && !v.labels.some((r) => rectContains(r, here)))) return false
     void deps.ask({ severity: 'notice', message: s.messages.value.pivotPartAlert })
     return true
   }

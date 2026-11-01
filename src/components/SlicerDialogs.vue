@@ -36,7 +36,7 @@ function ok(): void {
       <p class="xs-slicer-dialog-line">{{ m.slicerFormulaName }} {{ settings.cache }}</p>
       <label class="xs-dialog-field">
         <span>{{ m.slicerName }}</span>
-        <input class="xs-field" type="text" :value="settings.slicer" disabled data-xs-slicer-name />
+        <input v-model="settings.name" class="xs-field" type="text" autocomplete="off" data-xs-slicer-name @keydown.enter.prevent="ok" />
       </label>
       <fieldset class="xs-dialog-choices">
         <legend>{{ m.slicerHeader }}</legend>
@@ -77,7 +77,7 @@ function ok(): void {
       </table>
     </template>
     <div class="xs-dialog-foot">
-      <button type="button" class="xs-button xs-button-main" :disabled="!!insert && !insert.fields.some((f) => f.checked)" data-xs-dialog-ok @click="ok">{{ m.ok }}</button>
+      <button type="button" class="xs-button xs-button-main" :disabled="(!!insert && !insert.fields.some((f) => f.checked)) || (!!settings && !settings.name.trim())" data-xs-dialog-ok @click="ok">{{ m.ok }}</button>
       <button type="button" class="xs-button" data-xs-dialog-cancel @click="slicers.close()">{{ m.cancel }}</button>
     </div>
   </DialogShell>

@@ -3,8 +3,7 @@
 // Field Settings… and PivotTable Options…; and the PivotTable Fields pane's requests for a field's dialogs and menu.
 import { cellAddress } from 'xlcalc/a1'
 import type { PivotDialogRequest } from '../contract/view'
-import { axisFields, fieldKind, fieldName, filtered, PIVOT_FUNCTIONS, ungroupedField, valueName, withHidden } from '../pivot-model'
-import { valuesPatch } from './pivot-layout'
+import { axisFields, cellTarget, fieldKind, fieldName, filtered, PIVOT_FUNCTIONS, ungroupedField, valueName, withHidden } from '../pivot-model'
 import type { MenuItem } from './menu'
 import { SHOW_AS, type PivotDialogs } from './pivot-dialogs'
 import type { PivotFilterMenus } from './pivot-filter'
@@ -26,12 +25,12 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
     const x = m()
     const out: MenuItem[] = []
     const value = part.value
-    const isValue = (part.kind === 'value' || part.kind === 'valueHeader') && value !== undefined && !!t.def.table.values?.[value]
+    const isValue = (part.kind === 'value' || part.kind === 'valueName') && value !== undefined && !!t.def.table.values?.[value]
     if (isValue) out.push({ id: 'pivotNumberFormat', label: x.pivotMenuNumberFormat, run: () => dialogs.openNumberFormat(t, value), group: true })
     out.push(...refresh)
     if (refresh.length) out.push({ id: 'pivotDelete', label: x.pivotMenuDelete, run: () => void dialogs.send({ op: 'deletePivotTable', sheet: t.sheet, pivot: t.pivot }) })
-    const field = part.field
-    const onAxis = field !== undefined && (part.axis === 'rows' || part.axis === 'columns')
+    const { axis, field } = cellTarget(t, here.cell, part)
+    const onAxis = field !== undefined && (axis === 'rows' || axis === 'columns')
     if (onAxis) {
       const dates = fieldKind(t, field) === 'dates'
       out.push({
@@ -63,7 +62,7 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
       out.push({ id: 'pivotGroup', label: x.pivotMenuGroup, run: () => void dialogs.group(), group: true })
       out.push({ id: 'pivotUngroup', label: x.pivotMenuUngroup, disabled: ungroupedField(t, field) === null, run: () => void dialogs.ungroup() })
     }
-    if (field !== undefined && part.axis) {
+    if (field !== undefined && axis) {
       out.push({ id: 'pivotRemove', label: x.pivotMenuRemove(fieldName(t, field)), run: () => void remove(field), group: true })
     }
     if (isValue) {
@@ -89,18 +88,18 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
         ],
       })
       out.push({ id: 'pivotValueSettings', label: x.valueFieldSettings, run: () => void dialogs.openValue(t, value), group: true })
-    } else if (field !== undefined && part.axis) {
+    } else if (field !== undefined && axis) {
       out.push({ id: 'pivotFieldSettings', label: x.fieldSettings, run: () => void dialogs.openField(t, field), group: true })
     }
-    out.push({ id: 'pivotOptions', label: x.pivotMenuOptions, run: () => dialogs.openOptions(t), group: !isValue && !(field !== undefined && part.axis) })
+    out.push({ id: 'pivotOptions', label: x.pivotMenuOptions, run: () => dialogs.openOptions(t), group: !isValue && !(field !== undefined && axis) })
     return out
   }
 
-  /** Remove "Sum of Amount": the value field gone, Σ Values kept on its axis as Excel keeps it. */
+  /** Remove "Sum of Amount": the value field gone; xlcalc takes Σ Values off its axis with the second to last. */
   async function removeValue(index: number): Promise<void> {
     const here = dialogs.here.value
-    const set = here && valuesPatch(here.t.def.table, (here.t.def.table.values ?? []).filter((_, i) => i !== index))
-    if (here && set) await dialogs.edit(here.t, set)
+    const left = (here?.t.def.table.values ?? []).filter((_, i) => i !== index)
+    if (here) await dialogs.edit(here.t, { values: left.length ? left : null })
   }
 
   /** Remove "Region": the field off its axis, as Excel's item does. */
@@ -120,7 +119,7 @@ export function usePivotMenu(s: SheetState, dialogs: PivotDialogs, filter: Pivot
   async function keep(only: boolean): Promise<void> {
     const here = dialogs.here.value
     const got = await dialogs.picked()
-    const field = here?.part.field
+    const field = here ? cellTarget(here.t, here.cell, here.part).field : undefined
     if (!got || field === undefined) return
     const chosen = new Set(got.parts.filter((p) => p.kind === 'item' && p.field === field && p.item !== undefined).map((p) => p.item!))
     const items = got.t.def.table.fields[field]?.items ?? []

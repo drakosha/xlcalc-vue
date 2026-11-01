@@ -7,8 +7,8 @@ import { pivotBook } from './pivot-fixture.ts'
 const DATES = { E1: { value: 'Date' }, E2: { value: 45306, numberFormat: 14 }, E3: { value: 45453, numberFormat: 14 }, E4: { value: 45726, numberFormat: 14 } }
 const REF = { sheet: 'Report', name: 'PivotTable1' }
 
-/** `positionLocked`: the slicer's Disable resizing and moving, which xlcalc 0.71 holds as `Slicer.locked`. */
-export function slicerBook(opts: { protection?: SheetInput['protection']; positionLocked?: boolean; freeze?: boolean } = {}): BookInput {
+/** `positionLocked`: the slicer's Disable resizing and moving; `unlocked`: Locked off on the slicer and the timeline (Format, Properties). */
+export function slicerBook(opts: { protection?: SheetInput['protection']; positionLocked?: boolean; unlocked?: boolean; freeze?: boolean } = {}): BookInput {
   const book = pivotBook(opts.protection ? { protection: opts.protection } : {})
   const data = book.sheets[0]!
   data.cells = { ...data.cells, ...DATES }
@@ -19,8 +19,8 @@ export function slicerBook(opts: { protection?: SheetInput['protection']; positi
   cache.records = cache.records!.map((r, i) => [...r, { date: dates[i]! }])
   const report = book.sheets[1]!
   report.pivotTables![0]!.fields.push({})
-  report.slicers = [{ name: 'Region', cache: 'Slicer_Region', caption: 'Region', place: { from: 'D3', to: 'F12' }, ...(opts.positionLocked ? { locked: true } : {}) }]
-  report.timelines = [{ name: 'Date', cache: 'NativeTimeline_Date', caption: 'Date', place: { from: 'H3', to: 'N9' }, level: 'quarters' }]
+  report.slicers = [{ name: 'Region', cache: 'Slicer_Region', caption: 'Region', place: { from: 'D3', to: 'F12' }, ...(opts.positionLocked ? { positionLocked: true } : {}), ...(opts.unlocked ? { locked: false } : {}) }]
+  report.timelines = [{ name: 'Date', cache: 'NativeTimeline_Date', caption: 'Date', place: { from: 'H3', to: 'N9' }, level: 'quarters', ...(opts.unlocked ? { locked: false } : {}) }]
   if (opts.freeze) report.frozen = { rows: 4 }
   book.slicerCaches = [{ name: 'Slicer_Region', field: 'Region', cache: 1, pivots: [REF], items: [{ item: 0 }, { item: 1 }] }]
   book.timelineCaches = [{ name: 'NativeTimeline_Date', field: 'Date', cache: 1, pivots: [REF], bounds: { start: '2024-01-01T00:00:00', end: '2026-01-01T00:00:00' } }]
