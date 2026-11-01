@@ -31,18 +31,21 @@ function labelsOf(t: PivotTable, f: PivotCacheField, index: number, locale: stri
 }
 
 /**
- * The filter buttons from xlcalc's `pivotCells`, where Excel draws them, each with the field its menu is about: a field's
- * name and a report filter's item that field; Row Labels and Column Labels, which name no field, their axis's first, as
- * Excel's menu starts (none when the axis holds Σ Values alone); Σ Values' name none.
+ * The filter buttons from xlcalc's `pivotCells`, where Excel draws them, each with the field its menu is about: the field
+ * a cell names (a field's name, a compact row field's name in a column of its own, a report filter's item); Row Labels and
+ * Column Labels, which name none, their axis's first, as Excel's menu starts (none when the axis holds Σ Values alone);
+ * Σ Values' name none.
  */
 function buttonsOf(t: PivotTable, got: PivotCells): SheetPivotButton[] {
   const first = (axis: 'rows' | 'columns') => (axis === 'rows' ? t.rows : t.columns)?.find((f): f is number => f !== 'values')
   return got.buttons.flatMap((cell): SheetPivotButton[] => {
     const c = got.cells[cell]
     if (!c?.axis) return []
-    const own = typeof c.field === 'number' ? c.field : undefined
-    const field = c.kind === 'blank' && c.axis !== 'pages' ? first(c.axis) : c.kind === 'valuesField' ? undefined : own
-    return [{ cell, axis: c.axis, ...(field !== undefined ? { field } : {}) }]
+    const own = typeof c.field === 'number' && c.kind !== 'valuesField' ? c.field : undefined
+    // Row Labels and Column Labels name no field: they stand for the fields of their axis without a button of their own
+    const labels = c.kind === 'blank' && own === undefined && c.axis !== 'pages'
+    const field = labels ? first(c.axis as 'rows' | 'columns') : own
+    return [{ cell, axis: c.axis, ...(field !== undefined ? { field } : {}), ...(labels ? { labels: true as const } : {}) }]
   })
 }
 

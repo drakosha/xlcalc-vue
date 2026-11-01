@@ -15,9 +15,13 @@ const m = ctx.messages
 const f = ctx.pivotFilter
 
 const sizeOf = computed(() => (v.touch.value ? 24 : 16))
-/** Whether the field the button's menu is about has a filter, or in compact form any field of its axis; never for a button of no field. */
-const on = (t: PivotTarget, b: SheetPivotButton) =>
-  b.field !== undefined && (b.axis === 'pages' || t.cells.buttons.filter((y) => y.axis === b.axis && y.field !== undefined).length > 1 ? [b.field] : axisFields(t, b.axis)).some((x) => filtered(t, x))
+/** Whether the button's field has a filter, or for Row Labels and Column Labels any field of the axis without a button of its own; never for a button of no field. */
+function on(t: PivotTarget, b: SheetPivotButton): boolean {
+  if (b.field === undefined) return false
+  if (!b.labels || b.axis === 'pages') return filtered(t, b.field)
+  const owned = new Set(t.cells.buttons.flatMap((y) => (y.axis === b.axis && !y.labels && y.field !== undefined ? [y.field] : [])))
+  return axisFields(t, b.axis).some((x) => !owned.has(x) && filtered(t, x))
+}
 const buttons = computed(() => {
   if (!ctx.pivotDialogs.can.value) return []
   const out: { key: string; t: PivotTarget; b: SheetPivotButton; style: Record<string, string>; on: boolean }[] = []

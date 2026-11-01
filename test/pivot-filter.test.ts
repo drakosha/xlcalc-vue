@@ -142,6 +142,16 @@ describe('the filter menu of a PivotTable', () => {
     expect(menu()).toBeNull()
   })
 
+  it("a compact row field's name in its own column has its own button and funnel; Row Labels' funnel is for the fields without one", async () => {
+    const { s } = await sales({ rows: [0, 1], values: [{ field: 3 }], fields: [{ field: 0, layout: 'tabular' }] }, 'R!C5')
+    // Kind (field 1) filtered: its own button B3 lights, Row Labels A3 does not
+    expect(await s.structure({ op: 'editPivotTable', sheet: 'R', pivot: 'PivotTable1', set: { fields: [{ field: 1, items: [{ item: 0, hidden: true }, { item: 1 }] }] } })).toMatchObject({ ok: true })
+    await until(() => !!q('[data-pivot-button="B3"]')?.classList.contains('xs-on'))
+    expect(q('[data-pivot-button="A3"]')?.classList.contains('xs-on')).toBe(false)
+    await button('B3')
+    expect(listed()).toEqual(['(Select All)', 'a', 'b'])
+  })
+
   it("Select field picks among the row fields of Row Labels in compact form, and Esc closes the menu", async () => {
     const { w } = await sales({ rows: [0, 1], values: [{ field: 3 }] })
     await button('A3')
