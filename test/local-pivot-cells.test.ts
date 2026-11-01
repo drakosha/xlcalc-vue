@@ -101,6 +101,13 @@ describe('localSource: pivotCells', () => {
     expect(got?.buttons).toEqual([{ cell: 'A3', axis: 'rows', field: 0, labels: true }, { cell: 'B3', axis: 'rows', field: 1 }])
   })
 
+  it('compact form with Σ Values in a column of its own: its button filters no field, and only Row Labels stands for the rows', async () => {
+    const s = await laid({ rows: [0, 'values'], values: [{ field: 3 }, { field: 2 }], fields: [{ field: 0, layout: 'tabular' }] })
+    const got = await s.pivotCells('R', 'PivotTable1', ['B3'])
+    expect(got?.cells).toMatchObject([{ kind: 'blank', axis: 'rows', field: 'values', button: true }])
+    expect(got?.buttons).toEqual([{ cell: 'A3', axis: 'rows', field: 0, labels: true }, { cell: 'B3', axis: 'rows' }])
+  })
+
   it('labels dates as short dates, the blank item in the workbook language, and no buttons without field captions', async () => {
     const s = await laid({ rows: [4], values: [{ field: 3 }], fieldHeaders: false })
     const got = await s.pivotCells('R', 'PivotTable1')

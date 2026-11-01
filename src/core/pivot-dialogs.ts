@@ -172,15 +172,15 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     const got = await target(s.sheetName.value, p.name, cells)
     return got && { t: got.t, parts: got.parts.filter((x): x is SheetPivotCell => !!x) }
   }
-  /** The PivotTable under the active cell with that cell's part, read now. */
-  async function active(): Promise<{ t: PivotTarget; part: SheetPivotCell | null; at: { axis?: PivotAxis; field?: number } } | null> {
+  /** The PivotTable under the active cell with that cell's part, the field its menu is about, and whether it is Row or Column Labels, read now. */
+  async function active(): Promise<{ t: PivotTarget; part: SheetPivotCell | null; at: { axis?: PivotAxis; field?: number }; labels: boolean } | null> {
     const p = deps.pivots.active.value
     const a = s.selected.value
     if (!p || !a || !can.value) return null
     const cell = cellAddress(a.row, a.col)
     const got = await target(s.sheetName.value, p.name, [cell])
     const part = got?.parts[0] ?? null
-    return got && { t: got.t, part, at: cellTarget(got.t, cell, part) }
+    return got && { t: got.t, part, at: cellTarget(got.t, cell, part), labels: got.t.cells.buttons.some((b) => b.cell === cell && b.labels) }
   }
 
   // ── sending ──
@@ -478,8 +478,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     const got = await picked()
     if (!got) return false
     const items = got.parts.filter((x) => x.kind === 'item' && cellField(x) !== undefined && x.item !== undefined)
-    // no item selected (Row Labels, Column Labels): the field the cell menu is about, as Group Field takes it
-    if (!items.length) return groupField()
+    // no item selected: on Row Labels or Column Labels the field their cell menu offers Group... for, else nothing
+    if (!items.length) return (await active())?.labels ? groupField() : false
     const field = cellField(items[0])
     if (field === undefined || items.some((x) => x.field !== field)) return false
     const unique = [...new Set(items.map((x) => x.item!))]

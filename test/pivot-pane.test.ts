@@ -20,9 +20,9 @@ const FIELDS = CACHE.fields
  * axes itself); with `late` a read takes 10 ms and the source's `reload` comes right after the answer, as a remote
  * source's event can come after its HTTP answer.
  */
-function fixture(opts: { answered?: (t: Table) => Partial<Table>; late?: boolean } = {}) {
+function fixture(opts: { answered?: (t: Table) => Partial<Table>; late?: boolean; second?: Partial<Table> } = {}) {
   const empty = (name: string): Table => ({ name, cache: 1, location: { range: 'A3:C20', firstHeaderRow: 1, firstDataRow: 1, firstDataColumn: 0 }, fields: FIELDS.map(() => ({})) })
-  const tables: Record<string, Table> = { PivotTable1: empty('PivotTable1'), PivotTable2: empty('PivotTable2') }
+  const tables: Record<string, Table> = { PivotTable1: empty('PivotTable1'), PivotTable2: { ...empty('PivotTable2'), ...opts.second } }
   const patches: PivotTablePatch[] = []
   const pivots: string[] = []
   const held: (() => void)[] = []
@@ -72,11 +72,11 @@ function fixture(opts: { answered?: (t: Table) => Partial<Table>; late?: boolean
       held.shift()?.()
       await settle()
     },
-    /** A change from elsewhere: the table set, then `reload`. */
-    outside: async (set: Partial<PivotTable>) => {
+    /** A change from elsewhere: the table set, then `reload`; with `now` nothing waits for the read it begins. */
+    outside: async (set: Partial<PivotTable>, now = false) => {
       tables.PivotTable1 = { ...tables.PivotTable1!, ...set }
       listener?.({ kind: 'reload' })
-      await settle()
+      if (!now) await settle()
     },
     rows: () => pane.areas.value?.rows,
   }
@@ -131,6 +131,26 @@ describe('the PivotTable Fields pane while changes are on their way', () => {
     await f.answer()
     expect(f.pivots).toEqual(['PivotTable1', 'PivotTable1'])
     expect(f.patches.map((p) => p.rows)).toEqual([[0], [0, 1]])
+  })
+
+  it("builds a change over a change from elsewhere whose read is still on its way", async () => {
+    const f = await start({ late: true })
+    await f.outside({ rows: [2] }, true)
+    tick(f, 0)
+    await until(() => f.patches.length === 1)
+    expect(f.patches[0]!.rows).toEqual([2, 0])
+  })
+
+  it('builds a change over its own PivotTable, though the definition shown is still the other one the active cell left', async () => {
+    const f = await start({ late: true, second: { rows: [2] } })
+    f.state.pivot = 'PivotTable2'
+    await until(() => f.pane().definition.value?.table.name === 'PivotTable2')
+    f.state.pivot = 'PivotTable1'
+    await settle()
+    tick(f, 0)
+    await until(() => f.patches.length === 1)
+    expect(f.pivots).toEqual(['PivotTable1'])
+    expect(f.patches[0]!.rows).toEqual([0])
   })
 
   it('keeps a field checked during Update, with Defer Layout Update on, for the next Update', async () => {

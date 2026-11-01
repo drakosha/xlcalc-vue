@@ -157,6 +157,15 @@ describe('Grouping and Ungroup', () => {
     expect((await s.pivotTable('R', 'PivotTable1'))!.cache.fields.map((f) => f.name)).not.toContain('Years (Date)')
   })
 
+  it('Group Selection without an item selected does nothing but on Row Labels: not on a field name or a filter item', async () => {
+    const { w } = await sales({ rows: [4], pages: [{ field: 0 }], values: [{ field: 3 }], layout: 'tabular' }, 'R!A3')
+    for (const cell of ['R!A3', 'R!B1']) {
+      await goTo(w, cell)
+      expect(await api(w).groupPivot()).toBe(false)
+      expect(q('[data-pivot-group]')).toBeNull()
+    }
+  })
+
   it('refuses Number of days that is not a whole number, without grouping', async () => {
     const { w, s } = await sales({ rows: [4], values: [{ field: 3 }] }, 'R!A4')
     expect(await api(w).pivotCommand('groupField')).toBe(true)
@@ -181,6 +190,20 @@ describe('the filter buttons and the commands, gated by canEditPivot', () => {
     document.body.innerHTML = ''
     const dates = await sales({ rows: [4], values: [{ field: 3 }] }, 'R!A3')
     expect(await api(dates.w).pivotCommand('groupField')).toBe(true)
+  })
+
+  it("Σ Values in a column of its own has no menu of Region's: no filter menu, no funnel, no field commands in its cell menu", async () => {
+    const { w, s } = await sales({ rows: [0, 'values'], values: [{ field: 3 }, { field: 2 }], fields: [{ field: 0, layout: 'tabular' }] }, 'R!C5')
+    expect(await s.structure({ op: 'editPivotTable', sheet: 'R', pivot: 'PivotTable1', set: { fields: [{ field: 0, items: [{ item: 0, hidden: true }, { item: 1 }, { item: 2 }] }] } })).toMatchObject({ ok: true })
+    await until(() => !!q('[data-pivot-button="A3"]')?.classList.contains('xs-on'))
+    expect(q('[data-pivot-button="B3"]')?.classList.contains('xs-on')).toBe(false)
+    q<HTMLButtonElement>('[data-pivot-button="B3"]')!.click()
+    await settle()
+    expect(q('[data-pivot-filter-menu]')).toBeNull()
+    await goTo(w, 'R!B3')
+    await menuAt(w, '3:2')
+    await until(() => !!menuItem('pivotOptions'))
+    expect(['pivotSort', 'pivotFilter', 'pivotGroup', 'pivotRemove'].map((id) => !!menuItem(id))).toEqual([false, false, false, false])
   })
 
   it("a Filters area's button shows the funnel with one item chosen", async () => {

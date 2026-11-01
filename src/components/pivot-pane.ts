@@ -45,6 +45,8 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
     lastRead = run
     return run
   }
+  /** The sheet and PivotTable `definition` was read of, which the active cell may have left. */
+  let definitionOf: { sheet: string; pivot: string } | null = null
   /** The read begun last: a later one (a `reload` event) aborts an earlier one, which then leaves the definition as it was. */
   let lastRead: Promise<void> = Promise.resolve()
   /** Resolves once the latest read has finished, one begun while it was waited for included. */
@@ -61,6 +63,7 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
     const call = props.source.pivotTable
     if (!t || !call) {
       definition.value = null
+      definitionOf = null
       return
     }
     const ctl = (reading = new AbortController())
@@ -69,6 +72,7 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
       const got = await call.call(props.source, t.sheet, t.pivot, ctl.signal)
       if (ctl.signal.aborted) return
       definition.value = got
+      definitionOf = t
       failed.value = false
       if (outside && !inFlight && draft.value && JSON.stringify(before) !== JSON.stringify(saved.value)) draft.value = null
     } catch {
@@ -109,7 +113,9 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
       .then(async () => {
         const call = props.source.pivotTable
         if (!t || !call || !props.sheet) return
-        const here = target.value?.sheet === t.sheet && target.value.pivot === t.pivot
+        // over the PivotTable as last read (an outside change's read included), or read now when the definition is another's
+        await readsDone()
+        const here = definitionOf?.sheet === t.sheet && definitionOf.pivot === t.pivot
         const d = here ? definition.value : await call.call(props.source, t.sheet, t.pivot)
         const fresh = d && (change ? change(areasOf(d.table)) : next)
         const set = d && fresh && patchOf(d.table, fresh)
