@@ -39,6 +39,62 @@ export function fitLines(widths: readonly number[], room: number, rows: number, 
   return all.fit === widths.length ? all : pack(room - more)
 }
 
+/** A place in Excel's two-row group: row 1 or 2 (`a1`, `a2`) of its first column of rows, or of the second (`b1`, `b2`). */
+export type RibbonSlot = 'a1' | 'a2' | 'b1' | 'b2'
+/**
+ * The groups that Excel for Windows lays out in rows (measured at 1280 px): Font has the boxes and the size buttons on row 1, Bold
+ * to Font Color on row 2; Alignment the vertical alignments on row 1 and the horizontal ones with the indents on row 2, then Wrap
+ * Text over Merge & Center; Number the box on row 1 and its buttons on row 2, its dialog launcher (Format Cells) at the corner.
+ */
+const RIBBON_ROWS: Partial<Record<ToolbarGroup, { group: string; slots: readonly RibbonSlot[] }>> = {
+  font: { group: 'font', slots: ['a1'] },
+  fontStyle: { group: 'font', slots: ['a2'] },
+  borders: { group: 'font', slots: ['a2'] },
+  colors: { group: 'font', slots: ['a2'] },
+  verticalAlign: { group: 'alignment', slots: ['a1'] },
+  align: { group: 'alignment', slots: ['a2', 'b1'] },
+  merge: { group: 'alignment', slots: ['b2'] },
+  number: { group: 'number', slots: ['a1', 'a2'] },
+  formatCells: { group: 'number', slots: ['b2'] },
+}
+/** Excel's large buttons, as tall as the two rows: Insert's PivotTable, Data's Refresh All, Design's Layout menus. */
+const RIBBON_LARGE: ReadonlySet<ToolbarGroup> = new Set(['pivotTable', 'refreshAll', 'pivotDesign'])
+
+/** A block of the toolbar as it lays out one: its slot in a two-row group, or none where it is drawn whole. */
+export type RibbonPiece<B> = { block: B; slot?: RibbonSlot }
+/**
+ * A group drawn between separators: `flat` on one line (the blocks whole), `rows` in Excel's rows (each stack a column of two
+ * lines), `cols` with its controls stacked two to a column, as Excel stacks its small buttons, `large` ones two rows tall.
+ */
+export type RibbonGroup<B> = { key: string; kind: 'flat' | 'rows' | 'cols'; large?: boolean; stacks: { key: string; lines: RibbonPiece<B>[][] }[] }
+
+/**
+ * The toolbar's blocks as groups between separators: each block alone on one line, or with `ribbon` as Excel's two-row groups,
+ * where the blocks of Font, Alignment and Number that follow each other form one group in Excel's rows. A group whose rows
+ * would leave one row empty (a block of them alone, as `fontStyle`) stacks its controls instead, as do the other blocks.
+ */
+export function ribbonGroups<B extends { key: string; group?: ToolbarGroup }>(blocks: readonly B[], ribbon: boolean): RibbonGroup<B>[] {
+  const line = (run: readonly B[]) => [{ key: 'a', lines: [run.map((block) => ({ block }))] }]
+  if (!ribbon) return blocks.map((b) => ({ key: b.key, kind: 'flat', stacks: line([b]) }))
+  const runs: B[][] = []
+  for (const b of blocks) {
+    const name = b.group && RIBBON_ROWS[b.group]?.group
+    const run = runs[runs.length - 1]
+    const prev = run?.[0]?.group && RIBBON_ROWS[run[0].group]?.group
+    if (name && run && prev === name) run.push(b)
+    else runs.push([b])
+  }
+  return runs.map((run): RibbonGroup<B> => {
+    const key = run[0]!.key
+    const at = (slot: RibbonSlot) => run.filter((b) => b.group && RIBBON_ROWS[b.group]?.slots.includes(slot)).map((block) => ({ block, slot }))
+    const stacks = (['a', 'b'] as const).map((s) => ({ key: s, lines: [at(`${s}1`), at(`${s}2`)] })).filter((s) => s.lines.some((l) => l.length))
+    const filled = (row: 0 | 1) => stacks.some((s) => s.lines[row]!.length)
+    if (filled(0) && filled(1)) return { key, kind: 'rows', stacks }
+    const group = run.length === 1 ? run[0]!.group : undefined
+    return { key, kind: 'cols', large: !!group && RIBBON_LARGE.has(group), stacks: line(run) }
+  })
+}
+
 export type FontToggle = 'bold' | 'italic' | 'underline'
 export type HorizontalAlign = 'left' | 'center' | 'right'
 export type VerticalAlign = 'top' | 'center' | 'bottom'

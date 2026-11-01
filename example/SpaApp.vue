@@ -40,6 +40,8 @@ const toolbarItems = computed<ToolbarItem[]>(() => [
   ...TOOLBAR_GROUPS,
   { id: 'filter', label: t.value.filter, icon: IconFilter, run: () => void sheet.value?.toggleAutoFilter(), pressed: !!state.value?.autoFilter, disabled: !state.value?.canAutoFilter },
 ])
+/** The toolbar's lines: `?rows=2` lays it out as Excel's ribbon, as an app with tabs does. */
+const toolbarRows = Number(params.get('rows')) || 1
 const lostShown = ref(true)
 let keys = 0
 let created = 0
@@ -246,6 +248,7 @@ onBeforeUnmount(() => void book.value?.source.close())
       :locale="book.source.locale"
       :sheet="sheet"
       :items="toolbarItems"
+      :rows="toolbarRows"
       @done="refocus"
     />
     <SheetView

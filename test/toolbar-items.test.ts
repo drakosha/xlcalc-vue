@@ -111,27 +111,27 @@ describe("SheetToolbar's items", () => {
     expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['borders', 'align'])
   })
 
-  it('with rows wraps onto that many lines, as the row wraps them, and moves only the rest into More, which ends the last line', async () => {
-    narrowLayout(920, () => 300, 1440)
-    const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'fontStyle', 'font', 'borders', 'align', 'colors', 'number', 'merge'], rows: 2 }, attachTo: document.body })
+  it('with rows other than 2 wraps onto that many lines, as the row wraps them, and moves only the rest into More, which ends the last line', async () => {
+    narrowLayout(620, () => 300, 1440)
+    const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'fontStyle', 'font', 'borders', 'align', 'colors', 'number'], rows: 3 }, attachTo: document.body })
     await nextTick()
     await nextTick()
     expect(w.find('.xs-tb-row').classes()).toContain('xs-tb-rows')
-    // Three blocks a line; the second line keeps two beside More
+    // Two blocks a line; the third line keeps one beside More
     expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => [b.attributes('data-tb-block'), b.attributes('data-tb-line') !== undefined])).toEqual([
       ['undo', false],
       ['fontStyle', false],
-      ['font', false],
-      ['borders', true],
-      ['align', false],
+      ['font', true],
+      ['borders', false],
+      ['align', true],
     ])
     expect(hooks(w, '.xs-tb-row').at(-1)).toBe('more')
     expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['colors', 'number'])
-    await w.setProps({ rows: 3 })
+    await w.setProps({ rows: 4 })
     await nextTick()
     await nextTick()
     expect(w.find('[data-tb-menu]').exists()).toBe(false)
-    expect(w.findAll('.xs-tb-row > [data-tb-line]').map((b) => b.attributes('data-tb-block'))).toEqual(['borders', 'number'])
+    expect(w.findAll('.xs-tb-row > [data-tb-line]').map((b) => b.attributes('data-tb-block'))).toEqual(['font', 'align', 'number'])
   })
 
   it('measures again when the sheet arrives, which draws its groups, and when the Number Format list loads', async () => {

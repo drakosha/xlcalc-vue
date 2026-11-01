@@ -1,13 +1,17 @@
 // The toolbar against Excel for Windows' ribbon: its default order (Home's groups, then the commands of other tabs in their
-// tabs' order), the Borders split button with its menu in Excel's order, and the labels as Excel names them.
+// tabs' order), the Borders split button with its menu in Excel's order, the labels as Excel names them, and with `rows: 2`
+// the toolbar laid out as Excel's ribbon, each group two rows tall.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SheetToolbar, TOOLBAR_GROUPS, enMessages, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
+import { nextTick } from 'vue'
+import { SheetToolbar, TOOLBAR_GROUPS, enMessages, ruMessages, type SheetViewApi, type SheetViewState, type ToolbarGroup } from '../src'
+import { ribbonGroups } from '../src/toolbar'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/contract/source'
 import { settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
+  vi.restoreAllMocks()
 })
 
 const OK: EditOutcome = { ok: true, changes: [] }
@@ -124,5 +128,117 @@ describe("the toolbar's labels, as Excel for Windows names them", () => {
       'Borders',
     ])
     expect([en.alignTop, en.alignMiddle, en.alignBottom, en.alignLeft, en.alignCenter, en.alignRight]).toEqual(['Top Align', 'Middle Align', 'Bottom Align', 'Align Left', 'Center', 'Align Right'])
+  })
+})
+
+describe('ribbonGroups', () => {
+  const blocks = (keys: readonly string[]) => keys.map((key) => ({ key, group: key as ToolbarGroup }))
+  const shape = (keys: readonly string[]) =>
+    ribbonGroups(blocks(keys), true).map((g) => [g.key, g.kind, !!g.large, g.stacks.map((s) => s.lines.map((l) => l.map((p) => `${p.block.key}${p.slot ? `:${p.slot}` : ''}`)))])
+
+  it("joins Font, Alignment and Number into Excel's two-row groups and stacks the others", () => {
+    expect(shape(TOOLBAR_GROUPS)).toEqual([
+      ['undo', 'cols', false, [[['undo']]]],
+      ['formatPainter', 'cols', false, [[['formatPainter']]]],
+      ['font', 'rows', false, [[['font:a1'], ['fontStyle:a2', 'borders:a2', 'colors:a2']]]],
+      ['verticalAlign', 'rows', false, [[['verticalAlign:a1'], ['align:a2']], [['align:b1'], ['merge:b2']]]],
+      ['number', 'rows', false, [[['number:a1'], ['number:a2']], [[], ['formatCells:b2']]]],
+      ['autoSum', 'cols', false, [[['autoSum']]]],
+      ['pivotTable', 'cols', true, [[['pivotTable']]]],
+      ['refreshAll', 'cols', true, [[['refreshAll']]]],
+      ['pivotAnalyze', 'cols', false, [[['pivotAnalyze']]]],
+      ['pivotDesign', 'cols', true, [[['pivotDesign']]]],
+    ])
+  })
+
+  it('keeps apart blocks of one Excel group that do not follow each other, and stacks a run that would leave a row empty', () => {
+    expect(shape(['fontStyle', 'colors', 'undo', 'font']).map((g) => [g[0], g[1]])).toEqual([
+      ['fontStyle', 'cols'],
+      ['undo', 'cols'],
+      ['font', 'cols'],
+    ])
+    expect(shape(['merge', 'number'])[0]![1]).toBe('cols')
+  })
+
+  it('without ribbon draws each block alone on one line', () => {
+    expect(ribbonGroups(blocks(['font', 'fontStyle']), false).map((g) => [g.key, g.kind])).toEqual([
+      ['font', 'flat'],
+      ['fontStyle', 'flat'],
+    ])
+  })
+})
+
+describe('rows: 2, as Excel’s ribbon', () => {
+  /** Each group's lines as the hooks they hold, stack by stack. */
+  const lines = (w: VueWrapper, key: string) =>
+    w.findAll(`.xs-tb-row > [data-tb-block="${key}"] > .xs-tb-stack`).map((st) => st.findAll(':scope > .xs-tb-line').map((ln) => ln.findAll('[data-tb]').map((e) => e.attributes('data-tb'))))
+  const wide = () => vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1440)
+
+  it("draws Font, Alignment and Number in Excel's rows, and the others stacked two to a column, PivotTable and Refresh All large", async () => {
+    wide()
+    const sheet = { formatCells: vi.fn() } as unknown as SheetViewApi
+    const w = mount(SheetToolbar, { props: { source: source(), state, sheet, rows: 2 }, attachTo: document.body })
+    await vi.waitFor(() => expect(w.find('[data-tb="number"]').exists()).toBe(true))
+    expect(w.find('.xs-tb-row').classes()).toEqual(expect.arrayContaining(['xs-tb-ribbon']))
+    expect(w.find('.xs-tb-row').classes()).not.toContain('xs-tb-rows')
+    expect(w.findAll('.xs-tb-row > [data-tb-block]').map((g) => g.attributes('data-tb-block'))).toEqual(['undo', 'formatPainter', 'font', 'verticalAlign', 'number', 'autoSum', 'pivotTable', 'refreshAll'])
+    expect(lines(w, 'font')).toEqual([
+      [
+        ['font-name', 'font-name-list', 'font-size', 'font-size-list', 'font-up', 'font-down'],
+        ['bold', 'italic', 'underline', 'border-last', 'borders', 'fill-colour', 'fill-palette', 'font-colour', 'font-palette'],
+      ],
+    ])
+    expect(lines(w, 'verticalAlign')).toEqual([
+      [
+        ['align-top', 'align-middle', 'align-bottom'],
+        ['align-left', 'align-center', 'align-right', 'indent-down', 'indent-up'],
+      ],
+      [['wrap'], ['merge', 'merge-menu']],
+    ])
+    expect(lines(w, 'number')).toEqual([
+      [['number'], ['accounting', 'percent', 'comma', 'decimal-up', 'decimal-down']],
+      [[], ['format-cells']],
+    ])
+    expect(w.find('[data-tb-block="undo"]').classes()).toContain('xs-tb-g-cols')
+    expect(['pivotTable', 'refreshAll', 'autoSum'].map((k) => w.find(`[data-tb-block="${k}"]`).classes().includes('xs-tb-large'))).toEqual([true, true, false])
+  })
+
+  it("makes a host's run of buttons a group of its own, stacked two to a column", async () => {
+    wide()
+    const run = vi.fn()
+    const w = mount(SheetToolbar, { props: { source: source(), state, rows: 2, items: ['undo', { id: 'a', label: 'A', run }, { id: 'b', label: 'B', run }, { id: 'c', label: 'C', run }] }, attachTo: document.body })
+    await nextTick()
+    const host = w.find('.xs-tb-row > [data-tb-block="host-1"]')
+    expect(host.classes()).toContain('xs-tb-g-cols')
+    expect(host.findAll('[data-tb-host]').map((b) => b.attributes('data-tb-host'))).toEqual(['a', 'b', 'c'])
+  })
+
+  it('moves whole groups from the end into More where they do not fit, the menu drawing their blocks on one line', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1440)
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('xs-tb-row') ? 700 : 0
+    })
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.dataset.tbBlock ? 300 : this.dataset.tb === 'more' ? 44 : 0
+      return { width, height: 64, top: 0, left: 0, right: width, bottom: 64, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
+    })
+    const w = mount(SheetToolbar, { props: { source: source(), state, rows: 2, items: ['undo', 'font', 'fontStyle', 'verticalAlign', 'align', 'number'] }, attachTo: document.body })
+    await vi.waitFor(() => expect(w.find('[data-tb-menu]').exists()).toBe(true))
+    expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['undo', 'font'])
+    expect(w.findAll('.xs-tb-row > [data-tb-line]')).toHaveLength(0)
+    expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => [b.attributes('data-tb-block'), b.classes().includes('xs-tb-g-flat')])).toEqual([
+      ['verticalAlign', true],
+      ['align', true],
+      ['number', true],
+    ])
+    expect(w.find('[data-tb-menu] [data-tb="wrap"]').exists()).toBe(true)
+  })
+
+  it('below 600 px keeps one row, as with rows: 1', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    const w = mount(SheetToolbar, { props: { source: source(), state, rows: 2, items: ['font', 'fontStyle'] }, attachTo: document.body })
+    await nextTick()
+    expect(w.find('.xs-tb-row').classes()).not.toContain('xs-tb-ribbon')
+    expect(w.findAll('[data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['font', 'fontStyle'])
   })
 })
