@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.32.0 (2026-11-01)
 
 - Breaking for a host: the toolbar's row keeps, in order, each group that still fits beside More, with any `rows` that draws one line (1, and 2's ribbon): a group too wide for what is left goes into More and later groups still take the row, where before the row ended at the first group that did not fit. At 600 px and wider a group is Excel's, so the blocks of its Font, Alignment and Number groups that follow each other in `items` stay or go together (Format Cells with the Number group), drawn without separators between them; on a phone each block fits on its own, so Bold, Italic and Underline stay in the row while the Font boxes go into More. With `rows: 2` the menu keeps the order of `items` ([toolbar.md](docs/toolbar.md#choosing-the-buttons)).
 - The contract adds the text `fmtWrap`, the Wrap Text box of Format Cells' Alignment tab, apart from the toolbar's `wrapText`, so the dialog keeps `Перенос текста` while the toolbar takes Excel's `Переносить текст`; a host's complete set of its own texts needs it.
