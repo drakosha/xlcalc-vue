@@ -478,6 +478,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     const got = await picked()
     if (!got) return false
     const items = got.parts.filter((x) => x.kind === 'item' && cellField(x) !== undefined && x.item !== undefined)
+    // no item selected (Row Labels, Column Labels): the field the cell menu is about, as Group Field takes it
+    if (!items.length) return groupField()
     const field = cellField(items[0])
     if (field === undefined || items.some((x) => x.field !== field)) return false
     const unique = [...new Set(items.map((x) => x.item!))]
@@ -494,9 +496,11 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   /** Excel's Ungroup: the groups selected of a field grouped by hand, or the active cell's field of dates or numbers. */
   async function ungroup(): Promise<EditOutcome | null> {
     const got = await picked()
-    const part = got?.parts.find((x) => cellField(x) !== undefined)
-    if (!got || !part) return null
-    const field = ungroupedField(got.t, cellField(part)!)
+    if (!got) return null
+    // a selected cell's field, else the field the cell menu is about (Row Labels, Column Labels: the axis's first)
+    const own = cellField(got.parts.find((x) => cellField(x) !== undefined)) ?? (await active())?.at.field
+    if (own === undefined) return null
+    const field = ungroupedField(got.t, own)
     if (field === null) return null
     const base = { op: 'ungroupPivotField' as const, sheet: got.t.sheet, pivot: got.t.pivot, field }
     if (!got.t.def.cache.fields[field]?.group?.discrete) return send(base)

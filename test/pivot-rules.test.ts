@@ -138,6 +138,25 @@ describe('Grouping and Ungroup', () => {
     await until(() => menuItem('pivotUngroup')?.disabled === false)
   })
 
+  it("Group... and Ungroup on Row Labels act on the field its menu offers them for, the rows' first", async () => {
+    const { w, s } = await sales({ rows: [4], values: [{ field: 3 }] }, 'R!A3')
+    // Group... on Row Labels opens Grouping over Date
+    await menuAt(w, '3:1')
+    await choose('pivotGroup')
+    await until(() => !!q('[data-pivot-group]'))
+    await set('[data-pg-periods]', ['months', 'years'])
+    await ok()
+    await until(() => cellText(w, 4, 1) === '2024')
+    expect((await s.pivotTable('R', 'PivotTable1'))!.cache.fields.map((f) => f.name)).toContain('Years (Date)')
+    // the rows' first field is Years (Date) now, whose Ungroup the menu enables: the command takes the periods away
+    await goTo(w, 'R!A3')
+    await menuAt(w, '3:1')
+    await until(() => menuItem('pivotUngroup')?.disabled === false)
+    await choose('pivotUngroup')
+    await until(() => cellText(w, 4, 1) !== '2024')
+    expect((await s.pivotTable('R', 'PivotTable1'))!.cache.fields.map((f) => f.name)).not.toContain('Years (Date)')
+  })
+
   it('refuses Number of days that is not a whole number, without grouping', async () => {
     const { w, s } = await sales({ rows: [4], values: [{ field: 3 }] }, 'R!A4')
     expect(await api(w).pivotCommand('groupField')).toBe(true)

@@ -410,12 +410,14 @@ export interface SheetPivotCalculated {
 /**
  * A filter button of a PivotTable: its cell, the axis it filters, and the field (by its index in the cache) its menu is
  * about: a field's name and a Filters area's item their own, Row Labels and Column Labels their axis's first field.
- * Without `field` (Σ Values' name, an axis holding Σ Values alone) it opens no menu.
+ * Without `field` (Σ Values' name, an axis holding Σ Values alone) it opens no menu. `labels` marks Row Labels and
+ * Column Labels, which stand for the fields of their axis that have no button of their own.
  */
 export interface SheetPivotButton {
   cell: string
   axis: PivotAxis
   field?: number
+  labels?: true
 }
 
 /** The areas of a PivotTable's fields: the rows, the columns and the Filters area (`pages`). */
