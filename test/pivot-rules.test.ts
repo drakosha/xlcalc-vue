@@ -157,6 +157,15 @@ describe('Grouping and Ungroup', () => {
     expect((await s.pivotTable('R', 'PivotTable1'))!.cache.fields.map((f) => f.name)).not.toContain('Years (Date)')
   })
 
+  it('Group Selection without an item selected does nothing but on Row Labels: not on a field name or a filter item', async () => {
+    const { w } = await sales({ rows: [4], pages: [{ field: 0 }], values: [{ field: 3 }], layout: 'tabular' }, 'R!A3')
+    for (const cell of ['R!A3', 'R!B1']) {
+      await goTo(w, cell)
+      expect(await api(w).groupPivot()).toBe(false)
+      expect(q('[data-pivot-group]')).toBeNull()
+    }
+  })
+
   it('refuses Number of days that is not a whole number, without grouping', async () => {
     const { w, s } = await sales({ rows: [4], values: [{ field: 3 }] }, 'R!A4')
     expect(await api(w).pivotCommand('groupField')).toBe(true)
