@@ -6,8 +6,11 @@ import { stepDecimals } from 'xlcalc/text'
 import type { FormatPatch, SheetSource } from './contract/source'
 import type { SheetViewState, ToolbarGroup } from './contract/view'
 
-/** The toolbar's groups in their default order, as `SheetToolbar`'s `items` takes them: a host spreads it to add its buttons. */
-export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = ['undo', 'formatPainter', 'fontStyle', 'font', 'number', 'colors', 'borders', 'verticalAlign', 'align', 'merge', 'formatCells', 'autoSum', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign']
+/**
+ * The toolbar's groups in their default order, as `SheetToolbar`'s `items` takes them: a host spreads it to add its buttons.
+ * Excel for Windows' order: Undo and Redo (its Quick Access Toolbar), Home's groups, then Insert's, Data's and the PivotTable tabs' commands.
+ */
+export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = ['undo', 'formatPainter', 'font', 'fontStyle', 'borders', 'colors', 'verticalAlign', 'align', 'merge', 'number', 'formatCells', 'autoSum', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign']
 
 /**
  * How many blocks of these widths, from the start, fit on `rows` lines of `room` px, each line filled as a wrapping flex row
@@ -34,6 +37,79 @@ export function fitLines(widths: readonly number[], room: number, rows: number, 
   }
   const all = pack(room)
   return all.fit === widths.length ? all : pack(room - more)
+}
+
+/**
+ * Which blocks of these widths, in order, stay on one line of `room` px: all when they fit, otherwise each that still fits with
+ * `more` px left for the More button, so a block too wide for what is left goes into More while later narrower ones keep the row.
+ */
+export function fitRow(widths: readonly number[], room: number, more: number): number[] {
+  const all = widths.map((_, i) => i)
+  if (widths.reduce((a, w) => a + w, 0) <= room) return all
+  let used = 0
+  return all.filter((i) => {
+    const fits = used + widths[i]! <= room - more
+    if (fits) used += widths[i]!
+    return fits
+  })
+}
+
+/** A place in Excel's two-row group: row 1 or 2 (`a1`, `a2`) of its first column of rows, or of the second (`b1`, `b2`). */
+export type RibbonSlot = 'a1' | 'a2' | 'b1' | 'b2'
+/**
+ * The groups that Excel for Windows lays out in rows (measured at 1280 px): Font has the boxes and the size buttons on row 1, Bold
+ * to Font Color on row 2; Alignment the vertical alignments on row 1 and the horizontal ones with the indents on row 2, then Wrap
+ * Text over Merge & Center; Number the box on row 1 and its buttons on row 2, its dialog launcher (Format Cells) at the corner.
+ */
+const RIBBON_ROWS: Partial<Record<ToolbarGroup, { group: string; slots: readonly RibbonSlot[] }>> = {
+  font: { group: 'font', slots: ['a1'] },
+  fontStyle: { group: 'font', slots: ['a2'] },
+  borders: { group: 'font', slots: ['a2'] },
+  colors: { group: 'font', slots: ['a2'] },
+  verticalAlign: { group: 'alignment', slots: ['a1'] },
+  align: { group: 'alignment', slots: ['a2', 'b1'] },
+  merge: { group: 'alignment', slots: ['b2'] },
+  number: { group: 'number', slots: ['a1', 'a2'] },
+  formatCells: { group: 'number', slots: ['b2'] },
+}
+/** Excel's large buttons, as tall as the two rows: Insert's PivotTable, Data's Refresh All, Design's Layout menus. */
+const RIBBON_LARGE: ReadonlySet<ToolbarGroup> = new Set(['pivotTable', 'refreshAll', 'pivotDesign'])
+
+/** A block of the toolbar as it lays out one: its slot in a two-row group, or none where it is drawn whole. */
+export type RibbonPiece<B> = { block: B; slot?: RibbonSlot }
+/**
+ * A group drawn between separators: `flat` on one line (the blocks whole), `rows` in Excel's rows (each stack a column of two
+ * lines), `cols` with its controls stacked two to a column, as Excel stacks its small buttons, `large` ones two rows tall.
+ */
+export type RibbonGroup<B> = { key: string; kind: 'flat' | 'rows' | 'cols'; large?: boolean; stacks: { key: string; lines: RibbonPiece<B>[][] }[] }
+
+/**
+ * The toolbar's blocks as groups between separators: each block alone (`blocks`, on a phone, where Excel's Font group is wider
+ * than the row), or the blocks of Excel's Font, Alignment and Number groups that follow each other in `items` as one group and
+ * the others a group each. With `groups` a group's blocks are drawn in a row; with `ribbon` a group is two rows tall, Font, Alignment and Number in Excel's rows when the first column of rows has both (where Excel's
+ * places win over the order of `items`), and otherwise its controls stacked two to a column with no row left empty.
+ */
+export function ribbonGroups<B extends { key: string; group?: ToolbarGroup }>(blocks: readonly B[], layout: 'blocks' | 'groups' | 'ribbon'): RibbonGroup<B>[] {
+  const line = (run: readonly B[]) => [{ key: 'a', lines: [run.map((block) => ({ block }))] }]
+  if (layout === 'blocks') return blocks.map((b) => ({ key: b.key, kind: 'flat', stacks: line([b]) }))
+  const runs: B[][] = []
+  for (const b of blocks) {
+    const name = b.group && RIBBON_ROWS[b.group]?.group
+    const run = runs[runs.length - 1]
+    const prev = run?.[0]?.group && RIBBON_ROWS[run[0].group]?.group
+    if (name && run && prev === name) run.push(b)
+    else runs.push([b])
+  }
+  if (layout === 'groups') return runs.map((run) => ({ key: run[0]!.key, kind: 'flat', stacks: line(run) }))
+  return runs.map((run): RibbonGroup<B> => {
+    const key = run[0]!.key
+    const at = (slot: RibbonSlot) => run.filter((b) => b.group && RIBBON_ROWS[b.group]?.slots.includes(slot)).map((block) => ({ block, slot }))
+    const stacks = (['a', 'b'] as const).map((s) => ({ key: s, lines: [at(`${s}1`), at(`${s}2`)] })).filter((s) => s.lines.some((l) => l.length))
+    // Excel's rows only with both rows of the first column filled; otherwise the controls stack, leaving no hole
+    if (stacks[0]?.key === 'a' && stacks[0].lines.every((l) => l.length)) return { key, kind: 'rows', stacks }
+    const group = run.length === 1 ? run[0]!.group : undefined
+    return { key, kind: 'cols', large: !!group && RIBBON_LARGE.has(group), stacks: line(run) }
+  })
 }
 
 export type FontToggle = 'bold' | 'italic' | 'underline'

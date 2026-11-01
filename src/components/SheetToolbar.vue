@@ -1,12 +1,13 @@
 <script setup lang="ts">
-// Excel's formatting toolbar over a sheet source: undo and redo, Format Painter (through the sheet), the font and its size, bold, italic, underline, font and
-// fill colors, borders, vertical and horizontal alignment, indent, wrapping, Merge & Center with its dropdown (through the
-// sheet, with the source's `structure`), Excel's Number Format box (xlcalc's, in the workbook's locale) and Percent Style,
-// applied to the selection the sheet's `state` event reports, Format Cells for a host that displays the dialog, and AutoSum
-// with its list (through the sheet, with the source's `autoSum`), Insert > PivotTable (its dialog over the sheet), and Data > Refresh All with its list's Refresh of the
-// PivotTable under the active cell (through the sheet, with the source's `refreshConnections`); `items` picks and orders the groups and adds the host's
-// buttons. In a narrow viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
-import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
+// Excel's formatting toolbar over a sheet source, in Excel for Windows' ribbon order: undo and redo, Format Painter (through the
+// sheet), the font and its size, bold, italic, underline, borders, fill and font colors, vertical and horizontal alignment, indent,
+// wrapping, Merge & Center with its dropdown (through the sheet, with the source's `structure`), Excel's Number Format box (xlcalc's,
+// in the workbook's locale) and its buttons, applied to the selection the sheet's `state` event reports, Format Cells for a host
+// that displays the dialog, and AutoSum with its list (through the sheet, with the source's `autoSum`); then Insert > PivotTable
+// (its dialog over the sheet), and Data > Refresh All with its list's Refresh of the PivotTable under the active cell (through the
+// sheet, with the source's `refreshConnections`); `items` picks and orders the groups and adds the host's buttons. In a narrow
+// viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
+import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onBeforeUpdate, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
 import { failedOutcome } from '../failure'
 import { NARROW_PX, useCoarsePointer } from '../frame'
@@ -31,7 +32,9 @@ import {
   COMMA_STYLE,
   decimalStep,
   fitLines,
+  fitRow,
   PERCENT_STYLE,
+  ribbonGroups,
   shownFont,
   TOOLBAR_GROUPS,
   upperColour,
@@ -42,6 +45,8 @@ import {
   type BorderKind,
   type FontToggle,
   type HorizontalAlign,
+  type RibbonPiece,
+  type RibbonSlot,
   type VerticalAlign,
 } from '../toolbar'
 import type { StylePatch } from 'xlcalc/contract'
@@ -110,7 +115,7 @@ const props = withDefaults(
     fonts?: readonly string[]
     /** The groups to draw, in order, and the host's buttons among them; all groups in their default order (`TOOLBAR_GROUPS`) without it. */
     items?: readonly ToolbarItem[]
-    /** How many lines the items may take at 600 px and wider before the rest go into the menu under More; one below 600 px. */
+    /** How many lines the items may take at 600 px and wider before the rest go into the menu under More; one below 600 px. 2 is Excel's ribbon: its groups two rows tall. */
     rows?: number
   }>(),
   { messages: undefined, locale: undefined, sheet: null, hostDialog: false, fonts: () => FONT_NAMES, items: () => TOOLBAR_GROUPS, rows: 1 },
@@ -130,6 +135,9 @@ const m = useMessages(() => props.messages)
 const instance = getCurrentInstance()
 /** Whether the host currently opens its own dialog on `formatCells`, instead of the sheet's. */
 const dialogToHost = () => props.hostDialog || hasListener(instance, 'onFormatCells')
+/** Whether the host listens, read again before each render: a listener is not reactive, as a template condition it was read on each render. */
+const listening = ref(dialogToHost())
+onBeforeUpdate(() => (listening.value = dialogToHost()))
 function formatCells(): void {
   if (dialogToHost() || !props.sheet) emit('formatCells')
   else props.sheet.formatCells()
@@ -153,11 +161,12 @@ const ALIGN: { h: HorizontalAlign; icon: typeof IconBold; title: keyof SheetMess
   { h: 'center', icon: IconAlignCenter, title: 'alignCenter' },
   { h: 'right', icon: IconAlignRight, title: 'alignRight' },
 ]
+/** Excel's Borders menu, the items it has here in its order: Bottom Border, then after its line No Border, All Borders, Outside Borders. */
 const BORDERS: { kind: BorderKind; icon: typeof IconBold; title: keyof SheetMessages }[] = [
-  { kind: 'all', icon: IconBorderAll, title: 'borderAll' },
-  { kind: 'outside', icon: IconBorderOutside, title: 'borderOutside' },
   { kind: 'bottom', icon: IconBorderBottom, title: 'borderBottom' },
   { kind: 'none', icon: IconBorderNone, title: 'borderNone' },
+  { kind: 'all', icon: IconBorderAll, title: 'borderAll' },
+  { kind: 'outside', icon: IconBorderOutside, title: 'borderOutside' },
 ]
 /** Excel's dropdown under Merge & Center: each item is named by its command's text, and its hook (`data-tb`) is the command in kebab case. */
 const MERGES: readonly MergeCommand[] = ['mergeCenter', 'mergeAcross', 'mergeCells', 'unmergeCells']
@@ -170,11 +179,11 @@ const AUTO_SUMS: { fn: AutoSumFunction; title: keyof SheetMessages }[] = [
   { fn: 'min', title: 'autoSumMin' },
 ]
 const kebab = (name: string) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
-/** Excel's split buttons for font and fill color: the button applies the last color, the menu offers the no-color choice and the palette. */
+/** Excel's split buttons for fill and font color, in its Font group's order: the button applies the last color, the menu offers the no-color choice and the palette. */
 type Colouring = 'font' | 'fill'
 const COLOURS: { what: Colouring; icon: typeof IconFontColour; title: keyof SheetMessages; none: keyof SheetMessages; noneHook: string }[] = [
-  { what: 'font', icon: IconFontColour, title: 'fontColor', none: 'colorAuto', noneHook: 'colour-auto' },
   { what: 'fill', icon: IconFillColour, title: 'fillColor', none: 'fillNone', noneHook: 'fill-none' },
+  { what: 'font', icon: IconFontColour, title: 'fontColor', none: 'colorAuto', noneHook: 'colour-auto' },
 ]
 const text = (key: keyof SheetMessages) => m.value[key] as string
 
@@ -216,6 +225,32 @@ watch(root, (el, old) => {
 // ── the items: groups in the host's order, its buttons together between them ──
 /** A group, or a run of the host's buttons drawn as one group. */
 type Block = { key: string; group: ToolbarGroup; buttons?: undefined } | { key: string; group?: undefined; buttons: ToolbarButton[] }
+/** The active cell is in a PivotTable: a boolean, so that the blocks change only when it does. */
+const inPivot = computed(() => !!props.state?.pivot)
+/** Whether a group is drawn: some need the sheet or the source's methods. */
+function drawn(group: ToolbarGroup): boolean {
+  const src = props.source
+  const sheet = !!props.sheet
+  switch (group) {
+    case 'undo':
+      return !!(src.undo || src.redo)
+    case 'formatPainter':
+    case 'autoSum':
+      return sheet
+    case 'merge':
+    case 'pivotTable':
+      return sheet && !!src.structure
+    case 'formatCells':
+      return sheet || listening.value
+    case 'refreshAll':
+      return sheet && !!src.refreshConnections
+    case 'pivotAnalyze':
+    case 'pivotDesign':
+      return sheet && inPivot.value && !!src.pivotCells
+    default:
+      return true
+  }
+}
 const blocks = computed(() => {
   const out: Block[] = []
   const seen = new Set<string>()
@@ -226,42 +261,67 @@ const blocks = computed(() => {
       else out.push({ key: `host-${out.length}`, buttons: [item] })
     } else if (TOOLBAR_GROUPS.includes(item) && !seen.has(item)) {
       seen.add(item)
-      out.push({ key: item, group: item })
+      if (drawn(item)) out.push({ key: item, group: item })
     }
   }
   return out
 })
 /** The lines the row may take: `rows` (at least one, whole) at 600 px and wider, one below. */
 const lines = computed(() => (narrow.value ? 1 : Math.max(1, Math.floor(props.rows) || 1)))
-/** How many blocks from the start stay in the row, as measured; null while measuring, when all are drawn there. */
-const fit = ref<number | null>(null)
-/** The keys of the kept blocks that start a line after the first, drawn without the separator before them. */
+/** Two lines are Excel's ribbon: one sequence of groups, each two rows tall, its controls in Excel's rows. */
+const ribbon = computed(() => lines.value === 2)
+/** The layout of the groups: Excel's two-row groups, Excel's groups on one line, or on a phone each block alone. */
+const layout = computed(() => (ribbon.value ? 'ribbon' : narrow.value ? 'blocks' : 'groups'))
+/** The groups drawn between separators, fitted into the row whole. */
+const groups = computed(() => ribbonGroups(blocks.value, layout.value))
+/** The keys of the groups that stay in the row, as measured; null while measuring, when all are drawn there. */
+const kept = ref<ReadonlySet<string> | null>(null)
+/** The keys of the kept groups that start a line after the first, drawn without the separator before them. */
 const breaks = ref<ReadonlySet<string>>(new Set())
-/** The row on its lines and the menu with the blocks that do not fit on them (no menu when all fit). */
+/** The row on its lines and the menu with the blocks of the groups that do not fit on them, each on one line (no menu when all fit). */
 const parts = computed(() => {
-  const all = blocks.value
-  const n = fit.value ?? all.length
-  const row = { place: 'row', blocks: all.slice(0, n) }
-  return n < all.length ? [row, { place: 'menu', blocks: all.slice(n) }] : [row]
+  const all = groups.value
+  const on = kept.value
+  if (!on || all.every((g) => on.has(g.key))) return [{ place: 'row', groups: all }]
+  // The menu keeps the order of `items`, whatever places the ribbon gave the blocks
+  const out = new Set(all.filter((g) => !on.has(g.key)).flatMap((g) => g.stacks.flatMap((st) => st.lines.flat().map((p) => p.block))))
+  const rest = blocks.value.filter((b) => out.has(b))
+  return [
+    { place: 'row', groups: all.filter((g) => on.has(g.key)) },
+    { place: 'menu', groups: ribbonGroups(rest, narrow.value ? 'blocks' : 'groups') },
+  ]
 })
 /** The More button: while the row is measured too, so that its width counts. */
-const moreShown = computed(() => parts.value.length > 1 || fit.value === null)
-/** Measures the row drawn with every block: all stay when they fit on its lines, otherwise those from the start that fit with More at the end. */
+const moreShown = computed(() => parts.value.length > 1 || kept.value === null)
+/**
+ * Measures the row drawn with every group. On one line (and in the ribbon's one sequence) the groups that fit beside More stay
+ * in order, a group too wide for what is left going into More while later ones still take the row; on more lines all stay when
+ * they fit, otherwise those from the start that fit with More at the end of the last line.
+ */
 function measureRow(): void {
   const row = root.value?.querySelector<HTMLElement>('.xs-tb-row')
-  if (!row || fit.value !== null) return
+  if (!row || kept.value !== null) return
   const widthOf = (el: Element | null) => el?.getBoundingClientRect().width ?? 0
-  const widths = blocks.value.map((b) => widthOf(row.querySelector(`:scope > [data-tb-block="${b.key}"]`)))
-  const out = fitLines(widths, row.clientWidth, lines.value, widthOf(row.querySelector('[data-tb="more"]')))
-  breaks.value = new Set(out.breaks.map((i) => blocks.value[i]!.key))
-  fit.value = out.fit
+  const keys = groups.value.map((g) => g.key)
+  const widths = keys.map((key) => widthOf(row.querySelector(`:scope > [data-tb-block="${key}"]`)))
+  const more = widthOf(row.querySelector('[data-tb="more"]'))
+  if (ribbon.value || lines.value === 1) {
+    breaks.value = new Set()
+    kept.value = new Set(fitRow(widths, row.clientWidth, more).map((i) => keys[i]!))
+    return
+  }
+  const out = fitLines(widths, row.clientWidth, lines.value, more)
+  breaks.value = new Set(out.breaks.map((i) => keys[i]!))
+  kept.value = new Set(keys.slice(0, out.fit))
 }
+/** Whether a piece of a block draws the controls of this slot: all of them where the block is drawn whole. */
+const has = (piece: RibbonPiece<Block>, slot: RibbonSlot) => !piece.slot || piece.slot === slot
 // Whatever changes the row's widths or lines draws it whole again and measures it: the sheet and the source decide which
 // groups are drawn, and the Number Format box widens when its locale's list loads
 watch(
-  [narrow, width, touch, blocks, lines, () => props.messages, () => props.sheet, () => props.source, () => props.hostDialog, () => numbers.choices.value.length > 0],
+  [narrow, width, touch, groups, lines, () => props.messages, () => props.sheet, () => props.source, () => props.hostDialog, () => numbers.choices.value.length > 0],
   () => {
-    fit.value = null
+    kept.value = null
     breaks.value = new Set()
     void nextTick(measureRow)
   },
@@ -421,8 +481,11 @@ function paint(what: Colouring, colour: string | null): void {
   open.value = null
   apply(over({ style: what === 'font' ? { font: { color: colour } } : { fill: colour ? { color: colour } : null } }))
 }
+/** The Borders split button's part applies the border picked last, Bottom Border at first, and is named after it, as Excel's. */
+const lastBorder = ref<(typeof BORDERS)[number]>(BORDERS[0]!)
 function border(kind: BorderKind): void {
   open.value = null
+  lastBorder.value = BORDERS.find((b) => b.kind === kind) ?? lastBorder.value
   apply(ranges().flatMap((range) => borderPatches(range, kind)))
 }
 /** Excel's Merge & Center shows as pressed on a merged cell, and clicking it then unmerges. */
@@ -498,315 +561,331 @@ function pickNumber(e: Event): void {
       v-for="part in parts"
       v-show="part.place === 'row' || menu"
       :key="part.place"
-      :class="part.place === 'row' ? ['xs-tb-row', { 'xs-tb-rows': lines > 1 }] : 'xs-tb-menu'"
+      :class="part.place === 'row' ? ['xs-tb-row', { 'xs-tb-rows': lines > 1 && !ribbon, 'xs-tb-ribbon': ribbon }] : 'xs-tb-menu'"
       :data-tb-menu="part.place === 'menu' ? '' : undefined"
     >
-      <template v-for="blk in part.blocks" :key="blk.key">
-        <span v-if="blk.group === 'undo' && (source.undo || source.redo)" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <button v-if="source.undo" type="button" class="xs-tool" data-tb="undo" :data-tip="m.undo" :aria-label="m.undo" :disabled="!canUndo" @click="step('undo')">
-            <IconUndo />
-          </button>
-          <button v-if="source.redo" type="button" class="xs-tool" data-tb="redo" :data-tip="m.redo" :aria-label="m.redo" :disabled="!canRedo" @click="step('redo')">
-            <IconRedo />
-          </button>
-        </span>
-        <span v-else-if="blk.group === 'formatPainter' && sheet" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <button
-            type="button"
-            :class="['xs-tool', { 'xs-tool-on': !!state?.painting }]"
-            data-tb="format-painter"
-            :data-tip="m.formatPainter"
-            :aria-label="m.formatPainter"
-            :aria-pressed="!!state?.painting"
-            :disabled="!state?.canFormatPainter"
-            @click="paintFormats(false)"
-            @dblclick="paintFormats(true)"
-          >
-            <IconFormatPainter />
-          </button>
-        </span>
-        <span v-else-if="blk.group === 'fontStyle'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <button
-            v-for="b in FONT"
-            :key="b.what"
-            type="button"
-            :class="['xs-tool', { 'xs-tool-on': fontOn(style, b.what) }]"
-            :data-tb="b.what"
-            :data-tip="text(b.title)"
-            :aria-label="text(b.title)"
-            :aria-pressed="fontOn(style, b.what)"
-            :disabled="!formattable"
-            @click="apply(over({ style: fontToggle(style, b.what) }))"
-          >
-            <component :is="b.icon" />
-          </button>
-        </span>
-        <span v-else-if="blk.group === 'font'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <span class="xs-tb-pair">
-            <ToolbarBox
-              :value="font.name"
-              :items="fonts"
-              :label="m.fontName"
-              hook="font-name"
-              field-class="xs-tb-font"
-              preview
-              complete
-              :open="open === 'fontName'"
-              :disabled="!formattable"
-              @update:open="listOpen('fontName', $event)"
-              @apply="setFont"
-              @leave="emit('done')"
-            />
-            <ToolbarBox
-              :value="font.size === undefined ? '' : String(font.size)"
-              :items="sizes"
-              :label="m.fontSize"
-              hook="font-size"
-              field-class="xs-tb-size"
-              inputmode="decimal"
-              :check="checkSize"
-              :open="open === 'fontSize'"
-              :disabled="!formattable"
-              @update:open="listOpen('fontSize', $event)"
-              @apply="setSize"
-              @leave="emit('done')"
-            />
-          </span>
-          <span class="xs-tb-pair">
-            <button type="button" class="xs-tool" data-tb="font-up" :data-tip="m.fontSizeUp" :aria-label="m.fontSizeUp" :disabled="!formattable" @click="restyle(fontSizeStep(style, true, book()))">
-              <IconFontUp />
-            </button>
-            <button type="button" class="xs-tool" data-tb="font-down" :data-tip="m.fontSizeDown" :aria-label="m.fontSizeDown" :disabled="!formattable" @click="restyle(fontSizeStep(style, false, book()))">
-              <IconFontDown />
-            </button>
-          </span>
-        </span>
-        <span v-else-if="blk.group === 'number'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <select
-            v-if="numbers.choices.value.length"
-            class="xs-field xs-field-s xs-tb-select"
-            data-tb="number"
-            :data-tb-category="category?.category"
-            :data-tip="m.numberFormat"
-            :aria-label="m.numberFormat"
-            value=""
-            :disabled="!formattable"
-            @change="pickNumber"
-          >
-            <option value="" hidden>{{ category?.name ?? '' }}</option>
-            <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
-          </select>
-          <button type="button" class="xs-tool" data-tb="accounting" :data-tip="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!formattable" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
-            <IconAccounting />
-          </button>
-          <button type="button" class="xs-tool" data-tb="percent" :data-tip="m.percentStyle" :aria-label="m.percentStyle" :disabled="!formattable" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
-            <IconPercent />
-          </button>
-          <button type="button" class="xs-tool" data-tb="comma" :data-tip="m.commaStyle" :aria-label="m.commaStyle" :disabled="!formattable" @click="apply(over({ numberFormat: COMMA_STYLE }))">
-            <IconComma />
-          </button>
-          <button type="button" class="xs-tool" data-tb="decimal-up" :data-tip="m.decimalIncrease" :aria-label="m.decimalIncrease" :disabled="!formattable" @click="stepDecimal(true)">
-            <IconDecimalUp />
-          </button>
-          <button type="button" class="xs-tool" data-tb="decimal-down" :data-tip="m.decimalDecrease" :aria-label="m.decimalDecrease" :disabled="!formattable" @click="stepDecimal(false)">
-            <IconDecimalDown />
-          </button>
-        </span>
-        <span v-else-if="blk.group === 'colors'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <span v-for="c in COLOURS" :key="c.what" class="xs-tb-split">
-            <button type="button" class="xs-tool" :data-tb="`${c.what}-colour`" :data-tip="text(c.title)" :aria-label="text(c.title)" :disabled="!formattable" @click="paint(c.what, last[c.what])">
-              <component :is="c.icon" :colour="last[c.what]" />
-            </button>
-            <button
-              type="button"
-              class="xs-tool xs-tb-caret"
-              :data-tb="`${c.what}-palette`"
-              :data-tip="m.pickColor"
-              :aria-label="m.pickColor"
-              :aria-expanded="open === c.what"
-              :disabled="!formattable"
-              @click="toggle(c.what)"
-            >
-              <IconDown />
-            </button>
-            <div v-if="open === c.what" class="xs-tb-pop" role="group" :aria-label="text(c.title)">
-              <button type="button" class="xs-tb-item" :data-tb="c.noneHook" :aria-pressed="!shown[c.what]" @click="paint(c.what, null)">{{ text(c.none) }}</button>
-              <ColourSwatches :model-value="shown[c.what]" @update:model-value="paint(c.what, $event)" />
-            </div>
-          </span>
-        </span>
-        <span v-else-if="blk.group === 'borders'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <span class="xs-tb-split">
-            <button type="button" class="xs-tool xs-tb-wide" data-tb="borders" :data-tip="m.borders" :aria-label="m.borders" :aria-expanded="open === 'borders'" :disabled="!formattable" @click="toggle('borders')">
-              <IconBorderAll />
-              <IconDown class="xs-tb-down" />
-            </button>
-            <div v-if="open === 'borders'" class="xs-tb-pop" role="menu" :aria-label="m.borders">
-              <button v-for="b in BORDERS" :key="b.kind" type="button" class="xs-tb-item" role="menuitem" :data-tb="`border-${b.kind}`" @click="border(b.kind)">
-                <component :is="b.icon" />
-                {{ text(b.title) }}
-              </button>
-            </div>
-          </span>
-        </span>
-        <span v-else-if="blk.group === 'verticalAlign'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <button
-            v-for="a in VERTICAL"
-            :key="a.v"
-            type="button"
-            :class="['xs-tool', { 'xs-tool-on': verticalOn(style, a.v) }]"
-            :data-tb="`align-${a.v === 'center' ? 'middle' : a.v}`"
-            :data-tip="text(a.title)"
-            :aria-label="text(a.title)"
-            :aria-pressed="verticalOn(style, a.v)"
-            :disabled="!formattable"
-            @click="restyle(verticalToggle(style, a.v))"
-          >
-            <component :is="a.icon" />
-          </button>
-        </span>
-        <span v-else-if="blk.group === 'align'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <button
-            v-for="a in ALIGN"
-            :key="a.h"
-            type="button"
-            :class="['xs-tool', { 'xs-tool-on': style?.alignment?.horizontal === a.h }]"
-            :data-tb="`align-${a.h}`"
-            :data-tip="text(a.title)"
-            :aria-label="text(a.title)"
-            :aria-pressed="style?.alignment?.horizontal === a.h"
-            :disabled="!formattable"
-            @click="apply(over({ style: alignToggle(style, a.h) }))"
-          >
-            <component :is="a.icon" />
-          </button>
-          <button type="button" class="xs-tool" data-tb="indent-down" :data-tip="m.indentDecrease" :aria-label="m.indentDecrease" :disabled="!formattable" @click="restyle(indentStep(style, false))">
-            <IconIndentDecrease />
-          </button>
-          <button type="button" class="xs-tool" data-tb="indent-up" :data-tip="m.indentIncrease" :aria-label="m.indentIncrease" :disabled="!formattable" @click="restyle(indentStep(style, true))">
-            <IconIndentIncrease />
-          </button>
-          <button
-            type="button"
-            :class="['xs-tool', { 'xs-tool-on': !!style?.alignment?.wrap }]"
-            data-tb="wrap"
-            :data-tip="m.wrapText"
-            :aria-label="m.wrapText"
-            :aria-pressed="!!style?.alignment?.wrap"
-            :disabled="!formattable"
-            @click="apply(over({ style: wrapToggle(style) }))"
-          >
-            <IconWrap />
-          </button>
-        </span>
-        <span v-else-if="blk.group === 'merge' && sheet && source.structure" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <span class="xs-tb-split">
-            <button
-              type="button"
-              :class="['xs-tool', { 'xs-tool-on': merged }]"
-              data-tb="merge"
-              :data-tip="m.mergeCenter"
-              :aria-label="m.mergeCenter"
-              :aria-pressed="merged"
-              :disabled="!state?.canMerge"
-              @click="merge(merged ? 'unmergeCells' : 'mergeCenter')"
-            >
-              <IconMerge />
-            </button>
-            <button type="button" class="xs-tool xs-tb-caret" data-tb="merge-menu" :data-tip="m.mergeMenu" :aria-label="m.mergeMenu" :aria-expanded="open === 'merge'" :disabled="!state?.canMerge" @click="toggle('merge')">
-              <IconDown />
-            </button>
-            <div v-if="open === 'merge'" class="xs-tb-pop" role="menu" :aria-label="m.mergeMenu">
-              <button v-for="x in MERGES" :key="x" type="button" class="xs-tb-item" role="menuitem" :data-tb="kebab(x)" @click="merge(x)">
-                {{ m[x] }}
-              </button>
-            </div>
-          </span>
-        </span>
-        <span v-else-if="blk.group === 'formatCells' && (dialogToHost() || sheet)" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <button type="button" class="xs-tool" data-tb="format-cells" :data-tip="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!formattable" @click="formatCells">
-            <IconFormatCells />
-          </button>
-        </span>
-        <span v-else-if="blk.group === 'autoSum' && sheet" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <span class="xs-tb-split">
-            <button type="button" class="xs-tool" data-tb="auto-sum" :data-tip="m.autoSum" :aria-label="m.autoSum" :disabled="!state?.canAutoSum" @click="autoSum('sum')">
-              <IconAutoSum />
-            </button>
-            <button type="button" class="xs-tool xs-tb-caret" data-tb="auto-sum-menu" :data-tip="m.autoSumMenu" :aria-label="m.autoSumMenu" :aria-expanded="open === 'autoSum'" :disabled="!state?.canAutoSum" @click="toggle('autoSum')">
-              <IconDown />
-            </button>
-            <div v-if="open === 'autoSum'" class="xs-tb-pop" role="menu" :aria-label="m.autoSumMenu">
-              <button v-for="x in autoSums" :key="x.fn" type="button" class="xs-tb-item" role="menuitem" :data-tb="`auto-sum-${x.fn}`" @click="autoSum(x.fn)">
-                {{ text(x.title) }}
-              </button>
-              <button v-if="source.functionNames" type="button" class="xs-tb-item" role="menuitem" data-tb="auto-sum-more" @click="moreFunctions">
-                {{ m.autoSumMore }}
-              </button>
-            </div>
-          </span>
-        </span>
-        <span v-else-if="blk.group === 'pivotTable' && sheet && source.structure" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <button type="button" class="xs-tool" data-tb="pivot-table" :data-tip="m.pivotInsert" :aria-label="m.pivotInsert" :disabled="!state?.canInsertPivot" @click="insertPivot">
-            <IconPivotTable />
-          </button>
-        </span>
-        <span v-else-if="blk.group === 'refreshAll' && sheet && source.refreshConnections" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <span class="xs-tb-split">
-            <button type="button" class="xs-tool" data-tb="refresh-all" :data-tip="m.refreshAll" :data-tip-more="m.refreshAllTip" :aria-label="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">
-              <IconRefreshAll />
-            </button>
-            <button type="button" class="xs-tool xs-tb-caret" data-tb="refresh-all-menu" :data-tip="m.refreshAllMenu" :aria-label="m.refreshAllMenu" :aria-expanded="open === 'refreshAll'" :disabled="!state?.canRefreshAll && !state?.canRefreshPivot" @click="toggle('refreshAll')">
-              <IconDown />
-            </button>
-            <div v-if="open === 'refreshAll'" class="xs-tb-pop" role="menu" :aria-label="m.refreshAllMenu">
-              <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-all-item" :title="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">{{ m.refreshAllItem }}</button>
-              <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-pivot" :title="m.refreshPivot" :disabled="!state?.canRefreshPivot" @click="refreshPivot">{{ m.menuRefresh }}</button>
-            </div>
-          </span>
-        </span>
-        <span v-else-if="(blk.group === 'pivotAnalyze' || blk.group === 'pivotDesign') && sheet && state?.pivot && source.pivotCells" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <ToolbarPivot :group="blk.group" :sheet="sheet" :state="state" :source="source" :m="m" />
-        </span>
-        <span v-else-if="blk.buttons" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <template v-for="x in blk.buttons" :key="x.id">
-            <button
-              v-if="!x.menu || x.run"
-              type="button"
-              :class="['xs-tool', { 'xs-tool-on': x.pressed, 'xs-tb-wide xs-tb-text': !x.icon }]"
-              :data-tb-host="x.id"
-              :data-tip="x.label"
-              :aria-label="x.label"
-              :aria-pressed="x.pressed === undefined ? undefined : x.pressed"
-              :disabled="x.disabled"
-              @click="runHost(x)"
-            >
-              <HostIcon :button="x" />
-            </button>
-            <span v-if="x.menu" class="xs-tb-split">
-              <button
-                type="button"
-                :class="['xs-tool', x.run ? 'xs-tb-caret' : 'xs-tb-wide', { 'xs-tool-on': !x.run && x.pressed, 'xs-tb-text': !x.run && !x.icon }]"
-                :data-tb-host-menu="x.id"
-                :data-tip="x.label"
-                :aria-label="x.label"
-                aria-haspopup="menu"
-                :aria-expanded="open === `host:${x.id}`"
-                :disabled="x.disabled"
-                @click="toggle(`host:${x.id}`)"
-              >
-                <HostIcon v-if="!x.run" :button="x" />
-                <IconDown :class="{ 'xs-tb-down': !x.run }" />
-              </button>
-              <div v-if="open === `host:${x.id}`" class="xs-tb-pop" role="menu" :aria-label="x.label">
-                <button v-for="it in x.menu" :key="it.id" type="button" class="xs-tb-item" role="menuitem" :data-tb-host-item="it.id" :disabled="it.disabled" @click="runHost(it)">
-                  {{ it.label }}
+      <span v-for="g in part.groups" :key="g.key" :class="['xs-tb-group', `xs-tb-g-${g.kind}`, { 'xs-tb-large': g.large }]" :data-tb-block="g.key" :data-tb-line="lineStart(g.key)">
+        <span v-for="st in g.stacks" :key="st.key" class="xs-tb-stack">
+          <span v-for="(ln, li) in st.lines" :key="li" class="xs-tb-line">
+            <template v-for="p in ln" :key="p.block.key">
+              <span v-if="p.block.group === 'undo' && (source.undo || source.redo)" class="xs-tb-part">
+                <button v-if="source.undo" type="button" class="xs-tool" data-tb="undo" :data-tip="m.undo" :aria-label="m.undo" :disabled="!canUndo" @click="step('undo')">
+                  <IconUndo />
                 </button>
-              </div>
-            </span>
-          </template>
+                <button v-if="source.redo" type="button" class="xs-tool" data-tb="redo" :data-tip="m.redo" :aria-label="m.redo" :disabled="!canRedo" @click="step('redo')">
+                  <IconRedo />
+                </button>
+              </span>
+              <span v-else-if="p.block.group === 'formatPainter' && sheet" class="xs-tb-part">
+                <button
+                  type="button"
+                  :class="['xs-tool', { 'xs-tool-on': !!state?.painting }]"
+                  data-tb="format-painter"
+                  :data-tip="m.formatPainter"
+                  :aria-label="m.formatPainter"
+                  :aria-pressed="!!state?.painting"
+                  :disabled="!state?.canFormatPainter"
+                  @click="paintFormats(false)"
+                  @dblclick="paintFormats(true)"
+                >
+                  <IconFormatPainter />
+                </button>
+              </span>
+              <span v-else-if="p.block.group === 'font'" class="xs-tb-part">
+                <span class="xs-tb-pair">
+                  <ToolbarBox
+                    :value="font.name"
+                    :items="fonts"
+                    :label="m.fontName"
+                    hook="font-name"
+                    field-class="xs-tb-font"
+                    preview
+                    complete
+                    :open="open === 'fontName'"
+                    :disabled="!formattable"
+                    @update:open="listOpen('fontName', $event)"
+                    @apply="setFont"
+                    @leave="emit('done')"
+                  />
+                  <ToolbarBox
+                    :value="font.size === undefined ? '' : String(font.size)"
+                    :items="sizes"
+                    :label="m.fontSize"
+                    hook="font-size"
+                    field-class="xs-tb-size"
+                    inputmode="decimal"
+                    :check="checkSize"
+                    :open="open === 'fontSize'"
+                    :disabled="!formattable"
+                    @update:open="listOpen('fontSize', $event)"
+                    @apply="setSize"
+                    @leave="emit('done')"
+                  />
+                </span>
+                <span class="xs-tb-pair">
+                  <button type="button" class="xs-tool" data-tb="font-up" :data-tip="m.fontSizeUp" :aria-label="m.fontSizeUp" :disabled="!formattable" @click="restyle(fontSizeStep(style, true, book()))">
+                    <IconFontUp />
+                  </button>
+                  <button type="button" class="xs-tool" data-tb="font-down" :data-tip="m.fontSizeDown" :aria-label="m.fontSizeDown" :disabled="!formattable" @click="restyle(fontSizeStep(style, false, book()))">
+                    <IconFontDown />
+                  </button>
+                </span>
+              </span>
+              <span v-else-if="p.block.group === 'fontStyle'" class="xs-tb-part">
+                <button
+                  v-for="b in FONT"
+                  :key="b.what"
+                  type="button"
+                  :class="['xs-tool', { 'xs-tool-on': fontOn(style, b.what) }]"
+                  :data-tb="b.what"
+                  :data-tip="text(b.title)"
+                  :aria-label="text(b.title)"
+                  :aria-pressed="fontOn(style, b.what)"
+                  :disabled="!formattable"
+                  @click="apply(over({ style: fontToggle(style, b.what) }))"
+                >
+                  <component :is="b.icon" />
+                </button>
+              </span>
+              <span v-else-if="p.block.group === 'borders'" class="xs-tb-part">
+                <span class="xs-tb-split">
+                  <button type="button" class="xs-tool" data-tb="border-last" :data-tip="text(lastBorder.title)" :aria-label="text(lastBorder.title)" :disabled="!formattable" @click="border(lastBorder.kind)">
+                    <component :is="lastBorder.icon" />
+                  </button>
+                  <button type="button" class="xs-tool xs-tb-caret" data-tb="borders" :data-tip="m.borders" :aria-label="m.borders" aria-haspopup="menu" :aria-expanded="open === 'borders'" :disabled="!formattable" @click="toggle('borders')">
+                    <IconDown />
+                  </button>
+                  <div v-if="open === 'borders'" class="xs-tb-pop" role="menu" :aria-label="m.borders">
+                    <template v-for="(b, i) in BORDERS" :key="b.kind">
+                      <div v-if="i === 1" class="xs-tb-sep" role="separator" />
+                      <button type="button" class="xs-tb-item" role="menuitem" :data-tb="`border-${b.kind}`" @click="border(b.kind)">
+                        <component :is="b.icon" />
+                        {{ text(b.title) }}
+                      </button>
+                    </template>
+                  </div>
+                </span>
+              </span>
+              <span v-else-if="p.block.group === 'colors'" class="xs-tb-part">
+                <span v-for="c in COLOURS" :key="c.what" class="xs-tb-split">
+                  <button type="button" class="xs-tool" :data-tb="`${c.what}-colour`" :data-tip="text(c.title)" :aria-label="text(c.title)" :disabled="!formattable" @click="paint(c.what, last[c.what])">
+                    <component :is="c.icon" :colour="last[c.what]" />
+                  </button>
+                  <button
+                    type="button"
+                    class="xs-tool xs-tb-caret"
+                    :data-tb="`${c.what}-palette`"
+                    :data-tip="m.pickColor"
+                    :aria-label="m.pickColor"
+                    :aria-expanded="open === c.what"
+                    :disabled="!formattable"
+                    @click="toggle(c.what)"
+                  >
+                    <IconDown />
+                  </button>
+                  <div v-if="open === c.what" class="xs-tb-pop" role="group" :aria-label="text(c.title)">
+                    <button type="button" class="xs-tb-item" :data-tb="c.noneHook" :aria-pressed="!shown[c.what]" @click="paint(c.what, null)">{{ text(c.none) }}</button>
+                    <ColourSwatches :model-value="shown[c.what]" @update:model-value="paint(c.what, $event)" />
+                  </div>
+                </span>
+              </span>
+              <span v-else-if="p.block.group === 'verticalAlign'" class="xs-tb-part">
+                <button
+                  v-for="a in VERTICAL"
+                  :key="a.v"
+                  type="button"
+                  :class="['xs-tool', { 'xs-tool-on': verticalOn(style, a.v) }]"
+                  :data-tb="`align-${a.v === 'center' ? 'middle' : a.v}`"
+                  :data-tip="text(a.title)"
+                  :aria-label="text(a.title)"
+                  :aria-pressed="verticalOn(style, a.v)"
+                  :disabled="!formattable"
+                  @click="restyle(verticalToggle(style, a.v))"
+                >
+                  <component :is="a.icon" />
+                </button>
+              </span>
+              <span v-else-if="p.block.group === 'align'" class="xs-tb-part">
+                <template v-if="has(p, 'a2')">
+                  <button
+                    v-for="a in ALIGN"
+                    :key="a.h"
+                    type="button"
+                    :class="['xs-tool', { 'xs-tool-on': style?.alignment?.horizontal === a.h }]"
+                    :data-tb="`align-${a.h}`"
+                    :data-tip="text(a.title)"
+                    :aria-label="text(a.title)"
+                    :aria-pressed="style?.alignment?.horizontal === a.h"
+                    :disabled="!formattable"
+                    @click="apply(over({ style: alignToggle(style, a.h) }))"
+                  >
+                    <component :is="a.icon" />
+                  </button>
+                  <button type="button" class="xs-tool" data-tb="indent-down" :data-tip="m.indentDecrease" :aria-label="m.indentDecrease" :disabled="!formattable" @click="restyle(indentStep(style, false))">
+                    <IconIndentDecrease />
+                  </button>
+                  <button type="button" class="xs-tool" data-tb="indent-up" :data-tip="m.indentIncrease" :aria-label="m.indentIncrease" :disabled="!formattable" @click="restyle(indentStep(style, true))">
+                    <IconIndentIncrease />
+                  </button>
+                </template>
+                <button
+                  v-if="has(p, 'b1')"
+                  type="button"
+                  :class="['xs-tool', { 'xs-tool-on': !!style?.alignment?.wrap }]"
+                  data-tb="wrap"
+                  :data-tip="m.wrapText"
+                  :aria-label="m.wrapText"
+                  :aria-pressed="!!style?.alignment?.wrap"
+                  :disabled="!formattable"
+                  @click="apply(over({ style: wrapToggle(style) }))"
+                >
+                  <IconWrap />
+                </button>
+              </span>
+              <span v-else-if="p.block.group === 'merge' && sheet && source.structure" class="xs-tb-part">
+                <span class="xs-tb-split">
+                  <button
+                    type="button"
+                    :class="['xs-tool', { 'xs-tool-on': merged }]"
+                    data-tb="merge"
+                    :data-tip="m.mergeCenter"
+                    :aria-label="m.mergeCenter"
+                    :aria-pressed="merged"
+                    :disabled="!state?.canMerge"
+                    @click="merge(merged ? 'unmergeCells' : 'mergeCenter')"
+                  >
+                    <IconMerge />
+                  </button>
+                  <button type="button" class="xs-tool xs-tb-caret" data-tb="merge-menu" :data-tip="m.mergeMenu" :aria-label="m.mergeMenu" :aria-expanded="open === 'merge'" :disabled="!state?.canMerge" @click="toggle('merge')">
+                    <IconDown />
+                  </button>
+                  <div v-if="open === 'merge'" class="xs-tb-pop" role="menu" :aria-label="m.mergeMenu">
+                    <button v-for="x in MERGES" :key="x" type="button" class="xs-tb-item" role="menuitem" :data-tb="kebab(x)" @click="merge(x)">
+                      {{ m[x] }}
+                    </button>
+                  </div>
+                </span>
+              </span>
+              <span v-else-if="p.block.group === 'number'" class="xs-tb-part">
+                <select
+                  v-if="has(p, 'a1') && numbers.choices.value.length"
+                  class="xs-field xs-field-s xs-tb-select"
+                  data-tb="number"
+                  :data-tb-category="category?.category"
+                  :data-tip="m.numberFormat"
+                  :aria-label="m.numberFormat"
+                  value=""
+                  :disabled="!formattable"
+                  @change="pickNumber"
+                >
+                  <option value="" hidden>{{ category?.name ?? '' }}</option>
+                  <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
+                </select>
+                <template v-if="has(p, 'a2')">
+                  <button type="button" class="xs-tool" data-tb="accounting" :data-tip="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!formattable" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
+                    <IconAccounting />
+                  </button>
+                  <button type="button" class="xs-tool" data-tb="percent" :data-tip="m.percentStyle" :aria-label="m.percentStyle" :disabled="!formattable" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
+                    <IconPercent />
+                  </button>
+                  <button type="button" class="xs-tool" data-tb="comma" :data-tip="m.commaStyle" :aria-label="m.commaStyle" :disabled="!formattable" @click="apply(over({ numberFormat: COMMA_STYLE }))">
+                    <IconComma />
+                  </button>
+                  <button type="button" class="xs-tool" data-tb="decimal-up" :data-tip="m.decimalIncrease" :aria-label="m.decimalIncrease" :disabled="!formattable" @click="stepDecimal(true)">
+                    <IconDecimalUp />
+                  </button>
+                  <button type="button" class="xs-tool" data-tb="decimal-down" :data-tip="m.decimalDecrease" :aria-label="m.decimalDecrease" :disabled="!formattable" @click="stepDecimal(false)">
+                    <IconDecimalDown />
+                  </button>
+                </template>
+              </span>
+              <span v-else-if="p.block.group === 'formatCells' && (dialogToHost() || sheet)" class="xs-tb-part">
+                <button type="button" class="xs-tool" data-tb="format-cells" :data-tip="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!formattable" @click="formatCells">
+                  <IconFormatCells />
+                </button>
+              </span>
+              <span v-else-if="p.block.group === 'autoSum' && sheet" class="xs-tb-part">
+                <span class="xs-tb-split">
+                  <button type="button" class="xs-tool" data-tb="auto-sum" :data-tip="m.autoSum" :aria-label="m.autoSum" :disabled="!state?.canAutoSum" @click="autoSum('sum')">
+                    <IconAutoSum />
+                  </button>
+                  <button type="button" class="xs-tool xs-tb-caret" data-tb="auto-sum-menu" :data-tip="m.autoSumMenu" :aria-label="m.autoSumMenu" :aria-expanded="open === 'autoSum'" :disabled="!state?.canAutoSum" @click="toggle('autoSum')">
+                    <IconDown />
+                  </button>
+                  <div v-if="open === 'autoSum'" class="xs-tb-pop" role="menu" :aria-label="m.autoSumMenu">
+                    <button v-for="x in autoSums" :key="x.fn" type="button" class="xs-tb-item" role="menuitem" :data-tb="`auto-sum-${x.fn}`" @click="autoSum(x.fn)">
+                      {{ text(x.title) }}
+                    </button>
+                    <button v-if="source.functionNames" type="button" class="xs-tb-item" role="menuitem" data-tb="auto-sum-more" @click="moreFunctions">
+                      {{ m.autoSumMore }}
+                    </button>
+                  </div>
+                </span>
+              </span>
+              <span v-else-if="p.block.group === 'pivotTable' && sheet && source.structure" class="xs-tb-part">
+                <button type="button" class="xs-tool" data-tb="pivot-table" :data-tip="m.pivotInsert" :aria-label="m.pivotInsert" :disabled="!state?.canInsertPivot" @click="insertPivot">
+                  <IconPivotTable />
+                </button>
+              </span>
+              <span v-else-if="p.block.group === 'refreshAll' && sheet && source.refreshConnections" class="xs-tb-part">
+                <span class="xs-tb-split">
+                  <button type="button" class="xs-tool" data-tb="refresh-all" :data-tip="m.refreshAll" :data-tip-more="m.refreshAllTip" :aria-label="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">
+                    <IconRefreshAll />
+                  </button>
+                  <button type="button" class="xs-tool xs-tb-caret" data-tb="refresh-all-menu" :data-tip="m.refreshAllMenu" :aria-label="m.refreshAllMenu" :aria-expanded="open === 'refreshAll'" :disabled="!state?.canRefreshAll && !state?.canRefreshPivot" @click="toggle('refreshAll')">
+                    <IconDown />
+                  </button>
+                  <div v-if="open === 'refreshAll'" class="xs-tb-pop" role="menu" :aria-label="m.refreshAllMenu">
+                    <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-all-item" :title="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">{{ m.refreshAllItem }}</button>
+                    <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-pivot" :title="m.refreshPivot" :disabled="!state?.canRefreshPivot" @click="refreshPivot">{{ m.menuRefresh }}</button>
+                  </div>
+                </span>
+              </span>
+              <span v-else-if="(p.block.group === 'pivotAnalyze' || p.block.group === 'pivotDesign') && sheet && state?.pivot && source.pivotCells" class="xs-tb-part">
+                <ToolbarPivot :group="p.block.group" :sheet="sheet" :state="state" :source="source" :m="m" />
+              </span>
+              <span v-else-if="p.block.buttons" class="xs-tb-part">
+                <template v-for="x in p.block.buttons" :key="x.id">
+                  <button
+                    v-if="!x.menu || x.run"
+                    type="button"
+                    :class="['xs-tool', { 'xs-tool-on': x.pressed, 'xs-tb-wide xs-tb-text': !x.icon }]"
+                    :data-tb-host="x.id"
+                    :data-tip="x.label"
+                    :aria-label="x.label"
+                    :aria-pressed="x.pressed === undefined ? undefined : x.pressed"
+                    :disabled="x.disabled"
+                    @click="runHost(x)"
+                  >
+                    <HostIcon :button="x" />
+                  </button>
+                  <span v-if="x.menu" class="xs-tb-split">
+                    <button
+                      type="button"
+                      :class="['xs-tool', x.run ? 'xs-tb-caret' : 'xs-tb-wide', { 'xs-tool-on': !x.run && x.pressed, 'xs-tb-text': !x.run && !x.icon }]"
+                      :data-tb-host-menu="x.id"
+                      :data-tip="x.label"
+                      :aria-label="x.label"
+                      aria-haspopup="menu"
+                      :aria-expanded="open === `host:${x.id}`"
+                      :disabled="x.disabled"
+                      @click="toggle(`host:${x.id}`)"
+                    >
+                      <HostIcon v-if="!x.run" :button="x" />
+                      <IconDown :class="{ 'xs-tb-down': !x.run }" />
+                    </button>
+                    <div v-if="open === `host:${x.id}`" class="xs-tb-pop" role="menu" :aria-label="x.label">
+                      <button v-for="it in x.menu" :key="it.id" type="button" class="xs-tb-item" role="menuitem" :data-tb-host-item="it.id" :disabled="it.disabled" @click="runHost(it)">
+                        {{ it.label }}
+                      </button>
+                    </div>
+                  </span>
+                </template>
+              </span>
+            </template>
+          </span>
         </span>
-      </template>
+      </span>
       <button v-if="part.place === 'row' && moreShown" type="button" :class="['xs-tool', 'xs-tb-more', { 'xs-tool-on': menu }]" data-tb="more" :data-tip="m.toolbarMore" :aria-label="m.toolbarMore" :aria-expanded="menu" @click="menu = !menu">
         <IconMore />
       </button>

@@ -514,7 +514,7 @@ export const ruPivot: PivotMessages = {
   pivotAltDescription: 'Описание',
   pivotAnalyzeOptions: 'Параметры',
   pivotGroupSelection: 'Группировка по выделенному',
-  pivotUngroup: 'Разгруппировать',
+  pivotUngroup: 'Разгруппировать...',
   pivotGroupField: 'Группировка по полю',
   pivotFieldsItems: 'Поля, элементы и наборы',
   pivotCalcFieldMenu: 'Вычисляемое поле...',

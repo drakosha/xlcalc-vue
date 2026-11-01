@@ -59,6 +59,63 @@
   padding-left: 0;
   border-left: 0;
 }
+/* A block's controls sit in its group's line; stacks and lines lay out only Excel's two-row groups. */
+.xs-tb-part,
+.xs-tb-stack,
+.xs-tb-line {
+  display: contents;
+}
+/* Within a group on one line, a little room between the blocks of one Excel group (Font's boxes, Bold to Underline, Borders). */
+.xs-tb-g-flat .xs-tb-part + .xs-tb-part > :first-child {
+  margin-left: 6px;
+}
+/* `rows: 2` is Excel's ribbon: one sequence of groups, each two rows tall, a separator between them. */
+.xs-tb-ribbon {
+  align-items: stretch;
+}
+.xs-tb-ribbon > .xs-tb-more {
+  align-self: center;
+}
+/* Font, Alignment and Number: columns of two lines, each line its controls in Excel's order. */
+.xs-tb-g-rows {
+  align-items: stretch;
+  gap: 6px;
+}
+.xs-tb-g-rows > .xs-tb-stack {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.xs-tb-g-rows .xs-tb-line {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--xs-tb-tool-h);
+}
+/* The other groups stack their controls two to a column, top first, as Excel stacks its small buttons. */
+.xs-tb-group.xs-tb-g-cols {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, var(--xs-tb-tool-h));
+  align-content: center;
+  align-items: center;
+  justify-items: start;
+}
+.xs-tb-g-cols .xs-tb-pivot {
+  display: contents;
+}
+/* Excel's large buttons (PivotTable, Refresh All, Design's menus): as tall as the two rows, the icon larger. */
+.xs-tb-large :is(.xs-tool, .xs-tb-split) {
+  grid-row: span 2;
+}
+.xs-toolbar:not(.xs-touch) .xs-tb-large .xs-tool {
+  height: calc(2 * var(--xs-tb-tool-h) + 2px);
+}
+.xs-toolbar:not(.xs-touch) .xs-tb-large .xs-tool:not(.xs-tb-caret) > .xs-icon:first-child {
+  width: 28px;
+  height: 28px;
+}
 .xs-tb-split {
   position: relative;
   display: inline-flex;
@@ -204,6 +261,10 @@
 .xs-tb-item[aria-pressed='true'] {
   background: var(--xs-head-bg);
 }
+/* A line between a menu's sections, as Excel draws it in Borders. */
+.xs-tb-sep {
+  border-top: 1px solid var(--xs-grid);
+}
 /* The palette slightly smaller than the dialog's, as Excel's menu draws it (the touch one is the same, controls.css). */
 .xs-toolbar:not(.xs-touch) .xs-swatches {
   --xs-swatch: 18px;
@@ -265,6 +326,15 @@
 }
 .xs-touch .xs-tool.xs-tb-wide {
   min-width: 56px;
+}
+.xs-touch .xs-tb-g-rows .xs-tb-line {
+  min-height: var(--xs-touch-target);
+}
+.xs-touch .xs-tb-group.xs-tb-g-cols {
+  grid-template-rows: repeat(2, var(--xs-touch-target));
+}
+.xs-touch .xs-tb-large .xs-tool {
+  height: calc(2 * var(--xs-touch-target) + 2px);
 }
 .xs-tb-pivot {
   display: inline-flex;

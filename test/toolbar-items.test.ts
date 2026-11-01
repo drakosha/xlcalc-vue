@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { SheetToolbar, TOOLBAR_GROUPS, type SheetViewApi, type SheetViewState, type ToolbarItem } from '../src'
 import type { EditOutcome, SheetSource } from '../src/contract/source'
-import { fitLines } from '../src/toolbar'
+import { fitLines, fitRow } from '../src/toolbar'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -31,15 +31,16 @@ describe("SheetToolbar's items", () => {
   it('without items draws every group in the default order', async () => {
     const w = mountBar()
     expect(TOOLBAR_GROUPS[0]).toBe('undo')
-    expect(hooks(w).slice(0, 6)).toEqual(['undo', 'redo', 'bold', 'italic', 'underline', 'font-name'])
-    expect(hooks(w)).toContain('borders')
+    expect(hooks(w).slice(0, 10)).toEqual(['undo', 'redo', 'font-name', 'font-name-list', 'font-size', 'font-size-list', 'font-up', 'font-down', 'bold', 'italic'])
+    expect(hooks(w)).toContain('border-last')
   })
 
   it('draws only the groups named, in their order; an unknown or repeated name is skipped', async () => {
     const w = mountBar(['borders', 'fontStyle', 'nothing' as never, 'borders', 'undo'])
     await nextTick()
-    expect(hooks(w)).toEqual(['borders', 'bold', 'italic', 'underline', 'undo', 'redo'])
-    expect(w.findAll('.xs-tb-group')).toHaveLength(3)
+    expect(hooks(w)).toEqual(['border-last', 'borders', 'bold', 'italic', 'underline', 'undo', 'redo'])
+    // Borders and Bold, Italic, Underline follow each other: one group, Excel's Font
+    expect(w.findAll('.xs-tb-group').map((g) => g.attributes('data-tb-block'))).toEqual(['borders', 'undo'])
   })
 
   it("draws the host's buttons as its own: an icon component or SVG markup, or the label; runs, disables and presses them", async () => {
@@ -95,7 +96,7 @@ describe("SheetToolbar's items", () => {
     expect((menu.element as HTMLElement).style.display).toBe('none')
     await w.find('[data-tb="more"]').trigger('click')
     expect((menu.element as HTMLElement).style.display).toBe('')
-    expect(hooks(w, '[data-tb-menu]')).toEqual(['borders', 'host:share'])
+    expect(hooks(w, '[data-tb-menu]')).toEqual(['border-last', 'borders', 'host:share'])
     await w.find('[data-tb-host="share"]').trigger('click')
     expect(run).toHaveBeenCalledOnce()
     expect((menu.element as HTMLElement).style.display).toBe('none')
@@ -103,41 +104,41 @@ describe("SheetToolbar's items", () => {
 
   it('in a wide viewport too: what does not fit goes into More rather than onto a second line', async () => {
     narrowLayout(1000, () => 300, 1440)
-    const w = mountBar(['undo', 'fontStyle', 'font', 'borders', 'align'])
+    const w = mountBar(['undo', 'fontStyle', 'verticalAlign', 'number', 'colors'])
     await nextTick()
     await nextTick()
     expect(w.find('.xs-toolbar').classes()).not.toContain('xs-tb-narrow')
     expect(hooks(w, '.xs-tb-row').at(-1)).toBe('more')
-    expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['borders', 'align'])
+    expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['number', 'colors'])
   })
 
-  it('with rows wraps onto that many lines, as the row wraps them, and moves only the rest into More, which ends the last line', async () => {
-    narrowLayout(920, () => 300, 1440)
-    const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'fontStyle', 'font', 'borders', 'align', 'colors', 'number', 'merge'], rows: 2 }, attachTo: document.body })
+  it('with rows other than 2 wraps onto that many lines, as the row wraps them, and moves only the rest into More, which ends the last line', async () => {
+    narrowLayout(620, () => 300, 1440)
+    const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'fontStyle', 'verticalAlign', 'borders', 'number', 'colors', 'align'], rows: 3 }, attachTo: document.body })
     await nextTick()
     await nextTick()
     expect(w.find('.xs-tb-row').classes()).toContain('xs-tb-rows')
-    // Three blocks a line; the second line keeps two beside More
+    // Two blocks a line; the third line keeps one beside More
     expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => [b.attributes('data-tb-block'), b.attributes('data-tb-line') !== undefined])).toEqual([
       ['undo', false],
       ['fontStyle', false],
-      ['font', false],
-      ['borders', true],
-      ['align', false],
+      ['verticalAlign', true],
+      ['borders', false],
+      ['number', true],
     ])
     expect(hooks(w, '.xs-tb-row').at(-1)).toBe('more')
-    expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['colors', 'number'])
-    await w.setProps({ rows: 3 })
+    expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['colors', 'align'])
+    await w.setProps({ rows: 4 })
     await nextTick()
     await nextTick()
     expect(w.find('[data-tb-menu]').exists()).toBe(false)
-    expect(w.findAll('.xs-tb-row > [data-tb-line]').map((b) => b.attributes('data-tb-block'))).toEqual(['borders', 'number'])
+    expect(w.findAll('.xs-tb-row > [data-tb-line]').map((b) => b.attributes('data-tb-block'))).toEqual(['verticalAlign', 'number', 'align'])
   })
 
   it('measures again when the sheet arrives, which draws its groups, and when the Number Format list loads', async () => {
     narrowLayout(300, (key, el) => (key === 'number' ? (el.querySelector('select') ? 250 : 50) : 100), 1440)
     const sheet = { formatPainter: vi.fn() } as unknown as SheetViewApi
-    const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'formatPainter', 'fontStyle', 'borders'] }, attachTo: document.body })
+    const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'formatPainter', 'fontStyle', 'verticalAlign'] }, attachTo: document.body })
     await nextTick()
     await nextTick()
     expect(w.find('[data-tb-menu]').exists()).toBe(false)
@@ -161,13 +162,27 @@ describe("SheetToolbar's items", () => {
     expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['undo', 'fontStyle'])
   })
 
+  it("on a phone moves a group too wide for what is left into More and keeps the later ones that fit: Bold, Italic and Underline stay in the row after the Font boxes", async () => {
+    // At about a phone's widths: 44 px targets, the Font group wider than the row
+    const WIDTH: Record<string, number> = { undo: 88, formatPainter: 44, font: 390, fontStyle: 132, borders: 88 }
+    narrowLayout(374, (key) => WIDTH[key] ?? 132)
+    const sheet = { formatPainter: vi.fn() } as unknown as SheetViewApi
+    const w = mount(SheetToolbar, { props: { source: source(), state, sheet }, attachTo: document.body })
+    await nextTick()
+    await nextTick()
+    expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['undo', 'formatPainter', 'fontStyle'])
+    expect(hooks(w, '.xs-tb-row')).toEqual(['undo', 'redo', 'format-painter', 'bold', 'italic', 'underline', 'more'])
+    const menu = w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))
+    expect(menu.slice(0, 4)).toEqual(['font', 'borders', 'colors', 'verticalAlign'])
+  })
+
   it('in a narrow viewport keeps every item in the row when all fit, with no More button', async () => {
     narrowLayout(380, (key) => (key === 'undo' ? 100 : 90))
     const run = vi.fn()
     const w = mountBar(['undo', { id: 'a', label: 'A', run }, 'borders', 'fontStyle'])
     await nextTick()
     await nextTick()
-    expect(hooks(w)).toEqual(['undo', 'redo', 'host:a', 'borders', 'bold', 'italic', 'underline'])
+    expect(hooks(w)).toEqual(['undo', 'redo', 'host:a', 'border-last', 'borders', 'bold', 'italic', 'underline'])
     expect(w.find('[data-tb-menu]').exists()).toBe(false)
     expect(w.find('[data-tb="more"]').exists()).toBe(false)
   })
@@ -190,6 +205,15 @@ describe('fitLines', () => {
 
   it('with Infinity wraps every block', () => {
     expect(fitLines([60, 60, 60, 60], 100, Infinity, 30)).toEqual({ fit: 4, breaks: [1, 2, 3] })
+  })
+})
+
+describe('fitRow', () => {
+  it('keeps all when they fit, otherwise each in order that fits beside More, a wide one going into More and later narrow ones staying', () => {
+    expect(fitRow([40, 40, 20], 100, 30)).toEqual([0, 1, 2])
+    expect(fitRow([40, 100, 20, 10, 30], 100, 30)).toEqual([0, 2, 3])
+    expect(fitRow([120, 40], 100, 30)).toEqual([1])
+    expect(fitRow([], 100, 30)).toEqual([])
   })
 })
 
