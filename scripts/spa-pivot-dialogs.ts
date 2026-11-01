@@ -167,11 +167,12 @@ export async function pivotDialogsScenario(browser: Browser, base: string, size:
     await page.locator('[data-pivot-options] [data-xs-dialog-cancel]').click()
 
     // Grouping of dates: Дата checked onto Rows in place of Регион is grouped by years, quarters and months, as Excel's field list does
-    const named = (book: BookInput, ru: string, en: string) => !!book.pivotCaches?.[0]?.fields.some((f) => f.name === `${ru} (Дата)` || f.name === `${en} (Дата)`)
+    // the period fields named in the workbook's language, as Excel names them in ru-RU
+    const named = (book: BookInput, ru: string) => !!book.pivotCaches?.[0]?.fields.some((f) => f.name === `${ru} (Дата)`)
     await page.locator('[data-xs-pf-field="0"] input').click()
     await waitPivot(page, at('Регион unchecked'), (t) => !t.rows?.length)
     await page.locator('[data-xs-pf-field="2"] input').click()
-    await waitPivot(page, at('Дата checked'), (t, book) => t.rows?.at(-1) === 2 && named(book, 'Годы', 'Years') && named(book, 'Кварталы', 'Quarters'))
+    await waitPivot(page, at('Дата checked'), (t, book) => t.rows?.at(-1) === 2 && named(book, 'Годы') && named(book, 'Кварталы'))
     // Group… on a year opens Grouping over Дата; months and years alone take the quarters away
     await menuAt('4:1')
     await page.locator('[data-xs-menu="pivotGroup"]').click()
@@ -179,7 +180,7 @@ export async function pivotDialogsScenario(browser: Browser, base: string, size:
     await page.locator('[data-pg-periods]').selectOption(['months', 'years'])
     await shot('grouping')
     await page.locator('[data-pivot-group] [data-xs-dialog-ok]').click()
-    await waitPivot(page, at('Grouping'), (_t, book) => named(book, 'Годы', 'Years') && !named(book, 'Кварталы', 'Quarters'))
+    await waitPivot(page, at('Grouping'), (_t, book) => named(book, 'Годы') && !named(book, 'Кварталы'))
 
     // Fields, Items, & Sets > Calculated Field…, and Design > Report Layout
     await page.locator('[data-cell="4:2"]').click()

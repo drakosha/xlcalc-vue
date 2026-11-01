@@ -113,6 +113,13 @@ describe('the PivotTable Fields pane', () => {
     expect(chips('rows')).toEqual(['Years (Date)', 'Quarters (Date)', 'Months (Date)', 'Date', 'Region'])
   })
 
+  it('shows Σ Values for two value fields a workbook gives without it, where xlcalc takes it in (the engine loaded before the session)', async () => {
+    const { s } = await report(pivotBook({ table: { values: [{ field: 1, name: 'Sum of Amount' }, { field: 3, name: 'Sum of Year' }] } }))
+    expect((await s.pivotTable('Report', 'PivotTable1'))?.table.columns).toEqual(['values'])
+    await until(() => chips('columns').length === 1)
+    expect(chips('columns')).toEqual(['Σ Values'])
+  })
+
   it("a field's menu in an area moves it, and Value Field Settings opens the sheet's dialog", async () => {
     const { w } = await report()
     await chipMenu('rows', 0)

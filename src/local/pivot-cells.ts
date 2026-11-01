@@ -1,15 +1,12 @@
 // What a PivotTable's cells show, for the sheet's cell menu, filter buttons and dialogs: what each cell is and where Excel's
 // filter buttons are, as xlcalc's `pivotCells` tells it (Excel's Range.PivotCell); the labels of its fields' items, the
 // value fields' formats and the calculated fields and items, which xlcalc does not list.
-import { builtinFormatCode, dateToSerial, displayValue, pivotCells, toLocal, type BookLayout, type CellValue, type PivotCacheField, type PivotCells, type PivotTable, type PivotValue } from 'xlcalc'
-import { cellAddress, parseCell, parseRange, sameName } from 'xlcalc/a1'
+import { builtinFormatCode, dateToSerial, displayValue, pivotBlankLabel, pivotCells, toLocal, type BookLayout, type CellValue, type PivotCacheField, type PivotCells, type PivotTable, type PivotValue } from 'xlcalc'
+import { cellAddress, parseCell, sameName } from 'xlcalc/a1'
 import type { SheetPivotButton, SheetPivotCalculated, SheetPivotCells } from '../contract/source'
 
 /** Excel's short date (built-in format 14), in which a PivotTable shows a date without a format of its own. */
 const SHORT_DATE = 14
-/** The label of the blank item, as xlcalc lays it out in the workbook's language. */
-const BLANK = { en: '(blank)', ru: '(пусто)' }
-
 /** A value of the cache as a cell holds it. */
 function cellValueOf(v: PivotValue): CellValue {
   if (v === null) return null
@@ -22,7 +19,7 @@ function labelsOf(t: PivotTable, f: PivotCacheField, index: number, locale: stri
   const own = t.fields[index]
   const values = f.group?.items ?? f.items ?? []
   const format = own?.numberFormat ?? f.numberFormat
-  const blank = locale.toLowerCase().startsWith('ru') ? BLANK.ru : BLANK.en
+  const blank = pivotBlankLabel(locale)
   return (own?.items ?? []).map((x) => {
     if (x.caption !== undefined) return x.caption
     const v = x.item === undefined ? undefined : values[x.item]
@@ -34,23 +31,18 @@ function labelsOf(t: PivotTable, f: PivotCacheField, index: number, locale: stri
 }
 
 /**
- * The filter buttons from xlcalc's `pivotCells`, each with the field its menu is about. A field's name filters that field;
- * Σ Values' name filters none. Row Labels and Column Labels name no field: their axis is the one whose labels lie under
- * them (the rows over the row labels' columns), their field its first, as Excel's menu starts (none when the axis holds
- * Σ Values alone). A value field's name at the corner filters none. TODO(xlcalc): its next release gives Row Labels' and
- * Column Labels' axis and draws no button at the corner (Excel shows none there); this is the one place to take them.
+ * The filter buttons from xlcalc's `pivotCells`, where Excel draws them, each with the field its menu is about: a field's
+ * name and a report filter's item that field; Row Labels and Column Labels, which name no field, their axis's first, as
+ * Excel's menu starts (none when the axis holds Σ Values alone); Σ Values' name none.
  */
 function buttonsOf(t: PivotTable, got: PivotCells): SheetPivotButton[] {
-  const labels = t.location.areas?.rowLabels ? parseRange(t.location.areas.rowLabels) : null
   const first = (axis: 'rows' | 'columns') => (axis === 'rows' ? t.rows : t.columns)?.find((f): f is number => f !== 'values')
   return got.buttons.flatMap((cell): SheetPivotButton[] => {
     const c = got.cells[cell]
-    const at = parseCell(cell)
-    if (!c || !at) return []
-    if (c.kind === 'field' && c.axis && typeof c.field === 'number') return [{ cell, axis: c.axis, field: c.field }]
-    const axis = c.axis ?? (labels && at.col >= labels.left && at.col <= labels.right ? 'rows' : 'columns')
-    const field = c.kind === 'blank' && axis !== 'pages' ? first(axis) : undefined
-    return [{ cell, axis, ...(field !== undefined ? { field } : {}) }]
+    if (!c?.axis) return []
+    const own = typeof c.field === 'number' ? c.field : undefined
+    const field = c.kind === 'blank' && c.axis !== 'pages' ? first(c.axis) : c.kind === 'valuesField' ? undefined : own
+    return [{ cell, axis: c.axis, ...(field !== undefined ? { field } : {}) }]
   })
 }
 

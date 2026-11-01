@@ -4,10 +4,11 @@
 // of the source's `structure` (xlcalc's `editSlicer`, `editTimeline` and the others), one step of undo.
 import { computed, ref, shallowRef, watch } from 'vue'
 import type { DrawingPlace, PivotRef, TimelineLevel } from 'xlcalc/contract'
+import { DEFAULT_SLICER_SIZE, DEFAULT_TIMELINE_SIZE } from 'xlcalc/text'
 import type { EditOutcome, SheetOp, SheetSlicer, SheetTimeline } from '../contract/source'
 import type { SheetObjectRef } from '../contract/view'
 import type { Commands } from './commands'
-import { placeOfBox } from './drawing'
+import { EMU_PX, placeOfBox } from './drawing'
 import type { Geometry } from './geometry'
 import type { MenuItem } from './menu'
 import type { Pivots } from './pivots'
@@ -43,8 +44,9 @@ export interface SlicersDeps {
   middle: () => { x: number; y: number }
 }
 
-/** Excel's size of a new slicer (144 × 198.75 pt) and timeline (262.5 × 108 pt), in px. */
-const NEW_SIZE = { slicer: { width: 192, height: 265 }, timeline: { width: 350, height: 144 } }
+/** Excel's size of a new slicer and timeline, xlcalc's in EMU, in px. */
+const px = (size: { width: number; height: number }) => ({ width: size.width / EMU_PX, height: size.height / EMU_PX })
+const NEW_SIZE = { slicer: px(DEFAULT_SLICER_SIZE), timeline: px(DEFAULT_TIMELINE_SIZE) }
 /** How far each next slicer or timeline of one insert lies down and to the right of the one before (not measured in Excel). */
 const CASCADE_PX = 20
 

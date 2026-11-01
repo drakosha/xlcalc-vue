@@ -166,11 +166,11 @@ describe('the filter buttons and the commands, gated by canEditPivot', () => {
 
   it("a Filters area's button shows the funnel with one item chosen", async () => {
     const { w, s } = await sales({ rows: [0], pages: [{ field: 1 }], values: [{ field: 3 }] }, 'R!B4')
-    await until(() => !!q('[data-pivot-button="A1"]'))
-    expect(q('[data-pivot-button="A1"]')!.classList.contains('xs-on')).toBe(false)
+    await until(() => !!q('[data-pivot-button="B1"]'))
+    expect(q('[data-pivot-button="B1"]')!.classList.contains('xs-on')).toBe(false)
     expect(await api(w).structure({ op: 'editPivotTable', sheet: 'R', pivot: 'PivotTable1', set: { pages: [{ field: 1, item: 0 }] } })).toMatchObject({ ok: true })
     await until(() => cellText(w, 1, 2) === 'a')
-    await until(() => !!q('[data-pivot-button="A1"]')?.classList.contains('xs-on'))
+    await until(() => !!q('[data-pivot-button="B1"]')?.classList.contains('xs-on'))
     void s
   })
 

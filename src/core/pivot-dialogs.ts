@@ -206,8 +206,9 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   function pickFunction(fn: PivotFunction): void {
     const d = state.value
     if (d?.kind !== 'value' || d.draft.fn === fn) return
-    // TODO(xlcalc): 0.73.1 takes the locale's tag alone (an object throws); its next release takes the Locale object `deps.locale()` gives, which the main entry needs as it registers no locale
-    d.draft.name = renamedValueField(d.draft.name, d.draft.fn, fn, sourceName(d.t, d.index), s.locale.value)
+    // the workbook's Locale object, which the main entry registers nowhere; en-US's words until its module has loaded
+    const locale = deps.locale()
+    d.draft.name = renamedValueField(d.draft.name, d.draft.fn, fn, sourceName(d.t, d.index), typeof locale === 'string' ? undefined : locale)
     d.draft.fn = fn
   }
   /** Another base field: its base item starts again at the list's first, (previous). */

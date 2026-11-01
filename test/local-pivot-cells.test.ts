@@ -15,17 +15,17 @@ async function laid(definition: Parameters<typeof addSales>[0], locale?: string)
 
 describe('localSource: pivotCells', () => {
   // what each cell is comes from xlcalc's pivotCells (Excel's Range.PivotCell); the source passes it through by address
-  it("compact form: Row Labels and Column Labels name no field and have the buttons of their axes, as does the corner value field's name", async () => {
+  it("compact form: Row Labels and Column Labels name no field and have the buttons of their axes; the corner value field's name has none", async () => {
     const s = await laid({ rows: [0, 1], columns: [2], values: [{ field: 3 }] })
     const got = await s.pivotCells('R', 'PivotTable1', ['A3', 'B3', 'A4', 'B4', 'D4', 'A5', 'A6', 'B7', 'A12', 'C12', 'D3', 'F20'])
     expect(got?.labels.slice(0, 3)).toEqual([['East', 'North', 'South'], ['a', 'b'], ['2024', '2025']])
     expect(got?.labels[3]).toBeNull()
-    // Row Labels and Column Labels filter their axis's first field; the corner value field's name filters none
-    expect(got?.buttons).toEqual([{ cell: 'B3', axis: 'columns', field: 2 }, { cell: 'A4', axis: 'rows', field: 0 }, { cell: 'A3', axis: 'rows' }])
+    // Row Labels and Column Labels filter their axis's first field; Excel draws no button on the corner value field's name
+    expect(got?.buttons).toEqual([{ cell: 'B3', axis: 'columns', field: 2 }, { cell: 'A4', axis: 'rows', field: 0 }])
     expect(got?.cells).toMatchObject([
-      { kind: 'valueName', value: 0, button: true },
-      { kind: 'blank', button: true },
-      { kind: 'blank', button: true },
+      { kind: 'valueName', value: 0 },
+      { kind: 'blank', axis: 'columns', button: true },
+      { kind: 'blank', axis: 'rows', button: true },
       { kind: 'item', axis: 'columns', field: 2, item: 0 },
       { kind: 'grand', axis: 'columns', value: 0 },
       { kind: 'item', axis: 'rows', field: 0, item: 0 },
@@ -46,7 +46,6 @@ describe('localSource: pivotCells', () => {
       { cell: 'C3', axis: 'columns', field: 2 },
       { cell: 'A4', axis: 'rows', field: 0 },
       { cell: 'B4', axis: 'rows', field: 1 },
-      { cell: 'A3', axis: 'rows' },
     ])
     expect((await outline.pivotCells('R', 'PivotTable1', ['B6', 'A6', 'B4']))?.cells).toMatchObject([
       { kind: 'item', axis: 'rows', field: 1, item: 0 },
@@ -66,10 +65,10 @@ describe('localSource: pivotCells', () => {
     ])
   })
 
-  it('the value fields down the rows, the value field without any row field, and the Filters area with its buttons on the names', async () => {
+  it('the value fields down the rows, the value field without any row field, and the Filters area with its buttons on the items', async () => {
     const values = await laid({ rows: ['values', 0], values: [{ field: 3 }, { field: 3, function: 'count' }] })
     const down = await values.pivotCells('R', 'PivotTable1', ['A3', 'A4'])
-    expect(down?.cells).toMatchObject([{ kind: 'blank', button: true }, { kind: 'valueName', axis: 'rows', value: 0 }])
+    expect(down?.cells).toMatchObject([{ kind: 'blank', axis: 'rows', button: true }, { kind: 'valueName', axis: 'rows', value: 0 }])
     // Row Labels over Σ Values and Region: Region, the first field of the rows that is no Σ Values
     expect(down?.buttons).toEqual([{ cell: 'A3', axis: 'rows', field: 0 }])
     // Row Labels over Σ Values alone filters no field, nor Region on the columns
@@ -77,14 +76,14 @@ describe('localSource: pivotCells', () => {
     expect((await alone.pivotCells('R', 'PivotTable1'))?.buttons).toEqual([{ cell: 'B3', axis: 'columns', field: 0 }, { cell: 'A4', axis: 'rows' }])
     const columns = await laid({ columns: [1], values: [{ field: 3 }] })
     const got = await columns.pivotCells('R', 'PivotTable1', ['A3', 'B3', 'A5'])
-    expect(got?.cells).toMatchObject([{ kind: 'valueName', value: 0 }, { kind: 'blank', button: true }, { kind: 'valueName', value: 0 }])
+    expect(got?.cells).toMatchObject([{ kind: 'valueName', value: 0 }, { kind: 'blank', axis: 'columns', button: true }, { kind: 'valueName', value: 0 }])
     expect(got?.buttons).toEqual([{ cell: 'B3', axis: 'columns', field: 1 }])
     const s = await laid({ rows: [0, 'values'], pages: [{ field: 1 }, { field: 2 }], values: [{ field: 3 }, { field: 3, function: 'count' }] })
     const pages = await s.pivotCells('R', 'PivotTable1', ['A1', 'B1', 'B2', 'A6', 'B6', 'A7', 'C1'])
-    expect(pages?.buttons).toEqual([{ cell: 'A1', axis: 'pages', field: 1 }, { cell: 'A2', axis: 'pages', field: 2 }, { cell: 'A4', axis: 'rows', field: 0 }])
+    expect(pages?.buttons).toEqual([{ cell: 'B1', axis: 'pages', field: 1 }, { cell: 'B2', axis: 'pages', field: 2 }, { cell: 'A4', axis: 'rows', field: 0 }])
     expect(pages?.cells).toMatchObject([
-      { kind: 'field', axis: 'pages', field: 1, button: true },
-      { kind: 'pageItem', axis: 'pages', field: 1 },
+      { kind: 'field', axis: 'pages', field: 1 },
+      { kind: 'pageItem', axis: 'pages', field: 1, button: true },
       { kind: 'pageItem', axis: 'pages', field: 2 },
       { kind: 'valueName', axis: 'rows', value: 0 },
       { kind: 'value', value: 0 },

@@ -111,9 +111,9 @@ describe('the filter menu of a PivotTable', () => {
     expect((await s.pivotTable('R', 'PivotTable1'))?.table.fields[0]?.sort).toEqual({ order: 'ascending', by: { value: 0 } })
   })
 
-  it("a Filters area's field: Alt+Down on its name, where xlcalc puts the button, opens its list, one item or several shown", async () => {
-    const { w } = await sales({ rows: [0], pages: [{ field: 1 }], values: [{ field: 3 }] }, 'R!A1')
-    await until(() => !!q('[data-pivot-button="A1"]'))
+  it("a Filters area's item: Alt+Down opens its list, one item or several shown", async () => {
+    const { w } = await sales({ rows: [0], pages: [{ field: 1 }], values: [{ field: 3 }] }, 'R!B1')
+    await until(() => !!q('[data-pivot-button="B1"]'))
     await key(w, 'ArrowDown', { altKey: true })
     await settle()
     expect(menu()).not.toBeNull()
@@ -121,7 +121,7 @@ describe('the filter menu of a PivotTable', () => {
     await pick('[data-pfm-ok]')
     await until(() => cellText(w, 1, 2) === 'b')
     expect([cellText(w, 4, 1), cellText(w, 5, 1)]).toEqual(['North', 'South'])
-    await button('A1')
+    await button('B1')
     await set('[data-pfm-multiple]', true)
     expect(listed()[0]).toBe('(Select All)')
     await pick('[data-pfm-ok]')

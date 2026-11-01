@@ -381,9 +381,9 @@ export interface SheetPivotTable {
 /**
  * What a PivotTable's cells show (`SheetSource.pivotCells`): `labels`, per cache field on an axis, its items' labels in the
  * order of the PivotTable field's `items` (a caption, or the value as the PivotTable shows it), null for a field on no
- * axis; `buttons`, the cells with Excel's filter button as xlcalc's `pivotCells` gives them (Row Labels and Column Labels,
- * the fields' names over their labels, a Filters area field's name, a single value field's name at the corner beside the
- * row fields), none with Display field captions and filter drop downs off;
+ * axis; `buttons`, the cells where Excel draws a filter button, as xlcalc's `pivotCells` gives them (Row Labels and Column
+ * Labels, the fields' names over their labels, a Filters area field's item), none with Display field captions and filter
+ * drop downs off;
  * `cells`, what each cell asked for is, null outside the PivotTable.
  */
 export interface SheetPivotCells {
@@ -409,8 +409,8 @@ export interface SheetPivotCalculated {
 
 /**
  * A filter button of a PivotTable: its cell, the axis it filters, and the field (by its index in the cache) its menu is
- * about: a field's name its own, Row Labels and Column Labels their axis's first field. Without `field` (Σ Values' name, a
- * value field's name at the corner, an axis holding Σ Values alone) it opens no menu.
+ * about: a field's name and a Filters area's item their own, Row Labels and Column Labels their axis's first field.
+ * Without `field` (Σ Values' name, an axis holding Σ Values alone) it opens no menu.
  */
 export interface SheetPivotButton {
   cell: string
