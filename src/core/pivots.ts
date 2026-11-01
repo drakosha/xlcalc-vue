@@ -40,12 +40,13 @@ export function usePivots(s: SheetState, cmd: Commands, protection: Protection, 
 
   /**
    * The cells of the sheet's PivotTables that take no typing: the values area without the labels it holds (a PivotTable
-   * without value fields has its labels there), its values and empty cells, as xlcalc refuses them (`part`).
+   * without value fields has its labels there), its values and empty cells, as xlcalc refuses them (`part`). A PivotTable
+   * shrunk to its top-left cell (`#SPILL!`), whose values area is that cell, takes typing there, as xlcalc does.
    */
   const values = computed(() =>
     (s.sheet.value?.pivots ?? []).flatMap((p) => {
       const area = (range: string | undefined) => (range ? parseRange(range) : null)
-      const data = area(p.values)
+      const data = p.values === p.range ? null : area(p.values)
       return data ? [{ data, labels: [area(p.rowLabels), area(p.headers)].filter((r) => !!r) }] : []
     }),
   )

@@ -108,6 +108,15 @@ describe('PivotTables on the sheet', () => {
     await until(() => cellText(w, 5, 1) === 'x')
   })
 
+  it('a PivotTable in #SPILL! takes typing in its top-left cell, as xlcalc does, with no alert at the first key', async () => {
+    const s = open(pivotBook({ table: { location: { range: 'A3', firstHeaderRow: 0, firstDataRow: 0, firstDataColumn: 0 } } }))
+    const w = await mountSheet(s)
+    await goTo(w, 'Report!A3')
+    await key(w, 'F2')
+    expect(alertText()).toBeNull()
+    expect(editorOpen(w)).toBe(true)
+  })
+
   it('without value fields: the labels in its values area take typing, its empty cells refuse at the first key', async () => {
     const s = open(salesBook())
     expect(await s.structure(addSales({ rows: [0], columns: [1] }))).toMatchObject({ ok: true })
