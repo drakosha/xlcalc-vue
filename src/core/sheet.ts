@@ -8,7 +8,7 @@ import { useCellView } from './cell-view'
 import { useConditional } from './cf-commands'
 import { useClip } from './clip'
 import { useCommands, type SheetTarget } from './commands'
-import type { ListSort, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
+import type { ListSort, PivotDialogRequest, SheetLinkEvent, SheetViewApi, SheetViewProps, SheetViewState, SheetWatch, SheetZoomEvent } from '../contract/view'
 import { useEditing, type EditorState } from './editing'
 import { useExplain } from './explain'
 import { useExtras } from './extras'
@@ -38,6 +38,12 @@ import { useSheetLook } from './sheet-look'
 import { cellRect } from '../rect'
 import { useAutoSum } from './autosum'
 import { useCalculation } from './calculation'
+import { usePivots } from './pivots'
+import { usePivotCreate } from './pivot-create'
+import { useSlicers } from './slicers'
+import { usePivotDialogs } from './pivot-dialogs'
+import { usePivotFilter } from './pivot-filter'
+import { usePivotMenu } from './pivot-menu'
 import { useAutoFilter } from './autofilter'
 import { usePainter } from './painter'
 import { useSpellCheck } from './spell-check'
@@ -63,6 +69,7 @@ export interface SheetEmit {
   (e: 'rowOpen', row: { sheet: string; row: number }): void
   (e: 'zoom', change: SheetZoomEvent): void
   (e: 'watches', list: SheetWatch[]): void
+  (e: 'pivotDialog', request: PivotDialogRequest): void
 }
 
 /** How long a message stays. */
@@ -113,7 +120,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const look = useSheetLook(s, notify)
 
   // The workbook's defined names, read once per source and again after a change; the Name Box, Formula AutoComplete and the names' dialogs use them.
-  const names = useNames(s, { reload, reloads: () => reloads, apply: (changes) => w.applyChanges(changes) })
+  const names = useNames(s, { reload, reloads: () => reloads, apply: (changes) => w.applyChanges(changes), scan: f.scanOptions })
   const nav = useNavigation(s, sel, f, { pickSheet, notify, names })
   const watches = useWatch(s, sel, nav, { given: () => props.watches, changed: (list) => emit('watches', list), notify })
   const cellInput = ref<HTMLTextAreaElement | null>(null)
@@ -129,7 +136,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     return true
   }
   const alerts = useValidationAlert()
-  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare, protection })
+  const ed = useEditing(s, w, sel, f, editor, { notify, reload, pickSheet, cellInput, barInput, barKey, point: (e) => point.key(e), alert: alerts.ask, names: () => names.formulaNames.value, nameOrder: names.compare, calls: names.called, protection, pivots: { refuseEdit: (row, col) => pivots.refuseEdit(row, col) } })
   const point = usePoint(s, sel, v, editor, { input: ed.inputOf, show: ed.focusEditor, closeList: ed.ac.close, scan: f.scanOptions, commit: ed.commit, paneAt: panes.cellAtPoint })
   // Excel's data validation on the active cell: its dropdown list and input message; an item goes to the source's pick, which writes it as Excel does, otherwise in as typed, past the rule.
   const validation = useValidation({
@@ -190,7 +197,21 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     openLink: (link) => emit('openLink', link),
   })
   const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
-  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), protection })
+  // the PivotTable Fields pane's requests for a field's dialogs open the sheet's; others go on to the host
+  const pivots = usePivots(s, cmd, protection, { dialog: (request) => (pivotMenu.handles(request) ? void pivotMenu.request(request).then((done) => done || emit('pivotDialog', request)) : emit('pivotDialog', request)), ask: alerts.ask })
+  const pivotDialogs = usePivotDialogs(s, cmd, { pivots, protection, sel, locale: () => f.scanOptions()?.locale ?? s.locale.value })
+  const pivotFilter = usePivotFilter(s, pivotDialogs)
+  const pivotMenu = usePivotMenu(s, pivotDialogs, pivotFilter)
+  const slicers = useSlicers(s, cmd, pivots, {
+    ask: alerts.ask,
+    geo,
+    middle: () => {
+      const pv = split.split.value ? (panes.viewports[panes.active.value] ?? v) : v
+      const b = pv.viewBox.value
+      return pv.cellAt(pv.leadW.value + b.width / 2, pv.headH.value + b.height / 2)
+    },
+  })
+  const menu = useMenu(s, sel, cmd, { pickSheet, tabs: () => tabs.value, outline, clip, filter, explain, frozen: () => v.bookFreeze.value, defineName: { available: () => names.editable.value, run: () => nameDialogs.define() }, cellNotes: () => notes.items(), cellLinks: () => links.items(), cellPivots: () => pivotMenu.items(pivots.items()), cellPivotsLast: () => pivots.lastItems(), object: { items: slicers.items, name: () => slicers.selected.value?.name ?? '' }, protection })
   const merge = useMerge(s, w, sel, cmd, { ask: alerts.ask, blocked: () => protection.blocks('merge') })
   const goto = useGoTo(s, sel, nav, { ask: alerts.ask, names })
   const special = useSpecial(s, sel, { ask: alerts.ask, notify })
@@ -227,6 +248,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   // Excel's Trace Dependents, table commands and Spelling; the arrows end with copy mode's hook, so after `useClip`.
   const trace = useTrace(s, v, w, notify)
   const tables = useTables(s, w, sel, cmd)
+  const pivotCreate = usePivotCreate(s, cmd, { tables, nextSheetName: () => menu.nextSheetName(), goPlace: (text) => nav.goPlace(text) })
   const autoFilter = useAutoFilter(s, sel, cmd, filter, notify)
   const autoSum = useAutoSum(s, ed, { editing: () => editor.value !== null })
   const spell = useSpellCheck(s, sel, ed, notify)
@@ -298,6 +320,19 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     ...cf.api,
     calculate: calc.calculate,
     setCalculation: calc.setMode,
+    refreshAll: calc.refreshAll,
+    refreshPivot: pivots.refresh,
+    insertPivotTable: pivotCreate.open,
+    fieldList: pivots.fieldList,
+    pivotDialog: pivots.dialog,
+    insertSlicer: () => slicers.openInsert(false),
+    insertTimeline: () => slicers.openInsert(true),
+    slicerSettings: slicers.openSettings,
+    reportConnections: slicers.openConnections,
+    pivotCommand: pivotDialogs.command,
+    groupPivot: pivotDialogs.group,
+    ungroupPivot: pivotDialogs.ungroup,
+    pivotDesign: pivotDialogs.design,
     protectSheet: protection.open,
     unprotectSheet: protection.unprotect,
   }
@@ -550,10 +585,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     if (e.target !== s.scroller.value) return
     if (validation.onKey(e)) return
     if (!e.isComposing && (cmd.formatKey(e) || outline.key(e) || barKey(e) || goto.key(e) || fill.key(e) || formulaView.key(e))) return
-    // Excel's Create Table (Ctrl+T, Ctrl+L), Spelling (F7), AutoSum, Paste Special and Calculate (F9, Shift+F9)
-    if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e) || clip.specialKey(e) || calc.key(e))) return
+    // Excel's Create Table (Ctrl+T, Ctrl+L), Spelling (F7), AutoSum, Paste Special, Calculate (F9, Shift+F9), Refresh All (Ctrl+Alt+F5) and Refresh (Alt+F5)
+    if (!e.isComposing && (tables.key(e) || spell.key(e) || autoSum.key(e) || clip.specialKey(e) || calc.key(e) || pivots.key(e))) return
     // Excel's Data > Filter (Ctrl+Shift+L) and Alt+Down on an AutoFilter's header cell
-    if (!e.isComposing && autoFilter.key(e)) return
+    if (!e.isComposing && (autoFilter.key(e) || pivotFilter.key(e))) return
     if (isShortcut(e) && shortcutLetter(e) === 'f' && find.available.value) {
       e.preventDefault()
       find.openFind()
@@ -694,6 +729,9 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       protection.draft.value = null
       createNames.draft.value = null
       special.open.value = false
+      pivotDialogs.state.value = null
+      pivotFilter.menu.value = null
+      pivotFilter.dialog.value = null
       subscribe()
       void init()
     },
@@ -732,6 +770,14 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
       ...(s.defaultFont.value ? { font: s.defaultFont.value } : {}),
       ...(calc.state.value ? { calculation: calc.state.value.mode } : {}),
       ...(calc.pending.value ? { calculationPending: true as const } : {}),
+      ...(calc.canRefresh.value ? { canRefreshAll: true as const } : {}),
+      ...(pivots.active.value ? { pivot: pivots.active.value.name } : {}),
+      ...(pivots.canRefresh.value ? { canRefreshPivot: true as const } : {}),
+      ...(pivots.fieldListShown.value ? { fieldList: true as const } : {}),
+      ...(pivotCreate.available.value ? { canInsertPivot: true as const } : {}),
+      ...(slicers.canInsert.value ? { canInsertSlicer: true as const } : {}),
+      ...(slicers.selected.value ? { object: slicers.selected.value } : {}),
+      ...(pivotDialogs.can.value ? { canEditPivot: true as const } : {}),
       ...(protection.protection.value ? { protection: protection.protection.value } : {}),
       ...(s.areas.value ? { areas: s.areas.value.map(rangeAddress) } : {}),
     }
@@ -766,6 +812,10 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     explain,
     trace,
     tables,
+    pivots,
+    pivotCreate,
+    pivotDialogs,
+    pivotFilter,
     spell,
     views,
     list,
@@ -784,6 +834,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     outline,
     protection,
     menu,
+    slicers,
     goto,
     special,
     symbolOpen,

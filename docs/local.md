@@ -1,6 +1,6 @@
 # In-browser calculation: `@xlcalc/vue/local`
 
-`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.67.0 or later, an optional peer dependency of the package that the host installs: the package is built over 0.67.0 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message.
+`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.74.1 or later, an optional peer dependency of the package that the host installs: the package is built over 0.74.1 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics, CSV files). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message.
 
 ## What the source does
 
@@ -50,15 +50,21 @@ Match mode 3 of `XLOOKUP` and `XMATCH` finds a regular expression; xlcalc reads 
 const source = localSource(book, { regex: 'pcreEngine' }) // XMATCH("(a+)+$", A1, 3) over a long text is #VALUE! at once, as in Excel
 ```
 
+## PivotTables
+
+A workbook's PivotTables (xlcalc 0.71.0's `SheetInput.pivotTables`, read from a file by `openXlsx`) calculate as cells without xlcalc's PivotTable engine, and `GETPIVOTDATA` reads them; refreshing them, laying them out again and typing over their labels need the engine, `xlcalc/pivot`. The source loads it as a chunk of its own and registers it with `registerPivot`, xlcalc keeping it for every session of the page from then on, a pool's threads too: before the workbook is calculated when the workbook has PivotTables or pivot caches, and otherwise before the first operation on PivotTables (`structure`'s `addPivotTable` and the others), so a host showing workbooks without them never downloads it. A PivotTable added that way is laid out at once; it keeps its cells empty, its cache marked `stale`, only until the page has loaded the engine, which is when the engine cannot be loaded. A workbook whose engine fails to load still opens, its PivotTables' cells with their values and `GETPIVOTDATA` working; Refresh and the operations on PivotTables then refuse with a message for the user. The source lists each sheet's PivotTables with their areas (`SheetInfo.pivots`), reads a PivotTable's definition for the PivotTable Fields pane (`pivotTable`), answers what their cells refuse with Excel's alerts, renames a label typed over it, refreshes one through `structure` and all of them through Refresh All, refuses a refresh on a protected sheet, and gates the other operations there by Use PivotTable and PivotChart ([pivot-tables.md](pivot-tables.md)).
+
 ## Calculation options
 
 The workbook's calculation option (xlcalc's `BookInput.calculation`, 0.66.0) is `calculation`; `setCalculation` changes it and `calculate` is F9 and Shift+F9. xlcalc calculates every edit whatever the option says, so in Manual the source keeps showing the values of the last calculation, puts them back over the session's in each window, and shows the session's on `calculate`; with an xlcalc before 0.66.0 the sheet shows calculated values in Manual too. What the source holds and where it differs from Excel are in [calculation.md](calculation.md#in-xlcalcvuelocal).
 
 ## Files
 
+xlsx files are read and written by `openXlsx` and `saveXlsx`, CSV files by `openCsv` and `saveCsv` ([CSV files](#csv-files)).
+
 `openXlsx` reads a file into a workbook and the values stored in it (`cached`), and `saveXlsx` writes the source's workbook with its values. With `locale` (the language the user chose: a tag whose module is loaded on demand, or a locale object), their issue messages are in that language; without it, in English. A tag xlcalc has no module for fails with the library's message.
 
-A workbook does not hold everything a file may: charts, pictures, pivot tables, the theme, page setup. To save it without losing them, open the file with `keep: true` (xlcalc's `openKept`) and save with `over`, the same file's bytes (xlcalc's `writeKept`): the edited workbook is written over the original, which keeps those parts as the file has them, and without edits gives the original bytes back. A change the file cannot take, one that would leave such a part pointing at the wrong cells (a sheet with a pivot table deleted, rows moved under a chart whose references the library cannot write back), is rejected with xlcalc's `KeptRefusal` (`error.name === 'KeptRefusal'`, the reason in its message and its kind in `code`: `links`, `rules`, `moved` and the others of xlcalc's `KeptRefusalCode`), and nothing is written; the host may then save the workbook anew, without `over`, which loses those parts. The source does not list those names. `mode: 'values'` is for a new file only. In Manual, `saveXlsx` calculates first, as Excel recalculates a workbook before saving it, and the file keeps the option ([calculation.md](calculation.md#saving)).
+A workbook does not hold everything a file may: charts, pictures, pivot tables, the theme, page setup. To save it without losing them, open the file with `keep: true` (xlcalc's `openKept`) and save with `over`, the same file's bytes (xlcalc's `writeKept`): the edited workbook is written over the original, which keeps those parts as the file has them, and without edits gives the original bytes back. A change the file cannot take, one that would leave such a part pointing at the wrong cells (a sheet with a pivot table deleted, rows moved under a chart whose references the library cannot write back), is rejected with xlcalc's `KeptRefusal` (`error.name === 'KeptRefusal'`, the reason in its message and its kind in `code`: `links`, `rules`, `moved`, `slicers` (slicers or timelines added or deleted, xlcalc 0.71.0) and the others of xlcalc's `KeptRefusalCode`), and nothing is written; the host may then save the workbook anew, without `over`, which loses those parts. The source does not list those names. `mode: 'values'` is for a new file only. In Manual, `saveXlsx` calculates first, as Excel recalculates a workbook before saving it, and the file keeps the option ([calculation.md](calculation.md#saving)).
 
 A host that stores the workbook `openXlsx` read with `keep: true` (its `book`, or `book()` of a source over it) to save over the file later must open the file again after moving to xlcalc 0.67.0: from 0.67.0 `writeKept` refuses a workbook whose carriers of the file's parts were laid out by another version of the library or for another file, and so every workbook kept from `openKept` 0.66 or earlier, with `KeptRefusal` `code: 'layout'`, until the original file is opened again with `keep: true`. A workbook without such parts (no carriers) is written as before. The refusal is the same as any other: nothing is written, and saving anew, without `over`, still works.
 
@@ -96,10 +102,10 @@ let fileName = 'book.xlsx'
 async function open(event: Event): Promise<void> {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
-  // cached: the values stored in the file, which a circular reference keeps; issues: what the workbook cannot keep
-  const { book, cached, issues } = await openXlsx(file)
+  // cached: the values stored in the file, which a circular reference keeps; file: its name, for CELL and INFO; issues: what the workbook cannot keep
+  const { book, cached, issues, file: named } = await openXlsx(file)
   void source.value?.close()
-  source.value = localSource(book, { session: { cached } })
+  source.value = localSource(book, { session: { cached, file: named } })
   fileName = file.name
   lost.value = groupIssues(issues).map((group) => `${group.message} (${group.count})`)
 }
@@ -127,6 +133,8 @@ onUnmounted(() => void source.value?.close())
 
 A workbook read from a file opens as Excel opens the file, with its stored values passed to the session as `session: { cached }` (xlcalc's `SessionOptions.cached`): a circular reference without iterative calculation is not calculated, and its cells and the cells that depend on them keep the values stored in the file, through edits elsewhere, until a value typed into the cycle breaks it (xlcalc's `docs/cycles.md`). Without them those cells contain 0. The session's workbook records the kept values (`held`), so a workbook obtained with `book()` opens with them again, and `saveXlsx` saves them.
 
+A formula over a function the engine cannot calculate keeps the value its file stores too, as Excel shows it until it calculates the cell (xlcalc 0.68.0, its `docs/formulas.md`, Values a file stores): one over a function of connections (`CUBEVALUE`, `WEBSERVICE`, `STOCKHISTORY` and the others) always, and one over an add-in's function, which xlcalc does not know, because the source opens the session with `unknownFunctions: 'held'` unless the host's `session` says otherwise (`'name'` makes it `#NAME?` at once, as Excel without the add-in calculates it). The cells reading it are calculated from that value. Once the cell is edited or a cell it reads changes, it is calculated: `#NAME?` for an unknown function, the answer without the connection for a function of connections, or the host's answer ([below](#calls-outside-the-workbook)). `openXlsx` names a `File` it reads (`file: { name }`, xlcalc's `BookFile`; a browser does not tell the folder), and with `session: { file }` `CELL("filename")` gives `[Budget.xlsx]Sheet1` and `INFO` knows the file, where without it they are those of a workbook not saved yet. The sheet shows no list of the session's diagnostics, so `CellIssue.fromFile` reaches the host only through xlcalc.
+
 ### Links to other workbooks
 
 A formula that reads another workbook (`='[Prices.xlsx]Sheet1'!A1`) calculates over the values the workbook stores of it, as Excel calculates a file it opens without updating its links; the other file is never read. A host that has read the other workbook gives the links their values with `setExternalBooks(books)` (xlcalc 0.62.0's, every link at once as `BookInput.externalBooks` lists them): a new link after the others, more values of one, values read again. The workbook is calculated again in one step of undo, the changed cells reach the sheet as an edit's, and typed text then finds a new link by its file name. `saveXlsx` with `over` writes a new link as a part of the file and the values of a changed one into its part; removing a link, or moving it among the others, is refused (`KeptRefusal` with `code: 'links'`), since the file's formulas read a link by its number.
@@ -136,6 +144,49 @@ const links = (await source.book()).externalBooks ?? []
 // the values the host read from Prices.xlsx, after the workbook's other links
 await source.setExternalBooks([...links, { target: 'Prices.xlsx', sheets: [{ name: 'Sheet1', cells: { A1: 42, B2: 'kg' } }] }])
 await source.edit([{ sheet: 'Plan', cell: 'C3', text: "='[Prices.xlsx]Sheet1'!A1*2" }]) // 84
+```
+
+### Calls outside the workbook
+
+A host answers the calls of its own functions and of the functions of connections (`CUBEVALUE` and the other cube functions, `RTD`, `WEBSERVICE`, `STOCKHISTORY` and the rest) with xlcalc 0.68.0's `externals.resolve`, passed in `session`. An answer may be a promise. Each call of the session waits for the answers on their way within its `timeoutMs`, and without one until they arrive. Past it the call ends with its cells waiting: they show `#BUSY!` (a cube function's `#GETTING_DATA`), and the source takes each answer as it arrives, after its pending changes, through the session's `settleConnections`, sending the cells it changed as a `changed` event, so the sheet shows the answers without the user doing anything. Closing the source ends the waits: an answer still on its way is taken as none, a call it would lead to is not asked of the host, and nothing is sent after `close()`.
+
+The deadline of every call is the calculator's `timeoutMs`: `pool: { timeoutMs }` for the pool the source starts, or the host's own calculator in `calc` (`createInlineCalc({ timeoutMs })`). `session: { timeoutMs }` bounds only the opening of the workbook; the edits after it then wait for their answers as long as they take.
+
+```ts
+const source = localSource(book, {
+  pool: { timeoutMs: 200 }, // each call waits 200 ms for the answers, then shows #BUSY! and goes on
+  session: { externals: { functions: ['BALANCE'], resolve: ({ name, args, signal }) => (name === 'BALANCE' ? fetchBalance(args[0], signal) : undefined) } },
+})
+```
+
+A call's `timeoutMs` is also its calculation's deadline (xlcalc's `soft_timeout`), not counting the wait: a host gives one that its largest calculation fits in. When taking an answer runs past it, the session stays as it was, its cells still waiting (xlcalc 0.71.3), and the source takes the answers once more with a deadline of a minute, without asking the host again. A failure there, or any other, is written to the console (`console.error`) and the sheet reads its windows again, so it shows what the session holds.
+
+Refresh All (`refreshConnections`, Ctrl+Alt+F5) asks every call again, or with `names` those of the functions named: the source has it only with `externals.resolve`, as values given in advance (`externals.values`) answer nothing anew, and the formulas keeping their file's values would lose them to the answers of a function without its connection. It is not a step of undo ([calculation.md](calculation.md#refresh-all)).
+
+In Manual only the cells that asked show their answers: a cell whose own formula calls the function, shown waiting for it since a formula entered or Calculate Now calculated it, takes the answer, as it ends that calculation. Every other cell waits for a calculation as after an edit: one that shows `#BUSY!` read from a cell that asked, one that reads the answer, and one whose waiting value is held while the sheet shows its value of the last calculation ([calculation.md](calculation.md#manual)). Not measured in Excel.
+
+### CSV files
+
+`openCsv` reads a CSV file into a workbook of one sheet, and `saveCsv` writes a sheet of the source's workbook as a CSV file, through xlcalc's `xlcalc/csv` (0.68.0, its `readCsv` and `writeCsv`), which is loaded only when one of them is called. A CSV file stores no language, so the host gives `locale`, the workbook's: each field is read as text typed into a cell in it, as Excel opens the file, so `1234,5` and `15.03.2026` are a number and a date in ru-RU, and the workbook takes the locale. A tag is loaded on demand, as for `openXlsx`. The result's `delimiter` and `encoding` say how the file was read. The encoding is found as Excel for Windows finds it: a byte order mark, UTF-8, or the locale's Windows code page. Fields are split at the locale's list separator, as Excel splits them (`,` in en-US, `;` in ru-RU: a ru-RU file opened in en-US is one column, as in Excel); a first line `sep=;` names the separator unless the host gives `delimiter`, a `.tsv` name reads at tabs, and `delimiter` names another (xlcalc's guess from the first lines is not used: Excel does not guess). A `File` names the sheet after itself, without the extension, as Excel names it.
+
+One difference from Excel is deliberate: a field Excel takes as a formula (`=`, a `+` or `-` that begins no number, `@` before a call) stays text, and `issues` lists those fields with code `formula`. Excel would make them formulas, and a formula in a file from elsewhere could call the host's functions and the functions of connections (`WEBSERVICE`, `CUBEVALUE`, `RTD`), which xlcalc answers through the host's `externals.resolve`: opening a file would send requests the user did not ask for (CSV injection). `formulas: true` reads them as Excel does, in the locale's formula text, for files the host trusts. The other options are `readCsv`'s (`codesAsText`, `encoding`, `limits`), passed through.
+
+`saveCsv` writes what Excel's CSV UTF-8 writes: each cell's value as it is displayed in the workbook's locale, at its list separator, with the byte order mark, formulas by their values. It writes one sheet, the workbook's active one unless `sheet` names another (the sheet's `state.sheet` is the one on screen), and reports the others in `issues`, as a CSV file holds one sheet. In Manual it calculates first, as `saveXlsx` does. `encoding: 'ansi'` writes Excel's plain CSV in the locale's Windows code page.
+
+```ts
+import { localSource, openCsv, saveCsv } from '@xlcalc/vue/local'
+
+export async function openPrices(file: File): Promise<Uint8Array> {
+  const { book, issues } = await openCsv(file, { locale: 'ru-RU' }) // Prices.csv: a sheet named Prices
+  if (issues.length) console.warn(issues.map((i) => i.message))
+  const source = localSource(book)
+  try {
+    await source.edit([{ sheet: book.sheets[0]!.name, cell: 'D2', text: '=B2*C2' }])
+    return (await saveCsv(source)).data // UTF-8 with its mark, `;` between fields, `1234,5`
+  } finally {
+    await source.close()
+  }
+}
 ```
 
 ## Threads, the workbook and events

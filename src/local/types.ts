@@ -1,5 +1,6 @@
 // Public types of the local source: its options and what it offers beyond `SheetSource`.
-import type { AsyncSessionOptions, BookInput, BookSnapshot, Calc, CalcPoolOptions, ExternalBook, SessionHistory } from 'xlcalc'
+import type { AsyncSessionOptions, BookFile, BookInput, BookSnapshot, Calc, CalcPoolOptions, ExternalBook, SessionHistory } from 'xlcalc'
+import type { XlsxRead } from 'xlcalc/xlsx'
 import type { EditOutcome, SheetSource } from '../contract/source'
 import type { SpellChecker } from '../contract/workbook'
 
@@ -12,7 +13,10 @@ export interface LocalSourceOptions {
   calc?: 'pool' | 'inline' | Calc
   /** Options for the pool the source starts (`calc: 'pool'`), e.g. `spawn` for a bundler that relocates the thread script. */
   pool?: CalcPoolOptions
-  /** Options for the workbook's session (a live clock, limits, deadlines). */
+  /**
+   * Options for the workbook's session (a live clock, limits, deadlines, a file's values in `cached`, its name in `file`, the
+   * host's answers to calls outside the workbook in `externals`); `unknownFunctions` is `held` unless given.
+   */
   session?: AsyncSessionOptions
   /** The maximum number of cells in one window, 20,000 by default. */
   maxCells?: number
@@ -29,7 +33,7 @@ export interface LocalSourceOptions {
 }
 
 /** Methods of `SheetSource` that the local source always has. */
-type Given = 'calculation' | 'calculate' | 'setCalculation' | 'edit' | 'paste' | 'fill' | 'pick' | 'end' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'freeze' | 'protect' | 'tabColor' | 'show' | 'subscribe' | 'validation' | 'functionNames' | 'functionSignature' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues' | 'clear' | 'link' | 'note' | 'names' | 'setNames' | 'namesFromSelection' | 'specialCells' | 'dependents' | 'rules' | 'setRules' | 'table' | 'autoSum' | 'autoSumFunctions' | 'setAutoFilter'
+type Given = 'calculation' | 'calculate' | 'setCalculation' | 'edit' | 'paste' | 'fill' | 'pick' | 'end' | 'undo' | 'redo' | 'structure' | 'layout' | 'format' | 'replace' | 'outline' | 'freeze' | 'protect' | 'tabColor' | 'show' | 'subscribe' | 'validation' | 'functionNames' | 'functionSignature' | 'explain' | 'stats' | 'find' | 'visibleRows' | 'columnValues' | 'clear' | 'link' | 'note' | 'names' | 'setNames' | 'namesFromSelection' | 'specialCells' | 'dependents' | 'rules' | 'setRules' | 'table' | 'autoSum' | 'autoSumFunctions' | 'setAutoFilter' | 'refreshConnections' | 'pivotTable' | 'pivotCells'
 
 /** A sheet source over an xlcalc workbook: every method of `SheetSource`, plus the host's handles on the workbook. */
 export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Required<Pick<SheetSource, Given>> {
@@ -52,4 +56,9 @@ export interface LocalSource extends Omit<SheetSource, Given | 'maxCells'>, Requ
   setExternalBooks(books: ExternalBook[]): Promise<EditOutcome>
   /** Closes the session, and the pool when the source started it. */
   close(): Promise<void>
+}
+
+/** A file read by `openXlsx`: xlcalc's `XlsxRead`, and the file's name for `CELL` and `INFO` when the data was a `File`. */
+export interface OpenedXlsx extends XlsxRead {
+  file?: BookFile
 }

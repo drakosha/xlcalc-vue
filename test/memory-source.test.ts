@@ -58,6 +58,13 @@ describe('memorySource', () => {
     expect(w.links).toEqual({ B2: { href: 'https://example.org' } })
     expect(w.notes).toEqual({ B2: { text: 'n' } })
     expect(w.notice).toBe('computed')
+  })
+
+  it('displays the errors of calls outside the workbook as Excel does (xlcalc 0.68.0)', async () => {
+    const codes = ['CONNECT', 'BLOCKED', 'BUSY', 'GETTING_DATA'] as const
+    const cells = Object.fromEntries(codes.map((error, i) => [`A${i + 1}`, { error }]))
+    const w = (await memorySource({ sheets: [{ name: 'S', cells }] }).window({ sheet: 'S', row: 1, rows: 4, col: 1, cols: 1 })) as SheetWindow
+    expect(w.text.map((r) => r[0])).toEqual(['#CONNECT!', '#BLOCKED!', '#BUSY!', '#GETTING_DATA'])
     const right = (await memorySource(book()).window({ sheet: 'S', row: 1, rows: 3, col: 5, cols: 2 })) as SheetWindow
     expect(right.merges).toEqual(['E1:F2'])
   })

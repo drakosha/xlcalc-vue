@@ -1,6 +1,7 @@
 // Excel's context menus: on row numbers and column letters (insert, delete, sizes, hide, unhide, group, ungroup), on the
-// sheet tabs (insert, delete, rename, move, tab color, hide, unhide) and the "+" after them, on cells (cut, copy, paste, the display
-// filter's Reapply, Freeze Panes and its variants, Trace Precedents, then the notes' and hyperlinks' items); a right click
+// sheet tabs (insert, delete, rename, move, tab color, hide, unhide) and the "+" after them, on cells (cut, copy, paste, a PivotTable's
+// Refresh, the display filter's Reapply, Freeze Panes and its variants, Trace Precedents, the notes' and hyperlinks' items, then a
+// PivotTable's Show Field List); a right click
 // opens one, and so does a long press on a touch screen. Its small dialogs ask for a size, confirm a sheet's deletion,
 // list hidden sheets, ask whether to group rows or columns, and offer a tab's colors.
 import { computed, nextTick, onScopeDispose, ref, shallowRef } from 'vue'
@@ -28,7 +29,7 @@ const PRESS_TAIL_MS = 800
 /** Excel's limit of the Column Width box, in characters; the Row Height box's limit is the tallest row, `MAX_ROW_HEIGHT`. */
 const MAX_WIDTH_CHARS = 255
 
-export type MenuKind = 'rows' | 'columns' | 'sheet' | 'cells'
+export type MenuKind = 'rows' | 'columns' | 'sheet' | 'cells' | 'object'
 
 export interface MenuItem {
   id: string
@@ -37,6 +38,10 @@ export interface MenuItem {
   disabled?: boolean
   /** A separator above it, between groups. */
   group?: boolean
+  /** Its submenu, which opens beside it (a PivotTable's Sort, Filter, Summarize Values By, Show Values As); `run` is not called. */
+  sub?: MenuItem[]
+  /** Shown checked, as the item in force in its list. */
+  checked?: boolean
 }
 
 /** The open menu: where it is and what it acts on (the selected rows or columns, a sheet by its index; the cell menu acts on the selection). */
@@ -70,6 +75,11 @@ export interface MenuDeps {
   /** The cell menu's items for notes and for hyperlinks, which Excel lists before and after Define Name at the menu's end. */
   cellNotes: () => MenuItem[]
   cellLinks: () => MenuItem[]
+  /** The cell menu's items on a PivotTable's cell: Refresh, which Excel lists after Paste, and Show Field List, last. */
+  cellPivots?: () => MenuItem[]
+  cellPivotsLast?: () => MenuItem[]
+  /** The menu of the selected slicer or timeline, with its name for the caption. */
+  object?: { items: () => MenuItem[]; name: () => string }
   /** The sheet's protection: what it disables in the menus of rows and columns, and the tab menu's Protect Sheet and Unprotect Sheet. */
   protection: Protection
 }
@@ -111,9 +121,15 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     open.value = { kind: 'cells', x, y, first: 0, last: 0 }
   }
 
+  /** Opens the menu of the selected slicer or timeline at the pointer. */
+  function openObject(x: number, y: number): void {
+    open.value = { kind: 'object', x, y, first: 0, last: 0 }
+  }
+
   const items = computed<MenuItem[]>(() => {
     const o = open.value
     if (!o) return []
+    if (o.kind === 'object') return deps.object?.items() ?? []
     if (o.kind === 'cells') return cellItems()
     return o.kind === 'sheet' ? sheetItems(o.first) : lineItems(o.kind, o.first, o.last)
   })
@@ -129,6 +145,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
           { id: 'paste', label: m().menuPaste, disabled: !clip.canPaste.value, run: () => void clip.paste() },
           { id: 'pasteSpecial', label: m().menuPasteSpecial, disabled: !clip.canPasteSpecial.value, run: () => void clip.openSpecial() },
         ]
+    out.push(...(deps.cellPivots?.() ?? []))
     if (deps.filter.active.value && deps.filter.available.value) out.push({ id: 'reapply', label: m().menuReapply, run: () => void deps.filter.reapply(), group: true })
     // the display filter's rows on screen are not the sheet's rows, which panes freeze
     if (cmd.can('freeze') && !s.visible.value) {
@@ -144,6 +161,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     const define = deps.defineName
     if (define?.available()) out.push({ id: 'defineName', label: m().menuDefineName, run: define.run, group: true })
     out.push(...deps.cellLinks())
+    out.push(...(deps.cellPivotsLast?.() ?? []))
     return out
   }
   function lineItems(axis: 'rows' | 'columns', first: number, last: number): MenuItem[] {
@@ -213,7 +231,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     return out
   }
   function choose(item: MenuItem): void {
-    if (item.disabled) return
+    if (item.disabled || item.sub) return
     close()
     item.run()
   }
@@ -338,6 +356,7 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     if (!o) return ''
     if (o.kind === 'sheet') return s.sheets.value[o.first]?.name ?? ''
     if (o.kind === 'cells') return sel.selectionRef.value
+    if (o.kind === 'object') return deps.object?.name() ?? ''
     return rangeAddress(o.kind === 'rows' ? { top: o.first, left: 1, bottom: o.last, right: MAX_COLS } : { top: 1, left: o.first, bottom: MAX_ROWS, right: o.last })
   })
 
@@ -353,12 +372,14 @@ export function useMenu(s: SheetState, sel: Selection, cmd: Commands, deps: Menu
     openLines,
     openSheet,
     openCells,
+    openObject,
     linesAvailable,
     sheetsAvailable,
     applySize,
     askOutline,
     applyOutline,
     addSheet,
+    nextSheetName,
     confirmDelete,
     setTabColor,
     unhide,

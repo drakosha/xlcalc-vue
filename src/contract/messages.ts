@@ -1,8 +1,8 @@
 // The interface texts' keys and their arguments; the English and Russian sets are in src/messages.ts.
-import type { ConditionalFormat, IconSetName, SheetProtection } from 'xlcalc/contract'
+import type { ConditionalFormat, IconSetName, PivotFilterType, PivotFunction, PivotGroupBy, PivotShowAs, SheetProtection, TimelineLevel } from 'xlcalc/contract'
 import type { QuickRule } from './conditional'
 
-export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
+export interface SheetMessages extends ConditionalMessages, ProtectionMessages, PivotFieldsMessages, SlicerMessages, PivotMessages {
   back: string
   backEmpty: string
   address: string
@@ -144,10 +144,11 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
   goRefHint: (key: string) => string
   /** Excel's Enter button to the left of the formula bar (its Cancel button is `cancel`): enters the edit and keeps the selection. */
   barEnter: string
-  /** Excel's Insert Function: the fx button, then the dialog's title, search box, category box with its first two items, and the list's label. */
+  /** Excel's Insert Function: the fx button, then the dialog's title, search box with its Go button, category box with its first two items, and the list's label. */
   insertFunction: string
   insertFunctionTitle: string
   insertFunctionSearch: string
+  insertFunctionGo: string
   insertFunctionCategory: string
   insertFunctionRecent: string
   insertFunctionAll: string
@@ -504,6 +505,19 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages {
   /** The status bar's Calculate in Manual while cells wait for a calculation, and its tooltip (a click calculates, as F9). */
   calculateStatus: string
   calculateHint: string
+  /**
+   * Excel's Data > Refresh All on the toolbar, with its key, and its ScreenTip's description; its list's button and items,
+   * Refresh All and Refresh (of the PivotTable under the active cell) with its key.
+   */
+  refreshAll: string
+  refreshAllTip: string
+  refreshAllMenu: string
+  refreshAllItem: string
+  refreshPivot: string
+  /** Refresh in the cell menu of a PivotTable's cell. */
+  menuRefresh: string
+  /** Excel's alert at the first key typed, or F2, on a PivotTable's value cell. */
+  pivotPartAlert: string
 }
 
 /** The Symbol dialog's Subset list: Unicode blocks by Excel's names (`basicLatin` is Basic Latin, `latin1` Latin-1 Supplement). */
@@ -677,4 +691,327 @@ export interface ProtectionMessages {
   fmtLocked: string
   fmtHidden: string
   fmtProtectionNote: string
+}
+
+/** The texts of Insert PivotTable and the PivotTable Fields pane, in Excel for Windows' words. */
+export interface PivotFieldsMessages {
+  /** Insert > PivotTable on the toolbar. */
+  pivotInsert: string
+  /** The PivotTable from table or range dialog: its title, the source's heading and box, the place's heading, its choices and box. */
+  pivotCreateTitle: string
+  pivotCreateSource: string
+  pivotCreateRange: string
+  pivotCreatePlace: string
+  pivotNewSheet: string
+  pivotExistingSheet: string
+  pivotLocation: string
+  /** Excel's alerts for a source or a location the dialog does not take. */
+  pivotSourceBad: string
+  pivotLocationBad: string
+  /** The pane: its title, the heading over the fields, the search box, the heading over the areas, and the areas. */
+  fieldListTitle: string
+  fieldListChoose: string
+  fieldListSearch: string
+  fieldListDrag: string
+  areaFilters: string
+  areaColumns: string
+  areaRows: string
+  areaValues: string
+  /** The value fields' place on Columns or Rows when there are several (Σ Values). */
+  fieldListValues: string
+  /** The arrow beside a field in the list, which opens its sort and filter menu. */
+  fieldListFilter: string
+  /** Defer Layout Update and its Update button. */
+  fieldListDefer: string
+  fieldListUpdate: string
+  /** A field's menu in an area. */
+  fieldMoveUp: string
+  fieldMoveDown: string
+  fieldMoveFirst: string
+  fieldMoveLast: string
+  fieldToFilters: string
+  fieldToRows: string
+  fieldToColumns: string
+  fieldToValues: string
+  fieldRemove: string
+  fieldSettings: string
+  valueFieldSettings: string
+  /** A field's menu in the list. */
+  fieldAddFilters: string
+  fieldAddRows: string
+  fieldAddColumns: string
+  fieldAddValues: string
+  /** The cell menu of a PivotTable's cell: Show Field List and Hide Field List. */
+  menuShowFieldList: string
+  menuHideFieldList: string
+}
+
+/**
+ * The texts of slicers and timelines in Excel for Windows' words: the slicer's header buttons with their keys, the
+ * timeline's levels, periods and selection label, the menu of a slicer or a timeline, and the dialogs Insert Slicers,
+ * Insert Timelines, Slicer Settings and Report Connections.
+ */
+export interface SlicerMessages {
+  /** The slicer's header buttons with their keys, Clear Filter also the timeline's. */
+  slicerMultiSelect: string
+  slicerClearFilter: string
+  /** The timeline's label for no dates chosen, and the level picker's levels. */
+  timelineAllPeriods: string
+  timelineLevel: (level: TimelineLevel) => string
+  /** A quarter's tile (1 to 4), and the twelve months' short names, for the tiles and the selection label. */
+  timelineQuarter: (n: number) => string
+  timelineMonths: string[]
+  /** The selection label: one day; one period of a year; whole years; periods within a year; periods across years. */
+  timelineDay: (day: number, month: string, year: number) => string
+  timelinePeriod: (period: string, year: number) => string
+  timelineYears: (from: string, to: string) => string
+  timelineInYear: (from: string, to: string, year: number) => string
+  timelineAcross: (from: string, fromYear: number, to: string, toYear: number) => string
+  /** The menu of a slicer or a timeline: sorting, Clear Filter from, Multi-Select and Remove with its name, the dialogs. */
+  menuSortAZ: string
+  menuSortZA: string
+  menuClearFilterFrom: (name: string) => string
+  menuMultiSelect: (name: string) => string
+  menuRemoveObject: (name: string) => string
+  menuReportConnections: string
+  menuSlicerSettings: string
+  /** The dialogs Insert Slicers and Insert Timelines, and Excel's alert over a PivotTable without dates. */
+  insertSlicersTitle: string
+  insertTimelinesTitle: string
+  timelineNoDates: string
+  /** Slicer Settings: the title, the names, the Header group, Item Sorting and Filtering with its options. */
+  slicerSettingsTitle: string
+  slicerSourceName: string
+  slicerFormulaName: string
+  slicerName: string
+  slicerHeader: string
+  slicerDisplayHeader: string
+  slicerCaption: string
+  slicerSorting: string
+  slicerAscending: string
+  slicerDescending: string
+  slicerCustomLists: string
+  slicerHideNoData: string
+  slicerMarkNoData: string
+  slicerNoDataLast: string
+  slicerShowMissing: string
+  /** Report Connections: the title with the slicer's or timeline's name, the line above the list, and the list's columns. */
+  reportConnectionsTitle: (name: string) => string
+  reportConnectionsPrompt: string
+  reportConnectionsName: string
+  reportConnectionsSheet: string
+}
+
+/** The tabs of Excel's PivotTable Options dialog that the workbook models. */
+export type PivotOptionsTab = 'layout' | 'totals' | 'display' | 'data' | 'altText'
+
+/** The comparisons of a PivotTable's label, value and date filters, as their menus and dialogs list them. */
+export type PivotCompare = 'equal' | 'notEqual' | 'beginsWith' | 'notBeginsWith' | 'endsWith' | 'notEndsWith' | 'contains' | 'notContains' | 'greaterThan' | 'greaterThanOrEqual' | 'lessThan' | 'lessThanOrEqual' | 'between' | 'notBetween' | 'before' | 'beforeOrEqual' | 'after' | 'afterOrEqual'
+
+/** The texts of Excel's dialogs and menus over a PivotTable: the cell menu, Value Field Settings, Field Settings, the filter menu and its dialogs, Grouping, Calculated Field and Item, PivotTable Options, and the ribbon's PivotTable Analyze and Design commands. */
+export interface PivotMessages {
+  /** The cell menu: Sort, Filter, Subtotal "Region", Group…, Ungroup…, Remove "Region", Summarize Values By and Show Values As with their More Options…, PivotTable Options…, Number Format…. */
+  pivotMenuSort: string
+  pivotMenuFilter: string
+  pivotMenuSubtotal: (field: string) => string
+  pivotMenuGroup: string
+  pivotMenuUngroup: string
+  pivotMenuRemove: (name: string) => string
+  pivotMenuSummarize: string
+  pivotMenuSummarizeMore: string
+  pivotMenuShowAs: string
+  pivotMenuShowAsMore: string
+  pivotMenuOptions: string
+  pivotMenuNumberFormat: string
+  /** Delete PivotTable, after Refresh. */
+  pivotMenuDelete: string
+  /** The cell menu's Filter: Label Filters… and Value Filters…, which open their dialogs. */
+  pivotLabelFiltersMenu: string
+  pivotValueFiltersMenu: string
+  /** The cell menu's Filter: Keep Only Selected Items, Hide Selected Items. */
+  pivotKeepSelected: string
+  pivotHideSelected: string
+  /** Summarize Values By's functions, as the dialog and the menu list them. */
+  pivotFunction: (fn: PivotFunction) => string
+  /** Show Values As's calculations; the menu's take an ellipsis where they ask for a base field. */
+  pivotShowAs: (calc: PivotShowAs) => string
+  pivotShowAsMenu: (calc: PivotShowAs) => string
+  /** Value Field Settings. */
+  pivotValueTitle: string
+  pivotSourceName: string
+  pivotCustomName: string
+  pivotSummarizeTab: string
+  pivotShowAsTab: string
+  pivotSummarizeBy: string
+  pivotSummarizeHint: string
+  pivotShowValuesAs: string
+  pivotBaseField: string
+  pivotBaseItem: string
+  pivotPrevious: string
+  pivotNext: string
+  pivotNumberFormat: string
+  /** Field Settings. */
+  pivotFieldTitle: string
+  pivotSubtotalsTab: string
+  pivotLayoutTab: string
+  pivotSubtotals: string
+  pivotSubtotalsAuto: string
+  pivotSubtotalsNone: string
+  pivotSubtotalsCustom: string
+  pivotSubtotalsPick: string
+  pivotFilterGroup: string
+  pivotIncludeNew: string
+  pivotLayoutGroup: string
+  pivotOutlineForm: string
+  pivotCompactForm: string
+  pivotSubtotalTop: string
+  pivotTabularForm: string
+  pivotRepeatLabels: string
+  pivotBlankLine: string
+  pivotShowEmpty: string
+  pivotPrintGroup: string
+  pivotPageBreak: string
+  /** The filter menu of a row or column field's button. */
+  pivotSelectField: string
+  pivotSortAsc: string
+  pivotSortDesc: string
+  /** A field of dates' sorts. */
+  pivotSortOldest: string
+  pivotSortNewest: string
+  pivotMoreSort: string
+  pivotClearFrom: (field: string) => string
+  pivotLabelFilters: string
+  pivotValueFilters: string
+  pivotDateFilters: string
+  pivotClearFilter: string
+  pivotSearch: string
+  pivotSelectAll: string
+  pivotMultipleItems: string
+  pivotAll: string
+  /** A comparison in a filter's submenu (with an ellipsis) and in its dialog's list. */
+  pivotCompareMenu: (compare: PivotCompare, kind: 'label' | 'value' | 'date') => string
+  pivotCompare: (compare: PivotCompare, kind: 'label' | 'value' | 'date') => string
+  pivotTop10Menu: string
+  /** Date Filters' fixed periods, All Dates in the Period, its quarters (1 to 4) and months (1 to 12). */
+  pivotDatePeriod: (type: PivotFilterType) => string
+  pivotAllDates: string
+  /** Date Filters' last item, its dialog. */
+  pivotCustomFilter: string
+  pivotQuarter: (n: number) => string
+  pivotMonth: (n: number) => string
+  /** The filters' dialogs: Label Filter (Region), Value Filter, Date Filter, Top 10 Filter. */
+  pivotLabelFilterTitle: (field: string) => string
+  pivotValueFilterTitle: (field: string) => string
+  pivotDateFilterTitle: (field: string) => string
+  pivotTop10Title: (field: string) => string
+  pivotShowLabel: string
+  pivotShowValue: string
+  pivotShowDate: string
+  pivotAnd: string
+  pivotWildOne: string
+  pivotWildMany: string
+  pivotWholeDays: string
+  pivotShow: string
+  pivotTop: string
+  pivotBottom: string
+  pivotTopItems: string
+  pivotTopPercent: string
+  pivotTopSum: string
+  pivotBy: string
+  /** The Sort (Region) dialog of More Sort Options…. */
+  pivotSortTitle: (field: string) => string
+  pivotSortOptions: string
+  pivotSortManual: string
+  pivotSortAscBy: string
+  pivotSortDescBy: string
+  pivotSortSummary: string
+  pivotSortSays: (by: string, ascending: boolean) => string
+  /** Grouping. */
+  pivotGroupTitle: string
+  pivotGroupAuto: string
+  pivotGroupStart: string
+  pivotGroupEnd: string
+  /** By: the periods' list of dates, the interval of numbers. */
+  pivotGroupBy: (dates: boolean) => string
+  pivotGroupDays: string
+  pivotPeriod: (by: Exclude<PivotGroupBy, 'numbers'>) => string
+  /** The text a box of a dialog does not take. */
+  pivotBadNumber: string
+  pivotBadDate: string
+  /** Insert Calculated Field and Insert Calculated Item. */
+  pivotCalcFieldTitle: string
+  pivotCalcItemTitle: (field: string) => string
+  pivotName: string
+  pivotFormula: string
+  pivotFields: string
+  pivotItems: string
+  pivotInsertField: string
+  pivotInsertItem: string
+  /** The names a new calculated field and a new calculated item start with (Field1, Formula1). */
+  pivotCalcFieldName: (n: number) => string
+  pivotCalcItemName: (n: number) => string
+  pivotAdd: string
+  pivotModify: string
+  pivotDelete: string
+  /** PivotTable Options. */
+  pivotOptionsTitle: string
+  pivotTableName: string
+  pivotOptionsTab: (tab: PivotOptionsTab) => string
+  pivotMerge: string
+  pivotIndent: string
+  pivotIndentUnit: string
+  pivotPageOrder: string
+  pivotDownOver: string
+  pivotOverDown: string
+  pivotPagesPerColumn: string
+  pivotPagesPerRow: string
+  pivotFormatGroup: string
+  pivotErrorShow: string
+  pivotEmptyShow: string
+  pivotAutofit: string
+  pivotPreserve: string
+  pivotGrandTotalsGroup: string
+  pivotGrandRows: string
+  pivotGrandColumns: string
+  pivotFiltersGroup: string
+  pivotSubtotalHidden: string
+  pivotMultipleFilters: string
+  pivotSortingGroup: string
+  pivotCustomLists: string
+  pivotDisplayGroup: string
+  pivotShowDrill: string
+  pivotFieldCaptions: string
+  pivotClassic: string
+  pivotValuesRow: string
+  pivotDataGroup: string
+  pivotEnableDrill: string
+  pivotAltTitle: string
+  pivotAltDescription: string
+  /** The ribbon's PivotTable Analyze commands: PivotTable Options, Group Selection, Ungroup, Group Field, Fields, Items, & Sets with its Calculated Field… and Calculated Item…. */
+  pivotAnalyzeOptions: string
+  pivotGroupSelection: string
+  pivotUngroup: string
+  pivotGroupField: string
+  pivotFieldsItems: string
+  pivotCalcFieldMenu: string
+  pivotCalcItemMenu: string
+  /** The ribbon's Design commands: Subtotals, Grand Totals, Report Layout and Blank Rows with their lists. */
+  pivotSubtotalsMenu: string
+  pivotSubtotalsOff: string
+  pivotSubtotalsBottom: string
+  pivotSubtotalsTop: string
+  pivotGrandMenu: string
+  pivotGrandOff: string
+  pivotGrandOn: string
+  pivotGrandRowsOnly: string
+  pivotGrandColumnsOnly: string
+  pivotLayoutMenu: string
+  pivotShowCompact: string
+  pivotShowOutline: string
+  pivotShowTabular: string
+  pivotRepeatAll: string
+  pivotRepeatNone: string
+  pivotBlankMenu: string
+  pivotBlankInsert: string
+  pivotBlankRemove: string
 }

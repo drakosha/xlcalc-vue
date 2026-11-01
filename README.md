@@ -2,7 +2,7 @@
 
 A Vue 3 spreadsheet component for [xlcalc](https://github.com/drakosha/xlcalc) workbooks: Excel in the browser, with the workbook's styles, formulas, editing, context menus, Find and Replace, data validation and outline. Wherever the component could behave differently from Excel, it follows Excel's behavior as measured by xlcalc.
 
-The component accesses its data only through a `SheetSource`. Two sources are included: `memorySource`, an in-memory workbook for examples and tests, and `localSource` from `@xlcalc/vue/local`, which calculates an xlcalc workbook in a Web Worker and reads and writes xlsx files. A workbook calculated on the host's server is served to every viewer by `@xlcalc/vue/server` and reached from the browser by `@xlcalc/vue/remote`. MIT license.
+The component accesses its data only through a `SheetSource`. Two sources are included: `memorySource`, an in-memory workbook for examples and tests, and `localSource` from `@xlcalc/vue/local`, which calculates an xlcalc workbook in a Web Worker and reads and writes xlsx and CSV files. A workbook calculated on the host's server is served to every viewer by `@xlcalc/vue/server` and reached from the browser by `@xlcalc/vue/remote`. MIT license.
 
 ## Install
 
@@ -54,6 +54,8 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Freeze Panes, zoom, Watch Window, Reapply, Show Formulas, Trace Precedents and Trace Dependents](docs/view.md)
 - [Calculation options](docs/calculation.md): Automatic and Manual, Calculate Now (F9) and Calculate Sheet (Shift+F9), the status bar's Calculate.
 - [Tables](docs/tables.md): Create Table, Convert to Range, Delete Table.
+- [PivotTables](docs/pivot-tables.md): where they lie on the sheet, Refresh and Refresh All, what their cells take, protection.
+- [Slicers and timelines](docs/slicers.md): drawn over the cells, choosing items and periods, Insert Slicer and Insert Timeline, Slicer Settings, Report Connections.
 - [The AutoFilter](docs/autofilter.md): Data > Filter, the buttons on the header row, the display filter over its rows.
 - [Hyperlinks, notes, Clear and the default font](docs/links-notes.md)
 - [Find and Replace](docs/find-replace.md)
@@ -64,7 +66,7 @@ More of these, from a table the page already has to a workbook on your server, a
 - [Formula AutoComplete](docs/autocomplete.md)
 - [Defined names](docs/names.md): the Name Box, Define Name, the Name Manager.
 - [The formatting toolbar and Format Cells](docs/toolbar.md)
-- [In-browser calculation](docs/local.md): how `@xlcalc/vue/local` works, xlsx files.
+- [In-browser calculation](docs/local.md): how `@xlcalc/vue/local` works, xlsx and CSV files.
 - [A workbook on a server](docs/remote.md): `@xlcalc/vue/server` and `@xlcalc/vue/remote`, access by viewer, several viewers editing one workbook.
 - [List mode](docs/list-mode.md): the host's list (a view or a report) displayed on the sheet, sorted by the host, with drill-down and a totals row.
 - [Example app](docs/example-app.md) and [browser tests](docs/checks.md)

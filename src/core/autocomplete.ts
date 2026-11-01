@@ -11,10 +11,11 @@ import { listStep, stepIndex } from './list-keys'
 /** Items the list displays at once; Page Up and Page Down move by them. */
 export const FUNCTION_ROWS = 8
 
-/** An item of the list: a function, or a defined name, which Excel lists with its own icon and inserts without a parenthesis. */
+/** An item of the list: a function, or a defined name, which Excel lists with its own icon and inserts without a parenthesis unless it holds a LAMBDA (`call`), which a formula calls like a function. */
 export interface CompletionItem {
   text: string
   kind: 'function' | 'name'
+  call?: true
 }
 
 /** A source's function names (with their uppercase forms, for matching), requested once; `list` is null while they load. */
@@ -36,6 +37,8 @@ export interface AutocompleteDeps {
   /** The defined names visible on the sheet in alphabetical order, and that order, in which they join the functions; none without them. */
   names?: () => readonly string[]
   nameOrder?: (a: string, b: string) => number
+  /** Whether a defined name holds a LAMBDA: it is inserted with "(", as a function; none without it. */
+  calls?: (name: string) => boolean
 }
 
 /** The functions in their order with the names merged in among them alphabetically, as Excel's list shows them together. */
@@ -101,7 +104,7 @@ export function useAutocomplete(deps: AutocompleteDeps) {
     const at = (list || named.length) && opts && caret <= text.length ? nameAt(text, caret, opts) : null
     const typed = at?.typed.toUpperCase()
     const fns = typed && list ? list.filter((n) => n.key.startsWith(typed)).map((n): CompletionItem => ({ text: n.name, kind: 'function' })) : []
-    const nms = typed ? named.filter((n) => n.toUpperCase().startsWith(typed)).map((n): CompletionItem => ({ text: n, kind: 'name' })) : []
+    const nms = typed ? named.filter((n) => n.toUpperCase().startsWith(typed)).map((n): CompletionItem => (deps.calls?.(n) ? { text: n, kind: 'name', call: true } : { text: n, kind: 'name' })) : []
     const got = mergeNames(fns, nms, deps.nameOrder ?? ((a, b) => a.localeCompare(b)))
     if (!at || !got.length) return close()
     items.value = got
@@ -138,9 +141,10 @@ export function useAutocomplete(deps: AutocompleteDeps) {
     const item = items.value[i]
     if (!ed || !span || item === undefined) return false
     const rest = ed.text.slice(span.to)
-    const paren = item.kind === 'function' && !rest.startsWith('(') ? '(' : ''
+    const called = item.kind === 'function' || !!item.call
+    const paren = called && !rest.startsWith('(') ? '(' : ''
     ed.text = ed.text.slice(0, span.from) + item.text + paren + rest
-    ed.caret = span.from + item.text.length + (item.kind === 'function' ? 1 : 0)
+    ed.caret = span.from + item.text.length + (called ? 1 : 0)
     close()
     last = null
     deps.show()

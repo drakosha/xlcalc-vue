@@ -1,12 +1,14 @@
 // Excel's Point mode: while a formula is being edited and the caret is where a reference may go (`refAt` returns `insert`),
 // a press on the sheet inserts the cell's address at the caret, a drag a range's, a column letter or a row number an entire
 // column's or row's; in an editor opened by typing over a cell an arrow does what `refAt` says (a reference to the cell next
-// to the edited one, the text entered, or nothing), and the next press or key before anything is typed moves the reference as on the sheet.
+// to the edited one, the text entered, or nothing), and the next press or key before anything is typed moves the reference as on the sheet;
+// F4 cycles the pointed reference's `$` at both ends, which extending it keeps and moving it drops, as in Excel for Mac.
 import type { Ref } from 'vue'
 import { MAX_COLS, MAX_ROWS, rangeAddress } from 'xlcalc/a1'
 import type { CellPosition, PointAction, ScanOptions } from 'xlcalc/contract'
 import { refAt } from 'xlcalc/text'
 import { rectOf } from '../rect'
+import { anchorRef, nextOfRef, type Anchoring } from '../ref-cycle'
 import type { EditorState } from './editing'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
@@ -36,8 +38,8 @@ interface PointDeps {
 }
 
 export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref<EditorState | null>, deps: PointDeps) {
-  /** The reference the last press wrote: its editor, its position in the draft, the draft with it, what it covers and where it started. */
-  let run: { ed: EditorState; from: number; to: number; text: string; kind: PointKind; anchor: CellPosition; far: CellPosition } | null = null
+  /** The reference the last press wrote: its editor, its position in the draft, the draft with it, what it covers, where it started and the `$` F4 gave it, which extending it keeps. */
+  let run: { ed: EditorState; from: number; to: number; text: string; kind: PointKind; anchor: CellPosition; far: CellPosition; abs?: Anchoring } | null = null
   let dragging = false
   /** The last press was handled: its mousedown keeps the editor's focus, and its click and double click select nothing. */
   let taken = false
@@ -58,8 +60,9 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     const act = last ? null : actionAt(ed.text, start)
     if (act && act.action !== 'insert') return false
     const [first, far] = corners(at.kind, at.row, at.col)
-    const anchor = last && e.shiftKey && last.kind === at.kind ? last.anchor : first
-    run = last ? { ...last, kind: at.kind, anchor } : { ...begin(ed, start, end, act), kind: at.kind, anchor, far }
+    const extend = last && e.shiftKey && last.kind === at.kind
+    const anchor = extend ? last.anchor : first
+    run = last ? { ...last, kind: at.kind, anchor, abs: extend ? last.abs : undefined } : { ...begin(ed, start, end, act), kind: at.kind, anchor, far }
     write(far)
     taken = dragging = true
     return true
@@ -88,6 +91,7 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     const way = ARROWS[e.key]
     const ed = editor.value
     const el = deps.input()
+    if (e.key === 'F4') return cycle(e)
     const moves = MOVES.has(e.key) && !e.ctrlKey && !e.metaKey
     if ((!way && !moves) || !ed || !el || e.altKey || ed.mode !== 'enter' || ed.place !== 'cell') return false
     const start = el.selectionStart ?? ed.text.length
@@ -118,7 +122,7 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
     const point = (p: CellPosition | null): void => {
       if (!p || mine !== seq || editor.value !== ed || ed.text !== text) return
       const anchor = extend ? (last ? last.anchor : from) : p
-      run = last ? { ...last, kind: 'cells', anchor } : { ...begin(ed, start, end, action), kind: 'cells', anchor, far: p }
+      run = last ? { ...last, kind: 'cells', anchor, abs: extend ? last.abs : undefined } : { ...begin(ed, start, end, action), kind: 'cells', anchor, far: p }
       write(p)
       if (!s.visible.value) s.stretch(p.row, p.col)
       sel.revealCell(p.row, p.col)
@@ -144,12 +148,30 @@ export function usePoint(s: SheetState, sel: Selection, v: Viewport, editor: Ref
       return
     }
     const a = run.anchor
-    const ref = rangeAddress(rectOf(a, far))
+    const plain = rangeAddress(rectOf(a, far))
+    const ref = (run.abs && anchorRef(plain, run.abs)) || plain
     ed.text = run.text.slice(0, run.from) + ref + run.text.slice(run.to)
     run = { ...run, to: run.from + ref.length, text: ed.text, far }
     ed.caret = run.to
     deps.closeList()
     deps.show()
+  }
+  /** F4 on the reference just pointed: both its ends cycle together, as Excel cycles a pointed range; true when handled. */
+  function cycle(e: KeyboardEvent): boolean {
+    const ed = editor.value
+    const el = deps.input()
+    if (!ed || !el || e.altKey || e.shiftKey || e.ctrlKey || e.metaKey) return false
+    const last = going(ed, el.selectionStart ?? ed.text.length, el.selectionEnd ?? ed.text.length)
+    const text = last && ed.text.slice(last.from, last.to)
+    const abs = text ? nextOfRef(text) : null
+    const ref = text && abs && anchorRef(text, abs)
+    if (!last || !abs || !ref) return false
+    e.preventDefault()
+    ed.text = last.text.slice(0, last.from) + ref + last.text.slice(last.to)
+    run = { ...last, to: last.from + ref.length, text: ed.text, abs }
+    ed.caret = run.to
+    deps.show()
+    return true
   }
   const up = (): void => void (dragging = false)
   /** The mousedown of a handled press must not move focus: the editor would lose it and commit. */

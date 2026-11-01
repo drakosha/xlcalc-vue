@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, SelectionLabels, SheetProtection, SpecialCells, StructureOp, SplitPanes, StylePatch, WorkbookStatistics } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, PivotCache, PivotCell, PivotRef, PivotTable, SelectionLabels, SheetProtection, Slicer, SlicerCache, SpecialCells, StructureOp, SplitPanes, StylePatch, Timeline, TimelineCache, WorkbookStatistics } from 'xlcalc/contract'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
@@ -23,7 +23,10 @@ export interface SheetSource {
   undo?(): Promise<EditOutcome>
   /** Redoes the last undone change. */
   redo?(): Promise<EditOutcome>
-  /** A structure operation; without it there is no structure menu. */
+  /**
+   * A structure operation; without it there is no structure menu. xlcalc's operations on PivotTables are among them: the
+   * sheet sends Excel's Refresh (Alt+F5) of the PivotTable under the active cell as `refreshPivots` naming it.
+   */
   structure?(op: SheetOp): Promise<EditOutcome>
   /** Column widths and row heights set with the mouse; without it a changed width lasts until the page reloads. */
   layout?(edit: LayoutChange): Promise<EditOutcome>
@@ -165,6 +168,27 @@ export interface SheetSource {
    * their values, returned as `changes` and sent as a `changed` event; not a step of undo. Without it there is no F9.
    */
   calculate?(sheet?: string): Promise<EditOutcome>
+  /**
+   * Excel's Data > Refresh All (Ctrl+Alt+F5): the workbook's calls outside itself asked again, of the functions `names`
+   * (upper-case) or of every one (xlcalc's `refreshConnections`), and the cells they change returned as `changes` and sent as
+   * a `changed` event; answers still on their way arrive as `changed` events. Without `names` its PivotTables are refreshed
+   * from their sources too, after the calls (xlcalc's `refreshPivots`), and the sheets are read again. Asking the calls again
+   * is not a step of undo, as in Excel; refreshing the PivotTables is one, as xlcalc's. Without it there is no Refresh All.
+   */
+  refreshConnections?(names?: string[]): Promise<EditOutcome>
+  /**
+   * The PivotTable `name` on `sheet` as xlcalc holds it, with its pivot cache's source and fields, for the PivotTable Fields
+   * pane and the dialogs over a PivotTable; null when the sheet has no such PivotTable. Read again after a `reload` or
+   * `sheets` event. Without it there is no PivotTable Fields pane.
+   */
+  pivotTable?(sheet: string, name: string, signal?: AbortSignal): Promise<SheetPivotTable | null>
+  /**
+   * What the cells of the PivotTable `name` on `sheet` show, as it was last laid out: its fields' items as labels, the
+   * header cells with Excel's filter buttons, and what each of `cells` is (an item, a total, a value, a header), for the
+   * cell menu, the filter buttons and the dialogs over a PivotTable; null when the sheet has no such PivotTable. Without
+   * it a PivotTable's cells have no buttons and its cell menu no commands but Refresh and Field List.
+   */
+  pivotCells?(sheet: string, name: string, cells?: string[], signal?: AbortSignal): Promise<SheetPivotCells | null>
 }
 
 /**
@@ -264,7 +288,150 @@ export interface SheetInfo {
   protection?: SheetProtection
   /** Excel's split window (View > Split) where the sheet has no frozen panes, which take its place. */
   split?: SheetSplit
+  /**
+   * The sheet's PivotTables as last laid out, from which the sheet finds the PivotTable under a cell for its commands
+   * (Refresh); a sheet without them has none. A change that lays one out again elsewhere sends `reload` or `sheets`.
+   */
+  pivots?: SheetPivot[]
+  /**
+   * The sheet's slicers and timelines over PivotTables, drawn over the cells at their places with the choice they hold; a
+   * sheet without them has none. An operation on them, a refresh or an undo sends `reload` or `sheets`, and they are read again.
+   */
+  slicers?: SheetSlicer[]
+  timelines?: SheetTimeline[]
 }
+
+/**
+ * A PivotTable on a sheet by its areas, each a range as Excel writes it: `range` the table without its Filters area (Excel's
+ * `TableRange1`); `filters` its Filters area above it, as wide as its filters, without the blank row between (`PageRange`);
+ * `headers` the table's rows above its values: the value fields' and column fields' headers and the column labels;
+ * `rowLabels` the row labels left of the values, down to the grand total; `values` the values with their totals
+ * (`DataBodyRange`), which Excel gives a PivotTable without value fields too: the cells under the header rows, the labels
+ * themselves with no field on columns. These are xlcalc's `PivotLocation.areas`; an area the PivotTable does not show is
+ * absent (`headers` and `rowLabels` of one not laid out or in `#SPILL!`). The sheet refuses typing at the first key on a
+ * cell of `values` outside `rowLabels` and `headers`.
+ */
+export interface SheetPivot {
+  /** Unique among the sheet's PivotTables: an operation on the PivotTable names it by the sheet and this name (xlcalc's `PivotRef`). */
+  name: string
+  range: string
+  filters?: string
+  headers?: string
+  rowLabels?: string
+  values?: string
+  /** The `id` of its pivot cache: the PivotTables a slicer or a timeline can filter together share it (Report Connections). */
+  cache?: number
+  /** The fields of its cache that Insert Slicer offers, in the cache's order, a field of dates marked for Insert Timeline. */
+  fields?: SheetPivotField[]
+}
+
+/** A field of a PivotTable's cache by its name in the source, as a slicer or a timeline names it; `dates` when it holds dates. */
+export interface SheetPivotField {
+  name: string
+  dates?: true
+}
+
+/**
+ * A slicer on a sheet: xlcalc's `Slicer` (its name, its cache's name, `caption`, `showCaption`, `place`, `columns`,
+ * `rowHeight` in EMU, `startItem`, `locked` for Excel's Locked, `positionLocked` for Disable resizing and moving, `style`) with what its cache holds: the source field, the PivotTables it
+ * filters, their pivot cache, the sorting and display of the items, and the items in the slicer's order. A slicer
+ * without `place` is not drawn.
+ */
+export interface SheetSlicer extends Slicer, Pick<SlicerCache, 'sort' | 'customListSort' | 'noData' | 'showMissing'> {
+  field: string
+  pivots: PivotRef[]
+  /** The pivot cache's `id`; absent for a table's slicer, whose items the sheet does not change. */
+  pivotCache?: number
+  items: SheetSlicerItem[]
+}
+
+/**
+ * An item of a slicer, in the slicer's order (with data first unless its cache says otherwise): `item` its index in the
+ * cache field's items, which `editSlicer` names it by; `label` as the slicer shows it; `selected` false when not chosen;
+ * `noData` when no record of it passes the other filters and the slicer marks such items.
+ */
+export interface SheetSlicerItem {
+  item: number
+  label: string
+  selected?: false
+  noData?: true
+}
+
+/**
+ * A timeline on a sheet: xlcalc's `Timeline` (its name, its cache's name, `caption`, `place`, `level`, `selectionLevel`,
+ * what it shows, `scrollPosition`, `style`) with what its cache holds: the date field, the PivotTables it filters, their
+ * pivot cache, the dates chosen (`selection`, none for all periods) and the dates it spans (`bounds`, whole years).
+ */
+export interface SheetTimeline extends Timeline, Pick<TimelineCache, 'selection' | 'bounds'> {
+  field: string
+  pivots: PivotRef[]
+  pivotCache: number
+}
+
+/**
+ * A PivotTable's definition (`SheetSource.pivotTable`): xlcalc's `PivotTable` without its saved lines, its fields on the
+ * axes and its value fields by the index of a cache field, and its pivot cache without the rows it saved: the source, and
+ * the fields with their items and the kinds of value each holds (`PivotCacheField.facts`), in the cache's order.
+ */
+export interface SheetPivotTable {
+  table: Omit<PivotTable, 'rowLines' | 'columnLines'>
+  cache: Omit<PivotCache, 'records'>
+}
+
+/**
+ * What a PivotTable's cells show (`SheetSource.pivotCells`): `labels`, per cache field on an axis, its items' labels in the
+ * order of the PivotTable field's `items` (a caption, or the value as the PivotTable shows it), null for a field on no
+ * axis; `buttons`, the cells where Excel draws a filter button, as xlcalc's `pivotCells` gives them (Row Labels and Column
+ * Labels, the fields' names over their labels, a Filters area field's item), none with Display field captions and filter
+ * drop downs off;
+ * `cells`, what each cell asked for is, null outside the PivotTable.
+ */
+export interface SheetPivotCells {
+  labels: (string[] | null)[]
+  /** Per value field (`values`), the code of its number format as Format Cells shows it in the workbook's locale (a built-in one's too); null without one. */
+  formats: (string | null)[]
+  /** The cache's calculated fields and items, with their formulas as Excel's dialogs show them: in the workbook's locale, with `=`. */
+  calculated: SheetPivotCalculated[]
+  buttons: SheetPivotButton[]
+  cells?: (SheetPivotCell | null)[]
+}
+
+/**
+ * A calculated field (`field` its own index in the cache) or a calculated item (`item` its index in the field's `items` of
+ * the cache), by its name, with its formula in the workbook's locale (`=Amount*0,5` in ru-RU, `=East+West`).
+ */
+export interface SheetPivotCalculated {
+  field: number
+  item?: number
+  name: string
+  formula: string
+}
+
+/**
+ * A filter button of a PivotTable: its cell, the axis it filters, and the field (by its index in the cache) its menu is
+ * about: a field's name and a Filters area's item their own, Row Labels and Column Labels their axis's first field.
+ * Without `field` (Σ Values' name, an axis holding Σ Values alone) it opens no menu. `labels` marks Row Labels and
+ * Column Labels, which stand for the fields of their axis that have no button of their own.
+ */
+export interface SheetPivotButton {
+  cell: string
+  axis: PivotAxis
+  field?: number
+  labels?: true
+}
+
+/** The areas of a PivotTable's fields: the rows, the columns and the Filters area (`pages`). */
+export type PivotAxis = 'rows' | 'columns' | 'pages'
+
+/**
+ * A cell of a PivotTable (`SheetPivotCells.cells`): xlcalc's `PivotCell`, what Excel's `Range.PivotCell` tells of it. `kind`
+ * is a value with its totals (`value`), an item's label (`item`), a subtotal's or a grand total's (`subtotal`, `grand`), a
+ * value field's name (`valueName`), a field's name (`field`, in the Filters area too), Σ Values (`valuesField`), a Filters
+ * area's item (`pageItem`) or none of them (`blank`: Row Labels and Column Labels too). `field` is the cache field of the
+ * label, name or line (`values` for Σ Values), `item` its index in the PivotTable field's `items`, `value` the value
+ * field's index in `values`; `rowItems` and `columnItems` the items of a value's or a label's row and column.
+ */
+export type SheetPivotCell = PivotCell
 
 /**
  * Excel's split window, xlcalc's `SplitPanes`: the vertical line `x` points from the window's left edge and the horizontal
@@ -467,7 +634,8 @@ export type EditOutcome =
        * The source's code for the reason, for a host that reacts to it rather than to the text. `memorySource` and
        * `@xlcalc/vue/local` give xlcalc's codes: an outline command's `outline_deep`, `not_grouped` or `detail`, and in
        * `./local` the code of any structure operation xlcalc refuses. `protected`: a protected sheet does not allow it, with
-       * Excel's alert as the message; the component displays it as Excel does, in an alert.
+       * Excel's alert as the message; `pivot`: a PivotTable's cells do not take it, or an operation on a PivotTable failed,
+       * with Excel's alert or the reason as the message. The component displays both as Excel does, in an alert.
        */
       code?: string
       at?: number

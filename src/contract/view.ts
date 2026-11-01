@@ -41,6 +41,11 @@ export interface SheetViewProps {
   watches?: SheetWatch[]
   /** The author's name for a new note, which Excel writes in bold on its first line (Excel takes the user name from its Options); without it a new note has no author. */
   noteAuthor?: string
+  /**
+   * Draws Excel's PivotTable Fields pane to the right of the grid (below it on a phone) while it is shown
+   * (`SheetViewState.fieldList`); on by default, false for a host that places `PivotFieldsPane` itself.
+   */
+  pivotFields?: boolean
 }
 
 /** A cell in Excel's Watch Window: its sheet and address (`B12`). */
@@ -102,6 +107,34 @@ export interface SheetViewState {
   calculation?: CalculationMode
   /** In Manual, cells wait for a calculation: the status bar shows Calculate. */
   calculationPending?: true
+  /** Refresh All is available (`SheetViewApi.refreshAll`): the source has `refreshConnections` and the sheet is editable. */
+  canRefreshAll?: true
+  /**
+   * The PivotTable under the active cell (`SheetInfo.pivots`, its Filters area too), by its name: a ribbon shows Excel's
+   * PivotTable Analyze and Design tabs while it is there.
+   */
+  pivot?: string
+  /**
+   * Refresh is available (`SheetViewApi.refreshPivot`): the active cell is in a PivotTable, the source has `structure`, and
+   * the sheet is editable and not protected, as Excel refreshes no PivotTable on a protected sheet whatever it allows.
+   */
+  canRefreshPivot?: true
+  /**
+   * The PivotTable Fields pane is shown: the active cell is in a PivotTable, the source has `pivotTable`, and Excel's Field
+   * List is on (`SheetViewApi.fieldList`), as Excel shows the pane only while the active cell is in a PivotTable.
+   */
+  fieldList?: true
+  /** Insert PivotTable is available (`SheetViewApi.insertPivotTable`): the source has `structure` and the sheet is editable. */
+  canInsertPivot?: true
+  /** Insert Slicer and Insert Timeline are available (`SheetViewApi.insertSlicer`, `insertTimeline`): the active cell is in a PivotTable, the source has `structure`, and the sheet is editable. */
+  canInsertSlicer?: true
+  /** The slicer or timeline selected on the sheet, by its kind and name: a ribbon shows Excel's Slicer or Timeline tab while it is. */
+  object?: SheetObjectRef
+  /**
+   * The PivotTable under the active cell can be changed (its dialogs, PivotTable Analyze and Design): the source has
+   * `structure`, `pivotTable` and `pivotCells`, the sheet is editable, and its protection allows Use PivotTable and PivotChart.
+   */
+  canEditPivot?: true
   /** The sheet is protected (`SheetInfo.protection`), with what users may still do: a toolbar disables formatting without `formatCells`, as Excel does. */
   protection?: SheetProtection
   /** A selection of several ranges (Go To Special's): each of them as Excel writes it, the active one (`ref`) among them; absent for one range. A toolbar formats every one. */
@@ -307,6 +340,65 @@ export interface SheetViewApi {
   calculate(scope?: 'workbook' | 'sheet'): Promise<EditOutcome | null>
   /** Excel's Calculation Options through the source's `setCalculation`; null when nothing was sent (no `setCalculation`, a read-only sheet). */
   setCalculation(mode: CalculationMode): Promise<EditOutcome | null>
+  /** Excel's Data > Refresh All (Ctrl+Alt+F5) through the source's `refreshConnections`; null when nothing was sent (no `refreshConnections`, a read-only sheet). */
+  refreshAll(): Promise<EditOutcome | null>
+  /**
+   * Excel's PivotTable Analyze > Refresh (Alt+F5) of the PivotTable under the active cell through the source's `structure`
+   * (`refreshPivots` naming it): its cache read again from its source, with every PivotTable over it, as a single undo step;
+   * the sheet reloads afterwards. null when nothing was sent (no PivotTable there, no `structure`, a read-only or protected sheet).
+   */
+  refreshPivot(): Promise<EditOutcome | null>
+  /**
+   * Excel's Insert > PivotTable: opens its dialog with the table at the active cell, or the selection, or the active cell's
+   * current region; OK creates the PivotTable on a new sheet at A3 or at the location given, through the source's
+   * `structure` (`addPivotTable`) as a single undo step, and selects its top-left cell, where the PivotTable Fields pane
+   * shows. false without `structure` or on a read-only sheet.
+   */
+  insertPivotTable(): Promise<boolean>
+  /**
+   * Excel's PivotTable Analyze > Field List, toggled without `show`: whether the PivotTable Fields pane shows while the
+   * active cell is in a PivotTable; returns whether it is on afterwards. On by default, as in Excel.
+   */
+  fieldList(show?: boolean): boolean
+  /**
+   * Opens a dialog over a field of a PivotTable, as the PivotTable Fields pane asks for it: Field Settings, Value Field
+   * Settings, or the field's sort and filter menu at `at`; a request of another kind, or one the sheet cannot open (a source
+   * without `pivotCells` or `structure`), goes to the host as the `pivotDialog` event. false while the sheet is read-only.
+   */
+  pivotDialog(request: PivotDialogRequest): boolean
+  /**
+   * Opens Excel's Insert Slicers dialog over the PivotTable under the active cell: the fields of its cache to check; OK adds
+   * a slicer of each through the source's `structure` (`addSlicer`). false when Insert Slicer is not available (`canInsertSlicer`).
+   */
+  insertSlicer(): boolean
+  /**
+   * Opens Excel's Insert Timelines dialog over the PivotTable under the active cell: its fields of dates; without one, Excel's
+   * alert instead. OK adds a timeline of each field checked (`addTimeline`). false when it is not available (`canInsertSlicer`).
+   */
+  insertTimeline(): boolean
+  /** Opens Excel's Slicer Settings for the selected slicer (`state.object`); false without one, or where it cannot be changed. */
+  slicerSettings(): boolean
+  /** Opens Excel's Report Connections for the selected slicer or timeline: the PivotTables of its pivot cache it filters; false without one. */
+  reportConnections(): boolean
+  /**
+   * Excel's dialogs over the PivotTable under the active cell: PivotTable Options (`options`), Insert Calculated Field
+   * (`calculatedField`), Insert Calculated Item of the active cell's field (`calculatedItem`), Grouping of its field
+   * (`groupField`, PivotTable Analyze > Group Field). Each one's OK is one step of undo through `structure`. false where
+   * the dialog cannot open (`SheetViewState.canEditPivot` off, no field there for a field's dialog).
+   */
+  pivotCommand(command: 'options' | 'calculatedField' | 'calculatedItem' | 'groupField'): Promise<boolean>
+  /**
+   * Excel's PivotTable Analyze > Group Selection: the Grouping dialog over a field of dates or numbers, or the items
+   * selected gathered into a group by hand (`groupPivotField`), one step of undo. false where nothing opened or was sent.
+   */
+  groupPivot(): Promise<boolean>
+  /** Excel's PivotTable Analyze > Ungroup of the active cell's field or of the groups selected (`ungroupPivotField`); null when nothing was sent. */
+  ungroupPivot(): Promise<EditOutcome | null>
+  /**
+   * A command of Excel's Design tab over the PivotTable under the active cell, one `editPivotTable`: Subtotals, Grand
+   * Totals, Report Layout (a form, or repeating the item labels) or Blank Rows. null when nothing was sent.
+   */
+  pivotDesign(change: PivotDesignChange): Promise<EditOutcome | null>
   /**
    * Opens Excel's Protect Sheet dialog for the displayed sheet: what users may still do, without a password; OK protects it
    * through the source's `protect`, as a single undo step. false without `protect`, on a read-only sheet, or on a protected one.
@@ -314,6 +406,51 @@ export interface SheetViewApi {
   protectSheet(): boolean
   /** Excel's Unprotect Sheet on the displayed sheet through the source's `protect`; null when nothing was sent (no `protect`, a read-only sheet, an unprotected one). */
   unprotectSheet(): Promise<EditOutcome | null>
+}
+
+/** A slicer or a timeline of the displayed sheet by its kind and its name, unique among the workbook's slicers and timelines. */
+export interface SheetObjectRef {
+  kind: 'slicer' | 'timeline'
+  name: string
+}
+
+/**
+ * A dialog over a field of a PivotTable that the PivotTable Fields pane asks for: `fieldSettings` (Field Settings… of a field
+ * on the Filters, Columns or Rows area), `valueFieldSettings` (Value Field Settings… of a value field, `value` its index in
+ * the PivotTable's `values` as the source holds it), `fieldFilter` (the field's sort and filter menu, the arrow beside it in the field list). `field`
+ * is the index of the cache field; `at` is where the pane's control is, in the viewport's coordinates, for a menu.
+ */
+export interface PivotDialogRequest {
+  dialog: 'fieldSettings' | 'valueFieldSettings' | 'fieldFilter'
+  sheet: string
+  pivot: string
+  field: number
+  value?: number
+  at?: { left: number; top: number; width: number; height: number }
+}
+
+/**
+ * A command of Excel's Design tab: Subtotals (`none`: Do Not Show Subtotals, `bottom` and `top`: Show all Subtotals at
+ * Bottom or at Top of Group), Grand Totals (`off`, `on`, `rows`: On for Rows Only, `columns`: On for Columns Only),
+ * Report Layout (a form for every field, or Repeat All Item Labels and Do Not Repeat Item Labels) and Blank Rows (Insert or
+ * Remove Blank Line after Each Item).
+ */
+export type PivotDesignChange =
+  | { subtotals: 'none' | 'bottom' | 'top' }
+  | { grandTotals: 'off' | 'on' | 'rows' | 'columns' }
+  | { layout: 'compact' | 'outline' | 'tabular' }
+  | { repeatLabels: boolean }
+  | { blankLine: boolean }
+
+/** Properties of `PivotFieldsPane`, the PivotTable Fields pane a host places itself (with `SheetView`'s `pivotFields` off). */
+export interface PivotFieldsPaneProps {
+  /** The source the pane reads the PivotTable from (`pivotTable`) and whose events it follows. */
+  source: SheetSource
+  /** The sheet whose changes the pane makes (`structure`), whose Field List it closes and whose dialogs it asks for. */
+  sheet: SheetViewApi | null
+  /** The sheet's `state` event: the pane shows the PivotTable of `pivot` while `fieldList` is on. */
+  state: SheetViewState | null
+  messages?: Partial<SheetMessages>
 }
 
 /** A patch for `SheetView.format`: applied to its own range, or to the selection without one. */
@@ -341,9 +478,10 @@ export type ToolbarSource = SheetSource
  * A group of `SheetToolbar`'s buttons, as `items` names it: Undo and Redo, Format Painter, Bold, Italic and Underline (`fontStyle`), the
  * Font and Font Size boxes with Increase and Decrease Font Size (`font`), the Number Format box with its buttons (`number`),
  * font and fill color, borders, Top, Middle and Bottom Align, horizontal alignment with indent and Wrap Text (`align`),
- * Merge & Center, Format Cells, and AutoSum.
+ * Merge & Center, Format Cells, AutoSum, Insert > PivotTable, Data > Refresh All, and the PivotTable Analyze and Design
+ * commands (`pivotAnalyze`, `pivotDesign`) shown while the active cell is in a PivotTable.
  */
-export type ToolbarGroup = 'undo' | 'formatPainter' | 'fontStyle' | 'font' | 'number' | 'colors' | 'borders' | 'verticalAlign' | 'align' | 'merge' | 'formatCells' | 'autoSum'
+export type ToolbarGroup = 'undo' | 'formatPainter' | 'fontStyle' | 'font' | 'number' | 'colors' | 'borders' | 'verticalAlign' | 'align' | 'merge' | 'formatCells' | 'autoSum' | 'pivotTable' | 'refreshAll' | 'pivotAnalyze' | 'pivotDesign'
 
 /** A host's button on `SheetToolbar`, drawn as the toolbar's own and, where it does not fit, moved into its menu. */
 export interface ToolbarButton {

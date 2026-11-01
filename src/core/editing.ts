@@ -5,6 +5,7 @@ import type { CellPosition, CellRect } from 'xlcalc/contract'
 import { parseClipboard } from 'xlcalc/text'
 import { loadEntry, type Entry } from '../entry'
 import { failedOutcome } from '../failure'
+import { cycleRefs } from '../ref-cycle'
 import { cellRect } from '../rect'
 import type { CellEntry, EditOutcome, EditOptions, SheetSource } from '../contract/source'
 import { useAutocomplete } from './autocomplete'
@@ -75,8 +76,12 @@ export interface EditingDeps {
   /** The defined names visible on the sheet, in alphabetical order, and their order, for Formula AutoComplete; none without it. */
   names?: () => readonly string[]
   nameOrder?: (a: string, b: string) => number
+  /** Whether a defined name holds a LAMBDA, which AutoComplete inserts with "(" as a function. */
+  calls?: (name: string) => boolean
   /** The sheet's protection: a locked cell in a range shows Excel's alert and refuses the change (true); none without it. */
   protection?: { refuse: (rect: CellRect) => boolean }
+  /** The sheet's PivotTables: a value cell shows Excel's alert and refuses an edit to start there (true); none without it. */
+  pivots?: { refuseEdit: (row: number, col: number) => boolean }
 }
 
 export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula, editor: Ref<EditorState | null>, deps: EditingDeps) {
@@ -146,10 +151,10 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     }
   }
 
-  /** Opens the editor on the active cell; for a locked cell, explains why instead. False when nothing opened. */
+  /** Opens the editor on the active cell; for a locked cell or a PivotTable's value, explains why instead. False when nothing opened. */
   function startEdit(opts: { text?: string; mode: 'enter' | 'edit'; place?: 'cell' | 'bar'; caret?: number; caretEnd?: number; focus?: boolean }): boolean {
     const a = s.selected.value
-    if (!s.editable.value || !a || blocked(cellRect(a.row, a.col))) return false
+    if (!s.editable.value || !a || blocked(cellRect(a.row, a.col)) || deps.pivots?.refuseEdit(a.row, a.col)) return false
     const initial = editText(a.row, a.col)
     const text = opts.text ?? initial
     editor.value = { sheet: s.sheetName.value, row: a.row, col: a.col, text, initial, mode: opts.mode, place: opts.place ?? 'cell', caret: opts.caret ?? text.length, caretEnd: opts.caretEnd, inPlace: opts.text === undefined }
@@ -198,8 +203,18 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     ed.caretEnd = undefined
     if (focus) focusEditor()
   }
+  /** Excel's F4 in the draft: the `$` of the references at the caret or in the selection cycle (`cycleRefs`); nothing while the locale loads. */
+  function cycleAt(ed: EditorState, el: HTMLTextAreaElement): void {
+    const opts = f.scanOptions()
+    const got = opts && cycleRefs(ed.text, el.selectionStart, el.selectionEnd, opts)
+    if (!got) return
+    ed.text = got.text
+    ed.caret = got.from
+    ed.caretEnd = got.to
+    focusEditor()
+  }
   /** Excel's Formula AutoComplete over the draft: the function list below the editor. */
-  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor, scan: f.scanOptions, names: deps.names, nameOrder: deps.nameOrder })
+  const ac = useAutocomplete({ source: s.source, editor, input: inputOf, show: focusEditor, scan: f.scanOptions, names: deps.names, nameOrder: deps.nameOrder, calls: deps.calls })
   /** Excel's argument tooltip for the function the caret is in, below the editor; the list takes precedence. */
   const tip = useFunctionTip({ source: s.source, editor, input: inputOf, scan: f.scanOptions, listOpen: () => ac.open.value })
   function onEditorInput(e: Event): void {
@@ -343,8 +358,8 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     // Cancel: the cell keeps its contents and stays active, as Excel leaves it.
     if (answer === 'cancel') return outcome
     const m = s.messages.value
-    if (outcome.code === 'protected' && deps.alert) {
-      // a protected sheet's refusal: Excel's alert, in the source's words
+    if ((outcome.code === 'protected' || outcome.code === 'pivot') && deps.alert) {
+      // a protected sheet's or a PivotTable's refusal: Excel's alert, in the source's words
       await deps.alert({ severity: 'notice', message: outcome.message || m.protectedAlert })
       if (!outdated()) s.focusGrid()
     } else if (outcome.reason === 'conflict') {
@@ -417,6 +432,15 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     return letter === 'y' && !e.shiftKey ? 'redo' : null
   }
 
+  /** Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z on an editable sheet with the source's undo and redo, from the grid or a box over it; true when handled. */
+  function historyKeyDown(e: KeyboardEvent): boolean {
+    const history = historyKey(e)
+    if (!history || !s.editable.value || !s.source()[history]) return false
+    e.preventDefault()
+    void stepHistory(history)
+    return true
+  }
+
   /** A range clipped to the data: beyond it there is nothing to clear. */
   function dataRect(r: CellRect): CellRect | null {
     const out = { top: r.top, left: r.left, bottom: Math.min(r.bottom, s.dataRows.value), right: Math.min(r.right, s.dataCols.value) }
@@ -479,12 +503,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
   function onGridKey(e: KeyboardEvent): void {
     if (e.target !== s.scroller.value || e.isComposing) return
     const ctrl = isMod(e)
-    const history = historyKey(e)
-    if (history && s.editable.value && s.source()[history]) {
-      e.preventDefault()
-      void stepHistory(history)
-      return
-    }
+    if (historyKeyDown(e)) return
     if (isShortcut(e) && shortcutLetter(e) === 'a') {
       e.preventDefault()
       sel.selectAll()
@@ -516,7 +535,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
       startEdit({ text: e.key, mode: 'enter' })
     }
   }
-  /** Keys in the editor: the function list first when it is open, then an Enter mode arrow (it inserts a reference, enters or does nothing), Enter, Tab, Shift+Enter and Shift+Tab commit and move, Ctrl+Enter (Cmd on a Mac) fills, Esc cancels, Alt+Enter inserts a line break, F2 toggles the arrows' mode, Ctrl+Shift+U the formula bar's height. */
+  /** Keys in the editor: the function list first when it is open, then Point mode's arrows and F4 (an arrow inserts a reference, enters or does nothing), Enter, Tab, Shift+Enter and Shift+Tab commit and move, Ctrl+Enter (Cmd on a Mac) fills, Esc cancels, Alt+Enter inserts a line break, F2 toggles the arrows' mode, F4 cycles the references' `$`, Ctrl+Shift+U the formula bar's height. */
   function onEditorKey(e: KeyboardEvent): void {
     const ed = editor.value
     if (!ed || e.isComposing) return
@@ -541,6 +560,9 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     } else if (e.key === 'F2') {
       e.preventDefault()
       ed.mode = ed.mode === 'enter' ? 'edit' : 'enter'
+    } else if (e.key === 'F4' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault()
+      cycleAt(ed, e.target as HTMLTextAreaElement)
     }
   }
   /** The editor lost focus: moving to the other editor keeps editing, anything else on the page commits in place. */
@@ -558,7 +580,7 @@ export function useEditing(s: SheetState, w: Windows, sel: Selection, f: Formula
     if (typeof document.hasFocus === 'function' && !document.hasFocus()) return
     commit(0, 0, false)
   }
-  return { pendingAt, forget, lockIn, lockAt, blocked, editText, startEdit, inputOf, focusEditor, insertFunction, insertText, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, pasteText, onGridKey, onEditorKey, onEditorBlur }
+  return { pendingAt, forget, lockIn, lockAt, blocked, editText, startEdit, inputOf, focusEditor, insertFunction, insertText, ac, tip, onEditorInput, onEditorClick, commit, cancel, send, run, stepHistory, historyKeyDown, pasteText, onGridKey, onEditorKey, onEditorBlur }
 }
 
 export type Editing = ReturnType<typeof useEditing>

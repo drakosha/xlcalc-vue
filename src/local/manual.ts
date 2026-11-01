@@ -20,6 +20,9 @@ const RECTS_PER_READ = 2000
 /** Whether two values are the same, an error by its code. */
 const sameValue = (a: CellValue, b: CellValue): boolean => a === b || (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null && a.error === b.error)
 
+/** An answer on its way from outside the workbook, which the cell shows until it arrives. */
+const waiting = (v: CellValue): boolean => typeof v === 'object' && v !== null && (v.error === 'BUSY' || v.error === 'GETTING_DATA')
+
 const shownOf = (c: { text?: string; value: CellValue; color?: string; spillOf?: string } | undefined): Shown => ({ text: c?.text ?? '', value: c ? c.value : null, ...(c?.color ? { color: c.color } : {}), ...(c?.spillOf ? { of: c.spillOf } : {}) })
 
 /** A cell as the session reads it, as a change that lists it: its display, whether it has a formula, the array that fills it. */
@@ -141,6 +144,32 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     return out
   }
 
+  /**
+   * The cells whose answers from outside the workbook `changes` bring (xlcalc 0.68's `settleConnections`) and that the sheet
+   * shows waiting for them: their own call (`calls`, by the formula) asked as a formula entered or Calculate Now calculated
+   * them, so the answer ends that calculation. A cell showing #BUSY! it read from another waits for a calculation.
+   */
+  async function asked(s: AsyncSession, changes: CellChange[], calls: (formula: string) => boolean): Promise<Set<string>> {
+    const out = new Set<string>()
+    if (!manual() || !known) return out
+    const bySheet = new Map<string, { sheet: string; cells: string[] }>()
+    for (const ch of changes) {
+      const was = known.get(nameKey(ch.sheet))?.get(ch.cell)
+      if (!was || !waiting(was.value)) continue
+      const mine = bySheet.get(nameKey(ch.sheet)) ?? { sheet: ch.sheet, cells: [] }
+      bySheet.set(nameKey(ch.sheet), mine)
+      mine.cells.push(ch.cell)
+    }
+    for (const { sheet, cells } of bySheet.values()) {
+      const got = await s.getCells(sheet, cells)
+      for (const addr of cells) {
+        const formula = got[addr]?.formula
+        if (formula && calls(formula)) out.add(cellKey(sheet, addr))
+      }
+    }
+    return out
+  }
+
   /** Values known by address that no longer hold (a table command): the sheet shows the session's. */
   function forget(): void {
     known = null
@@ -230,7 +259,7 @@ export function manualCalculation(input: BookInput, emit: (calculation: SheetCal
     return (mode === 'automatic' ? rest : { ...rest, calculation: mode }) as B
   }
 
-  return { state, report, capture, hold, showing, spillsOf, forget, moved, overlay, overlayCells, calculate, setMode, book, manual }
+  return { state, report, capture, hold, asked, showing, spillsOf, forget, moved, overlay, overlayCells, calculate, setMode, book, manual }
 }
 
 export type ManualCalculation = ReturnType<typeof manualCalculation>

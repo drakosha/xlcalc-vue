@@ -3,7 +3,8 @@
 // fill colors, borders, vertical and horizontal alignment, indent, wrapping, Merge & Center with its dropdown (through the
 // sheet, with the source's `structure`), Excel's Number Format box (xlcalc's, in the workbook's locale) and Percent Style,
 // applied to the selection the sheet's `state` event reports, Format Cells for a host that displays the dialog, and AutoSum
-// with its list (through the sheet, with the source's `autoSum`); `items` picks and orders the groups and adds the host's
+// with its list (through the sheet, with the source's `autoSum`), Insert > PivotTable (its dialog over the sheet), and Data > Refresh All with its list's Refresh of the
+// PivotTable under the active cell (through the sheet, with the source's `refreshConnections`); `items` picks and orders the groups and adds the host's
 // buttons. In a narrow viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
 import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
@@ -46,9 +47,11 @@ import {
 import type { StylePatch } from 'xlcalc/contract'
 import ColourSwatches from './ColourSwatches.vue'
 import ToolbarBox from './ToolbarBox.vue'
+import ToolbarPivot from './ToolbarPivot.vue'
 import { hasListener } from './dom'
 import { IconDown } from './icons'
 import { useOutsidePress } from './popup'
+import { IconPivotTable } from './pivot-icons'
 import {
   IconAlignBottom,
   IconAlignCenter,
@@ -57,6 +60,7 @@ import {
   IconAlignRight,
   IconAlignTop,
   IconAutoSum,
+  IconRefreshAll,
   IconBold,
   IconBorderAll,
   IconBorderBottom,
@@ -279,7 +283,7 @@ HostIcon.props = ['button']
 /** How long the pointer rests on a button before its tip shows, and how long after a tip hides the next one shows at once, as Office's do. */
 const TIP_DELAY = 400
 const TIP_WARM = 600
-const tip = ref<{ el: HTMLElement; text: string; left: number; top: number } | null>(null)
+const tip = ref<{ el: HTMLElement; text: string; more?: string; left: number; top: number } | null>(null)
 const tipEl = ref<HTMLElement | null>(null)
 let tipTimer: ReturnType<typeof setTimeout> | undefined
 let warmUntil = 0
@@ -292,7 +296,7 @@ function showTip(el: HTMLElement): void {
   const text = el.dataset.tip
   if (!text || open.value !== null || !el.isConnected) return
   const r = el.getBoundingClientRect()
-  tip.value = { el, text, left: r.left, top: r.bottom + 4 }
+  tip.value = { el, text, more: el.dataset.tipMore, left: r.left, top: r.bottom + 4 }
   // Kept inside the viewport: a tip near the right edge moves left
   void nextTick(() => {
     const box = tipEl.value?.getBoundingClientRect()
@@ -314,7 +318,7 @@ function onTipOut(e: PointerEvent): void {
 
 // ── menus: the color palettes, the borders, and the narrow layout's menu ──
 /** The toolbar's lists, and a host's button's (`host:<id>`). */
-type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'autoSum' | 'fontName' | 'fontSize' | `host:${string}`
+type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'autoSum' | 'refreshAll' | 'fontName' | 'fontSize' | `host:${string}`
 const open = ref<Menu | null>(null)
 const menu = ref(false)
 const toggle = (what: Menu) => {
@@ -445,6 +449,23 @@ function paintFormats(keep: boolean): void {
 function autoSum(fn: AutoSumFunction): void {
   closeAll()
   if (props.state?.canAutoSum) void props.sheet?.autoSum(fn)
+}
+/** Excel's Data > Refresh All through the sheet: every call outside the workbook asked again, not a step of undo. */
+function refreshAll(): void {
+  closeAll()
+  const sheet = props.sheet
+  if (sheet && props.state?.canRefreshAll) void run(() => sheet.refreshAll())
+}
+/** The list's Refresh: Excel's Refresh (Alt+F5) of the PivotTable under the active cell through the sheet, one step of undo. */
+function refreshPivot(): void {
+  closeAll()
+  const sheet = props.sheet
+  if (sheet && props.state?.canRefreshPivot) void run(() => sheet.refreshPivot())
+}
+/** Excel's Insert > PivotTable: its dialog over the sheet. */
+function insertPivot(): void {
+  closeAll()
+  if (props.state?.canInsertPivot) void props.sheet?.insertPivotTable()
 }
 /** More Functions…: Excel's Insert Function dialog over the sheet. */
 function moreFunctions(): void {
@@ -725,6 +746,28 @@ function pickNumber(e: Event): void {
             </div>
           </span>
         </span>
+        <span v-else-if="blk.group === 'pivotTable' && sheet && source.structure" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
+          <button type="button" class="xs-tool" data-tb="pivot-table" :data-tip="m.pivotInsert" :aria-label="m.pivotInsert" :disabled="!state?.canInsertPivot" @click="insertPivot">
+            <IconPivotTable />
+          </button>
+        </span>
+        <span v-else-if="blk.group === 'refreshAll' && sheet && source.refreshConnections" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
+          <span class="xs-tb-split">
+            <button type="button" class="xs-tool" data-tb="refresh-all" :data-tip="m.refreshAll" :data-tip-more="m.refreshAllTip" :aria-label="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">
+              <IconRefreshAll />
+            </button>
+            <button type="button" class="xs-tool xs-tb-caret" data-tb="refresh-all-menu" :data-tip="m.refreshAllMenu" :aria-label="m.refreshAllMenu" :aria-expanded="open === 'refreshAll'" :disabled="!state?.canRefreshAll && !state?.canRefreshPivot" @click="toggle('refreshAll')">
+              <IconDown />
+            </button>
+            <div v-if="open === 'refreshAll'" class="xs-tb-pop" role="menu" :aria-label="m.refreshAllMenu">
+              <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-all-item" :title="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">{{ m.refreshAllItem }}</button>
+              <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-pivot" :title="m.refreshPivot" :disabled="!state?.canRefreshPivot" @click="refreshPivot">{{ m.menuRefresh }}</button>
+            </div>
+          </span>
+        </span>
+        <span v-else-if="(blk.group === 'pivotAnalyze' || blk.group === 'pivotDesign') && sheet && state?.pivot && source.pivotCells" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
+          <ToolbarPivot :group="blk.group" :sheet="sheet" :state="state" :source="source" :m="m" />
+        </span>
         <span v-else-if="blk.buttons" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <template v-for="x in blk.buttons" :key="x.id">
             <button
@@ -768,7 +811,10 @@ function pickNumber(e: Event): void {
         <IconMore />
       </button>
     </div>
-    <div v-if="tip" ref="tipEl" class="xs-tb-tip" role="tooltip" data-tb-tip :style="{ left: `${tip.left}px`, top: `${tip.top}px` }">{{ tip.text }}</div>
+    <div v-if="tip" ref="tipEl" :class="['xs-tb-tip', { 'xs-tb-tip-more': tip.more }]" role="tooltip" data-tb-tip :style="{ left: `${tip.left}px`, top: `${tip.top}px` }">
+      <template v-if="tip.more"><b>{{ tip.text }}</b><span>{{ tip.more }}</span></template>
+      <template v-else>{{ tip.text }}</template>
+    </div>
   </div>
 </template>
 

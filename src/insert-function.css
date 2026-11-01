@@ -13,6 +13,15 @@
   flex-direction: column;
   gap: 4px;
 }
+/* The search box and Go on one line. */
+.xs-ifn-search {
+  display: flex;
+  gap: 6px;
+}
+.xs-ifn-search > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 /* The list: eight names tall, scrolling beyond them. */
 .xs-ifn .xs-ifn-list {
   position: relative;
