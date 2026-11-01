@@ -1,6 +1,6 @@
 // The sheet's public types: SheetView's props, state, events and methods, the toolbar's source, list mode's sort.
 import type { Component } from 'vue'
-import type { CellStyle, CellValue, IconSetName, SheetProtection } from 'xlcalc/contract'
+import type { CellStyle, CellValue, FormatChoiceKey, IconSetName, SheetProtection } from 'xlcalc/contract'
 import type { ClearRulesFrom, ColorScalePreset, DataBarColor, QuickRule } from './conditional'
 import type { SheetMessages } from './messages'
 import type { AutoSumFunction, CalculationMode, EditOutcome, FormatPatch, OutlineChange, SheetOp, SheetSource, SheetWindow } from './source'
@@ -164,8 +164,11 @@ export interface SheetViewApi {
   structure(op: SheetOp): Promise<EditOutcome | null>
   /** An outline command through the source (Group, Ungroup, a group's button, a level button); the sheet reloads afterwards. */
   outline(change: OutlineChange): Promise<EditOutcome | null>
-  /** Opens Excel's Format Cells dialog (Ctrl+1) for the selection, with the active cell's formatting; false when the sheet cannot be formatted. */
-  formatCells(): boolean
+  /**
+   * Opens Excel's Format Cells dialog (Ctrl+1) for the selection, with the active cell's formatting, on the tab it was last on
+   * or at `at`; false when the sheet cannot be formatted.
+   */
+  formatCells(at?: FormatCellsAt): boolean
   /**
    * Excel's Freeze Panes through the source's `freeze`, as a single undo step, after which the sheet reloads: `panes` (the
    * default) keeps the rows above and the columns to the left of the active cell in view (with A1 active, the middle of the
@@ -471,17 +474,28 @@ export interface ListSort {
   dir: 'asc' | 'desc'
 }
 
+/** A tab of Excel's Format Cells dialog. */
+export type FormatCellsTab = 'number' | 'alignment' | 'font' | 'border' | 'fill' | 'protection'
+/**
+ * Where Format Cells opens (`SheetViewApi.formatCells`, `FormatDialog`'s `at`, the toolbar's `formatCells` event): a tab, and on
+ * the Number tab an item of its list picked as the dialog opens, as Excel's More Accounting Formats... opens it at Accounting.
+ */
+export interface FormatCellsAt {
+  tab: FormatCellsTab
+  choice?: FormatChoiceKey
+}
+
 /** The source the toolbar formats through: a `SheetSource`, whose `history` tells whether Undo and Redo have a step. */
 export type ToolbarSource = SheetSource
 
 /**
  * A group of `SheetToolbar`'s buttons, as `items` names it, in Excel for Windows' order: Undo and Redo, Format Painter, the
  * Font and Font Size boxes with Increase and Decrease Font Size (`font`), Bold, Italic and Underline (`fontStyle`), borders,
- * fill and font color, Top, Middle and Bottom Align, horizontal alignment with indent and Wrap Text (`align`), Merge & Center,
+ * fill and font color, Top, Middle and Bottom Align, Orientation, horizontal alignment with indent and Wrap Text (`align`), Merge & Center,
  * the Number Format box with its buttons (`number`), Format Cells, AutoSum, Insert > PivotTable, Data > Refresh All, and the
  * PivotTable Analyze and Design commands (`pivotAnalyze`, `pivotDesign`) shown while the active cell is in a PivotTable.
  */
-export type ToolbarGroup = 'undo' | 'formatPainter' | 'font' | 'fontStyle' | 'borders' | 'colors' | 'verticalAlign' | 'align' | 'merge' | 'number' | 'formatCells' | 'autoSum' | 'pivotTable' | 'refreshAll' | 'pivotAnalyze' | 'pivotDesign'
+export type ToolbarGroup = 'undo' | 'formatPainter' | 'font' | 'fontStyle' | 'borders' | 'colors' | 'verticalAlign' | 'orientation' | 'align' | 'merge' | 'number' | 'formatCells' | 'autoSum' | 'pivotTable' | 'refreshAll' | 'pivotAnalyze' | 'pivotDesign'
 
 /** A host's button on `SheetToolbar`, drawn as the toolbar's own and, where it does not fit, moved into its menu. */
 export interface ToolbarButton {

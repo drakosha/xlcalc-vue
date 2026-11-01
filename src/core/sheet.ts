@@ -263,7 +263,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     format: cmd.format,
     structure: (op) => cmd.structure(op),
     outline: cmd.outline,
-    formatCells: cmd.openFormat,
+    formatCells: (at) => cmd.openFormat(at),
     freezePanes: cmd.freeze,
     reapplyFilter: filter.reapply,
     explain: explain.show,

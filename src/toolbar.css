@@ -258,8 +258,15 @@
   cursor: pointer;
 }
 .xs-tb-item:hover,
-.xs-tb-item[aria-pressed='true'] {
+.xs-tb-item[aria-pressed='true'],
+.xs-tb-item[aria-checked='true'] {
   background: var(--xs-head-bg);
+}
+/* Excel's check on a menu item that shows the active cell's state: its icon framed. */
+.xs-tb-item[aria-checked='true'] > .xs-icon {
+  outline: 1px solid var(--xs-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 /* A line between a menu's sections, as Excel draws it in Borders. */
 .xs-tb-sep {

@@ -10,7 +10,7 @@ import type { SheetViewState, ToolbarGroup } from './contract/view'
  * The toolbar's groups in their default order, as `SheetToolbar`'s `items` takes them: a host spreads it to add its buttons.
  * Excel for Windows' order: Undo and Redo (its Quick Access Toolbar), Home's groups, then Insert's, Data's and the PivotTable tabs' commands.
  */
-export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = ['undo', 'formatPainter', 'font', 'fontStyle', 'borders', 'colors', 'verticalAlign', 'align', 'merge', 'number', 'formatCells', 'autoSum', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign']
+export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = ['undo', 'formatPainter', 'font', 'fontStyle', 'borders', 'colors', 'verticalAlign', 'orientation', 'align', 'merge', 'number', 'formatCells', 'autoSum', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign']
 
 /**
  * How many blocks of these widths, from the start, fit on `rows` lines of `room` px, each line filled as a wrapping flex row
@@ -57,9 +57,10 @@ export function fitRow(widths: readonly number[], room: number, more: number): n
 /** A place in Excel's two-row group: row 1 or 2 (`a1`, `a2`) of its first column of rows, or of the second (`b1`, `b2`). */
 export type RibbonSlot = 'a1' | 'a2' | 'b1' | 'b2'
 /**
- * The groups that Excel for Windows lays out in rows (measured at 1280 px): Font has the boxes and the size buttons on row 1, Bold
- * to Font Color on row 2; Alignment the vertical alignments on row 1 and the horizontal ones with the indents on row 2, then Wrap
- * Text over Merge & Center; Number the box on row 1 and its buttons on row 2, its dialog launcher (Format Cells) at the corner.
+ * The groups that Excel for Windows lays out in rows (measured at 1280 and 1920 px): Font has the boxes and the size buttons on
+ * row 1, Bold to Font Color on row 2; Alignment the vertical alignments and Orientation on row 1 and the horizontal ones with the
+ * indents on row 2, then Wrap Text over Merge & Center; Number the box on row 1 and its buttons on row 2, its dialog launcher
+ * (Format Cells) at the corner.
  */
 const RIBBON_ROWS: Partial<Record<ToolbarGroup, { group: string; slots: readonly RibbonSlot[] }>> = {
   font: { group: 'font', slots: ['a1'] },
@@ -67,6 +68,7 @@ const RIBBON_ROWS: Partial<Record<ToolbarGroup, { group: string; slots: readonly
   borders: { group: 'font', slots: ['a2'] },
   colors: { group: 'font', slots: ['a2'] },
   verticalAlign: { group: 'alignment', slots: ['a1'] },
+  orientation: { group: 'alignment', slots: ['a1'] },
   align: { group: 'alignment', slots: ['a2', 'b1'] },
   merge: { group: 'alignment', slots: ['b2'] },
   number: { group: 'number', slots: ['a1', 'a2'] },
@@ -281,6 +283,35 @@ export function fontOn(style: CellStyle | undefined, what: FontToggle): boolean 
 export function fontToggle(style: CellStyle | undefined, what: FontToggle): StylePatch {
   const on = fontOn(style, what)
   return { font: { [what]: on ? null : what === 'underline' ? 'single' : true } }
+}
+
+/** Excel's underlines: Underline's split button applies the one picked last from its menu. */
+export type UnderlineKind = NonNullable<NonNullable<CellStyle['font']>['underline']>
+/** Whether the active cell is underlined so, as Excel shows the menu's item checked and the split button's part pressed. */
+export function underlineOn(style: CellStyle | undefined, kind: UnderlineKind): boolean {
+  return style?.font?.underline === kind
+}
+/** An underline over the selection: off when the active cell has this one, otherwise this one in place of any other, as Excel's. */
+export function underlineToggle(style: CellStyle | undefined, kind: UnderlineKind): StylePatch {
+  return { font: { underline: underlineOn(style, kind) ? null : kind } }
+}
+
+/** Excel's Orientation menu, in its order: the rotation each item sets (`AlignmentStyle.rotation`, 45 up, -45 down). */
+export type OrientationKind = 'counterclockwise' | 'clockwise' | 'vertical' | 'up' | 'down'
+export const ORIENTATIONS: readonly { kind: OrientationKind; rotation: number | 'vertical' }[] = [
+  { kind: 'counterclockwise', rotation: 45 },
+  { kind: 'clockwise', rotation: -45 },
+  { kind: 'vertical', rotation: 'vertical' },
+  { kind: 'up', rotation: 90 },
+  { kind: 'down', rotation: -90 },
+]
+/** Whether the active cell's text is turned as this item turns it, as Excel shows the item checked; none is checked at other degrees. */
+export function orientationOn(style: CellStyle | undefined, rotation: number | 'vertical'): boolean {
+  return style?.alignment?.rotation === rotation
+}
+/** An item of the Orientation menu over the selection; picked again on a cell already turned so, the text returns level, as Excel's. */
+export function orientationToggle(style: CellStyle | undefined, rotation: number | 'vertical'): StylePatch {
+  return { alignment: { rotation: orientationOn(style, rotation) ? null : rotation } }
 }
 
 /** A horizontal alignment over the selection; clicked again on a cell already aligned so, it returns to General. */

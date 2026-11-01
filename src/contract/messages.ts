@@ -220,6 +220,10 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   bold: string
   italic: string
   underline: string
+  /** Underline's split button: its arrow, and its menu's Underline and Double Underline (the part's name once Double Underline was picked). */
+  underlineMenu: string
+  underlineSingle: string
+  underlineDouble: string
   fontColor: string
   /** The Font and Font Size boxes, and Increase and Decrease Font Size. */
   fontName: string
@@ -241,6 +245,10 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   alignTop: string
   alignMiddle: string
   alignBottom: string
+  /** Excel's Orientation: the button, its menu's items and Format Cell Alignment. */
+  orientation: string
+  orientationKind: (kind: 'counterclockwise' | 'clockwise' | 'vertical' | 'up' | 'down') => string
+  orientationFormat: string
   indentDecrease: string
   indentIncrease: string
   wrapText: string
@@ -249,6 +257,10 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   percentStyle: string
   /** Excel's Accounting Number Format, Comma Style, Increase Decimal and Decrease Decimal buttons. */
   accountingStyle: string
+  /** Accounting Number Format's arrow, its menu's currencies (Excel's names, the symbol first) and More Accounting Formats... */
+  accountingMenu: string
+  accountingCurrency: (currency: 'usd' | 'rub' | 'gbp' | 'eur' | 'cny' | 'chf') => string
+  accountingMore: string
   commaStyle: string
   decimalIncrease: string
   decimalDecrease: string

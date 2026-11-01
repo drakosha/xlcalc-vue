@@ -4,7 +4,8 @@
 // locale (xlcalc's list and categories). It opens with the active cell's formatting; OK emits the patches for `SheetView.format`
 // covering what changed (one call, a single undo step) and closes, Cancel closes. Full screen on a phone.
 import { computed, reactive, ref, shallowRef, toRaw, watch } from 'vue'
-import type { SheetFormatPatch, SheetViewState } from '../contract/view'
+import type { FormatChoiceKey } from 'xlcalc/contract'
+import type { FormatCellsAt, FormatCellsTab, SheetFormatPatch, SheetViewState } from '../contract/view'
 import {
   draftErrors,
   FONT_STYLES,
@@ -19,7 +20,6 @@ import {
   VERTICALS,
   type FormatDraft,
   type FormatStart,
-  type FormatTab,
 } from '../format-cells'
 import { FONT_NAMES, FONT_SIZES, INDENTED } from '../toolbar'
 import { useMessages } from '../messages'
@@ -42,8 +42,10 @@ const props = withDefaults(
     messages?: Partial<SheetMessages>
     /** The workbook's locale (as for `SheetView`), in which the Number tab names its categories and items; en-US without one. */
     locale?: string
+    /** Where it opens: a tab, and an item of the Number tab's list picked (the toolbar's `formatCells` event gives it); without it, the tab it was last on. */
+    at?: FormatCellsAt | null
   }>(),
-  { messages: undefined, locale: undefined },
+  { messages: undefined, locale: undefined, at: null },
 )
 const emit = defineEmits<{
   /** OK was clicked with changes: patches for `SheetView.format`, a style without a range applying to the selection, and borders on their own ranges. */
@@ -55,11 +57,13 @@ const emit = defineEmits<{
 const m = useMessages(() => props.messages)
 const numbers = useNumberFormats(() => props.locale)
 
-const tab = ref<FormatTab>('number')
+const tab = ref<FormatCellsTab>('number')
 const start = shallowRef<FormatStart | null>(null)
 const draft = ref<FormatDraft | null>(null)
 /** Color inputs holding an invalid color, by picker. */
 const badColour = reactive<Record<string, boolean>>({})
+/** The Number tab's item to pick as the dialog opens, once its locale's list has loaded, as Excel's More Accounting Formats... opens at Accounting. */
+const picking = ref<FormatChoiceKey | null>(null)
 
 watch(
   () => props.open && !!props.state,
@@ -68,9 +72,17 @@ watch(
     start.value = startOf(props.state)
     draft.value = structuredClone(start.value.draft)
     for (const k of Object.keys(badColour)) delete badColour[k]
+    if (props.at) tab.value = props.at.tab
+    picking.value = props.at?.choice ?? null
   },
   { immediate: true },
 )
+watch([picking, () => numbers.choices.value], ([key, choices]) => {
+  const item = key && draft.value ? choices.find((c) => c.key === key) : undefined
+  if (!item || !draft.value) return
+  pickNumber(draft.value, item)
+  picking.value = null
+})
 
 const errors = computed(() => (draft.value ? draftErrors(draft.value) : {}))
 const blocked = computed(() => Object.keys(errors.value).length > 0 || Object.values(badColour).some(Boolean))

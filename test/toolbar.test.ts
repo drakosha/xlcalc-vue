@@ -87,14 +87,14 @@ describe('SheetToolbar: formatting through the source', () => {
     ])
   })
 
-  it('sets italic, underline, a horizontal alignment and wrapping as toggles based on the active cell', async () => {
+  it('sets italic, underline, a horizontal alignment and wrapping as toggles based on the active cell (Underline over a double one puts a single one, as Excel)', async () => {
     const src = source()
     const w = mountBar(src, at('C3', { style: { font: { underline: 'double' }, alignment: { horizontal: 'center', wrap: true } } }))
     for (const b of ['italic', 'underline', 'align-center', 'align-right', 'wrap']) await w.find(`[data-tb="${b}"]`).trigger('click')
     await settle()
     expect(src.format.mock.calls.map((c) => c[1][0].style)).toEqual([
       { font: { italic: true } },
-      { font: { underline: null } },
+      { font: { underline: 'single' } },
       { alignment: { horizontal: null } },
       { alignment: { horizontal: 'right' } },
       { alignment: { wrap: null } },

@@ -1,20 +1,21 @@
 <script setup lang="ts">
 // Excel's formatting toolbar over a sheet source, in Excel for Windows' ribbon order: undo and redo, Format Painter (through the
-// sheet), the font and its size, bold, italic, underline, borders, fill and font colors, vertical and horizontal alignment, indent,
-// wrapping, Merge & Center with its dropdown (through the sheet, with the source's `structure`), Excel's Number Format box (xlcalc's,
-// in the workbook's locale) and its buttons, applied to the selection the sheet's `state` event reports, Format Cells for a host
+// sheet), the font and its size, bold, italic, Underline with its menu, borders, fill and font colors, vertical alignment, Orientation
+// with its menu, horizontal alignment, indent, wrapping, Merge & Center with its dropdown (through the sheet, with the source's `structure`), Excel's Number Format box (xlcalc's,
+// in the workbook's locale) and its buttons, Accounting Number Format with its currencies, applied to the selection the sheet's `state` event reports, Format Cells for a host
 // that displays the dialog, and AutoSum with its list (through the sheet, with the source's `autoSum`); then Insert > PivotTable
 // (its dialog over the sheet), and Data > Refresh All with its list's Refresh of the PivotTable under the active cell (through the
 // sheet, with the source's `refreshConnections`); `items` picks and orders the groups and adds the host's buttons. In a narrow
 // viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
 import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onBeforeUpdate, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
-import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
+import type { FormatCellsAt, MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
 import { failedOutcome } from '../failure'
 import { NARROW_PX, useCoarsePointer } from '../frame'
 import { useMessages } from '../messages'
 import type { SheetMessages } from '../contract/messages'
 import { useNumberFormats } from '../number-formats'
 import { allows } from '../protection'
+import { accountingCurrencies } from '../accounting'
 import type { AutoSumFunction, EditOutcome, FormatPatch } from '../contract/source'
 import {
   alignToggle,
@@ -28,6 +29,11 @@ import {
   fontSizeStep,
   fontToggle,
   indentStep,
+  ORIENTATIONS,
+  orientationOn,
+  orientationToggle,
+  underlineOn,
+  underlineToggle,
   ACCOUNTING_STYLE,
   COMMA_STYLE,
   decimalStep,
@@ -45,14 +51,17 @@ import {
   type BorderKind,
   type FontToggle,
   type HorizontalAlign,
+  type OrientationKind,
   type RibbonPiece,
   type RibbonSlot,
+  type UnderlineKind,
   type VerticalAlign,
 } from '../toolbar'
 import type { StylePatch } from 'xlcalc/contract'
 import ColourSwatches from './ColourSwatches.vue'
 import ToolbarBox from './ToolbarBox.vue'
 import ToolbarPivot from './ToolbarPivot.vue'
+import ToolbarDrop, { type ToolbarDropItem } from './ToolbarDrop.vue'
 import { hasListener } from './dom'
 import { IconDown } from './icons'
 import { useOutsidePress } from './popup'
@@ -64,6 +73,8 @@ import {
   IconAlignMiddle,
   IconAlignRight,
   IconAlignTop,
+  IconAngleDown,
+  IconAngleUp,
   IconAutoSum,
   IconRefreshAll,
   IconBold,
@@ -82,6 +93,10 @@ import {
   IconItalic,
   IconMerge,
   IconMore,
+  IconOrientation,
+  IconRotateDown,
+  IconRotateUp,
+  IconTextVertical,
   IconAccounting,
   IconComma,
   IconDecimalDown,
@@ -89,6 +104,7 @@ import {
   IconPercent,
   IconRedo,
   IconUnderline,
+  IconUnderlineDouble,
   IconUndo,
   IconWrap,
 } from './toolbar-icons'
@@ -127,8 +143,11 @@ const emit = defineEmits<{
   error: [message: string]
   /** A call has completed, or Esc left the Font or Font Size box: the host may return focus to the grid. */
   done: []
-  /** Format Cells… was clicked, for a host with its own `FormatDialog`; without a listener the button opens the sheet's dialog (through `sheet`), and without either there is no button. */
-  formatCells: []
+  /**
+   * Format Cells… was clicked, or an item that opens it (More Accounting Formats..., Format Cell Alignment) with where it opens, for a
+   * host with its own `FormatDialog`; without a listener these open the sheet's dialog (through `sheet`), and without either they are absent.
+   */
+  formatCells: [at?: FormatCellsAt]
 }>()
 
 const m = useMessages(() => props.messages)
@@ -138,10 +157,13 @@ const dialogToHost = () => props.hostDialog || hasListener(instance, 'onFormatCe
 /** Whether the host listens, read again before each render: a listener is not reactive, as a template condition it was read on each render. */
 const listening = ref(dialogToHost())
 onBeforeUpdate(() => (listening.value = dialogToHost()))
-function formatCells(): void {
-  if (dialogToHost() || !props.sheet) emit('formatCells')
-  else props.sheet.formatCells()
+function formatCells(at?: FormatCellsAt): void {
+  closeAll()
+  if (dialogToHost() || !props.sheet) emit('formatCells', at)
+  else props.sheet.formatCells(at)
 }
+/** Whether Format Cells can open: the sheet's dialog, or the host's. */
+const dialogShown = computed(() => !!props.sheet || listening.value)
 const style = computed(() => props.state?.style)
 /** The formatting buttons work on a sheet whose protection, if any, allows formatting cells, as Excel's are disabled otherwise. */
 const formattable = computed(() => !!props.state && allows(props.state.protection, 'formatCells'))
@@ -149,7 +171,6 @@ const formattable = computed(() => !!props.state && allows(props.state.protectio
 const FONT: { what: FontToggle; icon: typeof IconBold; title: keyof SheetMessages }[] = [
   { what: 'bold', icon: IconBold, title: 'bold' },
   { what: 'italic', icon: IconItalic, title: 'italic' },
-  { what: 'underline', icon: IconUnderline, title: 'underline' },
 ]
 const VERTICAL: { v: VerticalAlign; icon: typeof IconBold; title: keyof SheetMessages }[] = [
   { v: 'top', icon: IconAlignTop, title: 'alignTop' },
@@ -241,7 +262,7 @@ function drawn(group: ToolbarGroup): boolean {
     case 'pivotTable':
       return sheet && !!src.structure
     case 'formatCells':
-      return sheet || listening.value
+      return dialogShown.value
     case 'refreshAll':
       return sheet && !!src.refreshConnections
     case 'pivotAnalyze':
@@ -378,7 +399,7 @@ function onTipOut(e: PointerEvent): void {
 
 // ── menus: the color palettes, the borders, and the narrow layout's menu ──
 /** The toolbar's lists, and a host's button's (`host:<id>`). */
-type Menu = 'font' | 'fill' | 'borders' | 'merge' | 'autoSum' | 'refreshAll' | 'fontName' | 'fontSize' | `host:${string}`
+type Menu = 'font' | 'fill' | 'borders' | 'underline' | 'accounting' | 'orientation' | 'merge' | 'autoSum' | 'refreshAll' | 'fontName' | 'fontSize' | `host:${string}`
 const open = ref<Menu | null>(null)
 const menu = ref(false)
 const toggle = (what: Menu) => {
@@ -392,6 +413,20 @@ function closeAll(): void {
   menu.value = false
 }
 useOutsidePress(root, closeAll, () => open.value !== null || menu.value)
+/**
+ * Esc closes an open menu wherever the focus is, as Excel's does: the toolbar's buttons leave it on the grid, which then does
+ * not see this Esc. An Esc within a toolbar is that toolbar's own (a box restores what it showed).
+ */
+function escOutside(e: KeyboardEvent): void {
+  if (e.key !== 'Escape' || !root.value?.isConnected || (e.target as Element | null)?.closest?.('.xs-toolbar')) return
+  e.preventDefault()
+  e.stopPropagation()
+  closeAll()
+}
+watch(
+  () => open.value !== null || menu.value,
+  (on) => (on ? document.addEventListener('keydown', escOutside, true) : document.removeEventListener('keydown', escOutside, true)),
+)
 /** Buttons do not take focus from the grid, so its keys keep working; the number format list and the font boxes do take it. */
 function keepFocus(e: MouseEvent): void {
   if (!(e.target as HTMLElement).closest('select, input')) e.preventDefault()
@@ -408,6 +443,7 @@ onMounted(() => {
   measureRow()
 })
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', escOutside, true)
   clearTimeout(tipTimer)
   unsubscribe?.()
   observer?.disconnect()
@@ -488,6 +524,48 @@ function border(kind: BorderKind): void {
   lastBorder.value = BORDERS.find((b) => b.kind === kind) ?? lastBorder.value
   apply(ranges().flatMap((range) => borderPatches(range, kind)))
 }
+/** Underline's split button applies the underline picked last from its menu, Underline at first, and is named after it, as Excel's. */
+const lastUnderline = ref<UnderlineKind>('single')
+const UNDERLINES: { kind: UnderlineKind; icon: typeof IconBold; title: keyof SheetMessages }[] = [
+  { kind: 'single', icon: IconUnderline, title: 'underlineSingle' },
+  { kind: 'double', icon: IconUnderlineDouble, title: 'underlineDouble' },
+]
+const underlinePart = computed(() => (lastUnderline.value === 'double' ? { icon: IconUnderlineDouble, title: m.value.underlineDouble } : { icon: IconUnderline, title: m.value.underline }))
+function underline(kind: UnderlineKind): void {
+  open.value = null
+  lastUnderline.value = kind
+  restyle(underlineToggle(style.value, kind))
+}
+const underlineItems = computed<ToolbarDropItem[]>(() =>
+  UNDERLINES.map((u) => ({ hook: `underline-${u.kind}`, label: text(u.title), icon: u.icon, checked: underlineOn(style.value, u.kind), run: () => underline(u.kind) })),
+)
+/** Accounting Number Format's menu: the workbook's locale's currency, then Excel's set, each Excel's code, then More Accounting Formats... */
+const accountingItems = computed<ToolbarDropItem[]>(() => [
+  ...accountingCurrencies(props.locale).map(({ currency, code }) => ({
+    hook: `accounting-${currency}`,
+    label: m.value.accountingCurrency(currency),
+    run: () => {
+      open.value = null
+      apply(over({ numberFormat: code }))
+    },
+  })),
+  ...(dialogShown.value ? [{ hook: 'accounting-more', label: m.value.accountingMore, line: true, run: () => formatCells({ tab: 'number', choice: 'accounting' }) }] : []),
+])
+/** Excel's Orientation menu: each item checked when the active cell's text is turned so, then Format Cell Alignment. */
+const ORIENT_ICONS: Record<OrientationKind, typeof IconBold> = { counterclockwise: IconAngleUp, clockwise: IconAngleDown, vertical: IconTextVertical, up: IconRotateUp, down: IconRotateDown }
+const orientationItems = computed<ToolbarDropItem[]>(() => [
+  ...ORIENTATIONS.map(({ kind, rotation }) => ({
+    hook: `orientation-${kind}`,
+    label: m.value.orientationKind(kind),
+    icon: ORIENT_ICONS[kind],
+    checked: orientationOn(style.value, rotation),
+    run: () => {
+      open.value = null
+      restyle(orientationToggle(style.value, rotation))
+    },
+  })),
+  ...(dialogShown.value ? [{ hook: 'orientation-format', label: m.value.orientationFormat, icon: IconFormatCells, line: true, run: () => formatCells({ tab: 'alignment' }) }] : []),
+])
 /** Excel's Merge & Center shows as pressed on a merged cell, and clicking it then unmerges. */
 const merged = computed(() => !!props.state?.merged)
 /** A merge command through the sheet, which warns before values are lost and displays a rejection. */
@@ -646,6 +724,22 @@ function pickNumber(e: Event): void {
                 >
                   <component :is="b.icon" />
                 </button>
+                <span class="xs-tb-split">
+                  <button
+                    type="button"
+                    :class="['xs-tool', { 'xs-tool-on': underlineOn(style, lastUnderline) }]"
+                    data-tb="underline"
+                    :data-tip="underlinePart.title"
+                    :aria-label="underlinePart.title"
+                    :aria-pressed="underlineOn(style, lastUnderline)"
+                    :disabled="!formattable"
+                    @click="underline(lastUnderline)"
+                  >
+                    <component :is="underlinePart.icon" />
+                  </button>
+                  <!-- on a phone the arrow would push Bold out of the row: Double Underline is on Format Cells' Font tab there -->
+                  <ToolbarDrop v-if="!narrow" hook="underline-menu" :label="m.underlineMenu" :open="open === 'underline'" :disabled="!formattable" :items="underlineItems" @toggle="toggle('underline')" />
+                </span>
               </span>
               <span v-else-if="p.block.group === 'borders'" class="xs-tb-part">
                 <span class="xs-tb-split">
@@ -704,6 +798,11 @@ function pickNumber(e: Event): void {
                 >
                   <component :is="a.icon" />
                 </button>
+              </span>
+              <span v-else-if="p.block.group === 'orientation'" class="xs-tb-part">
+                <span class="xs-tb-split">
+                  <ToolbarDrop hook="orientation" :label="m.orientation" :icon="IconOrientation" :open="open === 'orientation'" :disabled="!formattable" :items="orientationItems" @toggle="toggle('orientation')" />
+                </span>
               </span>
               <span v-else-if="p.block.group === 'align'" class="xs-tb-part">
                 <template v-if="has(p, 'a2')">
@@ -782,9 +881,12 @@ function pickNumber(e: Event): void {
                   <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
                 </select>
                 <template v-if="has(p, 'a2')">
-                  <button type="button" class="xs-tool" data-tb="accounting" :data-tip="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!formattable" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
-                    <IconAccounting />
-                  </button>
+                  <span class="xs-tb-split">
+                    <button type="button" class="xs-tool" data-tb="accounting" :data-tip="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!formattable" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
+                      <IconAccounting />
+                    </button>
+                    <ToolbarDrop hook="accounting-menu" :label="m.accountingMenu" :open="open === 'accounting'" :disabled="!formattable" :items="accountingItems" @toggle="toggle('accounting')" />
+                  </span>
                   <button type="button" class="xs-tool" data-tb="percent" :data-tip="m.percentStyle" :aria-label="m.percentStyle" :disabled="!formattable" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
                     <IconPercent />
                   </button>
@@ -800,7 +902,7 @@ function pickNumber(e: Event): void {
                 </template>
               </span>
               <span v-else-if="p.block.group === 'formatCells' && (dialogToHost() || sheet)" class="xs-tb-part">
-                <button type="button" class="xs-tool" data-tb="format-cells" :data-tip="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!formattable" @click="formatCells">
+                <button type="button" class="xs-tool" data-tb="format-cells" :data-tip="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!formattable" @click="formatCells()">
                   <IconFormatCells />
                 </button>
               </span>

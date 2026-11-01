@@ -8,7 +8,7 @@ import type { TableOp } from '../contract/workbook'
 import { fontToggle, PERCENT_STYLE, type FontToggle } from '../toolbar'
 import type { Editing } from './editing'
 import { isMod, shortcutLetter } from './keys'
-import type { FreezeMode, MergeCommand, SheetFormatPatch } from '../contract/view'
+import type { FormatCellsAt, FreezeMode, MergeCommand, SheetFormatPatch } from '../contract/view'
 import type { Selection } from './selection'
 import type { SheetState } from './state'
 
@@ -165,8 +165,11 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
 
   // ── Excel's Format Cells (Ctrl+1): OK formats the selection in one call to `format` ──
   const formatOpen = ref(false)
-  function openFormat(): boolean {
+  /** Where the dialog opens: a tab and an item of the Number tab picked; null for the tab it was last on. */
+  const formatAt = ref<FormatCellsAt | null>(null)
+  function openFormat(at?: FormatCellsAt): boolean {
     if (!can('format') || !s.sheet.value || !sel.selectionRef.value) return false
+    formatAt.value = at ?? null
     formatOpen.value = true
     return true
   }
@@ -175,7 +178,7 @@ export function useCommands(s: SheetState, sel: Selection, ed: Editing, deps: Co
     s.focusGrid()
   }
 
-  return { can, canRanges, format, structure, layout, outline, table, tabColor, setAutoFilter, protect, freeze, formatKey, formatOpen, openFormat, closeFormat }
+  return { can, canRanges, format, structure, layout, outline, table, tabColor, setAutoFilter, protect, freeze, formatKey, formatOpen, formatAt, openFormat, closeFormat }
 }
 
 export type Commands = ReturnType<typeof useCommands>
