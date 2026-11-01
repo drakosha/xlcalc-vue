@@ -135,6 +135,7 @@ const wait = ctx.w.wait
       <SheetMenu />
       <FormatDialog
         :open="ctx.cmd.formatOpen.value"
+        :at="ctx.cmd.formatAt.value"
         :state="ctx.viewState.value"
         :messages="m"
         :locale="locale"

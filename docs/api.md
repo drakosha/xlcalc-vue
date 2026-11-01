@@ -163,7 +163,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `showNotes(on?: boolean)` | `boolean` | Excel's Show All Notes: every note drawn all the time, toggled without `on`; whether it is on afterwards. A view setting: nothing goes to the source ([links-notes.md](links-notes.md#notes-shown-all-the-time)). |
 | `split(on?: boolean)` | `boolean` | Excel's View > Split, toggled without `on`: splits the window above and to the left of the active cell (at the middle with the first cell in view active) or removes the split, through the source's `split`, not an undo step; whether the sheet is split afterwards. `false` without `split`, on a read-only sheet, with frozen panes or under a display filter. The sheet draws the split's panes, which scroll apart, and its bars, which move and remove the lines ([view.md](view.md#split)). |
 | `showGridlines(on?: boolean)`, `showHeadings(on?: boolean)` | `boolean` | Excel's View > Show > Gridlines and Headings on the displayed sheet, toggled without `on`; whether they show afterwards. Drawn at once and kept through the source's `show`, not an undo step; for a read-only sheet or a source without `show`, in the browser as Show Formulas is ([view.md](view.md#gridlines-and-headings)). |
-| `formatCells()` | `boolean` | Opens Excel's Format Cells dialog; `false` when the sheet cannot be formatted. |
+| `formatCells(at?: FormatCellsAt)` | `boolean` | Opens Excel's Format Cells dialog, on the tab it was last on or at `at` (a tab, and on the Number tab an item of its list picked, as the toolbar's More Accounting Formats... opens it at Accounting); `false` when the sheet cannot be formatted. |
 | `reapplyFilter()` | `Promise<boolean>` | Excel's Reapply; `false` when no display filter is on. |
 | `explain()` | `boolean` | Opens the Trace Precedents panel for the active cell; `false` if the source has no `explain`, or on a protected sheet, as Excel disables formula auditing there. |
 | `goTo()` | `boolean` | Opens Excel's Go To dialog (F5, Ctrl+G); `false` while no sheet is displayed ([go-to-and-symbol.md](go-to-and-symbol.md#go-to)). |
@@ -269,7 +269,7 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `source` | `ToolbarSource` (the same as `SheetSource`) | The sheet's source. |
 | `state` | `SheetViewState \| null` | The payload of the sheet's `state` event; with `null` the buttons are disabled. |
 | `messages` | `Partial<SheetMessages>` | Interface texts. |
-| `locale` | `string` | The workbook's locale, in which the Number Format box names its categories and items; en-US without it. |
+| `locale` | `string` | The workbook's locale, in which the Number Format box names its categories and items and Accounting Number Format's menu puts its currency first, with Excel's codes in that locale; en-US without it. |
 | `sheet` | `SheetViewApi \| null` | The sheet's template ref. With it the toolbar formats, undoes, redoes and merges through the sheet; without it, through the source, and it emits `select` and `error`. |
 | `hostDialog` | `boolean` | The host opens its own dialog on `formatCells`, as when it listens: for a host whose listener the toolbar cannot see, such as a custom element's. |
 | `fonts` | `readonly string[]` | The Font box's list, in place of Excel's common fonts (Aptos, Arial, Calibri and others): a browser does not tell which fonts are installed. |
@@ -281,11 +281,11 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `select` | `{ sheet: string; range: string }` | Where the selection goes after an undo or a redo, for the sheet's `focus`; not emitted with `sheet`. |
 | `error` | `string` | The source rejected a call or the call failed; not emitted with `sheet`. |
 | `done` | none | A call has completed, or Esc left the Font or Font Size box: the host may return focus to the grid. |
-| `formatCells` | none | Format Cells… was clicked. With a listener or `hostDialog`, the button opens the host's dialog; without one, it opens the sheet's dialog (through `sheet`), and without either there is no button. |
+| `formatCells` | `FormatCellsAt \| undefined` | Format Cells… was clicked (no payload), or More Accounting Formats... (`{ tab: 'number', choice: 'accounting' }`) or Format Cell Alignment (`{ tab: 'alignment' }`), with where the dialog opens, for `FormatDialog`'s `at`. With a listener or `hostDialog`, they open the host's dialog; without one, the sheet's dialog (through `sheet`), and without either there is no button and no such item. |
 
 | Type or value | Meaning |
 | --- | --- |
-| `ToolbarGroup` | `'undo' \| 'formatPainter' \| 'font' \| 'fontStyle' \| 'borders' \| 'colors' \| 'verticalAlign' \| 'align' \| 'merge' \| 'number' \| 'formatCells' \| 'autoSum' \| 'pivotTable' \| 'refreshAll' \| 'pivotAnalyze' \| 'pivotDesign'`, in the default order: Undo and Redo; Format Painter; the Font and Font Size boxes with Increase and Decrease Font Size; Bold, Italic and Underline; borders; fill and font color; Top, Middle and Bottom Align; horizontal alignment with Decrease and Increase Indent and Wrap Text; Merge & Center; the Number Format box with Accounting Number Format, Percent Style, Comma Style and Increase and Decrease Decimal; Format Cells; AutoSum; Insert > PivotTable, with `sheet` and the source's `structure`; Data > Refresh All with its list's Refresh All and Refresh, with `sheet` and the source's `refreshConnections`; PivotTable Analyze's Options, Group Selection, Ungroup, Group Field and Fields, Items, & Sets (`pivotAnalyze`), and Design's Subtotals, Grand Totals, Report Layout and Blank Rows with their lists (`pivotDesign`), shown with `sheet` and the source's `pivotCells` while the active cell is in a PivotTable. |
+| `ToolbarGroup` | `'undo' \| 'formatPainter' \| 'font' \| 'fontStyle' \| 'borders' \| 'colors' \| 'verticalAlign' \| 'orientation' \| 'align' \| 'merge' \| 'number' \| 'formatCells' \| 'autoSum' \| 'pivotTable' \| 'refreshAll' \| 'pivotAnalyze' \| 'pivotDesign'`, in the default order: Undo and Redo; Format Painter; the Font and Font Size boxes with Increase and Decrease Font Size; Bold, Italic and Underline with its menu (Underline, Double Underline); borders; fill and font color; Top, Middle and Bottom Align; Orientation with its menu; horizontal alignment with Decrease and Increase Indent and Wrap Text; Merge & Center; the Number Format box with Accounting Number Format and its menu of currencies, Percent Style, Comma Style and Increase and Decrease Decimal; Format Cells; AutoSum; Insert > PivotTable, with `sheet` and the source's `structure`; Data > Refresh All with its list's Refresh All and Refresh, with `sheet` and the source's `refreshConnections`; PivotTable Analyze's Options, Group Selection, Ungroup, Group Field and Fields, Items, & Sets (`pivotAnalyze`), and Design's Subtotals, Grand Totals, Report Layout and Blank Rows with their lists (`pivotDesign`), shown with `sheet` and the source's `pivotCells` while the active cell is in a PivotTable. |
 | `ToolbarButton` | `{ id: string; label: string; icon?: Component \| string; run?: () => void; menu?: readonly ToolbarMenuItem[]; disabled?: boolean; pressed?: boolean }`: a host's button. `label` is its tooltip and accessible name, and its text without `icon`; `icon` is a Vue component (it gets the class `xs-icon`) or SVG markup, drawn at the toolbar's icon size; `pressed` shows it pressed, with `aria-pressed`. With `menu`, a click opens the list (`data-tb-host-menu="<id>"`); with `run` too the button is split, its part running `run` and its arrow opening the list. Its hook is `data-tb-host="<id>"`. |
 | `ToolbarMenuItem` | `{ id: string; label: string; run: () => void; disabled?: boolean }`: an item of a host's button's list, hook `data-tb-host-item="<id>"`. |
 | `ToolbarItem` | `ToolbarGroup \| ToolbarButton`. |
@@ -318,11 +318,17 @@ Excel's Format Cells dialog for the selection, for a host that places its own di
 | `state` | `SheetViewState \| null` | The payload of the sheet's `state` event; with `null` nothing is shown. |
 | `messages` | `Partial<SheetMessages>` | Interface texts. |
 | `locale` | `string` | The workbook's locale for the Number tab. |
+| `at` | `FormatCellsAt \| null` | Where it opens: a tab, and on the Number tab an item of its list picked, as the toolbar's `formatCells` event gives it; without it, the tab it was last on. |
 
 | Event | Payload | When |
 | --- | --- | --- |
 | `apply` | `SheetFormatPatch[]` | OK was clicked with changes: patches for the sheet's `format`. |
 | `close` | none | OK or Cancel was clicked: the host hides the dialog. |
+
+| Type | Meaning |
+| --- | --- |
+| `FormatCellsTab` | `'number' \| 'alignment' \| 'font' \| 'border' \| 'fill' \| 'protection'`: a tab of the dialog. |
+| `FormatCellsAt` | `{ tab: FormatCellsTab; choice?: FormatChoiceKey }`: where the dialog opens, a tab and on the Number tab an item of its list (xlcalc's `FormatChoiceKey`, `'accounting'` for More Accounting Formats...) picked as it opens, so that OK applies it. |
 
 ## The source: `SheetSource`
 

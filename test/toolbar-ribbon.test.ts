@@ -31,7 +31,7 @@ const hooks = (w: VueWrapper) => w.findAll('[data-tb], [data-tb-host]').map((e) 
 
 describe("the toolbar's default order", () => {
   it("is Excel's Home (Clipboard, Font, Alignment, Number, Editing) after Undo and Redo, then Insert's PivotTable, Data's Refresh All and the PivotTable tabs", () => {
-    expect(TOOLBAR_GROUPS).toEqual(['undo', 'formatPainter', 'font', 'fontStyle', 'borders', 'colors', 'verticalAlign', 'align', 'merge', 'number', 'formatCells', 'autoSum', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign'])
+    expect(TOOLBAR_GROUPS).toEqual(['undo', 'formatPainter', 'font', 'fontStyle', 'borders', 'colors', 'verticalAlign', 'orientation', 'align', 'merge', 'number', 'formatCells', 'autoSum', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign'])
   })
 
   it("draws the buttons in the order of Excel's groups: Fill Color before Font Color, Format Cells right after the Number group", async () => {
@@ -41,9 +41,9 @@ describe("the toolbar's default order", () => {
     expect(hooks(w).filter((x) => x !== 'more')).toEqual([
       'undo', 'redo', 'format-painter',
       'font-name', 'font-name-list', 'font-size', 'font-size-list', 'font-up', 'font-down',
-      'bold', 'italic', 'underline', 'border-last', 'borders', 'fill-colour', 'fill-palette', 'font-colour', 'font-palette',
-      'align-top', 'align-middle', 'align-bottom', 'align-left', 'align-center', 'align-right', 'indent-down', 'indent-up', 'wrap', 'merge', 'merge-menu',
-      'number', 'accounting', 'percent', 'comma', 'decimal-up', 'decimal-down', 'format-cells',
+      'bold', 'italic', 'underline', 'underline-menu', 'border-last', 'borders', 'fill-colour', 'fill-palette', 'font-colour', 'font-palette',
+      'align-top', 'align-middle', 'align-bottom', 'orientation', 'align-left', 'align-center', 'align-right', 'indent-down', 'indent-up', 'wrap', 'merge', 'merge-menu',
+      'number', 'accounting', 'accounting-menu', 'percent', 'comma', 'decimal-up', 'decimal-down', 'format-cells',
       'auto-sum', 'auto-sum-menu', 'pivot-table', 'refresh-all', 'refresh-all-menu',
     ])
   })
@@ -141,7 +141,7 @@ describe('ribbonGroups', () => {
       ['undo', 'cols', false, [[['undo']]]],
       ['formatPainter', 'cols', false, [[['formatPainter']]]],
       ['font', 'rows', false, [[['font:a1'], ['fontStyle:a2', 'borders:a2', 'colors:a2']]]],
-      ['verticalAlign', 'rows', false, [[['verticalAlign:a1'], ['align:a2']], [['align:b1'], ['merge:b2']]]],
+      ['verticalAlign', 'rows', false, [[['verticalAlign:a1', 'orientation:a1'], ['align:a2']], [['align:b1'], ['merge:b2']]]],
       ['number', 'rows', false, [[['number:a1'], ['number:a2']], [[], ['formatCells:b2']]]],
       ['autoSum', 'cols', false, [[['autoSum']]]],
       ['pivotTable', 'cols', true, [[['pivotTable']]]],
@@ -201,18 +201,18 @@ describe('rows: 2, as Excel’s ribbon', () => {
     expect(lines(w, 'font')).toEqual([
       [
         ['font-name', 'font-name-list', 'font-size', 'font-size-list', 'font-up', 'font-down'],
-        ['bold', 'italic', 'underline', 'border-last', 'borders', 'fill-colour', 'fill-palette', 'font-colour', 'font-palette'],
+        ['bold', 'italic', 'underline', 'underline-menu', 'border-last', 'borders', 'fill-colour', 'fill-palette', 'font-colour', 'font-palette'],
       ],
     ])
     expect(lines(w, 'verticalAlign')).toEqual([
       [
-        ['align-top', 'align-middle', 'align-bottom'],
+        ['align-top', 'align-middle', 'align-bottom', 'orientation'],
         ['align-left', 'align-center', 'align-right', 'indent-down', 'indent-up'],
       ],
       [['wrap'], ['merge', 'merge-menu']],
     ])
     expect(lines(w, 'number')).toEqual([
-      [['number'], ['accounting', 'percent', 'comma', 'decimal-up', 'decimal-down']],
+      [['number'], ['accounting', 'accounting-menu', 'percent', 'comma', 'decimal-up', 'decimal-down']],
       [[], ['format-cells']],
     ])
     expect(w.find('[data-tb-block="undo"]').classes()).toContain('xs-tb-g-cols')
@@ -315,14 +315,14 @@ describe("rows: 1 fits Excel's groups whole", () => {
     const w = await mountFull()
     expect(inRow(w)).not.toContain('align-top')
     expect(inRow(w)).not.toContain('merge')
-    expect(inMenu(w).slice(0, 11)).toEqual(['align-top', 'align-middle', 'align-bottom', 'align-left', 'align-center', 'align-right', 'indent-down', 'indent-up', 'wrap', 'merge', 'merge-menu'])
+    expect(inMenu(w).slice(0, 12)).toEqual(['align-top', 'align-middle', 'align-bottom', 'orientation', 'align-left', 'align-center', 'align-right', 'indent-down', 'indent-up', 'wrap', 'merge', 'merge-menu'])
   })
 
   it('keeps Format Cells with the Number group, in More with it (as at about 1280 px)', async () => {
     layout(1100)
     const w = await mountFull()
     expect(inRow(w)).not.toContain('format-cells')
-    expect(inMenu(w).slice(0, 7)).toEqual(['number', 'accounting', 'percent', 'comma', 'decimal-up', 'decimal-down', 'format-cells'])
+    expect(inMenu(w).slice(0, 8)).toEqual(['number', 'accounting', 'accounting-menu', 'percent', 'comma', 'decimal-up', 'decimal-down', 'format-cells'])
     expect(inRow(w)).toEqual(expect.arrayContaining(['align-top', 'merge', 'auto-sum']))
   })
 })
@@ -339,7 +339,7 @@ describe('rows: 2 and the order of items', () => {
     })
     const w = mount(SheetToolbar, { props: { source: source(), state, rows: 2, items: ['undo', 'fontStyle', 'font'] }, attachTo: document.body })
     await vi.waitFor(() => expect(w.find('[data-tb-menu]').exists()).toBe(true))
-    expect(w.findAll('[data-tb-menu] [data-tb]').map((e) => e.attributes('data-tb')).slice(0, 4)).toEqual(['bold', 'italic', 'underline', 'font-name'])
+    expect(w.findAll('[data-tb-menu] [data-tb]').map((e) => e.attributes('data-tb')).slice(0, 5)).toEqual(['bold', 'italic', 'underline', 'underline-menu', 'font-name'])
     // Drawn in the row, Excel's places win: the Font boxes over Bold
     vi.restoreAllMocks()
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1440)

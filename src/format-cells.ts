@@ -5,7 +5,6 @@ import { parseRange } from 'xlcalc/a1'
 import type { SheetFormatPatch, SheetViewState } from './contract/view'
 import { BORDER_EDGES, edgePatches, edgesOf, INDENTED, parseFontSize, sameLine, upperColour, type BorderEdge, type EdgeLines } from './toolbar'
 
-export type FormatTab = 'number' | 'alignment' | 'font' | 'border' | 'fill' | 'protection'
 /** The tabs named by `fmtTab`; Protection, the last, has its own text. */
 export const FORMAT_TABS = ['number', 'alignment', 'font', 'border', 'fill'] as const
 

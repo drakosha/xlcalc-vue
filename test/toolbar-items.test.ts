@@ -38,7 +38,7 @@ describe("SheetToolbar's items", () => {
   it('draws only the groups named, in their order; an unknown or repeated name is skipped', async () => {
     const w = mountBar(['borders', 'fontStyle', 'nothing' as never, 'borders', 'undo'])
     await nextTick()
-    expect(hooks(w)).toEqual(['border-last', 'borders', 'bold', 'italic', 'underline', 'undo', 'redo'])
+    expect(hooks(w)).toEqual(['border-last', 'borders', 'bold', 'italic', 'underline', 'underline-menu', 'undo', 'redo'])
     // Borders and Bold, Italic, Underline follow each other: one group, Excel's Font
     expect(w.findAll('.xs-tb-group').map((g) => g.attributes('data-tb-block'))).toEqual(['borders', 'undo'])
   })
@@ -54,7 +54,7 @@ describe("SheetToolbar's items", () => {
       'undo',
     ])
     await nextTick()
-    expect(hooks(w)).toEqual(['bold', 'italic', 'underline', 'host:share', 'host:pin', 'host:save', 'undo', 'redo'])
+    expect(hooks(w)).toEqual(['bold', 'italic', 'underline', 'underline-menu', 'host:share', 'host:pin', 'host:save', 'undo', 'redo'])
     expect(w.findAll('.xs-tb-group')).toHaveLength(3)
     const share = w.find('[data-tb-host="share"]')
     expect(share.attributes('data-tip')).toBe('Share')
