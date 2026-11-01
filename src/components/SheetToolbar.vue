@@ -154,11 +154,12 @@ const ALIGN: { h: HorizontalAlign; icon: typeof IconBold; title: keyof SheetMess
   { h: 'center', icon: IconAlignCenter, title: 'alignCenter' },
   { h: 'right', icon: IconAlignRight, title: 'alignRight' },
 ]
+/** Excel's Borders menu, the items it has here in its order: Bottom Border, then after its line No Border, All Borders, Outside Borders. */
 const BORDERS: { kind: BorderKind; icon: typeof IconBold; title: keyof SheetMessages }[] = [
-  { kind: 'all', icon: IconBorderAll, title: 'borderAll' },
-  { kind: 'outside', icon: IconBorderOutside, title: 'borderOutside' },
   { kind: 'bottom', icon: IconBorderBottom, title: 'borderBottom' },
   { kind: 'none', icon: IconBorderNone, title: 'borderNone' },
+  { kind: 'all', icon: IconBorderAll, title: 'borderAll' },
+  { kind: 'outside', icon: IconBorderOutside, title: 'borderOutside' },
 ]
 /** Excel's dropdown under Merge & Center: each item is named by its command's text, and its hook (`data-tb`) is the command in kebab case. */
 const MERGES: readonly MergeCommand[] = ['mergeCenter', 'mergeAcross', 'mergeCells', 'unmergeCells']
@@ -422,8 +423,11 @@ function paint(what: Colouring, colour: string | null): void {
   open.value = null
   apply(over({ style: what === 'font' ? { font: { color: colour } } : { fill: colour ? { color: colour } : null } }))
 }
+/** The Borders split button's part applies the border picked last, Bottom Border at first, and is named after it, as Excel's. */
+const lastBorder = ref<(typeof BORDERS)[number]>(BORDERS[0]!)
 function border(kind: BorderKind): void {
   open.value = null
+  lastBorder.value = BORDERS.find((b) => b.kind === kind) ?? lastBorder.value
   apply(ranges().flatMap((range) => borderPatches(range, kind)))
 }
 /** Excel's Merge & Center shows as pressed on a merged cell, and clicking it then unmerges. */
@@ -584,15 +588,20 @@ function pickNumber(e: Event): void {
         </span>
         <span v-else-if="blk.group === 'borders'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span class="xs-tb-split">
-            <button type="button" class="xs-tool xs-tb-wide" data-tb="borders" :data-tip="m.borders" :aria-label="m.borders" :aria-expanded="open === 'borders'" :disabled="!formattable" @click="toggle('borders')">
-              <IconBorderAll />
-              <IconDown class="xs-tb-down" />
+            <button type="button" class="xs-tool" data-tb="border-last" :data-tip="text(lastBorder.title)" :aria-label="text(lastBorder.title)" :disabled="!formattable" @click="border(lastBorder.kind)">
+              <component :is="lastBorder.icon" />
+            </button>
+            <button type="button" class="xs-tool xs-tb-caret" data-tb="borders" :data-tip="m.borders" :aria-label="m.borders" aria-haspopup="menu" :aria-expanded="open === 'borders'" :disabled="!formattable" @click="toggle('borders')">
+              <IconDown />
             </button>
             <div v-if="open === 'borders'" class="xs-tb-pop" role="menu" :aria-label="m.borders">
-              <button v-for="b in BORDERS" :key="b.kind" type="button" class="xs-tb-item" role="menuitem" :data-tb="`border-${b.kind}`" @click="border(b.kind)">
-                <component :is="b.icon" />
-                {{ text(b.title) }}
-              </button>
+              <template v-for="(b, i) in BORDERS" :key="b.kind">
+                <div v-if="i === 1" class="xs-tb-sep" role="separator" />
+                <button type="button" class="xs-tb-item" role="menuitem" :data-tb="`border-${b.kind}`" @click="border(b.kind)">
+                  <component :is="b.icon" />
+                  {{ text(b.title) }}
+                </button>
+              </template>
             </div>
           </span>
         </span>

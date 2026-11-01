@@ -204,6 +204,10 @@
 .xs-tb-item[aria-pressed='true'] {
   background: var(--xs-head-bg);
 }
+/* A line between a menu's sections, as Excel draws it in Borders. */
+.xs-tb-sep {
+  border-top: 1px solid var(--xs-grid);
+}
 /* The palette slightly smaller than the dialog's, as Excel's menu draws it (the touch one is the same, controls.css). */
 .xs-toolbar:not(.xs-touch) .xs-swatches {
   --xs-swatch: 18px;

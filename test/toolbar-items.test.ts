@@ -32,13 +32,13 @@ describe("SheetToolbar's items", () => {
     const w = mountBar()
     expect(TOOLBAR_GROUPS[0]).toBe('undo')
     expect(hooks(w).slice(0, 10)).toEqual(['undo', 'redo', 'font-name', 'font-name-list', 'font-size', 'font-size-list', 'font-up', 'font-down', 'bold', 'italic'])
-    expect(hooks(w)).toContain('borders')
+    expect(hooks(w)).toContain('border-last')
   })
 
   it('draws only the groups named, in their order; an unknown or repeated name is skipped', async () => {
     const w = mountBar(['borders', 'fontStyle', 'nothing' as never, 'borders', 'undo'])
     await nextTick()
-    expect(hooks(w)).toEqual(['borders', 'bold', 'italic', 'underline', 'undo', 'redo'])
+    expect(hooks(w)).toEqual(['border-last', 'borders', 'bold', 'italic', 'underline', 'undo', 'redo'])
     expect(w.findAll('.xs-tb-group')).toHaveLength(3)
   })
 
@@ -95,7 +95,7 @@ describe("SheetToolbar's items", () => {
     expect((menu.element as HTMLElement).style.display).toBe('none')
     await w.find('[data-tb="more"]').trigger('click')
     expect((menu.element as HTMLElement).style.display).toBe('')
-    expect(hooks(w, '[data-tb-menu]')).toEqual(['borders', 'host:share'])
+    expect(hooks(w, '[data-tb-menu]')).toEqual(['border-last', 'borders', 'host:share'])
     await w.find('[data-tb-host="share"]').trigger('click')
     expect(run).toHaveBeenCalledOnce()
     expect((menu.element as HTMLElement).style.display).toBe('none')
@@ -167,7 +167,7 @@ describe("SheetToolbar's items", () => {
     const w = mountBar(['undo', { id: 'a', label: 'A', run }, 'borders', 'fontStyle'])
     await nextTick()
     await nextTick()
-    expect(hooks(w)).toEqual(['undo', 'redo', 'host:a', 'borders', 'bold', 'italic', 'underline'])
+    expect(hooks(w)).toEqual(['undo', 'redo', 'host:a', 'border-last', 'borders', 'bold', 'italic', 'underline'])
     expect(w.find('[data-tb-menu]').exists()).toBe(false)
     expect(w.find('[data-tb="more"]').exists()).toBe(false)
   })
