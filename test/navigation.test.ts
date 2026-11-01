@@ -8,7 +8,14 @@ import { barField, fakeSource, mountSheet, pressBar, settle } from './helpers'
 afterEach(() => {
   document.body.innerHTML = ''
   vi.restoreAllMocks()
+  delete (document as { elementsFromPoint?: unknown }).elementsFromPoint
 })
+
+/** The elements under the pointer, topmost first, as the browser's hit test finds them (happy-dom has none). */
+function under(...els: Element[]): void {
+  vi.spyOn(document, 'elementFromPoint').mockReturnValue(els[0] ?? null)
+  Object.defineProperty(document, 'elementsFromPoint', { configurable: true, value: () => els })
+}
 
 const book = (): MemoryBook => ({
   sheets: [
@@ -32,7 +39,7 @@ describe('a drag over row numbers or column letters', () => {
     const w = await mountSheet(memorySource(book()))
     const scroller = w.find('.xs-scroller').element
     const drag = async (from: Element, over: Element) => {
-      vi.spyOn(document, 'elementFromPoint').mockReturnValue(over)
+      under(over)
       from.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }))
       scroller.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse' }))
       scroller.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' }))
@@ -48,11 +55,41 @@ describe('a drag over row numbers or column letters', () => {
 
   it('a touch on a row number does not start one: the drag scrolls', async () => {
     const w = await mountSheet(memorySource(book()))
-    vi.spyOn(document, 'elementFromPoint').mockReturnValue(w.find('.xs-num[data-row="5"]').element)
+    under(w.find('.xs-num[data-row="5"]').element)
     w.find('.xs-num[data-row="2"]').element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'touch' }))
     w.find('.xs-scroller').element.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'touch' }))
     await settle()
     expect(addressOf(w)).toBe('A1')
+  })
+})
+
+describe('a drag over the cells', () => {
+  it("extends to the cell under the pointer over the fill handle, which sits at the dragged corner, with Shift too, as Excel's does", async () => {
+    // a source that can copy has the handle
+    const source = memorySource(book())
+    source.structure = async () => ({ ok: true, changes: [] })
+    const w = await mountSheet(source)
+    const scroller = w.find('.xs-scroller').element
+    const cell = (at: string) => w.find(`[data-cell="${at}"]`).element
+    const drag = async (from: string, path: string[], shiftKey = false) => {
+      cell(from).dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse', shiftKey }))
+      await settle()
+      for (const at of path) {
+        // the handle at the selection's bottom right corner is over the cells there, on top of them in the hit test
+        const handle = w.find('[data-xs-fill-handle]').element
+        under(handle, cell(at), w.find('.xs-table').element)
+        handle.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse', buttons: 1, shiftKey }))
+        await settle()
+      }
+      scroller.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse', shiftKey }))
+      await settle()
+    }
+    await drag('1:1', ['3:1', '4:2'])
+    expect(addressOf(w)).toBe('A1:B4')
+    expect(active(w)).toBe('1:1')
+    await drag('2:1', ['3:2'], true)
+    expect(addressOf(w)).toBe('A1:B3')
+    expect(active(w)).toBe('1:1')
   })
 })
 

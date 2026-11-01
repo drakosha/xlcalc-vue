@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A selection dragged with the mouse takes the cell under the pointer wherever the pointer is in it, as Excel's does: near the dragged corner the pointer was over the fill handle, and the drag kept the previous cell (A1 dragged to just inside B4's top-left corner selected A1:A3), with Shift too ([editing.md](docs/editing.md#what-the-optional-source-methods-enable)).
+
 ## 0.31.2 (2026-11-01)
 
 - The PivotTable, slicer and timeline UI is back in the main entry point, as in 0.31.0: 0.31.1 moved it to a chunk loaded on demand, which saved about a tenth of the main entry for a gap between asking for a pivot dialog or menu and its showing. `insertPivotTable()`, `insertSlicer()` and `insertTimeline()` show their dialog before they resolve again, and the main entry exports only its public names.
