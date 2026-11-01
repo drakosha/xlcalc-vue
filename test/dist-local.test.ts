@@ -25,14 +25,13 @@ afterAll(() => rmSync(out, { recursive: true, force: true }))
 const importsOf = (js: string) => [...js.matchAll(/(?:^|[;\n])\s*import\s*(?:[^'";]*?from\s*)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1] ?? m[2])
 
 describe('dist/local.js', () => {
-  it('is one file next to index.js and its ru-RU, xlcalc/entry and PivotTable chunks, which import no xlcalc', () => {
+  it('is one file next to index.js and its ru-RU and xlcalc/entry chunks, which import no xlcalc', () => {
     const files = readdirSync(out).filter((f) => f.endsWith('.js'))
     const ru = files.find((f) => /^ru-RU-[\w-]+\.js$/.test(f))
     const entry = files.find((f) => /^typed-entry-[\w-]+\.js$/.test(f))
-    const pivot = files.find((f) => /^pivot-ui-[\w-]+\.js$/.test(f))
-    expect(files.sort()).toEqual(['index.js', 'local.js', ru, entry, pivot].sort())
+    expect(files.sort()).toEqual(['index.js', 'local.js', ru, entry].sort())
     const index = readFileSync(join(out, 'index.js'), 'utf8')
-    expect(new Set(importsOf(index))).toEqual(new Set(['vue', `./${ru}`, `./${entry}`, `./${pivot}`]))
+    expect(new Set(importsOf(index))).toEqual(new Set(['vue', `./${ru}`, `./${entry}`]))
   })
   it('imports xlcalc and loads the pool, the xlsx reader and writer over a file, the CSV reader and writer, a locale, the function texts, a level of regular expressions and the PivotTable engine only when requested', () => {
     const local = readFileSync(join(out, 'local.js'), 'utf8')

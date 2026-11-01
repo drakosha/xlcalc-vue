@@ -23,30 +23,19 @@ const pos = ref({ left: '0px', top: '0px' })
 const sub = ref<FilterKind | null>(null)
 const allDates = ref(false)
 
-/** Where the menu opens: under its filter button when it was not drawn as the menu was asked for, which it is by now. */
-function anchor(): { left: number; top: number } | undefined {
-  const b = x.value?.button
-  const r = b ? ctx.scroller.value?.querySelector<HTMLElement>(`[data-pivot-button="${b}"]`)?.getBoundingClientRect() : undefined
-  return r ? { left: r.left, top: r.bottom } : x.value?.at
-}
-// immediate: a menu asked for while the PivotTable chunk loaded is open as this mounts
 watch(
   () => x.value?.at,
-  async () => {
+  async (at) => {
     sub.value = null
     allDates.value = false
-    const first = anchor()
-    if (!first) return
-    pos.value = { left: `${first.left}px`, top: `${first.top}px` }
-    // the grid draws a button that came with the chunk in the same update, after this menu
+    if (!at) return
+    pos.value = { left: `${at.left}px`, top: `${at.top}px` }
     await nextTick()
-    const at = anchor() ?? first
     const r = box.value?.getBoundingClientRect()
     if (!r) return
     pos.value = { left: `${Math.max(4, Math.min(at.left, window.innerWidth - r.width - 4))}px`, top: `${Math.max(4, Math.min(at.top, window.innerHeight - r.height - 4))}px` }
     box.value?.querySelector<HTMLElement>('[data-pfm-first]')?.focus({ preventScroll: true })
   },
-  { immediate: true },
 )
 useOutsidePress(box, () => f.closeMenu(), () => !!x.value)
 
