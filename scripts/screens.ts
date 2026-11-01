@@ -1,4 +1,5 @@
-// Screenshots of the example at phone and desktop widths: every sheet of the "all formatting" workbook and the editing states.
+// Screenshots of the example at phone and desktop widths: every sheet of the "all formatting" workbook and the editing states,
+// and on the desktop the toolbar's Underline, Accounting Number Format and Orientation menus (ribbon-menus.ts).
 // Run: npm run screens (Node 22.18+ strips the types). Output: test-results/screens/, not in git.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -6,6 +7,7 @@ import { chromium, type Page } from 'playwright'
 import { createServer } from 'vite'
 import { quoteSheetIfNeeded } from 'xlcalc/a1'
 import { longPress, longPressAt } from './touch.ts'
+import { ribbonMenuScreens } from './ribbon-menus.ts'
 import { zoomScreens } from './zoom-screens.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -750,6 +752,7 @@ for (const size of SIZES) {
   await validationScreens(page, size)
   await commandScreens(page, size)
   await mergeScreens(page, size)
+  if (!size.mobile) await ribbonMenuScreens(page, base, size, out)
   await typoScreens(page, size)
   await tipScreens(page, size)
   await dialogScreens(page, size)
