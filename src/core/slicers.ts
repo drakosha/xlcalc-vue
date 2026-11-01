@@ -301,7 +301,8 @@ export function useSlicers(s: SheetState, cmd: Commands, pivots: Pivots, deps: S
   /** OK in Slicer Settings: the name, the caption and header, the sorting and the items with no data, in one operation; a new name keeps it selected. */
   async function applySettings(): Promise<void> {
     const d = dialog.value
-    if (d?.kind !== 'settings') return
+    // an empty name is never sent: OK waits for one, as Excel takes no slicer without a name (its alert not measured)
+    if (d?.kind !== 'settings' || !d.name.trim()) return
     dialog.value = null
     const o = { kind: 'slicer' as const, name: d.slicer }
     const name = d.name !== d.slicer ? { name: d.name } : {}

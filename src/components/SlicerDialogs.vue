@@ -77,7 +77,7 @@ function ok(): void {
       </table>
     </template>
     <div class="xs-dialog-foot">
-      <button type="button" class="xs-button xs-button-main" :disabled="!!insert && !insert.fields.some((f) => f.checked)" data-xs-dialog-ok @click="ok">{{ m.ok }}</button>
+      <button type="button" class="xs-button xs-button-main" :disabled="(!!insert && !insert.fields.some((f) => f.checked)) || (!!settings && !settings.name.trim())" data-xs-dialog-ok @click="ok">{{ m.ok }}</button>
       <button type="button" class="xs-button" data-xs-dialog-cancel @click="slicers.close()">{{ m.cancel }}</button>
     </div>
   </DialogShell>
