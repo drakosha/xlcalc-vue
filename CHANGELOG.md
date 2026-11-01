@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.31.2 (2026-11-01)
 
 - The PivotTable, slicer and timeline UI is back in the main entry point, as in 0.31.0: 0.31.1 moved it to a chunk loaded on demand, which saved about a tenth of the main entry for a gap between asking for a pivot dialog or menu and its showing. `insertPivotTable()`, `insertSlicer()` and `insertTimeline()` show their dialog before they resolve again, and the main entry exports only its public names.
 
