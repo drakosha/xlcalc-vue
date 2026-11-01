@@ -202,9 +202,14 @@ export function useSelection(s: SheetState, geo: Geometry, v: Viewport, limit?: 
     const at = cellOfData(el?.closest('[data-cell]')?.getAttribute('data-cell'))
     return at ? (kind === 'rows' ? at.row : at.col) : null
   }
+  /**
+   * The grid's element under the pointer: a cell, a row number or a column letter. Marks drawn over the cells do not hide it,
+   * as the fill handle at the dragged corner would: Excel's drag follows the cell under the pointer wherever it is in it.
+   */
+  const tableAt = (e: PointerEvent): Element | undefined => document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest('.xs-table'))
   function onGridMove(e: PointerEvent): void {
-    if ((!dragging && !lineDrag) || typeof document.elementFromPoint !== 'function') return
-    const el = document.elementFromPoint(e.clientX, e.clientY)
+    if ((!dragging && !lineDrag) || typeof document.elementsFromPoint !== 'function') return
+    const el = tableAt(e)
     if (lineDrag) {
       const line = lineAt(el, lineDrag)
       const to = line === null ? null : lineDrag === 'rows' ? { row: line, col: MAX_COLS } : { row: MAX_ROWS, col: line }

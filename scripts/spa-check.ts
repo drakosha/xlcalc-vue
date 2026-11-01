@@ -8,7 +8,8 @@
 // on the phone a row inserted from the menu that a long press opens.
 // Then Find and Replace and Format Cells on a new workbook: a search with Match case and in values, Replace All and its
 // Ctrl+Z, and the dialog's font, outline and percentage with OK, and their undo.
-// Then the fill handle and cut, copy and paste within the workbook: a formula dragged three rows down by its handle (on the
+// Then the fill handle and cut, copy and paste within the workbook: on the desktop a selection dragged to just inside a cell's
+// corner, over the fill handle at the dragged corner, takes that cell, with Shift too; a formula dragged three rows down by its handle (on the
 // desktop a drag canceled by Esc first, which copies nothing), a series 1, 2 continued to 3, 4, a range
 // with a formula copied and pasted, a formula cut and pasted, each undone (Ctrl+C, Ctrl+X, Ctrl+V on the desktop, the cell menu
 // on the phone).
@@ -677,6 +678,24 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   await shows(page, '1:2', '10')
   await ready(page)
 
+  // 0. A selection dragged from A1 to just inside B4's top-left corner, where the fill handle of A1:A3 is under the pointer
+  // as the corner passes, selects A1:B4, as Excel's drag follows the cell under the pointer; with Shift from A2 too.
+  if (!size.phone) {
+    const a1 = await middle(page, '[data-cell="1:1"]')
+    const b4 = (await page.locator('[data-cell="4:2"]').boundingBox())!
+    for (const [dx, dy, shift] of [[2, 2, false], [5, 5, false], [3, 3, true]] as const) {
+      await select('1:1')
+      const from = shift ? await middle(page, '[data-cell="2:1"]') : a1
+      await page.mouse.move(from.x, from.y)
+      if (shift) await page.keyboard.down('Shift')
+      await page.mouse.down()
+      await page.mouse.move(b4.x + dx, b4.y + dy, { steps: 8 })
+      await page.mouse.up()
+      if (shift) await page.keyboard.up('Shift')
+      expect(at(`the selection dragged to ${dx}, ${dy} px inside B4${shift ? ' with Shift from A2' : ''}`), await addressOf(page), 'A1:B4')
+    }
+  }
+
   // 1. B1's fill handle dragged to B4: the formula is copied down, each copy referring to its own row; B1:B4 is selected.
   await select('1:2')
   await page.waitForSelector('[data-xs-fill-handle]')
@@ -786,7 +805,7 @@ async function fillCopyScenario(browser: Browser, base: string, size: Size): Pro
   expect(at('the move undone'), await formulas(page, ['B1', 'D2']), ['A1*10', null])
   await shot('move-undone')
   if (size.phone) await checkNoSideScroll(page, at('after the moves'))
-  console.log(`${at('ok')}: B1 filled to B4 by ${size.phone ? 'touch' : 'the mouse'} (B4 is A4*10), 1, 2 continued to 3, 4, A1:B1 pasted at D6 (E6 is D6*10), B1 moved to D2 (A1*10), each undone`)
+  console.log(`${at('ok')}: ${size.phone ? '' : 'a drag over the fill handle selects A1:B4, with Shift too; '}B1 filled to B4 by ${size.phone ? 'touch' : 'the mouse'} (B4 is A4*10), 1, 2 continued to 3, 4, A1:B1 pasted at D6 (E6 is D6*10), B1 moved to D2 (A1*10), each undone`)
   if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
   await context.close()
 }
