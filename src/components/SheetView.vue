@@ -17,15 +17,10 @@ import SymbolDialog from './SymbolDialog.vue'
 import InsertFunction from './InsertFunction.vue'
 import PasteSpecialDialog from './PasteSpecialDialog.vue'
 import PivotFieldsPane from './PivotFieldsPane.vue'
-import PivotTableDialog from './PivotTableDialog.vue'
-import PivotCalcDialog from './PivotCalcDialog.vue'
-import PivotFieldDialog from './PivotFieldDialog.vue'
-import PivotFilterDialog from './PivotFilterDialog.vue'
-import PivotFilterMenu from './PivotFilterMenu.vue'
-import PivotGroupDialog from './PivotGroupDialog.vue'
-import PivotNumberFormat from './PivotNumberFormat.vue'
-import PivotOptionsDialog from './PivotOptionsDialog.vue'
-import PivotValueDialog from './PivotValueDialog.vue'
+// the stylesheets of the PivotTable chunk's dialogs and menus, kept where they were in style.css so the cascade stays as it was
+import '../format-dialog.css'
+import '../pivot-dialogs.css'
+import '../filter.css'
 import ProtectDialog from './ProtectDialog.vue'
 import LinkDialog from './LinkDialog.vue'
 import ValidationAlert from './ValidationAlert.vue'
@@ -42,8 +37,8 @@ import SheetSplit from './SheetSplit.vue'
 import SheetTabs from './SheetTabs.vue'
 import SpellingDialog from './SpellingDialog.vue'
 import TableDialog from './TableDialog.vue'
-import SlicerDialogs from './SlicerDialogs.vue'
 import { IconClose, IconRetry, IconSpinner } from './icons'
+import { usePivotUi } from './pivot-ui-ref'
 
 const props = withDefaults(defineProps<SheetViewProps>(), {
   messages: undefined,
@@ -95,6 +90,20 @@ const failure = ctx.failure
 const message = ctx.message
 const notice = ctx.w.notice
 const wait = ctx.w.wait
+/** The parts over PivotTables, slicers and timelines, loaded when the sheet has one or the user opens one's dialog or menu. */
+const pivotUi = usePivotUi(
+  // the sheet's own list first, so the chunk loads while the PivotTables' definitions and cells are read
+  () => !!(ctx.sheet.value?.pivots?.length || ctx.pivotDialogs.views.value.length || ctx.slicers.slicers.value.length || ctx.slicers.timelines.value.length || ctx.viewState.value?.pivot),
+  () => [ctx.pivotCreate.draft.value, ctx.pivotDialogs.state.value, ctx.pivotFilter.menu.value, ctx.pivotFilter.dialog.value, ctx.slicers.dialog.value],
+  // a dialog or menu that cannot be drawn does not keep the sheet waiting for it
+  () => {
+    if (ctx.pivotCreate.draft.value) ctx.pivotCreate.close()
+    if (ctx.pivotDialogs.state.value) ctx.pivotDialogs.close()
+    if (ctx.pivotFilter.menu.value) ctx.pivotFilter.closeMenu()
+    if (ctx.pivotFilter.dialog.value) ctx.pivotFilter.closeDialog()
+    if (ctx.slicers.dialog.value) ctx.slicers.close()
+  },
+)
 </script>
 
 <template>
@@ -152,16 +161,18 @@ const wait = ctx.w.wait
       <ZoomDialog v-if="ctx.zoomer.dialogOpen.value" />
       <ProtectDialog />
       <TableDialog />
-      <PivotTableDialog />
-      <SlicerDialogs v-if="ctx.slicers.dialog.value" />
-      <PivotValueDialog />
-      <PivotFieldDialog />
-      <PivotOptionsDialog />
-      <PivotGroupDialog />
-      <PivotCalcDialog />
-      <PivotNumberFormat />
-      <PivotFilterMenu />
-      <PivotFilterDialog />
+      <template v-if="pivotUi">
+        <component :is="pivotUi.PivotTableDialog" />
+        <component :is="pivotUi.SlicerDialogs" v-if="ctx.slicers.dialog.value" />
+        <component :is="pivotUi.PivotValueDialog" />
+        <component :is="pivotUi.PivotFieldDialog" />
+        <component :is="pivotUi.PivotOptionsDialog" />
+        <component :is="pivotUi.PivotGroupDialog" />
+        <component :is="pivotUi.PivotCalcDialog" />
+        <component :is="pivotUi.PivotNumberFormat" />
+        <component :is="pivotUi.PivotFilterMenu" />
+        <component :is="pivotUi.PivotFilterDialog" />
+      </template>
       <SpellingDialog />
       <LinkDialog />
       <ValidationDialog />

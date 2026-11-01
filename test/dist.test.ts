@@ -1,5 +1,6 @@
 // The built main entry point includes no engine: xlcalc/a1 and xlcalc/text are bundled in, ru-RU's formula text comes as a
-// separate chunk for a workbook in ru-RU, xlcalc/entry as one for a source without `editText`, and nothing is imported but vue.
+// separate chunk for a workbook in ru-RU, xlcalc/entry as one for a source without `editText`, the PivotTable, slicer and
+// timeline parts as one for a sheet with them, and nothing is imported but vue.
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -33,18 +34,30 @@ const dynamicImports = (code: string) => [...code.matchAll(/import\(\s*["']([^"'
 const code = (text: string) => text.replace(/^\/\/#(?:end)?region.*$/gm, '')
 
 describe('dist/index.js', () => {
-  it('imports only vue, and the ru-RU and xlcalc/entry chunks on demand', () => {
+  it('imports only vue, and the ru-RU, xlcalc/entry and PivotTable chunks on demand', () => {
     expect(new Set(staticImports(js))).toEqual(new Set(['vue']))
-    expect(chunks.sort()).toEqual([expect.stringMatching(/^ru-RU-[\w-]+\.js$/), expect.stringMatching(/^typed-entry-[\w-]+\.js$/)])
-    expect(new Set(dynamicImports(js))).toEqual(new Set([`./${chunk('ru-RU')}`, `./${chunk('typed-entry')}`]))
+    expect(chunks.sort()).toEqual([expect.stringMatching(/^pivot-ui-[\w-]+\.js$/), expect.stringMatching(/^ru-RU-[\w-]+\.js$/), expect.stringMatching(/^typed-entry-[\w-]+\.js$/)])
+    expect(new Set(dynamicImports(js))).toEqual(new Set([`./${chunk('pivot-ui')}`, `./${chunk('ru-RU')}`, `./${chunk('typed-entry')}`]))
   })
   it('includes no engine: xlcalc/a1 and xlcalc/text are a few dozen kilobytes', () => {
     expect(js.length).toBeGreaterThan(10_000)
-    // the component with its dialogs, bars, panels, PivotTable Fields pane and dialogs, slicers and timelines is about 950 KB unminified; the engine would be megabytes
-    expect(js.length).toBeLessThan(1_000_000)
+    // the component with its dialogs, bars, panels and PivotTable Fields pane is about 865 KB unminified; the engine would be megabytes
+    expect(js.length).toBeLessThan(880_000)
     expect(js).toContain('//#region node_modules/xlcalc/dist/a1.js')
     // xlcalc/text's modules, here the one of stepDecimals (Increase and Decrease Decimal)
     expect(js).toContain('//#region node_modules/xlcalc/dist/numfmt/decimals.js')
+  })
+  it('exports the public API and, for its chunk, only minified internal names that are not API', async () => {
+    const names = [...js.matchAll(/^export \{([^}]*)\}/gm)].flatMap((m) => m[1]!.split(',').map((x) => x.trim().split(/\s+as\s+/).at(-1)!))
+    const pub = ['FormatDialog', 'PivotFieldsPane', 'SheetToolbar', 'SheetView', 'TOOLBAR_GROUPS', 'enMessages', 'memorySource', 'ruMessages']
+    // the list is the source's: a new or renamed public export is added here on purpose
+    expect(Object.keys(await import('../src/index')).sort()).toEqual(pub)
+    expect(names.filter((n) => !/^[\w$]{1,2}$/.test(n)).sort()).toEqual(pub)
+    // what the PivotTable chunk takes from the main entry point
+    const pivot = readFileSync(join(out, chunk('pivot-ui')), 'utf8')
+    const taken = [...pivot.matchAll(/import \{([^}]*)\} from "\.\/index\.js"/g)].flatMap((m) => m[1]!.split(',').map((x) => x.trim().split(/\s+as\s+/)[0]!))
+    expect(taken.length).toBeGreaterThan(0)
+    expect(new Set(names.filter((n) => !pub.includes(n)))).toEqual(new Set(taken))
   })
   it('has no string xlcalc in its code, which a host may look for as a sign of the engine', () => {
     expect(code(js)).not.toMatch(/xlcalc/)
@@ -76,5 +89,21 @@ describe('the xlcalc/entry chunk', () => {
     expect(code(entry)).not.toMatch(/xlcalc/)
     // xlcalc's typed-entry module without the engine, including the parts it shares with xlcalc/a1 and xlcalc/text
     expect(entry.length).toBeLessThan(150_000)
+  })
+})
+
+describe('the PivotTable chunk', () => {
+  it('holds the dialogs, menus, buttons, slicers and timelines over PivotTables, and imports only vue and what it shares with the main entry point', () => {
+    const pivot = readFileSync(join(out, chunk('pivot-ui')), 'utf8')
+    for (const name of ['PivotOptionsDialog', 'PivotFilterMenu', 'SlicerDialogs', 'TimelineBox', 'ToolbarPivot', 'PivotButtons', 'SheetObjects']) {
+      expect(pivot).toContain(`__name: "${name}"`)
+      expect(js).not.toContain(`__name: "${name}"`)
+    }
+    // the PivotTable Fields pane is the main entry point's own export
+    expect(js).toContain('__name: "PivotFieldsPane"')
+    expect(new Set(staticImports(pivot))).toEqual(new Set(['vue', './index.js']))
+    expect(dynamicImports(pivot)).toEqual([])
+    expect(code(pivot)).not.toMatch(/xlcalc/)
+    expect(pivot.length).toBeLessThan(110_000)
   })
 })

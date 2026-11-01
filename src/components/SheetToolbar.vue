@@ -47,11 +47,11 @@ import {
 import type { StylePatch } from 'xlcalc/contract'
 import ColourSwatches from './ColourSwatches.vue'
 import ToolbarBox from './ToolbarBox.vue'
-import ToolbarPivot from './ToolbarPivot.vue'
 import { hasListener } from './dom'
 import { IconDown } from './icons'
 import { useOutsidePress } from './popup'
 import { IconPivotTable } from './pivot-icons'
+import { usePivotUi } from './pivot-ui-ref'
 import {
   IconAlignBottom,
   IconAlignCenter,
@@ -127,6 +127,8 @@ const emit = defineEmits<{
 }>()
 
 const m = useMessages(() => props.messages)
+/** The PivotTable Analyze and Design groups' parts, loaded once the active cell is in a PivotTable (with the sheet, they usually are). */
+const pivotUi = usePivotUi(() => !!(props.sheet && props.state?.pivot && props.source.pivotCells))
 const instance = getCurrentInstance()
 /** Whether the host currently opens its own dialog on `formatCells`, instead of the sheet's. */
 const dialogToHost = () => props.hostDialog || hasListener(instance, 'onFormatCells')
@@ -257,9 +259,9 @@ function measureRow(): void {
   fit.value = out.fit
 }
 // Whatever changes the row's widths or lines draws it whole again and measures it: the sheet and the source decide which
-// groups are drawn, and the Number Format box widens when its locale's list loads
+// groups are drawn, the Number Format box widens when its locale's list loads, and the PivotTable groups fill when their parts load
 watch(
-  [narrow, width, touch, blocks, lines, () => props.messages, () => props.sheet, () => props.source, () => props.hostDialog, () => numbers.choices.value.length > 0],
+  [narrow, width, touch, blocks, lines, () => props.messages, () => props.sheet, () => props.source, () => props.hostDialog, () => numbers.choices.value.length > 0, () => !!pivotUi.value],
   () => {
     fit.value = null
     breaks.value = new Set()
@@ -766,7 +768,7 @@ function pickNumber(e: Event): void {
           </span>
         </span>
         <span v-else-if="(blk.group === 'pivotAnalyze' || blk.group === 'pivotDesign') && sheet && state?.pivot && source.pivotCells" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <ToolbarPivot :group="blk.group" :sheet="sheet" :state="state" :source="source" :m="m" />
+          <component :is="pivotUi.ToolbarPivot" v-if="pivotUi" :group="blk.group" :sheet="sheet" :state="state" :source="source" :m="m" />
         </span>
         <span v-else-if="blk.buttons" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <template v-for="x in blk.buttons" :key="x.id">
