@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The dialogs, menus, filter buttons and toolbar groups over PivotTables, and the slicers and timelines with their dialogs, are a separate chunk of the main entry point, loaded when the sheet has a PivotTable, a slicer or a timeline or the user opens one of their dialogs, so a workbook without them no longer downloads them: `dist/index.js` is about 860 KB instead of 950 KB. A dialog asked for while the chunk loads opens, focused, once it arrives; if the chunk fails to download, what waited for it is closed and the next need loads it again. Nothing changes for a host that uses the package build; `PivotFieldsPane` stays in the main entry point ([api.md](docs/api.md#entry-points)).
+
 ## 0.31.0 (2026-11-01)
 
 Built over xlcalc 0.74.1. Breaking for a host: `@xlcalc/vue/local` needs xlcalc 0.74.1 or later (the peer range is `>=0.74.1`), whose `writeXlsx` marks the filter buttons, so Excel draws them on a file `saveXlsx` writes. A name the workbook does not define, or a function xlcalc does not know, is `#NAME?` only where it is computed, as in Excel (`IF(TRUE,1,Nope)` is 1).

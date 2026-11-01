@@ -5,7 +5,6 @@
 import { computed, onMounted, provide } from 'vue'
 import { colLetters } from 'xlcalc/a1'
 import AutoFilterButtons from './AutoFilterButtons.vue'
-import PivotButtons from './PivotButtons.vue'
 import CellEditor from './CellEditor.vue'
 import { cellOfData } from '../core/selection'
 import type { PaneId } from '../core/panes'
@@ -13,9 +12,11 @@ import { sheetContextKey, useSheetContext } from './context'
 import { refInto } from './dom'
 import NoteBox from './NoteBox.vue'
 import ShownNotes from './ShownNotes.vue'
-import SheetObjects from './SheetObjects.vue'
+// the slicers' stylesheet, from the PivotTable chunk, kept where it was in style.css
+import '../slicers.css'
 import { IconFilter, IconSpinner } from './icons'
 import OutlineCell from './OutlineCell.vue'
+import { pivotUi } from './pivot-ui-ref'
 import OutlineLevels from './OutlineLevels.vue'
 import SheetMarks from './SheetMarks.vue'
 import SheetRow from './SheetRow.vue'
@@ -333,9 +334,9 @@ const zoomStyle = computed(() => (ctx.zoom.value !== 1 ? { zoom: String(ctx.zoom
       </table>
       <SheetMarks v-if="ctx.sheet.value && !empty" />
       <AutoFilterButtons v-if="ctx.sheet.value && !empty" />
-      <PivotButtons v-if="ctx.sheet.value && !empty && ctx.pivotDialogs.views.value.length" />
+      <component :is="pivotUi.PivotButtons" v-if="pivotUi && ctx.sheet.value && !empty && ctx.pivotDialogs.views.value.length" />
       <TraceArrows v-if="ctx.sheet.value && !empty" />
-      <SheetObjects v-if="ctx.sheet.value && !empty && (ctx.slicers.slicers.value.length || ctx.slicers.timelines.value.length)" />
+      <component :is="pivotUi.SheetObjects" v-if="pivotUi && ctx.sheet.value && !empty && (ctx.slicers.slicers.value.length || ctx.slicers.timelines.value.length)" />
       <ShownNotes v-if="ctx.notes.shown.value.length" />
       <NoteBox v-if="ctx.notes.draft.value && active" />
       <NoteBox v-else-if="ctx.notes.peek.value && !ctx.notes.draft.value" peek />
