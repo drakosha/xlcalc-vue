@@ -259,3 +259,15 @@ describe('rows: 2, as Excel’s ribbon', () => {
     expect(w.findAll('[data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['font', 'fontStyle'])
   })
 })
+
+describe('Format Cells without the sheet', () => {
+  it("shows once the host listens to formatCells, at the toolbar's next render", async () => {
+    const w = mount(SheetToolbar, { props: { source: source(), state }, attachTo: document.body })
+    expect(w.find('[data-tb="format-cells"]').exists()).toBe(false)
+    const onFormatCells = vi.fn()
+    await w.setProps({ onFormatCells } as never)
+    await w.setProps({ state: { ...state, ref: 'A1' } })
+    await w.find('[data-tb="format-cells"]').trigger('click')
+    expect(onFormatCells).toHaveBeenCalledOnce()
+  })
+})

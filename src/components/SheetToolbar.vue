@@ -7,7 +7,7 @@
 // (its dialog over the sheet), and Data > Refresh All with its list's Refresh of the PivotTable under the active cell (through the
 // sheet, with the source's `refreshConnections`); `items` picks and orders the groups and adds the host's buttons. In a narrow
 // viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
-import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
+import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onBeforeUpdate, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
 import { failedOutcome } from '../failure'
 import { NARROW_PX, useCoarsePointer } from '../frame'
@@ -135,6 +135,9 @@ const m = useMessages(() => props.messages)
 const instance = getCurrentInstance()
 /** Whether the host currently opens its own dialog on `formatCells`, instead of the sheet's. */
 const dialogToHost = () => props.hostDialog || hasListener(instance, 'onFormatCells')
+/** Whether the host listens, read again before each render: a listener is not reactive, as a template condition it was read on each render. */
+const listening = ref(dialogToHost())
+onBeforeUpdate(() => (listening.value = dialogToHost()))
 function formatCells(): void {
   if (dialogToHost() || !props.sheet) emit('formatCells')
   else props.sheet.formatCells()
@@ -238,7 +241,7 @@ function drawn(group: ToolbarGroup): boolean {
     case 'pivotTable':
       return sheet && !!src.structure
     case 'formatCells':
-      return sheet || dialogToHost()
+      return sheet || listening.value
     case 'refreshAll':
       return sheet && !!src.refreshConnections
     case 'pivotAnalyze':
