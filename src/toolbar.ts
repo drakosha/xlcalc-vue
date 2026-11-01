@@ -84,13 +84,14 @@ export type RibbonPiece<B> = { block: B; slot?: RibbonSlot }
 export type RibbonGroup<B> = { key: string; kind: 'flat' | 'rows' | 'cols'; large?: boolean; stacks: { key: string; lines: RibbonPiece<B>[][] }[] }
 
 /**
- * The toolbar's blocks as groups between separators: each block alone on one line, or with `ribbon` as Excel's two-row groups,
- * where the blocks of Font, Alignment and Number that follow each other form one group in Excel's rows. A group whose rows
- * would leave one row empty (a block of them alone, as `fontStyle`) stacks its controls instead, as do the other blocks.
+ * The toolbar's blocks as groups between separators: each block alone (`blocks`, on a phone, where Excel's Font group is wider
+ * than the row), or the blocks of Excel's Font, Alignment and Number groups that follow each other in `items` as one group and
+ * the others a group each. With `groups` a group's blocks are drawn in a row; with `ribbon` a group is two rows tall, Font, Alignment and Number in Excel's rows when the first column of rows has both (where Excel's
+ * places win over the order of `items`), and otherwise its controls stacked two to a column with no row left empty.
  */
-export function ribbonGroups<B extends { key: string; group?: ToolbarGroup }>(blocks: readonly B[], ribbon: boolean): RibbonGroup<B>[] {
+export function ribbonGroups<B extends { key: string; group?: ToolbarGroup }>(blocks: readonly B[], layout: 'blocks' | 'groups' | 'ribbon'): RibbonGroup<B>[] {
   const line = (run: readonly B[]) => [{ key: 'a', lines: [run.map((block) => ({ block }))] }]
-  if (!ribbon) return blocks.map((b) => ({ key: b.key, kind: 'flat', stacks: line([b]) }))
+  if (layout === 'blocks') return blocks.map((b) => ({ key: b.key, kind: 'flat', stacks: line([b]) }))
   const runs: B[][] = []
   for (const b of blocks) {
     const name = b.group && RIBBON_ROWS[b.group]?.group
@@ -99,12 +100,13 @@ export function ribbonGroups<B extends { key: string; group?: ToolbarGroup }>(bl
     if (name && run && prev === name) run.push(b)
     else runs.push([b])
   }
+  if (layout === 'groups') return runs.map((run) => ({ key: run[0]!.key, kind: 'flat', stacks: line(run) }))
   return runs.map((run): RibbonGroup<B> => {
     const key = run[0]!.key
     const at = (slot: RibbonSlot) => run.filter((b) => b.group && RIBBON_ROWS[b.group]?.slots.includes(slot)).map((block) => ({ block, slot }))
     const stacks = (['a', 'b'] as const).map((s) => ({ key: s, lines: [at(`${s}1`), at(`${s}2`)] })).filter((s) => s.lines.some((l) => l.length))
-    const filled = (row: 0 | 1) => stacks.some((s) => s.lines[row]!.length)
-    if (filled(0) && filled(1)) return { key, kind: 'rows', stacks }
+    // Excel's rows only with both rows of the first column filled; otherwise the controls stack, leaving no hole
+    if (stacks[0]?.key === 'a' && stacks[0].lines.every((l) => l.length)) return { key, kind: 'rows', stacks }
     const group = run.length === 1 ? run[0]!.group : undefined
     return { key, kind: 'cols', large: !!group && RIBBON_LARGE.has(group), stacks: line(run) }
   })

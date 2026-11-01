@@ -65,6 +65,10 @@
 .xs-tb-line {
   display: contents;
 }
+/* Within a group on one line, a little room between the blocks of one Excel group (Font's boxes, Bold to Underline, Borders). */
+.xs-tb-g-flat .xs-tb-part + .xs-tb-part > :first-child {
+  margin-left: 6px;
+}
 /* `rows: 2` is Excel's ribbon: one sequence of groups, each two rows tall, a separator between them. */
 .xs-tb-ribbon {
   align-items: stretch;

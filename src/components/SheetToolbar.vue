@@ -270,8 +270,10 @@ const blocks = computed(() => {
 const lines = computed(() => (narrow.value ? 1 : Math.max(1, Math.floor(props.rows) || 1)))
 /** Two lines are Excel's ribbon: one sequence of groups, each two rows tall, its controls in Excel's rows. */
 const ribbon = computed(() => lines.value === 2)
-/** The groups drawn between separators: a block each, or with `ribbon` Excel's two-row groups. */
-const groups = computed(() => ribbonGroups(blocks.value, ribbon.value))
+/** The layout of the groups: Excel's two-row groups, Excel's groups on one line, or on a phone each block alone. */
+const layout = computed(() => (ribbon.value ? 'ribbon' : narrow.value ? 'blocks' : 'groups'))
+/** The groups drawn between separators, fitted into the row whole. */
+const groups = computed(() => ribbonGroups(blocks.value, layout.value))
 /** The keys of the groups that stay in the row, as measured; null while measuring, when all are drawn there. */
 const kept = ref<ReadonlySet<string> | null>(null)
 /** The keys of the kept groups that start a line after the first, drawn without the separator before them. */
@@ -281,10 +283,12 @@ const parts = computed(() => {
   const all = groups.value
   const on = kept.value
   if (!on || all.every((g) => on.has(g.key))) return [{ place: 'row', groups: all }]
-  const rest = all.filter((g) => !on.has(g.key)).flatMap((g) => g.stacks.flatMap((st) => st.lines.flat().map((p) => p.block)))
+  // The menu keeps the order of `items`, whatever places the ribbon gave the blocks
+  const out = new Set(all.filter((g) => !on.has(g.key)).flatMap((g) => g.stacks.flatMap((st) => st.lines.flat().map((p) => p.block))))
+  const rest = blocks.value.filter((b) => out.has(b))
   return [
     { place: 'row', groups: all.filter((g) => on.has(g.key)) },
-    { place: 'menu', groups: ribbonGroups([...new Set(rest)], false) },
+    { place: 'menu', groups: ribbonGroups(rest, narrow.value ? 'blocks' : 'groups') },
   ]
 })
 /** The More button: while the row is measured too, so that its width counts. */
