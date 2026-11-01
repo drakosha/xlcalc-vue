@@ -31,7 +31,7 @@ describe("SheetToolbar's items", () => {
   it('without items draws every group in the default order', async () => {
     const w = mountBar()
     expect(TOOLBAR_GROUPS[0]).toBe('undo')
-    expect(hooks(w).slice(0, 6)).toEqual(['undo', 'redo', 'bold', 'italic', 'underline', 'font-name'])
+    expect(hooks(w).slice(0, 10)).toEqual(['undo', 'redo', 'font-name', 'font-name-list', 'font-size', 'font-size-list', 'font-up', 'font-down', 'bold', 'italic'])
     expect(hooks(w)).toContain('borders')
   })
 

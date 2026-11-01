@@ -6,8 +6,11 @@ import { stepDecimals } from 'xlcalc/text'
 import type { FormatPatch, SheetSource } from './contract/source'
 import type { SheetViewState, ToolbarGroup } from './contract/view'
 
-/** The toolbar's groups in their default order, as `SheetToolbar`'s `items` takes them: a host spreads it to add its buttons. */
-export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = ['undo', 'formatPainter', 'fontStyle', 'font', 'number', 'colors', 'borders', 'verticalAlign', 'align', 'merge', 'formatCells', 'autoSum', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign']
+/**
+ * The toolbar's groups in their default order, as `SheetToolbar`'s `items` takes them: a host spreads it to add its buttons.
+ * Excel for Windows' order: Undo and Redo (its Quick Access Toolbar), Home's groups, then Insert's, Data's and the PivotTable tabs' commands.
+ */
+export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = ['undo', 'formatPainter', 'font', 'fontStyle', 'borders', 'colors', 'verticalAlign', 'align', 'merge', 'number', 'formatCells', 'autoSum', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign']
 
 /**
  * How many blocks of these widths, from the start, fit on `rows` lines of `room` px, each line filled as a wrapping flex row

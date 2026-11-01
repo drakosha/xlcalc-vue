@@ -475,13 +475,13 @@ export interface ListSort {
 export type ToolbarSource = SheetSource
 
 /**
- * A group of `SheetToolbar`'s buttons, as `items` names it: Undo and Redo, Format Painter, Bold, Italic and Underline (`fontStyle`), the
- * Font and Font Size boxes with Increase and Decrease Font Size (`font`), the Number Format box with its buttons (`number`),
- * font and fill color, borders, Top, Middle and Bottom Align, horizontal alignment with indent and Wrap Text (`align`),
- * Merge & Center, Format Cells, AutoSum, Insert > PivotTable, Data > Refresh All, and the PivotTable Analyze and Design
- * commands (`pivotAnalyze`, `pivotDesign`) shown while the active cell is in a PivotTable.
+ * A group of `SheetToolbar`'s buttons, as `items` names it, in Excel for Windows' order: Undo and Redo, Format Painter, the
+ * Font and Font Size boxes with Increase and Decrease Font Size (`font`), Bold, Italic and Underline (`fontStyle`), borders,
+ * fill and font color, Top, Middle and Bottom Align, horizontal alignment with indent and Wrap Text (`align`), Merge & Center,
+ * the Number Format box with its buttons (`number`), Format Cells, AutoSum, Insert > PivotTable, Data > Refresh All, and the
+ * PivotTable Analyze and Design commands (`pivotAnalyze`, `pivotDesign`) shown while the active cell is in a PivotTable.
  */
-export type ToolbarGroup = 'undo' | 'formatPainter' | 'fontStyle' | 'font' | 'number' | 'colors' | 'borders' | 'verticalAlign' | 'align' | 'merge' | 'formatCells' | 'autoSum' | 'pivotTable' | 'refreshAll' | 'pivotAnalyze' | 'pivotDesign'
+export type ToolbarGroup = 'undo' | 'formatPainter' | 'font' | 'fontStyle' | 'borders' | 'colors' | 'verticalAlign' | 'align' | 'merge' | 'number' | 'formatCells' | 'autoSum' | 'pivotTable' | 'refreshAll' | 'pivotAnalyze' | 'pivotDesign'
 
 /** A host's button on `SheetToolbar`, drawn as the toolbar's own and, where it does not fit, moved into its menu. */
 export interface ToolbarButton {

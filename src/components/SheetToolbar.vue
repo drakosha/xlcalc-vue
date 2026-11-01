@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// Excel's formatting toolbar over a sheet source: undo and redo, Format Painter (through the sheet), the font and its size, bold, italic, underline, font and
-// fill colors, borders, vertical and horizontal alignment, indent, wrapping, Merge & Center with its dropdown (through the
-// sheet, with the source's `structure`), Excel's Number Format box (xlcalc's, in the workbook's locale) and Percent Style,
-// applied to the selection the sheet's `state` event reports, Format Cells for a host that displays the dialog, and AutoSum
-// with its list (through the sheet, with the source's `autoSum`), Insert > PivotTable (its dialog over the sheet), and Data > Refresh All with its list's Refresh of the
-// PivotTable under the active cell (through the sheet, with the source's `refreshConnections`); `items` picks and orders the groups and adds the host's
-// buttons. In a narrow viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
+// Excel's formatting toolbar over a sheet source, in Excel for Windows' ribbon order: undo and redo, Format Painter (through the
+// sheet), the font and its size, bold, italic, underline, borders, fill and font colors, vertical and horizontal alignment, indent,
+// wrapping, Merge & Center with its dropdown (through the sheet, with the source's `structure`), Excel's Number Format box (xlcalc's,
+// in the workbook's locale) and its buttons, applied to the selection the sheet's `state` event reports, Format Cells for a host
+// that displays the dialog, and AutoSum with its list (through the sheet, with the source's `autoSum`); then Insert > PivotTable
+// (its dialog over the sheet), and Data > Refresh All with its list's Refresh of the PivotTable under the active cell (through the
+// sheet, with the source's `refreshConnections`); `items` picks and orders the groups and adds the host's buttons. In a narrow
+// viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
 import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
 import type { MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
 import { failedOutcome } from '../failure'
@@ -170,11 +171,11 @@ const AUTO_SUMS: { fn: AutoSumFunction; title: keyof SheetMessages }[] = [
   { fn: 'min', title: 'autoSumMin' },
 ]
 const kebab = (name: string) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
-/** Excel's split buttons for font and fill color: the button applies the last color, the menu offers the no-color choice and the palette. */
+/** Excel's split buttons for fill and font color, in its Font group's order: the button applies the last color, the menu offers the no-color choice and the palette. */
 type Colouring = 'font' | 'fill'
 const COLOURS: { what: Colouring; icon: typeof IconFontColour; title: keyof SheetMessages; none: keyof SheetMessages; noneHook: string }[] = [
-  { what: 'font', icon: IconFontColour, title: 'fontColor', none: 'colorAuto', noneHook: 'colour-auto' },
   { what: 'fill', icon: IconFillColour, title: 'fillColor', none: 'fillNone', noneHook: 'fill-none' },
+  { what: 'font', icon: IconFontColour, title: 'fontColor', none: 'colorAuto', noneHook: 'colour-auto' },
 ]
 const text = (key: keyof SheetMessages) => m.value[key] as string
 
@@ -525,22 +526,6 @@ function pickNumber(e: Event): void {
             <IconFormatPainter />
           </button>
         </span>
-        <span v-else-if="blk.group === 'fontStyle'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <button
-            v-for="b in FONT"
-            :key="b.what"
-            type="button"
-            :class="['xs-tool', { 'xs-tool-on': fontOn(style, b.what) }]"
-            :data-tb="b.what"
-            :data-tip="text(b.title)"
-            :aria-label="text(b.title)"
-            :aria-pressed="fontOn(style, b.what)"
-            :disabled="!formattable"
-            @click="apply(over({ style: fontToggle(style, b.what) }))"
-          >
-            <component :is="b.icon" />
-          </button>
-        </span>
         <span v-else-if="blk.group === 'font'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span class="xs-tb-pair">
             <ToolbarBox
@@ -581,36 +566,35 @@ function pickNumber(e: Event): void {
             </button>
           </span>
         </span>
-        <span v-else-if="blk.group === 'number'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <select
-            v-if="numbers.choices.value.length"
-            class="xs-field xs-field-s xs-tb-select"
-            data-tb="number"
-            :data-tb-category="category?.category"
-            :data-tip="m.numberFormat"
-            :aria-label="m.numberFormat"
-            value=""
+        <span v-else-if="blk.group === 'fontStyle'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
+          <button
+            v-for="b in FONT"
+            :key="b.what"
+            type="button"
+            :class="['xs-tool', { 'xs-tool-on': fontOn(style, b.what) }]"
+            :data-tb="b.what"
+            :data-tip="text(b.title)"
+            :aria-label="text(b.title)"
+            :aria-pressed="fontOn(style, b.what)"
             :disabled="!formattable"
-            @change="pickNumber"
+            @click="apply(over({ style: fontToggle(style, b.what) }))"
           >
-            <option value="" hidden>{{ category?.name ?? '' }}</option>
-            <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
-          </select>
-          <button type="button" class="xs-tool" data-tb="accounting" :data-tip="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!formattable" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
-            <IconAccounting />
+            <component :is="b.icon" />
           </button>
-          <button type="button" class="xs-tool" data-tb="percent" :data-tip="m.percentStyle" :aria-label="m.percentStyle" :disabled="!formattable" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
-            <IconPercent />
-          </button>
-          <button type="button" class="xs-tool" data-tb="comma" :data-tip="m.commaStyle" :aria-label="m.commaStyle" :disabled="!formattable" @click="apply(over({ numberFormat: COMMA_STYLE }))">
-            <IconComma />
-          </button>
-          <button type="button" class="xs-tool" data-tb="decimal-up" :data-tip="m.decimalIncrease" :aria-label="m.decimalIncrease" :disabled="!formattable" @click="stepDecimal(true)">
-            <IconDecimalUp />
-          </button>
-          <button type="button" class="xs-tool" data-tb="decimal-down" :data-tip="m.decimalDecrease" :aria-label="m.decimalDecrease" :disabled="!formattable" @click="stepDecimal(false)">
-            <IconDecimalDown />
-          </button>
+        </span>
+        <span v-else-if="blk.group === 'borders'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
+          <span class="xs-tb-split">
+            <button type="button" class="xs-tool xs-tb-wide" data-tb="borders" :data-tip="m.borders" :aria-label="m.borders" :aria-expanded="open === 'borders'" :disabled="!formattable" @click="toggle('borders')">
+              <IconBorderAll />
+              <IconDown class="xs-tb-down" />
+            </button>
+            <div v-if="open === 'borders'" class="xs-tb-pop" role="menu" :aria-label="m.borders">
+              <button v-for="b in BORDERS" :key="b.kind" type="button" class="xs-tb-item" role="menuitem" :data-tb="`border-${b.kind}`" @click="border(b.kind)">
+                <component :is="b.icon" />
+                {{ text(b.title) }}
+              </button>
+            </div>
+          </span>
         </span>
         <span v-else-if="blk.group === 'colors'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <span v-for="c in COLOURS" :key="c.what" class="xs-tb-split">
@@ -632,20 +616,6 @@ function pickNumber(e: Event): void {
             <div v-if="open === c.what" class="xs-tb-pop" role="group" :aria-label="text(c.title)">
               <button type="button" class="xs-tb-item" :data-tb="c.noneHook" :aria-pressed="!shown[c.what]" @click="paint(c.what, null)">{{ text(c.none) }}</button>
               <ColourSwatches :model-value="shown[c.what]" @update:model-value="paint(c.what, $event)" />
-            </div>
-          </span>
-        </span>
-        <span v-else-if="blk.group === 'borders'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
-          <span class="xs-tb-split">
-            <button type="button" class="xs-tool xs-tb-wide" data-tb="borders" :data-tip="m.borders" :aria-label="m.borders" :aria-expanded="open === 'borders'" :disabled="!formattable" @click="toggle('borders')">
-              <IconBorderAll />
-              <IconDown class="xs-tb-down" />
-            </button>
-            <div v-if="open === 'borders'" class="xs-tb-pop" role="menu" :aria-label="m.borders">
-              <button v-for="b in BORDERS" :key="b.kind" type="button" class="xs-tb-item" role="menuitem" :data-tb="`border-${b.kind}`" @click="border(b.kind)">
-                <component :is="b.icon" />
-                {{ text(b.title) }}
-              </button>
             </div>
           </span>
         </span>
@@ -722,6 +692,37 @@ function pickNumber(e: Event): void {
               </button>
             </div>
           </span>
+        </span>
+        <span v-else-if="blk.group === 'number'" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
+          <select
+            v-if="numbers.choices.value.length"
+            class="xs-field xs-field-s xs-tb-select"
+            data-tb="number"
+            :data-tb-category="category?.category"
+            :data-tip="m.numberFormat"
+            :aria-label="m.numberFormat"
+            value=""
+            :disabled="!formattable"
+            @change="pickNumber"
+          >
+            <option value="" hidden>{{ category?.name ?? '' }}</option>
+            <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
+          </select>
+          <button type="button" class="xs-tool" data-tb="accounting" :data-tip="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!formattable" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">
+            <IconAccounting />
+          </button>
+          <button type="button" class="xs-tool" data-tb="percent" :data-tip="m.percentStyle" :aria-label="m.percentStyle" :disabled="!formattable" @click="apply(over({ numberFormat: PERCENT_STYLE }))">
+            <IconPercent />
+          </button>
+          <button type="button" class="xs-tool" data-tb="comma" :data-tip="m.commaStyle" :aria-label="m.commaStyle" :disabled="!formattable" @click="apply(over({ numberFormat: COMMA_STYLE }))">
+            <IconComma />
+          </button>
+          <button type="button" class="xs-tool" data-tb="decimal-up" :data-tip="m.decimalIncrease" :aria-label="m.decimalIncrease" :disabled="!formattable" @click="stepDecimal(true)">
+            <IconDecimalUp />
+          </button>
+          <button type="button" class="xs-tool" data-tb="decimal-down" :data-tip="m.decimalDecrease" :aria-label="m.decimalDecrease" :disabled="!formattable" @click="stepDecimal(false)">
+            <IconDecimalDown />
+          </button>
         </span>
         <span v-else-if="blk.group === 'formatCells' && (dialogToHost() || sheet)" :data-tb-block="blk.key" :data-tb-line="lineStart(blk.key)" class="xs-tb-group">
           <button type="button" class="xs-tool" data-tb="format-cells" :data-tip="m.formatCellsOpen" :aria-label="m.formatCellsOpen" :disabled="!formattable" @click="formatCells">
