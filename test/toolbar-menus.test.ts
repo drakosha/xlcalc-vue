@@ -81,13 +81,12 @@ describe("Underline, Excel's split button", () => {
 })
 
 describe("Accounting Number Format, Excel's split button", () => {
-  it("lists the workbook's locale's currency first, then Excel's set without it, as Excel's menu in each language", async () => {
+  it("lists Excel's currencies for an Excel in the workbook's locale: its own, then £, €, ¥, CHF, named as Excel's menu in each language", async () => {
     const sheet = { formatCells: vi.fn() } as unknown as SheetViewApi
     const en = bar({ sheet })
     await en.find('[data-tb="accounting-menu"]').trigger('click')
     expect(items(en).map((x) => [x[0], x[1]])).toEqual([
       ['accounting-usd', '$ English (United States)'],
-      ['accounting-rub', '₽ Russian'],
       ['accounting-gbp', '£ English (United Kingdom)'],
       ['accounting-eur', '€ Euro (€ 123)'],
       ['accounting-cny', '¥ Chinese (Simplified, Mainland China)'],
@@ -100,7 +99,6 @@ describe("Accounting Number Format, Excel's split button", () => {
     await arrow.trigger('click')
     expect(items(ru).map((x) => [x[0], x[1]])).toEqual([
       ['accounting-rub', '₽ русский'],
-      ['accounting-usd', '$ английский (США)'],
       ['accounting-gbp', '£ английский (Соединенное Королевство)'],
       ['accounting-eur', '€ Евро (€ 123)'],
       ['accounting-cny', '¥ Китайский, упрощенное письмо (континентальный Китай)'],
@@ -109,25 +107,35 @@ describe("Accounting Number Format, Excel's split button", () => {
     ])
   })
 
-  it("applies Excel's code of each currency, which follows the workbook's locale for the dollar and the euro; the part applies the built-in 44", async () => {
-    const codes = async (locale?: string) => {
+  it("applies Excel's code of each currency in the workbook's locale, the euro's with its negatives; the part applies the built-in 44", async () => {
+    const codes = async (locale: string | undefined, own: string) => {
       const w = bar({ locale })
       await w.find('[data-tb="accounting"]').trigger('click')
-      for (const c of ['usd', 'rub', 'gbp', 'eur', 'cny', 'chf']) await pick(w, 'accounting-menu', `accounting-${c}`)
+      for (const c of [own, 'gbp', 'eur', 'cny', 'chf']) await pick(w, 'accounting-menu', `accounting-${c}`)
       await settle()
       return sent(w).map((p) => p[0]!.numberFormat)
     }
-    expect(await codes()).toEqual([
-      44,
-      '_([$$-409]* #,##0.00_);_([$$-409]* (#,##0.00);_([$$-409]* "-"??_);_(@_)',
-      '_-* #,##0.00 [$₽-419]_-;-* #,##0.00 [$₽-419]_-;_-* "-"?? [$₽-419]_-;_-@_-',
+    const [gbp, cny, chf] = [
       '_-[$£-809]* #,##0.00_-;-[$£-809]* #,##0.00_-;_-[$£-809]* "-"??_-;_-@_-',
-      '_([$€-2] * #,##0.00_);_([$€-2] * (#,##0.00);_([$€-2] * "-"??_);_(@_)',
       '_ [$¥-804]* #,##0.00_ ;_ [$¥-804]* -#,##0.00_ ;_ [$¥-804]* "-"??_ ;_ @_ ',
       '_-* #,##0.00 [$CHF-100C]_-;-* #,##0.00 [$CHF-100C]_-;_-* "-"?? [$CHF-100C]_-;_-@_-',
+    ]
+    expect(await codes(undefined, 'usd')).toEqual([
+      44,
+      '_([$$-409]* #,##0.00_);_([$$-409]* (#,##0.00);_([$$-409]* "-"??_);_(@_)',
+      gbp,
+      '_([$€-2] * #,##0.00_);_([$€-2] * (#,##0.00);_([$€-2] * "-"??_);_(@_)',
+      cny,
+      chf,
     ])
-    const ru = await codes('ru-RU')
-    expect([ru[1], ru[4]]).toEqual(['_-[$$-409]* #,##0.00_ ;_-[$$-409]* -#,##0.00 ;_-[$$-409]* "-"??_ ;_-@_ ', '_-[$€-2] * #,##0.00_-;-[$€-2] * #,##0.00_-;_-[$€-2] * "-"??_-;_-@_-'])
+    expect(await codes('ru-RU', 'rub')).toEqual([
+      44,
+      '_-* #,##0.00 [$₽-419]_-;-* #,##0.00 [$₽-419]_-;_-* "-"?? [$₽-419]_-;_-@_-',
+      gbp,
+      '_-[$€-2] * #,##0.00_-;-[$€-2] * #,##0.00_-;_-[$€-2] * "-"??_-;_-@_-',
+      cny,
+      chf,
+    ])
   })
 
   it('opens Format Cells from More Accounting Formats... on the Number tab at Accounting: the sheet’s, or the host’s with where', async () => {
@@ -228,6 +236,19 @@ describe('the menus and the keyboard', () => {
     expect(seen).toHaveBeenCalledOnce()
   })
 
+  it('end above the viewport’s bottom, scrolling inside themselves, wherever the button is', async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const top = this.getAttribute('role') === 'menu' ? 500 : 0
+      return { width: 0, height: 0, top, left: 0, right: 0, bottom: top, x: 0, y: top, toJSON: () => ({}) } as DOMRect
+    })
+    const w = bar({ sheet: { formatCells: vi.fn() } as unknown as SheetViewApi })
+    await w.find('[data-tb="accounting-menu"]').trigger('click')
+    await settle()
+    const menu = w.find('[role="menu"]')
+    expect([menu.classes('xs-tb-drop'), (menu.element as HTMLElement).style.maxHeight]).toEqual([true, '336px'])
+  })
+
   it('are disabled where the sheet cannot be formatted', () => {
     const w = bar({ state: null })
     expect(['underline', 'underline-menu', 'accounting-menu', 'orientation'].map((x) => w.find(`[data-tb="${x}"]`).attributes('disabled'))).toEqual(['', '', '', ''])
@@ -241,6 +262,14 @@ describe("Format Cells' place", () => {
     await w.setProps({ open: true })
     await settle()
     expect(w.find('[data-fmt-tab][aria-selected="true"]').attributes('data-fmt-tab')).toBe('number')
+    expect((w.find('[data-fmt-number="accounting"]').element as HTMLInputElement).checked).toBe(true)
+    await w.find('form').trigger('submit')
+    expect(w.emitted('apply')).toEqual([[[{ numberFormat: 44 }]]])
+  })
+
+  it('picks the item when mounted already open, as a host that renders it under v-if does', async () => {
+    const w = mount(FormatDialog, { props: { open: true, state: at({ numberFormat: '0%', style: {} }), at: { tab: 'number', choice: 'accounting' } }, attachTo: document.body })
+    await settle()
     expect((w.find('[data-fmt-number="accounting"]').element as HTMLInputElement).checked).toBe(true)
     await w.find('form').trigger('submit')
     expect(w.emitted('apply')).toEqual([[[{ numberFormat: 44 }]]])
@@ -310,6 +339,20 @@ describe('through the local source', () => {
     // the same item on A5 again levels its text
     await run('A5', 'orientation', 'orientation-clockwise')
     expect((await cell(s, 'A5')).alignment?.rotation).toBeUndefined()
+  })
+
+  it('names Accounting in the Number Format box after the part applies the built-in 44, in an en-US and a ru-RU workbook', async () => {
+    for (const locale of ['en-US', 'ru-RU']) {
+      const { w, s } = await mountLocal(locale)
+      close.push(s)
+      await goTo(w, 'A8')
+      await w.find('[data-tb="accounting"]').trigger('click')
+      await settle(12)
+      expect((await cell(s, 'A8')).numberFormat).toBe(44)
+      await until(() => w.find('[data-tb="number"]').attributes('data-tb-category') !== 'general')
+      expect([locale, w.find('[data-tb="number"]').attributes('data-tb-category')]).toEqual([locale, 'accounting'])
+      w.unmount()
+    }
   })
 
   it('opens the sheet’s Format Cells at Accounting from More Accounting Formats..., whose OK formats the cell in the workbook’s locale', async () => {

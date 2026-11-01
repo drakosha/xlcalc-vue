@@ -77,12 +77,17 @@ watch(
   },
   { immediate: true },
 )
-watch([picking, () => numbers.choices.value], ([key, choices]) => {
-  const item = key && draft.value ? choices.find((c) => c.key === key) : undefined
-  if (!item || !draft.value) return
-  pickNumber(draft.value, item)
-  picking.value = null
-})
+// at once too: a dialog mounted open with its list already loaded changes neither
+watch(
+  [picking, () => numbers.choices.value],
+  ([key, choices]) => {
+    const item = key && draft.value ? choices.find((c) => c.key === key) : undefined
+    if (!item || !draft.value) return
+    pickNumber(draft.value, item)
+    picking.value = null
+  },
+  { immediate: true },
+)
 
 const errors = computed(() => (draft.value ? draftErrors(draft.value) : {}))
 const blocked = computed(() => Object.keys(errors.value).length > 0 || Object.values(badColour).some(Boolean))

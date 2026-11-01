@@ -5,34 +5,34 @@ import type { SheetMessages } from './contract/messages'
 /** A currency of the menu, as the text `accountingCurrency` names it. */
 export type AccountingCurrency = Parameters<SheetMessages['accountingCurrency']>[0]
 
-/** The menu's fixed set in Excel's order; the workbook's locale's own currency comes first. */
-const CURRENCIES: readonly AccountingCurrency[] = ['usd', 'rub', 'gbp', 'eur', 'cny', 'chf']
-
+type Item = { currency: AccountingCurrency; code: string }
+const GBP: Item = { currency: 'gbp', code: '_-[$£-809]* #,##0.00_-;-[$£-809]* #,##0.00_-;_-[$£-809]* "-"??_-;_-@_-' }
+const CNY: Item = { currency: 'cny', code: '_ [$¥-804]* #,##0.00_ ;_ [$¥-804]* -#,##0.00_ ;_ [$¥-804]* "-"??_ ;_ @_ ' }
+const CHF: Item = { currency: 'chf', code: '_-* #,##0.00 [$CHF-100C]_-;-* #,##0.00 [$CHF-100C]_-;_-* "-"?? [$CHF-100C]_-;_-@_-' }
 /**
- * The codes Excel writes for each item, by the regional settings it runs in: the dollar and the euro follow their negatives'
- * pattern (en-US's parentheses), the others are the same in both. The interface language does not change them.
+ * Excel's list for an Excel whose interface and regional format are the workbook's locale, in its order: the locale's own
+ * currency, then £, €, ¥ and CHF (measured in ru-RU; en-US's without the ruble a Russian Windows adds). The codes are those
+ * Excel writes in that regional format: the euro follows the locale's negatives (en-US's parentheses); the pound's, the yuan's
+ * and the franc's are the same in both.
  */
-const EN_US: Readonly<Record<AccountingCurrency, string>> = {
-  usd: '_([$$-409]* #,##0.00_);_([$$-409]* (#,##0.00);_([$$-409]* "-"??_);_(@_)',
-  rub: '_-* #,##0.00 [$₽-419]_-;-* #,##0.00 [$₽-419]_-;_-* "-"?? [$₽-419]_-;_-@_-',
-  gbp: '_-[$£-809]* #,##0.00_-;-[$£-809]* #,##0.00_-;_-[$£-809]* "-"??_-;_-@_-',
-  eur: '_([$€-2] * #,##0.00_);_([$€-2] * (#,##0.00);_([$€-2] * "-"??_);_(@_)',
-  cny: '_ [$¥-804]* #,##0.00_ ;_ [$¥-804]* -#,##0.00_ ;_ [$¥-804]* "-"??_ ;_ @_ ',
-  chf: '_-* #,##0.00 [$CHF-100C]_-;-* #,##0.00 [$CHF-100C]_-;_-* "-"?? [$CHF-100C]_-;_-@_-',
-}
-const RU_RU: Readonly<Record<AccountingCurrency, string>> = {
-  ...EN_US,
-  usd: '_-[$$-409]* #,##0.00_ ;_-[$$-409]* -#,##0.00 ;_-[$$-409]* "-"??_ ;_-@_ ',
-  eur: '_-[$€-2] * #,##0.00_-;-[$€-2] * #,##0.00_-;_-[$€-2] * "-"??_-;_-@_-',
-}
-/** By the workbook's locale: each its currency first and its codes; a locale the package has no module for is en-US's. */
-const LOCALES: Readonly<Record<string, { own: AccountingCurrency; codes: Readonly<Record<AccountingCurrency, string>> }>> = {
-  'en-US': { own: 'usd', codes: EN_US },
-  'ru-RU': { own: 'rub', codes: RU_RU },
+const LISTS: Readonly<Record<string, readonly Item[]>> = {
+  'en-US': [
+    { currency: 'usd', code: '_([$$-409]* #,##0.00_);_([$$-409]* (#,##0.00);_([$$-409]* "-"??_);_(@_)' },
+    GBP,
+    { currency: 'eur', code: '_([$€-2] * #,##0.00_);_([$€-2] * (#,##0.00);_([$€-2] * "-"??_);_(@_)' },
+    CNY,
+    CHF,
+  ],
+  'ru-RU': [
+    { currency: 'rub', code: '_-* #,##0.00 [$₽-419]_-;-* #,##0.00 [$₽-419]_-;_-* "-"?? [$₽-419]_-;_-@_-' },
+    GBP,
+    { currency: 'eur', code: '_-[$€-2] * #,##0.00_-;-[$€-2] * #,##0.00_-;_-[$€-2] * "-"??_-;_-@_-' },
+    CNY,
+    CHF,
+  ],
 }
 
-/** The menu's currencies for a workbook's locale, in order: its own currency, then Excel's set without it, each with its code. */
-export function accountingCurrencies(locale: string | undefined): { currency: AccountingCurrency; code: string }[] {
-  const { own, codes } = LOCALES[locale ?? ''] ?? LOCALES['en-US']!
-  return [own, ...CURRENCIES.filter((c) => c !== own)].map((currency) => ({ currency, code: codes[currency] }))
+/** The menu's currencies for a workbook's locale, in order, each with its code; a locale the package has no module for is en-US's. */
+export function accountingCurrencies(locale: string | undefined): readonly Item[] {
+  return LISTS[locale ?? ''] ?? LISTS['en-US']!
 }

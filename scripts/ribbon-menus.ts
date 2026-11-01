@@ -1,7 +1,7 @@
 // The toolbar's Underline, Accounting Number Format and Orientation menus in the app (spa.html, the local source): each menu
 // open in English and in Russian, with rows 1 and 2, then the keyboard on a new en-US workbook: Space and Enter on a split
-// button's part and arrow and on an item, Esc closing a menu, each command's effect read from the workbook. Screenshots go to
-// test-results/screens/ with the others; called from screens.ts on the desktop.
+// button's part and arrow and on an item, Esc closing a menu, each command's effect read from the workbook; on a phone the menus
+// within the screen. Screenshots go to test-results/screens/ with the others; called from screens.ts.
 import { resolve } from 'node:path'
 import type { Page } from 'playwright'
 import type { BookInput, CellStyle } from 'xlcalc'
@@ -34,7 +34,39 @@ function expect(what: string, got: unknown, want: unknown): void {
 }
 const open = (page: Page) => page.locator('[role="menu"]').count()
 
+/**
+ * On a phone, in the toolbar's More menu: each of the three menus within the viewport in English and in Russian, no item cut
+ * on the right (the long names wrap), and the list scrolling inside itself to its last item, which stays on the screen.
+ */
+async function phoneMenus(page: Page, base: string, size: Size, out: string): Promise<void> {
+  for (const lang of ['en', 'ru']) {
+    await page.goto(`${base}spa.html?lang=${lang}`)
+    await ready(page)
+    for (const arrow of MENUS.filter((a) => a !== 'underline-menu')) {
+      await page.locator('[data-tb="more"]').tap()
+      await page.locator(`[data-tb-menu] [data-tb="${arrow}"]`).tap()
+      await page.waitForSelector('[role="menu"] [data-tb]')
+      const got = await page.evaluate(() => {
+        const menu = document.querySelector<HTMLElement>('[role="menu"]')!
+        const r = menu.getBoundingClientRect()
+        const items = [...menu.querySelectorAll<HTMLElement>('[data-tb]')]
+        const cut = items.filter((i) => i.scrollWidth > i.clientWidth + 1).map((i) => i.dataset.tb)
+        const last = items.at(-1)!
+        last.scrollIntoView({ block: 'nearest' })
+        const l = last.getBoundingClientRect()
+        return { inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, cut, last: l.top >= r.top && l.bottom <= Math.min(r.bottom, innerHeight) + 1, wide: document.documentElement.scrollWidth > innerWidth }
+      })
+      expect(`${size.name} ${lang} ${arrow} within the screen`, got, { inside: true, cut: [], last: true, wide: false })
+      await page.screenshot({ path: resolve(out, `${size.name}-71-ribbon-${lang}-more-${arrow}.png`) })
+      await page.locator(`[data-tb-menu] [data-tb="${arrow}"]`).tap()
+      await page.locator('[data-tb="more"]').tap()
+    }
+  }
+  console.log(`ribbon menus ${size.name}: Accounting Number Format and Orientation in the More menu within the screen in en and ru, the last item reached by scrolling the list`)
+}
+
 export async function ribbonMenuScreens(page: Page, base: string, size: Size, out: string): Promise<void> {
+  if (size.mobile) return phoneMenus(page, base, size, out)
   for (const lang of ['en', 'ru']) {
     for (const rows of [1, 2]) {
       await page.goto(`${base}spa.html?lang=${lang}&rows=${rows}`)

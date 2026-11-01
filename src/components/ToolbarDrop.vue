@@ -16,9 +16,10 @@ export interface ToolbarDropItem {
 <script setup lang="ts">
 // A dropdown of SheetToolbar inside its `.xs-tb-split`: the arrow of a split button, or with `icon` a button that is the menu
 // as a whole (Excel's Orientation), and the menu below it while `open`.
+import { ref, watch } from 'vue'
 import { IconDown } from './icons'
 
-defineProps<{
+const props = defineProps<{
   hook: string
   /** The button's name, its ScreenTip and the menu's. */
   label: string
@@ -28,6 +29,18 @@ defineProps<{
   icon?: Component
 }>()
 const emit = defineEmits<{ toggle: [] }>()
+
+/** The menu ends above the viewport's bottom, scrolling inside itself when taller (a phone's More menu puts it low). */
+const pop = ref<HTMLElement | null>(null)
+const maxHeight = ref<string | undefined>(undefined)
+watch(
+  () => props.open,
+  (on) => {
+    const top = on ? pop.value?.getBoundingClientRect().top : undefined
+    maxHeight.value = top === undefined ? undefined : `${Math.max(120, window.innerHeight - top - 8)}px`
+  },
+  { flush: 'post' },
+)
 </script>
 
 <template>
@@ -45,7 +58,7 @@ const emit = defineEmits<{ toggle: [] }>()
     <component :is="icon" v-if="icon" />
     <IconDown :class="{ 'xs-tb-down': icon }" />
   </button>
-  <div v-if="open" class="xs-tb-pop" role="menu" :aria-label="label">
+  <div v-if="open" ref="pop" class="xs-tb-pop xs-tb-drop" role="menu" :aria-label="label" :style="{ maxHeight }">
     <template v-for="it in items" :key="it.hook">
       <div v-if="it.line" class="xs-tb-sep" role="separator" />
       <button

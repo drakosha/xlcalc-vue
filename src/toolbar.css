@@ -268,6 +268,20 @@
   outline-offset: 2px;
   border-radius: 2px;
 }
+/* A menu of items within the viewport: as wide as it allows, long names wrapping, scrolling inside itself when taller. */
+.xs-tb-drop {
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.xs-tb-drop .xs-tb-item {
+  flex: none;
+  white-space: normal;
+}
+.xs-tb-drop .xs-tb-item > .xs-icon {
+  flex: none;
+}
 /* A line between a menu's sections, as Excel draws it in Borders. */
 .xs-tb-sep {
   border-top: 1px solid var(--xs-grid);
