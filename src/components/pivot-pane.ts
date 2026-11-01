@@ -40,7 +40,22 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
    * Reads the PivotTable again. On a change from elsewhere (`outside`: an undo, a Refresh) with nothing of the pane's on its
    * way, a draft built on the old layout is dropped, as it no longer describes a change of what is there.
    */
-  async function read(outside = false): Promise<void> {
+  function read(outside = false): Promise<void> {
+    const run = reread(outside)
+    lastRead = run
+    return run
+  }
+  /** The read begun last: a later one (a `reload` event) aborts an earlier one, which then leaves the definition as it was. */
+  let lastRead: Promise<void> = Promise.resolve()
+  /** Resolves once the latest read has finished, one begun while it was waited for included. */
+  async function readsDone(): Promise<void> {
+    let run: Promise<void>
+    do {
+      run = lastRead
+      await run
+    } while (run !== lastRead)
+  }
+  async function reread(outside: boolean): Promise<void> {
     reading?.abort()
     const t = target.value
     const call = props.source.pivotTable
@@ -86,20 +101,26 @@ export function usePivotPane(props: PivotFieldsPaneProps) {
    * as the answers before it left it, since xlcalc may have put fields on the axes itself (dates grouped, Σ Values).
    */
   function send(next: PivotAreas, change?: AreasChange): Promise<void> {
+    // the PivotTable the change was made on, which stays its target if the active cell moves to another meanwhile
+    const t = target.value
     requested.value = next
     inFlight++
     sending = sending
       .then(async () => {
-        const d = definition.value
-        const t = target.value
+        const call = props.source.pivotTable
+        if (!t || !call || !props.sheet) return
+        const here = target.value?.sheet === t.sheet && target.value.pivot === t.pivot
+        const d = here ? definition.value : await call.call(props.source, t.sheet, t.pivot)
         const fresh = d && (change ? change(areasOf(d.table)) : next)
         const set = d && fresh && patchOf(d.table, fresh)
-        if (!d || !t || !set || !props.sheet) return
+        if (!set) return
         try {
           // a field of dates put on the rows or columns is grouped as Excel's field list groups it (xlcalc's `groupDates`)
           await props.sheet.structure({ op: 'editPivotTable', sheet: t.sheet, pivot: t.pivot, set, groupDates: true })
         } finally {
-          await read()
+          // the next change is made over the PivotTable as read after this answer, a read a later `reload` began too
+          void read()
+          await readsDone()
         }
       })
       .catch(() => {})
