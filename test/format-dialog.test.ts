@@ -2,7 +2,7 @@
 // and Esc close; inputs beyond Excel's limits block OK; the toolbar's Format Cells button asks the host to open it.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { FormatDialog, SheetToolbar, type SheetViewApi, type SheetViewState } from '../src'
+import { FormatDialog, SheetToolbar, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/contract/source'
 import { settle } from './helpers'
 
@@ -172,5 +172,15 @@ describe('the toolbar’s Format Cells button', () => {
     await w.setProps({ onFormatCells } as never)
     await w.find('[data-tb="format-cells"]').trigger('click')
     expect([onFormatCells.mock.calls.length, vi.mocked(sheet.formatCells).mock.calls.length]).toEqual([1, 0])
+  })
+})
+
+describe("FormatDialog's texts", () => {
+  it("names the Alignment tab's Wrap Text box by its own key, apart from the ribbon's Wrap Text", async () => {
+    const w = mount(FormatDialog, { props: { open: true, state: at('A1'), messages: ruMessages }, attachTo: document.body })
+    await settle()
+    await tab(w, 'alignment')
+    expect(w.find('[data-fmt-wrap]').element.closest('label')!.textContent!.trim()).toBe('Перенос текста')
+    expect(ruMessages.wrapText).toBe('Переносить текст')
   })
 })

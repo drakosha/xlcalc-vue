@@ -164,7 +164,7 @@ const cancel = () => emit('close')
         </label>
         <label class="xs-fmt-check">
           <input v-model="draft.wrap" type="checkbox" data-fmt-wrap />
-          {{ m.wrapText }}
+          {{ m.fmtWrap }}
         </label>
         <p v-if="errors.indent" class="xs-fmt-error" role="alert">{{ m.fmtIndentRange }}</p>
         <fieldset class="xs-fmt-box xs-fmt-wide">

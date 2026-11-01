@@ -264,6 +264,8 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   fmtHorizontalKind: (h: 'general' | 'left' | 'center' | 'right' | 'fill' | 'justify' | 'centerContinuous' | 'distributed') => string
   fmtVerticalKind: (v: 'top' | 'center' | 'bottom' | 'justify' | 'distributed') => string
   fmtIndent: string
+  /** The Alignment tab's Wrap Text box, apart from the ribbon's `wrapText`. */
+  fmtWrap: string
   /** The Alignment tab's Orientation: its box, the degrees, Vertical Text, and the degrees' limits. */
   fmtOrientation: string
   fmtDegrees: string
