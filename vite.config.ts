@@ -46,8 +46,6 @@ export default defineConfig({
     rolldownOptions: {
       // vue is the host's, xlcalc and its contract are types only; xlcalc/a1, xlcalc/text and a locale's chunk are bundled
       external: ['vue', 'xlcalc', 'xlcalc/contract'],
-      // the PivotTable chunk takes what it shares with the sheet from the main entry, which exports it for that, rather than from a third chunk the main entry would import at once
-      preserveEntrySignatures: 'allow-extension',
     },
   },
   test: {

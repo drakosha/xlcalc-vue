@@ -19,8 +19,6 @@ export interface PivotFilterMenu {
   fields: number[]
   field: number
   at: { left: number; top: number }
-  /** The cell of the filter button it opens under, when the button was not drawn yet (the PivotTable chunk loading): the menu goes under it once it is. */
-  button?: string
   search: string
   hidden: boolean[]
   /** A Filters area's field: Select Multiple Items, and the one item shown without it (-1: All). */
@@ -60,10 +58,10 @@ export function usePivotFilter(s: SheetState, dialogs: PivotDialogs) {
   const m = () => s.messages.value
 
   /** Opens the menu of `field` on `axis` at a point of the viewport; a field of the axis may be picked in it (Select field). */
-  function openMenu(t: PivotTarget, axis: PivotAxis, field: number, at: { left: number; top: number }, button?: string): void {
+  function openMenu(t: PivotTarget, axis: PivotAxis, field: number, at: { left: number; top: number }): void {
     const fields = axis === 'pages' ? [field] : axisFields(t, axis)
     const page = (t.def.table.pages ?? []).find((p) => p.field === field)
-    menu.value = { t: markRaw(t), axis, fields: fields.includes(field) ? fields : [field], field, at, ...(button ? { button } : {}), search: '', hidden: [], multiple: !!t.def.table.fields[field]?.multipleItems, page: page?.item ?? -1 }
+    menu.value = { t: markRaw(t), axis, fields: fields.includes(field) ? fields : [field], field, at, search: '', hidden: [], multiple: !!t.def.table.fields[field]?.multipleItems, page: page?.item ?? -1 }
     pick(field)
   }
   /** Select field: the menu over another field of its axis, its items checked as the PivotTable shows them. */
@@ -222,7 +220,7 @@ export function usePivotFilter(s: SheetState, dialogs: PivotDialogs) {
       if (!b) continue
       e.preventDefault()
       const r = s.scroller.value?.querySelector<HTMLElement>(`[data-pivot-button="${cell}"]`)?.getBoundingClientRect()
-      if (b.field !== undefined) openMenu(t, b.axis, b.field, r ? { left: r.left, top: r.bottom } : { left: 80, top: 80 }, r ? undefined : cell)
+      if (b.field !== undefined) openMenu(t, b.axis, b.field, r ? { left: r.left, top: r.bottom } : { left: 80, top: 80 })
       return true
     }
     return false

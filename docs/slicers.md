@@ -1,6 +1,6 @@
 # Slicers and timelines
 
-A workbook's slicers and timelines over PivotTables lie over the cells at their places, as Excel draws them, and filter their PivotTables as Excel's do: a click on a slicer's item, Ctrl+click, Multi-Select, Clear Filter, a run of a timeline's periods. The sheet sends each change to the source's `structure` as one of xlcalc's operations (`editSlicer`, `editTimeline`, `addSlicer`, `addTimeline`, `deleteSlicer`, `deleteTimeline`), one step of undo, and reads the sheets again afterwards, so the PivotTables they filter show the new choice and the slicers their items with data anew. A refresh and an undo reload them too. They and their dialogs come with the PivotTables' chunk of the main entry point, loaded when the sheet has a PivotTable, a slicer or a timeline ([api.md](api.md#entry-points)).
+A workbook's slicers and timelines over PivotTables lie over the cells at their places, as Excel draws them, and filter their PivotTables as Excel's do: a click on a slicer's item, Ctrl+click, Multi-Select, Clear Filter, a run of a timeline's periods. The sheet sends each change to the source's `structure` as one of xlcalc's operations (`editSlicer`, `editTimeline`, `addSlicer`, `addTimeline`, `deleteSlicer`, `deleteTimeline`), one step of undo, and reads the sheets again afterwards, so the PivotTables they filter show the new choice and the slicers their items with data anew. A refresh and an undo reload them too.
 
 ## What the source gives
 

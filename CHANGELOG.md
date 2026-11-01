@@ -1,8 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The PivotTable, slicer and timeline UI is back in the main entry point, as in 0.31.0: 0.31.1 moved it to a chunk loaded on demand, which saved about a tenth of the main entry for a gap between asking for a pivot dialog or menu and its showing. `insertPivotTable()`, `insertSlicer()` and `insertTimeline()` show their dialog before they resolve again, and the main entry exports only its public names.
+
 ## 0.31.1 (2026-11-01)
 
-- The dialogs, menus, filter buttons and toolbar groups over PivotTables, and the slicers and timelines with their dialogs, are a separate chunk of the main entry point, loaded when the sheet has a PivotTable, a slicer or a timeline or the user opens one of their dialogs, so a workbook without them no longer downloads them: `dist/index.js` is about 860 KB instead of 950 KB. The chunk starts loading with the sheet's list of PivotTables. A dialog or menu asked for while it loads opens, focused, once it arrives, so `insertPivotTable()`, `insertSlicer()` and `insertTimeline()` may resolve or return before their dialog is in the DOM; if the chunk fails to download, what waited for it is closed and only the user's next request loads it again (a browser may keep the failed import cached until the page is reloaded). Nothing changes for a host that uses the package build; `PivotFieldsPane` stays in the main entry point, which also exports, for the chunk, internal modules under minified names of one or two characters that are not API ([api.md](docs/api.md#entry-points)).
+- The dialogs, menus, filter buttons and toolbar groups over PivotTables, and the slicers and timelines with their dialogs, are a separate chunk of the main entry point, loaded when the sheet has a PivotTable, a slicer or a timeline or the user opens one of their dialogs, so a workbook without them no longer downloads them: `dist/index.js` is about 860 KB instead of 950 KB. A dialog asked for while the chunk loads opens, focused, once it arrives; if the chunk fails to download, what waited for it is closed and the next need loads it again. Nothing changes for a host that uses the package build; `PivotFieldsPane` stays in the main entry point ([api.md](docs/api.md#entry-points)).
 
 ## 0.31.0 (2026-11-01)
 
