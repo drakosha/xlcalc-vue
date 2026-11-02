@@ -81,7 +81,7 @@ describe("Underline, Excel's split button", () => {
 })
 
 describe("Accounting Number Format, Excel's split button", () => {
-  it("lists Excel's currencies for an Excel in the workbook's locale: its own, then £, €, ¥, CHF, named as Excel's menu in each language", async () => {
+  it("lists xlcalc's currencies for an Excel in the workbook's locale: its own, then £, €, ¥, CHF, named as Excel's menu in its language", async () => {
     const sheet = { formatCells: vi.fn() } as unknown as SheetViewApi
     const en = bar({ sheet })
     await en.find('[data-tb="accounting-menu"]').trigger('click')
@@ -94,6 +94,8 @@ describe("Accounting Number Format, Excel's split button", () => {
       ['accounting-more', 'More Accounting Formats...'],
     ])
     const ru = bar({ sheet, locale: 'ru-RU', messages: ruMessages })
+    // the currencies come with the locale's module, a separate chunk
+    await vi.dynamicImportSettled()
     const arrow = ru.find('[data-tb="accounting-menu"]')
     expect(arrow.attributes('aria-label')).toBe('Финансовый числовой формат')
     await arrow.trigger('click')
@@ -105,11 +107,17 @@ describe("Accounting Number Format, Excel's split button", () => {
       ['accounting-chf', 'CHF французский (Швейцария)'],
       ['accounting-more', 'Другие финансовые форматы...'],
     ])
+    // the names are xlcalc's, in the workbook's language whatever the interface's texts
+    const mixed = bar({ sheet, locale: 'ru-RU' })
+    await vi.dynamicImportSettled()
+    await mixed.find('[data-tb="accounting-menu"]').trigger('click')
+    expect(items(mixed).map((x) => x[1])).toEqual(['₽ русский', '£ английский (Соединенное Королевство)', '€ Евро (€ 123)', '¥ Китайский, упрощенное письмо (континентальный Китай)', 'CHF французский (Швейцария)', 'More Accounting Formats...'])
   })
 
   it("applies Excel's code of each currency in the workbook's locale, the euro's with its negatives; the part applies the built-in 44", async () => {
     const codes = async (locale: string | undefined, own: string) => {
       const w = bar({ locale })
+      await vi.dynamicImportSettled()
       await w.find('[data-tb="accounting"]').trigger('click')
       for (const c of [own, 'gbp', 'eur', 'cny', 'chf']) await pick(w, 'accounting-menu', `accounting-${c}`)
       await settle()

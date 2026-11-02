@@ -257,9 +257,8 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   percentStyle: string
   /** Excel's Accounting Number Format, Comma Style, Increase Decimal and Decrease Decimal buttons. */
   accountingStyle: string
-  /** Accounting Number Format's arrow, its menu's currencies (Excel's names, the symbol first) and More Accounting Formats... */
+  /** Accounting Number Format's arrow and its menu's last item, More Accounting Formats... (the currencies are xlcalc's, in the workbook's language). */
   accountingMenu: string
-  accountingCurrency: (currency: 'usd' | 'rub' | 'gbp' | 'eur' | 'cny' | 'chf') => string
   accountingMore: string
   commaStyle: string
   decimalIncrease: string

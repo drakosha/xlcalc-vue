@@ -1,8 +1,9 @@
 // Excel's Number Format box in the workbook's locale, as measured by xlcalc (`xlcalc/text`, without the engine): the items of
-// its list and the category of a format, for the toolbar's list and the Format Cells dialog's Number tab.
+// its list and the category of a format, for the toolbar's list and the Format Cells dialog's Number tab; and the currencies
+// of the Accounting Number Format button's menu.
 import { computed, type ComputedRef } from 'vue'
-import type { FormatChoice, NumberFormatCategory } from 'xlcalc/contract'
-import { numberFormatCategory, numberFormatChoices } from 'xlcalc/text'
+import type { AccountingItem, FormatChoice, NumberFormatCategory } from 'xlcalc/contract'
+import { accountingFormats, numberFormatCategory, numberFormatChoices } from 'xlcalc/text'
 import { useLocaleModule } from './locale-ref'
 
 export interface NumberFormats {
@@ -10,6 +11,8 @@ export interface NumberFormats {
   choices: ComputedRef<FormatChoice[]>
   /** The category the box shows for a code (General without one); null while the locale loads. */
   categoryOf: (code: string | undefined) => NumberFormatCategory | null
+  /** Accounting Number Format's currencies in Excel's order, each with its name in the locale's language and its code; empty while the locale loads. */
+  currencies: ComputedRef<AccountingItem[]>
 }
 
 /**
@@ -20,6 +23,7 @@ export function useNumberFormats(tag: () => string | undefined): NumberFormats {
   /** The locale object, undefined for en-US, null while its module loads. */
   const locale = useLocaleModule(tag)
   const choices = computed(() => (locale.value === null ? [] : numberFormatChoices(locale.value)))
+  const currencies = computed(() => (locale.value === null ? [] : accountingFormats(locale.value).items))
   function categoryOf(code: string | undefined): NumberFormatCategory | null {
     if (locale.value === null) return null
     // a built-in format reaches the sheet as its code in the locale, which xlcalc may not name by it (ru-RU's 14 `dd.mm.yyyy` is Custom): named by its number, as Excel names it
@@ -31,5 +35,5 @@ export function useNumberFormats(tag: () => string | undefined): NumberFormats {
       return null
     }
   }
-  return { choices, categoryOf }
+  return { choices, categoryOf, currencies }
 }

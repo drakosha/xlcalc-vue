@@ -245,8 +245,6 @@ export const enMessages: SheetMessages = {
   percentStyle: 'Percent Style (Ctrl+Shift+%)',
   accountingStyle: 'Accounting Number Format',
   accountingMenu: 'Accounting Number Format',
-  accountingCurrency: (currency) =>
-    ({ usd: '$ English (United States)', rub: '₽ Russian', gbp: '£ English (United Kingdom)', eur: '€ Euro (€ 123)', cny: '¥ Chinese (Simplified, Mainland China)', chf: 'CHF French (Switzerland)' })[currency],
   accountingMore: 'More Accounting Formats...',
   commaStyle: 'Comma Style',
   decimalIncrease: 'Increase Decimal',
@@ -834,15 +832,6 @@ export const ruMessages: SheetMessages = {
   percentStyle: 'Процентный формат (Ctrl+Shift+%)',
   accountingStyle: 'Финансовый числовой формат',
   accountingMenu: 'Финансовый числовой формат',
-  accountingCurrency: (currency) =>
-    ({
-      usd: '$ английский (США)',
-      rub: '₽ русский',
-      gbp: '£ английский (Соединенное Королевство)',
-      eur: '€ Евро (€ 123)',
-      cny: '¥ Китайский, упрощенное письмо (континентальный Китай)',
-      chf: 'CHF французский (Швейцария)',
-    })[currency],
   accountingMore: 'Другие финансовые форматы...',
   commaStyle: 'Формат с разделителями',
   decimalIncrease: 'Увеличить разрядность',

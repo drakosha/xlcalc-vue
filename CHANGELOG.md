@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Accounting Number Format's menu takes its currencies, their names and their codes from xlcalc 0.75.0's `accountingFormats` (`xlcalc/text`, bundled) instead of the package's own table: the same lists and codes in en-US and ru-RU, but the names are in the workbook's language, as in an Excel run in it, so an en-US interface over a ru-RU workbook shows `₽ русский` where it showed `₽ Russian`; in ru-RU the currencies appear once the locale's module has loaded. Breaking for a host: the contract drops the text `accountingCurrency`, which a host's complete set of its own texts no longer has ([toolbar.md](docs/toolbar.md#sheettoolbar)).
 - Built over xlcalc 0.75.0. Breaking for a host: `./local` requires `xlcalc` 0.75.0 or later (the optional peer was 0.74.1), whose en-US workbooks give the built-in money formats 5 to 8, 42 and 44 with the dollar quoted (`_("$"* #,##0.00_)...`, was `_($* #,##0.00_)...`), as Excel writes them to a file; a cell's `numberFormat` in `state` and in the source's windows carries that code. The Number Format box names Accounting after each item of Accounting Number Format's menu (the pound's, the yuan's and ru-RU's euro's codes were Custom), as xlcalc 0.75.0 names them ([toolbar.md](docs/toolbar.md#sheettoolbar), [local.md](docs/local.md)).
 
 ## 0.33.0 (2026-11-01)
