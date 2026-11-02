@@ -1,5 +1,6 @@
 // Screenshots of the example at phone and desktop widths: every sheet of the "all formatting" workbook and the editing states,
-// and the toolbar's Underline, Accounting Number Format and Orientation menus (ribbon-menus.ts).
+// the toolbar's Underline, Accounting Number Format and Orientation menus (ribbon-menus.ts), and its large buttons with rows: 2
+// at 1920, 1440 and 1280 px (ribbon-large.ts).
 // Run: npm run screens (Node 22.18+ strips the types). Output: test-results/screens/, not in git.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -8,6 +9,7 @@ import { createServer } from 'vite'
 import { quoteSheetIfNeeded } from 'xlcalc/a1'
 import { longPress, longPressAt } from './touch.ts'
 import { ribbonMenuScreens } from './ribbon-menus.ts'
+import { ribbonLargeScreens } from './ribbon-large.ts'
 import { zoomScreens } from './zoom-screens.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -795,6 +797,8 @@ for (const size of SIZES) {
   await shot(page, size.name, '27-locked')
   await context.close()
 }
+
+if (!process.env.SCREENS_CHECK_ONLY) await ribbonLargeScreens(browser, base, out)
 
 await browser.close()
 await server.close()

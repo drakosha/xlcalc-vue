@@ -4,7 +4,7 @@
 
 - New (an empty workbook in English or Russian), Open (the file picker, or an xlsx file dropped on the page) and Save as (the workbook with its values as `<name>.xlsx`, under the name in the top bar);
 - a notice of what the file lost;
-- the toolbar (through the sheet's methods) with Excel's Format Cells dialog, and Data > Filter as its last button ([autofilter.md](autofilter.md));
+- the toolbar (through the sheet's methods) with Excel's Format Cells dialog, and Data > Filter as its last button, a large one with `?rows=2` as in Excel ([autofilter.md](autofilter.md));
 - the sheet with its formula bar, tabs, the structure menu on row numbers, column letters and tabs, the cell context menu, the fill handle and selection totals;
 - a status bar (reading the file, calculating the workbook, ready, or calculating while a change is in progress);
 - the workbook's settings: its language, in which formulas, numbers and dates are typed and displayed; the workbook reopens in it, on the sheet that was active.

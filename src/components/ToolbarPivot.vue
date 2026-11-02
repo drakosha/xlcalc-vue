@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // The toolbar's PivotTable Analyze and Design commands, shown while the active cell is in a PivotTable: Options, Group
 // Selection, Ungroup, Group Field and Fields, Items, & Sets (Calculated Field…, Calculated Item…); Subtotals, Grand
-// Totals, Report Layout and Blank Rows with Excel's lists, the item in force checked, through the sheet's methods.
+// Totals, Report Layout and Blank Rows with Excel's lists, the item in force checked, through the sheet's methods; `large`
+// draws Design's as Excel's large buttons, each with its label and arrow under the icon.
 import { computed, ref, type Component } from 'vue'
 import type { SheetMessages } from '../contract/messages'
 import type { SheetViewApi, SheetViewState, ToolbarSource, PivotDesignChange } from '../contract/view'
@@ -9,8 +10,9 @@ import { designOf, type PivotTarget } from '../pivot-model'
 import { IconDown } from './icons'
 import { IconBlankRows, IconCalculated, IconGrandTotals, IconGroup, IconGroupField, IconPivotOptions, IconReportLayout, IconSubtotals, IconUngroup } from './pivot-icons'
 import { useOutsidePress } from './popup'
+import { ToolbarLabel } from './ToolbarLabel'
 
-const props = defineProps<{ group: 'pivotAnalyze' | 'pivotDesign'; sheet: SheetViewApi; state: SheetViewState | null; source: ToolbarSource; m: SheetMessages }>()
+const props = defineProps<{ group: 'pivotAnalyze' | 'pivotDesign'; large?: boolean; sheet: SheetViewApi; state: SheetViewState | null; source: ToolbarSource; m: SheetMessages }>()
 const root = ref<HTMLElement | null>(null)
 const open = ref<string | null>(null)
 /** What the Design lists show checked, read from the source as a list opens. */
@@ -80,7 +82,7 @@ const lists = computed<{ id: string; label: string; icon: Component; items: Item
     <template v-else>
       <span v-for="l in lists" :key="l.id" class="xs-tb-split">
         <button type="button" class="xs-tool xs-tb-wide" :data-tb="`pivot-${l.id}`" :data-tip="l.label" :aria-label="l.label" aria-haspopup="menu" :aria-expanded="open === l.id" :disabled="!can" @click="toggle(l.id)">
-          <component :is="l.icon" /><IconDown />
+          <component :is="l.icon" /><ToolbarLabel v-if="large" :name="l.label" arrow /><IconDown v-else />
         </button>
         <div v-if="open === l.id" class="xs-tb-pop" role="menu" :aria-label="l.label">
           <button v-for="it in l.items" :key="it.id" type="button" class="xs-tb-item" role="menuitemradio" :aria-checked="!!it.on" :aria-pressed="!!it.on" :data-tb="`pivot-${l.id}-${it.id}`" @click="run(it.run)">{{ it.label }}</button>

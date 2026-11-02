@@ -77,6 +77,30 @@ const RIBBON_ROWS: Partial<Record<ToolbarGroup, { group: string; slots: readonly
 /** Excel's large buttons, as tall as the two rows: Insert's PivotTable, Data's Refresh All, Design's Layout menus. */
 const RIBBON_LARGE: ReadonlySet<ToolbarGroup> = new Set(['pivotTable', 'refreshAll', 'pivotDesign'])
 
+/** A key after a button's name, as its ScreenTip shows it: `(Ctrl+Alt+F5)`, `(F4)`. */
+const NAME_KEY = /\s*\((?:[^()]*\+[^()]*|F\d{1,2})\)$/
+/** How many characters a menu's arrow after the label weighs, in `largeLabel`'s balance of its lines. */
+const ARROW_CHARS = 2
+/**
+ * A large button's label as Excel draws it under the icon: its name without the key (`Refresh All (Ctrl+Alt+F5)` → `Refresh
+ * All`), one word on one line, more on two lines broken where the longer line is shortest (`Промежуточные` over `итоги`), the
+ * menu's arrow counted at the end of the last; a one-word name with `arrow` gets an empty second line for its arrow, as Excel's
+ * Subtotals. Lengths in characters, as near as text length tells Excel's break (measured on its ribbon at 1920 px).
+ */
+export function largeLabel(name: string, arrow: boolean): string[] {
+  const words = name.replace(NAME_KEY, '').trim().split(/\s+/)
+  if (words.length === 1) return arrow ? [words[0]!, ''] : [words[0]!]
+  const extra = arrow ? ARROW_CHARS : 0
+  let best: string[] = []
+  let longest = Infinity
+  for (let i = 1; i < words.length; i++) {
+    const lines = [words.slice(0, i).join(' '), words.slice(i).join(' ')]
+    const len = Math.max(lines[0]!.length, lines[1]!.length + extra)
+    if (len < longest) [best, longest] = [lines, len]
+  }
+  return best
+}
+
 /** A block of the toolbar as it lays out one: its slot in a two-row group, or none where it is drawn whole; `large` as tall as the two rows. */
 export type RibbonPiece<B> = { block: B; slot?: RibbonSlot; large?: boolean }
 /**

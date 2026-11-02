@@ -38,7 +38,8 @@ const sheet = shallowRef<SheetViewApi | null>(null)
 /** The toolbar's groups, then Excel's Data > Filter, pressed while the sheet has an AutoFilter. */
 const toolbarItems = computed<ToolbarItem[]>(() => [
   ...TOOLBAR_GROUPS,
-  { id: 'filter', label: t.value.filter, icon: IconFilter, run: () => void sheet.value?.toggleAutoFilter(), pressed: !!state.value?.autoFilter, disabled: !state.value?.canAutoFilter },
+  // Large with rows: 2, as Excel's Data > Filter
+  { id: 'filter', label: t.value.filter, icon: IconFilter, run: () => void sheet.value?.toggleAutoFilter(), pressed: !!state.value?.autoFilter, disabled: !state.value?.canAutoFilter, size: 'large' },
 ])
 /** The toolbar's lines: `?rows=2` lays it out as Excel's ribbon, as an app with tabs does. */
 const toolbarRows = Number(params.get('rows')) || 1

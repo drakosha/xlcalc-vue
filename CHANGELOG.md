@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- With `rows: 2` a large button (PivotTable, Refresh All, Design's Subtotals, Grand Totals, Report Layout and Blank Rows, and a host's with `size: 'large'`) is drawn as Excel's ribbon draws it: the icon at every button's size (18 px, was 28 px) and the button's name under it on one or two lines, broken as Excel breaks it, a list's arrow after the name; a split button's part is the icon and its arrow the name, as Excel's Refresh All. The name is the button's ScreenTip without its key, a host's its `label`. A visible change for a host with `rows: 2`: a large button is as wide as its name (at most `--xs-tb-label-w`, 112 px, the name `--xs-tb-label`, 12 px), so the row is wider and its last groups go into More sooner; with `rows: 1` and in More nothing changes ([toolbar.md](docs/toolbar.md#two-rows-as-excels-ribbon)).
+
 ## 0.36.0 (2026-11-02)
 
 - A host lays out its own buttons as Excel's ribbon groups: the contract adds `group` and `size` to `ToolbarButton`. Host buttons next to each other in `items` with the same `group` form one group, a different value starts another, and a `group` named as an adjacent stacked group of the toolbar's (`'autoSum'`, `'refreshAll'`...) joins that group, as Insert Function joins AutoSum in Excel's Function Library; with `rows: 1` such a group goes into More whole, and on a phone each run of one `group` is a block of its own. `size: 'large'` draws a host's button as tall as both rows of `rows: 2`, with a larger icon, as Excel's PivotTable. A host that sets neither gets the layout of before ([toolbar.md](docs/toolbar.md#choosing-the-buttons)).
