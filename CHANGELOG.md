@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.36.0 (2026-11-02)
+
+- A host lays out its own buttons as Excel's ribbon groups: the contract adds `group` and `size` to `ToolbarButton`. Host buttons next to each other in `items` with the same `group` form one group, a different value starts another, and a `group` named as an adjacent stacked group of the toolbar's (`'autoSum'`, `'refreshAll'`...) joins that group, as Insert Function joins AutoSum in Excel's Function Library; with `rows: 1` such a group goes into More whole, and on a phone each run of one `group` is a block of its own. `size: 'large'` draws a host's button as tall as both rows of `rows: 2`, with a larger icon, as Excel's PivotTable. A host that sets neither gets the layout of before ([toolbar.md](docs/toolbar.md#choosing-the-buttons)).
+- Fix of 0.32.0's two-row layout: a host's split button (`run` with `menu`) is one split button, its arrow beside its part, as AutoSum's; with `rows: 2` the arrow was drawn under the part, in a cell of its own. On one line the arrow now sits against the part, without the gap between buttons ([toolbar.md](docs/toolbar.md#choosing-the-buttons)).
+
 ## 0.35.0 (2026-11-02)
 
 - Built over xlcalc 0.76.0. Breaking for a host: `./local` requires `xlcalc` 0.76.0 or later (the optional peer was 0.75.0), whose ru-RU workbooks give the built-in formats as Excel writes them to a file: Short Date 14 (and 27 to 31, 36) as `dd/mm/yyyy`, was `dd.mm.yyyy`, 22 as `dd/mm/yyyy h:mm`, Fraction 12 and 13 as `#" "?/?` and `#" "??/??`; a cell's `numberFormat` in `state` and in the source's windows carries that code, and the display is the same (`15.03.2026`, `1 1/4`). The Number Format box names each built-in by xlcalc's category of its code, without the package's own lookup of the code among the box's items ([local.md](docs/local.md)).

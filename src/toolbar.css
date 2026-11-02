@@ -105,14 +105,15 @@
 .xs-tb-g-cols .xs-tb-pivot {
   display: contents;
 }
-/* Excel's large buttons (PivotTable, Refresh All, Design's menus): as tall as the two rows, the icon larger. */
+/* Excel's large buttons (PivotTable, Refresh All, Design's menus) and a host's with `size: 'large'`: as tall as the two rows, the icon larger. */
+.xs-tb-large:is(.xs-tool, .xs-tb-split),
 .xs-tb-large :is(.xs-tool, .xs-tb-split) {
   grid-row: span 2;
 }
-.xs-toolbar:not(.xs-touch) .xs-tb-large .xs-tool {
+.xs-toolbar:not(.xs-touch) :is(.xs-tool.xs-tb-large, .xs-tb-large .xs-tool) {
   height: calc(2 * var(--xs-tb-tool-h) + 2px);
 }
-.xs-toolbar:not(.xs-touch) .xs-tb-large .xs-tool:not(.xs-tb-caret) > .xs-icon:first-child {
+.xs-toolbar:not(.xs-touch) :is(.xs-tool.xs-tb-large, .xs-tb-large .xs-tool):not(.xs-tb-caret) > .xs-icon:first-child {
   width: 28px;
   height: 28px;
 }
@@ -354,7 +355,7 @@
 .xs-touch .xs-tb-group.xs-tb-g-cols {
   grid-template-rows: repeat(2, var(--xs-touch-target));
 }
-.xs-touch .xs-tb-large .xs-tool {
+.xs-touch :is(.xs-tool.xs-tb-large, .xs-tb-large .xs-tool) {
   height: calc(2 * var(--xs-touch-target) + 2px);
 }
 .xs-tb-pivot {
