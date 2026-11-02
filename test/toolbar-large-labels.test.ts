@@ -85,6 +85,11 @@ describe("a large button's icon", () => {
     expect(all?.[1].replace(/\s+/g, ' ').trim()).toBe('width: var(--xs-tb-icon); height: var(--xs-tb-icon);')
   })
 
+  it("leaves its label whole, the button as wide as its longer line, as Excel's Watch Window (`Окно контрольного` over `значения`)", () => {
+    const capped = rules('src/toolbar.css').filter(([sel, decl]) => (sel.includes('xs-tb-large') || sel.includes('xs-tb-label')) && /(^|[\s;])(max-width|text-overflow)\s*:/.test(decl) && !/max-width:\s*100%/.test(decl))
+    expect(capped).toEqual([])
+  })
+
   it('is the same element as a small button\'s, the first child of its button, with the label after it', async () => {
     wide()
     const w = mountBar(2)

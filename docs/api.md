@@ -724,5 +724,5 @@ A workbook on a server: `serveSource` serves a source to viewers over HTTP, and 
 | `--xs-alert-stop`, `--xs-alert-warning`, `--xs-alert-information` | `#d13438`, `#ffb900`, `#0f6cbd` | The validation alert's icons. |
 | `--xs-tb-tool`, `--xs-tb-tool-h`, `--xs-tb-icon` | `32px`, `30px`, `18px` | The toolbar's buttons (their least width and their height) and icons, at about Excel's ribbon; on a touch screen every target is 44 × 44 px instead. Set on `.xs-toolbar`. |
 | `--xs-tb-field-h`, `--xs-tb-text`, `--xs-tb-font-w`, `--xs-tb-size-w` | `28px`, `13px`, `150px`, `52px` | The toolbar's boxes (height, text size) and the widths of the Font and Font Size boxes. |
-| `--xs-tb-label`, `--xs-tb-label-w` | `12px`, `112px` | With `rows: 2`, the text size of a large button's name under its icon, and the button's greatest width (a longer line ends in an ellipsis). |
+| `--xs-tb-label` | `12px` | With `rows: 2`, the text size of a large button's name under its icon; the button is as wide as the name's longer line. |
 | `--xs-fl-line` | `#7a7a7a` | The border of lists under a cell: Formula AutoComplete and validation lists. |
