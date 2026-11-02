@@ -156,8 +156,13 @@ async function pickNumber(page: Page, size: Size, item: string): Promise<void> {
   if (!size.phone) {
     const list = await page.locator('[role="listbox"]').evaluate((el) => [el.scrollHeight, el.clientHeight, el.querySelectorAll('[role="option"]').length])
     if (list[0]! > list[1]! + 1) throw new Error(`${size.width}: the Number Format list scrolls (${list[0]} px in ${list[1]} px, ${list[2]} items)`)
-  }
+  } else await listInView(page, `${size.width}: the Number Format list`)
   await press(page, size, `[data-tb-number="${item}"]`)
+}
+/** A toolbar box's open list ends inside the viewport, scrolling inside itself when taller. */
+async function listInView(page: Page, what: string): Promise<void> {
+  const [bottom, height] = await page.locator('[role="listbox"]').evaluate((el) => [el.getBoundingClientRect().bottom, window.innerHeight])
+  if (bottom > height + 0.5) throw new Error(`${what} ends at ${Math.round(bottom)} px, below the viewport's ${height} px`)
 }
 
 async function scenario(browser: Browser, base: string, size: Size): Promise<void> {
@@ -229,6 +234,9 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await checkTargets(page, at('toolbar menu'))
     await checkNoSideScroll(page, at('toolbar menu'))
     await shot('menu')
+    await press(page, size, '[data-tb-menu] [data-tb="font-name-list"]')
+    await listInView(page, at('the Font list in the menu'))
+    await press(page, size, '[data-tb-menu] [data-tb="font-name-list"]')
   }
   await pickNumber(page, size, 'percentage')
   await shows(page, '1:1', '25,00%')

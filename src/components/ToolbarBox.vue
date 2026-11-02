@@ -2,7 +2,7 @@
 // Excel's Font, Font Size and Number Format boxes on the toolbar: an input that shows the active cell's value and takes a
 // typed one or a pick from its list (Number Format's only a pick). Enter or a pick applies; Esc, and leaving the box without
 // Enter, restore what it showed.
-import { computed, ref, useId } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { fontCss } from '../core/cell-style'
 import { IconDown } from './icons'
 import { keepActiveInView } from './popup'
@@ -59,6 +59,16 @@ const shown = computed(() => draft.value ?? props.value)
 const indexOf = (text: string) => props.items.findIndex((x) => x.toLowerCase() === text.trim().toLowerCase())
 const itemFont = (name: string) => (props.preview ? { fontFamily: fontCss({ font: { name } }, undefined).fontFamily } : undefined)
 keepActiveInView(listEl, () => [props.open, active.value], () => active.value)
+/** The room from the list's top to the viewport's bottom, which its height never passes (a phone's More menu opens it low). */
+const room = ref<string | undefined>(undefined)
+watch(
+  () => props.open,
+  (on) => {
+    const top = on ? listEl.value?.getBoundingClientRect().top : undefined
+    room.value = top === undefined ? undefined : `${Math.max(120, window.innerHeight - top - 8)}px`
+  },
+  { flush: 'post' },
+)
 
 function setOpen(on: boolean): void {
   if (on) active.value = indexOf(shown.value)
@@ -187,7 +197,7 @@ function onKey(e: KeyboardEvent): void {
     <button type="button" class="xs-tool xs-tb-caret" :data-tb="`${hook}-list`" :data-tip="label" :aria-label="label" :aria-expanded="open" :disabled="disabled" @click="setOpen(!open)">
       <IconDown />
     </button>
-    <div v-if="open" :id="id" ref="listEl" :class="['xs-tb-pop', 'xs-tb-list', { 'xs-tb-whole': whole }]" role="listbox" :aria-label="label">
+    <div v-if="open" :id="id" ref="listEl" :class="['xs-tb-pop', 'xs-tb-list', { 'xs-tb-whole': whole }]" role="listbox" :aria-label="label" :style="{ '--xs-tb-room': room }">
       <button
         v-for="(x, i) in items"
         :key="x"
