@@ -79,7 +79,7 @@ describe('localSource: sheets and windows', () => {
     })
     const w = await win(s, 'S', 1, 4, 1, 2)
     // as Excel displays them: an empty cell by its column's format, by its row's where the two intersect
-    expect(w.numberFormats).toEqual({ A1: 'dd.mm.yyyy', A2: '0%', B1: '0.00', B2: '0.00', B3: '0.00', A4: '0%', B4: '0%' })
+    expect(w.numberFormats).toEqual({ A1: 'dd/mm/yyyy', A2: '0%', B1: '0.00', B2: '0.00', B3: '0.00', A4: '0%', B4: '0%' })
   })
 
   it('keeps a window within maxCells', async () => {
