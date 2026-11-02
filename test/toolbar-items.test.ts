@@ -136,7 +136,7 @@ describe("SheetToolbar's items", () => {
   })
 
   it('measures again when the sheet arrives, which draws its groups, and when the Number Format list loads', async () => {
-    narrowLayout(300, (key, el) => (key === 'number' ? (el.querySelector('select') ? 250 : 50) : 100), 1440)
+    narrowLayout(300, (key, el) => (key === 'number' ? (el.querySelector('[data-tb="number"]') ? 250 : 50) : 100), 1440)
     const sheet = { formatPainter: vi.fn() } as unknown as SheetViewApi
     const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'formatPainter', 'fontStyle', 'verticalAlign'] }, attachTo: document.body })
     await nextTick()

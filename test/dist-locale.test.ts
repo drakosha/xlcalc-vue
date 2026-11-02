@@ -4,7 +4,7 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LOCALES } from 'xlcalc'
-import { settle, until } from './helpers'
+import { numberShown, settle, until } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -19,7 +19,7 @@ describe('dist/index.js in a ru-RU workbook', () => {
     const source = { locale: 'ru-RU', sheets: async () => [{ name: 'S', maxRow: 9, maxCol: 9 }], window: async () => ({ pending: { elapsedMs: 0 } }), format }
     const w = mount(SheetToolbar, { props: { source, state: { sheet: 'S', ref: 'A1', cellValue: 1.5 } }, attachTo: document.body })
     await w.find('[data-tb="decimal-up"]').trigger('click')
-    await until(() => w.findAll('[data-tb="number"] option').some((o) => o.text() === 'Общий'), 5000)
+    await until(() => w.find('[data-tb="number"]').exists() && numberShown(w) === 'Общий', 5000)
     await w.find('[data-tb="decimal-up"]').trigger('click')
     await w.setProps({ state: { sheet: 'S', ref: 'A1', numberFormat: '0.00', cellValue: 1.5 } })
     await w.find('[data-tb="decimal-down"]').trigger('click')

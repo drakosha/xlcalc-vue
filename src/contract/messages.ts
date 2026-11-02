@@ -253,6 +253,8 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   indentIncrease: string
   wrapText: string
   numberFormat: string
+  /** The Number Format list's last item, More Number Formats..., which opens Format Cells on the Number tab. */
+  numberFormatMore: string
   /** Excel's Percent Style button, with its key. */
   percentStyle: string
   /** Excel's Accounting Number Format, Comma Style, Increase Decimal and Decrease Decimal buttons. */

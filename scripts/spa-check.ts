@@ -66,8 +66,8 @@ async function shows(page: Page, cell: string, text: string): Promise<void> {
 const PERCENT = numberFormatCategory(10, ruRU).name
 /** Waits until the toolbar's Number Format box names `name`. */
 async function boxNames(page: Page, name: string, where: string): Promise<void> {
-  const shown = () => page.evaluate(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.trim())
-  await page.waitForFunction((n) => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.trim() === n, name, { timeout: 30_000 }).catch(async () => {
+  const shown = () => page.evaluate(() => (document.querySelector('[data-tb="number"]') as HTMLInputElement | null)?.value)
+  await page.waitForFunction((n) => (document.querySelector('[data-tb="number"]') as HTMLInputElement | null)?.value === n, name, { timeout: 30_000 }).catch(async () => {
     throw new Error(`${where}: the box names ${JSON.stringify(await shown())}, want ${JSON.stringify(name)}`)
   })
 }
@@ -150,6 +150,21 @@ async function press(page: Page, size: Size, selector: string): Promise<void> {
   else await page.locator(selector).click()
 }
 
+/** Picks an item of the toolbar's Number Format list by its key (`percentage`): the box's arrow, then the item. On a desktop the list shows every item without scrolling, as Excel's does. */
+async function pickNumber(page: Page, size: Size, item: string): Promise<void> {
+  await press(page, size, '[data-tb="number-list"]')
+  if (!size.phone) {
+    const list = await page.locator('[role="listbox"]').evaluate((el) => [el.scrollHeight, el.clientHeight, el.querySelectorAll('[role="option"]').length])
+    if (list[0]! > list[1]! + 1) throw new Error(`${size.width}: the Number Format list scrolls (${list[0]} px in ${list[1]} px, ${list[2]} items)`)
+  } else await listInView(page, `${size.width}: the Number Format list`)
+  await press(page, size, `[data-tb-number="${item}"]`)
+}
+/** A toolbar box's open list ends inside the viewport, scrolling inside itself when taller. */
+async function listInView(page: Page, what: string): Promise<void> {
+  const [bottom, height] = await page.locator('[role="listbox"]').evaluate((el) => [el.getBoundingClientRect().bottom, window.innerHeight])
+  if (bottom > height + 0.5) throw new Error(`${what} ends at ${Math.round(bottom)} px, below the viewport's ${height} px`)
+}
+
 async function scenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({
     viewport: { width: size.width, height: size.height },
@@ -219,8 +234,24 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await checkTargets(page, at('toolbar menu'))
     await checkNoSideScroll(page, at('toolbar menu'))
     await shot('menu')
+    await press(page, size, '[data-tb-menu] [data-tb="font-name-list"]')
+    await listInView(page, at('the Font list in the menu'))
+    await press(page, size, '[data-tb-menu] [data-tb="font-name-list"]')
+    // the arrows reach More Number Formats... past the line before it, and the list scrolls it into view
+    await page.locator('[data-tb-menu] [data-tb="number"]').focus()
+    await page.keyboard.press('Alt+ArrowDown')
+    for (let i = 0; i < 12; i++) await page.keyboard.press('ArrowDown')
+    const more = await page.locator('[data-tb-number="more"]').evaluate((el) => {
+      const list = el.parentElement!.getBoundingClientRect()
+      const item = el.getBoundingClientRect()
+      return { marked: el.getAttribute('aria-selected'), shown: item.top >= list.top - 0.5 && item.bottom <= list.bottom + 0.5, item: Math.round(item.bottom), list: Math.round(list.bottom) }
+    })
+    if (more.marked !== 'true' || !more.shown) throw new Error(`${at('More Number Formats... by the arrows')}: ${JSON.stringify(more)}`)
+    await page.keyboard.press('Escape')
+    await press(page, size, '[data-tb="more"]')
+    await page.waitForSelector('[data-tb-menu]:not([style*="none"]) [data-tb="number"]')
   }
-  await page.locator('[data-tb="number"]').selectOption('percentage')
+  await pickNumber(page, size, 'percentage')
   await shows(page, '1:1', '25,00%')
   await shows(page, '3:1', '75,00%')
   // The source reloads after formatting: the list shows the active cell's new format.
@@ -314,7 +345,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   if (!size.phone) {
     // 10. Column C in percentage format: its empty cell shows the column format's category in the box, as Excel's does.
     await page.locator('.xs-head[data-col="3"]').click()
-    await page.locator('[data-tb="number"]').selectOption('percentage')
+    await pickNumber(page, size, 'percentage')
     await ready(page)
     const formatted = await bookOf(page)
     expect(at('column C in percentage'), (formatted.sheets[0]!.columns as Record<string, any>).C.numberFormat, 10)

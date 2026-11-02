@@ -2,9 +2,9 @@
 // selection, and show the active cell's formatting (from the sheet's `state` event).
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SheetToolbar, SheetView, ruMessages, type SheetViewState } from '../src'
+import { SheetToolbar, SheetView, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/contract/source'
-import { fakeSource, settle } from './helpers'
+import { fakeSource, numberShown, pickNumber, settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -127,9 +127,7 @@ describe('SheetToolbar: formatting through the source', () => {
     const src = source()
     const w = mountBar(src, at('A1:A3'))
     await settle()
-    await w.find('[data-tb="number"]').setValue('percentage')
-    await w.find('[data-tb="number"]').setValue('shortDate')
-    await w.find('[data-tb="number"]').setValue('time')
+    for (const item of ['percentage', 'shortDate', 'time']) await pickNumber(w, item)
     await settle()
     expect(src.format.mock.calls).toEqual([
       ['Лист1', [{ range: 'A1:A3', numberFormat: 10 }]],
@@ -137,7 +135,162 @@ describe('SheetToolbar: formatting through the source', () => {
       ['Лист1', [{ range: 'A1:A3', numberFormat: '[$-F400]h:mm:ss\\ AM/PM' }]],
     ])
     // the box names the category again, as Excel's does
-    expect(w.find<HTMLSelectElement>('[data-tb="number"]').element.value).toBe('')
+    expect([numberShown(w), w.find('[role="listbox"]').exists()]).toEqual(['General', false])
+  })
+})
+
+describe("SheetToolbar: Excel's Number Format box", () => {
+  const items = ['general', 'number', 'currency', 'accounting', 'shortDate', 'longDate', 'time', 'percentage', 'fraction', 'scientific', 'text']
+  const listed = (w: ReturnType<typeof mountBar>) => w.findAll('[role="option"]').map((o) => o.attributes('data-tb-number'))
+  const selected = (w: ReturnType<typeof mountBar>) => w.find('[role="option"][aria-selected="true"]').attributes('data-tb-number')
+
+  it('is drawn as the Font box: a field that names the category, joined to its own arrow, taking no typing', async () => {
+    const w = mountBar(source(), at('A1', { numberFormat: '0%' }), { messages: undefined })
+    await settle()
+    const field = w.find<HTMLInputElement>('[data-tb="number"]')
+    expect(field.element.tagName).toBe('INPUT')
+    expect([field.element.value, field.attributes('readonly'), field.attributes('data-tip'), field.attributes('data-tb-category')]).toEqual(['Percentage', '', 'Number Format', 'percentage'])
+    const box = field.element.closest('.xs-tb-box')!
+    expect(box).not.toBeNull()
+    expect(box.querySelector('.xs-tb-caret[data-tb="number-list"] svg')).not.toBeNull()
+    expect(w.find('.xs-toolbar select').exists()).toBe(false)
+  })
+
+  it("opens its list from the arrow and from the field, the active cell's item marked, and a click on an item applies it", async () => {
+    const src = source()
+    const w = mountBar(src, at('B2:C3', { numberFormat: '0.00%' }))
+    await settle()
+    await w.find('[data-tb="number-list"]').trigger('click')
+    expect([listed(w), selected(w)]).toEqual([items, 'percentage'])
+    await w.find('[data-tb="number-list"]').trigger('click')
+    expect(w.find('[role="listbox"]').exists()).toBe(false)
+    await w.find('[data-tb="number"]').trigger('click')
+    expect(listed(w)).toEqual(items)
+    await w.find('[data-tb-number="scientific"]').trigger('click')
+    await settle()
+    expect(src.format.mock.calls).toEqual([['Лист1', [{ range: 'B2:C3', numberFormat: 11 }]]])
+    expect([w.find('[role="listbox"]').exists(), numberShown(w)]).toEqual([false, 'Percentage'])
+  })
+
+  it('opens on Alt+Down, goes through the list with the arrows, picks on Enter, and closes on Esc back to the grid', async () => {
+    const src = source()
+    const w = mountBar(src, at('A1'), { messages: undefined })
+    await settle()
+    const field = w.find('[data-tb="number"]')
+    await field.trigger('focus')
+    await field.trigger('keydown', { key: 'ArrowDown', altKey: true })
+    expect(selected(w)).toBe('general')
+    await field.trigger('keydown', { key: 'ArrowDown' })
+    await field.trigger('keydown', { key: 'ArrowDown' })
+    await field.trigger('keydown', { key: 'ArrowUp' })
+    // the field keeps naming the active cell's category while the arrows go through the list
+    expect([selected(w), numberShown(w)]).toEqual(['number', 'General'])
+    await field.trigger('keydown', { key: 'Enter' })
+    await settle()
+    expect(src.format.mock.calls).toEqual([['Лист1', [{ range: 'A1', numberFormat: 2 }]]])
+    expect(w.find('[role="listbox"]').exists()).toBe(false)
+    await field.trigger('focus')
+    await field.trigger('keydown', { key: 'ArrowDown', altKey: true })
+    await field.trigger('keydown', { key: 'ArrowDown' })
+    await field.trigger('keydown', { key: 'Escape' })
+    await settle()
+    expect([src.format.mock.calls.length, w.find('[role="listbox"]').exists(), numberShown(w)]).toEqual([1, false, 'General'])
+    // the pick and the Esc each return to the grid
+    expect(w.emitted('done')).toHaveLength(2)
+  })
+
+  it("marks the item whose format the active cell has, a date's and a time's too; a Custom code marks none, and Enter on none leaves for the grid", async () => {
+    const src = source()
+    const w = mountBar(src, at('A1', { numberFormat: 'm/d/yyyy' }), { messages: undefined })
+    await settle()
+    const opened = async (numberFormat: string) => {
+      await w.setProps({ state: at('A1', { numberFormat }) })
+      await w.find('[data-tb="number-list"]').trigger('click')
+      const item = w.find('[role="option"][aria-selected="true"]')
+      const out = [numberShown(w), item.exists() ? item.attributes('data-tb-number') : null]
+      await w.find('[data-tb="number-list"]').trigger('click')
+      return out
+    }
+    expect(await opened('m/d/yyyy')).toEqual(['Date', 'shortDate'])
+    expect(await opened('[$-F800]dddd\\,\\ mmmm\\ dd\\,\\ yyyy')).toEqual(['Date', 'longDate'])
+    expect(await opened('[$-F400]h:mm:ss\\ AM/PM')).toEqual(['Time', 'time'])
+    expect(await opened('m/d/yy')).toEqual(['Date', null])
+    expect(await opened('0.00;-0.00')).toEqual(['Custom', null])
+    const field = w.find('[data-tb="number"]')
+    ;(field.element as HTMLElement).focus()
+    await field.trigger('keydown', { key: 'ArrowDown', altKey: true })
+    expect(w.find('[role="listbox"]').exists()).toBe(true)
+    await field.trigger('keydown', { key: 'Enter' })
+    await settle()
+    expect([w.find('[role="listbox"]').exists(), document.activeElement === field.element, src.format.mock.calls.length, w.emitted('done')?.length]).toEqual([false, false, 0, 1])
+  })
+
+  it('names the highlighted item to a screen reader: the field points at it while the list is open, the line is not an item', async () => {
+    const w = mountBar(source(), at('A1', { numberFormat: '0.00%', style: { font: { size: 12 } } }), { sheet: { formatCells: vi.fn() } as unknown as SheetViewApi })
+    await settle()
+    for (const hook of ['number', 'font-size']) {
+      const field = w.find(`[data-tb="${hook}"]`)
+      expect(field.attributes('aria-activedescendant')).toBeUndefined()
+      await field.trigger('focus')
+      await field.trigger('keydown', { key: 'ArrowDown', altKey: true })
+      const pointed = () => document.getElementById(field.attributes('aria-activedescendant') ?? '')
+      expect(pointed()?.getAttribute('aria-selected')).toBe('true')
+      const before = pointed()?.textContent?.trim()
+      await field.trigger('keydown', { key: 'ArrowDown' })
+      expect([pointed()?.getAttribute('aria-selected'), pointed()?.textContent?.trim() !== before]).toEqual(['true', true])
+      if (hook === 'number') expect(w.findAll('[role="listbox"] > :not([role="option"])').map((x) => x.attributes('role'))).toEqual(['presentation'])
+      await field.trigger('keydown', { key: 'Escape' })
+      expect(field.attributes('aria-activedescendant')).toBeUndefined()
+    }
+  })
+
+  it('keeps an open list within the window as it is resized or scrolled', async () => {
+    const w = mountBar(source(), at('A1'))
+    await settle()
+    const height = window.innerHeight
+    await w.find('[data-tb="number-list"]').trigger('click')
+    await settle()
+    const room = () => (w.find('[role="listbox"]').element as HTMLElement).style.getPropertyValue('--xs-tb-room')
+    const first = room()
+    try {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: height + 200 })
+      window.dispatchEvent(new Event('resize'))
+      await settle()
+      expect(parseFloat(room()) - parseFloat(first)).toBe(200)
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
+    }
+  })
+
+  it("ends the list, after a line, with More Number Formats..., which opens Format Cells on the Number tab at the active cell's format", async () => {
+    const sheet = { formatCells: vi.fn(), format: vi.fn() } as unknown as SheetViewApi
+    const w = mountBar(source(), at('A1', { numberFormat: '0.000' }), { sheet })
+    await settle()
+    await w.find('[data-tb="number-list"]').trigger('click')
+    const list = w.find('[role="listbox"]')
+    expect(list.findAll(':scope > *').slice(-2).map((x) => x.attributes('role') + ':' + (x.attributes('data-tb-number') ?? '') + ':' + x.text())).toEqual(['presentation::', 'option:more:Другие числовые форматы...'])
+    await w.find('[data-tb-number="more"]').trigger('click')
+    expect(sheet.formatCells).toHaveBeenCalledWith({ tab: 'number' })
+    expect(w.find('[role="listbox"]').exists()).toBe(false)
+    // the arrows reach it after the eleven items, and Enter opens the dialog
+    const field = w.find('[data-tb="number"]')
+    await field.trigger('focus')
+    await field.trigger('keydown', { key: 'ArrowDown', altKey: true })
+    for (let i = 0; i < 12; i++) await field.trigger('keydown', { key: 'ArrowDown' })
+    expect(w.find('[role="option"][aria-selected="true"]').attributes('data-tb-number')).toBe('more')
+    await field.trigger('keydown', { key: 'Enter' })
+    expect(sheet.formatCells).toHaveBeenCalledTimes(2)
+    expect(sheet.format).not.toHaveBeenCalled()
+    // a host that listens to formatCells gets where; without a dialog to open the item is not there
+    const onFormatCells = vi.fn()
+    const host = mountBar(source(), at('A1'), { onFormatCells })
+    await settle()
+    await pickNumber(host, 'more')
+    expect(onFormatCells).toHaveBeenCalledWith({ tab: 'number' })
+    const none = mountBar(source(), at('A1'))
+    await settle()
+    await none.find('[data-tb="number-list"]').trigger('click')
+    expect([none.findAll('[role="option"]').length, none.find('[data-tb-number="more"]').exists(), none.find('[role="separator"]').exists()]).toEqual([11, false, false])
   })
 })
 
@@ -152,7 +305,7 @@ describe("SheetToolbar: the active cell's formatting", () => {
   it("names the category of the active cell's format as Excel's box does, by xlcalc's rules", async () => {
     const w = mountBar(source(), at('A1', { numberFormat: '0.00%' }), { messages: undefined })
     await settle()
-    const shown = () => [w.find('[data-tb="number"]').attributes('data-tb-category'), w.find<HTMLSelectElement>('[data-tb="number"]').element.selectedOptions[0]!.textContent]
+    const shown = () => [w.find('[data-tb="number"]').attributes('data-tb-category'), numberShown(w)]
     expect(shown()).toEqual(['percentage', 'Percentage'])
     await w.setProps({ state: at('A2', { numberFormat: 'm/d/yyyy' }) })
     expect(shown()).toEqual(['date', 'Date'])
@@ -162,7 +315,8 @@ describe("SheetToolbar: the active cell's formatting", () => {
     expect(shown()).toEqual(['number', 'Number'])
     await w.setProps({ state: at('A5', { numberFormat: '0.00;-0.00' }) })
     expect(shown()).toEqual(['custom', 'Custom'])
-    expect(w.findAll('[data-tb="number"] option').map((o) => o.attributes('value')).slice(1)).toEqual(['general', 'number', 'currency', 'accounting', 'shortDate', 'longDate', 'time', 'percentage', 'fraction', 'scientific', 'text'])
+    await w.find('[data-tb="number-list"]').trigger('click')
+    expect(w.findAll('[role="option"]').map((o) => o.attributes('data-tb-number'))).toEqual(['general', 'number', 'currency', 'accounting', 'shortDate', 'longDate', 'time', 'percentage', 'fraction', 'scientific', 'text'])
   })
 
   it("names the list's items and the categories in the workbook's locale", async () => {
@@ -170,11 +324,11 @@ describe("SheetToolbar: the active cell's formatting", () => {
     // the locale's module arrives as a separate chunk
     await vi.dynamicImportSettled()
     await settle()
-    const select = () => w.find<HTMLSelectElement>('[data-tb="number"]').element
-    expect(select().selectedOptions[0]!.textContent).toBe('Процентный')
-    expect([...select().options].slice(1, 4).map((o) => o.textContent)).toEqual(['Общий', 'Числовой', 'Денежный'])
+    expect(numberShown(w)).toBe('Процентный')
+    await w.find('[data-tb="number-list"]').trigger('click')
+    expect(w.findAll('[role="option"]').slice(0, 3).map((o) => o.text())).toEqual(['Общий', 'Числовой', 'Денежный'])
     await w.setProps({ state: at('A2', { numberFormat: '@' }) })
-    expect(select().selectedOptions[0]!.textContent).toBe('Текстовый')
+    expect(numberShown(w)).toBe('Текстовый')
   })
 
   it("marks the active cell's colors in the palettes, and Automatic and No Fill where it has none", async () => {
