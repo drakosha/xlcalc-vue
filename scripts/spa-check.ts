@@ -150,9 +150,13 @@ async function press(page: Page, size: Size, selector: string): Promise<void> {
   else await page.locator(selector).click()
 }
 
-/** Picks an item of the toolbar's Number Format list by its key (`percentage`): the box's arrow, then the item. */
+/** Picks an item of the toolbar's Number Format list by its key (`percentage`): the box's arrow, then the item. On a desktop the list shows every item without scrolling, as Excel's does. */
 async function pickNumber(page: Page, size: Size, item: string): Promise<void> {
   await press(page, size, '[data-tb="number-list"]')
+  if (!size.phone) {
+    const list = await page.locator('[role="listbox"]').evaluate((el) => [el.scrollHeight, el.clientHeight, el.querySelectorAll('[role="option"]').length])
+    if (list[0]! > list[1]! + 1) throw new Error(`${size.width}: the Number Format list scrolls (${list[0]} px in ${list[1]} px, ${list[2]} items)`)
+  }
   await press(page, size, `[data-tb-number="${item}"]`)
 }
 

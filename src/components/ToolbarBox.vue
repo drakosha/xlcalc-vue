@@ -32,6 +32,10 @@ const props = defineProps<{
   keys?: readonly string[]
   /** The texts the field shows, which it is as wide as the widest of, in place of a width class. */
   fit?: readonly string[]
+  /** A command after a line at the list's end (More Number Formats...), its hook `<key>` as the items'; it emits `more`. */
+  more?: { label: string; key: string }
+  /** The list shows every item without scrolling, as Excel's Number Format list (on a touch screen it still ends within the viewport). */
+  whole?: boolean
 }>()
 // the box's other attributes (hooks) go on its field
 defineOptions({ inheritAttrs: false })
@@ -41,6 +45,7 @@ const emit = defineEmits<{
   'update:open': [open: boolean]
   /** Esc left the box, as Excel returns to the sheet. */
   leave: []
+  more: []
 }>()
 
 const id = useId()
@@ -105,10 +110,17 @@ function commit(text: string): void {
   input.value?.blur()
 }
 
-/** The arrows go through the list, putting each item into a box that takes typing; Alt+↓ or an arrow on a closed list opens it. */
+/** The list's command after its items: it closes the list and leaves the box as Esc does. */
+function runMore(): void {
+  restore()
+  input.value?.blur()
+  emit('more')
+}
+
+/** The arrows go through the list (its command too), putting each item into a box that takes typing; Alt+↓ or an arrow on a closed list opens it. */
 function move(by: number, open: boolean): void {
   if (!props.open || open) return setOpen(true)
-  const at = Math.max(0, Math.min(props.items.length - 1, active.value + by))
+  const at = Math.max(0, Math.min(props.items.length - (props.more ? 0 : 1), active.value + by))
   active.value = at
   if (!props.readonly) draft.value = props.items[at] ?? draft.value
   bad.value = null
@@ -116,11 +128,12 @@ function move(by: number, open: boolean): void {
 /** Enter in a box without typing: opens the list, then picks the item the arrows reached. */
 function pick(): void {
   if (!props.open) return setOpen(true)
+  if (props.more && active.value === props.items.length) return runMore()
   const item = props.items[active.value]
   if (item === undefined) return restore()
   commit(item)
 }
-const itemHook = (x: string, i: number) => (props.keys ? { [`data-tb-${props.hook}`]: props.keys[i] } : { 'data-tb-item': x })
+const itemHook = (x: string, i: number, key = props.keys?.[i]) => (key === undefined ? { 'data-tb-item': x } : { [`data-tb-${props.hook}`]: key })
 
 function onKey(e: KeyboardEvent): void {
   if (e.isComposing) return
@@ -174,7 +187,7 @@ function onKey(e: KeyboardEvent): void {
     <button type="button" class="xs-tool xs-tb-caret" :data-tb="`${hook}-list`" :data-tip="label" :aria-label="label" :aria-expanded="open" :disabled="disabled" @click="setOpen(!open)">
       <IconDown />
     </button>
-    <div v-if="open" :id="id" ref="listEl" class="xs-tb-pop xs-tb-list" role="listbox" :aria-label="label">
+    <div v-if="open" :id="id" ref="listEl" :class="['xs-tb-pop', 'xs-tb-list', { 'xs-tb-whole': whole }]" role="listbox" :aria-label="label">
       <button
         v-for="(x, i) in items"
         :key="x"
@@ -188,6 +201,12 @@ function onKey(e: KeyboardEvent): void {
       >
         {{ x }}
       </button>
+      <template v-if="more">
+        <div class="xs-tb-sep" role="separator" />
+        <button type="button" class="xs-tb-item" role="option" :aria-selected="active === items.length" v-bind="itemHook(more.label, -1, more.key)" @click="runMore">
+          {{ more.label }}
+        </button>
+      </template>
     </div>
   </span>
 </template>

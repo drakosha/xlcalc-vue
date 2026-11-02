@@ -263,6 +263,13 @@
 .xs-tb-list > .xs-tb-item[aria-selected='true'] {
   background: var(--xs-head-bg);
 }
+/* Excel's Number Format list: every item and its command at once. */
+.xs-tb-list.xs-tb-whole {
+  max-height: none;
+}
+.xs-tb-list > .xs-tb-sep {
+  margin: 3px 0;
+}
 
 /* A button's ScreenTip below it: its name and key, as Office shows them. */
 .xs-tb-tip {
@@ -397,7 +404,8 @@
 .xs-touch .xs-tb-box > .xs-tb-caret {
   height: var(--xs-touch-target);
 }
-.xs-touch .xs-tb-list {
+.xs-touch .xs-tb-list,
+.xs-tb-narrow .xs-tb-list.xs-tb-whole {
   max-height: 60vh;
 }
 .xs-touch .xs-tb-item {

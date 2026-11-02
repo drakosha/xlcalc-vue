@@ -890,10 +890,13 @@ function pickNumber(index: number): void {
                   hook="number"
                   readonly
                   :data-tb-category="category?.category"
+                  :more="dialogShown ? { label: m.numberFormatMore, key: 'more' } : undefined"
+                  whole
                   :open="open === 'number'"
                   :disabled="!formattable"
                   @update:open="listOpen('number', $event)"
                   @apply="(_text: string, index: number) => pickNumber(index)"
+                  @more="formatCells({ tab: 'number' })"
                   @leave="emit('done')"
                 />
                 <template v-if="has(p, 'a2')">

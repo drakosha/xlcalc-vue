@@ -2,7 +2,7 @@
 // selection, and show the active cell's formatting (from the sheet's `state` event).
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SheetToolbar, SheetView, ruMessages, type SheetViewState } from '../src'
+import { SheetToolbar, SheetView, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/contract/source'
 import { fakeSource, numberShown, pickNumber, settle } from './helpers'
 
@@ -197,6 +197,37 @@ describe("SheetToolbar: Excel's Number Format box", () => {
     expect([src.format.mock.calls.length, w.find('[role="listbox"]').exists(), numberShown(w)]).toEqual([1, false, 'General'])
     // the pick and the Esc each return to the grid
     expect(w.emitted('done')).toHaveLength(2)
+  })
+
+  it("ends the list, after a line, with More Number Formats..., which opens Format Cells on the Number tab at the active cell's format", async () => {
+    const sheet = { formatCells: vi.fn(), format: vi.fn() } as unknown as SheetViewApi
+    const w = mountBar(source(), at('A1', { numberFormat: '0.000' }), { sheet })
+    await settle()
+    await w.find('[data-tb="number-list"]').trigger('click')
+    const list = w.find('[role="listbox"]')
+    expect(list.findAll(':scope > *').slice(-2).map((x) => x.attributes('role') + ':' + (x.attributes('data-tb-number') ?? '') + ':' + x.text())).toEqual(['separator::', 'option:more:Другие числовые форматы...'])
+    await w.find('[data-tb-number="more"]').trigger('click')
+    expect(sheet.formatCells).toHaveBeenCalledWith({ tab: 'number' })
+    expect(w.find('[role="listbox"]').exists()).toBe(false)
+    // the arrows reach it after the eleven items, and Enter opens the dialog
+    const field = w.find('[data-tb="number"]')
+    await field.trigger('focus')
+    await field.trigger('keydown', { key: 'ArrowDown', altKey: true })
+    for (let i = 0; i < 12; i++) await field.trigger('keydown', { key: 'ArrowDown' })
+    expect(w.find('[role="option"][aria-selected="true"]').attributes('data-tb-number')).toBe('more')
+    await field.trigger('keydown', { key: 'Enter' })
+    expect(sheet.formatCells).toHaveBeenCalledTimes(2)
+    expect(sheet.format).not.toHaveBeenCalled()
+    // a host that listens to formatCells gets where; without a dialog to open the item is not there
+    const onFormatCells = vi.fn()
+    const host = mountBar(source(), at('A1'), { onFormatCells })
+    await settle()
+    await pickNumber(host, 'more')
+    expect(onFormatCells).toHaveBeenCalledWith({ tab: 'number' })
+    const none = mountBar(source(), at('A1'))
+    await settle()
+    await none.find('[data-tb="number-list"]').trigger('click')
+    expect([none.findAll('[role="option"]').length, none.find('[data-tb-number="more"]').exists(), none.find('[role="separator"]').exists()]).toEqual([11, false, false])
   })
 })
 
