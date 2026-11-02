@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.34.0 (2026-11-02)
 
 - Ctrl+U is Excel's, as xlcalc 0.75.0 gives its measured table: a single underline unless the active cell's is single, which it removes, so a double underline (and a file's double accounting one, which reaches the sheet as double) becomes single, over the whole selection. Breaking for a host: Ctrl+U on a double-underlined active cell now puts a single underline over the selection, where before it removed the underline ([toolbar.md](docs/toolbar.md#sheettoolbar), [editing.md](docs/editing.md)).
 - Accounting Number Format's menu takes its currencies, their names and their codes from xlcalc 0.75.0's `accountingFormats` (`xlcalc/text`, bundled) instead of the package's own table: the same lists and codes in en-US and ru-RU, but the names are in the workbook's language, as in an Excel run in it, so an en-US interface over a ru-RU workbook shows `₽ русский` where it showed `₽ Russian`; in ru-RU the currencies appear once the locale's module has loaded. Breaking for a host: the contract drops the text `accountingCurrency`, which a host's complete set of its own texts no longer has ([toolbar.md](docs/toolbar.md#sheettoolbar)).
