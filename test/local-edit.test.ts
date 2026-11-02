@@ -40,7 +40,7 @@ describe('localSource: typed edits', () => {
     const s = source()
     // B is 20 wide: in a column of the default width the date displays as ### (the library measures it so)
     const got = await s.edit([{ sheet: 'Лист1', cell: 'B4', text: '15.03.2026' }])
-    expect(got).toMatchObject({ ok: true, changes: [{ cell: 'B4', value: 46096, text: '15.03.2026', numberFormat: 'dd.mm.yyyy' }] })
+    expect(got).toMatchObject({ ok: true, changes: [{ cell: 'B4', value: 46096, text: '15.03.2026', numberFormat: 'dd/mm/yyyy' }] })
   })
 
   it('parses 15.03.2026 as a short date and 1 234,5 as a grouped number, widening the column where the date does not fit', async () => {

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Built over xlcalc 0.76.0. Breaking for a host: `./local` requires `xlcalc` 0.76.0 or later (the optional peer was 0.75.0), whose ru-RU workbooks give the built-in formats as Excel writes them to a file: Short Date 14 (and 27 to 31, 36) as `dd/mm/yyyy`, was `dd.mm.yyyy`, 22 as `dd/mm/yyyy h:mm`, Fraction 12 and 13 as `#" "?/?` and `#" "??/??`; a cell's `numberFormat` in `state` and in the source's windows carries that code, and the display is the same (`15.03.2026`, `1 1/4`). The Number Format box names each built-in by xlcalc's category of its code, without the package's own lookup of the code among the box's items ([local.md](docs/local.md)).
+
 ## 0.34.0 (2026-11-02)
 
 - Ctrl+U is Excel's, as xlcalc 0.75.0 gives its measured table: a single underline unless the active cell's is single, which it removes, so a double underline (and a file's double accounting one, which reaches the sheet as double) becomes single, over the whole selection. Breaking for a host: Ctrl+U on a double-underlined active cell now puts a single underline over the selection, where before it removed the underline ([toolbar.md](docs/toolbar.md#sheettoolbar), [editing.md](docs/editing.md)).
