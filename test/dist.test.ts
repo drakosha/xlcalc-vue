@@ -1,5 +1,6 @@
 // The built main entry point includes no engine: xlcalc/a1 and xlcalc/text are bundled in, ru-RU's formula text comes as a
-// separate chunk for a workbook in ru-RU, xlcalc/entry as one for a source without `editText`, and nothing is imported but vue.
+// separate chunk for a workbook in ru-RU, xlcalc/entry as one for a source without `editText`, and nothing is imported but vue
+// and the few lines through which the ru-RU chunk, imported, loads its locale into the bundled xlcalc (xlcalc 0.77).
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -33,9 +34,9 @@ const dynamicImports = (code: string) => [...code.matchAll(/import\(\s*["']([^"'
 const code = (text: string) => text.replace(/^\/\/#(?:end)?region.*$/gm, '')
 
 describe('dist/index.js', () => {
-  it('imports only vue, and the ru-RU and xlcalc/entry chunks on demand', () => {
-    expect(new Set(staticImports(js))).toEqual(new Set(['vue']))
-    expect(chunks.sort()).toEqual([expect.stringMatching(/^ru-RU-[\w-]+\.js$/), expect.stringMatching(/^typed-entry-[\w-]+\.js$/)])
+  it('imports only vue and the chunk it shares with ru-RU, and the ru-RU and xlcalc/entry chunks on demand', () => {
+    expect(new Set(staticImports(js))).toEqual(new Set(['vue', `./${chunk('imported')}`]))
+    expect(chunks.sort()).toEqual([expect.stringMatching(/^imported-[\w-]+\.js$/), expect.stringMatching(/^ru-RU-[\w-]+\.js$/), expect.stringMatching(/^typed-entry-[\w-]+\.js$/)])
     expect(new Set(dynamicImports(js))).toEqual(new Set([`./${chunk('ru-RU')}`, `./${chunk('typed-entry')}`]))
   })
   it('includes no engine: xlcalc/a1 and xlcalc/text are a few dozen kilobytes', () => {
@@ -55,15 +56,25 @@ describe('dist/index.js', () => {
 })
 
 describe('the ru-RU chunk', () => {
-  it("contains only ru-RU's formula text, with no import and no string xlcalc in its code", () => {
+  it("contains only ru-RU's formula text, importing only the lines that load it, with no string xlcalc in its code", () => {
     const ru = readFileSync(join(out, chunk('ru-RU')), 'utf8')
     expect(ru).toContain('СУММ')
     expect(js).not.toContain('СУММ')
-    expect(staticImports(ru)).toEqual([])
+    expect(staticImports(ru)).toEqual([`./${chunk('imported')}`])
     expect(dynamicImports(ru)).toEqual([])
     expect(code(ru)).not.toMatch(/xlcalc/)
     // Since xlcalc 0.42 the locale includes each function's description in Russian, for Insert Function.
     expect(ru.length).toBeLessThan(75_000)
+  })
+})
+
+describe('the chunk the main entry point shares with ru-RU', () => {
+  it("is xlcalc's few lines of locales loaded on import, with no import and no string xlcalc in its code", () => {
+    const shared = readFileSync(join(out, chunk('imported')), 'utf8')
+    expect([...shared.matchAll(/^\/\/#region (.*)$/gm)].map((m) => m[1])).toEqual(['node_modules/xlcalc/dist/locale/imported.js'])
+    expect(staticImports(shared)).toEqual([])
+    expect(code(shared)).not.toMatch(/xlcalc/)
+    expect(shared.length).toBeLessThan(1_000)
   })
 })
 

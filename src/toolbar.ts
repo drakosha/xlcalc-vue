@@ -172,7 +172,8 @@ export const COMMA_STYLE = 43
 
 /**
  * Excel's Increase Decimal and Decrease Decimal from the active cell, as xlcalc's `stepDecimals` gives them (its format,
- * value and column width; Excel puts the result on the whole selection); null when the step changes nothing.
+ * value and column width; Excel puts the result on the whole selection), in `locale`, a loaded locale's tag (en-US
+ * without one); null when the step changes nothing.
  */
 export function decimalStep(state: Pick<SheetViewState, 'numberFormat' | 'cellValue' | 'columnWidth'>, up: boolean, locale: string | undefined): NumberFormat | null {
   const got = stepDecimals(state.numberFormat, state.cellValue ?? null, up ? 1 : -1, { ...(locale ? { locale } : {}), ...(state.columnWidth !== undefined ? { width: state.columnWidth } : {}) })

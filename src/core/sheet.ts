@@ -199,7 +199,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
   const notes = useNotes(s, w, extras, { author: () => props.noteAuthor })
   // the PivotTable Fields pane's requests for a field's dialogs open the sheet's; others go on to the host
   const pivots = usePivots(s, cmd, protection, { dialog: (request) => (pivotMenu.handles(request) ? void pivotMenu.request(request).then((done) => done || emit('pivotDialog', request)) : emit('pivotDialog', request)), ask: alerts.ask })
-  const pivotDialogs = usePivotDialogs(s, cmd, { pivots, protection, sel, locale: () => f.scanOptions()?.locale ?? s.locale.value })
+  const pivotDialogs = usePivotDialogs(s, cmd, { pivots, protection, sel, locale: () => f.bookLocale.value ?? undefined })
   const pivotFilter = usePivotFilter(s, pivotDialogs)
   const pivotMenu = usePivotMenu(s, pivotDialogs, pivotFilter)
   const slicers = useSlicers(s, cmd, pivots, {
@@ -747,6 +747,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     return {
       sheet: s.sheet.value.name,
       ref: sel.selectionRef.value,
+      ...((props.locale ?? props.source.locale) ? { locale: s.locale.value } : {}),
       ...(f.selectedFormula.value ? { formula: f.selectedFormula.value } : {}),
       ...(f.selectedValue.value ? { value: f.selectedValue.value } : {}),
       ...(look?.style ? { style: look.style } : {}),

@@ -2,7 +2,9 @@
 
 ## Unreleased
 
+- Fix: Increase Decimal and Decrease Decimal did nothing in a ru-RU workbook through the main entry point, whose bundled xlcalc had not loaded ru-RU: the click failed on its tag. The component now loads a workbook's locale into its bundled xlcalc once, for every component, when the locale's chunk arrives (xlcalc 0.77 loads a locale module's locale on import), and a call before it arrives works as en-US ([api.md](docs/api.md#locales)).
 - The contract adds `SheetSource.locale`, the workbook's locale tag, and `SheetViewState.locale`, the sheet's: `SheetView` takes the source's, `SheetToolbar` and `FormatDialog` the sheet's through `state` (the toolbar the source's before it), so a host no longer passes `:locale="source.locale"` to each; the `locale` prop of each still overrides it. `localSource` and `remoteSource` have `locale` as before.
+- Built over xlcalc 0.77.0. The main entry point imports one more small chunk, shared with the ru-RU chunk, through which that chunk loads its locale into the bundled xlcalc. `./local` still requires `xlcalc` 0.76.0 or later: it loads the locale into the host's xlcalc with `registerLocale` as before.
 
 ## 0.37.1 (2026-11-02)
 

@@ -62,8 +62,8 @@ const sheet = shallowRef<SheetViewApi | null>(null)
 <template>
   <p v-if="failed">{{ failed }}</p>
   <template v-else-if="source">
-    <SheetToolbar :source="source" :sheet="sheet" :state="state" :locale="source.locale" />
-    <SheetView ref="sheet" :source="source" :locale="source.locale" style="height: 420px" @state="state = $event" />
+    <SheetToolbar :source="source" :sheet="sheet" :state="state" />
+    <SheetView ref="sheet" :source="source" style="height: 420px" @state="state = $event" />
   </template>
 </template>
 ```

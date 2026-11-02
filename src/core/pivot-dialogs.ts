@@ -10,6 +10,7 @@ import type { PivotOptionsTab } from '../contract/messages'
 import type { EditOutcome, PivotAxis, SheetOp, SheetPivotCell } from '../contract/source'
 import type { PivotDesignChange } from '../contract/view'
 import { loadEntry } from '../entry'
+import { usableTag } from '../locales'
 import { axisFields, cellField, cellTarget, designPatch, grandOf, grandPatch, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
 import type { Commands } from './commands'
 import type { Pivots } from './pivots'
@@ -102,8 +103,8 @@ export type PivotDialogState =
   | { kind: 'calcItem'; t: PivotTarget; field: number; draft: CalcDraft }
 
 export interface PivotDialogsDeps {
-  /** The workbook's locale as xlcalc's text functions take it, an object once its module is loaded. */
-  locale: () => string | Locale
+  /** The workbook's locale object for xlcalc/entry's calls (its chunk keeps a registry of its own); undefined, en-US, until its module loads. */
+  locale: () => Locale | undefined
   pivots: Pivots
   protection: Protection
   sel: Selection
@@ -206,9 +207,8 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   function pickFunction(fn: PivotFunction): void {
     const d = state.value
     if (d?.kind !== 'value' || d.draft.fn === fn) return
-    // the workbook's Locale object, which the main entry registers nowhere; en-US's words until its module has loaded
-    const locale = deps.locale()
-    d.draft.name = renamedValueField(d.draft.name, d.draft.fn, fn, sourceName(d.t, d.index), typeof locale === 'string' ? undefined : locale)
+    // en-US's words until the workbook's locale has loaded
+    d.draft.name = renamedValueField(d.draft.name, d.draft.fn, fn, sourceName(d.t, d.index), usableTag(s.locale.value))
     d.draft.fn = fn
   }
   /** Another base field: its base item starts again at the list's first, (previous). */

@@ -138,7 +138,6 @@ const wait = ctx.w.wait
         :at="ctx.cmd.formatAt.value"
         :state="ctx.viewState.value"
         :messages="m"
-        :locale="locale"
         @apply="(patches) => void ctx.cmd.format(patches)"
         @close="ctx.cmd.closeFormat()"
       />

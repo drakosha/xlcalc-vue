@@ -74,7 +74,7 @@ onUnmounted(() => void source.close())
 </script>
 
 <template>
-  <SheetView :source="source" :locale="source.locale" hide-lone-tab style="height: 300px" />
+  <SheetView :source="source" hide-lone-tab style="height: 300px" />
 </template>
 ```
 
@@ -117,7 +117,7 @@ onUnmounted(() => void source.value?.close())
 <template>
   <input type="file" accept=".xlsx" @change="open" />
   <button :disabled="!source" @click="save">Save as</button>
-  <SheetView v-if="source" :source="source" :locale="source.locale" style="height: 420px" />
+  <SheetView v-if="source" :source="source" style="height: 420px" />
 </template>
 ```
 
@@ -144,12 +144,12 @@ const state = shallowRef<SheetViewState | null>(null)
 </script>
 
 <template>
-  <SheetToolbar :source="source" :sheet="sheet" :state="state" :locale="source.locale" />
-  <SheetView ref="sheet" :source="source" :locale="source.locale" style="height: 360px" @state="state = $event" />
+  <SheetToolbar :source="source" :sheet="sheet" :state="state" />
+  <SheetView ref="sheet" :source="source" style="height: 360px" @state="state = $event" />
 </template>
 ```
 
-[The formatting toolbar and Format Cells](toolbar.md) describes each button and how a host places its own Format Cells dialog.
+Both take the workbook's locale from the source (`source.locale`); a `locale` prop overrides it ([Locales](api.md#locales)). [The formatting toolbar and Format Cells](toolbar.md) describes each button and how a host places its own Format Cells dialog.
 
 ## A workbook on your server
 
@@ -181,7 +181,7 @@ onUnmounted(() => source.value?.close())
 </script>
 
 <template>
-  <SheetView v-if="source" :source="source" :locale="source.locale" style="height: 420px">
+  <SheetView v-if="source" :source="source" style="height: 420px">
     <template #fallback="{ failure, retry }">
       <p>{{ failure.text }} <button @click="retry">Try again</button></p>
     </template>
@@ -211,7 +211,7 @@ onUnmounted(() => void source.close())
 </script>
 
 <template>
-  <SheetView :source="source" :locale="source.locale" :messages="messages" style="height: 300px" />
+  <SheetView :source="source" :messages="messages" style="height: 300px" />
 </template>
 ```
 

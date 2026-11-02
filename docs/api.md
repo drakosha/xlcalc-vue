@@ -73,7 +73,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `cellUrl` | `(ref: string) => string` | none | The host page's address for a location; without it there is no "Link to the cell" button. |
 | `readOnly` | `boolean` | `false` | Disables editing regardless of what the source supports. A source without `edit` is read-only anyway. |
 | `formulaBar` | `boolean` | `true` | Shows the formula bar above the grid. |
-| `locale` | `string` | none | The workbook's locale for texts the component produces itself (a cell's edit text without `editText`, selection totals); `localSource(...).locale` for a local workbook. |
+| `locale` | `string` | the source's `locale` | The workbook's locale for texts the component produces itself (a cell's edit text without `editText`, selection totals), in place of the source's `locale`, which it is by default; en-US without either. See [Locales](#locales). |
 | `hideLoneTab` | `boolean` | `false` | Hides the tabs of a workbook with a single sheet. |
 | `edgeRestoresWidth` | `boolean` | `false` | Double-clicking a column edge restores the workbook's width instead of fitting the column. |
 | `sort` | `ListSort \| null` | `null` | List mode: the order the host sorted the list in, shown as an arrow on that column's title. |
@@ -111,6 +111,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `ref` | `string` | The selection as Excel writes it: `B2:D5`, `B:D`, `2:5`, `1:1048576`; of several ranges, the active cell's (`areas` has them all). |
 | `formula` | `string?` | The active cell's formula as displayed. |
 | `value` | `string?` | The active cell's displayed text. |
+| `locale` | `string?` | The sheet's locale, its `locale` prop or the source's; absent without either (en-US). `SheetToolbar` and `FormatDialog` take it as theirs. |
 | `style` | `CellStyle?` | The active cell's style; absent while its window is not loaded. |
 | `numberFormat` | `string?` | The active cell's number format code; absent for General. |
 | `cellValue` | `CellValue?` | The active cell's value from the loaded window, absent for an empty cell; the toolbar's Increase and Decrease Decimal step from it. |
@@ -256,7 +257,7 @@ const highlight = () => sheet.value?.format([{ style: { font: { bold: true }, fi
   <button @click="sheet?.freezePanes('topRow')">Freeze the top row</button>
   <button @click="sheet?.merge('mergeCenter')">Merge and center</button>
   <button @click="sheet?.formatCells()">Format Cells…</button>
-  <SheetView ref="sheet" :source="source" :locale="source.locale" style="height: 360px" />
+  <SheetView ref="sheet" :source="source" style="height: 360px" />
 </template>
 ```
 
@@ -269,7 +270,7 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `source` | `ToolbarSource` (the same as `SheetSource`) | The sheet's source. |
 | `state` | `SheetViewState \| null` | The payload of the sheet's `state` event; with `null` the buttons are disabled. |
 | `messages` | `Partial<SheetMessages>` | Interface texts. |
-| `locale` | `string` | The workbook's locale, in which the Number Format box names its categories and items and Accounting Number Format's menu puts its currency first, with Excel's codes in that locale; en-US without it. |
+| `locale` | `string` | The workbook's locale, in which the Number Format box names its categories and items and Accounting Number Format's menu puts its currency first, with Excel's codes in that locale; by default the sheet's (`state.locale`), else the source's `locale`, en-US without any. The prop overrides them. |
 | `sheet` | `SheetViewApi \| null` | The sheet's template ref. With it the toolbar formats, undoes, redoes and merges through the sheet; without it, through the source, and it emits `select` and `error`. |
 | `hostDialog` | `boolean` | The host opens its own dialog on `formatCells`, as when it listens: for a host whose listener the toolbar cannot see, such as a custom element's. |
 | `fonts` | `readonly string[]` | The Font box's list, in place of Excel's common fonts (Aptos, Arial, Calibri and others): a browser does not tell which fonts are installed. |
@@ -317,7 +318,7 @@ Excel's Format Cells dialog for the selection, for a host that places its own di
 | `open` | `boolean` | Shown while true; each time it opens, it starts from the active cell's formatting. |
 | `state` | `SheetViewState \| null` | The payload of the sheet's `state` event; with `null` nothing is shown. |
 | `messages` | `Partial<SheetMessages>` | Interface texts. |
-| `locale` | `string` | The workbook's locale for the Number tab. |
+| `locale` | `string` | The workbook's locale for the Number tab; by default the sheet's (`state.locale`), en-US without it. The prop overrides it. |
 | `at` | `FormatCellsAt \| null` | Where it opens: a tab, and on the Number tab an item of its list picked, as the toolbar's `formatCells` event gives it; without it, the tab it was last on. |
 
 | Event | Payload | When |
@@ -335,6 +336,8 @@ Excel's Format Cells dialog for the selection, for a host that places its own di
 The component accesses its data only through this interface. Rows and columns are 1-based, cells are A1 addresses, and formulas are displayed and typed in the source's own locale. Two methods are required; each optional method enables a feature. An editing method returns an `EditOutcome`.
 
 A workbook calculated on the host's server reaches the sheet through `@xlcalc/vue/server` and `@xlcalc/vue/remote` ([below](#xlcalcvueremote-and-xlcalcvueserver), [remote.md](remote.md)), which carry every method of this contract; a host may also implement the contract over an API of its own.
+
+A source may give the workbook's locale tag as `locale` (`ru-RU`; a property, not a method): the sheet, the toolbar and Format Cells take it as theirs unless their `locale` prop overrides it, and en-US without it. `localSource` and `remoteSource` have it; `memorySource` has none.
 
 ### Required
 
@@ -514,6 +517,12 @@ Formulas in these types are written as the source displays formulas: in its loca
 | `SheetValidation` | `{ list?: string[]; prompt?: { title?; text } }` |
 | `SheetValidationAlert` | `{ severity: 'stop' \| 'warning' \| 'information'; title?; message; sheet; cell }` |
 
+## Locales
+
+The workbook's locale comes from the source (`SheetSource.locale`): `SheetView` takes it, and `SheetToolbar` and `FormatDialog` take the sheet's through `state.locale` (the toolbar the source's before the sheet reports one), so a host passes it to none of them; a `locale` prop overrides it on that component. A locale other than en-US, ru-RU today, is loaded once for every component when a workbook in it first appears: its module is a separate chunk, loaded as the component mounts. Until it arrives the components work as in en-US: the Number Format box has no list yet, Increase and Decrease Decimal step as en-US does (General's step is the same), and the formula bar's references and AutoComplete wait for it.
+
+The main entry point and `./local` each load the same locale into their own copy of xlcalc. The main entry carries no engine: it bundles the engine-free `xlcalc/a1` and `xlcalc/text`, and `xlcalc/entry` in a chunk of its own, while `./local` calculates with the host's `xlcalc`, which it loads the locale into before the workbook opens. A host that imports xlcalc's locale module itself does so for its own copy; the main entry's is loaded by the component.
+
 ## Interface texts: `SheetMessages`
 
 `enMessages` (the default) and `ruMessages` are complete sets. A host passes a set, or part of one, as `messages`; the keys and their arguments are declared in `src/contract/messages.ts`, those of the conditional formatting dialogs (`cf…`) in its `ConditionalMessages`, those of sheet protection (Excel's alert, Protect Sheet, Format Cells' Protection tab) in its `ProtectionMessages`, those of Insert PivotTable and the PivotTable Fields pane in its `PivotFieldsMessages`, those of slicers and timelines (their buttons, levels and labels, their menu and dialogs) in its `SlicerMessages`, and those of the dialogs and menus over a PivotTable in its `PivotMessages` (with `PivotCompare`, the comparisons of the filters, and `PivotOptionsTab`, PivotTable Options' tabs), all of which `SheetMessages` extends.
@@ -620,7 +629,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 
 | Member | Type | Meaning |
 | --- | --- | --- |
-| `locale` | `string` | The workbook's locale tag; pass it to `SheetView`'s `locale`. |
+| `locale` | `string` | The workbook's locale tag (`SheetSource.locale`), which `SheetView`, `SheetToolbar` and `FormatDialog` take as theirs. |
 | `ready` | `Promise<void>` | Resolves when the workbook is calculated; rejects if it could not be opened. |
 | `history` | `SessionHistory` | The steps `undo` and `redo` can take now. |
 | `book()` | `Promise<BookInput>` | The workbook with all changes so far. |

@@ -2,10 +2,11 @@
 // grid), Accounting, Comma Style and Increase and Decrease Decimal: each a patch over the selection through the source's `format`, by Excel's rules, from the active cell's formatting.
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { LOCALES } from 'xlcalc'
 import { SheetToolbar, type SheetViewState } from '../src'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/contract/source'
 import { indentStep, stepFontSize } from '../src/toolbar'
-import { fakeSource, goTo, key, mountSheet, settle } from './helpers'
+import { fakeSource, goTo, key, mountSheet, settle, until } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -236,6 +237,24 @@ describe('Accounting, Comma Style, Increase and Decrease Decimal', () => {
       { range: 'A1:A4', numberFormat: '0.000' },
       { range: 'A1:A4', numberFormat: '0.0' },
       { range: 'A1:A4', numberFormat: '0.00' },
+    ])
+  })
+
+  it('step in a ru-RU workbook through the main entry alone, before and after its locale loads', async () => {
+    // no ./local here: nothing but the toolbar loads ru-RU into xlcalc, as in the built main entry with its own copy
+    expect(LOCALES.has('ru-RU')).toBe(false)
+    const { w, styles } = mountBar(at('A1', { cellValue: 1.5 }), { locale: 'ru-RU' })
+    // a click before the module arrives steps as en-US does, which General's step does not depend on
+    await w.find('[data-tb="decimal-up"]').trigger('click')
+    await until(() => LOCALES.has('ru-RU'), 2000)
+    await w.find('[data-tb="decimal-up"]').trigger('click')
+    await w.setProps({ state: at('A1', { numberFormat: '0.00', cellValue: 1.5 }) })
+    await w.find('[data-tb="decimal-down"]').trigger('click')
+    await settle()
+    expect(styles()).toEqual([
+      { range: 'A1', numberFormat: '0.00' },
+      { range: 'A1', numberFormat: '0.00' },
+      { range: 'A1', numberFormat: '0.0' },
     ])
   })
 })

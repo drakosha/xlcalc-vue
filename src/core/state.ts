@@ -38,7 +38,8 @@ export function createState(props: SheetViewProps) {
   /** A new source or the unmount: the calls made so far drop their answers. */
   const endWorkbook = () => void generation++
   const messages = useMessages(() => props.messages)
-  const locale = computed(() => props.locale ?? 'en-US')
+  /** The workbook's locale: the `locale` prop, else the source's; en-US without either. */
+  const locale = computed(() => props.locale ?? props.source.locale ?? 'en-US')
   const memory = createMemory(() => props.storageKey)
   const editable = computed(() => !props.readOnly && typeof props.source.edit === 'function')
 

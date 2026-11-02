@@ -21,8 +21,8 @@ const sheet = shallowRef<SheetViewApi | null>(null)
   <div class="remote">
     <p v-if="failed" data-remote-failed>{{ failed }}</p>
     <template v-else-if="source">
-      <SheetToolbar :source="source" :sheet="sheet" :state="state" :messages="ruMessages" :locale="source.locale" />
-      <SheetView ref="sheet" class="remote-sheet" :source="source" :messages="ruMessages" :locale="source.locale" :data-remote-access="source.access" @state="state = $event" />
+      <SheetToolbar :source="source" :sheet="sheet" :state="state" :messages="ruMessages" />
+      <SheetView ref="sheet" class="remote-sheet" :source="source" :messages="ruMessages" :data-remote-access="source.access" @state="state = $event" />
     </template>
   </div>
 </template>
