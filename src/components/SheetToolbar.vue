@@ -219,6 +219,10 @@ const text = (key: keyof SheetMessages) => m.value[key] as string
 const locale = computed(() => props.locale ?? props.state?.locale ?? props.source.locale)
 const numbers = useNumberFormats(() => locale.value)
 const category = computed(() => (props.state ? numbers.categoryOf(props.state.numberFormat) : null))
+const numberNames = computed(() => numbers.choices.value.map((c) => c.name))
+const numberKeys = computed(() => numbers.choices.value.map((c) => c.key))
+/** The box is as wide as the longest name it shows: the categories of its list's items. */
+const categoryNames = computed(() => [...new Set(numbers.choices.value.map((c) => numbers.categoryOf(c.code)?.name ?? c.name))])
 /** The workbook's default font, for a cell without its own: the source does not report it yet, so it plugs in here when it does. */
 /** The workbook's default font, which a cell without its own font name or size displays. */
 const book = (): BookFont => props.state?.font ?? {}
@@ -410,7 +414,7 @@ function onTipOut(e: PointerEvent): void {
 
 // ── menus: the color palettes, the borders, and the narrow layout's menu ──
 /** The toolbar's lists, and a host's button's (`host:<id>`). */
-type Menu = 'font' | 'fill' | 'borders' | 'underline' | 'accounting' | 'orientation' | 'merge' | 'autoSum' | 'refreshAll' | 'fontName' | 'fontSize' | `host:${string}`
+type Menu = 'font' | 'fill' | 'borders' | 'underline' | 'accounting' | 'orientation' | 'merge' | 'autoSum' | 'refreshAll' | 'fontName' | 'fontSize' | 'number' | `host:${string}`
 const open = ref<Menu | null>(null)
 const menu = ref(false)
 const toggle = (what: Menu) => {
@@ -438,9 +442,9 @@ watch(
   () => open.value !== null || menu.value,
   (on) => (on ? document.addEventListener('keydown', escOutside, true) : document.removeEventListener('keydown', escOutside, true)),
 )
-/** Buttons do not take focus from the grid, so its keys keep working; the number format list and the font boxes do take it. */
+/** Buttons do not take focus from the grid, so its keys keep working; the font and number format boxes do take it. */
 function keepFocus(e: MouseEvent): void {
-  if (!(e.target as HTMLElement).closest('select, input')) e.preventDefault()
+  if (!(e.target as HTMLElement).closest('input')) e.preventDefault()
 }
 
 let unsubscribe: (() => void) | null = null
@@ -625,10 +629,9 @@ function moreFunctions(): void {
   props.sheet?.insertFunction()
 }
 /** An item of the list applies its format; the box goes back to naming the category, as Excel's does. */
-function pickNumber(e: Event): void {
-  const el = e.target as HTMLSelectElement
-  const item = numbers.choices.value.find((x) => x.key === el.value)
-  el.value = ''
+function pickNumber(index: number): void {
+  open.value = null
+  const item = numbers.choices.value[index]
   if (item) apply(over({ numberFormat: item.format }))
 }
 </script>
@@ -877,20 +880,22 @@ function pickNumber(e: Event): void {
                 </span>
               </span>
               <span v-else-if="p.block.group === 'number'" class="xs-tb-part">
-                <select
+                <ToolbarBox
                   v-if="has(p, 'a1') && numbers.choices.value.length"
-                  class="xs-field xs-field-s xs-tb-select"
-                  data-tb="number"
+                  :value="category?.name ?? ''"
+                  :items="numberNames"
+                  :keys="numberKeys"
+                  :fit="categoryNames"
+                  :label="m.numberFormat"
+                  hook="number"
+                  readonly
                   :data-tb-category="category?.category"
-                  :data-tip="m.numberFormat"
-                  :aria-label="m.numberFormat"
-                  value=""
+                  :open="open === 'number'"
                   :disabled="!formattable"
-                  @change="pickNumber"
-                >
-                  <option value="" hidden>{{ category?.name ?? '' }}</option>
-                  <option v-for="c in numbers.choices.value" :key="c.key" :value="c.key">{{ c.name }}</option>
-                </select>
+                  @update:open="listOpen('number', $event)"
+                  @apply="(_text: string, index: number) => pickNumber(index)"
+                  @leave="emit('done')"
+                />
                 <template v-if="has(p, 'a2')">
                   <span class="xs-tb-split">
                     <button type="button" class="xs-tool" data-tb="accounting" :data-tip="m.accountingStyle" :aria-label="m.accountingStyle" :disabled="!formattable" @click="apply(over({ numberFormat: ACCOUNTING_STYLE }))">

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The toolbar's Number Format box is drawn as the Font and Font Size boxes, as Excel draws all three: a field joined to its own arrow, and the toolbar's list in place of the browser's select. The field names the active cell's category and takes no typing; a click on it or on the arrow (`number-list`), or Alt+↓, opens the list, the arrows go through it, Enter or a click picks, Esc closes it and emits `done`. Each item has the hook `data-tb-number` with its key (`percentage`). Breaking for a host's tests: `[data-tb="number"]` is now the field, not a `<select>`, so a test that set its value (`setValue('percentage')`, `selectOption('percentage')`) clicks the arrow and then the item instead ([toolbar.md](docs/toolbar.md#sheettoolbar)).
+
 ## 0.38.0 (2026-11-02)
 
 - Fix: Increase Decimal and Decrease Decimal did nothing in a ru-RU workbook through the main entry point, whose bundled xlcalc had not loaded ru-RU: the click failed on its tag. The component now loads a workbook's locale into its bundled xlcalc once, for every component, when the locale's chunk arrives (xlcalc 0.77 loads a locale module's locale on import). Until it arrives, and when it fails to load, nothing is read or written as en-US in its place: a cell opens with its displayed text, the Number Format lists stay empty, Grouping and a PivotTable's filter dialogs wait for it; a failed chunk is tried again by the next request, and `./local` fails to open with the import's error, as before ([api.md](docs/api.md#locales)).

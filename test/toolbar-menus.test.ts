@@ -8,7 +8,7 @@ import { defineComponent, h, ref } from 'vue'
 import { FormatDialog, SheetToolbar, SheetView, enMessages, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/contract/source'
-import { goTo, settle, until } from './helpers'
+import { goTo, numberShown, pickNumber, settle, until } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -353,7 +353,7 @@ describe('through the local source', () => {
     const { w, s } = await mountLocal('ru-RU')
     close.push(s)
     await goTo(w, 'A1')
-    await until(() => w.findAll('[data-tb="number"] option').some((o) => o.text() === 'Общий'))
+    await until(() => w.find('[data-tb="number"]').exists() && numberShown(w) === 'Общий')
     await w.find('[data-tb="decimal-up"]').trigger('click')
     await settle(12)
     expect((await cell(s, 'A1')).numberFormat).toBe('0.00')
@@ -390,7 +390,7 @@ describe('through the local source', () => {
       }
       const currencies = [own, 'gbp', 'eur', 'cny', 'chf']
       for (const [i, c] of currencies.entries()) await after(`A${i + 1}`, () => pick(w, 'accounting-menu', `accounting-${c}`))
-      for (const [i, item] of ['currency', 'accounting', 'shortDate', 'fraction'].entries()) await after(`B${i + 1}`, () => w.find('[data-tb="number"]').setValue(item))
+      for (const [i, item] of ['currency', 'accounting', 'shortDate', 'fraction'].entries()) await after(`B${i + 1}`, () => pickNumber(w, item))
       expect([locale, shown]).toEqual([locale, [...currencies.map(() => 'accounting'), 'currency', 'accounting', 'date', 'fraction']])
       w.unmount()
     }

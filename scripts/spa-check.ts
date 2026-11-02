@@ -66,8 +66,8 @@ async function shows(page: Page, cell: string, text: string): Promise<void> {
 const PERCENT = numberFormatCategory(10, ruRU).name
 /** Waits until the toolbar's Number Format box names `name`. */
 async function boxNames(page: Page, name: string, where: string): Promise<void> {
-  const shown = () => page.evaluate(() => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.trim())
-  await page.waitForFunction((n) => (document.querySelector('[data-tb="number"]') as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.trim() === n, name, { timeout: 30_000 }).catch(async () => {
+  const shown = () => page.evaluate(() => (document.querySelector('[data-tb="number"]') as HTMLInputElement | null)?.value)
+  await page.waitForFunction((n) => (document.querySelector('[data-tb="number"]') as HTMLInputElement | null)?.value === n, name, { timeout: 30_000 }).catch(async () => {
     throw new Error(`${where}: the box names ${JSON.stringify(await shown())}, want ${JSON.stringify(name)}`)
   })
 }
@@ -150,6 +150,12 @@ async function press(page: Page, size: Size, selector: string): Promise<void> {
   else await page.locator(selector).click()
 }
 
+/** Picks an item of the toolbar's Number Format list by its key (`percentage`): the box's arrow, then the item. */
+async function pickNumber(page: Page, size: Size, item: string): Promise<void> {
+  await press(page, size, '[data-tb="number-list"]')
+  await press(page, size, `[data-tb-number="${item}"]`)
+}
+
 async function scenario(browser: Browser, base: string, size: Size): Promise<void> {
   const context = await browser.newContext({
     viewport: { width: size.width, height: size.height },
@@ -220,7 +226,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await checkNoSideScroll(page, at('toolbar menu'))
     await shot('menu')
   }
-  await page.locator('[data-tb="number"]').selectOption('percentage')
+  await pickNumber(page, size, 'percentage')
   await shows(page, '1:1', '25,00%')
   await shows(page, '3:1', '75,00%')
   // The source reloads after formatting: the list shows the active cell's new format.
@@ -314,7 +320,7 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
   if (!size.phone) {
     // 10. Column C in percentage format: its empty cell shows the column format's category in the box, as Excel's does.
     await page.locator('.xs-head[data-col="3"]').click()
-    await page.locator('[data-tb="number"]').selectOption('percentage')
+    await pickNumber(page, size, 'percentage')
     await ready(page)
     const formatted = await bookOf(page)
     expect(at('column C in percentage'), (formatted.sheets[0]!.columns as Record<string, any>).C.numberFormat, 10)

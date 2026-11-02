@@ -125,6 +125,12 @@ export function cellText(wrapper: VueWrapper, row: number, col: number): string 
 }
 
 // Keys on the grid and in the cell editor, the active cell, the editor's state and the Name Box.
+/** The toolbar's Number Format box: the category it names, and a pick of an item of its list by key (`percentage`), as a click on its arrow and then on the item. */
+export const numberShown = (w: VueWrapper) => w.find<HTMLInputElement>('[data-tb="number"]').element.value
+export async function pickNumber(w: VueWrapper, item: string): Promise<void> {
+  await w.find('[data-tb="number-list"]').trigger('click')
+  await w.find(`[data-tb-number="${item}"]`).trigger('click')
+}
 export const key = (w: VueWrapper, k: string, extra: Record<string, unknown> = {}) => w.find('.xs-scroller').trigger('keydown', { key: k, ...extra })
 export const editorKey = (w: VueWrapper, k: string, extra: Record<string, unknown> = {}) => w.find('.xs-editor').trigger('keydown', { key: k, ...extra })
 export const active = (w: VueWrapper) => w.find('.xs-cell.xs-active').attributes('data-cell')

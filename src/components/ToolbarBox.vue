@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// Excel's Font and Font Size boxes on the toolbar: an input that shows the active cell's value and takes a typed one or a
-// pick from its list. Enter or a pick applies; Esc, and leaving the box without Enter, restore what it showed.
+// Excel's Font, Font Size and Number Format boxes on the toolbar: an input that shows the active cell's value and takes a
+// typed one or a pick from its list (Number Format's only a pick). Enter or a pick applies; Esc, and leaving the box without
+// Enter, restore what it showed.
 import { computed, ref, useId } from 'vue'
 import { fontCss } from '../core/cell-style'
 import { IconDown } from './icons'
@@ -25,9 +26,18 @@ const props = defineProps<{
   /** Why a text cannot apply, or null; the box then keeps the text, marked invalid, until it is corrected or Esc restores it. */
   check?: (text: string) => string | null
   inputmode?: 'text' | 'decimal'
+  /** The field only shows its value, as the Number Format box takes no typing: a click opens the list, the arrows go through it, Enter picks. */
+  readonly?: boolean
+  /** Each item's key, its hook then `data-tb-<hook>="<key>"` in place of `data-tb-item`. */
+  keys?: readonly string[]
+  /** The texts the field shows, which it is as wide as the widest of, in place of a width class. */
+  fit?: readonly string[]
 }>()
+// the box's other attributes (hooks) go on its field
+defineOptions({ inheritAttrs: false })
 const emit = defineEmits<{
-  apply: [text: string]
+  /** A text applies: an item's in its own spelling (with its index), or a typed one (index -1). */
+  apply: [text: string, index: number]
   'update:open': [open: boolean]
   /** Esc left the box, as Excel returns to the sheet. */
   leave: []
@@ -91,24 +101,33 @@ function commit(text: string): void {
   }
   const at = indexOf(t)
   restore()
-  emit('apply', at >= 0 ? props.items[at]! : t)
+  emit('apply', at >= 0 ? props.items[at]! : t, at)
   input.value?.blur()
 }
 
-/** The arrows go through the list, putting each item into the box; Alt+↓ or an arrow on a closed list opens it. */
+/** The arrows go through the list, putting each item into a box that takes typing; Alt+↓ or an arrow on a closed list opens it. */
 function move(by: number, open: boolean): void {
   if (!props.open || open) return setOpen(true)
   const at = Math.max(0, Math.min(props.items.length - 1, active.value + by))
   active.value = at
-  draft.value = props.items[at] ?? draft.value
+  if (!props.readonly) draft.value = props.items[at] ?? draft.value
   bad.value = null
 }
+/** Enter in a box without typing: opens the list, then picks the item the arrows reached. */
+function pick(): void {
+  if (!props.open) return setOpen(true)
+  const item = props.items[active.value]
+  if (item === undefined) return restore()
+  commit(item)
+}
+const itemHook = (x: string, i: number) => (props.keys ? { [`data-tb-${props.hook}`]: props.keys[i] } : { 'data-tb-item': x })
 
 function onKey(e: KeyboardEvent): void {
   if (e.isComposing) return
   if (e.key === 'Enter') {
     e.preventDefault()
-    commit(input.value?.value ?? '')
+    if (props.readonly) pick()
+    else commit(input.value?.value ?? '')
   } else if (e.key === 'Escape') {
     e.preventDefault()
     restore()
@@ -124,28 +143,34 @@ function onKey(e: KeyboardEvent): void {
 
 <template>
   <span class="xs-tb-split xs-tb-box">
-    <input
-      ref="input"
-      :class="['xs-field', 'xs-field-s', 'xs-tb-input', fieldClass]"
-      type="text"
-      role="combobox"
-      spellcheck="false"
-      autocomplete="off"
-      :inputmode="inputmode"
-      :data-tb="hook"
-      :value="shown"
-      :data-tip="bad ?? label"
-      :aria-label="label"
-      :aria-expanded="open"
-      :aria-controls="id"
-      :aria-invalid="!!bad"
-      :disabled="disabled"
-      @focus="onFocus"
-      @mouseup="onMouseUp"
-      @input="onInput"
-      @keydown="onKey"
-      @blur="restore"
-    />
+    <span :class="['xs-tb-field', { 'xs-tb-fit': fit }]">
+      <input
+        ref="input"
+        v-bind="$attrs"
+        :class="['xs-field', 'xs-field-s', 'xs-tb-input', fieldClass]"
+        type="text"
+        role="combobox"
+        spellcheck="false"
+        autocomplete="off"
+        :readonly="readonly"
+        :inputmode="inputmode"
+        :data-tb="hook"
+        :value="shown"
+        :data-tip="bad ?? label"
+        :aria-label="label"
+        :aria-expanded="open"
+        :aria-controls="id"
+        :aria-invalid="!!bad"
+        :disabled="disabled"
+        @focus="onFocus"
+        @mouseup="onMouseUp"
+        @click="readonly && setOpen(!open)"
+        @input="onInput"
+        @keydown="onKey"
+        @blur="restore"
+      />
+      <span v-for="x in fit" :key="x" class="xs-field xs-field-s xs-tb-input xs-tb-fit-text" aria-hidden="true">{{ x }}</span>
+    </span>
     <button type="button" class="xs-tool xs-tb-caret" :data-tb="`${hook}-list`" :data-tip="label" :aria-label="label" :aria-expanded="open" :disabled="disabled" @click="setOpen(!open)">
       <IconDown />
     </button>
@@ -157,7 +182,7 @@ function onKey(e: KeyboardEvent): void {
         class="xs-tb-item"
         role="option"
         :aria-selected="i === active"
-        :data-tb-item="x"
+        v-bind="itemHook(x, i)"
         :style="itemFont(x)"
         @click="commit(x)"
       >

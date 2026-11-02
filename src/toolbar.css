@@ -207,18 +207,33 @@
   font: var(--xs-tb-text) var(--xs-font);
   white-space: nowrap;
 }
-.xs-tb-select {
-  max-width: 170px;
-  font-size: var(--xs-tb-text);
-}
-/* The Font and Font Size boxes: an input joined to the button that opens its list, as Excel draws them. */
+/* The Font, Font Size and Number Format boxes: an input joined to the button that opens its list, as Excel draws them. */
 .xs-tb-input {
   border-radius: 4px 0 0 4px;
   font-size: var(--xs-tb-text);
 }
-.xs-toolbar:not(.xs-touch) .xs-tb-input,
-.xs-toolbar:not(.xs-touch) .xs-tb-select {
+.xs-toolbar:not(.xs-touch) .xs-tb-input {
   height: var(--xs-tb-field-h);
+}
+/* A box as wide as the longest text it shows (Number Format's categories): the texts laid hidden under its field. */
+.xs-tb-field {
+  display: contents;
+}
+.xs-tb-field.xs-tb-fit {
+  display: inline-grid;
+}
+.xs-tb-fit > * {
+  grid-area: 1 / 1;
+}
+.xs-tb-fit > input {
+  width: 0;
+  min-width: 100%;
+}
+.xs-toolbar .xs-tb-fit > .xs-tb-fit-text {
+  height: 0;
+  border-block-width: 0;
+  white-space: nowrap;
+  visibility: hidden;
 }
 .xs-tb-font {
   width: var(--xs-tb-font-w);
@@ -373,9 +388,6 @@
 }
 
 /* ── touch: every target at least 44 × 44 px ── */
-.xs-touch .xs-tb-select {
-  max-width: none;
-}
 .xs-touch .xs-tb-font {
   width: 150px;
 }

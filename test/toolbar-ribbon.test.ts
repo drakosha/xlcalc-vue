@@ -43,7 +43,7 @@ describe("the toolbar's default order", () => {
       'font-name', 'font-name-list', 'font-size', 'font-size-list', 'font-up', 'font-down',
       'bold', 'italic', 'underline', 'underline-menu', 'border-last', 'borders', 'fill-colour', 'fill-palette', 'font-colour', 'font-palette',
       'align-top', 'align-middle', 'align-bottom', 'orientation', 'align-left', 'align-center', 'align-right', 'indent-down', 'indent-up', 'wrap', 'merge', 'merge-menu',
-      'number', 'accounting', 'accounting-menu', 'percent', 'comma', 'decimal-up', 'decimal-down', 'format-cells',
+      'number', 'number-list', 'accounting', 'accounting-menu', 'percent', 'comma', 'decimal-up', 'decimal-down', 'format-cells',
       'auto-sum', 'auto-sum-menu', 'pivot-table', 'refresh-all', 'refresh-all-menu',
     ])
   })
@@ -212,7 +212,7 @@ describe('rows: 2, as Excel’s ribbon', () => {
       [['wrap'], ['merge', 'merge-menu']],
     ])
     expect(lines(w, 'number')).toEqual([
-      [['number'], ['accounting', 'accounting-menu', 'percent', 'comma', 'decimal-up', 'decimal-down']],
+      [['number', 'number-list'], ['accounting', 'accounting-menu', 'percent', 'comma', 'decimal-up', 'decimal-down']],
       [[], ['format-cells']],
     ])
     expect(w.find('[data-tb-block="undo"]').classes()).toContain('xs-tb-g-cols')
@@ -322,7 +322,7 @@ describe("rows: 1 fits Excel's groups whole", () => {
     layout(1100)
     const w = await mountFull()
     expect(inRow(w)).not.toContain('format-cells')
-    expect(inMenu(w).slice(0, 8)).toEqual(['number', 'accounting', 'accounting-menu', 'percent', 'comma', 'decimal-up', 'decimal-down', 'format-cells'])
+    expect(inMenu(w).slice(0, 9)).toEqual(['number', 'number-list', 'accounting', 'accounting-menu', 'percent', 'comma', 'decimal-up', 'decimal-down', 'format-cells'])
     expect(inRow(w)).toEqual(expect.arrayContaining(['align-top', 'merge', 'auto-sum']))
   })
 })
