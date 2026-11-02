@@ -35,7 +35,7 @@ onUnmounted(() => void source.close())
 </script>
 
 <template>
-  <SheetView :source="source" :locale="source.locale" style="height: 320px" />
+  <SheetView :source="source" style="height: 320px" />
 </template>
 ```
 

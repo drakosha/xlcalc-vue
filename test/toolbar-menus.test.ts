@@ -297,7 +297,7 @@ describe("Format Cells' place", () => {
 })
 
 describe('through the local source', () => {
-  /** The toolbar over the sheet over a workbook of `locale` with 1234.5 in A1:A9, as a host puts them together. */
+  /** The toolbar over the sheet over a workbook of `locale` with 1234.5 in A1:A9, as a host puts them together: neither given a locale, both take the source's. */
   async function mountLocal(locale: string, messages = enMessages): Promise<{ w: VueWrapper; s: LocalSource }> {
     const cells = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`A${i + 1}`, { value: 1234.5 }]))
     const s = localSource({ locale, sheets: [{ name: 'S', cells }] }, { calc: 'inline' })
@@ -305,8 +305,8 @@ describe('through the local source', () => {
       const sheet = ref<SheetViewApi | null>(null)
       const state = ref<SheetViewState | null>(null)
       return () => [
-        h(SheetToolbar, { source: s, sheet: sheet.value, state: state.value, locale, messages }),
-        h(SheetView, { ref: sheet, source: s, locale, messages, style: 'height: 400px', onState: (x: SheetViewState | null) => (state.value = x) }),
+        h(SheetToolbar, { source: s, sheet: sheet.value, state: state.value, messages }),
+        h(SheetView, { ref: sheet, source: s, messages, style: 'height: 400px', onState: (x: SheetViewState | null) => (state.value = x) }),
       ]
     })
     const w = mount(Host, { attachTo: document.body })
@@ -347,6 +347,19 @@ describe('through the local source', () => {
     // the same item on A5 again levels its text
     await run('A5', 'orientation', 'orientation-clockwise')
     expect((await cell(s, 'A5')).alignment?.rotation).toBeUndefined()
+  })
+
+  it("names the categories in the source's ru-RU and steps the decimals there, with no locale given to the toolbar or the sheet", async () => {
+    const { w, s } = await mountLocal('ru-RU')
+    close.push(s)
+    await goTo(w, 'A1')
+    await until(() => w.findAll('[data-tb="number"] option').some((o) => o.text() === 'Общий'))
+    await w.find('[data-tb="decimal-up"]').trigger('click')
+    await settle(12)
+    expect((await cell(s, 'A1')).numberFormat).toBe('0.00')
+    await w.find('[data-tb="decimal-down"]').trigger('click')
+    await settle(12)
+    expect((await cell(s, 'A1')).numberFormat).toBe('0.0')
   })
 
   it('names Accounting in the Number Format box after the part applies the built-in 44, in an en-US and a ru-RU workbook', async () => {

@@ -14,6 +14,7 @@ import { NARROW_PX, useCoarsePointer } from '../frame'
 import { useMessages } from '../messages'
 import type { SheetMessages } from '../contract/messages'
 import { useNumberFormats } from '../number-formats'
+import { usableTag } from '../locales'
 import { allows } from '../protection'
 import type { AutoSumFunction, EditOutcome, FormatPatch } from '../contract/source'
 import {
@@ -118,7 +119,10 @@ const props = withDefaults(
     state: SheetViewState | null
     /** Interface texts; a partial set overrides the English defaults. */
     messages?: Partial<SheetMessages>
-    /** The workbook's locale (as for `SheetView`), in which the Number Format box names its categories and items; en-US without one. */
+    /**
+     * The workbook's locale, in which the Number Format box names its categories and items, in place of the sheet's
+     * (`state.locale`) or else the source's `locale`, which it is by default; en-US without any.
+     */
     locale?: string
     /**
      * The sheet (a `SheetView`'s template ref) to format, undo and redo through, as its keyboard commands do: it applies the
@@ -211,7 +215,9 @@ const text = (key: keyof SheetMessages) => m.value[key] as string
 
 // ── the active cell's formatting ──
 /** Excel's box: the list's items, and the name of the category of the active cell's format (General without one). */
-const numbers = useNumberFormats(() => props.locale)
+/** The workbook's locale: the prop, else the sheet's, else the source's. */
+const locale = computed(() => props.locale ?? props.state?.locale ?? props.source.locale)
+const numbers = useNumberFormats(() => locale.value)
 const category = computed(() => (props.state ? numbers.categoryOf(props.state.numberFormat) : null))
 /** The workbook's default font, for a cell without its own: the source does not report it yet, so it plugs in here when it does. */
 /** The workbook's default font, which a cell without its own font name or size displays. */
@@ -482,7 +488,7 @@ const over = (p: Omit<FormatPatch, 'range'>): FormatPatch[] => ranges().map((ran
 const restyle = (p: StylePatch | null) => p && apply(over({ style: p }))
 /** Increase or Decrease Decimal: the active cell's next format over the selection; nothing when the step changes nothing. */
 function stepDecimal(up: boolean): void {
-  const next = props.state && decimalStep(props.state, up, props.locale)
+  const next = props.state && decimalStep(props.state, up, usableTag(locale.value))
   if (next !== null && next !== undefined) apply(over({ numberFormat: next }))
 }
 

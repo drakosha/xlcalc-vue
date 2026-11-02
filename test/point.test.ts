@@ -4,7 +4,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import { colPx } from '../src/core/geometry'
-import { LOCALE_MODULES } from '../src/locales'
+import { loadBookLocale } from '../src/locales'
 import { active, editorKey, editorOpen, goTo, key, mountSheet, pressBar, settle, type, until } from './helpers'
 
 afterEach(() => {
@@ -253,7 +253,7 @@ describe('Point mode with the arrow keys', () => {
   it('the list separator of a ru-RU workbook', async () => {
     const w = await mountSheet(recorded().source, { locale: 'ru-RU' })
     // the sheet parses formulas in ru-RU once the locale's module has loaded, a chunk loaded as the sheet mounts
-    await LOCALE_MODULES['ru-RU']!()
+    await loadBookLocale('ru-RU')
     await settle()
     await goTo(w, 'B2')
     await typeIn(w, '=СУММ(1;')

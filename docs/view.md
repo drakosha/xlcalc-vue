@@ -174,6 +174,6 @@ const sheet = ref<SheetViewApi | null>(null)
   <!-- select B1, then click twice: B3, then B4 and the icon for Report -->
   <button @click="sheet?.traceDependents()">Trace dependents</button>
   <button @click="sheet?.removeArrows()">Remove arrows</button>
-  <SheetView ref="sheet" :source="source" :locale="source.locale" style="height: 360px" />
+  <SheetView ref="sheet" :source="source" style="height: 360px" />
 </template>
 ```

@@ -35,6 +35,6 @@ const sheet = ref<SheetViewApi | null>(null)
   <!-- Insert Table proposes =$A$1:$C$3 with headers, and names the columns Item, Qty, Qty2 -->
   <button @click="sheet?.insertTable()">Insert table</button>
   <button @click="sheet?.convertToRange()">Convert to range</button>
-  <SheetView ref="sheet" :source="source" :locale="source.locale" style="height: 360px" />
+  <SheetView ref="sheet" :source="source" style="height: 360px" />
 </template>
 ```

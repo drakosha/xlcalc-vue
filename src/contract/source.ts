@@ -9,6 +9,8 @@ import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, Sheet
 
 /** The sheet's data source; the component accesses its data only through this interface. */
 export interface SheetSource {
+  /** The workbook's locale tag (`ru-RU`), in which it displays formulas and parses what is typed; the components take it as theirs unless their `locale` prop overrides it. En-US without one. */
+  readonly locale?: string
   /** The workbook's sheets in order; read again after a structure change and on a `reload` event. */
   sheets(signal?: AbortSignal): Promise<SheetInfo[]>
   /** A rectangular block of a sheet's cells (a window), at most `maxCells` cells. */

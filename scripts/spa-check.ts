@@ -22,6 +22,8 @@
 // entire column is rejected at once by the app's limit on cells one change writes, leaving the workbook unchanged.
 // Then Excel's typo dialog: `=(1+2` with Enter offers `=(1+2)`, Yes writes 3; No says a parenthesis is missing and reopens the editor.
 // Then, on the desktop, Merge & Center over A1:B1 with two values: Excel's warning, Enter for OK, one centered cell, Ctrl+Z.
+// Then, on the desktop, a ru-RU workbook through the calls that take its locale (Increase and Decrease Decimal, Find with Match
+// case, 1,5 pasted), on this app and on the app built over dist/ (`npm run build` first), whose main entry has its own xlcalc/text.
 // Then Insert PivotTable and the PivotTable Fields pane (scripts/spa-pivot.ts): fields checked, on the desktop one dragged onto Columns;
 // and the dialogs over a PivotTable (scripts/spa-pivot-dialogs.ts): the filter menu, the cell menus, the settings dialogs, Grouping.
 // On the phone every target is at least 44 px and the page never scrolls horizontally. Run: npm run check:spa; SPA_URL=<url> checks a published app instead.
@@ -32,7 +34,7 @@ import { mkdirSync, readdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { chromium, type Browser, type Page } from 'playwright'
-import { build, preview } from 'vite'
+import { build, preview, type Plugin } from 'vite'
 import type { BookInput, CellStyle } from 'xlcalc'
 import { parseCell, parseRange } from 'xlcalc/a1'
 import { ruRU } from 'xlcalc/locales/ru-RU'
@@ -1243,6 +1245,81 @@ async function mergeScenario(browser: Browser, base: string, size: Size): Promis
   await context.close()
 }
 
+/**
+ * A ru-RU workbook through calls that take its locale, the toolbar and the sheet given no locale but the source's: Increase
+ * and Decrease Decimal (1,5 to 1,50 and back), Find with Match case, and 1,5 pasted from outside read as a number. Run on
+ * the app built from the sources and on the app built over dist/, whose main entry point has its own copy of xlcalc/text.
+ */
+async function localeScenario(browser: Browser, base: string, size: Size, build: string): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, permissions: ['clipboard-read', 'clipboard-write'] })
+  const page = await context.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  const at = (what: string) => `[${size.name} ${build} ru-RU] ${what}`
+  await page.goto(`${base}spa.html?lang=ru`)
+  await page.waitForSelector('[data-cell="1:1"]')
+  await ready(page)
+  expect(at('the workbook is ru-RU'), (await bookOf(page)).locale, 'ru-RU')
+  await enter(page, size, '1:1', '1,5')
+  await shows(page, '1:1', '1,5')
+  await page.locator('[data-cell="1:1"]').click()
+  await page.locator('[data-tb="decimal-up"]').click()
+  await shows(page, '1:1', '1,50')
+  expect(at('A1 after Increase Decimal'), cellOf(await bookOf(page), 'A1').numberFormat, '0.00')
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-${build}-l01-increase-decimal.png`) })
+  await page.locator('[data-tb="decimal-down"]').click()
+  await shows(page, '1:1', '1,5')
+  expect(at('A1 after Decrease Decimal'), cellOf(await bookOf(page), 'A1').numberFormat, '0.0')
+
+  await enter(page, size, '2:1', 'tea')
+  await enter(page, size, '3:1', 'Tea')
+  await ready(page)
+  await page.locator('[data-cell="5:1"]').click()
+  await page.keyboard.press('Control+f')
+  await page.locator('.xs-find-input').fill('tea')
+  await statusIs(page, '1 из 2', at('tea'))
+  await page.locator('[data-xs-find-options]').click()
+  await page.locator('[data-xs-find-case]').click()
+  await statusIs(page, '1 из 1', at('tea, match case'))
+  await page.locator('.xs-find [aria-label="Закрыть"]').last().click()
+
+  // pasted from the cell menu, which reads the clipboard through the browser's API (a headless shortcut fires no paste event)
+  await page.evaluate(() => navigator.clipboard.writeText('1,5'))
+  await page.locator('[data-cell="1:2"]').click({ button: 'right' })
+  await page.locator('[data-xs-menu="paste"]').click()
+  await shows(page, '1:2', '1,5')
+  await ready(page)
+  expect(at('B1 pasted'), cellOf(await bookOf(page), 'B1').value, 1.5)
+  await page.screenshot({ path: resolve(out, `spa-${size.name}-${build}-l02-pasted.png`) })
+  console.log(`${at('ok')}: 1,5 showed 1,50 after Increase Decimal and 1,5 after Decrease Decimal, Find with Match case found 1 of 2, 1,5 pasted as the number 1.5`)
+  if (errors.length) throw new Error(`${at('page errors')}: ${errors.join('; ')}`)
+  await context.close()
+}
+
+/** The app built over dist/ (`npm run build` first): its `../src` and `../src/local` are the built entry points, as a host gets them. */
+function overDist(): Plugin {
+  const dist = resolve(root, 'dist')
+  const facade = '\0spa-dist'
+  const taken = new Set<string>()
+  return {
+    name: 'spa-over-dist',
+    enforce: 'pre',
+    resolveId(id, importer) {
+      // the importer is the SFC's script block, `SpaApp.vue?vue&type=script...`
+      if (!importer?.includes('/SpaApp.vue') || (id !== '../src' && id !== '../src/local')) return null
+      taken.add(id)
+      return id === '../src' ? facade : resolve(dist, 'local.js')
+    },
+    load: (id) => (id === facade ? `import ${JSON.stringify(resolve(dist, 'style.css'))}\nexport * from ${JSON.stringify(resolve(dist, 'index.js'))}` : null),
+    // a build of the app that never took dist/ would check the sources twice (the worker's build has no SpaApp.vue)
+    buildEnd() {
+      const app = [...this.getModuleIds()].some((id) => id.includes('/SpaApp.vue'))
+      if (app && taken.size !== 2) throw new Error('[dist] the app was not built over dist/')
+    },
+  }
+}
+
 const demo = process.env.DEMO === '1'
 const mode = demo ? { mode: 'demo' } : {}
 /**
@@ -1363,6 +1440,17 @@ try {
   await typoScenario(browser, base, desktop)
   await typoScenario(browser, base, phone)
   await mergeScenario(browser, base, desktop)
+  await localeScenario(browser, base, desktop, 'src')
+  if (!live) {
+    const distOut = resolve(root, 'test-results/spa-dist')
+    await build({ configFile: config, logLevel: 'error', ...mode, plugins: [overDist()], build: { outDir: distOut, emptyOutDir: true } })
+    const overServer = await preview({ configFile: config, preview: { port: 0 }, build: { outDir: distOut }, logLevel: 'error', ...mode })
+    try {
+      await localeScenario(browser, overServer.resolvedUrls!.local[0]!, desktop, 'dist')
+    } finally {
+      await new Promise<void>((done) => overServer.httpServer.close(() => done()))
+    }
+  }
   await pivotScenario(browser, base, desktop, out)
   await pivotScenario(browser, base, phone, out)
   await pivotDialogsScenario(browser, base, desktop, out)

@@ -40,7 +40,7 @@ const props = withDefaults(
     state: SheetViewState | null
     /** Interface texts; a partial set overrides the English defaults. */
     messages?: Partial<SheetMessages>
-    /** The workbook's locale (as for `SheetView`), in which the Number tab names its categories and items; en-US without one. */
+    /** The workbook's locale, in which the Number tab names its categories and items, in place of the sheet's (`state.locale`), which it is by default; en-US without either. */
     locale?: string
     /** Where it opens: a tab, and an item of the Number tab's list picked (the toolbar's `formatCells` event gives it); without it, the tab it was last on. */
     at?: FormatCellsAt | null
@@ -55,7 +55,7 @@ const emit = defineEmits<{
 }>()
 
 const m = useMessages(() => props.messages)
-const numbers = useNumberFormats(() => props.locale)
+const numbers = useNumberFormats(() => props.locale ?? props.state?.locale)
 
 const tab = ref<FormatCellsTab>('number')
 const start = shallowRef<FormatStart | null>(null)

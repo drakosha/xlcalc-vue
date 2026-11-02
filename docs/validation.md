@@ -66,7 +66,7 @@ const sheet = ref<SheetViewApi | null>(null)
 
 <template>
   <button @click="sheet?.dataValidation()">Data Validation…</button>
-  <SheetView ref="sheet" :source="source" :locale="source.locale" style="height: 300px" />
+  <SheetView ref="sheet" :source="source" style="height: 300px" />
 </template>
 ```
 

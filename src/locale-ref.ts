@@ -1,24 +1,27 @@
-// The workbook's locale module as a ref for the grid and the Number Format box: loaded as a separate chunk, with a late one discarded.
+// The workbook's locale as a ref for the grid and the Number Format box: loaded into xlcalc once (`./locales`), with a late one discarded.
 import { shallowRef, watch, type ShallowRef } from 'vue'
 import type { Locale } from 'xlcalc/contract'
-import { LOCALE_MODULES } from './locales'
+import { hasModule, loadBookLocale } from './locales'
 
 /**
- * The locale object of `tag()`: null while its module loads; undefined for a tag the package has no module for (en-US)
- * and for a module that failed to load, which is treated as en-US. A module that arrives after the tag changed is discarded.
+ * The locale object of `tag()`, its tag loaded into xlcalc from then on: null while its module loads and after it failed to
+ * load, so that nothing is read or written as en-US in its place; undefined for en-US and a tag the package has no module
+ * for, which are treated as en-US. A module that arrives after the tag changed is discarded.
  */
 export function useLocaleModule(tag: () => string | undefined): ShallowRef<Locale | undefined | null> {
   const locale = shallowRef<Locale | undefined | null>(undefined)
   watch(
     tag,
     (t) => {
-      const load = t ? LOCALE_MODULES[t] : undefined
+      const load = t && hasModule(t) ? loadBookLocale(t) : undefined
       locale.value = load ? null : undefined
-      if (!load) return
-      const take = (l: Locale | undefined) => {
-        if (tag() === t) locale.value = l
-      }
-      void load().then(take, () => take(undefined))
+      // a failed module leaves null: the next component that asks for it tries again
+      load?.then(
+        (l) => {
+          if (tag() === t) locale.value = l
+        },
+        () => {},
+      )
     },
     { immediate: true },
   )

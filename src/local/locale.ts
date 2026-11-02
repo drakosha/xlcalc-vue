@@ -1,13 +1,17 @@
 // The workbook's locale loaded into xlcalc before the session opens: en-US is built in, others are modules loaded on demand.
 import { LOCALES, registerLocale } from 'xlcalc'
 import type { Locale } from 'xlcalc/contract'
-import { LOCALE_MODULES } from '../locales'
+import { loadBookLocale } from '../locales'
 
-/** Loads the locale of `tag` once; a tag without a module is left to the session, which rejects it, listing the locales it has. */
+/**
+ * Loads the locale of `tag` once into the host's xlcalc; a tag without a module is left to the session, which rejects it,
+ * listing the locales it has, and a module that fails to load rejects with its error. The import loads it from xlcalc 0.77
+ * on; `registerLocale` keeps an older peer working.
+ */
 export async function loadLocale(tag: string): Promise<void> {
   if (LOCALES.has(tag)) return
-  const load = LOCALE_MODULES[tag]
-  if (load) registerLocale(await load())
+  const locale = await loadBookLocale(tag)
+  if (locale) registerLocale(locale)
 }
 
 /** The localized function text for tooltips by tag (`xlcalc/function-text/*`), separate from the calculation locale: only the tooltip and Insert Function use it. */

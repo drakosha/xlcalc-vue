@@ -34,7 +34,7 @@ A workbook from an xlsx file, calculated in the browser:
 import { localSource, openXlsx, saveXlsx } from '@xlcalc/vue/local'
 
 const { book, cached } = await openXlsx(file, { locale: 'ru-RU' }) // a File from a file input or a drop
-const source = localSource(book, { session: { cached } })           // <SheetView :source="source" :locale="source.locale" />
+const source = localSource(book, { session: { cached } })           // <SheetView :source="source" />
 const { data } = await saveXlsx(source)                             // the xlsx bytes: formulas along with their values
 ```
 

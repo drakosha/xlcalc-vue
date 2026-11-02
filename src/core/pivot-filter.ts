@@ -137,7 +137,7 @@ export function usePivotFilter(s: SheetState, dialogs: PivotDialogs) {
     closeMenu()
     const had = (t.def.table.filters ?? []).find((f) => f.field === field && compareOf(f.type)?.kind === kind)
     const entry = await loadEntry()
-    const locale = dialogs.locale()
+    const locale = await dialogs.locale()
     const text = (v: string | number | undefined) => (v === undefined ? '' : kind === 'date' ? entry.entryText(serialOfIso(String(v)), { locale, numberFormat: 14 }) : typeof v === 'number' ? entry.entryText(v, { locale }) : v)
     const same = had && compareOf(had.type)?.compare === compare
     dialog.value = {
@@ -173,7 +173,7 @@ export function usePivotFilter(s: SheetState, dialogs: PivotDialogs) {
     if (d?.kind !== 'compare') return
     const x = d.draft
     const entry = await loadEntry()
-    const locale = dialogs.locale()
+    const locale = await dialogs.locale()
     const boxes = isBetween(x.compare) ? [x.first, x.second] : [x.first]
     const args: (string | number)[] = []
     for (const box of boxes) {
@@ -194,7 +194,7 @@ export function usePivotFilter(s: SheetState, dialogs: PivotDialogs) {
     const d = dialog.value
     if (d?.kind !== 'top10') return
     const entry = await loadEntry()
-    const got = entry.parseEntry(d.draft.count, { locale: dialogs.locale() })
+    const got = entry.parseEntry(d.draft.count, { locale: await dialogs.locale() })
     const n = got.ok && typeof got.input?.value === 'number' ? got.input.value : null
     if (n === null || n <= 0) return void (d.error = m().pivotBadNumber)
     const x = d.draft

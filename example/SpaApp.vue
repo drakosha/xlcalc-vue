@@ -246,7 +246,6 @@ onBeforeUnmount(() => void book.value?.source.close())
       :source="book.source"
       :state="state"
       :messages="messages"
-      :locale="book.source.locale"
       :sheet="sheet"
       :items="toolbarItems"
       :rows="toolbarRows"
@@ -259,7 +258,6 @@ onBeforeUnmount(() => void book.value?.source.close())
       class="spa-sheet"
       :source="book.source"
       :messages="messages"
-      :locale="book.source.locale"
       :focus="book.focus"
       @state="state = $event"
     />

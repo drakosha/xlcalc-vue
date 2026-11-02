@@ -20,14 +20,15 @@ export interface NumberFormats {
  * separate chunk, as the grid's formula text does; a tag the package has no module for is treated as en-US.
  */
 export function useNumberFormats(tag: () => string | undefined): NumberFormats {
-  /** The locale object, undefined for en-US, null while its module loads. */
-  const locale = useLocaleModule(tag)
-  const choices = computed(() => (locale.value === null ? [] : numberFormatChoices(locale.value)))
-  const currencies = computed(() => (locale.value === null ? [] : accountingFormats(locale.value).items))
+  /** Null while the locale's module loads; then its tag, loaded into xlcalc (undefined for en-US). */
+  const module = useLocaleModule(tag)
+  const loaded = computed(() => (module.value === null ? null : module.value?.tag))
+  const choices = computed(() => (loaded.value === null ? [] : numberFormatChoices(loaded.value)))
+  const currencies = computed(() => (loaded.value === null ? [] : accountingFormats(loaded.value).items))
   function categoryOf(code: string | undefined): NumberFormatCategory | null {
-    if (locale.value === null) return null
+    if (loaded.value === null) return null
     try {
-      return numberFormatCategory(code ?? 0, locale.value)
+      return numberFormatCategory(code ?? 0, loaded.value)
     } catch {
       // a code still being typed that is not a valid format yet has no category
       return null

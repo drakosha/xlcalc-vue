@@ -36,7 +36,7 @@ const sheet = ref<SheetViewApi | null>(null)
   <button @click="sheet?.iconSet('3Arrows')">3 Arrows</button>
   <button @click="sheet?.clearRules('selection')">Clear Rules from Selected Cells</button>
   <button @click="sheet?.manageRules()">Manage Rules…</button>
-  <SheetView ref="sheet" :source="source" :locale="source.locale" style="height: 300px" />
+  <SheetView ref="sheet" :source="source" style="height: 300px" />
 </template>
 ```
 

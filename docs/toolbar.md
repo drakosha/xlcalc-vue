@@ -42,8 +42,8 @@ const sheet = ref<SheetViewApi | null>(null)
 </script>
 
 <template>
-  <SheetToolbar :source="source" :sheet="sheet" :state="state" :locale="source.locale" />
-  <SheetView :source="source" ref="sheet" :locale="source.locale" style="height: 360px" @state="state = $event" />
+  <SheetToolbar :source="source" :sheet="sheet" :state="state" />
+  <SheetView :source="source" ref="sheet" style="height: 360px" @state="state = $event" />
 </template>
 ```
 
@@ -51,7 +51,7 @@ The toolbar formats the selection, every range of a selection of several (`state
 
 Increase and Decrease Font Size step the active cell's size (11 points for a cell without one, the size the grid draws it at) through Excel's list, beyond 72 in steps of 10 up to 409, and below 8 a point at a time down to 1, and set the new size over the selection; at a limit they send nothing. Top, Middle and Bottom Align show as pressed according to the active cell's vertical alignment, Bottom for a cell without one (Excel's default); clicking a pressed one returns the selection to Bottom. Increase Indent adds a level to the active cell's indent and keeps the Left, Right and Distributed alignments, which have an indent, while any other alignment (General, Center and the rest) becomes Left, as in Excel; Decrease Indent takes a level off without changing the alignment, and does nothing at 0 or with an alignment that has no indent. Indents go up to 250 levels. Percent Style sets Excel's `0%` (the built-in format 9) over the selection, as Ctrl+Shift+% on the grid does ([editing.md](editing.md)); the Number Format box then names Percentage. Accounting Number Format and Comma Style set Excel's built-in formats 44 and 43, which display in the workbook's locale (its currency for Accounting). Increase Decimal and Decrease Decimal take the active cell's format, value and column width (`state.numberFormat`, `cellValue`, `columnWidth`) through xlcalc's `stepDecimals`, as Excel for Mac steps them (a General cell takes the decimals it shows, one more or one less; a code takes a decimal in each section), and put the result on the whole selection, as Excel does; when the step changes nothing (General without a number, no decimal to take away) nothing is sent.
 
-The Number Format box works as Excel's does, as measured by xlcalc (`numberFormatCategory` and `numberFormatChoices` of `xlcalc/text`, without the engine): it shows the category of the active cell's format (General if there is none, Custom where no Excel category matches the code), and its list applies Excel's eleven items (General, Number, Currency, Accounting, Short Date, Long Date, Time, Percentage, Fraction, Scientific, Text), each with the format Excel sets (Percentage is `0.00%`), after which the box shows the new category. `locale` is the workbook's locale, as for `SheetView`: the category names and the Currency item's code follow it, with ru-RU's data loaded as a separate chunk; without it, en-US. With `sheet` (the sheet's template ref), the toolbar formats, undoes and redoes through the sheet's methods ([api.md](api.md#sheetviewapi)), and the sheet sets the selection and displays a rejection itself. Without it, the toolbar calls the source and emits `select` with where the selection goes after an undo or a redo (for the sheet's `focus`) and `error` with the source's rejection. It emits `done` after each call, so the host can return focus to the grid. Its buttons do not take focus from the grid; the font boxes and the Number Format box do, while they are used. It keeps what fits in one row, or in the lines `rows` allows, and moves the rest into a menu under More ([below](#choosing-the-buttons)); below 600 px or on a touch screen every target is 44 × 44 px. Its buttons and boxes have Excel's ScreenTips instead of the browser's `title`: the name and the key (`Bold (Ctrl+B)`, from `SheetMessages`) below the control after the mouse rests on it for 0.4 s, and at once on the next one within 0.6 s, disabled buttons included; a press, a menu opening or the mouse leaving hides it, and touch gets none. The text is each control's `data-tip` (its `aria-label` names it too), and a host's button shows its `label`.
+The Number Format box works as Excel's does, as measured by xlcalc (`numberFormatCategory` and `numberFormatChoices` of `xlcalc/text`, without the engine): it shows the category of the active cell's format (General if there is none, Custom where no Excel category matches the code), and its list applies Excel's eleven items (General, Number, Currency, Accounting, Short Date, Long Date, Time, Percentage, Fraction, Scientific, Text), each with the format Excel sets (Percentage is `0.00%`), after which the box shows the new category. The workbook's locale is the sheet's (`state.locale`), else the source's `locale`, so the host passes none; the `locale` prop overrides it. The category names and the Currency item's code follow it, with ru-RU's data loaded as a separate chunk; without any, en-US ([api.md](api.md#locales)). With `sheet` (the sheet's template ref), the toolbar formats, undoes and redoes through the sheet's methods ([api.md](api.md#sheetviewapi)), and the sheet sets the selection and displays a rejection itself. Without it, the toolbar calls the source and emits `select` with where the selection goes after an undo or a redo (for the sheet's `focus`) and `error` with the source's rejection. It emits `done` after each call, so the host can return focus to the grid. Its buttons do not take focus from the grid; the font boxes and the Number Format box do, while they are used. It keeps what fits in one row, or in the lines `rows` allows, and moves the rest into a menu under More ([below](#choosing-the-buttons)); below 600 px or on a touch screen every target is 44 × 44 px. Its buttons and boxes have Excel's ScreenTips instead of the browser's `title`: the name and the key (`Bold (Ctrl+B)`, from `SheetMessages`) below the control after the mouse rests on it for 0.4 s, and at once on the next one within 0.6 s, disabled buttons included; a press, a menu opening or the mouse leaving hides it, and touch gets none. The text is each control's `data-tip` (its `aria-label` names it too), and a host's button shows its `label`.
 
 The names of the buttons and boxes, in English and in Russian, are those of Excel for Windows' ribbon (`Font Color`, `Цвет шрифта`; `Выровнять по верхнему краю`; `Переносить текст`; the Font Size box's `Размер`; AutoSum's `Count Numbers`, `Счетчик`), with the key after the name where Excel's ScreenTip gives one. Two keep their own: Redo is `Вернуть (Ctrl+Y)` in Russian, since Excel's name for that button on its Quick Access Toolbar changes with the history and was measured only without steps to redo, and PivotTable Analyze's Options is `PivotTable Options` (`Параметры сводной таблицы`), since the toolbar is one strip without Excel's contextual tab that would tell which Options it is. Format Cells' Wrap Text box has its own text, `fmtWrap` (`Wrap Text`, `Перенос текста`), since the dialog's Alignment tab has not been measured.
 
@@ -82,8 +82,8 @@ const items: ToolbarItem[] = [
 </script>
 
 <template>
-  <SheetToolbar :source="source" :sheet="sheet" :state="state" :locale="source.locale" :items="items" />
-  <SheetView :source="source" ref="sheet" :locale="source.locale" style="height: 360px" @state="state = $event" />
+  <SheetToolbar :source="source" :sheet="sheet" :state="state" :items="items" />
+  <SheetView :source="source" ref="sheet" style="height: 360px" @state="state = $event" />
 </template>
 ```
 
@@ -160,10 +160,10 @@ function openFormat(at?: FormatCellsAt): void {
 </script>
 
 <template>
-  <SheetToolbar :source="source" :sheet="sheet" :state="state" :messages="ruMessages" :locale="source.locale" @format-cells="openFormat" />
-  <SheetView :source="source" ref="sheet" :messages="ruMessages" :locale="source.locale" style="height: 360px" @state="state = $event" />
+  <SheetToolbar :source="source" :sheet="sheet" :state="state" :messages="ruMessages" @format-cells="openFormat" />
+  <SheetView :source="source" ref="sheet" :messages="ruMessages" style="height: 360px" @state="state = $event" />
   <!-- The host's own dialog, placed by the host: OK formats through the sheet -->
-  <FormatDialog :open="formatOpen" :at="formatAt" :state="state" :messages="ruMessages" :locale="source.locale" @apply="sheet?.format($event)" @close="formatOpen = false" />
+  <FormatDialog :open="formatOpen" :at="formatAt" :state="state" :messages="ruMessages" @apply="sheet?.format($event)" @close="formatOpen = false" />
 </template>
 ```
 
