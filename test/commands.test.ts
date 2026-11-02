@@ -5,9 +5,11 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { toRaw } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
-import type { SheetViewApi } from '../src'
+import type { SheetViewApi, SheetViewState } from '../src'
 import type { EditOutcome, SheetInfo, SheetOp, SheetSource, SheetWindow, SourceEvent, WindowRequest } from '../src/contract/source'
 import { active, address, fakeSource, goTo, gridWindow, key, mountSheet, settle } from './helpers'
+import { localSource, openXlsx, saveXlsx } from '../src/local'
+import { unzipText, zipText } from './zip'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -206,6 +208,54 @@ describe('Ctrl+B, Ctrl+I and Ctrl+U', () => {
       ['S', [{ range: 'B1:C2', style: { font: { italic: true } } }]],
       ['S', [{ range: 'B1:C2', style: { font: { underline: 'single' } } }]],
     ])
+  })
+
+  it("give Ctrl+U Excel's result by the active cell's underline: single unless it is single, which it removes", async () => {
+    // A1 none, A2 single, A3 double; B1:C1 a double-underlined active cell beside a single one
+    const f = source({ format: vi.fn(async () => OK) })
+    const window = f.source.window
+    f.source.window = async (req) => {
+      const got = await window(req)
+      const styles = [{ font: { underline: 'single' as const } }, { font: { underline: 'double' as const } }]
+      return 'pending' in got ? got : { ...got, styles, styleIds: { A2: 0, A3: 1, B1: 1, C1: 0 } }
+    }
+    const w = await mountSheet(f.source)
+    for (const at of ['A1', 'A2', 'A3', 'B1:C1']) {
+      await goTo(w, at)
+      await key(w, 'u', { ctrlKey: true, code: 'KeyU' })
+    }
+    expect((f.source.format as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[1])).toEqual([
+      [{ range: 'A1', style: { font: { underline: 'single' } } }],
+      [{ range: 'A2', style: { font: { underline: null } } }],
+      [{ range: 'A3', style: { font: { underline: 'single' } } }],
+      [{ range: 'B1:C1', style: { font: { underline: 'single' } } }],
+    ])
+  })
+
+  it("give Ctrl+U Excel's result on a file's accounting underlines, which xlcalc reads as single and double", async () => {
+    // a file whose A1 has a single accounting underline and A2 a double one, as Excel writes them
+    const saved = await saveXlsx(localSource({ styles: [{ font: { underline: 'single' } }, { font: { underline: 'double' } }], sheets: [{ name: 'S', cells: { A1: { value: 1, style: 0 }, A2: { value: 2, style: 1 } } }] }, { calc: 'inline' }))
+    const files = unzipText(saved.data)
+    files['xl/styles.xml'] = files['xl/styles.xml']!.replace('<u/>', '<u val="singleAccounting"/>').replace('<u val="double"/>', '<u val="doubleAccounting"/>')
+    expect(files['xl/styles.xml']).toContain('<u val="doubleAccounting"/>')
+    const s = localSource((await openXlsx(zipText(files))).book, { calc: 'inline' })
+    const underline = async (addr: string) => {
+      const book = await s.book()
+      const c = book.sheets[0]!.cells![addr]!
+      return (typeof c.style === 'number' ? book.styles![c.style] : c.style)?.font?.underline ?? null
+    }
+    const w = await mountSheet(s)
+    const shown = () => ((w.emitted('state') ?? []).at(-1)?.[0] as SheetViewState | null)?.style?.font?.underline ?? null
+    /** Ctrl+U on a cell, then the cell's underline once the sheet shows it. */
+    const press = async (at: string, then: string | null) => {
+      await goTo(w, at)
+      await key(w, 'u', { ctrlKey: true, code: 'KeyU' })
+      await vi.waitFor(() => expect(shown()).toBe(then))
+      return underline(at)
+    }
+    expect([await press('A1', null), await press('A2', 'single')]).toEqual([null, 'single'])
+    expect([await press('A1', 'single'), await press('A2', null)]).toEqual(['single', null])
+    await s.close()
   })
 
   it('do nothing without format, and leave the keys to the browser then', async () => {

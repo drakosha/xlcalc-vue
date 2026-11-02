@@ -279,10 +279,13 @@ export function fontOn(style: CellStyle | undefined, what: FontToggle): boolean 
   return !!style?.font?.[what]
 }
 
-/** Bold, italic or underline over the selection: off when the active cell has it, otherwise on, as Excel toggles them. */
+/**
+ * Bold, italic or underline over the selection by the active cell, as Excel toggles them: bold and italic off when it has
+ * them, otherwise on; underline (Ctrl+U) off when its underline is single, otherwise single, a double one too.
+ */
 export function fontToggle(style: CellStyle | undefined, what: FontToggle): StylePatch {
-  const on = fontOn(style, what)
-  return { font: { [what]: on ? null : what === 'underline' ? 'single' : true } }
+  if (what === 'underline') return underlineToggle(style, 'single')
+  return { font: { [what]: fontOn(style, what) ? null : true } }
 }
 
 /** Excel's underlines: Underline's split button applies the one picked last from its menu. */
