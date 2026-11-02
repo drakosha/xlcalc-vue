@@ -1301,20 +1301,21 @@ async function localeScenario(browser: Browser, base: string, size: Size, build:
 function overDist(): Plugin {
   const dist = resolve(root, 'dist')
   const facade = '\0spa-dist'
+  const taken = new Set<string>()
   return {
     name: 'spa-over-dist',
     enforce: 'pre',
     resolveId(id, importer) {
-      if (!importer?.endsWith('SpaApp.vue')) return null
-      if (id === '../src') return facade
-      if (id === '../src/local') return resolve(dist, 'local.js')
-      return null
+      // the importer is the SFC's script block, `SpaApp.vue?vue&type=script...`
+      if (!importer?.includes('/SpaApp.vue') || (id !== '../src' && id !== '../src/local')) return null
+      taken.add(id)
+      return id === '../src' ? facade : resolve(dist, 'local.js')
     },
     load: (id) => (id === facade ? `import ${JSON.stringify(resolve(dist, 'style.css'))}\nexport * from ${JSON.stringify(resolve(dist, 'index.js'))}` : null),
-    // a build that never took dist/ would check the sources twice
+    // a build of the app that never took dist/ would check the sources twice (the worker's build has no SpaApp.vue)
     buildEnd() {
-      const ids = new Set(this.getModuleIds())
-      if (!ids.has(resolve(dist, 'index.js')) || !ids.has(resolve(dist, 'local.js'))) throw new Error('[dist] the app was not built over dist/')
+      const app = [...this.getModuleIds()].some((id) => id.includes('/SpaApp.vue'))
+      if (app && taken.size !== 2) throw new Error('[dist] the app was not built over dist/')
     },
   }
 }
