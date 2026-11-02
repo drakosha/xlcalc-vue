@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.37.0 (2026-11-02)
 
 - With `rows: 2` a large button (PivotTable, Refresh All, Design's Subtotals, Grand Totals, Report Layout and Blank Rows, and a host's with `size: 'large'`) is drawn as Excel's ribbon draws it: the icon at every button's size (18 px, was 28 px) and the button's name under it on one or two lines, broken as Excel breaks it, a list's arrow after the name; a split button's part is the icon and its arrow the name, as Excel's Refresh All. The name is the button's ScreenTip without its key, a host's its `label`. A visible change for a host with `rows: 2`: a large button is as wide as its name (at most `--xs-tb-label-w`, 112 px, the name `--xs-tb-label`, 12 px), so the row is wider and its last groups go into More sooner; with `rows: 1` and in More nothing changes ([toolbar.md](docs/toolbar.md#two-rows-as-excels-ribbon)).
 
