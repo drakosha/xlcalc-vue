@@ -20,7 +20,7 @@ export interface SheetViewProps {
   readOnly?: boolean
   /** Shows the formula bar above the grid; on by default. */
   formulaBar?: boolean
-  /** The workbook's locale for texts the component produces itself: a cell's edit text without `editText`, and selection totals. */
+  /** The workbook's locale for texts the component produces itself (a cell's edit text without `editText`, selection totals), in place of the source's `locale`, which it is by default. */
   locale?: string
   /** Hides the tabs of a workbook with a single sheet, for hosts that want it; Excel always shows them, which is the default. */
   hideLoneTab?: boolean
@@ -64,6 +64,8 @@ export interface SheetFailure {
 export interface SheetViewState {
   sheet: string
   ref: string
+  /** The sheet's locale (its `locale` prop, or the source's): a toolbar and Format Cells take it as theirs. */
+  locale?: string
   formula?: string
   value?: string
   /** The active cell's style, for a toolbar; absent while its window is not loaded or when it has none. */

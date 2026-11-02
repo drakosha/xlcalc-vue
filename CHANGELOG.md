@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The contract adds `SheetSource.locale`, the workbook's locale tag, and `SheetViewState.locale`, the sheet's: `SheetView` takes the source's, `SheetToolbar` and `FormatDialog` the sheet's through `state` (the toolbar the source's before it), so a host no longer passes `:locale="source.locale"` to each; the `locale` prop of each still overrides it. `localSource` and `remoteSource` have `locale` as before.
+
 ## 0.37.1 (2026-11-02)
 
 - A large button's name in `rows: 2` is never cut: the button is as wide as the name's longer line, as Excel widens its Watch Window for `Окно контрольного` over `значения`, where 0.37.0 ended a line longer than 112 px in an ellipsis (`Окно контроль...`). The CSS variable `--xs-tb-label-w` is gone; a host that set it sees no change from it ([toolbar.md](docs/toolbar.md#two-rows-as-excels-ribbon)).
