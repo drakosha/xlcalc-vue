@@ -355,6 +355,26 @@ describe('through the local source', () => {
     }
   })
 
+  it("names the category of each currency's code, and of the box's own items, as Excel's box does in an en-US and a ru-RU workbook", async () => {
+    for (const [locale, own] of [['en-US', 'usd'], ['ru-RU', 'rub']] as const) {
+      const { w, s } = await mountLocal(locale)
+      close.push(s)
+      const shown: string[] = []
+      const after = async (place: string, act: () => Promise<void>) => {
+        await goTo(w, place)
+        await act()
+        await settle(12)
+        await until(() => w.find('[data-tb="number"]').attributes('data-tb-category') !== 'general')
+        shown.push(w.find('[data-tb="number"]').attributes('data-tb-category')!)
+      }
+      const currencies = [own, 'gbp', 'eur', 'cny', 'chf']
+      for (const [i, c] of currencies.entries()) await after(`A${i + 1}`, () => pick(w, 'accounting-menu', `accounting-${c}`))
+      for (const [i, item] of ['currency', 'accounting', 'shortDate', 'fraction'].entries()) await after(`B${i + 1}`, () => w.find('[data-tb="number"]').setValue(item))
+      expect([locale, shown]).toEqual([locale, [...currencies.map(() => 'accounting'), 'currency', 'accounting', 'date', 'fraction']])
+      w.unmount()
+    }
+  })
+
   it('opens the sheet’s Format Cells at Accounting from More Accounting Formats..., whose OK formats the cell in the workbook’s locale', async () => {
     const { w, s } = await mountLocal('ru-RU', ruMessages)
     close.push(s)

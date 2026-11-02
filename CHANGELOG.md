@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Built over xlcalc 0.75.0. Breaking for a host: `./local` requires `xlcalc` 0.75.0 or later (the optional peer was 0.74.1), whose en-US workbooks give the built-in money formats 5 to 8, 42 and 44 with the dollar quoted (`_("$"* #,##0.00_)...`, was `_($* #,##0.00_)...`), as Excel writes them to a file; a cell's `numberFormat` in `state` and in the source's windows carries that code. The Number Format box names Accounting after each item of Accounting Number Format's menu (the pound's, the yuan's and ru-RU's euro's codes were Custom), as xlcalc 0.75.0 names them ([toolbar.md](docs/toolbar.md#sheettoolbar), [local.md](docs/local.md)).
+
 ## 0.33.0 (2026-11-01)
 
 - Underline on the toolbar is Excel's split button, as measured in Excel for Windows: its part applies the underline picked last from its menu, Underline at first, and is named after it; it shows as pressed while the active cell has that underline. Its arrow (`data-tb="underline-menu"`) opens Underline and Double Underline, each checked while the active cell has it; picked on a cell that has it, an item removes it. Below 600 px the arrow is not drawn, so that Bold, Italic and Underline stay in a phone's row. The contract adds the texts `underlineMenu`, `underlineSingle` and `underlineDouble`; a host's complete set of its own texts needs them. Breaking for a host: the part on a double-underlined cell now puts a single underline in its place, as Excel's does, where before it removed the underline; its hook is still `underline` ([toolbar.md](docs/toolbar.md#sheettoolbar)).

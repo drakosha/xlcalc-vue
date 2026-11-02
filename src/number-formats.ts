@@ -22,7 +22,7 @@ export function useNumberFormats(tag: () => string | undefined): NumberFormats {
   const choices = computed(() => (locale.value === null ? [] : numberFormatChoices(locale.value)))
   function categoryOf(code: string | undefined): NumberFormatCategory | null {
     if (locale.value === null) return null
-    // a built-in format reaches the sheet as its code in the locale (44 as `_($* #,##0.00_)...`): named by its number, as Excel names it
+    // a built-in format reaches the sheet as its code in the locale, which xlcalc may not name by it (ru-RU's 14 `dd.mm.yyyy` is Custom): named by its number, as Excel names it
     const builtin = code === undefined ? undefined : choices.value.find((c) => typeof c.format === 'number' && c.code === code)?.format
     try {
       return numberFormatCategory(builtin ?? code ?? 0, locale.value)
