@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.36.0 (2026-11-02)
 
 - A host lays out its own buttons as Excel's ribbon groups: the contract adds `group` and `size` to `ToolbarButton`. Host buttons next to each other in `items` with the same `group` form one group, a different value starts another, and a `group` named as an adjacent stacked group of the toolbar's (`'autoSum'`, `'refreshAll'`...) joins that group, as Insert Function joins AutoSum in Excel's Function Library; with `rows: 1` such a group goes into More whole, and on a phone each run of one `group` is a block of its own. `size: 'large'` draws a host's button as tall as both rows of `rows: 2`, with a larger icon, as Excel's PivotTable. A host that sets neither gets the layout of before ([toolbar.md](docs/toolbar.md#choosing-the-buttons)).
 - Fix of 0.32.0's two-row layout: a host's split button (`run` with `menu`) is one split button, its arrow beside its part, as AutoSum's; with `rows: 2` the arrow was drawn under the part, in a cell of its own. On one line the arrow now sits against the part, without the gap between buttons ([toolbar.md](docs/toolbar.md#choosing-the-buttons)).
