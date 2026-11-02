@@ -2,7 +2,7 @@
 // Excel's Font, Font Size and Number Format boxes on the toolbar: an input that shows the active cell's value and takes a
 // typed one or a pick from its list (Number Format's only a pick). Enter or a pick applies; Esc, and leaving the box without
 // Enter, restore what it showed.
-import { computed, ref, useId, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { fontCss } from '../core/cell-style'
 import { IconDown } from './icons'
 import { keepActiveInView } from './popup'
@@ -36,6 +36,8 @@ const props = defineProps<{
   more?: { label: string; key: string }
   /** The list shows every item without scrolling, as Excel's Number Format list (on a touch screen it still ends within the viewport). */
   whole?: boolean
+  /** The item marked as the list opens, -1 for none, in place of the one the box's value names (Number Format's by the cell's code). */
+  marked?: number
 }>()
 // the box's other attributes (hooks) go on its field
 defineOptions({ inheritAttrs: false })
@@ -58,20 +60,42 @@ const active = ref(-1)
 const shown = computed(() => draft.value ?? props.value)
 const indexOf = (text: string) => props.items.findIndex((x) => x.toLowerCase() === text.trim().toLowerCase())
 const itemFont = (name: string) => (props.preview ? { fontFamily: fontCss({ font: { name } }, undefined).fontFamily } : undefined)
-keepActiveInView(listEl, () => [props.open, active.value], () => active.value)
-/** The room from the list's top to the viewport's bottom, which its height never passes (a phone's More menu opens it low). */
+/** The list's child of an item: the command comes after the line before it. */
+const childOf = (i: number) => (props.more && i === props.items.length ? i + 1 : i)
+keepActiveInView(listEl, () => [props.open, active.value], () => childOf(active.value))
+/** An option's id, for the field's `aria-activedescendant`: a screen reader names the item the arrows reach. */
+const optionId = (i: number) => `${id}-o${i}`
+/**
+ * The room from the list's top to the viewport's bottom, which its height never passes (a phone's More menu opens it low).
+ * Measured as it opens and again on the window's resize and on any scroll while it is open, so a rotated phone or a scrolled
+ * page keeps it within the window: recomputed rather than closed, as a scroll inside the list itself must not close it.
+ */
 const room = ref<string | undefined>(undefined)
+function measureRoom(): void {
+  const top = props.open ? listEl.value?.getBoundingClientRect().top : undefined
+  room.value = top === undefined ? undefined : `${Math.max(120, window.innerHeight - top - 8)}px`
+}
 watch(
   () => props.open,
   (on) => {
-    const top = on ? listEl.value?.getBoundingClientRect().top : undefined
-    room.value = top === undefined ? undefined : `${Math.max(120, window.innerHeight - top - 8)}px`
+    measureRoom()
+    if (typeof window === 'undefined') return
+    const how = { capture: true, passive: true }
+    if (on) {
+      window.addEventListener('resize', measureRoom)
+      window.addEventListener('scroll', measureRoom, how)
+    } else stopRoom()
   },
   { flush: 'post' },
 )
+function stopRoom(): void {
+  window.removeEventListener('resize', measureRoom)
+  window.removeEventListener('scroll', measureRoom, { capture: true })
+}
+onBeforeUnmount(() => typeof window !== 'undefined' && stopRoom())
 
 function setOpen(on: boolean): void {
-  if (on) active.value = indexOf(shown.value)
+  if (on) active.value = props.marked ?? indexOf(shown.value)
   if (on !== props.open) emit('update:open', on)
 }
 function restore(): void {
@@ -135,13 +159,15 @@ function move(by: number, open: boolean): void {
   if (!props.readonly) draft.value = props.items[at] ?? draft.value
   bad.value = null
 }
-/** Enter in a box without typing: opens the list, then picks the item the arrows reached. */
+/** Enter in a box without typing: opens the list, then picks the item the arrows reached; with none marked it leaves for the grid, as Esc. */
 function pick(): void {
   if (!props.open) return setOpen(true)
   if (props.more && active.value === props.items.length) return runMore()
   const item = props.items[active.value]
-  if (item === undefined) return restore()
-  commit(item)
+  if (item !== undefined) return commit(item)
+  restore()
+  input.value?.blur()
+  emit('leave')
 }
 const itemHook = (x: string, i: number, key = props.keys?.[i]) => (key === undefined ? { 'data-tb-item': x } : { [`data-tb-${props.hook}`]: key })
 
@@ -183,6 +209,7 @@ function onKey(e: KeyboardEvent): void {
         :aria-label="label"
         :aria-expanded="open"
         :aria-controls="id"
+        :aria-activedescendant="open && active >= 0 ? optionId(active) : undefined"
         :aria-invalid="!!bad"
         :disabled="disabled"
         @focus="onFocus"
@@ -205,6 +232,7 @@ function onKey(e: KeyboardEvent): void {
         class="xs-tb-item"
         role="option"
         :aria-selected="i === active"
+        :id="optionId(i)"
         v-bind="itemHook(x, i)"
         :style="itemFont(x)"
         @click="commit(x)"
@@ -212,8 +240,8 @@ function onKey(e: KeyboardEvent): void {
         {{ x }}
       </button>
       <template v-if="more">
-        <div class="xs-tb-sep" role="separator" />
-        <button type="button" class="xs-tb-item" role="option" :aria-selected="active === items.length" v-bind="itemHook(more.label, -1, more.key)" @click="runMore">
+        <div class="xs-tb-sep" role="presentation" />
+        <button type="button" class="xs-tb-item" role="option" :aria-selected="active === items.length" :id="optionId(items.length)" v-bind="itemHook(more.label, -1, more.key)" @click="runMore">
           {{ more.label }}
         </button>
       </template>

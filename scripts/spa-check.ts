@@ -237,6 +237,19 @@ async function scenario(browser: Browser, base: string, size: Size): Promise<voi
     await press(page, size, '[data-tb-menu] [data-tb="font-name-list"]')
     await listInView(page, at('the Font list in the menu'))
     await press(page, size, '[data-tb-menu] [data-tb="font-name-list"]')
+    // the arrows reach More Number Formats... past the line before it, and the list scrolls it into view
+    await page.locator('[data-tb-menu] [data-tb="number"]').focus()
+    await page.keyboard.press('Alt+ArrowDown')
+    for (let i = 0; i < 12; i++) await page.keyboard.press('ArrowDown')
+    const more = await page.locator('[data-tb-number="more"]').evaluate((el) => {
+      const list = el.parentElement!.getBoundingClientRect()
+      const item = el.getBoundingClientRect()
+      return { marked: el.getAttribute('aria-selected'), shown: item.top >= list.top - 0.5 && item.bottom <= list.bottom + 0.5, item: Math.round(item.bottom), list: Math.round(list.bottom) }
+    })
+    if (more.marked !== 'true' || !more.shown) throw new Error(`${at('More Number Formats... by the arrows')}: ${JSON.stringify(more)}`)
+    await page.keyboard.press('Escape')
+    await press(page, size, '[data-tb="more"]')
+    await page.waitForSelector('[data-tb-menu]:not([style*="none"]) [data-tb="number"]')
   }
   await pickNumber(page, size, 'percentage')
   await shows(page, '1:1', '25,00%')

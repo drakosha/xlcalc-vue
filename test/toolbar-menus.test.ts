@@ -376,6 +376,28 @@ describe('through the local source', () => {
     }
   })
 
+  it("marks, as the Number Format list opens, the item whose format the active cell has, after each item applies in an en-US and a ru-RU workbook", async () => {
+    const keys = ['general', 'number', 'currency', 'accounting', 'shortDate', 'longDate', 'time', 'percentage', 'fraction', 'scientific', 'text']
+    for (const locale of ['en-US', 'ru-RU']) {
+      const { w, s } = await mountLocal(locale)
+      close.push(s)
+      await goTo(w, 'C1')
+      await until(() => w.find('[data-tb="number"]').exists())
+      const marked: (string | undefined)[] = []
+      for (const [i, key] of keys.entries()) {
+        await goTo(w, `C${i + 1}`)
+        await pickNumber(w, key)
+        await settle(12)
+        await until(() => !!w.find('[data-tb="number"]').attributes('data-tb-category'))
+        await w.find('[data-tb="number-list"]').trigger('click')
+        marked.push(w.find('[role="option"][aria-selected="true"]').attributes('data-tb-number'))
+        await w.find('[data-tb="number-list"]').trigger('click')
+      }
+      expect([locale, marked]).toEqual([locale, keys])
+      w.unmount()
+    }
+  })
+
   it("names the category of each currency's code, and of the box's own items, as Excel's box does in an en-US and a ru-RU workbook", async () => {
     for (const [locale, own] of [['en-US', 'usd'], ['ru-RU', 'rub']] as const) {
       const { w, s } = await mountLocal(locale)

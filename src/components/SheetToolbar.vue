@@ -220,6 +220,11 @@ const locale = computed(() => props.locale ?? props.state?.locale ?? props.sourc
 const numbers = useNumberFormats(() => locale.value)
 const category = computed(() => (props.state ? numbers.categoryOf(props.state.numberFormat) : null))
 const numberNames = computed(() => numbers.choices.value.map((c) => c.name))
+/** The item whose code is the active cell's (General without one), marked as the list opens; -1 for a code of none (a date of its own, Custom). */
+const numberMarked = computed(() => {
+  const code = props.state?.numberFormat ?? 'General'
+  return numbers.choices.value.findIndex((c) => (c.key === 'general' ? /^general$/i.test(code) : c.code === code))
+})
 const numberKeys = computed(() => numbers.choices.value.map((c) => c.key))
 /** The box is as wide as the longest name it shows: the categories of its list's items. */
 const categoryNames = computed(() => [...new Set(numbers.choices.value.map((c) => numbers.categoryOf(c.code)?.name ?? c.name))])
@@ -892,6 +897,7 @@ function pickNumber(index: number): void {
                   :data-tb-category="category?.category"
                   :more="dialogShown ? { label: m.numberFormatMore, key: 'more' } : undefined"
                   whole
+                  :marked="numberMarked"
                   :open="open === 'number'"
                   :disabled="!formattable"
                   @update:open="listOpen('number', $event)"

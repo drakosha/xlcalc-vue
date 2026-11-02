@@ -158,7 +158,7 @@ describe("SheetToolbar: Excel's Number Format box", () => {
 
   it("opens its list from the arrow and from the field, the active cell's item marked, and a click on an item applies it", async () => {
     const src = source()
-    const w = mountBar(src, at('B2:C3', { numberFormat: '0%' }))
+    const w = mountBar(src, at('B2:C3', { numberFormat: '0.00%' }))
     await settle()
     await w.find('[data-tb="number-list"]').trigger('click')
     expect([listed(w), selected(w)]).toEqual([items, 'percentage'])
@@ -199,13 +199,76 @@ describe("SheetToolbar: Excel's Number Format box", () => {
     expect(w.emitted('done')).toHaveLength(2)
   })
 
+  it("marks the item whose format the active cell has, a date's and a time's too; a Custom code marks none, and Enter on none leaves for the grid", async () => {
+    const src = source()
+    const w = mountBar(src, at('A1', { numberFormat: 'm/d/yyyy' }), { messages: undefined })
+    await settle()
+    const opened = async (numberFormat: string) => {
+      await w.setProps({ state: at('A1', { numberFormat }) })
+      await w.find('[data-tb="number-list"]').trigger('click')
+      const item = w.find('[role="option"][aria-selected="true"]')
+      const out = [numberShown(w), item.exists() ? item.attributes('data-tb-number') : null]
+      await w.find('[data-tb="number-list"]').trigger('click')
+      return out
+    }
+    expect(await opened('m/d/yyyy')).toEqual(['Date', 'shortDate'])
+    expect(await opened('[$-F800]dddd\\,\\ mmmm\\ dd\\,\\ yyyy')).toEqual(['Date', 'longDate'])
+    expect(await opened('[$-F400]h:mm:ss\\ AM/PM')).toEqual(['Time', 'time'])
+    expect(await opened('m/d/yy')).toEqual(['Date', null])
+    expect(await opened('0.00;-0.00')).toEqual(['Custom', null])
+    const field = w.find('[data-tb="number"]')
+    ;(field.element as HTMLElement).focus()
+    await field.trigger('keydown', { key: 'ArrowDown', altKey: true })
+    expect(w.find('[role="listbox"]').exists()).toBe(true)
+    await field.trigger('keydown', { key: 'Enter' })
+    await settle()
+    expect([w.find('[role="listbox"]').exists(), document.activeElement === field.element, src.format.mock.calls.length, w.emitted('done')?.length]).toEqual([false, false, 0, 1])
+  })
+
+  it('names the highlighted item to a screen reader: the field points at it while the list is open, the line is not an item', async () => {
+    const w = mountBar(source(), at('A1', { numberFormat: '0.00%', style: { font: { size: 12 } } }), { sheet: { formatCells: vi.fn() } as unknown as SheetViewApi })
+    await settle()
+    for (const hook of ['number', 'font-size']) {
+      const field = w.find(`[data-tb="${hook}"]`)
+      expect(field.attributes('aria-activedescendant')).toBeUndefined()
+      await field.trigger('focus')
+      await field.trigger('keydown', { key: 'ArrowDown', altKey: true })
+      const pointed = () => document.getElementById(field.attributes('aria-activedescendant') ?? '')
+      expect(pointed()?.getAttribute('aria-selected')).toBe('true')
+      const before = pointed()?.textContent?.trim()
+      await field.trigger('keydown', { key: 'ArrowDown' })
+      expect([pointed()?.getAttribute('aria-selected'), pointed()?.textContent?.trim() !== before]).toEqual(['true', true])
+      if (hook === 'number') expect(w.findAll('[role="listbox"] > :not([role="option"])').map((x) => x.attributes('role'))).toEqual(['presentation'])
+      await field.trigger('keydown', { key: 'Escape' })
+      expect(field.attributes('aria-activedescendant')).toBeUndefined()
+    }
+  })
+
+  it('keeps an open list within the window as it is resized or scrolled', async () => {
+    const w = mountBar(source(), at('A1'))
+    await settle()
+    const height = window.innerHeight
+    await w.find('[data-tb="number-list"]').trigger('click')
+    await settle()
+    const room = () => (w.find('[role="listbox"]').element as HTMLElement).style.getPropertyValue('--xs-tb-room')
+    const first = room()
+    try {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: height + 200 })
+      window.dispatchEvent(new Event('resize'))
+      await settle()
+      expect(parseFloat(room()) - parseFloat(first)).toBe(200)
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
+    }
+  })
+
   it("ends the list, after a line, with More Number Formats..., which opens Format Cells on the Number tab at the active cell's format", async () => {
     const sheet = { formatCells: vi.fn(), format: vi.fn() } as unknown as SheetViewApi
     const w = mountBar(source(), at('A1', { numberFormat: '0.000' }), { sheet })
     await settle()
     await w.find('[data-tb="number-list"]').trigger('click')
     const list = w.find('[role="listbox"]')
-    expect(list.findAll(':scope > *').slice(-2).map((x) => x.attributes('role') + ':' + (x.attributes('data-tb-number') ?? '') + ':' + x.text())).toEqual(['separator::', 'option:more:Другие числовые форматы...'])
+    expect(list.findAll(':scope > *').slice(-2).map((x) => x.attributes('role') + ':' + (x.attributes('data-tb-number') ?? '') + ':' + x.text())).toEqual(['presentation::', 'option:more:Другие числовые форматы...'])
     await w.find('[data-tb-number="more"]').trigger('click')
     expect(sheet.formatCells).toHaveBeenCalledWith({ tab: 'number' })
     expect(w.find('[role="listbox"]').exists()).toBe(false)
