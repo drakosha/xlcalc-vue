@@ -104,6 +104,26 @@ describe("a host's ribbon groups", () => {
     expect(one.findAll('.xs-tb-large')).toHaveLength(0)
   })
 
+  it("draws a small split button (`run` and `menu`) as one cell, its arrow beside its part, as AutoSum, on one line and in rows: 2", async () => {
+    wide()
+    const split = button('errorChecking', { group: 'auditing', menu: [{ id: 'traceError', label: 'Trace Error', run }] })
+    for (const rows of [1, 2]) {
+      const w = mountBar(['undo', button('tracePrecedents', { group: 'auditing' }), split, button('removeArrows', { group: 'auditing' })], rows)
+      await nextTick()
+      const part = w.find('[data-tb-host="errorChecking"]').element
+      expect(part.parentElement).toBe(w.find('[data-tb-host-menu="errorChecking"]').element.parentElement)
+      expect(part.parentElement!.classList.contains('xs-tb-split')).toBe(true)
+      // The group's cells: the buttons and split buttons that its grid (or row) lays out, the parts drawn as contents not counted
+      const cells = (el: Element): Element[] => [...el.children].flatMap((c) => (c.matches('.xs-tb-stack, .xs-tb-line, .xs-tb-part') ? cells(c) : [c]))
+      expect(cells(w.find('.xs-tb-row > [data-tb-block="host-1"]').element).map((c) => c.querySelector('[data-tb-host]')?.getAttribute('data-tb-host') ?? c.getAttribute('data-tb-host'))).toEqual([
+        'tracePrecedents',
+        'errorChecking',
+        'removeArrows',
+      ])
+      w.unmount()
+    }
+  })
+
   it('in rows: 1 sends a host group to More whole, with the toolbar group it joins, the menu keeping the order of items', async () => {
     layout(700, { undo: 100, 'host-1': 600, 'host-3': 200, 'host-4': 250, 'host-5': 100 })
     const w = mountBar(FORMULAS, 1)

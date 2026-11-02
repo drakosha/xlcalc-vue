@@ -357,6 +357,8 @@ function runHost(button: { run?: () => void }): void {
 }
 /** A host's button drawn large: `size: 'large'` in a group stacked two to a column (in the ribbon). */
 const large = (g: RibbonGroup<Block>, x: ToolbarButton) => g.kind === 'cols' && x.size === 'large'
+/** No wrapper: a host's button without a list is drawn as its button alone. */
+const Bare: FunctionalComponent = (_, { slots }) => slots.default?.()
 /** A host's button's icon as the toolbar draws its own: a component, SVG markup, or without an icon its label as text. */
 const HostIcon: FunctionalComponent<{ button: ToolbarButton }> = ({ button: b }) =>
   typeof b.icon === 'string' ? h('span', { class: 'xs-icon xs-tb-svg', innerHTML: b.icon }) : b.icon ? h(b.icon, { class: 'xs-icon' }) : b.label
@@ -950,40 +952,43 @@ function pickNumber(e: Event): void {
               </span>
               <span v-else-if="p.block.buttons" class="xs-tb-part">
                 <template v-for="x in p.block.buttons" :key="x.id">
-                  <button
-                    v-if="!x.menu || x.run"
-                    type="button"
-                    :class="['xs-tool', { 'xs-tool-on': x.pressed, 'xs-tb-wide xs-tb-text': !x.icon, 'xs-tb-large': large(g, x) }]"
-                    :data-tb-host="x.id"
-                    :data-tip="x.label"
-                    :aria-label="x.label"
-                    :aria-pressed="x.pressed === undefined ? undefined : x.pressed"
-                    :disabled="x.disabled"
-                    @click="runHost(x)"
-                  >
-                    <HostIcon :button="x" />
-                  </button>
-                  <span v-if="x.menu" :class="['xs-tb-split', { 'xs-tb-large': large(g, x) }]">
+                  <!-- With a list, the button is one split button, its part and arrow side by side in one cell, as AutoSum -->
+                  <component :is="x.menu ? 'span' : Bare" v-bind="x.menu ? { class: ['xs-tb-split', { 'xs-tb-large': large(g, x) }] } : {}">
                     <button
+                      v-if="!x.menu || x.run"
                       type="button"
-                      :class="['xs-tool', x.run ? 'xs-tb-caret' : 'xs-tb-wide', { 'xs-tool-on': !x.run && x.pressed, 'xs-tb-text': !x.run && !x.icon }]"
-                      :data-tb-host-menu="x.id"
+                      :class="['xs-tool', { 'xs-tool-on': x.pressed, 'xs-tb-wide xs-tb-text': !x.icon, 'xs-tb-large': large(g, x) }]"
+                      :data-tb-host="x.id"
                       :data-tip="x.label"
                       :aria-label="x.label"
-                      aria-haspopup="menu"
-                      :aria-expanded="open === `host:${x.id}`"
+                      :aria-pressed="x.pressed === undefined ? undefined : x.pressed"
                       :disabled="x.disabled"
-                      @click="toggle(`host:${x.id}`)"
+                      @click="runHost(x)"
                     >
-                      <HostIcon v-if="!x.run" :button="x" />
-                      <IconDown :class="{ 'xs-tb-down': !x.run }" />
+                      <HostIcon :button="x" />
                     </button>
-                    <div v-if="open === `host:${x.id}`" class="xs-tb-pop" role="menu" :aria-label="x.label">
-                      <button v-for="it in x.menu" :key="it.id" type="button" class="xs-tb-item" role="menuitem" :data-tb-host-item="it.id" :disabled="it.disabled" @click="runHost(it)">
-                        {{ it.label }}
+                    <template v-if="x.menu">
+                      <button
+                        type="button"
+                        :class="['xs-tool', x.run ? 'xs-tb-caret' : 'xs-tb-wide', { 'xs-tool-on': !x.run && x.pressed, 'xs-tb-text': !x.run && !x.icon }]"
+                        :data-tb-host-menu="x.id"
+                        :data-tip="x.label"
+                        :aria-label="x.label"
+                        aria-haspopup="menu"
+                        :aria-expanded="open === `host:${x.id}`"
+                        :disabled="x.disabled"
+                        @click="toggle(`host:${x.id}`)"
+                      >
+                        <HostIcon v-if="!x.run" :button="x" />
+                        <IconDown :class="{ 'xs-tb-down': !x.run }" />
                       </button>
-                    </div>
-                  </span>
+                      <div v-if="open === `host:${x.id}`" class="xs-tb-pop" role="menu" :aria-label="x.label">
+                        <button v-for="it in x.menu" :key="it.id" type="button" class="xs-tb-item" role="menuitem" :data-tb-host-item="it.id" :disabled="it.disabled" @click="runHost(it)">
+                          {{ it.label }}
+                        </button>
+                      </div>
+                    </template>
+                  </component>
                 </template>
               </span>
             </template>
