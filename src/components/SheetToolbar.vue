@@ -61,6 +61,7 @@ import type { StylePatch } from 'xlcalc/contract'
 import ColourSwatches from './ColourSwatches.vue'
 import ToolbarBox from './ToolbarBox.vue'
 import ToolbarPivot from './ToolbarPivot.vue'
+import { ToolbarLabel } from './ToolbarLabel'
 import ToolbarDrop, { type ToolbarDropItem } from './ToolbarDrop.vue'
 import { hasListener } from './dom'
 import { IconDown } from './icons'
@@ -931,6 +932,7 @@ function pickNumber(e: Event): void {
               <span v-else-if="p.block.group === 'pivotTable' && sheet && source.structure" :class="['xs-tb-part', { 'xs-tb-large': p.large }]">
                 <button type="button" class="xs-tool" data-tb="pivot-table" :data-tip="m.pivotInsert" :aria-label="m.pivotInsert" :disabled="!state?.canInsertPivot" @click="insertPivot">
                   <IconPivotTable />
+                  <ToolbarLabel v-if="p.large" :name="m.pivotInsert" />
                 </button>
               </span>
               <span v-else-if="p.block.group === 'refreshAll' && sheet && source.refreshConnections" :class="['xs-tb-part', { 'xs-tb-large': p.large }]">
@@ -939,7 +941,8 @@ function pickNumber(e: Event): void {
                     <IconRefreshAll />
                   </button>
                   <button type="button" class="xs-tool xs-tb-caret" data-tb="refresh-all-menu" :data-tip="m.refreshAllMenu" :aria-label="m.refreshAllMenu" :aria-expanded="open === 'refreshAll'" :disabled="!state?.canRefreshAll && !state?.canRefreshPivot" @click="toggle('refreshAll')">
-                    <IconDown />
+                    <ToolbarLabel v-if="p.large" :name="m.refreshAll" arrow />
+                    <IconDown v-else />
                   </button>
                   <div v-if="open === 'refreshAll'" class="xs-tb-pop" role="menu" :aria-label="m.refreshAllMenu">
                     <button type="button" class="xs-tb-item" role="menuitem" data-tb="refresh-all-item" :title="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">{{ m.refreshAllItem }}</button>
@@ -948,7 +951,7 @@ function pickNumber(e: Event): void {
                 </span>
               </span>
               <span v-else-if="(p.block.group === 'pivotAnalyze' || p.block.group === 'pivotDesign') && sheet && state?.pivot && source.pivotCells" :class="['xs-tb-part', { 'xs-tb-large': p.large }]">
-                <ToolbarPivot :group="p.block.group" :sheet="sheet" :state="state" :source="source" :m="m" />
+                <ToolbarPivot :group="p.block.group" :large="p.large" :sheet="sheet" :state="state" :source="source" :m="m" />
               </span>
               <span v-else-if="p.block.buttons" class="xs-tb-part">
                 <template v-for="x in p.block.buttons" :key="x.id">
@@ -965,7 +968,8 @@ function pickNumber(e: Event): void {
                       :disabled="x.disabled"
                       @click="runHost(x)"
                     >
-                      <HostIcon :button="x" />
+                      <HostIcon v-if="x.icon || !large(g, x)" :button="x" />
+                      <ToolbarLabel v-if="large(g, x) && !x.menu" :name="x.label" />
                     </button>
                     <template v-if="x.menu">
                       <button
@@ -979,8 +983,9 @@ function pickNumber(e: Event): void {
                         :disabled="x.disabled"
                         @click="toggle(`host:${x.id}`)"
                       >
-                        <HostIcon v-if="!x.run" :button="x" />
-                        <IconDown :class="{ 'xs-tb-down': !x.run }" />
+                        <HostIcon v-if="!x.run && (x.icon || !large(g, x))" :button="x" />
+                        <ToolbarLabel v-if="large(g, x)" :name="x.label" arrow />
+                        <IconDown v-else :class="{ 'xs-tb-down': !x.run }" />
                       </button>
                       <div v-if="open === `host:${x.id}`" class="xs-tb-pop" role="menu" :aria-label="x.label">
                         <button v-for="it in x.menu" :key="it.id" type="button" class="xs-tb-item" role="menuitem" :data-tb-host-item="it.id" :disabled="it.disabled" @click="runHost(it)">

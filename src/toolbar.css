@@ -8,6 +8,8 @@
   --xs-tb-text: 13px;
   --xs-tb-font-w: 150px;
   --xs-tb-size-w: 52px;
+  --xs-tb-label: 12px;
+  --xs-tb-label-w: 112px;
   position: relative;
   z-index: 30;
   display: flex;
@@ -105,17 +107,11 @@
 .xs-tb-g-cols .xs-tb-pivot {
   display: contents;
 }
-/* Excel's large buttons (PivotTable, Refresh All, Design's menus) and a host's with `size: 'large'`: as tall as the two rows, the icon larger. */
+/* Excel's large buttons (PivotTable, Refresh All, Design's menus) and a host's with `size: 'large'`: as tall as the two rows (their
+   rules after the buttons' sizes below). */
 .xs-tb-large:is(.xs-tool, .xs-tb-split),
 .xs-tb-large :is(.xs-tool, .xs-tb-split) {
   grid-row: span 2;
-}
-.xs-toolbar:not(.xs-touch) :is(.xs-tool.xs-tb-large, .xs-tb-large .xs-tool) {
-  height: calc(2 * var(--xs-tb-tool-h) + 2px);
-}
-.xs-toolbar:not(.xs-touch) :is(.xs-tool.xs-tb-large, .xs-tb-large .xs-tool):not(.xs-tb-caret) > .xs-icon:first-child {
-  width: 28px;
-  height: 28px;
 }
 .xs-tb-split {
   position: relative;
@@ -147,6 +143,60 @@
 .xs-toolbar:not(.xs-touch) .xs-tool .xs-tb-down {
   width: 12px;
   height: 12px;
+}
+/* A large button: the icon at every button's size, its label under it on one or two lines (`--xs-tb-label`), a menu's arrow after
+   the label, as Excel's ribbon draws them; as wide as the label, at most `--xs-tb-label-w`, a longer line cut with an ellipsis. */
+.xs-toolbar :is(.xs-tool.xs-tb-large, .xs-tb-large .xs-tool) {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 2px;
+  width: auto;
+  max-width: var(--xs-tb-label-w);
+  padding: 5px 4px 0;
+}
+.xs-toolbar:not(.xs-touch) :is(.xs-tool.xs-tb-large, .xs-tb-large .xs-tool) {
+  height: calc(2 * var(--xs-tb-tool-h) + 2px);
+}
+.xs-toolbar :is(.xs-tool.xs-tb-large, .xs-tb-large .xs-tool) > .xs-icon {
+  flex: none;
+}
+/* A large split button, as Excel's Refresh All: its part the icon on top, its arrow the label below. */
+.xs-toolbar :is(.xs-tb-split.xs-tb-large, .xs-tb-large .xs-tb-split):has(> .xs-tb-caret) {
+  flex-direction: column;
+  align-self: stretch;
+  align-items: stretch;
+}
+.xs-toolbar :is(.xs-tb-split.xs-tb-large, .xs-tb-large .xs-tb-split) > .xs-tool:has(+ .xs-tb-caret) {
+  height: calc(var(--xs-tb-icon) + 8px);
+  border-radius: 4px 4px 0 0;
+}
+.xs-toolbar :is(.xs-tb-split.xs-tb-large, .xs-tb-large .xs-tb-split) > .xs-tb-caret {
+  flex: 1 1 auto;
+  width: auto;
+  height: auto;
+  min-width: var(--xs-tb-tool);
+  padding-top: 0;
+  border-radius: 0 0 4px 4px;
+}
+.xs-tb-label {
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  color: var(--xs-fg);
+  font: var(--xs-tb-label) / 15px var(--xs-font);
+}
+.xs-tb-label-line {
+  height: 15px;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xs-toolbar .xs-tool .xs-tb-label .xs-tb-label-down {
+  width: 10px;
+  height: 10px;
+  margin-left: 2px;
+  vertical-align: -1px;
 }
 /* A host's button: its SVG markup at the icon's size, or its label as text. */
 .xs-tb-svg {
@@ -357,6 +407,9 @@
 }
 .xs-touch :is(.xs-tool.xs-tb-large, .xs-tb-large .xs-tool) {
   height: calc(2 * var(--xs-touch-target) + 2px);
+}
+.xs-touch :is(.xs-tb-split.xs-tb-large, .xs-tb-large .xs-tb-split) > .xs-tool:has(+ .xs-tb-caret) {
+  height: var(--xs-touch-target);
 }
 .xs-tb-pivot {
   display: inline-flex;

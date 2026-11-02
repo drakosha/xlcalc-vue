@@ -518,7 +518,10 @@ export interface ToolbarButton {
    * toolbar's drawn stacked (`'autoSum'`, `'undo'`, `'refreshAll'`...), the button joins that group.
    */
   group?: string
-  /** `'large'`: as tall as both rows of `rows: 2`, with a larger icon, as Excel's PivotTable; elsewhere drawn as the others. */
+  /**
+   * `'large'`: as tall as both rows of `rows: 2`, the icon at every button's size with `label` under it (without its key, on one
+   * or two lines), as Excel's PivotTable; elsewhere drawn as the others.
+   */
   size?: 'large'
 }
 
