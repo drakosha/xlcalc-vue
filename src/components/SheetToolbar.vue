@@ -15,7 +15,6 @@ import { useMessages } from '../messages'
 import type { SheetMessages } from '../contract/messages'
 import { useNumberFormats } from '../number-formats'
 import { allows } from '../protection'
-import { accountingCurrencies } from '../accounting'
 import type { AutoSumFunction, EditOutcome, FormatPatch } from '../contract/source'
 import {
   alignToggle,
@@ -539,11 +538,11 @@ function underline(kind: UnderlineKind): void {
 const underlineItems = computed<ToolbarDropItem[]>(() =>
   UNDERLINES.map((u) => ({ hook: `underline-${u.kind}`, label: text(u.title), icon: u.icon, checked: underlineOn(style.value, u.kind), run: () => underline(u.kind) })),
 )
-/** Accounting Number Format's menu: the workbook's locale's currency, then Excel's set, each Excel's code, then More Accounting Formats... */
+/** Accounting Number Format's menu: xlcalc's currencies for the workbook's locale, named in its language, then More Accounting Formats... */
 const accountingItems = computed<ToolbarDropItem[]>(() => [
-  ...accountingCurrencies(props.locale).map(({ currency, code }) => ({
-    hook: `accounting-${currency}`,
-    label: m.value.accountingCurrency(currency),
+  ...numbers.currencies.value.map(({ currency, name, code }) => ({
+    hook: `accounting-${currency.toLowerCase()}`,
+    label: name,
     run: () => {
       open.value = null
       apply(over({ numberFormat: code }))

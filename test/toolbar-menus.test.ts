@@ -81,7 +81,7 @@ describe("Underline, Excel's split button", () => {
 })
 
 describe("Accounting Number Format, Excel's split button", () => {
-  it("lists Excel's currencies for an Excel in the workbook's locale: its own, then £, €, ¥, CHF, named as Excel's menu in each language", async () => {
+  it("lists xlcalc's currencies for an Excel in the workbook's locale: its own, then £, €, ¥, CHF, named as Excel's menu in its language", async () => {
     const sheet = { formatCells: vi.fn() } as unknown as SheetViewApi
     const en = bar({ sheet })
     await en.find('[data-tb="accounting-menu"]').trigger('click')
@@ -94,6 +94,8 @@ describe("Accounting Number Format, Excel's split button", () => {
       ['accounting-more', 'More Accounting Formats...'],
     ])
     const ru = bar({ sheet, locale: 'ru-RU', messages: ruMessages })
+    // the currencies come with the locale's module, a separate chunk
+    await vi.dynamicImportSettled()
     const arrow = ru.find('[data-tb="accounting-menu"]')
     expect(arrow.attributes('aria-label')).toBe('Финансовый числовой формат')
     await arrow.trigger('click')
@@ -105,11 +107,17 @@ describe("Accounting Number Format, Excel's split button", () => {
       ['accounting-chf', 'CHF французский (Швейцария)'],
       ['accounting-more', 'Другие финансовые форматы...'],
     ])
+    // the names are xlcalc's, in the workbook's language whatever the interface's texts
+    const mixed = bar({ sheet, locale: 'ru-RU' })
+    await vi.dynamicImportSettled()
+    await mixed.find('[data-tb="accounting-menu"]').trigger('click')
+    expect(items(mixed).map((x) => x[1])).toEqual(['₽ русский', '£ английский (Соединенное Королевство)', '€ Евро (€ 123)', '¥ Китайский, упрощенное письмо (континентальный Китай)', 'CHF французский (Швейцария)', 'More Accounting Formats...'])
   })
 
   it("applies Excel's code of each currency in the workbook's locale, the euro's with its negatives; the part applies the built-in 44", async () => {
     const codes = async (locale: string | undefined, own: string) => {
       const w = bar({ locale })
+      await vi.dynamicImportSettled()
       await w.find('[data-tb="accounting"]').trigger('click')
       for (const c of [own, 'gbp', 'eur', 'cny', 'chf']) await pick(w, 'accounting-menu', `accounting-${c}`)
       await settle()
@@ -351,6 +359,26 @@ describe('through the local source', () => {
       expect((await cell(s, 'A8')).numberFormat).toBe(44)
       await until(() => w.find('[data-tb="number"]').attributes('data-tb-category') !== 'general')
       expect([locale, w.find('[data-tb="number"]').attributes('data-tb-category')]).toEqual([locale, 'accounting'])
+      w.unmount()
+    }
+  })
+
+  it("names the category of each currency's code, and of the box's own items, as Excel's box does in an en-US and a ru-RU workbook", async () => {
+    for (const [locale, own] of [['en-US', 'usd'], ['ru-RU', 'rub']] as const) {
+      const { w, s } = await mountLocal(locale)
+      close.push(s)
+      const shown: string[] = []
+      const after = async (place: string, act: () => Promise<void>) => {
+        await goTo(w, place)
+        await act()
+        await settle(12)
+        await until(() => w.find('[data-tb="number"]').attributes('data-tb-category') !== 'general')
+        shown.push(w.find('[data-tb="number"]').attributes('data-tb-category')!)
+      }
+      const currencies = [own, 'gbp', 'eur', 'cny', 'chf']
+      for (const [i, c] of currencies.entries()) await after(`A${i + 1}`, () => pick(w, 'accounting-menu', `accounting-${c}`))
+      for (const [i, item] of ['currency', 'accounting', 'shortDate', 'fraction'].entries()) await after(`B${i + 1}`, () => w.find('[data-tb="number"]').setValue(item))
+      expect([locale, shown]).toEqual([locale, [...currencies.map(() => 'accounting'), 'currency', 'accounting', 'date', 'fraction']])
       w.unmount()
     }
   })
