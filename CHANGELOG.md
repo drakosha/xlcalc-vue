@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.35.0 (2026-11-02)
 
 - Built over xlcalc 0.76.0. Breaking for a host: `./local` requires `xlcalc` 0.76.0 or later (the optional peer was 0.75.0), whose ru-RU workbooks give the built-in formats as Excel writes them to a file: Short Date 14 (and 27 to 31, 36) as `dd/mm/yyyy`, was `dd.mm.yyyy`, 22 as `dd/mm/yyyy h:mm`, Fraction 12 and 13 as `#" "?/?` and `#" "??/??`; a cell's `numberFormat` in `state` and in the source's windows carries that code, and the display is the same (`15.03.2026`, `1 1/4`). The Number Format box names each built-in by xlcalc's category of its code, without the package's own lookup of the code among the box's items ([local.md](docs/local.md)).
 
