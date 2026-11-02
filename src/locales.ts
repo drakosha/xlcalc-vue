@@ -14,8 +14,8 @@ const loading = new Map<string, Promise<Locale | undefined>>()
 
 /**
  * Loads the locale of `tag` once for all callers and gives its object, which the separately bundled `xlcalc/entry` chunk
- * and the locale's own words (separators, function names) still need. Undefined for en-US, built in, for a tag the package
- * has no module for and for a module that failed to load, which are treated as en-US.
+ * and the locale's own words (separators, function names) still need. Undefined for en-US, built in, and for a tag the
+ * package has no module for, which are treated as en-US; a module that fails to load rejects, and the next call tries again.
  */
 export function loadBookLocale(tag: string): Promise<Locale | undefined> {
   const load = MODULES[tag]
@@ -24,12 +24,18 @@ export function loadBookLocale(tag: string): Promise<Locale | undefined> {
   if (!got) {
     got = load().then(
       (l) => (loaded.add(tag), l),
-      () => undefined,
+      (e: unknown) => {
+        loading.delete(tag)
+        throw e
+      },
     )
     loading.set(tag, got)
   }
   return got
 }
+
+/** Whether `tag` is one of the package's locales other than en-US, which is loaded before its tag works. */
+export const hasModule = (tag: string | undefined): boolean => !!tag && tag in MODULES
 
 /**
  * `tag` as xlcalc's calls take it: itself once its module has loaded (en-US always), undefined (en-US) until then and for a

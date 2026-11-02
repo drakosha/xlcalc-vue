@@ -5,7 +5,8 @@ import { loadBookLocale } from '../locales'
 
 /**
  * Loads the locale of `tag` once into the host's xlcalc; a tag without a module is left to the session, which rejects it,
- * listing the locales it has. The import loads it from xlcalc 0.77 on; `registerLocale` keeps an older peer working.
+ * listing the locales it has, and a module that fails to load rejects with its error. The import loads it from xlcalc 0.77
+ * on; `registerLocale` keeps an older peer working.
  */
 export async function loadLocale(tag: string): Promise<void> {
   if (LOCALES.has(tag)) return

@@ -10,7 +10,7 @@ import type { PivotOptionsTab } from '../contract/messages'
 import type { EditOutcome, PivotAxis, SheetOp, SheetPivotCell } from '../contract/source'
 import type { PivotDesignChange } from '../contract/view'
 import { loadEntry } from '../entry'
-import { usableTag } from '../locales'
+import { hasModule, usableTag } from '../locales'
 import { axisFields, cellField, cellTarget, designPatch, grandOf, grandPatch, ungroupedField, fieldKind, fieldName, groupedField, isoOfSerial, PIVOT_FUNCTIONS, serialOfIso, withFunction, withValue, type PivotTarget } from '../pivot-model'
 import type { Commands } from './commands'
 import type { Pivots } from './pivots'
@@ -103,8 +103,8 @@ export type PivotDialogState =
   | { kind: 'calcItem'; t: PivotTarget; field: number; draft: CalcDraft }
 
 export interface PivotDialogsDeps {
-  /** The workbook's locale object for xlcalc/entry's calls (its chunk keeps a registry of its own); undefined, en-US, until its module loads. */
-  locale: () => Locale | undefined
+  /** The workbook's locale object for xlcalc/entry's calls (its chunk keeps a registry of its own) once its module has loaded, undefined for en-US: a dialog waits for it rather than read its boxes as en-US. */
+  locale: () => Promise<Locale | undefined>
   pivots: Pivots
   protection: Protection
   sel: Selection
@@ -207,8 +207,9 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   function pickFunction(fn: PivotFunction): void {
     const d = state.value
     if (d?.kind !== 'value' || d.draft.fn === fn) return
-    // en-US's words until the workbook's locale has loaded
-    d.draft.name = renamedValueField(d.draft.name, d.draft.fn, fn, sourceName(d.t, d.index), usableTag(s.locale.value))
+    // the name stays until the workbook's locale has loaded, rather than take en-US's words in its place
+    const tag = usableTag(s.locale.value)
+    if (tag !== undefined || !hasModule(s.locale.value)) d.draft.name = renamedValueField(d.draft.name, d.draft.fn, fn, sourceName(d.t, d.index), tag)
     d.draft.fn = fn
   }
   /** Another base field: its base item starts again at the list's first, (previous). */
@@ -413,7 +414,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     const range = cf.group?.range ?? t.def.cache.fields.find((x) => x.group?.base === field && x.group.range)?.group?.range
     const facts = cf.facts
     const entry = await loadEntry()
-    const locale = deps.locale()
+    const locale = await deps.locale()
     const dates = kind === 'dates'
     const text = (v: number | { date: string } | undefined, plusDay = false): string => {
       if (v === undefined) return ''
@@ -447,7 +448,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
     if (d?.kind !== 'group') return
     const x = d.draft
     const entry = await loadEntry()
-    const locale = deps.locale()
+    const locale = await deps.locale()
     const num = (text: string) => {
       const got = entry.parseEntry(text, { locale })
       return got.ok && typeof got.input?.value === 'number' ? got.input.value : null
@@ -561,7 +562,7 @@ export function usePivotDialogs(s: SheetState, cmd: Commands, deps: PivotDialogs
   async function canonical(text: string): Promise<string> {
     const typed = text.trim().startsWith('=') ? text.trim() : `=${text.trim()}`
     if (s.locale.value.toLowerCase().startsWith('en')) return typed
-    const got = (await loadEntry()).parseEntry(typed, { locale: deps.locale() })
+    const got = (await loadEntry()).parseEntry(typed, { locale: await deps.locale() })
     return got.ok && got.input?.formula !== undefined ? `=${got.input.formula}` : typed
   }
 

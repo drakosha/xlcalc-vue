@@ -42,6 +42,8 @@ const source = computed(() => {
   const s = local.value
   return {
     ...s,
+    // a member of the source's prototype, which the spread leaves out: the sheet takes the workbook's locale from it
+    locale: s.locale,
     async edit(entries: CellEntry[], opts?: EditOptions) {
       const begun = performance.now()
       const got = await s.edit(entries, opts)
@@ -114,7 +116,7 @@ const ms = (n: number) => `${Math.round(n)} мс`
       Из файла не перенесено:
       <span v-for="g in lost" :key="g.code">{{ g.message }}<template v-if="g.count > 1"> (и ещё {{ g.count - 1 }})</template><template v-if="g.sheets.length">, листы {{ g.sheets.join(', ') }}</template>. </span>
     </div>
-    <SheetView :key="fileName" :ref="(el) => (sheet = el as SheetViewApi | null)" class="sheet" :source="source" :messages="ruMessages" :locale="local.locale" :focus="focus" storage-key="xs-local" @state="state = $event" />
+    <SheetView :key="fileName" :ref="(el) => (sheet = el as SheetViewApi | null)" class="sheet" :source="source" :messages="ruMessages" :focus="focus" storage-key="xs-local" @state="state = $event" />
   </div>
 </template>
 

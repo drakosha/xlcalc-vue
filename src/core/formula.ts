@@ -1,7 +1,7 @@
 // The formula the formula bar displays (the draft's while one is typed) in pieces with colored references, and the formula's ranges highlighted on the grid, as in Excel.
-import { computed, type Ref } from 'vue'
+import { computed, watch, type Ref } from 'vue'
 import { cellAddress, nameKey, sameName } from 'xlcalc/a1'
-import type { CellRect, GridReference, ScanOptions } from 'xlcalc/contract'
+import type { CellRect, GridReference, Locale, ScanOptions } from 'xlcalc/contract'
 import { scanReferences } from 'xlcalc/text'
 import { isGridRef } from '../grid-ref'
 import { useLocaleModule } from '../locale-ref'
@@ -53,8 +53,19 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     return selectedFormula.value
   })
 
-  /** How formula text is parsed: in the workbook's locale once its module has loaded, as stored text where xlcalc has none or it failed to load (addresses parse the same in every locale); null while it loads. */
+  /** How formula text is parsed: in the workbook's locale once its module has loaded, as stored text where xlcalc has none (addresses parse the same in every locale); null while it loads and after it failed to. */
   const bookLocale = useLocaleModule(() => s.locale.value)
+  /** The workbook's locale object once its module has loaded (undefined for en-US): waits while it loads, and stays waiting after a failure, so that nothing is read as en-US in its place. */
+  function localeReady(): Promise<Locale | undefined> {
+    if (bookLocale.value !== null) return Promise.resolve(bookLocale.value)
+    return new Promise((resolve) => {
+      const stop = watch(bookLocale, (l) => {
+        if (l === null) return
+        stop()
+        resolve(l)
+      })
+    })
+  }
   const scan = computed<ScanOptions | null>(() => (bookLocale.value === null ? null : bookLocale.value ? { locale: bookLocale.value } : {}))
   /** How the workbook's formula text is parsed, for `xlcalc/text`; null while its locale loads. */
   const scanOptions = (): ScanOptions | null => scan.value
@@ -174,7 +185,7 @@ export function useFormula(s: SheetState, w: Windows, sel: Selection, draft: Ref
     return out
   }
 
-  return { formulaAt, selectedFormula, selectedValue, shownFormula, bookLocale, scanOptions, formulaParts, refSheet, sheetIndexByName, highlights, highlightAt }
+  return { formulaAt, selectedFormula, selectedValue, shownFormula, localeReady, scanOptions, formulaParts, refSheet, sheetIndexByName, highlights, highlightAt }
 }
 
 export type Formula = ReturnType<typeof useFormula>
