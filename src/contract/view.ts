@@ -512,6 +512,14 @@ export interface ToolbarButton {
   disabled?: boolean
   /** Shown as pressed (`aria-pressed`), as a toggle. */
   pressed?: boolean
+  /**
+   * The group the button is drawn in, as Excel's ribbon groups its commands: host buttons next to each other in `items` with
+   * the same `group` (or all without one) form one group; a different value starts another. Named as an adjacent group of the
+   * toolbar's drawn stacked (`'autoSum'`, `'undo'`, `'refreshAll'`...), the button joins that group.
+   */
+  group?: string
+  /** `'large'`: as tall as both rows of `rows: 2`, with a larger icon, as Excel's PivotTable; elsewhere drawn as the others. */
+  size?: 'large'
 }
 
 /** An item of a host's button's list; its hook is `data-tb-host-item="<id>"`. */

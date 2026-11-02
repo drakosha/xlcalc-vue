@@ -77,29 +77,39 @@ const RIBBON_ROWS: Partial<Record<ToolbarGroup, { group: string; slots: readonly
 /** Excel's large buttons, as tall as the two rows: Insert's PivotTable, Data's Refresh All, Design's Layout menus. */
 const RIBBON_LARGE: ReadonlySet<ToolbarGroup> = new Set(['pivotTable', 'refreshAll', 'pivotDesign'])
 
-/** A block of the toolbar as it lays out one: its slot in a two-row group, or none where it is drawn whole. */
-export type RibbonPiece<B> = { block: B; slot?: RibbonSlot }
+/** A block of the toolbar as it lays out one: its slot in a two-row group, or none where it is drawn whole; `large` as tall as the two rows. */
+export type RibbonPiece<B> = { block: B; slot?: RibbonSlot; large?: boolean }
 /**
  * A group drawn between separators: `flat` on one line (the blocks whole), `rows` in Excel's rows (each stack a column of two
- * lines), `cols` with its controls stacked two to a column, as Excel stacks its small buttons, `large` ones two rows tall.
+ * lines), `cols` with its controls stacked two to a column, as Excel stacks its small buttons, its `large` pieces two rows tall.
  */
-export type RibbonGroup<B> = { key: string; kind: 'flat' | 'rows' | 'cols'; large?: boolean; stacks: { key: string; lines: RibbonPiece<B>[][] }[] }
+export type RibbonGroup<B> = { key: string; kind: 'flat' | 'rows' | 'cols'; stacks: { key: string; lines: RibbonPiece<B>[][] }[] }
+
+/** A block as `ribbonGroups` takes it: one of the toolbar's groups, or a run of a host's buttons with the same `group`. */
+export type RibbonBlock = { key: string; group?: ToolbarGroup; buttons?: readonly { group?: string }[] }
+/** The name of Excel's group a block of Font, Alignment or Number belongs to. */
+const rowsGroup = (b: RibbonBlock) => (b.group ? RIBBON_ROWS[b.group]?.group : undefined)
+/** The name by which a block joins its neighbours: a host's `group`, or one of the toolbar's stacked groups' own name, which a host's button may take. */
+const joinName = (b: RibbonBlock) => (b.buttons ? b.buttons[0]?.group : rowsGroup(b) ? undefined : b.group)
 
 /**
  * The toolbar's blocks as groups between separators: each block alone (`blocks`, on a phone, where Excel's Font group is wider
- * than the row), or the blocks of Excel's Font, Alignment and Number groups that follow each other in `items` as one group and
- * the others a group each. With `groups` a group's blocks are drawn in a row; with `ribbon` a group is two rows tall, Font, Alignment and Number in Excel's rows when the first column of rows has both (where Excel's
+ * than the row), or else groups of the blocks that follow each other in `items` and belong together: Excel's Font, Alignment
+ * and Number groups, and a host's buttons with the same `group`, which joins an adjacent stacked group of the toolbar's named
+ * so (`'autoSum'`); any other block is a group of its own. With `groups` a group's blocks are drawn in a row; with `ribbon` a
+ * group is two rows tall, Font, Alignment and Number in Excel's rows when the first column of rows has both (where Excel's
  * places win over the order of `items`), and otherwise its controls stacked two to a column with no row left empty.
  */
-export function ribbonGroups<B extends { key: string; group?: ToolbarGroup }>(blocks: readonly B[], layout: 'blocks' | 'groups' | 'ribbon'): RibbonGroup<B>[] {
-  const line = (run: readonly B[]) => [{ key: 'a', lines: [run.map((block) => ({ block }))] }]
+export function ribbonGroups<B extends RibbonBlock>(blocks: readonly B[], layout: 'blocks' | 'groups' | 'ribbon'): RibbonGroup<B>[] {
+  const line = (run: readonly B[], stacked = false) => [{ key: 'a', lines: [run.map((block) => (stacked && block.group && RIBBON_LARGE.has(block.group) ? { block, large: true } : { block }))] }]
   if (layout === 'blocks') return blocks.map((b) => ({ key: b.key, kind: 'flat', stacks: line([b]) }))
   const runs: B[][] = []
   for (const b of blocks) {
-    const name = b.group && RIBBON_ROWS[b.group]?.group
     const run = runs[runs.length - 1]
-    const prev = run?.[0]?.group && RIBBON_ROWS[run[0].group]?.group
-    if (name && run && prev === name) run.push(b)
+    const prev = run?.[run.length - 1]
+    const rows = rowsGroup(b)
+    const name = joinName(b)
+    if (run && prev && (rows ? rowsGroup(prev) === rows : name !== undefined && joinName(prev) === name)) run.push(b)
     else runs.push([b])
   }
   if (layout === 'groups') return runs.map((run) => ({ key: run[0]!.key, kind: 'flat', stacks: line(run) }))
@@ -109,8 +119,7 @@ export function ribbonGroups<B extends { key: string; group?: ToolbarGroup }>(bl
     const stacks = (['a', 'b'] as const).map((s) => ({ key: s, lines: [at(`${s}1`), at(`${s}2`)] })).filter((s) => s.lines.some((l) => l.length))
     // Excel's rows only with both rows of the first column filled; otherwise the controls stack, leaving no hole
     if (stacks[0]?.key === 'a' && stacks[0].lines.every((l) => l.length)) return { key, kind: 'rows', stacks }
-    const group = run.length === 1 ? run[0]!.group : undefined
-    return { key, kind: 'cols', large: !!group && RIBBON_LARGE.has(group), stacks: line(run) }
+    return { key, kind: 'cols', stacks: line(run, true) }
   })
 }
 

@@ -51,6 +51,7 @@ import {
   type FontToggle,
   type HorizontalAlign,
   type OrientationKind,
+  type RibbonGroup,
   type RibbonPiece,
   type RibbonSlot,
   type UnderlineKind,
@@ -243,7 +244,7 @@ watch(root, (el, old) => {
 })
 
 // ── the items: groups in the host's order, its buttons together between them ──
-/** A group, or a run of the host's buttons drawn as one group. */
+/** A group, or a run of the host's buttons with the same `group`. */
 type Block = { key: string; group: ToolbarGroup; buttons?: undefined } | { key: string; group?: undefined; buttons: ToolbarButton[] }
 /** The active cell is in a PivotTable: a boolean, so that the blocks change only when it does. */
 const inPivot = computed(() => !!props.state?.pivot)
@@ -277,7 +278,7 @@ const blocks = computed(() => {
   for (const item of props.items) {
     const last = out[out.length - 1]
     if (typeof item !== 'string') {
-      if (last?.buttons) last.buttons.push(item)
+      if (last?.buttons && last.buttons[0]!.group === item.group) last.buttons.push(item)
       else out.push({ key: `host-${out.length}`, buttons: [item] })
     } else if (TOOLBAR_GROUPS.includes(item) && !seen.has(item)) {
       seen.add(item)
@@ -354,6 +355,8 @@ function runHost(button: { run?: () => void }): void {
   closeAll()
   button.run?.()
 }
+/** A host's button drawn large: `size: 'large'` in a group stacked two to a column (in the ribbon). */
+const large = (g: RibbonGroup<Block>, x: ToolbarButton) => g.kind === 'cols' && x.size === 'large'
 /** A host's button's icon as the toolbar draws its own: a component, SVG markup, or without an icon its label as text. */
 const HostIcon: FunctionalComponent<{ button: ToolbarButton }> = ({ button: b }) =>
   typeof b.icon === 'string' ? h('span', { class: 'xs-icon xs-tb-svg', innerHTML: b.icon }) : b.icon ? h(b.icon, { class: 'xs-icon' }) : b.label
@@ -641,7 +644,7 @@ function pickNumber(e: Event): void {
       :class="part.place === 'row' ? ['xs-tb-row', { 'xs-tb-rows': lines > 1 && !ribbon, 'xs-tb-ribbon': ribbon }] : 'xs-tb-menu'"
       :data-tb-menu="part.place === 'menu' ? '' : undefined"
     >
-      <span v-for="g in part.groups" :key="g.key" :class="['xs-tb-group', `xs-tb-g-${g.kind}`, { 'xs-tb-large': g.large }]" :data-tb-block="g.key" :data-tb-line="lineStart(g.key)">
+      <span v-for="g in part.groups" :key="g.key" :class="['xs-tb-group', `xs-tb-g-${g.kind}`]" :data-tb-block="g.key" :data-tb-line="lineStart(g.key)">
         <span v-for="st in g.stacks" :key="st.key" class="xs-tb-stack">
           <span v-for="(ln, li) in st.lines" :key="li" class="xs-tb-line">
             <template v-for="p in ln" :key="p.block.key">
@@ -923,12 +926,12 @@ function pickNumber(e: Event): void {
                   </div>
                 </span>
               </span>
-              <span v-else-if="p.block.group === 'pivotTable' && sheet && source.structure" class="xs-tb-part">
+              <span v-else-if="p.block.group === 'pivotTable' && sheet && source.structure" :class="['xs-tb-part', { 'xs-tb-large': p.large }]">
                 <button type="button" class="xs-tool" data-tb="pivot-table" :data-tip="m.pivotInsert" :aria-label="m.pivotInsert" :disabled="!state?.canInsertPivot" @click="insertPivot">
                   <IconPivotTable />
                 </button>
               </span>
-              <span v-else-if="p.block.group === 'refreshAll' && sheet && source.refreshConnections" class="xs-tb-part">
+              <span v-else-if="p.block.group === 'refreshAll' && sheet && source.refreshConnections" :class="['xs-tb-part', { 'xs-tb-large': p.large }]">
                 <span class="xs-tb-split">
                   <button type="button" class="xs-tool" data-tb="refresh-all" :data-tip="m.refreshAll" :data-tip-more="m.refreshAllTip" :aria-label="m.refreshAll" :disabled="!state?.canRefreshAll" @click="refreshAll">
                     <IconRefreshAll />
@@ -942,7 +945,7 @@ function pickNumber(e: Event): void {
                   </div>
                 </span>
               </span>
-              <span v-else-if="(p.block.group === 'pivotAnalyze' || p.block.group === 'pivotDesign') && sheet && state?.pivot && source.pivotCells" class="xs-tb-part">
+              <span v-else-if="(p.block.group === 'pivotAnalyze' || p.block.group === 'pivotDesign') && sheet && state?.pivot && source.pivotCells" :class="['xs-tb-part', { 'xs-tb-large': p.large }]">
                 <ToolbarPivot :group="p.block.group" :sheet="sheet" :state="state" :source="source" :m="m" />
               </span>
               <span v-else-if="p.block.buttons" class="xs-tb-part">
@@ -950,7 +953,7 @@ function pickNumber(e: Event): void {
                   <button
                     v-if="!x.menu || x.run"
                     type="button"
-                    :class="['xs-tool', { 'xs-tool-on': x.pressed, 'xs-tb-wide xs-tb-text': !x.icon }]"
+                    :class="['xs-tool', { 'xs-tool-on': x.pressed, 'xs-tb-wide xs-tb-text': !x.icon, 'xs-tb-large': large(g, x) }]"
                     :data-tb-host="x.id"
                     :data-tip="x.label"
                     :aria-label="x.label"
@@ -960,7 +963,7 @@ function pickNumber(e: Event): void {
                   >
                     <HostIcon :button="x" />
                   </button>
-                  <span v-if="x.menu" class="xs-tb-split">
+                  <span v-if="x.menu" :class="['xs-tb-split', { 'xs-tb-large': large(g, x) }]">
                     <button
                       type="button"
                       :class="['xs-tool', x.run ? 'xs-tb-caret' : 'xs-tb-wide', { 'xs-tool-on': !x.run && x.pressed, 'xs-tb-text': !x.run && !x.icon }]"

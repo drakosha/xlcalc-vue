@@ -134,7 +134,7 @@ describe("the toolbar's labels, as Excel for Windows names them", () => {
 describe('ribbonGroups', () => {
   const blocks = (keys: readonly string[]) => keys.map((key) => ({ key, group: key as ToolbarGroup }))
   const shape = (keys: readonly string[]) =>
-    ribbonGroups(blocks(keys), 'ribbon').map((g) => [g.key, g.kind, !!g.large, g.stacks.map((s) => s.lines.map((l) => l.map((p) => `${p.block.key}${p.slot ? `:${p.slot}` : ''}`)))])
+    ribbonGroups(blocks(keys), 'ribbon').map((g) => [g.key, g.kind, g.stacks.some((st) => st.lines.some((l) => l.some((p) => p.large))), g.stacks.map((s) => s.lines.map((l) => l.map((p) => `${p.block.key}${p.slot ? `:${p.slot}` : ''}`)))])
 
   it("joins Font, Alignment and Number into Excel's two-row groups and stacks the others", () => {
     expect(shape(TOOLBAR_GROUPS)).toEqual([
@@ -216,7 +216,7 @@ describe('rows: 2, as Excel’s ribbon', () => {
       [[], ['format-cells']],
     ])
     expect(w.find('[data-tb-block="undo"]').classes()).toContain('xs-tb-g-cols')
-    expect(['pivotTable', 'refreshAll', 'autoSum'].map((k) => w.find(`[data-tb-block="${k}"]`).classes().includes('xs-tb-large'))).toEqual([true, true, false])
+    expect(['pivotTable', 'refreshAll', 'autoSum'].map((k) => w.find(`[data-tb-block="${k}"] .xs-tb-large`).exists())).toEqual([true, true, false])
   })
 
   it("makes a host's run of buttons a group of its own, stacked two to a column", async () => {
