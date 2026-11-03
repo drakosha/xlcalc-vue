@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.41.0 (2026-11-03)
+
+- Built over xlcalc 0.80.0. `./local` still requires `xlcalc` 0.76.0 or later; what follows needs the host's xlcalc at the version named.
+- `localSource`'s `setExternalBooks` takes a link marked `open: true`, one the host has read itself (xlcalc 0.79.0): a formula typed over it reads a cell missing from its values as blank and a sheet without `cells` as empty, as Excel reads an open workbook, where over a closed link those cells become `#REF!`. A target stored with `%20` is shown and found by the name a person reads (`[Report 2025.xlsx]`), as Excel shows it ([local.md](docs/local.md#links-to-other-workbooks)).
+- `saveXlsx` writes a formula as a plain formula wherever Excel reads it back as the workbook's own, and as a dynamic array formula only where it spills or a plain one would compute otherwise, as Excel 365 saves typed formulas, so Excel 2019 and older no longer show every formula in braces; with `over`, only the formulas it writes anew (xlcalc 0.80.0). A file's old formulas such as `INDEX(range,MATCH(…))` and `OFFSET` of one cell read without `@`, as Excel 365 shows them; values are unchanged.
+
 ## 0.40.0 (2026-11-03)
 
 - The Number Format list shows under each item a sample of the active cell's value in that item's format, as Excel for Windows' list does: No specific format (`Формат не указан`) under General, `25.00%` under Percentage, ten `#` for a value a format cannot show, nothing under the others for an empty cell, dates in the workbook's date system. The samples are xlcalc 0.78's `numberFormatSamples`, from the `xlcalc/entry` chunk loaded as the list first opens. Each item is now two lines, its name (`.xs-tb-item-name`) and its sample (`.xs-tb-item-note`), so the list is taller ([toolbar.md](docs/toolbar.md#sheettoolbar)).
