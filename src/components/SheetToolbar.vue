@@ -14,7 +14,8 @@ import { NARROW_PX, useCoarsePointer } from '../frame'
 import { useMessages } from '../messages'
 import type { SheetMessages } from '../contract/messages'
 import { useNumberFormats } from '../number-formats'
-import { usableTag } from '../locales'
+import { loadBookLocale, usableTag } from '../locales'
+import { loadEntry } from '../entry'
 import { allows } from '../protection'
 import type { AutoSumFunction, EditOutcome, FormatPatch } from '../contract/source'
 import {
@@ -422,6 +423,29 @@ function onTipOut(e: PointerEvent): void {
 type Menu = 'font' | 'fill' | 'borders' | 'underline' | 'accounting' | 'orientation' | 'merge' | 'autoSum' | 'refreshAll' | 'fontName' | 'fontSize' | 'number' | `host:${string}`
 const open = ref<Menu | null>(null)
 const menu = ref(false)
+/**
+ * The samples Excel for Windows shows under the list's items for the active cell's value (xlcalc's `numberFormatSamples`),
+ * by item; `xlcalc/entry` and the locale's object, which that chunk needs, are loaded as the list opens. Without them (still
+ * loading, or failed: asked again at the next opening) the items have no samples.
+ */
+const numberSamples = ref<string[] | undefined>()
+let samplesAsked = 0
+watch(
+  () => (open.value === 'number' ? ([props.state?.cellValue ?? null, locale.value, props.source.dateSystem, numberKeys.value] as const) : null),
+  async (on) => {
+    const ask = ++samplesAsked
+    if (!on) return
+    const [value, tag, dateSystem, keys] = on
+    try {
+      const [entry, loc] = await Promise.all([loadEntry(), tag ? loadBookLocale(tag) : undefined])
+      if (ask !== samplesAsked) return
+      const by = new Map(entry.numberFormatSamples(value, { locale: loc, dateSystem }).map((x) => [x.key as string, x.sample]))
+      numberSamples.value = keys.map((k) => by.get(k) ?? '')
+    } catch {
+      if (ask === samplesAsked) numberSamples.value = undefined
+    }
+  },
+)
 const toggle = (what: Menu) => {
   hideTip(false)
   open.value = open.value === what ? null : what
@@ -890,6 +914,7 @@ function pickNumber(index: number): void {
                   :value="category?.name ?? ''"
                   :items="numberNames"
                   :keys="numberKeys"
+                  :notes="numberSamples"
                   :fit="categoryNames"
                   :label="m.numberFormat"
                   hook="number"

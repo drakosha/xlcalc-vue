@@ -172,6 +172,41 @@ describe("SheetToolbar: Excel's Number Format box", () => {
     expect([w.find('[role="listbox"]').exists(), numberShown(w)]).toEqual([false, 'Percentage'])
   })
 
+  it("shows under each item the active cell's value in its format, as Excel for Windows does, in the workbook's locale and date system", async () => {
+    const notes = (w: ReturnType<typeof mountBar>) => w.findAll('[role="option"][data-tb-number] .xs-tb-item-note').map((n) => n.text())
+    const named = (w: ReturnType<typeof mountBar>, key: string) => notes(w)[items.indexOf(key)]
+    const en = mountBar(source(), at('A1', { cellValue: 0.25 }), { messages: undefined })
+    await settle()
+    await en.find('[data-tb="number-list"]').trigger('click')
+    await vi.waitFor(() => expect(notes(en)).toHaveLength(items.length))
+    expect([named(en, 'general'), named(en, 'number'), named(en, 'percentage')]).toEqual(['No specific format', '0.25', '25.00%'])
+    // The item's name stays its own text; the sample is a line of its own under it.
+    expect(en.find('[data-tb-number="percentage"] .xs-tb-item-name').text()).toBe('Percentage')
+    en.unmount()
+
+    const ru = mountBar(source(), at('A1', { cellValue: 0.25, locale: 'ru-RU' }))
+    // the box has its list once the locale's module has come
+    await vi.waitFor(() => expect(ru.find('[data-tb="number-list"]').exists()).toBe(true))
+    await ru.find('[data-tb="number-list"]').trigger('click')
+    await vi.waitFor(() => expect(named(ru, 'percentage')).toBe('25,00%'))
+    expect(named(ru, 'general')).toBe('Формат не указан')
+    ru.unmount()
+
+    // Day 1 is 1 January 1900, and 2 January 1904 in a workbook in 1904.
+    const dates = await Promise.all(
+      ([undefined, 1904] as const).map(async (dateSystem) => {
+        const w = mountBar(source(dateSystem ? { dateSystem } : {}), at('A1', { cellValue: 1 }), { messages: undefined })
+        await settle()
+        await w.find('[data-tb="number-list"]').trigger('click')
+        await vi.waitFor(() => expect(notes(w)).toHaveLength(items.length))
+        const got = named(w, 'shortDate')
+        w.unmount()
+        return got
+      }),
+    )
+    expect(dates).toEqual(['1/1/1900', '1/2/1904'])
+  })
+
   it('opens on Alt+Down, goes through the list with the arrows, picks on Enter, and closes on Esc back to the grid', async () => {
     const src = source()
     const w = mountBar(src, at('A1'), { messages: undefined })

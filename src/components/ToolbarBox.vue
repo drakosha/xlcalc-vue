@@ -38,6 +38,8 @@ const props = defineProps<{
   whole?: boolean
   /** The item marked as the list opens, -1 for none, in place of the one the box's value names (Number Format's by the cell's code). */
   marked?: number
+  /** A line under each item, as Excel's Number Format list shows the active cell's value in each item's format; empty lines keep the items' height. */
+  notes?: readonly string[]
 }>()
 // the box's other attributes (hooks) go on its field
 defineOptions({ inheritAttrs: false })
@@ -237,7 +239,11 @@ function onKey(e: KeyboardEvent): void {
         :style="itemFont(x)"
         @click="commit(x)"
       >
-        {{ x }}
+        <template v-if="notes">
+          <span class="xs-tb-item-name">{{ x }}</span>
+          <span class="xs-tb-item-note">{{ notes[i] }}</span>
+        </template>
+        <template v-else>{{ x }}</template>
       </button>
       <template v-if="more">
         <div class="xs-tb-sep" role="presentation" />

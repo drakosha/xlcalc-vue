@@ -268,6 +268,22 @@
 .xs-tb-list.xs-tb-whole {
   max-height: var(--xs-tb-room, none);
 }
+/* An item with a line under it (the Number Format list's sample of the active cell's value), as Excel for Windows draws it. */
+.xs-tb-list > .xs-tb-item:has(> .xs-tb-item-note) {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+}
+.xs-tb-item-note {
+  min-height: 1.3em;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--xs-muted);
+  font-size: var(--xs-tb-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .xs-tb-list > .xs-tb-sep {
   margin: 3px 0;
 }

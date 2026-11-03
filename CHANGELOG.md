@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Number Format list shows under each item a sample of the active cell's value in that item's format, as Excel for Windows' list does: No specific format (`Формат не указан`) under General, `25.00%` under Percentage, ten `#` for a value a format cannot show, nothing under the others for an empty cell, dates in the workbook's date system. The samples are xlcalc 0.78's `numberFormatSamples`, from the `xlcalc/entry` chunk loaded as the list first opens. Each item is now two lines, its name (`.xs-tb-item-name`) and its sample (`.xs-tb-item-note`), so the list is taller ([toolbar.md](docs/toolbar.md#sheettoolbar)).
+- Built over xlcalc 0.78.0: a percent past the largest number displays `#`. `./local` still requires `xlcalc` 0.76.0 or later.
 - The contract adds `SheetSource.dateSystem` (`1900 | 1904`), the workbook's date system, for the dates the toolbar formats itself; `localSource` has it for a workbook in 1904 and `remoteSource` passes on the server's. A host's own source may leave it out (1900).
 
 ## 0.39.1 (2026-11-03)
