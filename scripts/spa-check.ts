@@ -153,6 +153,8 @@ async function press(page: Page, size: Size, selector: string): Promise<void> {
 /** Picks an item of the toolbar's Number Format list by its key (`percentage`): the box's arrow, then the item. On a desktop the list shows every item without scrolling, as Excel's does. */
 async function pickNumber(page: Page, size: Size, item: string): Promise<void> {
   await press(page, size, '[data-tb="number-list"]')
+  // the list is measured with its samples, which come with xlcalc/entry as it first opens
+  await page.waitForFunction(() => [...document.querySelectorAll('[role="listbox"] .xs-tb-item-note')].some((n) => n.textContent), null, { timeout: 15_000 })
   if (!size.phone) {
     const list = await page.locator('[role="listbox"]').evaluate((el) => [el.scrollHeight, el.clientHeight, el.querySelectorAll('[role="option"]').length])
     if (list[0]! > list[1]! + 1) throw new Error(`${size.width}: the Number Format list scrolls (${list[0]} px in ${list[1]} px, ${list[2]} items)`)

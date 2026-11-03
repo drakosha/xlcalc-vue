@@ -630,7 +630,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | Member | Type | Meaning |
 | --- | --- | --- |
 | `locale` | `string` | The workbook's locale tag (`SheetSource.locale`), which `SheetView`, `SheetToolbar` and `FormatDialog` take as theirs. |
-| `dateSystem` | `1904?` | The workbook's date system (`SheetSource.dateSystem`), present for a workbook in 1904 (`BookInput.dateSystem`). |
+| `dateSystem` | `1900 \| 1904?` | The workbook's date system (`SheetSource.dateSystem`): its `BookInput.dateSystem` when it has one, as a workbook in 1904 does. |
 | `ready` | `Promise<void>` | Resolves when the workbook is calculated; rejects if it could not be opened. |
 | `history` | `SessionHistory` | The steps `undo` and `redo` can take now. |
 | `book()` | `Promise<BookInput>` | The workbook with all changes so far. |
@@ -735,5 +735,6 @@ A workbook on a server: `serveSource` serves a source to viewers over HTTP, and 
 | `--xs-alert-stop`, `--xs-alert-warning`, `--xs-alert-information` | `#d13438`, `#ffb900`, `#0f6cbd` | The validation alert's icons. |
 | `--xs-tb-tool`, `--xs-tb-tool-h`, `--xs-tb-icon` | `32px`, `30px`, `18px` | The toolbar's buttons (their least width and their height) and icons, at about Excel's ribbon; on a touch screen every target is 44 × 44 px instead. Set on `.xs-toolbar`. |
 | `--xs-tb-field-h`, `--xs-tb-text`, `--xs-tb-font-w`, `--xs-tb-size-w` | `28px`, `13px`, `150px`, `52px` | The toolbar's boxes (height, text size) and the widths of the Font and Font Size boxes. |
-| `--xs-tb-label` | `12px` | With `rows: 2`, the text size of a large button's name under its icon; the button is as wide as the name's longer line. |
+| `--xs-tb-label` | `12px` | With `rows: 2`, the text size of a large button's name under its icon (the button is as wide as the name's longer line); and of the samples under the Number Format list's items. |
+| `--xs-tb-note-w` | `200px` | The widest a sample under a Number Format item is: a longer one ends in an ellipsis, so the list keeps its width. |
 | `--xs-fl-line` | `#7a7a7a` | The border of lists under a cell: Formula AutoComplete and validation lists. |

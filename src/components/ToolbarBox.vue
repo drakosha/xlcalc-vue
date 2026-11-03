@@ -237,11 +237,13 @@ function onKey(e: KeyboardEvent): void {
         :id="optionId(i)"
         v-bind="itemHook(x, i)"
         :style="itemFont(x)"
+        :aria-description="notes?.[i] || undefined"
         @click="commit(x)"
       >
         <template v-if="notes">
           <span class="xs-tb-item-name">{{ x }}</span>
-          <span class="xs-tb-item-note">{{ notes[i] }}</span>
+          <!-- the sample is the option's description, as Excel's list gives it, not part of its name -->
+          <span class="xs-tb-item-note" aria-hidden="true">{{ notes[i] }}</span>
         </template>
         <template v-else>{{ x }}</template>
       </button>

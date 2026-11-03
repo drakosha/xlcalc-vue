@@ -1,5 +1,5 @@
-// xlcalc's typed-entry module without the engine (`xlcalc/entry`, about 130 KB as built) as a separate chunk, loaded when first
-// needed: the text a cell opens with when its source provides none, for the grid and the in-memory workbook.
+// xlcalc's typed-entry module without the engine (`xlcalc/entry`, about 146 KB as built) as a separate chunk, loaded when first
+// needed: the text a cell opens with when its source provides none (the grid, the in-memory workbook), and the Number Format list's samples.
 export type Entry = typeof import('xlcalc/entry')
 
 let loading: Promise<Entry> | null = null

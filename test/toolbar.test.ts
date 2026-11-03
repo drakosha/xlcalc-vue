@@ -182,6 +182,8 @@ describe("SheetToolbar: Excel's Number Format box", () => {
     expect([named(en, 'general'), named(en, 'number'), named(en, 'percentage')]).toEqual(['No specific format', '0.25', '25.00%'])
     // The item's name stays its own text; the sample is a line of its own under it.
     expect(en.find('[data-tb-number="percentage"] .xs-tb-item-name').text()).toBe('Percentage')
+    // A screen reader hears the sample as the option's description, as Excel's list gives it.
+    expect(en.find('[data-tb-number="percentage"]').attributes('aria-description')).toBe('25.00%')
     en.unmount()
 
     const ru = mountBar(source(), at('A1', { cellValue: 0.25, locale: 'ru-RU' }))
