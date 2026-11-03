@@ -1,7 +1,7 @@
 // What the grid draws now: frozen panes with the lock, the body's rows and columns under the scroll, spacers for the rest,
 // and the space for Excel's outline bars next to the row numbers and above the column letters.
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import { NARROW_PX, useCoarsePointer } from '../frame'
+import { NARROW_PX, useCoarsePointer, useHairline } from '../frame'
 import { clamp } from '../rect'
 import type { OutlineGroup, SheetInfo } from '../contract/source'
 import type { Geometry } from './geometry'
@@ -109,6 +109,23 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
    */
   const line = computed(() => (i.zoom.value < 1 ? 1 / i.zoom.value : 1))
   const lineOf = (px: number): number => (px > 0 ? Math.max(px, line.value) : 0)
+  const hairline = useHairline()
+  /** A border's width as the browser draws it under the zoom, in unzoomed pixels: rounded down to whole hairlines, at least one. */
+  const drawnOf = (px: number): number => {
+    const step = hairline.value
+    return px > 0 ? (Math.max(1, Math.floor((px * i.zoom.value) / step + 1e-6)) * step) / i.zoom.value : 0
+  }
+  /** The hairline's width in unzoomed pixels: the step borders are drawn in. */
+  const hairlineOf = (): number => hairline.value / i.zoom.value
+  /**
+   * The stroke of a double border this wide, in hairlines, where every browser draws it the same; 0 where it is drawn solid
+   * or browsers differ. Of n hairlines, fewer than three are solid; Chromium rounds a stroke to n / 3, WebKit rounds it up
+   * (four hairlines are its 2 + 2, solid), so they differ when n is one more than a multiple of three.
+   */
+  const doubleStroke = (px: number): number => {
+    const n = Math.round((drawnOf(px) * i.zoom.value) / hairline.value)
+    return n >= 3 && n % 3 !== 1 ? Math.round(n / 3) : 0
+  }
   /**
    * A phone-width sheet, by its own width on screen whatever the zoom: a narrower row number column, panels below the grid.
    * Not by the grid's width, which a panel beside it narrows: the panel would then move below and back without end.
@@ -216,6 +233,9 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     headRow,
     line,
     lineOf,
+    drawnOf,
+    doubleStroke,
+    hairlineOf,
     narrow,
     touch,
     numW,

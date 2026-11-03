@@ -99,6 +99,40 @@ function sameMerges(a: Map<string, MergeSpan | null>, b: Map<string, MergeSpan |
 /** Links a browser may open on its own; anything else (`javascript:` and the like) goes to the host or is only displayed. */
 export const safeHref = (href: string | undefined): boolean => !!href && /^(https?:|mailto:|tel:|ftp:)/i.test(href.trim())
 
+/** A w×h rectangle of color as a background layer, its right and bottom edges `x` and `y` pixels in from the box's. */
+const patch = (color: string, x: number, y: number, w: number, h: number) => `linear-gradient(${color}, ${color}) right ${x}px bottom ${y}px / ${w}px ${h}px no-repeat`
+
+/** The widest of some lines, the first of equals. */
+function widestOf(lines: (BorderLine | undefined)[]): BorderLine | undefined {
+  let widest: BorderLine | undefined
+  for (const line of lines) if (line && (!widest || borderWidth(line) > borderWidth(widest))) widest = line
+  return widest
+}
+
+/**
+ * A joint of double lines as background layers over `bg`: a 3×3 grid of strokes, the arms (up, down, left, right) each two
+ * strokes, the outer stroke turning the corner and the inner ones meeting at a dot, as box drawing's ╔ ╦ ╬ do; `stroke` is
+ * the width of each stroke (`Viewport.doubleStroke`), the gap is the rest.
+ */
+export function doubleJoint(up: boolean, down: boolean, left: boolean, right: boolean, w: number, h: number, stroke: number, color: string, bg: string): string {
+  const t = !up && (left || right)
+  const b = !down && (left || right)
+  const l = !left && (up || down)
+  const r = !right && (up || down)
+  const on = [
+    [t || l || (up && left), t, t || r || (up && right)],
+    [l, false, r],
+    [b || l || (down && left), b, b || r || (down && right)],
+  ]
+  // The three bands of a side from its far edge: [offset, size] of the outer stroke, the gap and the inner stroke.
+  const bands = (px: number): [number, number][] => [[px - stroke, stroke], [stroke, px - 2 * stroke], [0, stroke]]
+  const cols = bands(w)
+  const rows = bands(h)
+  const layers: string[] = []
+  on.forEach((row, i) => row.forEach((set, j) => set && layers.push(patch(color, cols[j]![0], rows[i]![0], cols[j]![1], rows[i]![1]))))
+  return [...layers, patch(bg, 0, 0, w, h)].join(', ')
+}
+
 interface CellViewDeps {
   editor: Ref<EditorState | null>
   /** Search matches by `row:col`, and the current one. */
@@ -212,9 +246,8 @@ export function useCellView(
   const freezeRows = () => s.sheet.value?.freeze?.rows ?? 0
   const freezeCols = () => s.sheet.value?.freeze?.cols ?? 0
 
-  /** A side's line: the cell's own, otherwise the neighbor's facing side (one line in Excel); otherwise a fill hides the gridline. */
-  function edge(own: BorderLine | undefined, other: BorderLine | undefined, fill: string | undefined): { css?: CssLine; width: number } {
-    const line = own ?? other
+  /** A side's line (the cell's own, otherwise the neighbor's facing side: one line in Excel); without one a fill hides the gridline. */
+  function edge(line: BorderLine | undefined, fill: string | undefined): { css?: CssLine; width: number } {
     if (line) return lineCss(line)
     const width = v.lineOf(1)
     return { css: fill ? { width: `${width}px`, style: 'solid', color: fill } : undefined, width }
@@ -223,6 +256,76 @@ export function useCellView(
   function lineCss(line: BorderLine): { css: CssLine; width: number } {
     const width = v.lineOf(borderWidth(line))
     return { css: { ...borderCss(line)!, width: `${width}px` }, width }
+  }
+
+  /** Whether the side between two neighboring cells (sheet rows) lies inside one merge, which does not draw it. */
+  function inner(r1: number, c1: number, r2: number, c2: number): boolean {
+    if (spanOf(r1, c1) === undefined || spanOf(r2, c2) === undefined) return false
+    return w.merges.value.some((m) => r1 >= m.top && r2 <= m.bottom && c1 >= m.left && c2 <= m.right)
+  }
+  /** The line on the side between two neighbors, from the first cell's side `a` or else the second's `b`; none inside a merge. */
+  function between(d1: number, c1: number, d2: number, c2: number, a: 'bottom' | 'right', b: 'top' | 'left', first = styleOf(d1, c1)): BorderLine | undefined {
+    const line = first?.border?.[a] ?? styleOf(d2, c2)?.border?.[b]
+    return line && !inner(s.rowOf(d1), c1, s.rowOf(d2), c2) ? line : undefined
+  }
+
+  /**
+   * The corner at a cell's bottom-right, where its right and bottom sides meet the line from the right (`across`) and the line
+   * from below (`down`). Each side is drawn inside the cell that owns it, so a box's corner falls in a cell outside the box,
+   * whose gridlines would cut the box open there; the joint fills it with the widest line, as Excel draws borders over
+   * gridlines, and double lines with their two strokes joined (`doubleJoint`). Background layers for `.xs-joint` (style.css);
+   * none when no line reaches the corner or the cell's own two lines join there. `bg` shows between double strokes.
+   */
+  function cornerJoint(d: number, c: number, colRight: number, rowBelow: number, toRight: CellStyle | undefined, below: CellStyle | undefined, rightLine: BorderLine | undefined, bottomLine: BorderLine | undefined, rightW: number, bottomW: number, bg: string): string[] {
+    const across = colRight === c ? undefined : between(d, colRight, rowBelow, colRight, 'bottom', 'top', toRight)
+    const down = rowBelow === d ? undefined : between(rowBelow, c, rowBelow, colRight, 'right', 'left', below)
+    const acrossW = across ? v.lineOf(borderWidth(across)) : 0
+    const downW = down ? v.lineOf(borderWidth(down)) : 0
+    // A line from the right or from below that the cell's own sides do not cover, or its own line wider than the gridline it
+    // meets, which CSS cuts on the diagonal; two lines of its own join by CSS.
+    const comesIn = (!!down && (!rightLine || downW > rightW)) || (!!across && (!bottomLine || acrossW > bottomW))
+    const cut = (!!bottomLine && !rightLine && bottomW > rightW) || (!!rightLine && !bottomLine && rightW > bottomW)
+    if (!comesIn && !cut) return []
+    const arms = [rightLine, bottomLine, across, down]
+    // Sized as the lines are drawn, so that zoomed out the joint ends where they do.
+    const w = v.drawnOf(Math.max(rightW, downW))
+    const h = v.drawnOf(Math.max(bottomW, acrossW))
+    const color = borderCss(widestOf(arms))!.color
+    // A double line as browsers draw it: two strokes, or solid when too thin (or where they differ, see `doubleStroke`).
+    const stroke = arms.every((line) => !line || line.style === 'double') ? v.doubleStroke(Math.max(rightW, bottomW, acrossW, downW)) : 0
+    return [stroke ? doubleJoint(!!rightLine, !!down, !!bottomLine, !!across, w, h, stroke * v.hairlineOf(), color, bg) : patch(color, 0, 0, w, h)]
+  }
+
+  /**
+   * A merge's own joints along its right and bottom sides, where a line from a neighbor ends at a row or column boundary
+   * inside the merge: the cells there are covered and draw no corner of their own. The line goes over the merge's side
+   * where that side is a gridline or narrower, as at a plain cell's corner.
+   */
+  function mergeJoints(d: number, c: number, d2: number, c2: number, colRight: number, rowBelow: number, rightLine: BorderLine | undefined, bottomLine: BorderLine | undefined, rightW: number, bottomW: number): string[] {
+    const layers: string[] = []
+    if (colRight !== c2) {
+      let up = 0
+      for (let dd = d2; dd > d; dd = geo.nextRow(dd, -1)) {
+        up += geo.heightOf(dd)
+        const above = geo.nextRow(dd, -1)
+        const line = between(above, colRight, dd, colRight, 'bottom', 'top')
+        const lineW = line ? v.lineOf(borderWidth(line)) : 0
+        if (line && (!rightLine || lineW > rightW)) layers.push(patch(borderCss(widestOf([line, rightLine]))!.color, 0, up, v.drawnOf(rightW), v.drawnOf(lineW)))
+        if (above === dd) break
+      }
+    }
+    if (rowBelow !== d2) {
+      let left = 0
+      for (let cc = c2; cc > c; cc = geo.nextCol(cc, -1)) {
+        left += geo.widthOf(cc)
+        const before = geo.nextCol(cc, -1)
+        const line = between(rowBelow, before, rowBelow, cc, 'right', 'left')
+        const lineW = line ? v.lineOf(borderWidth(line)) : 0
+        if (line && (!bottomLine || lineW > bottomW)) layers.push(patch(borderCss(widestOf([line, bottomLine]))!.color, left, 0, v.drawnOf(lineW), v.drawnOf(bottomW)))
+        if (before === cc) break
+      }
+    }
+    return layers
   }
 
   /** Whether a neighbor may take this cell's overflowing text: loaded, empty, not merged, not being edited. */
@@ -309,8 +412,10 @@ export function useCellView(
     const rowBelow = geo.nextRow(d2, 1)
     const nextC = colRight !== c2 ? styleOf(d, colRight) : undefined
     const nextR = rowBelow !== d2 ? styleOf(rowBelow, c) : undefined
-    const right = edge(rightStyle?.border?.right, nextC?.border?.left, c2 === freezeCols() ? undefined : (rightStyle?.fill?.color ?? nextC?.fill?.color))
-    const bottom = edge(bottomStyle?.border?.bottom, nextR?.border?.top, d2 === freezeRows() ? undefined : (bottomStyle?.fill?.color ?? nextR?.fill?.color))
+    const rightLine = rightStyle?.border?.right ?? nextC?.border?.left
+    const bottomLine = bottomStyle?.border?.bottom ?? nextR?.border?.top
+    const right = edge(rightLine, c2 === freezeCols() ? undefined : (rightStyle?.fill?.color ?? nextC?.fill?.color))
+    const bottom = edge(bottomLine, d2 === freezeRows() ? undefined : (bottomStyle?.fill?.color ?? nextR?.fill?.color))
     if (right.css) setSide(css, 'Right', right.css)
     if (bottom.css) setSide(css, 'Bottom', bottom.css)
     let topWidth = 0
@@ -355,6 +460,13 @@ export function useCellView(
       if (c === t.rect.left) shadows.push('inset 1px 0 0 0 var(--xs-table-line)')
       if (c2 >= t.rect.right) shadows.push('inset -1px 0 0 0 var(--xs-table-line)')
     }
+    // Joints: the corner is at the merge's bottom-right, with its neighbors there (the ones above for a plain cell).
+    const cornerRight = span && colRight !== c2 ? styleOf(d2, colRight) : nextC
+    const cornerBelow = span && rowBelow !== d2 ? styleOf(rowBelow, c2) : nextR
+    const cellBg = st?.fill?.color ?? (tableHead ? 'var(--xs-table-head-bg)' : 'var(--xs-bg)')
+    const joints = cornerJoint(d2, c2, colRight, rowBelow, cornerRight, cornerBelow, rightLine, bottomLine, right.width, bottom.width, cellBg)
+    if (span) joints.push(...mergeJoints(d, c, d2, c2, colRight, rowBelow, rightLine, bottomLine, right.width, bottom.width))
+    if (joints.length) Object.assign(css, { '--xs-joint-bg': joints.join(', '), '--xs-joint-r': `${right.width}px`, '--xs-joint-b': `${bottom.width}px` })
     if (look?.bar) bg.push(...barLayers(look.bar))
     if (shadows.length) css.boxShadow = shadows.join(', ')
     layers(css, bg)
@@ -379,6 +491,7 @@ export function useCellView(
       c2 === freezeCols() ? 'xs-fz-edge-r' : '',
       data.drill ? 'xs-drill' : '',
       rowLink ? 'xs-rowlink' : '',
+      joints.length ? 'xs-joint' : '',
     ]
 
     const titleParts = [data.formula !== undefined ? `=${data.formula}\n${data.text}` : data.text]

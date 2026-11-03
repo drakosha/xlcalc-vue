@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.39.1 (2026-11-03)
+
+- Fix: borders join at their corners as Excel draws them. A box's top-left corner was cut by the gridlines of the cell outside it, a thick line was notched where a gridline crossed it, double lines did not join at corners and crossings, and a line ending at a merge's side left a gap. The sheet now draws each joint with the widest line that meets there (double lines stroke by stroke), also zoomed in and out and on high-density screens, in Chromium, Firefox and WebKit. Where the browsers split a double line differently (four screen pixels wide, at about 133–150% zoom), its joint is drawn solid. Overflowing text stays above the cells it runs over, and the active cell's outline above the lines.
+
 ## 0.39.0 (2026-11-02)
 
 - The contract adds the text `numberFormatMore`, the Number Format list's More Number Formats... (`Другие числовые форматы...`); a host's complete set of its own texts needs it.
