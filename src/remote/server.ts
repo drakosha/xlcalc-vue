@@ -27,6 +27,7 @@ export function serveSource(source: SheetSource, opts: ServeOptions = {}): Sourc
     const methods: string[] = Object.keys(CALLS).filter((m) => isCall(m) && typeof source[m] === 'function' && (access === 'write' || !CALLS[m].write))
     if (source.subscribe) methods.push('subscribe')
     const locale = (source as { locale?: unknown }).locale
+    const dateSystem = (source as { dateSystem?: unknown }).dateSystem
     return {
       protocol: 1,
       access,
@@ -35,6 +36,7 @@ export function serveSource(source: SheetSource, opts: ServeOptions = {}): Sourc
       ...(source.autoSumFunctions ? { autoSumFunctions: source.autoSumFunctions } : {}),
       ...(source.history ? { history: historyOf(source) } : {}),
       ...(typeof locale === 'string' ? { locale } : {}),
+      ...(dateSystem === 1900 || dateSystem === 1904 ? { dateSystem } : {}),
       ...(source.subscribe ? { epoch, seq } : {}),
     }
   }

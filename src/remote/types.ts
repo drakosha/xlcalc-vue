@@ -19,6 +19,8 @@ export interface RemoteSource extends SheetSource {
   readonly access: SourceAccess
   /** The workbook's locale, when the server's source has one (as `localSource` does). */
   readonly locale?: string
+  /** The workbook's date system, when the server's source has one (as `localSource` does for a workbook in 1904). */
+  readonly dateSystem?: 1900 | 1904
   /** Stops the event stream; the source's calls keep working. */
   close(): void
 }

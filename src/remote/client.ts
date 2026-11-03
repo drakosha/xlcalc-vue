@@ -239,6 +239,7 @@ export async function remoteSource(url: string, opts: RemoteSourceOptions = {}):
   return Object.defineProperties(source, {
     access: { value: manifest.access, enumerable: true },
     ...(manifest.locale ? { locale: { value: manifest.locale, enumerable: true } } : {}),
+    ...(manifest.dateSystem ? { dateSystem: { value: manifest.dateSystem, enumerable: true } } : {}),
     ...(manifest.maxCells !== undefined ? { maxCells: { value: manifest.maxCells, enumerable: true } } : {}),
     ...(manifest.autoSumFunctions ? { autoSumFunctions: { value: manifest.autoSumFunctions, enumerable: true } } : {}),
     ...(history ? { history: { get: () => history, enumerable: true } } : {}),

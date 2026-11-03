@@ -655,6 +655,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
   const source: LocalSource = {
     maxCells,
     locale,
+    ...(input.dateSystem ? { dateSystem: input.dateSystem } : {}),
     ready,
     async sheets(signal) {
       const s = await open()

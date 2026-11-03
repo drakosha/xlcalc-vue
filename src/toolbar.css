@@ -9,6 +9,7 @@
   --xs-tb-font-w: 150px;
   --xs-tb-size-w: 52px;
   --xs-tb-label: 12px;
+  --xs-tb-note-w: 200px;
   position: relative;
   z-index: 30;
   display: flex;
@@ -267,6 +268,22 @@
 /* Excel's Number Format list: every item and its command at once. */
 .xs-tb-list.xs-tb-whole {
   max-height: var(--xs-tb-room, none);
+}
+/* An item with a line under it (the Number Format list's sample of the active cell's value), as Excel for Windows draws it. */
+.xs-tb-list > .xs-tb-item:has(> .xs-tb-item-note) {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+}
+.xs-tb-item-note {
+  min-height: 1.3em;
+  max-width: var(--xs-tb-note-w);
+  overflow: hidden;
+  color: var(--xs-muted);
+  font-size: var(--xs-tb-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .xs-tb-list > .xs-tb-sep {
   margin: 3px 0;

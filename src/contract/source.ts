@@ -11,6 +11,8 @@ import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, Sheet
 export interface SheetSource {
   /** The workbook's locale tag (`ru-RU`), in which it displays formulas and parses what is typed; the components take it as theirs unless their `locale` prop overrides it. En-US without one. */
   readonly locale?: string
+  /** The workbook's date system, in which its serial numbers are dates: 1904 for a workbook that uses it, 1900 without one. The toolbar shows dates with it where it formats a value itself (the Number Format list's samples). */
+  readonly dateSystem?: 1900 | 1904
   /** The workbook's sheets in order; read again after a structure change and on a `reload` event. */
   sheets(signal?: AbortSignal): Promise<SheetInfo[]>
   /** A rectangular block of a sheet's cells (a window), at most `maxCells` cells. */
