@@ -4,6 +4,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { SheetView, memorySource, type MemoryBook, type SheetViewApi } from '../src'
+import { doubleJoint } from '../src/core/cell-view'
 import { colPx, widthFromPx } from '../src/core/geometry'
 import { cellText, mountSheet, settle } from './helpers'
 
@@ -65,6 +66,93 @@ describe('cell style', () => {
     expect(side(w, 1, 1, 'Right')).toBe('2px solid #00ff00')
     expect(side(w, 3, 1, 'Right')).toBe('1px solid #abcdef')
     expect(side(w, 2, 1, 'Bottom')).toBe('1px solid #abcdef')
+  })
+
+  it("fills a box's corners and the gridlines that cross its lines", async () => {
+    const thick = { style: 'thick', color: '#000000' } as const
+    const book: MemoryBook = {
+      styles: [{}, { border: { top: thick, left: thick, bottom: thick } }, { border: { top: thick, right: thick, bottom: thick } }],
+      sheets: [{ name: 'S', cells: { C3: { value: 'a', style: 1 }, D3: { value: 'b', style: 2 } } }],
+    }
+    const w = await mountSheet(memorySource(book), { readOnly: true })
+    const joint = (r: number, c: number) => {
+      const st = css(w, r, c)
+      return td(w, r, c).classes().includes('xs-joint') ? ['bg', 'r', 'b'].map((k) => st.getPropertyValue(`--xs-joint-${k}`)).join(' ') : ''
+    }
+    // The top-left corner sits in B2, whose own sides are gridlines: the top line from C2 and the left line from B3 meet there.
+    expect(joint(2, 2)).toBe('linear-gradient(#000000, #000000) right 0px bottom 0px / 3px 3px no-repeat 1px 1px')
+    // The bottom-left corner in B3: its own right side is the left line, the bottom line comes from C3.
+    expect(joint(3, 2)).toBe('linear-gradient(#000000, #000000) right 0px bottom 0px / 3px 3px no-repeat 3px 1px')
+    // The top-right corner in D2: its bottom side is the top line, the right line comes from D3 below.
+    expect(joint(2, 4)).toBe('linear-gradient(#000000, #000000) right 0px bottom 0px / 3px 3px no-repeat 1px 3px')
+    // The gridline between C and D crosses the top line in C2 and the bottom line in C3: the line goes over it.
+    expect(joint(2, 3)).toBe('linear-gradient(#000000, #000000) right 0px bottom 0px / 1px 3px no-repeat 1px 3px')
+    expect(joint(3, 3)).toBe('linear-gradient(#000000, #000000) right 0px bottom 0px / 1px 3px no-repeat 1px 3px')
+    // The bottom-right corner is D3's own two sides; away from the box nothing is added.
+    expect(joint(3, 4)).toBe('')
+    expect(joint(1, 1)).toBe('')
+    expect(joint(1, 3)).toBe('')
+  })
+
+  it('adds no joint where CSS draws the lines whole: a thin line over thin gridlines, a side inside a merge', async () => {
+    const thin = { style: 'thin' } as const
+    const thick = { style: 'thick' } as const
+    const book: MemoryBook = {
+      // B2:D2 underlined thin; B4:C4 merged, with B4's thick right side left inside the merge.
+      styles: [{}, { border: { bottom: thin } }, { border: { right: thick } }],
+      sheets: [{ name: 'S', cells: { B2: { value: 'a', style: 1 }, C2: { style: 1 }, D2: { style: 1 }, B4: { value: 'm', style: 2 } }, merges: ['B4:C4'] }],
+    }
+    const w = await mountSheet(memorySource(book), { readOnly: true })
+    const joints = () => w.findAll('.xs-joint').map((x) => x.attributes('data-cell'))
+    // The underline's left end in A2 still joins the gridline: the line comes in from the right.
+    expect(joints()).toEqual(['2:1'])
+  })
+
+  it('joins lines at merges: between two merges, and where a line ends inside a merge side', async () => {
+    const thick = { style: 'thick', color: '#000000' } as const
+    const book: MemoryBook = {
+      // C1:C2 over C3:C4 with a thick line between; A6:A8 with B7's bottom ending at its right side; D6:E6 with D7's right ending at its bottom.
+      styles: [{}, { border: { bottom: thick } }, { border: { right: thick } }],
+      sheets: [{ name: 'S', cells: { C2: { style: 1 }, C1: 'top', C3: 'low', A6: 'm', B7: { value: 'b', style: 1 }, D6: 'n', D7: { value: 'd', style: 2 } }, merges: ['C1:C2', 'C3:C4', 'A6:A8', 'D6:E6'] }],
+    }
+    const w = await mountSheet(memorySource(book), { readOnly: true })
+    const bg = (r: number, c: number) => css(w, r, c).getPropertyValue('--xs-joint-bg')
+    // The line between the two merges is a side of each, not inside one: it reaches B2's corner.
+    expect(bg(2, 2)).toBe('linear-gradient(#000000, #000000) right 0px bottom 0px / 1px 3px no-repeat')
+    // B7's bottom meets A6:A8's right side one row (20px) above the merge's bottom.
+    expect(bg(6, 1)).toBe('linear-gradient(#000000, #000000) right 0px bottom 20px / 1px 3px no-repeat')
+    // D7's right side meets D6:E6's bottom one column (E's width) left of the merge's right.
+    expect(bg(6, 4)).toMatch(/^linear-gradient\(#000000, #000000\) right \d+px bottom 0px \/ 3px 1px no-repeat$/)
+  })
+
+  it("joins a line at a merge whose last row is hidden: the merge ends at its last shown row", async () => {
+    const thick = { style: 'thick', color: '#000000' } as const
+    const book: MemoryBook = {
+      // A1:A3 with row 3 hidden and B2's thick bottom, which ends at the merge's right side where it shows its bottom.
+      styles: [{}, { border: { bottom: thick } }],
+      sheets: [{ name: 'S', cells: { A1: 'm', B2: { value: 'b', style: 1 } }, merges: ['A1:A3'], heights: { '3': 0 } }],
+    }
+    const w = await mountSheet(memorySource(book), { readOnly: true })
+    expect(css(w, 1, 1).getPropertyValue('--xs-joint-bg')).toBe('linear-gradient(#000000, #000000) right 0px bottom 0px / 1px 3px no-repeat')
+  })
+
+  it('joins double lines stroke by stroke, as box drawing does', () => {
+    /** The strokes a joint sets, as a 3×3 picture, from its background layers. */
+    const picture = (bg: string) => {
+      const grid = [...'.........']
+      for (const m of bg.matchAll(/#000\) right (\d+)px bottom (\d+)px/g)) grid[(2 - Number(m[2])) * 3 + 2 - Number(m[1])] = 'X'
+      return grid.join('').match(/.../g)!.join('|')
+    }
+    // A box's top-left corner (╔): the outer stroke turns, the inner ones meet at a dot; the cell's background goes under them.
+    const corner = doubleJoint(false, true, false, true, 3, 3, 1, '#000', '#fff')
+    expect(picture(corner)).toBe('XXX|X..|X.X')
+    expect(corner.endsWith(', linear-gradient(#fff, #fff) right 0px bottom 0px / 3px 3px no-repeat')).toBe(true)
+    // Its bottom-left (╚), a cross (╬) and a tee (╦).
+    expect(picture(doubleJoint(true, false, false, true, 3, 3, 1, '#000', '#fff'))).toBe('X.X|X..|XXX')
+    expect(picture(doubleJoint(true, true, true, true, 3, 3, 1, '#000', '#fff'))).toBe('X.X|...|X.X')
+    expect(picture(doubleJoint(false, true, true, true, 3, 3, 1, '#000', '#fff'))).toBe('XXX|...|X.X')
+    // Strokes of two and a gap of one (a line of five): the outer corner stroke is 2×2, three in from the far edges.
+    expect(doubleJoint(false, true, false, true, 5, 5, 2, '#000', '#fff')).toContain('right 3px bottom 3px / 2px 2px')
   })
 
   it('shows the section color, a data bar, a note indicator and a table header', async () => {
