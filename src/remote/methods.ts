@@ -81,6 +81,7 @@ export interface Manifest {
   autoSumFunctions?: SheetSource['autoSumFunctions']
   history?: { undo: number; redo: number }
   locale?: string
+  dateSystem?: 1900 | 1904
   /** With events: this server's mark and the number of the source's events so far, to tell whether a stream missed some. */
   epoch?: string
   seq?: number

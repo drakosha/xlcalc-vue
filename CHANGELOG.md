@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The contract adds `SheetSource.dateSystem` (`1900 | 1904`), the workbook's date system, for the dates the toolbar formats itself; `localSource` has it for a workbook in 1904 and `remoteSource` passes on the server's. A host's own source may leave it out (1900).
+
 ## 0.39.1 (2026-11-03)
 
 - Fix: borders join at their corners as Excel draws them. A box's top-left corner was cut by the gridlines of the cell outside it, a thick line was notched where a gridline crossed it, double lines did not join at corners and crossings, and a line ending at a merge's side left a gap. The sheet now draws each joint with the widest line that meets there (double lines stroke by stroke), also zoomed in and out and on high-density screens, in Chromium, Firefox and WebKit. Where the browsers split a double line differently (four screen pixels wide, at about 133–150% zoom), its joint is drawn solid. Overflowing text stays above the cells it runs over, and the active cell's outline above the lines.

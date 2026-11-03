@@ -57,6 +57,19 @@ describe('remoteSource over serveSource', () => {
     expect((await c.autoSum!('Лист1', 'A4'))?.formula).toBe('СУММ(A3)')
   })
 
+  it("passes on a workbook's 1904 date system, and none for 1900", async () => {
+    const book = localSource({ dateSystem: 1904, sheets: [{ name: 'S', cells: {} }] }, { calc: 'inline' })
+    open.local = book
+    expect(book.dateSystem).toBe(1904)
+    const { url } = await served({ access: 'read' }, book)
+    expect((await connect(url)).dateSystem).toBe(1904)
+    open.server?.closeAllConnections()
+    open.server?.close()
+    await book.close()
+    const { url: plain } = await served()
+    expect((await connect(plain)).dateSystem).toBeUndefined()
+  })
+
   it("gives a read-only viewer only the methods that do not change the workbook, and refuses a write it sends anyway", async () => {
     const { url } = await served({ access: (req) => (req.headers.get('x-user') === 'editor' ? 'write' : 'read') })
     const reader = await connect(url)

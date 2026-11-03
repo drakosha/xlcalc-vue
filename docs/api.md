@@ -337,7 +337,7 @@ The component accesses its data only through this interface. Rows and columns ar
 
 A workbook calculated on the host's server reaches the sheet through `@xlcalc/vue/server` and `@xlcalc/vue/remote` ([below](#xlcalcvueremote-and-xlcalcvueserver), [remote.md](remote.md)), which carry every method of this contract; a host may also implement the contract over an API of its own.
 
-A source may give the workbook's locale tag as `locale` (`ru-RU`; a property, not a method): the sheet, the toolbar and Format Cells take it as theirs unless their `locale` prop overrides it, and en-US without it. `localSource` and `remoteSource` have it; `memorySource` has none.
+A source may give the workbook's locale tag as `locale` (`ru-RU`; a property, not a method): the sheet, the toolbar and Format Cells take it as theirs unless their `locale` prop overrides it, and en-US without it. `localSource` and `remoteSource` have it; `memorySource` has none. Likewise `dateSystem` (`1900 | 1904`) gives the workbook's date system, 1900 without it, for the dates the toolbar formats itself (the Number Format list's samples); `localSource` has it for a workbook in 1904, and `remoteSource` passes on the server's.
 
 ### Required
 
@@ -630,6 +630,7 @@ await source.close() // when the sheet is removed, as in onUnmounted
 | Member | Type | Meaning |
 | --- | --- | --- |
 | `locale` | `string` | The workbook's locale tag (`SheetSource.locale`), which `SheetView`, `SheetToolbar` and `FormatDialog` take as theirs. |
+| `dateSystem` | `1904?` | The workbook's date system (`SheetSource.dateSystem`), present for a workbook in 1904 (`BookInput.dateSystem`). |
 | `ready` | `Promise<void>` | Resolves when the workbook is calculated; rejects if it could not be opened. |
 | `history` | `SessionHistory` | The steps `undo` and `redo` can take now. |
 | `book()` | `Promise<BookInput>` | The workbook with all changes so far. |
@@ -671,6 +672,7 @@ A workbook on a server: `serveSource` serves a source to viewers over HTTP, and 
 | `RemoteSource` | the methods of `SheetSource` the server allows | Calls to the server: a method that returns an `EditOutcome` fails as one (`refused` for 403), any other rejects with the server's message; calls that read in one turn go as one batch, a change alone; a call's signal stops it. `subscribe` is one event stream for all listeners, which sends `reload` when the workbook changed while no stream was open. |
 | | `access: SourceAccess` | What the server allows this viewer. |
 | | `locale?: string` | The workbook's locale, when the served source has one. |
+| | `dateSystem?: 1900 \| 1904` | The workbook's date system, when the served source has one. |
 | | `close(): void` | Stops the event stream; calls keep working. |
 
 ## CSS variables
