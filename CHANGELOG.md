@@ -13,7 +13,7 @@
 ## 0.42.0 (2026-11-04)
 
 - Changes for the host: the phone is now a finger on a sheet below 600 px (`pointer: coarse` and the width). A mouse in a narrow window keeps the desktop's sizes (32 × 30 px buttons, the grid's row grip, the zoom slider), the formula on the Name Box's row while it has room, the filter's list below its column and the toolbar's `rows`. What needs room still goes by the width alone: panels below the grid, full-sheet dialogs, the narrower row numbers, the toolbar's blocks each on its own. A check or a test that imitates a phone by width alone has to turn on touch too.
-- On one line, where Excel's Font group does not fit whole, the toolbar now splits it at any width, so Bold, Italic and Underline stay in the row, kept over the Font boxes when only one of them can stay.
+- On one line, where Excel's Font group does not fit whole, the toolbar now splits it at any width, so Bold, Italic and Underline keep the row where they fit, kept over the Font boxes when only one of them can stay.
 
 ## 0.41.0 (2026-11-03)
 

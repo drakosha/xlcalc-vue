@@ -11,17 +11,17 @@ afterEach(() => {
 })
 
 type Fake = ReturnType<typeof fakeSource>
-type Freeze = { rows?: number; cols?: number }
+type Freeze = NonNullable<SheetInfo['freeze']>
 
 /** The window a request is for, by the frozen rows and columns it covers. */
-function kindOf(q: WindowRequest, freeze: Freeze): string {
-  const top = !!freeze.rows && q.row === 1 && q.rows === freeze.rows
-  const left = !!freeze.cols && q.col === 1 && q.cols === freeze.cols
+function kindOf(q: WindowRequest, freeze?: Freeze): string {
+  const top = !!freeze?.rows && q.row === 1 && q.rows === freeze.rows
+  const left = !!freeze?.cols && q.col === 1 && q.cols === freeze.cols
   return top && left ? 'corner' : top ? 'top' : left ? 'left' : 'body'
 }
 
 /** Answers the held requests one by one in the order of `kinds`, drawing after each, then whatever those responses asked. */
-async function answerIn(f: Fake, freeze: Freeze, kinds: string[]): Promise<void> {
+async function answerIn(f: Fake, freeze: Freeze | undefined, kinds: string[]): Promise<void> {
   for (const kind of kinds) {
     const held = f.held.find((p) => kindOf(p.req, freeze) === kind)
     if (!held) continue
@@ -35,7 +35,7 @@ async function answerIn(f: Fake, freeze: Freeze, kinds: string[]): Promise<void>
 }
 
 const sizes = [{ maxRow: 100, maxCol: 10 }, { maxRow: 6, maxCol: 3 }]
-const freezes: Freeze[] = [{ rows: 1 }, { cols: 1 }, { rows: 1, cols: 1 }, { rows: 2 }, {}]
+const freezes: (Freeze | undefined)[] = [{ rows: 1, cols: 0 }, { rows: 0, cols: 1 }, { rows: 1, cols: 1 }, { rows: 2, cols: 0 }, undefined]
 const orders = [
   ['body', 'top', 'left', 'corner'],
   ['top', 'left', 'corner', 'body'],
@@ -50,8 +50,8 @@ describe('changed over frozen panes', () => {
     for (const freeze of freezes) {
       for (const kinds of orders) {
         for (const cells of events) {
-          it(`${size.maxRow} rows, freeze ${JSON.stringify(freeze)}, windows ${kinds.join(' ')}, changing ${cells.join(' ')}`, async () => {
-            const sheets: SheetInfo[] = [{ name: 'S', ...size, freeze }]
+          it(`${size.maxRow} rows, freeze ${JSON.stringify(freeze ?? null)}, windows ${kinds.join(' ')}, changing ${cells.join(' ')}`, async () => {
+            const sheets: SheetInfo[] = [{ name: 'S', ...size, ...(freeze ? { freeze } : {}) }]
             const f = fakeSource(sheets, { manual: true, cell: (_, r, c) => `old ${cellAddress(r, c)}` })
             // windows as a real source's: the same sizes in each, and `tables`, which ends the search for them at the first window
             const read = f.source.window.bind(f.source)
