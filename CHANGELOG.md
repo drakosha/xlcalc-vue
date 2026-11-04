@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.44.0 (2026-11-05)
+
+- Built over xlcalc 0.82.0. `./local` still requires `xlcalc` 0.76.0 or later. With the host's xlcalc at 0.82.0, `saveXlsx` writes a formula over another workbook as a plain formula wherever Excel computes that alike, and a range of a link in a file's plain formula takes `@`, one value of the formula's row, where it spilled ([local.md](docs/local.md#links-to-other-workbooks)).
+- Fixed: on a sheet with frozen rows and no frozen columns, a source's `changed` could leave drawn cells showing the old value once the frozen rows' window had arrived after the body's, until something redrew the row. That covers formulas depending on an edit, new values of a link and another viewer's change; the data was right, and selecting the cell showed it.
+
 ## 0.43.0 (2026-11-04)
 
 - Built over xlcalc 0.81.0. `./local` still requires `xlcalc` 0.76.0 or later; what follows needs the host's xlcalc at the version named.
@@ -8,7 +13,7 @@
 ## 0.42.0 (2026-11-04)
 
 - Changes for the host: the phone is now a finger on a sheet below 600 px (`pointer: coarse` and the width). A mouse in a narrow window keeps the desktop's sizes (32 × 30 px buttons, the grid's row grip, the zoom slider), the formula on the Name Box's row while it has room, the filter's list below its column and the toolbar's `rows`. What needs room still goes by the width alone: panels below the grid, full-sheet dialogs, the narrower row numbers, the toolbar's blocks each on its own. A check or a test that imitates a phone by width alone has to turn on touch too.
-- On one line, where Excel's Font group does not fit whole, the toolbar now splits it at any width, so Bold, Italic and Underline stay in the row, kept over the Font boxes when only one of them can stay.
+- On one line, where Excel's Font group does not fit whole, the toolbar now splits it at any width, so Bold, Italic and Underline keep the row where they fit, kept over the Font boxes when only one of them can stay.
 
 ## 0.41.0 (2026-11-03)
 
