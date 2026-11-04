@@ -1,6 +1,6 @@
 {
   "name": "@xlcalc/vue",
-  "version": "0.44.0",
+  "version": "0.45.0",
   "description": "Vue 3 sheet component for xlcalc workbooks: a windowed grid with styles, formulas and editing over a pluggable sheet source",
   "keywords": [
     "vue",
@@ -98,6 +98,6 @@
     "vitest": "^4.1.10",
     "vue": "^3.5.39",
     "vue-tsc": "^3.3.5",
-    "xlcalc": "^0.83.0"
+    "xlcalc": "^0.84.0"
   }
 }
