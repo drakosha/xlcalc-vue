@@ -951,33 +951,43 @@
 
 /* ── a phone: the formula on its own line below the Name Box and the tools, so it keeps room to be read; the tabs on
    their own line when the filter's status or totals are shown too ── */
-.xs-narrow .xs-bar {
-  flex-wrap: wrap;
+.xs-phone .xs-bar {
   gap: 4px;
   padding: 4px 6px;
 }
-.xs-narrow .xs-bar .xs-address {
+.xs-phone .xs-bar .xs-address {
   width: 64px;
 }
-.xs-narrow .xs-fx-line {
+.xs-phone .xs-fx-line {
   flex-basis: 100%;
   order: 3;
 }
-.xs-narrow .xs-tools {
+.xs-phone .xs-tools {
   margin-left: auto;
 }
-.xs-narrow .xs-bar-link {
+.xs-phone .xs-bar-link {
   display: none;
 }
-.xs-narrow .xs-bottom {
-  flex-wrap: wrap;
+.xs-phone .xs-bottom {
   row-gap: 2px;
 }
-.xs-narrow .xs-tabs {
+.xs-phone .xs-tabs {
   flex: 1 1 100%;
 }
-.xs-narrow .xs-stats {
+.xs-phone .xs-stats {
   max-width: 55%;
+}
+
+/* ── a mouse in a narrow window: everything keeps its size and stays on one row while the formula and the tabs keep room to be read ── */
+.xs-narrow .xs-bar,
+.xs-narrow .xs-bottom {
+  flex-wrap: wrap;
+}
+.xs-narrow:not(.xs-phone) .xs-fx-line {
+  flex: 1 1 280px;
+}
+.xs-narrow:not(.xs-phone) .xs-tabs {
+  flex: 1 1 200px;
 }
 
 /* ── touch: buttons, inputs and tabs at least 44 × 44 px (the grid's cells and letters keep their size; tools, buttons and inputs in controls.css) ── */

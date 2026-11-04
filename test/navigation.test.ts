@@ -3,7 +3,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
-import { barField, fakeSource, mountSheet, pressBar, settle } from './helpers'
+import { barField, fakeSource, fingerPointer, mountSheet, pressBar, settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -379,6 +379,7 @@ describe('keys on an editable sheet', () => {
 
 describe('a phone', () => {
   it("the formula bar colors a formula's references, and a press with a key held does not navigate to them", async () => {
+    fingerPointer()
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-scroller') ? 390 : 0
     })

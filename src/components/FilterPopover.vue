@@ -20,8 +20,8 @@ const focusFirst = (el: unknown) => {
   <div
     v-if="filter.open.value !== null"
     data-xs-funnel
-    :class="['xs-popover', ctx.v.narrow.value ? 'xs-popover-full' : '']"
-    :style="ctx.v.narrow.value ? undefined : { left: filter.pos.value.left + 'px', top: filter.pos.value.top + 'px' }"
+    :class="['xs-popover', ctx.v.phone.value ? 'xs-popover-full' : '']"
+    :style="ctx.v.phone.value ? undefined : { left: filter.pos.value.left + 'px', top: filter.pos.value.top + 'px' }"
     role="dialog"
     :aria-label="filter.title.value"
     @keydown="filter.onFunnelKey"
@@ -48,7 +48,7 @@ const focusFirst = (el: unknown) => {
         <IconClose />
       </button>
     </div>
-    <input :ref="ctx.v.narrow.value ? undefined : focusFirst" v-model="filter.draftText.value" class="xs-field xs-popover-input" type="text" spellcheck="false" :placeholder="m.filterText" />
+    <input :ref="ctx.v.phone.value ? undefined : focusFirst" v-model="filter.draftText.value" class="xs-field xs-popover-input" type="text" spellcheck="false" :placeholder="m.filterText" />
     <input v-model="filter.draftSearch.value" class="xs-field xs-popover-input xs-popover-search" type="text" spellcheck="false" :placeholder="m.filterSearch" />
     <div class="xs-values" data-xs-values>
       <p v-if="filter.busy.value" class="xs-muted xs-values-note">{{ m.filterReading }}</p>

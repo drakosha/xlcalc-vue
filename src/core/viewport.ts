@@ -127,14 +127,14 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     return n >= 3 && n % 3 !== 1 ? Math.round(n / 3) : 0
   }
   /**
-   * A phone-width sheet, by its own width on screen whatever the zoom: a narrower row number column, panels below the grid.
+   * A narrow sheet, by its own width on screen whatever the zoom: a narrower row number column, panels below the grid.
    * Not by the grid's width, which a panel beside it narrows: the panel would then move below and back without end.
    */
   const narrow = computed(() => i.sheetW.value < NARROW_PX)
-  /** A coarse pointer (touch): targets get touch size. */
-  const coarse = useCoarsePointer()
-  /** A phone-width viewport or touch input: buttons, inputs and tabs at least 44 × 44 px, the grid itself unchanged. */
-  const touch = computed(() => narrow.value || coarse.value)
+  /** A coarse pointer (touch): buttons, inputs and tabs at least 44 × 44 px, the grid itself unchanged. */
+  const touch = useCoarsePointer()
+  /** A finger on a narrow sheet: the formula and the tabs on their own lines, the filter's list on the full screen. A mouse in a narrow window stays the desktop. */
+  const phone = computed(() => narrow.value && touch.value)
   const numW = computed(() => {
     if (!showNums.value) return 0
     if (!narrow.value) return 56
@@ -237,6 +237,7 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
     doubleStroke,
     hairlineOf,
     narrow,
+    phone,
     touch,
     numW,
     outlineSlots,

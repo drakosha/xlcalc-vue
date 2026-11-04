@@ -250,10 +250,10 @@ const canRedo = computed(() => !history.value || history.value.redo > 0)
 // ── the viewport: narrow, touch ──
 const root = ref<HTMLElement | null>(null)
 const width = ref(0)
-const coarse = useCoarsePointer()
-/** Below `NARROW_PX` the toolbar's targets are touch-sized; at any width its row keeps the items that fit and the rest go into a menu. */
+/** A finger as the pointer: targets are touch-sized. */
+const touch = useCoarsePointer()
+/** Below `NARROW_PX` each block goes alone and the lists take the toolbar's width; at any width its row keeps the items that fit and the rest go into a menu. */
 const narrow = computed(() => (width.value || (typeof window === 'undefined' ? NARROW_PX : window.innerWidth)) < NARROW_PX)
-const touch = computed(() => narrow.value || coarse.value)
 const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(([entry]) => (width.value = entry?.contentRect.width ?? 0))
 watch(root, (el, old) => {
   if (old) observer?.unobserve(old)
@@ -304,11 +304,11 @@ const blocks = computed(() => {
   }
   return out
 })
-/** The lines the row may take: `rows` (at least one, whole) at 600 px and wider, one below. */
-const lines = computed(() => (narrow.value ? 1 : Math.max(1, Math.floor(props.rows) || 1)))
+/** The lines the row may take: `rows` (at least one, whole), one on a phone (a finger below `NARROW_PX`), whose 44 px targets would take the sheet's height. */
+const lines = computed(() => (narrow.value && touch.value ? 1 : Math.max(1, Math.floor(props.rows) || 1)))
 /** Two lines are Excel's ribbon: one sequence of groups, each two rows tall, its controls in Excel's rows. */
 const ribbon = computed(() => lines.value === 2)
-/** The layout of the groups: Excel's two-row groups, Excel's groups on one line, or on a phone each block alone. */
+/** The layout of the groups: Excel's two-row groups, Excel's groups on one line, or below `NARROW_PX` each block alone, so that Bold stays in the row. */
 const layout = computed(() => (ribbon.value ? 'ribbon' : narrow.value ? 'blocks' : 'groups'))
 /** The groups drawn between separators, fitted into the row whole. */
 const groups = computed(() => ribbonGroups(blocks.value, layout.value))
@@ -780,7 +780,7 @@ function pickNumber(index: number): void {
                   >
                     <component :is="underlinePart.icon" />
                   </button>
-                  <!-- on a phone the arrow would push Bold out of the row: Double Underline is on Format Cells' Font tab there -->
+                  <!-- below 600 px the arrow would push Bold out of the row: Double Underline is on Format Cells' Font tab there -->
                   <ToolbarDrop v-if="!narrow" hook="underline-menu" :label="m.underlineMenu" :open="open === 'underline'" :disabled="!formattable" :items="underlineItems" @toggle="toggle('underline')" />
                 </span>
               </span>

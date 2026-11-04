@@ -6,6 +6,7 @@ import { defineComponent, h, nextTick } from 'vue'
 import { SheetToolbar, TOOLBAR_GROUPS, type SheetViewApi, type SheetViewState, type ToolbarItem } from '../src'
 import type { EditOutcome, SheetSource } from '../src/contract/source'
 import { fitLines, fitRow } from '../src/toolbar'
+import { fingerPointer } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -72,8 +73,9 @@ describe("SheetToolbar's items", () => {
     expect(run).toHaveBeenCalledTimes(2)
   })
 
-  /** A narrow toolbar whose row is `room` px wide, each block `block` px and the More button 44 px wide. */
+  /** A phone's toolbar (below 600 px a finger as the pointer) whose row is `room` px wide, each block `block` px and the More button 44 px wide. */
   function narrowLayout(room: number, block: (key: string, el: HTMLElement) => number = () => 100, viewport = 390): void {
+    if (viewport < 600) fingerPointer()
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(viewport)
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-tb-row') ? room : 0
@@ -153,7 +155,7 @@ describe("SheetToolbar's items", () => {
     expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['number'])
   })
 
-  it('below 600 px keeps one row whatever rows says', async () => {
+  it('on a phone keeps one row whatever rows says', async () => {
     narrowLayout(300, () => 100, 390)
     const w = mount(SheetToolbar, { props: { source: source(), state, items: ['undo', 'fontStyle', 'borders', 'align'], rows: 3 }, attachTo: document.body })
     await nextTick()

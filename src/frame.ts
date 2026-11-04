@@ -1,7 +1,7 @@
-// What the sheet and the toolbar both detect about their viewport: a phone width, touch as the pointer, and how borders are drawn.
+// What the sheet and the toolbar both detect about their viewport: a narrow width, touch as the pointer, and how borders are drawn.
 import { onScopeDispose, ref, type Ref } from 'vue'
 
-/** Below this width a viewport counts as a phone's: narrower row numbers, the toolbar's buttons in a menu. */
+/** Below this width what needs room gives way (panels below the grid, dialogs on the full sheet); with a finger as the pointer it is a phone. */
 export const NARROW_PX = 600
 
 /** Whether the pointer is touch (`pointer: coarse`), following the media query until the scope ends. */
