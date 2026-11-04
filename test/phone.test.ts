@@ -2,7 +2,7 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
-import { SheetToolbar, memorySource, type MemoryBook, type SheetViewState } from '../src'
+import { SheetToolbar, memorySource, type MemoryBook, type SheetViewState, type ToolbarItem } from '../src'
 import type { SheetSource } from '../src/contract/source'
 import { fingerPointer, mountSheet, settle } from './helpers'
 
@@ -92,6 +92,8 @@ describe('the toolbar', () => {
       sheets: async () => [{ name: 'One', maxRow: 3, maxCol: 1 }],
       window: async () => ({ pending: { elapsedMs: 0 } }),
       format: async () => ({ ok: true, changes: [] }),
+      undo: async () => ({ ok: true, changes: [] }),
+      redo: async () => ({ ok: true, changes: [] }),
     }) as unknown as SheetSource
   const bar = async (rows: number) => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
@@ -113,6 +115,41 @@ describe('the toolbar', () => {
     await nextTick()
     await nextTick()
     expect(w.findAll('.xs-tb-row > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['font', 'fontStyle'])
+  })
+
+  /** The row `room` px wide at this window, More 44 px; a block as `sizes` says, Excel's whole Font group (the block with Bold and the Font boxes) `fontGroup` px. */
+  function widths(room: number, viewport: number, sizes: Record<string, number>, fontGroup: number): void {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(viewport)
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('xs-tb-row') ? room : 0
+    })
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const key = this.dataset.tbBlock
+      const whole = key === 'font' && this.querySelector('[data-tb="bold"]')
+      const width = whole ? fontGroup : key ? (sizes[key] ?? 60) : this.dataset.tb === 'more' ? 44 : 0
+      return { width, height: 30, top: 0, left: 0, right: width, bottom: 30, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
+    })
+  }
+  const inRow = async (items: ToolbarItem[]) => {
+    const w = mount(SheetToolbar, { props: { source: source(), state, items }, attachTo: document.body })
+    await settle()
+    return w.findAll('.xs-tb-row > [data-tb-block]').map((b) => b.attributes('data-tb-block'))
+  }
+  const SIZES = { undo: 88, font: 290, fontStyle: 100, borders: 60, align: 150 }
+
+  it('keeps Bold, Italic and Underline over the Font boxes when both do not fit', async () => {
+    widths(420, 590, SIZES, 600)
+    expect(await inRow(['undo', 'font', 'fontStyle', 'borders', 'align'])).toEqual(['undo', 'fontStyle', 'borders'])
+  })
+
+  it('at 600 px and wider splits Excel\'s Font group into blocks when it does not fit whole, so that Bold stays in the row', async () => {
+    widths(684, 700, SIZES, 700)
+    expect(await inRow(['undo', 'font', 'fontStyle', 'borders', 'align'])).toEqual(['undo', 'font', 'fontStyle', 'borders'])
+  })
+
+  it('keeps Excel\'s Font group whole where it fits', async () => {
+    widths(1000, 1016, SIZES, 450)
+    expect(await inRow(['undo', 'font', 'fontStyle', 'borders', 'align'])).toEqual(['undo', 'font', 'align'])
   })
 
   it('with a finger below 600 px is one row of touch sizes', async () => {

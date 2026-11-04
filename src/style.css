@@ -984,7 +984,7 @@
   flex-wrap: wrap;
 }
 .xs-narrow:not(.xs-phone) .xs-fx-line {
-  flex: 1 1 280px;
+  flex: 1 1 min(280px, calc(100% - 96px));
 }
 .xs-narrow:not(.xs-phone) .xs-tabs {
   flex: 1 1 200px;
