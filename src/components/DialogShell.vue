@@ -12,7 +12,7 @@ const props = withDefaults(
     role?: 'dialog' | 'alertdialog'
     /** A click on the backdrop closes the box; Excel's alerts stay open. */
     outside?: boolean
-    /** Full screen on a phone (the sheet's .xs-narrow), as Excel's larger dialogs are. */
+    /** Full screen in a sheet below 600 px (its .xs-narrow), as Excel's larger dialogs are. */
     full?: boolean
     /** An extra class for the backdrop: the Format Cells dialog's carries the sheet's variables outside a sheet. */
     backClass?: string

@@ -4,7 +4,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook } from '../src'
 import type { LayoutChange } from '../src/contract/source'
-import { goTo, mountSheet, settle } from './helpers'
+import { fingerPointer, goTo, mountSheet, settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -84,6 +84,7 @@ describe('row height set with the mouse', () => {
   })
 
   it("no grip on a phone: a finger on a row number would snap to it, and the number's long press opens no menu; the menu sets the height there", async () => {
+    fingerPointer()
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('xs-scroller') ? 390 : 0
     })

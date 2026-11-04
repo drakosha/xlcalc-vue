@@ -111,7 +111,7 @@ The sheet's `showGridlines(on?)` and `showHeadings(on?)` are View > Show's boxes
 
 ## Watch Window
 
-Excel's Watch Window lists cells whose values stay in view whatever sheet is displayed. The host opens it with `watchWindow()` (and closes it with `watchWindow(false)`); it floats over the sheet within the component's box, at its top right corner (over the lower part of the grid on a phone), is moved by its title bar, resized by its corner, and closed by its close button.
+Excel's Watch Window lists cells whose values stay in view whatever sheet is displayed. The host opens it with `watchWindow()` (and closes it with `watchWindow(false)`); it floats over the sheet within the component's box, at its top right corner (over the lower part of the grid in a sheet under 600 px), is moved by its title bar, resized by its corner, and closed by its close button.
 
 Add Watch adds each cell of the selection, by rows, that is not watched yet, since Excel has one watch per cell; at most 1,000 cells are watched. The list has Excel's columns: Book, Sheet, Name, Cell, Value (the displayed value) and Formula (with `=`, in the source's locale). Book and Name stay empty: the sheet does not know the workbook's name, and does not look up a defined name for a watched cell. A click chooses a row, Ctrl+click (Cmd+click on a Mac) adds a row to the chosen ones or takes it out, Shift+click chooses the rows from the last one clicked, and the arrow keys move the choice. Delete Watch, or Delete, removes the chosen rows. A double click on a row, or Enter, goes to its cell, on its sheet.
 
@@ -143,7 +143,7 @@ const watches = ref<SheetWatch[]>([{ sheet: 'Summary', cell: 'B1' }])
 
 If the source has `explain(sheet, cell)`, the context menu has Trace Precedents. Instead of drawing arrows as Excel does, the sheet opens a panel to the right of the grid (below it in a sheet narrower than 600 px, by the sheet's own width, which the panel does not change) with the source's tree of the active cell's precedents. While open, the panel follows the active cell: it requests the tree again 150 ms after the active cell stops moving or its value changes, and when the source reports changes. Since `explain` takes no abort signal, a response that arrives after a newer request is discarded.
 
-Each line is a node, and each two-space indent is one level deeper, as in the text of xlcalc's `explain` (`'Q 4'!A2 = 60  ← Data!A4*2`). References in it to cells, columns or rows on a single sheet are links; a reference without a sheet name refers to the sheet of its line's node. Clicking a link selects its range, like Ctrl+click on a reference in the formula bar, and the panel then shows the precedents of that cell. The close button (✕) and Esc close the panel. `./local` returns the session's `explain` in the workbook's locale, and `memorySource` builds a tree from the formulas as given, with xlcalc's English wording. The panel's width, and its height on a phone, are `--xs-explain-w` (340 px) and `--xs-explain-h` (45 %).
+Each line is a node, and each two-space indent is one level deeper, as in the text of xlcalc's `explain` (`'Q 4'!A2 = 60  ← Data!A4*2`). References in it to cells, columns or rows on a single sheet are links; a reference without a sheet name refers to the sheet of its line's node. Clicking a link selects its range, like Ctrl+click on a reference in the formula bar, and the panel then shows the precedents of that cell. The close button (✕) and Esc close the panel. `./local` returns the session's `explain` in the workbook's locale, and `memorySource` builds a tree from the formulas as given, with xlcalc's English wording. The panel's width, and its height in a sheet under 600 px, are `--xs-explain-w` (340 px) and `--xs-explain-h` (45 %).
 
 ## Trace Dependents
 
@@ -177,3 +177,13 @@ const sheet = ref<SheetViewApi | null>(null)
   <SheetView ref="sheet" :source="source" style="height: 360px" />
 </template>
 ```
+
+## Narrow sheets and phones
+
+The sheet goes by two things it measures: its own width on screen and the pointer (`pointer: coarse`, a finger). A browser's report of the pointer decides the sizes, so a touch laptop that reports `coarse` gets them too.
+
+- Below 600 px, with any pointer, what needs room gives way: panels go below the grid, dialogs take the full sheet, the row number column narrows, and the formula and the tabs move to a line of their own once they have too little room to be read.
+- A finger, at any width: buttons, inputs and tabs are at least 44 × 44 px, a row number has no grip, and the zoom slider gives way to two fingers.
+- A phone is a finger below 600 px: the formula is always on its own line, the filter's list takes the full screen, and the toolbar keeps one line whatever its `rows` says.
+
+A mouse in a narrow window therefore keeps the desktop's sizes and the grid's resize grips.

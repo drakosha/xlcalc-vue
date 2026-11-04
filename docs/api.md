@@ -82,7 +82,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `zoom` | `Record<string, number>` | none | Excel's zoom by sheet name, in percent (10 to 400), as the host kept it from the `zoom` event; a sheet without one opens at the workbook's saved zoom (`SheetInfo.zoom`), otherwise 100%. A new object applies its changed entries, to the active sheet at once. See [view.md](view.md#zoom). |
 | `watches` | `SheetWatch[]` | none | The Watch Window's list, as the host kept it from the `watches` event; a new array replaces the list. See [view.md](view.md#watch-window). |
 | `noteAuthor` | `string` | none | The author's name for a new note, shown in bold on its first line, as Excel takes the user name from its Options; without it a new note has no author. |
-| `pivotFields` | `boolean` | `true` | Draws Excel's PivotTable Fields pane to the right of the grid (below it on a phone) while `state.fieldList` is on; `false` for a host that places `PivotFieldsPane` itself. See [pivot-tables.md](pivot-tables.md#the-pivottable-fields-pane). |
+| `pivotFields` | `boolean` | `true` | Draws Excel's PivotTable Fields pane to the right of the grid (below it in a sheet under 600 px) while `state.fieldList` is on; `false` for a host that places `PivotFieldsPane` itself. See [pivot-tables.md](pivot-tables.md#the-pivottable-fields-pane). |
 
 ### Events
 
@@ -275,7 +275,7 @@ Excel's formatting toolbar over the same source; shown only when the source has 
 | `hostDialog` | `boolean` | The host opens its own dialog on `formatCells`, as when it listens: for a host whose listener the toolbar cannot see, such as a custom element's. |
 | `fonts` | `readonly string[]` | The Font box's list, in place of Excel's common fonts (Aptos, Arial, Calibri and others): a browser does not tell which fonts are installed. |
 | `items` | `readonly ToolbarItem[]` | The groups to draw, in order, and the host's buttons among them; without it every group in the default order, `TOOLBAR_GROUPS`. An unknown or repeated group is skipped. See [toolbar.md](toolbar.md#choosing-the-buttons). |
-| `rows` | `number` | How many lines the items may take at 600 px and wider before the rest go into the menu under More; 1 by default, one line below 600 px. 2 lays the toolbar out as Excel's ribbon: one sequence of groups, each two rows tall, whole groups that do not fit going into More; other values wrap the items onto that many lines, `Infinity` all of them. See [toolbar.md](toolbar.md#two-rows-as-excels-ribbon). |
+| `rows` | `number` | How many lines the items may take before the rest go into the menu under More; 1 by default, one line on a phone (a touch screen below 600 px). 2 lays the toolbar out as Excel's ribbon: one sequence of groups, each two rows tall, whole groups that do not fit going into More; other values wrap the items onto that many lines, `Infinity` all of them. See [toolbar.md](toolbar.md#two-rows-as-excels-ribbon). |
 
 | Event | Payload | When |
 | --- | --- | --- |
@@ -728,9 +728,9 @@ A workbook on a server: `serveSource` serves a source to viewers over HTTP, and 
 | `--xs-outline-bg`, `--xs-outline-line` | `var(--xs-bar-bg)`, `#8c8c8c` | The outline bars and brackets. |
 | `--xs-outline-button`, `--xs-outline-tick` | `13px`, `5px` | The outline button size and the bracket tick length. |
 | `--xs-outline-button-bg`, `--xs-outline-button-fg`, `--xs-outline-button-border` | `var(--xs-bg)`, `#3c4043`, `#9aa0a6` | The outline buttons. |
-| `--xs-explain-w`, `--xs-explain-h` | `340px`, `45%` | The Trace Precedents panel: its width, and its height on a phone. |
-| `--xs-pf-w`, `--xs-pf-h` | `300px`, `50%` | The PivotTable Fields pane next to the grid: its width, and its height on a phone. |
-| `--xs-watch-w`, `--xs-watch-h` | `560px`, `200px` | The Watch Window's size when it opens (within the sheet's box); on a phone its height is at most 45 %. |
+| `--xs-explain-w`, `--xs-explain-h` | `340px`, `45%` | The Trace Precedents panel: its width, and its height in a sheet under 600 px. |
+| `--xs-pf-w`, `--xs-pf-h` | `300px`, `50%` | The PivotTable Fields pane next to the grid: its width, and its height in a sheet under 600 px. |
+| `--xs-watch-w`, `--xs-watch-h` | `560px`, `200px` | The Watch Window's size when it opens (within the sheet's box); in a sheet under 600 px its height is at most 45 %. |
 | `--xs-prompt-bg`, `--xs-prompt-fg`, `--xs-prompt-line` | `#ffffe1`, `#1f2328`, `#767676` | The data validation input message. |
 | `--xs-alert-stop`, `--xs-alert-warning`, `--xs-alert-information` | `#d13438`, `#ffb900`, `#0f6cbd` | The validation alert's icons. |
 | `--xs-tb-tool`, `--xs-tb-tool-h`, `--xs-tb-icon` | `32px`, `30px`, `18px` | The toolbar's buttons (their least width and their height) and icons, at about Excel's ribbon; on a touch screen every target is 44 × 44 px instead. Set on `.xs-toolbar`. |

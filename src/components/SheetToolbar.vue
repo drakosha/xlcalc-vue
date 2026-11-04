@@ -40,6 +40,7 @@ import {
   decimalStep,
   fitLines,
   fitRow,
+  styleOverBoxes,
   PERCENT_STYLE,
   ribbonGroups,
   shownFont,
@@ -250,10 +251,10 @@ const canRedo = computed(() => !history.value || history.value.redo > 0)
 // ── the viewport: narrow, touch ──
 const root = ref<HTMLElement | null>(null)
 const width = ref(0)
-const coarse = useCoarsePointer()
-/** Below `NARROW_PX` the toolbar's targets are touch-sized; at any width its row keeps the items that fit and the rest go into a menu. */
+/** A finger as the pointer: targets are touch-sized. */
+const touch = useCoarsePointer()
+/** Below `NARROW_PX` each block goes alone and the lists take the toolbar's width; at any width its row keeps the items that fit and the rest go into a menu. */
 const narrow = computed(() => (width.value || (typeof window === 'undefined' ? NARROW_PX : window.innerWidth)) < NARROW_PX)
-const touch = computed(() => narrow.value || coarse.value)
 const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(([entry]) => (width.value = entry?.contentRect.width ?? 0))
 watch(root, (el, old) => {
   if (old) observer?.unobserve(old)
@@ -304,12 +305,16 @@ const blocks = computed(() => {
   }
   return out
 })
-/** The lines the row may take: `rows` (at least one, whole) at 600 px and wider, one below. */
-const lines = computed(() => (narrow.value ? 1 : Math.max(1, Math.floor(props.rows) || 1)))
+/** The lines the row may take: `rows` (at least one, whole), one on a phone (a finger below `NARROW_PX`), whose 44 px targets would take the sheet's height. */
+const lines = computed(() => (narrow.value && touch.value ? 1 : Math.max(1, Math.floor(props.rows) || 1)))
 /** Two lines are Excel's ribbon: one sequence of groups, each two rows tall, its controls in Excel's rows. */
 const ribbon = computed(() => lines.value === 2)
-/** The layout of the groups: Excel's two-row groups, Excel's groups on one line, or on a phone each block alone. */
-const layout = computed(() => (ribbon.value ? 'ribbon' : narrow.value ? 'blocks' : 'groups'))
+/** Excel's Font group did not fit on the line at this width, as measured: each block goes alone, so that Bold stays in the row. */
+const fontSplit = ref(false)
+/** Each block alone: below `NARROW_PX`, where the Font group never fits, or once it was measured not to. */
+const single = computed(() => narrow.value || fontSplit.value)
+/** The layout of the groups: Excel's two-row groups, Excel's groups on one line, or each block alone. */
+const layout = computed(() => (ribbon.value ? 'ribbon' : single.value ? 'blocks' : 'groups'))
 /** The groups drawn between separators, fitted into the row whole. */
 const groups = computed(() => ribbonGroups(blocks.value, layout.value))
 /** The keys of the groups that stay in the row, as measured; null while measuring, when all are drawn there. */
@@ -326,7 +331,7 @@ const parts = computed(() => {
   const rest = blocks.value.filter((b) => out.has(b))
   return [
     { place: 'row', groups: all.filter((g) => on.has(g.key)) },
-    { place: 'menu', groups: ribbonGroups(rest, narrow.value ? 'blocks' : 'groups') },
+    { place: 'menu', groups: ribbonGroups(rest, single.value ? 'blocks' : 'groups') },
   ]
 })
 /** The More button: while the row is measured too, so that its width counts. */
@@ -344,8 +349,13 @@ function measureRow(): void {
   const widths = keys.map((key) => widthOf(row.querySelector(`:scope > [data-tb-block="${key}"]`)))
   const more = widthOf(row.querySelector('[data-tb="more"]'))
   if (ribbon.value || lines.value === 1) {
+    const fit = new Set(fitRow(widths, row.clientWidth, more, ribbon.value ? undefined : styleOverBoxes(keys)).map((i) => keys[i]!))
+    const pieces = (g: RibbonGroup<Block>) => g.stacks.flatMap((st) => st.lines.flat())
+    const font = groups.value.find((g) => pieces(g).some((p) => p.block.group === 'fontStyle'))
+    // Drawn again block by block, and measured again by the watcher below; a group of one block has nothing to split
+    if (layout.value === 'groups' && font && pieces(font).length > 1 && !fit.has(font.key)) return void (fontSplit.value = true)
     breaks.value = new Set()
-    kept.value = new Set(fitRow(widths, row.clientWidth, more).map((i) => keys[i]!))
+    kept.value = fit
     return
   }
   const out = fitLines(widths, row.clientWidth, lines.value, more)
@@ -358,7 +368,8 @@ const has = (piece: RibbonPiece<Block>, slot: RibbonSlot) => !piece.slot || piec
 // groups are drawn, and the Number Format box widens when its locale's list loads
 watch(
   [narrow, width, touch, groups, lines, () => props.messages, () => props.sheet, () => props.source, () => props.hostDialog, () => numbers.choices.value.length > 0],
-  () => {
+  ([, w], [, old]) => {
+    if (w !== old) fontSplit.value = false
     kept.value = null
     breaks.value = new Set()
     void nextTick(measureRow)
@@ -780,7 +791,7 @@ function pickNumber(index: number): void {
                   >
                     <component :is="underlinePart.icon" />
                   </button>
-                  <!-- on a phone the arrow would push Bold out of the row: Double Underline is on Format Cells' Font tab there -->
+                  <!-- below 600 px the arrow would push Bold out of the row: Double Underline is on Format Cells' Font tab there -->
                   <ToolbarDrop v-if="!narrow" hook="underline-menu" :label="m.underlineMenu" :open="open === 'underline'" :disabled="!formattable" :items="underlineItems" @toggle="toggle('underline')" />
                 </span>
               </span>

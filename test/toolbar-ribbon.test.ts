@@ -7,7 +7,7 @@ import { nextTick } from 'vue'
 import { SheetToolbar, TOOLBAR_GROUPS, enMessages, ruMessages, type SheetViewApi, type SheetViewState, type ToolbarGroup } from '../src'
 import { ribbonGroups } from '../src/toolbar'
 import type { EditOutcome, FormatPatch, SheetSource } from '../src/contract/source'
-import { settle } from './helpers'
+import { fingerPointer, settle } from './helpers'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -266,7 +266,8 @@ describe('rows: 2, as Excel’s ribbon', () => {
     expect(w.findAll('[data-tb-menu] > [data-tb-block]').map((b) => b.attributes('data-tb-block'))).toEqual(['font'])
   })
 
-  it('below 600 px keeps one row, as with rows: 1', async () => {
+  it('on a phone keeps one row, as with rows: 1', async () => {
+    fingerPointer()
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
     const w = mount(SheetToolbar, { props: { source: source(), state, rows: 2, items: ['font', 'fontStyle'] }, attachTo: document.body })
     await nextTick()

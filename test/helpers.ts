@@ -1,10 +1,16 @@
 // Test helpers: mounting the sheet, settling promises, and a source whose responses the test controls.
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { vi } from 'vitest'
 import { nextTick } from 'vue'
 import { cellAddress } from 'xlcalc/a1'
 import type { CellValue } from 'xlcalc/contract'
 import { SheetView } from '../src'
 import type { CellEntry, EditOutcome, SheetInfo, SheetSource, SheetWindow, SourceEvent, WindowRequest } from '../src/contract/source'
+
+/** A finger as the pointer (`pointer: coarse`), until the test restores its mocks. */
+export function fingerPointer(): void {
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({ matches: query === '(pointer: coarse)', media: query, addEventListener: () => {}, removeEventListener: () => {} }) as unknown as MediaQueryList)
+}
 
 /** Lets promises, watchers and renders run to completion. */
 export async function settle(rounds = 6): Promise<void> {
