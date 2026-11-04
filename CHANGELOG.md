@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.45.0 (2026-11-05)
+
+- Changes for the host: built over xlcalc 0.83.0. With the host's xlcalc at that version, `saveXlsx` rejects a number format code Excel does not open a file with (`0 kg`, where `0 "kg"` is meant) with xlcalc's `InputError` and writes nothing, where it wrote a file Excel would not open. The sheet's Format Cells still takes such a code, so a host shows the error to the user ([local.md](docs/local.md#files)). `./local` still requires `xlcalc` 0.76.0 or later.
+
 ## 0.44.0 (2026-11-05)
 
 - Built over xlcalc 0.82.0. `./local` still requires `xlcalc` 0.76.0 or later. With the host's xlcalc at 0.82.0, `saveXlsx` writes a formula over another workbook as a plain formula wherever Excel computes that alike, and a range of a link in a file's plain formula takes `@`, one value of the formula's row, where it spilled ([local.md](docs/local.md#links-to-other-workbooks)).
