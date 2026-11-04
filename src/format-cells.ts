@@ -2,6 +2,7 @@
 // buttons do to them, and the patches for `SheetView.format` that OK sends, only for what the user changed.
 import type { AlignmentStyle, BorderLine, CellStyle, FontStyle, FormatChoice, NumberFormat } from 'xlcalc/contract'
 import { parseRange } from 'xlcalc/a1'
+import { codeRefused } from './number-formats'
 import type { SheetFormatPatch, SheetViewState } from './contract/view'
 import { BORDER_EDGES, edgePatches, edgesOf, INDENTED, parseFontSize, sameLine, upperColour, type BorderEdge, type EdgeLines } from './toolbar'
 
@@ -128,15 +129,17 @@ export function pressPreset(start: FormatStart, draft: FormatDraft, preset: 'non
 
 /** An input OK cannot parse, by its name: the code, the indent, the size. */
 interface DraftErrors {
-  numberCode?: true
+  numberCode?: 'empty' | 'refused'
   indent?: true
   degrees?: true
   fontSize?: true
 }
-/** Excel's limits: a font of 1 to 409 points, an indent of 0 to 250, whole degrees from −90 to 90, and a non-empty code of the cell's own. */
-export function draftErrors(draft: FormatDraft): DraftErrors {
+/** Excel's limits: a font of 1 to 409 points, an indent of 0 to 250, whole degrees from −90 to 90, and a non-empty code Excel can open a file with, or the one the dialog opened with (`startCode`). */
+export function draftErrors(draft: FormatDraft, startCode: string): DraftErrors {
   const out: DraftErrors = {}
-  if (!draft.numberCode.trim()) out.numberCode = true
+  const code = draft.numberCode.trim()
+  if (!code) out.numberCode = 'empty'
+  else if (codeRefused(code, startCode)) out.numberCode = 'refused'
   if (!(parseIndent(draft.indent) <= 250)) out.indent = true
   if (!draft.verticalText && !(Math.abs(parseDegrees(draft.degrees)) <= 90)) out.degrees = true
   const size = parseFontSize(draft.fontSize)

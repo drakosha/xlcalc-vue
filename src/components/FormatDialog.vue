@@ -89,7 +89,7 @@ watch(
   { immediate: true },
 )
 
-const errors = computed(() => (draft.value ? draftErrors(draft.value) : {}))
+const errors = computed(() => (draft.value ? draftErrors(draft.value, start.value?.draft.numberCode ?? '') : {}))
 const blocked = computed(() => Object.keys(errors.value).length > 0 || Object.values(badColour).some(Boolean))
 /** The category Excel's box names for the code in the input. */
 const category = computed(() => (draft.value ? numbers.categoryOf(draft.value.numberCode.trim() || undefined) : null))
@@ -159,7 +159,7 @@ const cancel = () => emit('close')
             @input="typeNumber(draft, fieldValue($event))"
           />
         </label>
-        <p v-if="errors.numberCode" class="xs-fmt-error" role="alert">{{ m.fmtCodeEmpty }}</p>
+        <p v-if="errors.numberCode" class="xs-fmt-error" role="alert" data-fmt-code-error>{{ errors.numberCode === 'empty' ? m.fmtCodeEmpty : m.fmtCodeRefused }}</p>
       </div>
 
       <div v-show="tab === 'alignment'" class="xs-fmt-grid">

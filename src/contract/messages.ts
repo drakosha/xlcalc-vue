@@ -272,6 +272,7 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   fmtCategory: string
   fmtCode: string
   fmtCodeEmpty: string
+  fmtCodeRefused: string
   fmtHorizontal: string
   fmtVertical: string
   fmtHorizontalKind: (h: 'general' | 'left' | 'center' | 'right' | 'fill' | 'justify' | 'centerContinuous' | 'distributed') => string
