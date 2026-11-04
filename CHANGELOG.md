@@ -2,6 +2,7 @@
 
 ## 0.44.0 (2026-11-05)
 
+- Built over xlcalc 0.82.0. `./local` still requires `xlcalc` 0.76.0 or later. With the host's xlcalc at 0.82.0, `saveXlsx` writes a formula over another workbook as a plain formula wherever Excel computes that alike, and a range of a link in a file's plain formula takes `@`, one value of the formula's row, where it spilled ([local.md](docs/local.md#links-to-other-workbooks)).
 - Fixed: on a sheet with frozen rows and no frozen columns, a source's `changed` could leave drawn cells showing the old value once the frozen rows' window had arrived after the body's, until something redrew the row. That covers formulas depending on an edit, new values of a link and another viewer's change; the data was right, and selecting the cell showed it.
 
 ## 0.43.0 (2026-11-04)
