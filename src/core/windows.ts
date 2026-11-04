@@ -363,8 +363,8 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry, panes?: Pa
         if (at) patch(next, ch, at)
       }
       slots[kind].value = next
-      // Every drawn row reads the new window and takes its revision again.
-      rowRevisions.clear()
+      // Only the body is read by every drawn row, which then takes its revision again: a row the other windows leave undrawn keeps the one it holds.
+      if (kind === 'body') rowRevisions.clear()
       s.failure.value = null
     } catch (e) {
       if (mine !== epoch || isAbort(e) || !owns()) return
