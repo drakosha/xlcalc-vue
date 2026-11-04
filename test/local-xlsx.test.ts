@@ -233,4 +233,14 @@ describe('xlsx over its original file: xlcalc 0.61 to 0.64', () => {
     expect(back.book.externalBooks).toEqual([{ target: 'Rates.xlsx', sheets: [{ name: 'R', cells: { A1: 3 }, refreshError: true }] }])
     expect(back.book.sheets[0]!.cells.B1).toMatchObject({ formula: '[1]R!A1+1' })
   })
+
+  it("stores the calculated values over a file written without them only with writeValues (0.81.0)", async () => {
+    const book = { sheets: [{ name: 'S', cells: { A1: { value: 2 }, A2: { formula: 'A1*10' } } }] }
+    const file = (await writeXlsx({ book }, { values: 'omit' })).data
+    const opened = await openXlsx(file, { keep: true })
+    const s = source(opened.book, { session: { cached: opened.cached } })
+    expect(unzipText((await saveXlsx(s, { over: file })).data)['xl/worksheets/sheet1.xml']).not.toContain('<v>20</v>')
+    const saved = (await saveXlsx(s, { over: file, writeValues: true })).data
+    expect(unzipText(saved)['xl/worksheets/sheet1.xml']).toMatch(/<f>A1\*10<\/f><v>20<\/v>/)
+  })
 })

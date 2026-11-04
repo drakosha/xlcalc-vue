@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.43.0 (2026-11-04)
+
+- Built over xlcalc 0.81.0. `./local` still requires `xlcalc` 0.76.0 or later; what follows needs the host's xlcalc at the version named.
+- `saveXlsx` with `over` takes `writeValues: true` (xlcalc 0.81.0): the calculated values that differ from the file's are stored also when nothing else changed, for a file a generator wrote without values that a program that does not calculate will read ([local.md](docs/local.md#files)).
+
 ## 0.42.0 (2026-11-04)
 
 - Changes for the host: the phone is now a finger on a sheet below 600 px (`pointer: coarse` and the width). A mouse in a narrow window keeps the desktop's sizes (32 × 30 px buttons, the grid's row grip, the zoom slider), the formula on the Name Box's row while it has room, the filter's list below its column and the toolbar's `rows`. What needs room still goes by the width alone: panels below the grid, full-sheet dialogs, the narrower row numbers, the toolbar's blocks each on its own. A check or a test that imitates a phone by width alone has to turn on touch too.

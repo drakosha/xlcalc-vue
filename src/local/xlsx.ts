@@ -38,14 +38,14 @@ export async function openXlsx(data: FileData, opts: XlsxIssuesOptions & { keep?
  * the file cannot keep, in `locale`'s language. In Manual the source calculates first, as Excel recalculates a workbook
  * before saving it (its default), so the values the sheet shows are the ones written; the file keeps the option. With `over`, the file the workbook was opened from with `keep`, through
  * xlcalc's `writeKept`: what the workbook does not hold stays as the file has it, and a change the file cannot take is
- * rejected with xlcalc's `KeptRefusal`.
+ * rejected with xlcalc's `KeptRefusal`; `writeValues` stores the calculated values also when nothing else changed.
  */
-export async function saveXlsx(source: LocalSource, opts: XlsxIssuesOptions & ({ mode?: 'formulas' | 'values'; over?: undefined } | { over: FileData; mode?: undefined }) = {}): Promise<XlsxWritten> {
+export async function saveXlsx(source: LocalSource, opts: XlsxIssuesOptions & ({ mode?: 'formulas' | 'values'; over?: undefined; writeValues?: undefined } | { over: FileData; mode?: undefined; writeValues?: boolean }) = {}): Promise<XlsxWritten> {
   await source.calculate()
   const [snapshot, write] = await Promise.all([source.snapshot(), issuesIn(opts)])
   if (opts.over) {
     const [{ writeKept }, original] = await Promise.all([import('xlcalc/xlsx/keep'), bytesOf(opts.over)])
-    return writeKept(original, snapshot, write)
+    return writeKept(original, snapshot, { ...write, ...(opts.writeValues ? { writeValues: true } : {}) })
   }
   return (await import('xlcalc/xlsx')).writeXlsx(snapshot, { ...(opts.mode ? { mode: opts.mode } : {}), ...write })
 }
