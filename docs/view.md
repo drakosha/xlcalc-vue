@@ -180,6 +180,8 @@ const sheet = ref<SheetViewApi | null>(null)
 
 ## Narrow sheets and phones
 
+A host can request compact controls with `compact`, including for a landscape phone or a short window. `state.editing` is set while a cell editor is open and absent after commit or cancellation, so the host can collapse its own panels during entry. This changes the controls, not the workbook's row heights, column widths or zoom.
+
 The sheet goes by two things it measures: its own width on screen and the pointer (`pointer: coarse`, a finger). A browser's report of the pointer decides the sizes, so a touch laptop that reports `coarse` gets them too.
 
 - Below 600 px, with any pointer, what needs room gives way: panels go below the grid, dialogs take the full sheet, the row number column narrows, and the formula and the tabs move to a line of their own once they have too little room to be read.

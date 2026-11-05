@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Additive host contract: `SheetView.compact` requests controls for a small viewport; `SheetViewState.editing` reports an open cell editor so the host can collapse its panels without inspecting the sheet's DOM.
+
 ## 0.46.0 (2026-11-05)
 
 - `SheetToolbar` has Excel's Data > Filter: the new group `autoFilter`, after AutoSum, with `sheet` and the source's `setAutoFilter`, on Ctrl+Shift+L's `toggleAutoFilter()`, pressed while the sheet has an AutoFilter, large in the two-row ribbon; the new text `autoFilterToggle`.

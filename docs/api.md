@@ -73,6 +73,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | `cellUrl` | `(ref: string) => string` | none | The host page's address for a location; without it there is no "Link to the cell" button. |
 | `readOnly` | `boolean` | `false` | Disables editing regardless of what the source supports. A source without `edit` is read-only anyway. |
 | `formulaBar` | `boolean` | `true` | Shows the formula bar above the grid. |
+| `compact` | `boolean` | `false` | Requests compact controls when the host has little room, including a landscape phone. Narrow touch sheets also use these controls automatically. Cell sizes are unchanged. |
 | `locale` | `string` | the source's `locale` | The workbook's locale for texts the component produces itself (a cell's edit text without `editText`, selection totals), in place of the source's `locale`, which it is by default; en-US without either. See [Locales](#locales). |
 | `hideLoneTab` | `boolean` | `false` | Hides the tabs of a workbook with a single sheet. |
 | `edgeRestoresWidth` | `boolean` | `false` | Double-clicking a column edge restores the workbook's width instead of fitting the column. |
@@ -109,6 +110,7 @@ const openLink = (link: SheetLinkEvent) => window.open(link.href, '_blank', 'noo
 | --- | --- | --- |
 | `sheet` | `string` | The displayed sheet. |
 | `ref` | `string` | The selection as Excel writes it: `B2:D5`, `B:D`, `2:5`, `1:1048576`; of several ranges, the active cell's (`areas` has them all). |
+| `editing` | `true?` | A cell editor is open, in the grid or formula bar. Absent after commit or cancellation; a host can collapse its own panels while it is set. |
 | `formula` | `string?` | The active cell's formula as displayed. |
 | `value` | `string?` | The active cell's displayed text. |
 | `locale` | `string?` | The sheet's locale, its `locale` prop or the source's; absent without either (en-US). `SheetToolbar` and `FormatDialog` take it as theirs. |
