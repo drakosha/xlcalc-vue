@@ -244,3 +244,20 @@ describe('xlsx over its original file: xlcalc 0.61 to 0.64', () => {
     expect(unzipText(saved)['xl/worksheets/sheet1.xml']).toMatch(/<f>A1\*10<\/f><v>20<\/v>/)
   })
 })
+
+describe('number format codes Excel does not open a file with (xlcalc 0.83.0)', () => {
+  const formatted = async (code: string) => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 5 } } }] })
+    expect(await s.format('S', [{ range: 'A1', numberFormat: code }])).toMatchObject({ ok: true })
+    return s
+  }
+
+  it("saveXlsx refuses one with xlcalc's InputError, which names it", async () => {
+    await expect(saveXlsx(await formatted('0 kg'))).rejects.toMatchObject({ name: 'InputError', message: expect.stringContaining('0 kg') })
+  })
+
+  it('saves the same text in quotes', async () => {
+    const back = await openXlsx((await saveXlsx(await formatted('0 "kg"'))).data)
+    expect(JSON.stringify(back.book)).toContain('0 \\"kg\\"')
+  })
+})

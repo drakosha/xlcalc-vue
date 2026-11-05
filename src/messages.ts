@@ -256,6 +256,7 @@ export const enMessages: SheetMessages = {
   fmtCategory: 'Category',
   fmtCode: 'Type',
   fmtCodeEmpty: 'Type a format code',
+  fmtCodeRefused: 'Microsoft Excel cannot use the number format you typed. Try using one of the built-in number formats.',
   fmtHorizontal: 'Horizontal',
   fmtVertical: 'Vertical',
   fmtHorizontalKind: (h) =>
@@ -844,6 +845,7 @@ export const ruMessages: SheetMessages = {
   fmtCategory: 'Категория',
   fmtCode: 'Тип',
   fmtCodeEmpty: 'Введите код формата',
+  fmtCodeRefused: 'Microsoft Excel не может использовать введенный числовой формат. Попробуйте использовать один из встроенных числовых форматов.',
   fmtHorizontal: 'По горизонтали',
   fmtVertical: 'По вертикали',
   fmtHorizontalKind: (h) =>

@@ -3,8 +3,11 @@
 // of the Accounting Number Format button's menu.
 import { computed, type ComputedRef } from 'vue'
 import type { AccountingItem, FormatChoice, NumberFormatCategory } from 'xlcalc/contract'
-import { accountingFormats, numberFormatCategory, numberFormatChoices } from 'xlcalc/text'
+import { accountingFormats, formatRefused, numberFormatCategory, numberFormatChoices } from 'xlcalc/text'
 import { useLocaleModule } from './locale-ref'
+
+/** Whether OK refuses this code, one Excel does not open a file with; a code the dialog opened with stays, as the file has it. */
+export const codeRefused = (code: string, start: string): boolean => code !== start && formatRefused(code)
 
 export interface NumberFormats {
   /** The list's items in Excel's order, each with its name, the format it applies and that format's code; empty while the locale loads. */

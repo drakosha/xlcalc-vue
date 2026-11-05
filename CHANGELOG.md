@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.0 (2026-11-05)
+
+- Built over xlcalc 0.84.0. `./local` still requires `xlcalc` 0.76.0 or later.
+- Format Cells and a PivotTable's Number Format refuse a code Excel does not open a file with (`0 kg`, where `0 "kg"` is meant), by xlcalc's `formatRefused`, with Excel's message in the new text `fmtCodeRefused`; a code the dialog opened with stays, as a file may have it. xlcalc's check is stricter than Excel where it was not measured, so a few codes Excel opens (`0:`) are refused too.
+- Changes for the host: with the host's xlcalc at 0.83.0 or later, `saveXlsx` rejects such a code with xlcalc's `InputError` and writes nothing, where it wrote a file Excel would not open. It can still come from a file saved anew or from a host's own `format` call, so a host shows the error to the user ([local.md](docs/local.md#files)).
+
 ## 0.44.0 (2026-11-05)
 
 - Built over xlcalc 0.82.0. `./local` still requires `xlcalc` 0.76.0 or later. With the host's xlcalc at 0.82.0, `saveXlsx` writes a formula over another workbook as a plain formula wherever Excel computes that alike, and a range of a link in a file's plain formula takes `@`, one value of the formula's row, where it spilled ([local.md](docs/local.md#links-to-other-workbooks)).

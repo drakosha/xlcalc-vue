@@ -149,14 +149,20 @@ describe('the Border tab', () => {
 })
 
 describe('the limits OK checks', () => {
-  const errors = (d: Partial<FormatDraft>) => draftErrors({ ...startOf(at('A1')).draft, ...d })
+  const errors = (d: Partial<FormatDraft>, startCode = 'General') => draftErrors({ ...startOf(at('A1')).draft, ...d }, startCode)
   it("a font of 1 to 409 points, an indent of 0 to 250, and a non-empty code of the cell's own", () => {
     expect(errors({ fontSize: '10,5', indent: '250' })).toEqual({})
     expect(errors({ fontSize: '0', indent: '251' })).toEqual({ fontSize: true, indent: true })
     expect(errors({ fontSize: '409.5', indent: '-1' })).toEqual({ fontSize: true, indent: true })
     expect(errors({ fontSize: 'big', indent: '1.5' })).toEqual({ fontSize: true, indent: true })
-    expect(errors({ numberCode: '  ' })).toEqual({ numberCode: true })
+    expect(errors({ numberCode: '  ' })).toEqual({ numberCode: 'empty' })
     expect(errors({ fontSize: '', indent: ' 3 ' })).toEqual({})
+  })
+
+  it('a code Excel does not open a file with, unless the dialog opened with it', () => {
+    for (const code of ['0 kg', 'Итог: 0', '[Foo]0']) expect(errors({ numberCode: code }), code).toEqual({ numberCode: 'refused' })
+    for (const code of ['0 "kg"', '#,##0 ₽', 'General']) expect(errors({ numberCode: code }), code).toEqual({})
+    expect(errors({ numberCode: '0 kg' }, '0 kg')).toEqual({})
   })
 
   it("an alignment without Excel's indent resets the indent to 0; one with it keeps it; an invalid alignment changes nothing", () => {

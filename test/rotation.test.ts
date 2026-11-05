@@ -37,10 +37,10 @@ describe("the dialog's Orientation", () => {
 
   it("blocks OK outside Excel's −90 to 90 whole degrees", () => {
     const draft = startOf(at()).draft
-    for (const bad of ['91', '-91', '1.5', 'x', '']) expect(draftErrors({ ...draft, degrees: bad }).degrees, bad).toBe(true)
-    for (const good of ['90', '-90', '0', ' 15 ']) expect(draftErrors({ ...draft, degrees: good }).degrees, good).toBeUndefined()
+    for (const bad of ['91', '-91', '1.5', 'x', '']) expect(draftErrors({ ...draft, degrees: bad }, draft.numberCode).degrees, bad).toBe(true)
+    for (const good of ['90', '-90', '0', ' 15 ']) expect(draftErrors({ ...draft, degrees: good }, draft.numberCode).degrees, good).toBeUndefined()
     // Vertical Text leaves the degrees out of it
-    expect(draftErrors({ ...draft, degrees: 'x', verticalText: true }).degrees).toBeUndefined()
+    expect(draftErrors({ ...draft, degrees: 'x', verticalText: true }, draft.numberCode).degrees).toBeUndefined()
   })
 })
 

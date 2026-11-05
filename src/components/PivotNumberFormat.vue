@@ -3,7 +3,7 @@
 // locale and the format code; OK gives the value field its format (from Value Field Settings, the dialog's draft).
 import { computed, ref, watch } from 'vue'
 import type { NumberFormat } from 'xlcalc/contract'
-import { useNumberFormats } from '../number-formats'
+import { codeRefused, useNumberFormats } from '../number-formats'
 import { useSheetContext } from './context'
 import DialogShell from './DialogShell.vue'
 import { IconClose } from './icons'
@@ -51,7 +51,8 @@ function cancel(): void {
   if (x?.kind === 'value') x.format = false
   else dialogs.close()
 }
-const ok = () => code.value.trim() && void dialogs.applyNumberFormat(code.value.trim() === start.value ? null : format.value)
+const refused = computed(() => codeRefused(code.value.trim(), start.value))
+const ok = () => code.value.trim() && !refused.value && void dialogs.applyNumberFormat(code.value.trim() === start.value ? null : format.value)
 </script>
 
 <template>
@@ -76,11 +77,12 @@ const ok = () => code.value.trim() && void dialogs.applyNumberFormat(code.value.
       </fieldset>
       <label class="xs-fmt-field">
         <span>{{ m.fmtCode }}</span>
-        <input :value="code" class="xs-field xs-fmt-input" type="text" spellcheck="false" autocomplete="off" :aria-invalid="!code.trim()" data-pnf-code @input="type(($event.target as HTMLInputElement).value)" />
+        <input :value="code" class="xs-field xs-fmt-input" type="text" spellcheck="false" autocomplete="off" :aria-invalid="!code.trim() || refused" data-pnf-code @input="type(($event.target as HTMLInputElement).value)" />
       </label>
+      <p v-if="refused" class="xs-fmt-error" role="alert">{{ m.fmtCodeRefused }}</p>
     </div>
     <footer class="xs-fmt-foot">
-      <button type="submit" class="xs-button xs-button-main xs-fmt-btn" :disabled="!code.trim()" data-xs-dialog-ok>{{ m.ok }}</button>
+      <button type="submit" class="xs-button xs-button-main xs-fmt-btn" :disabled="!code.trim() || refused" data-xs-dialog-ok>{{ m.ok }}</button>
       <button type="button" class="xs-button xs-fmt-btn" data-xs-dialog-cancel @click="cancel">{{ m.cancel }}</button>
     </footer>
   </DialogShell>

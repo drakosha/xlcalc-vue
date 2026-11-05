@@ -115,6 +115,21 @@ describe('FormatDialog', () => {
     expect(w.emitted('apply')).toEqual([[[{ numberFormat: '0.000' }]]])
   })
 
+  it('OK refuses a typed code Excel does not open a file with, with Excel\'s message, but not the code it opened with', async () => {
+    const w = await open(at('A1'))
+    const ok = () => w.find('[data-fmt-ok]').element as HTMLButtonElement
+    await w.find('[data-fmt-code]').setValue('0 kg')
+    expect(w.find('[data-fmt-code-error]').text()).toBe('Microsoft Excel cannot use the number format you typed. Try using one of the built-in number formats.')
+    expect(ok().disabled).toBe(true)
+    await w.find('[data-fmt-code]').setValue('0 "kg"')
+    expect(w.find('[data-fmt-code-error]').exists()).toBe(false)
+    expect(ok().disabled).toBe(false)
+
+    const own = await open({ ...at('A1'), numberFormat: '0 kg' })
+    expect(own.find('[data-fmt-code-error]').exists()).toBe(false)
+    expect((own.find('[data-fmt-ok]').element as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it("names the list's items in the workbook's locale", async () => {
     const w = await open(at('A1', { numberFormat: '0%' }), 'ru-RU')
     expect(w.findAll('.xs-fmt-choice').slice(0, 3).map((c) => c.text())).toEqual(['Общий', 'Числовой', 'Денежный'])
