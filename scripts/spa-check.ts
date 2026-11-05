@@ -145,8 +145,17 @@ async function enter(page: Page, size: Size, cell: string, text: string): Promis
   await page.keyboard.type(text)
   await page.keyboard.press('Enter')
 }
+/** A control of the formula bar that a phone keeps under More: More opens first when it is hidden there. */
+async function reveal(page: Page, selector: string): Promise<void> {
+  const tool = page.locator('.xs-bar').locator(selector)
+  const more = page.locator('[data-xs-bar-more]')
+  if ((await tool.count()) && !(await tool.first().isVisible()) && (await more.count()) && (await more.getAttribute('aria-expanded')) !== 'true') await more.tap()
+}
 async function press(page: Page, size: Size, selector: string): Promise<void> {
-  if (size.phone) await page.locator(selector).tap()
+  if (size.phone) {
+    await reveal(page, selector)
+    await page.locator(selector).tap()
+  }
   else await page.locator(selector).click()
 }
 

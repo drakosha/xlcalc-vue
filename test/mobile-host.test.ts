@@ -37,6 +37,10 @@ it('opens a touch menu without preselecting Cut and preserves keyboard navigatio
   expect(menu.classes()).toContain('xs-menu-mobile')
   expect(document.activeElement).toBe(menu.element)
   expect(w.find('[data-xs-menu="cut"]').element).not.toBe(document.activeElement)
+  // The mouse events after the finger lifts land on the grid: the menu at the bottom of the screen is not under the finger
+  const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+  w.find('[data-cell="1:1"]').element.dispatchEvent(down)
+  expect(down.defaultPrevented).toBe(true)
   await menu.trigger('keydown', { key: 'ArrowDown' })
   expect(document.activeElement?.getAttribute('role')).toBe('menuitem')
   await menu.trigger('keydown', { key: 'Escape' })

@@ -137,8 +137,18 @@ function onDocKey(e: KeyboardEvent): void {
   menu.close()
   closeDialog()
 }
-onMounted(() => document.addEventListener('keydown', onDocKey))
-onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
+/** The mouse events after a long press land under the finger, not on the menu at the screen's bottom: they leave focus in the menu. */
+function keepMobileFocus(e: MouseEvent): void {
+  if (menu.open.value && mobile.value && !box.value?.contains(e.target as Node)) e.preventDefault()
+}
+onMounted(() => {
+  document.addEventListener('keydown', onDocKey)
+  document.addEventListener('mousedown', keepMobileFocus, true)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onDocKey)
+  document.removeEventListener('mousedown', keepMobileFocus, true)
+})
 </script>
 
 <template>
