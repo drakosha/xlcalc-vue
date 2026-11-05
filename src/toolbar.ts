@@ -10,7 +10,7 @@ import type { SheetViewState, ToolbarGroup } from './contract/view'
  * The toolbar's groups in their default order, as `SheetToolbar`'s `items` takes them: a host spreads it to add its buttons.
  * Excel for Windows' order: Undo and Redo (its Quick Access Toolbar), Home's groups, then Insert's, Data's and the PivotTable tabs' commands.
  */
-export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = ['undo', 'formatPainter', 'font', 'fontStyle', 'borders', 'colors', 'verticalAlign', 'orientation', 'align', 'merge', 'number', 'formatCells', 'autoSum', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign']
+export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = ['undo', 'formatPainter', 'font', 'fontStyle', 'borders', 'colors', 'verticalAlign', 'orientation', 'align', 'merge', 'number', 'formatCells', 'autoSum', 'autoFilter', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign']
 
 /**
  * How many blocks of these widths, from the start, fit on `rows` lines of `room` px, each line filled as a wrapping flex row
@@ -86,8 +86,8 @@ const RIBBON_ROWS: Partial<Record<ToolbarGroup, { group: string; slots: readonly
   number: { group: 'number', slots: ['a1', 'a2'] },
   formatCells: { group: 'number', slots: ['b2'] },
 }
-/** Excel's large buttons, as tall as the two rows: Insert's PivotTable, Data's Refresh All, Design's Layout menus. */
-const RIBBON_LARGE: ReadonlySet<ToolbarGroup> = new Set(['pivotTable', 'refreshAll', 'pivotDesign'])
+/** Excel's large buttons, as tall as the two rows: Data's Filter, Insert's PivotTable, Data's Refresh All, Design's Layout menus. */
+const RIBBON_LARGE: ReadonlySet<ToolbarGroup> = new Set(['autoFilter', 'pivotTable', 'refreshAll', 'pivotDesign'])
 
 /** A key after a button's name, as its ScreenTip shows it: `(Ctrl+Alt+F5)`, `(F4)`. */
 const NAME_KEY = /\s*\((?:[^()]*\+[^()]*|F\d{1,2})\)$/

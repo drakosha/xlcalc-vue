@@ -3,7 +3,8 @@
 // sheet), the font and its size, bold, italic, Underline with its menu, borders, fill and font colors, vertical alignment, Orientation
 // with its menu, horizontal alignment, indent, wrapping, Merge & Center with its dropdown (through the sheet, with the source's `structure`), Excel's Number Format box (xlcalc's,
 // in the workbook's locale) and its buttons, Accounting Number Format with its currencies, applied to the selection the sheet's `state` event reports, Format Cells for a host
-// that displays the dialog, and AutoSum with its list (through the sheet, with the source's `autoSum`); then Insert > PivotTable
+// that displays the dialog, AutoSum with its list (through the sheet, with the source's `autoSum`) and Data > Filter (through the sheet,
+// with the source's `setAutoFilter`); then Insert > PivotTable
 // (its dialog over the sheet), and Data > Refresh All with its list's Refresh of the PivotTable under the active cell (through the
 // sheet, with the source's `refreshConnections`); `items` picks and orders the groups and adds the host's buttons. In a narrow
 // viewport what does not fit goes into a menu; on a touch screen every target is 44 × 44 px.
@@ -67,7 +68,7 @@ import ToolbarPivot from './ToolbarPivot.vue'
 import { ToolbarLabel } from './ToolbarLabel'
 import ToolbarDrop, { type ToolbarDropItem } from './ToolbarDrop.vue'
 import { hasListener } from './dom'
-import { IconDown } from './icons'
+import { IconDown, IconFilter } from './icons'
 import { useOutsidePress } from './popup'
 import { IconPivotTable } from './pivot-icons'
 import {
@@ -276,6 +277,8 @@ function drawn(group: ToolbarGroup): boolean {
     case 'formatPainter':
     case 'autoSum':
       return sheet
+    case 'autoFilter':
+      return sheet && !!src.setAutoFilter
     case 'merge':
     case 'pivotTable':
       return sheet && !!src.structure
@@ -658,6 +661,12 @@ function refreshPivot(): void {
   const sheet = props.sheet
   if (sheet && props.state?.canRefreshPivot) void run(() => sheet.refreshPivot())
 }
+/** Excel's Data > Filter through the sheet: on or off, one step of undo; the sheet displays a rejection. */
+function toggleAutoFilter(): void {
+  closeAll()
+  const sheet = props.sheet
+  if (sheet && props.state?.canAutoFilter) void run(() => sheet.toggleAutoFilter())
+}
 /** Excel's Insert > PivotTable: its dialog over the sheet. */
 function insertPivot(): void {
   closeAll()
@@ -984,6 +993,21 @@ function pickNumber(index: number): void {
                     </button>
                   </div>
                 </span>
+              </span>
+              <span v-else-if="p.block.group === 'autoFilter' && sheet && source.setAutoFilter" :class="['xs-tb-part', { 'xs-tb-large': p.large }]">
+                <button
+                  type="button"
+                  :class="['xs-tool', { 'xs-tool-on': !!state?.autoFilter }]"
+                  data-tb="auto-filter"
+                  :data-tip="m.autoFilterToggle"
+                  :aria-label="m.autoFilterToggle"
+                  :aria-pressed="!!state?.autoFilter"
+                  :disabled="!state?.canAutoFilter"
+                  @click="toggleAutoFilter"
+                >
+                  <IconFilter />
+                  <ToolbarLabel v-if="p.large" :name="m.autoFilterToggle" />
+                </button>
               </span>
               <span v-else-if="p.block.group === 'pivotTable' && sheet && source.structure" :class="['xs-tb-part', { 'xs-tb-large': p.large }]">
                 <button type="button" class="xs-tool" data-tb="pivot-table" :data-tip="m.pivotInsert" :aria-label="m.pivotInsert" :disabled="!state?.canInsertPivot" @click="insertPivot">

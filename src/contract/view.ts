@@ -497,7 +497,7 @@ export type ToolbarSource = SheetSource
  * the Number Format box with its buttons (`number`), Format Cells, AutoSum, Insert > PivotTable, Data > Refresh All, and the
  * PivotTable Analyze and Design commands (`pivotAnalyze`, `pivotDesign`) shown while the active cell is in a PivotTable.
  */
-export type ToolbarGroup = 'undo' | 'formatPainter' | 'font' | 'fontStyle' | 'borders' | 'colors' | 'verticalAlign' | 'orientation' | 'align' | 'merge' | 'number' | 'formatCells' | 'autoSum' | 'pivotTable' | 'refreshAll' | 'pivotAnalyze' | 'pivotDesign'
+export type ToolbarGroup = 'undo' | 'formatPainter' | 'font' | 'fontStyle' | 'borders' | 'colors' | 'verticalAlign' | 'orientation' | 'align' | 'merge' | 'number' | 'formatCells' | 'autoSum' | 'autoFilter' | 'pivotTable' | 'refreshAll' | 'pivotAnalyze' | 'pivotDesign'
 
 /** A host's button on `SheetToolbar`, drawn as the toolbar's own and, where it does not fit, moved into its menu. */
 export interface ToolbarButton {

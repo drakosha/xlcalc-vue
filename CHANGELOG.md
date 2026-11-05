@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.46.0 (2026-11-05)
+
+- `SheetToolbar` has Excel's Data > Filter: the new group `autoFilter`, after AutoSum, with `sheet` and the source's `setAutoFilter`, on Ctrl+Shift+L's `toggleAutoFilter()`, pressed while the sheet has an AutoFilter, large in the two-row ribbon; the new text `autoFilterToggle`.
+- Changes for the host: a toolbar with the default `items`, or one that spreads `TOOLBAR_GROUPS`, now draws this button: a host that added its own Filter button has two until it removes one. A host with its own full `messages` set needs `autoFilterToggle`.
+
 ## 0.45.0 (2026-11-05)
 
 - Built over xlcalc 0.84.0. `./local` still requires `xlcalc` 0.76.0 or later.

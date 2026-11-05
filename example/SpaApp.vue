@@ -7,12 +7,12 @@ import { computed, onBeforeUnmount, ref, shallowRef, watchEffect } from 'vue'
 import type { BookInput } from 'xlcalc'
 import { quoteSheetIfNeeded } from 'xlcalc/text'
 import type { XlsxCached } from 'xlcalc/xlsx'
-import { SheetToolbar, SheetView, TOOLBAR_GROUPS, enMessages, ruMessages, type SheetViewApi, type SheetViewState, type ToolbarItem } from '../src'
+import { SheetToolbar, SheetView, enMessages, ruMessages, type SheetViewApi, type SheetViewState } from '../src'
 import { localSource, type LocalSource } from '../src/local'
 import SpaDialog from './SpaDialog.vue'
 import SpaLosses from './SpaLosses.vue'
 import { download, emptyBook, timed } from './spa-book'
-import { IconFilter, IconNew, IconOpen, IconSave, IconSettings } from './spa-icons'
+import { IconNew, IconOpen, IconSave, IconSettings } from './spa-icons'
 import { bookLocaleOf, firstShownSheet, localeOfLang, lossesOf, type LossKind } from './spa-open'
 import { readInThread, writeInThread } from './spa-files'
 import { BOOK_LOCALES, pickLang, TEXTS, type BookLocale, type SpaLang } from './spa-texts'
@@ -35,12 +35,6 @@ const name = ref('')
 const state = ref<SheetViewState | null>(null)
 /** The sheet the toolbar formats, undoes and redoes through, as the sheet's own keys do. */
 const sheet = shallowRef<SheetViewApi | null>(null)
-/** The toolbar's groups, then Excel's Data > Filter, pressed while the sheet has an AutoFilter. */
-const toolbarItems = computed<ToolbarItem[]>(() => [
-  ...TOOLBAR_GROUPS,
-  // Large with rows: 2, as Excel's Data > Filter
-  { id: 'filter', label: t.value.filter, icon: IconFilter, run: () => void sheet.value?.toggleAutoFilter(), pressed: !!state.value?.autoFilter, disabled: !state.value?.canAutoFilter, size: 'large' },
-])
 /** The toolbar's lines: `?rows=2` lays it out as Excel's ribbon, as an app with tabs does. */
 const toolbarRows = Number(params.get('rows')) || 1
 const lostShown = ref(true)
@@ -247,7 +241,6 @@ onBeforeUnmount(() => void book.value?.source.close())
       :state="state"
       :messages="messages"
       :sheet="sheet"
-      :items="toolbarItems"
       :rows="toolbarRows"
       @done="refocus"
     />

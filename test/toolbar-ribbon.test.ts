@@ -31,7 +31,7 @@ const hooks = (w: VueWrapper) => w.findAll('[data-tb], [data-tb-host]').map((e) 
 
 describe("the toolbar's default order", () => {
   it("is Excel's Home (Clipboard, Font, Alignment, Number, Editing) after Undo and Redo, then Insert's PivotTable, Data's Refresh All and the PivotTable tabs", () => {
-    expect(TOOLBAR_GROUPS).toEqual(['undo', 'formatPainter', 'font', 'fontStyle', 'borders', 'colors', 'verticalAlign', 'orientation', 'align', 'merge', 'number', 'formatCells', 'autoSum', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign'])
+    expect(TOOLBAR_GROUPS).toEqual(['undo', 'formatPainter', 'font', 'fontStyle', 'borders', 'colors', 'verticalAlign', 'orientation', 'align', 'merge', 'number', 'formatCells', 'autoSum', 'autoFilter', 'pivotTable', 'refreshAll', 'pivotAnalyze', 'pivotDesign'])
   })
 
   it("draws the buttons in the order of Excel's groups: Fill Color before Font Color, Format Cells right after the Number group", async () => {
@@ -144,6 +144,7 @@ describe('ribbonGroups', () => {
       ['verticalAlign', 'rows', false, [[['verticalAlign:a1', 'orientation:a1'], ['align:a2']], [['align:b1'], ['merge:b2']]]],
       ['number', 'rows', false, [[['number:a1'], ['number:a2']], [[], ['formatCells:b2']]]],
       ['autoSum', 'cols', false, [[['autoSum']]]],
+      ['autoFilter', 'cols', true, [[['autoFilter']]]],
       ['pivotTable', 'cols', true, [[['pivotTable']]]],
       ['refreshAll', 'cols', true, [[['refreshAll']]]],
       ['pivotAnalyze', 'cols', false, [[['pivotAnalyze']]]],

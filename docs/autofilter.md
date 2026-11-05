@@ -30,6 +30,8 @@ Excel does not change an AutoFilter's range when data is typed under it, and sav
 
 The source moves the AutoFilter with rows and columns (`./local` through xlcalc: rows inserted inside it grow it, deleting its header row removes it, a table over all of it takes its place), and the sheet draws the buttons where the source puts them after it reloads. Columns inserted or deleted through the sheet's own commands move the conditions and the sort with their columns, and those of deleted columns go. An AutoFilter moved otherwise (an undo, a redo, another viewer's change) takes them along when it moved whole; when its width changed, the sheet cannot tell which columns moved, and conditions on columns outside it go. An AutoFilter that goes takes its conditions along.
 
+`SheetToolbar` with `sheet` has this button, the group `autoFilter` after AutoSum (`auto-filter`, named `autoFilterToggle`): pressed while the sheet has an AutoFilter, disabled without `canAutoFilter`, and large in the two-row ribbon, as on Excel's Data tab. A host with a ribbon of its own draws it from the same state:
+
 ```ts
 // A host's ribbon: the Filter button pressed while the sheet has an AutoFilter.
 const filterButton = { id: 'filter', label: 'Filter', run: () => sheet.value?.toggleAutoFilter(), pressed: !!state.value?.autoFilter, disabled: !state.value?.canAutoFilter }

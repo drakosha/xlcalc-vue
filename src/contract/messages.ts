@@ -329,6 +329,8 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   mergeCells: string
   unmergeCells: string
   mergeWarning: string
+  /** Excel's Data > Filter on the toolbar. */
+  autoFilterToggle: string
   /** Excel's AutoSum on the toolbar: the button (Sum), its dropdown button, and the list's items. */
   autoSum: string
   autoSumMenu: string
