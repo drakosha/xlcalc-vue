@@ -82,6 +82,7 @@ export const TEXTS: Record<SpaLang, SpaTexts> = {
     lossKind: {
       externalLink: 'links to other workbooks',
       userFunction: 'user-defined functions',
+      noPrefix: 'functions Excel does not read without their prefix',
       formula: 'formulas',
       dataTable: 'data tables',
       errorValue: 'unknown errors',
@@ -156,6 +157,7 @@ export const TEXTS: Record<SpaLang, SpaTexts> = {
     lossKind: {
       externalLink: 'связи с другими книгами',
       userFunction: 'пользовательские функции',
+      noPrefix: 'функции, которые Excel без префикса не читает',
       formula: 'формулы',
       dataTable: 'таблицы данных',
       errorValue: 'неизвестные ошибки',

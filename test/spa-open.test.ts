@@ -56,6 +56,10 @@ describe('lossesOf: what a file lost, by kind', () => {
   it('puts what changes values first and names last, whatever order the reader found them in', () => {
     expect(kinds.map((k) => k.code)).toEqual(['externalLink', 'style', 'name'])
   })
+  it('puts a function without its prefix among what changes values', () => {
+    const order = lossesOf([{ code: 'style', message: 's' }, { code: 'formula', message: 'f' }, { code: 'noPrefix', message: 'p' }, { code: 'userFunction', message: 'u' }]).map((k) => k.code)
+    expect(order).toEqual(['userFunction', 'noPrefix', 'formula', 'style'])
+  })
   it('counts the issues of a kind and each message once with its count, in order of appearance', () => {
     const link = kinds[0]!
     expect(link.count).toBe(4)

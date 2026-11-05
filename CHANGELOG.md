@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.47.0 (2026-11-05)
+
+- Built over xlcalc 0.85.0. `./local` still requires `xlcalc` 0.76.0 or later. With the host's xlcalc at 0.85.0, `openXlsx` reports the new issue `noPrefix`, a function newer than Excel 2007 stored without its prefix, which `groupIssues` groups as any other, and `saveXlsx` with `over` and `writeValues` takes time linear in the sheet.
+- The example's notice of what a file lost names `noPrefix`.
+
 ## 0.46.0 (2026-11-05)
 
 - `SheetToolbar` has Excel's Data > Filter: the new group `autoFilter`, after AutoSum, with `sheet` and the source's `setAutoFilter`, on Ctrl+Shift+L's `toggleAutoFilter()`, pressed while the sheet has an AutoFilter, large in the two-row ribbon; the new text `autoFilterToggle`.
