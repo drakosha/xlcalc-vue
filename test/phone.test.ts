@@ -25,6 +25,11 @@ const classes = async (): Promise<string[]> => {
 }
 
 describe('the sheet', () => {
+  it('keeps a landscape touch window compact at 734 px wide', async () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({ matches: ['(pointer: coarse)', '(max-height: 500px)'].includes(query), media: query, addEventListener: () => {}, removeEventListener: () => {} }) as unknown as MediaQueryList)
+    sheetWidth(734)
+    expect(await classes()).toContain('xs-phone')
+  })
   it('with a mouse below 600 px gives way only to the width: no phone, no touch sizes', async () => {
     sheetWidth(590)
     const on = await classes()

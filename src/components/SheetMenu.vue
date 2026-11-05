@@ -4,6 +4,8 @@
 // Keys in a menu as in Excel: Down and Up cycle through its enabled items, Home and End, Enter or Space chooses, Esc and Tab close;
 // a press in the menu leaves focus where the keys put it.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+import { useVisualViewport } from '../frame'
+import { IconClose } from './icons'
 import type { MenuItem } from '../core/menu'
 import { useSheetContext } from './context'
 import ColourSwatches from './ColourSwatches.vue'
@@ -19,7 +21,9 @@ const m = ctx.messages
 const EDGE_PX = 4
 
 const box = ref<HTMLElement | null>(null)
-const pos = ref({ left: '0px', top: '0px' })
+const pos = ref<Record<string, string>>({ left: '0px', top: '0px' })
+const viewport = useVisualViewport()
+const mobile = computed(() => ctx.v.touch.value && (!!ctx.props.compact || ctx.v.phone.value))
 /** Where focus was before the menu opened, to return to when the menu closes with focus in it. */
 let before: HTMLElement | null = null
 // Opens at the pointer, then is moved inside the window: to the left of a right edge, above a pointer near the bottom (the tabs).
@@ -30,11 +34,23 @@ watch(menu.open, async (o, was) => {
   await nextTick()
   const r = box.value?.getBoundingClientRect()
   if (!r) return
+  if (mobile.value) {
+    placeMobile()
+    box.value?.focus({ preventScroll: true })
+    return
+  }
   const left = Math.max(EDGE_PX, Math.min(o.x, window.innerWidth - r.width - EDGE_PX))
   const top = o.y + r.height > window.innerHeight - EDGE_PX ? Math.max(EDGE_PX, o.y - r.height) : o.y
   pos.value = { left: `${left}px`, top: `${top}px` }
   enabled()[0]?.focus({ preventScroll: true })
 })
+function placeMobile(): void {
+  if (!menu.open.value || !mobile.value) return
+  const v = viewport.value
+  const width = Math.min(480, Math.max(0, v.width - 16))
+  pos.value = { left: `${v.left + (v.width - width) / 2}px`, top: 'auto', bottom: `${Math.max(0, window.innerHeight - v.top - v.height) + 8}px`, width: `${width}px`, maxHeight: `${Math.max(44, Math.min(360, v.height * 0.55))}px` }
+}
+watch(viewport, placeMobile)
 /** Returns focus to the element focused before the menu (the grid if it is gone), when focus is still in the menu. */
 function giveBack(): void {
   const el = before
@@ -126,8 +142,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKey))
 </script>
 
 <template>
-  <div v-if="menu.open.value" ref="box" class="xs-menu" role="menu" :aria-label="menu.open.value.kind === 'cells' ? m.cellMenu : m.menu" :style="pos" data-xs-menu-box @keydown="onMenuKey" @mousedown.prevent @pointerdown="pressedIn = true">
-    <div class="xs-menu-caption">{{ menu.caption.value }}</div>
+  <div v-if="menu.open.value" ref="box" :class="['xs-menu', { 'xs-menu-mobile': mobile }]" tabindex="-1" role="menu" :aria-label="menu.open.value.kind === 'cells' ? m.cellMenu : m.menu" :style="pos" data-xs-menu-box @keydown="onMenuKey" @mousedown.prevent @pointerdown="pressedIn = true">
+    <div v-if="mobile" class="xs-menu-heading"><div class="xs-menu-caption">{{ menu.caption.value }}</div><button type="button" class="xs-tool" :aria-label="m.close" @click="menu.close()"><IconClose /></button></div>
+    <div v-else class="xs-menu-caption">{{ menu.caption.value }}</div>
     <template v-for="item in menu.items.value" :key="item.id">
       <div v-if="item.group" class="xs-menu-sep" role="separator"></div>
       <div v-if="item.sub" class="xs-menu-subwrap">

@@ -179,3 +179,5 @@ const wait = ctx.w.wait
 </template>
 
 <style src="../style.css"></style>
+
+<style src="../mobile.css"></style>

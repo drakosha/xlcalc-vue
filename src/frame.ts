@@ -5,16 +5,38 @@ import { onScopeDispose, ref, type Ref } from 'vue'
 export const NARROW_PX = 600
 
 /** Whether the pointer is touch (`pointer: coarse`), following the media query until the scope ends. */
-export function useCoarsePointer(): Ref<boolean> {
+function useMedia(queryText: string): Ref<boolean> {
   const coarse = ref(false)
   if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    const query = window.matchMedia('(pointer: coarse)')
+    const query = window.matchMedia(queryText)
     const update = () => (coarse.value = query.matches)
     update()
     query.addEventListener?.('change', update)
     onScopeDispose(() => query.removeEventListener?.('change', update))
   }
   return coarse
+}
+
+export const useCoarsePointer = (): Ref<boolean> => useMedia('(pointer: coarse)')
+/** Short touch windows need compact controls even when the phone is landscape. */
+export const useShortViewport = (): Ref<boolean> => useMedia('(max-height: 500px)')
+
+/** The visible window for fixed menus and dialogs, including the on-screen keyboard. */
+export function useVisualViewport() {
+  const bounds = ref({ left: 0, top: 0, width: 0, height: 0 })
+  if (typeof window === 'undefined') return bounds
+  const viewport = window.visualViewport
+  const update = () => { bounds.value = { left: viewport?.offsetLeft ?? 0, top: viewport?.offsetTop ?? 0, width: viewport?.width ?? window.innerWidth, height: viewport?.height ?? window.innerHeight } }
+  update()
+  window.addEventListener('resize', update)
+  viewport?.addEventListener('resize', update)
+  viewport?.addEventListener('scroll', update)
+  onScopeDispose(() => {
+    window.removeEventListener('resize', update)
+    viewport?.removeEventListener('resize', update)
+    viewport?.removeEventListener('scroll', update)
+  })
+  return bounds
 }
 
 /** The width a hairline border is drawn at, in page pixels, measured: a CSS pixel in Chromium, a device pixel in WebKit; 1 without a layout. */

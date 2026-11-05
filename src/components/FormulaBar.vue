@@ -20,6 +20,9 @@ const { sel, f, nav, ed, v } = ctx
 const m = ctx.messages
 
 const editingBar = computed(() => ctx.editor.value?.place === 'bar')
+const compact = computed(() => !!ctx.props.compact || v.phone.value)
+const extras = ref(false)
+watch(() => ctx.editor.value !== null, () => (extras.value = false))
 const active = computed(() => ctx.selected.value)
 const activeLink = computed(() => {
   const a = active.value
@@ -248,10 +251,10 @@ watch(
 </script>
 
 <template>
-  <div class="xs-bar" :class="{ 'xs-bar-editing': editingBar }">
+  <div class="xs-bar" :class="{ 'xs-bar-editing': editingBar, 'xs-bar-active': !!ctx.editor.value, 'xs-bar-extras': extras }">
     <button
       type="button"
-      class="xs-tool"
+      class="xs-tool xs-bar-extra"
       :disabled="!nav.history.value.length"
       :title="nav.history.value.length ? m.back : m.backEmpty"
       @click="nav.goBack()"
@@ -267,7 +270,7 @@ watch(
       <button type="button" class="xs-tool" :disabled="!ctx.editor.value" :title="m.barEnter" :aria-label="m.barEnter" data-xs-bar-enter @mousedown.prevent @click="ed.commit(0, 0)">
         <IconCheck />
       </button>
-      <button type="button" class="xs-tool" :disabled="!ctx.canInsertFunction.value" :title="m.insertFunction" :aria-label="m.insertFunction" data-xs-bar-fx @mousedown.prevent @click="ctx.openInsertFunction()">
+      <button type="button" class="xs-tool xs-bar-extra" :disabled="!ctx.canInsertFunction.value" :title="m.insertFunction" :aria-label="m.insertFunction" data-xs-bar-fx @mousedown.prevent @click="ctx.openInsertFunction()">
         <IconFx />
       </button>
       <div class="xs-fx" :class="{ 'xs-fx-open': ctx.barOpen.value }">
@@ -328,6 +331,7 @@ watch(
         <IconUp v-if="ctx.barOpen.value" />
         <IconDown v-else />
       </button>
+      <button v-if="compact" type="button" class="xs-tool" :aria-label="m.toolbarMore" :aria-expanded="extras" data-xs-bar-more @mousedown.prevent @click="extras = !extras"><span aria-hidden="true">⋯</span></button>
     </div>
     <template v-if="activeLink && !editingBar">
       <a
@@ -344,7 +348,7 @@ watch(
         activeLink.location ? m.linkInBook(activeLink.location) : (activeLink.href ?? activeLink.target)
       }}</span>
     </template>
-    <div class="xs-tools">
+    <div class="xs-tools xs-bar-extra">
       <button v-if="ctx.props.cellUrl && sel.selectionRef.value" type="button" class="xs-tool" :title="m.cellLink" @click="nav.copyCellLink()">
         <IconLink />
       </button>
