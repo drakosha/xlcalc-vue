@@ -14,6 +14,7 @@ import FunctionList from './FunctionList.vue'
 import FunctionTip from './FunctionTip.vue'
 import NameBox from './NameBox.vue'
 import { IconBack, IconCheck, IconClose, IconDown, IconFilter, IconFx, IconLink, IconLock, IconLockOpen, IconSearch, IconUp } from './icons'
+import { IconMore } from './toolbar-icons'
 
 const ctx = useSheetContext()
 const { sel, f, nav, ed, v } = ctx
@@ -331,7 +332,7 @@ watch(
         <IconUp v-if="ctx.barOpen.value" />
         <IconDown v-else />
       </button>
-      <button v-if="compact" type="button" class="xs-tool" :aria-label="m.toolbarMore" :aria-expanded="extras" data-xs-bar-more @mousedown.prevent @click="extras = !extras"><span aria-hidden="true">⋯</span></button>
+      <button v-if="compact" type="button" class="xs-tool" :aria-label="m.toolbarMore" :aria-expanded="extras" data-xs-bar-more @mousedown.prevent @click="extras = !extras"><IconMore /></button>
     </div>
     <template v-if="activeLink && !editingBar">
       <a

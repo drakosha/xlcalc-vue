@@ -4,19 +4,20 @@ import { onScopeDispose, ref, type Ref } from 'vue'
 /** Below this width what needs room gives way (panels below the grid, dialogs on the full sheet); with a finger as the pointer it is a phone. */
 export const NARROW_PX = 600
 
-/** Whether the pointer is touch (`pointer: coarse`), following the media query until the scope ends. */
+/** Whether a media query matches, following it until the scope ends. */
 function useMedia(queryText: string): Ref<boolean> {
-  const coarse = ref(false)
+  const matches = ref(false)
   if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
     const query = window.matchMedia(queryText)
-    const update = () => (coarse.value = query.matches)
+    const update = () => (matches.value = query.matches)
     update()
     query.addEventListener?.('change', update)
     onScopeDispose(() => query.removeEventListener?.('change', update))
   }
-  return coarse
+  return matches
 }
 
+/** Whether the pointer is touch (`pointer: coarse`). */
 export const useCoarsePointer = (): Ref<boolean> => useMedia('(pointer: coarse)')
 /** Short touch windows need compact controls even when the phone is landscape. */
 export const useShortViewport = (): Ref<boolean> => useMedia('(max-height: 500px)')
