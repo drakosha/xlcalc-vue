@@ -25,7 +25,7 @@ export function firstShownSheet(book: BookInput): string | undefined {
 
 /** Kinds by what they mean to a reader: what changes values first, then content, then formatting, and settings and names last. */
 const ORDER: XlsxIssueCode[] = [
-  'externalLink', 'userFunction', 'formula', 'dataTable', 'errorValue', 'errorConstant', 'part', 'table', 'pivotTable',
+  'externalLink', 'userFunction', 'noPrefix', 'formula', 'dataTable', 'errorValue', 'errorConstant', 'part', 'table', 'pivotTable',
   'drawing', 'sheetKind', 'cellMetadata', 'connection', 'macros', 'conditionalFormat', 'dataValidation', 'hyperlink',
   'comment', 'richText', 'style', 'numberFormat', 'defaultFont', 'defaultWidth', 'frozenPanes', 'autoFilter', 'outline',
   'sparkline', 'print', 'protection', 'calculation', 'hidden', 'locale', 'name', 'meta', 'textLength', 'noCachedValues',

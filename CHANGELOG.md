@@ -3,8 +3,12 @@
 ## Unreleased
 
 - Compact touch controls keep the formula on one row, reveal extra controls and sheet tabs on demand during entry, and use a bounded two-column context menu without preselecting Cut. Short landscape touch windows keep a one-row toolbar; fixed menus and dialogs follow the visual viewport above the keyboard. Workbook dimensions and zoom do not change.
-
 - Additive host contract: `SheetView.compact` requests controls for a small viewport; `SheetViewState.editing` reports an open cell editor so the host can collapse its panels without inspecting the sheet's DOM.
+
+## 0.47.0 (2026-11-05)
+
+- Built over xlcalc 0.85.0. `./local` still requires `xlcalc` 0.76.0 or later. With the host's xlcalc at 0.85.0, `openXlsx` reports the new issue `noPrefix`, a function newer than Excel 2007 stored without its prefix, which `groupIssues` groups as any other, and `saveXlsx` with `over` and `writeValues` takes time linear in the sheet.
+- The example's notice of what a file lost names `noPrefix`.
 
 ## 0.46.0 (2026-11-05)
 

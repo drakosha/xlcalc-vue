@@ -261,3 +261,20 @@ describe('number format codes Excel does not open a file with (xlcalc 0.83.0)', 
     expect(JSON.stringify(back.book)).toContain('0 \\"kg\\"')
   })
 })
+
+describe('a function stored without its prefix (xlcalc 0.85.0)', () => {
+  /** A file with `XLOOKUP(2,{1,2},{3,4})` in `S!A1` as a generator that takes a formula verbatim stores it. */
+  const noPrefixFile = () =>
+    storedZip({
+      ...unzipText(protectedFile()),
+      'xl/worksheets/sheet1.xml': '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1"><f>XLOOKUP(2,{1,2},{3,4})</f></c></row></sheetData></worksheet>',
+    })
+
+  it('reads the call, calculates it and reports it for the notice of what a file lost', async () => {
+    const { book, issues } = await openXlsx(noPrefixFile())
+    expect(issues).toContainEqual(expect.objectContaining({ code: 'noPrefix', fn: 'XLOOKUP', sheet: 'S', cells: ['A1'] }))
+    expect(groupIssues(issues).find((g) => g.code === 'noPrefix')).toMatchObject({ count: 1, sheets: ['S'] })
+    const s = source(book)
+    expect((await win(s, 'S', 1, 1, 1, 1)).values).toEqual([[4]])
+  })
+})
