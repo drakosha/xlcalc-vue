@@ -180,10 +180,14 @@ const sheet = ref<SheetViewApi | null>(null)
 
 ## Narrow sheets and phones
 
-The sheet goes by two things it measures: its own width on screen and the pointer (`pointer: coarse`, a finger). A browser's report of the pointer decides the sizes, so a touch laptop that reports `coarse` gets them too.
+A host can request compact controls with `compact`, including for a landscape phone or a short window. `state.editing` is set while a cell editor is open and absent after commit or cancellation, so the host can collapse its own panels during entry. This changes the controls, not the workbook's row heights, column widths or zoom.
+
+The sheet goes by its own width on screen, the window's height and the pointer (`pointer: coarse`, a finger). A browser's report of the pointer decides the sizes, so a touch laptop that reports `coarse` gets them too.
 
 - Below 600 px, with any pointer, what needs room gives way: panels go below the grid, dialogs take the full sheet, the row number column narrows, and the formula and the tabs move to a line of their own once they have too little room to be read.
 - A finger, at any width: buttons, inputs and tabs are at least 44 × 44 px, a row number has no grip, and the zoom slider gives way to two fingers.
-- A phone is a finger below 600 px: the formula is always on its own line, the filter's list takes the full screen, and the toolbar keeps one line whatever its `rows` says.
+- A phone is a finger below 600 px, or a touch sheet below 1000 px in a window no more than 500 px high. Its compact formula bar fits the Name Box and value on one row. During editing, Cancel and Enter replace the Name Box; More reveals Back, Insert Function, search and the other controls. Sheet tabs give way during editing and return with More, including when pointing at another sheet in a formula. The filter's list takes the full screen. A touch toolbar keeps one row below 600 px or in a window no more than 500 px high, whatever its `rows` says.
 
 A mouse in a narrow window therefore keeps the desktop's sizes and the grid's resize grips.
+
+On a compact touch sheet, long press opens a two-column context menu at the bottom of the visible viewport. It uses at most 55% of that height (up to 360 px), with scrolling for the remaining commands. All commands are retained, including submenus; focus starts on the menu itself, so Cut is not highlighted before a choice. Menus and dialogs follow the visual viewport when a software keyboard reduces it.

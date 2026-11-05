@@ -27,6 +27,12 @@ await server.listen()
 const base = server.resolvedUrls!.local[0]!
 const browser = await chromium.launch()
 
+/** A control of the formula bar that a phone keeps under More: More opens first when it is hidden there. */
+async function reveal(page: Page, selector: string): Promise<void> {
+  const tool = page.locator('.xs-bar').locator(selector)
+  const more = page.locator('[data-xs-bar-more]')
+  if ((await tool.count()) && !(await tool.first().isVisible()) && (await more.count()) && (await more.getAttribute('aria-expanded')) !== 'true') await more.click()
+}
 async function settle(page: Page): Promise<void> {
   await page.waitForSelector('.xs-table')
   await page.waitForFunction(() => !document.querySelector('.xs-loading'))
@@ -171,10 +177,10 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
   await menuOn('3:2')
   await shot(page, size.name, '50-freeze-menu')
   if (size.mobile) await checkTargets(page, true)
-  // Keys in the menu: focus on its first enabled item (Cut is disabled on a formula), Down to the next one, shown as focused.
+  // Keys in the menu: focus on its first enabled item (Cut is disabled on a formula), Down to the next one, shown as focused; a phone's menu starts on no item.
   await page.keyboard.press('ArrowDown')
   const focused = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.xsMenu)
-  if (focused !== 'paste') throw new Error(`Down in the cell menu went to ${focused}`)
+  if (focused !== (size.mobile ? 'copy' : 'paste')) throw new Error(`Down in the cell menu went to ${focused}`)
   await shot(page, size.name, '50-freeze-menu-keys')
   await choose('freeze')
   await page.waitForSelector('[data-cell="2:1"].xs-fz-corner')
@@ -206,6 +212,7 @@ async function commandScreens(page: Page, size: (typeof SIZES)[number]): Promise
 
   // The filter keeps «ожидает» and «оплачен»; row 3 no longer matches once its status is typed over, and stays until Reapply.
   await go('Фильтр!B3')
+  await reveal(page, '[data-xs-funnel]')
   const funnel = size.mobile ? page.locator('.xs-bar [data-xs-funnel]') : page.locator('.xs-head').nth(1).locator('.xs-funnel')
   await funnel.click({ force: true })
   await page.waitForSelector('[data-xs-values] .xs-value-all')
@@ -574,6 +581,7 @@ async function tipScreens(page: Page, size: (typeof SIZES)[number]): Promise<voi
   console.log(`tooltip ${size.name}: SUMIFS in a cell (${cell.lines} lines), ROUND in the formula bar (${bar.lines} lines), inside the window, no list, no horizontal scroll`)
 
   // Excel's Insert Function: the dialog over the full list, then a category with the syntax and description of the selected one.
+  await reveal(page, '[data-xs-bar-fx]')
   await press('[data-xs-bar-fx]')
   await page.waitForSelector('[data-xs-insert-function] [data-xs-if-item]')
   await page.waitForFunction(() => document.querySelector('[data-xs-if-about]')?.textContent?.trim())
@@ -687,10 +695,13 @@ for (const size of SIZES) {
   await open(page, 'Фильтр!A1')
   await page.waitForTimeout(2200)
   await checkTargets(page, size.mobile)
+  await reveal(page, '[data-xs-find]')
   await page.locator('[data-xs-find]').click()
   await checkTargets(page, size.mobile)
+  await reveal(page, '[data-xs-find]')
   await page.locator('[data-xs-find]').click()
   if (size.mobile) {
+    await reveal(page, '[data-xs-funnel]')
     await page.locator('.xs-bar [data-xs-funnel]').click()
     await page.waitForSelector('[data-xs-values] .xs-value-all')
     await checkTargets(page, true)
@@ -699,6 +710,7 @@ for (const size of SIZES) {
 
   // 0.2.0: search with its matches, a column's funnel (on a phone, full screen), a filtered and sorted sheet, a recalculation.
   await open(page, "'Длинный лист'!A1")
+  await reveal(page, '[data-xs-find]')
   await page.locator('[data-xs-find]').click()
   await page.locator('.xs-find-input').fill('K-0300')
   await page.waitForSelector('.xs-cell.xs-hit-now')
@@ -711,6 +723,7 @@ for (const size of SIZES) {
   const funnel = async (col: number) => {
     if (!size.mobile) return page.locator('.xs-head').nth(col - 1).locator('.xs-funnel').click({ force: true })
     await page.locator(`.xs-cell[data-cell$=":${col}"]`).nth(1).tap()
+    await reveal(page, '[data-xs-funnel]')
     await page.locator('.xs-bar [data-xs-funnel]').click()
   }
   await funnel(2)

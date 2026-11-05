@@ -11,7 +11,7 @@
 import { computed, getCurrentInstance, h, nextTick, onBeforeUnmount, onBeforeUpdate, onMounted, reactive, ref, watch, type FunctionalComponent } from 'vue'
 import type { FormatCellsAt, MergeCommand, SheetViewApi, SheetViewState, ToolbarButton, ToolbarGroup, ToolbarItem, ToolbarSource } from '../contract/view'
 import { failedOutcome } from '../failure'
-import { NARROW_PX, useCoarsePointer } from '../frame'
+import { NARROW_PX, useCoarsePointer, useShortViewport } from '../frame'
 import { useMessages } from '../messages'
 import type { SheetMessages } from '../contract/messages'
 import { useNumberFormats } from '../number-formats'
@@ -254,6 +254,7 @@ const root = ref<HTMLElement | null>(null)
 const width = ref(0)
 /** A finger as the pointer: targets are touch-sized. */
 const touch = useCoarsePointer()
+const short = useShortViewport()
 /** Below `NARROW_PX` each block goes alone and the lists take the toolbar's width; at any width its row keeps the items that fit and the rest go into a menu. */
 const narrow = computed(() => (width.value || (typeof window === 'undefined' ? NARROW_PX : window.innerWidth)) < NARROW_PX)
 const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(([entry]) => (width.value = entry?.contentRect.width ?? 0))
@@ -309,7 +310,7 @@ const blocks = computed(() => {
   return out
 })
 /** The lines the row may take: `rows` (at least one, whole), one on a phone (a finger below `NARROW_PX`), whose 44 px targets would take the sheet's height. */
-const lines = computed(() => (narrow.value && touch.value ? 1 : Math.max(1, Math.floor(props.rows) || 1)))
+const lines = computed(() => ((narrow.value || short.value) && touch.value ? 1 : Math.max(1, Math.floor(props.rows) || 1)))
 /** Two lines are Excel's ribbon: one sequence of groups, each two rows tall, its controls in Excel's rows. */
 const ribbon = computed(() => lines.value === 2)
 /** Excel's Font group did not fit on the line at this width, as measured: each block goes alone, so that Bold stays in the row. */

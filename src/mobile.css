@@ -1,0 +1,67 @@
+/* Compact controls leave the workbook's geometry and zoom unchanged. */
+.xs-compact .xs-bar {
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 2px 4px;
+}
+.xs-compact .xs-bar .xs-address {
+  width: 64px;
+}
+.xs-compact .xs-fx-line {
+  flex: 1 1 auto;
+  order: 0;
+}
+.xs-compact .xs-bar:not(.xs-bar-extras) .xs-bar-extra,
+.xs-compact .xs-bar:not(.xs-bar-active):not(.xs-bar-extras) [data-xs-bar-cancel],
+.xs-compact .xs-bar:not(.xs-bar-active):not(.xs-bar-extras) [data-xs-bar-enter],
+.xs-compact .xs-bar-active:not(.xs-bar-extras) .xs-namebox {
+  display: none;
+}
+.xs-compact .xs-bar-extras {
+  flex-wrap: wrap;
+}
+.xs-compact .xs-bar-extras .xs-fx-line {
+  flex-basis: 100%;
+  order: 3;
+}
+/* More brings the sheet tabs back for pointing at a cell on another sheet during entry. */
+.xs-compact.xs-editing:has(.xs-bar:not(.xs-bar-extras)) .xs-bottom {
+  display: none;
+}
+.xs-menu.xs-menu-mobile {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 12px;
+  padding: 4px;
+}
+.xs-menu-mobile .xs-menu-heading {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+}
+.xs-menu-mobile > .xs-menu-sep {
+  grid-column: 1 / -1;
+}
+.xs-menu-mobile .xs-menu-item {
+  white-space: normal;
+  min-width: 0;
+  padding: 8px 12px;
+}
+.xs-menu-mobile .xs-menu-subwrap {
+  grid-column: 1 / -1;
+}
+.xs-menu-mobile .xs-submenu {
+  position: static;
+  max-width: none;
+  box-shadow: none;
+}
+.xs-menu-mobile .xs-menu-item:hover:not(:focus-visible) {
+  background: none;
+}
+.xs-menu-mobile:focus {
+  outline: none;
+}

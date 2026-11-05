@@ -3,6 +3,7 @@
 // where `outside` allows), Esc to close, focus moved inside on opening and kept inside by Tab. The box's own attributes
 // and listeners (its class, label, a form's submit) are those given to the shell.
 import { nextTick, onMounted, ref } from 'vue'
+import { useVisualViewport } from '../frame'
 
 defineOptions({ inheritAttrs: false })
 const props = withDefaults(
@@ -27,6 +28,7 @@ const emit = defineEmits<{
 }>()
 
 const box = ref<HTMLElement | null>(null)
+const viewport = useVisualViewport()
 const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'
 
 onMounted(async () => {
@@ -56,7 +58,7 @@ function onKey(e: KeyboardEvent): void {
 </script>
 
 <template>
-  <div :class="['xs-modal-back', backClass, { 'xs-modal-full': full, 'xs-modal-alert': role === 'alertdialog' }]" @pointerdown.self="outside && emit('close')">
+  <div :class="['xs-modal-back', backClass, { 'xs-modal-full': full, 'xs-modal-alert': role === 'alertdialog' }]" :style="{ top: `${viewport.top}px`, left: `${viewport.left}px`, width: `${viewport.width}px`, height: `${viewport.height}px` }" @pointerdown.self="outside && emit('close')">
     <component :is="as" ref="box" v-bind="$attrs" class="xs-modal" :role="role" aria-modal="true" tabindex="-1" @keydown="onKey">
       <slot />
     </component>

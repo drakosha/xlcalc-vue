@@ -747,6 +747,7 @@ export function useSheet(props: SheetViewProps, emit: SheetEmit, hostLinks: () =
     return {
       sheet: s.sheet.value.name,
       ref: sel.selectionRef.value,
+      ...(editor.value ? { editing: true as const } : {}),
       ...((props.locale ?? props.source.locale) ? { locale: s.locale.value } : {}),
       ...(f.selectedFormula.value ? { formula: f.selectedFormula.value } : {}),
       ...(f.selectedValue.value ? { value: f.selectedValue.value } : {}),

@@ -1,7 +1,7 @@
 // What the grid draws now: frozen panes with the lock, the body's rows and columns under the scroll, spacers for the rest,
 // and the space for Excel's outline bars next to the row numbers and above the column letters.
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import { NARROW_PX, useCoarsePointer, useHairline } from '../frame'
+import { NARROW_PX, useCoarsePointer, useHairline, useShortViewport } from '../frame'
 import { clamp } from '../rect'
 import type { OutlineGroup, SheetInfo } from '../contract/source'
 import type { Geometry } from './geometry'
@@ -134,7 +134,8 @@ export function useViewport(i: ViewportInput, geo: Geometry) {
   /** A coarse pointer (touch): buttons, inputs and tabs at least 44 × 44 px, the grid itself unchanged. */
   const touch = useCoarsePointer()
   /** A finger on a narrow sheet: the formula and the tabs on their own lines, the filter's list on the full screen. A mouse in a narrow window stays the desktop. */
-  const phone = computed(() => narrow.value && touch.value)
+  const short = useShortViewport()
+  const phone = computed(() => touch.value && (narrow.value || (short.value && i.sheetW.value < 1000)))
   const numW = computed(() => {
     if (!showNums.value) return 0
     if (!narrow.value) return 56

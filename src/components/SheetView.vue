@@ -52,6 +52,7 @@ const props = withDefaults(defineProps<SheetViewProps>(), {
   cellUrl: undefined,
   readOnly: false,
   formulaBar: true,
+  compact: false,
   locale: undefined,
   hideLoneTab: false,
   edgeRestoresWidth: false,
@@ -98,7 +99,7 @@ const wait = ctx.w.wait
 </script>
 
 <template>
-  <div class="xs-sheet" :class="{ 'xs-narrow': ctx.v.narrow.value, 'xs-phone': ctx.v.phone.value, 'xs-touch': ctx.v.touch.value }">
+  <div class="xs-sheet" :class="{ 'xs-narrow': ctx.v.narrow.value, 'xs-phone': ctx.v.phone.value, 'xs-touch': ctx.v.touch.value, 'xs-compact': compact || ctx.v.phone.value, 'xs-editing': !!ctx.editor.value }">
     <template v-if="failure">
       <slot name="fallback" :failure="failure" :retry="ctx.retry">
         <div class="xs-fallback" role="alert">
@@ -178,3 +179,5 @@ const wait = ctx.w.wait
 </template>
 
 <style src="../style.css"></style>
+
+<style src="../mobile.css"></style>
