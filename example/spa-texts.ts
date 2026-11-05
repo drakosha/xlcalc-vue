@@ -11,7 +11,6 @@ export interface SpaTexts {
   saveAs: string
   settings: string
   /** Data > Filter on the toolbar. */
-  filter: string
   bookName: string
   /** Excel's name for a new workbook: Book1, Книга1. */
   defaultName: (n: number) => string
@@ -61,7 +60,6 @@ export const TEXTS: Record<SpaLang, SpaTexts> = {
     open: 'Open',
     saveAs: 'Save as',
     settings: 'Workbook settings',
-    filter: 'Filter (Ctrl+Shift+L)',
     bookName: 'Workbook name',
     defaultName: (n) => `Book${n}`,
     newTitle: 'New workbook',
@@ -136,7 +134,6 @@ export const TEXTS: Record<SpaLang, SpaTexts> = {
     open: 'Открыть',
     saveAs: 'Сохранить как',
     settings: 'Настройки книги',
-    filter: 'Фильтр (Ctrl+Shift+L)',
     bookName: 'Имя книги',
     defaultName: (n) => `Книга${n}`,
     newTitle: 'Новая книга',
