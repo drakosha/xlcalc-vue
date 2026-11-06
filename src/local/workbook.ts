@@ -1,7 +1,7 @@
 // The local source's dialogs over the workbook beside cell values: clearing, hyperlinks, notes, defined names, rules, tables,
 // dependents and spelling, each a session call with its formulas translated between the stored form and the workbook's locale.
 import { toLocal, validateLocalFormula, type AsyncSession, type CellChange, type ConditionalFormat, type DataValidation, type EditResult, type LayoutEdit, type SelectionLabels } from 'xlcalc'
-import { cellAddress, linesKey, parseCell, parseRange, sameName } from 'xlcalc/a1'
+import { cellAddress, parseCell } from 'xlcalc/a1'
 import type { EditOutcome } from '../contract/source'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellChecker, SpellingHit, SpellingRequest, TableOp } from '../contract/workbook'
 import { failed } from './outcome'
@@ -138,19 +138,12 @@ export function workbookMethods(locale: string, done: Completion, checker?: Spel
 
   /**
    * Excel's Data > Filter: the sheet's AutoFilter over a range, or none, in one `setLayout` call and so a single undo step.
-   * Removing it from a filtered sheet shows the rows of its range below the header, which the file's filter hid, and the
-   * sheet is no longer filtered, as Excel's Filter button does; rows hidden elsewhere stay hidden. Rows change, so the sheet
-   * is read again; the library refuses an AutoFilter over a table.
+   * `showRows` removes it as Excel's Filter button does (xlcalc 0.87.0). Rows change, so the sheet is read again; the library
+   * refuses an AutoFilter over a table.
    */
   async function setAutoFilter(s: AsyncSession, sheet: string, range: string | null): Promise<EditOutcome> {
-    const edits: LayoutEdit[] = [{ sheet, autoFilter: range ? { range } : null }]
-    const was = range ? null : (await s.getLayout()).sheets.find((x) => sameName(x.name, sheet))
-    const r = was?.autoFilter && parseRange(was.autoFilter.range)
-    if (was?.filtered && r?.kind === 'cells') {
-      edits.push({ sheet, filtered: false })
-      if (r.bottom > r.top) edits.push({ sheet, rows: linesKey(r.top + 1, r.bottom, 'rows'), set: { hidden: null } })
-    }
-    return done.reloaded((await s.setLayout(edits)).changes)
+    const edit: LayoutEdit = range ? { sheet, autoFilter: { range } } : { sheet, autoFilter: null, showRows: true }
+    return done.reloaded((await s.setLayout([edit])).changes)
   }
 
   /** Excel's Spelling: the active cell's text from `from`, then the other text constants in Find's order by rows, wrapping around; formulas are skipped. */

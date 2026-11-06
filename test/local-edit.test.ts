@@ -141,6 +141,22 @@ describe('localSource: typed edits', () => {
     expect((await win(s, 'Таблица', 1, 3, 1, 5)).formulas.E1).toBe('СУММ(Продажи[Итог])')
   })
 
+  it("calculates a LAMBDA's optional parameter, left out or given (xlcalc 0.87.0)", async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 2 } } }] })
+    const f = 'LAMBDA(x,[y],IF(ISOMITTED(y),x,x+y))'
+    expect(await s.edit([{ sheet: 'S', cell: 'B1', text: `=${f}(A1)` }, { sheet: 'S', cell: 'B2', text: `=${f}(A1,3)` }])).toMatchObject({ ok: true })
+    const w = await win(s, 'S', 1, 2, 2, 1)
+    expect(w.values).toEqual([[2], [5]])
+    expect(w.formulas.B1).toBe(`${f}(A1)`)
+  })
+
+  it('returns invalid for a formula of more than 2,000 operators (xlcalc 0.86.0)', async () => {
+    const s = source()
+    const text = `=${Array.from({ length: 2100 }, () => '1').join('+')}`
+    expect(await s.edit([{ sheet: 'Лист1', cell: 'C2', text }])).toMatchObject({ ok: false, reason: 'invalid' })
+    expect((await win(s, 'Лист1', 2, 1, 3, 1)).formulas.C2).toBeUndefined()
+  })
+
   it('returns invalid with the position for a formula that does not parse, and changes nothing', async () => {
     const s = source()
     const got = await s.edit([{ sheet: 'Лист1', cell: 'A3', text: '=СУММ(A1:A2))' }])

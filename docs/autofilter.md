@@ -12,7 +12,7 @@ The data do not change: the display filter hides and orders rows on screen only,
 
 ## Data > Filter
 
-If the source has `setAutoFilter` and the sheet is editable, Ctrl+Shift+L (Control on a Mac too, with any keyboard layout) and the sheet's `toggleAutoFilter()` are Excel's Data > Filter. On a sheet with an AutoFilter it removes the AutoFilter with its conditions and sort; `./local` also shows the rows of its range that the file's filter hid and marks the sheet as no longer filtered, as Excel's button does. On a sheet without one it puts an AutoFilter over the range Excel picks, measured in Excel 16 for Mac on 29 cases:
+If the source has `setAutoFilter` and the sheet is editable, Ctrl+Shift+L (Control on a Mac too, with any keyboard layout) and the sheet's `toggleAutoFilter()` are Excel's Data > Filter. On a sheet with an AutoFilter it removes the AutoFilter with its conditions and sort; on a filtered sheet `./local` also shows the rows of its range below the header, those hidden by hand too, and marks the sheet as no longer filtered, as Excel's button does; other rows stay hidden, and a row of height 0 keeps its height. On a sheet without one it puts an AutoFilter over the range Excel picks, measured in Excel 16 for Mac on 29 cases:
 
 - a single cell: its current region (the block of data around it, an empty cell next to the data included), trimmed to its rows and columns with data, so an empty cell just beside or under a table takes the table;
 - a selection of more than one cell (entire rows and columns too): the selection trimmed to its cells with data, then taken down to the bottom of the data around it, so a selected header row takes the rows of data under it;
