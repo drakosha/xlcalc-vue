@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.49.0 (2026-11-06)
+
+- Built over xlcalc 0.87.0. Data > Filter in `./local` removes an AutoFilter through its `showRows`, as Excel's Filter button does. A LAMBDA's optional parameter (`LAMBDA(x,[y],…)`) calculates, and the day's name and year codes (`aaa`, `aaaa`, `b`, `bb`, `bbbb`, `g`, `e`) display.
+- Format Cells and a PivotTable's Number Format refuse the codes xlcalc 0.87.0's `formatRefused` adds (`0*`, `0_`, `n`, `E+0`, `yy3`) and take ones it refused (`0_;;0`, `0*;;0`).
+- A double tap on the sheet opens the cell's editor and no longer zooms the page on iOS. An ancestor of the sheet with a `touch-action` other than `auto` brings the zoom back.
+- Changes for the host, breaking: `./local` now requires `xlcalc` 0.87.0 or later (was 0.76.0). `openXlsx` rejects an `.xlsb`, an `.xls` and a password-protected workbook with xlcalc's `InputError`, where an `.xlsb` read as a workbook with no sheets. `saveXlsx` no longer writes what makes Excel refuse a whole file: such a formula goes as its value and such a rule or slicer is left out, each listed in `issues`. A formula of more than 2,000 operators is refused on entry as invalid.
+
 ## 0.48.0 (2026-11-05)
 
 - Compact touch controls keep the formula on one row, reveal extra controls and sheet tabs on demand during entry, and use a bounded two-column context menu without preselecting Cut. Short landscape touch windows keep a one-row toolbar; fixed menus and dialogs follow the visual viewport above the keyboard. Workbook dimensions and zoom do not change.
