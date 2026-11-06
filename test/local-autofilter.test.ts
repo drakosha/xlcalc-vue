@@ -58,6 +58,14 @@ describe('localSource: the AutoFilter', () => {
     expect([back.autoFilter, back.filtered, back.rows?.['3']?.hidden]).toEqual([{ range: 'A1:B5' }, true, true])
   })
 
+  it("leaves a row of height 0 out of view, as Excel's Filter button does", async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'Key' }, A2: { value: 1 }, A3: { value: 2 }, A4: { value: 3 } }, autoFilter: { range: 'A1:A4' }, filtered: true, rows: { '2': { hidden: true }, '3': { height: 0 } } }] })
+    expect(await s.setAutoFilter('S', null)).toMatchObject({ ok: true })
+    const { rows } = await sheetOf(s)
+    expect(rows?.['2']?.hidden).toBeFalsy()
+    expect(rows?.['3']?.height).toBe(0)
+  })
+
   it('refuses an AutoFilter over a table, with the library\'s message', async () => {
     const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 'h' }, A2: { value: 1 } }, tables: [{ name: 'List', range: 'A1:A2', columns: [{ name: 'h' }] }] }] })
     const got = await s.setAutoFilter('S', 'A1:A2')

@@ -6,6 +6,7 @@ import { compute, sameValue, type CellValue } from 'xlcalc'
 import { synthBook } from 'xlcalc/unstable/synth'
 import { writeXlsx } from 'xlcalc/xlsx'
 import { groupIssues, openXlsx, saveXlsx } from '../src/local'
+import { codeRefused } from '../src/number-formats'
 import { BOLD, closeAll, source, styleOf, win } from './local-fixture'
 import { unzipText } from './zip'
 
@@ -259,6 +260,32 @@ describe('number format codes Excel does not open a file with (xlcalc 0.83.0)', 
   it('saves the same text in quotes', async () => {
     const back = await openXlsx((await saveXlsx(await formatted('0 "kg"'))).data)
     expect(JSON.stringify(back.book)).toContain('0 \\"kg\\"')
+  })
+})
+
+describe('number format codes of xlcalc 0.87.0', () => {
+  it.each(['0*', '0_', 'n', 'E+0', 'yy3'])('Format Cells refuses %s, and saveXlsx too', async (code) => {
+    expect(codeRefused(code, 'General')).toBe(true)
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 5 } } }] })
+    await s.format('S', [{ range: 'A1', numberFormat: code }])
+    await expect(saveXlsx(s)).rejects.toMatchObject({ name: 'InputError' })
+  })
+
+  it.each(['aaa', 'aaaa', 'b', 'bbbb', 'g', 'e', '0_;;0', '0*;;0'])('Format Cells takes %s', (code) => {
+    expect(codeRefused(code, 'General')).toBe(false)
+  })
+
+  it("shows a day's name and a year by the new letters", async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { A1: { value: 46096, numberFormat: 'aaaa' }, A2: { value: 46096, numberFormat: 'e' } } }] })
+    const { text } = await win(s, 'S', 1, 2, 1, 1)
+    expect(text).toEqual([['Sunday'], ['2026']])
+  })
+})
+
+describe('files xlcalc does not read (xlcalc 0.86.0)', () => {
+  it("rejects an .xls with xlcalc's InputError, which says what to do", async () => {
+    const xls = new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0, 0, 0])
+    await expect(openXlsx(xls)).rejects.toMatchObject({ name: 'InputError', message: expect.stringContaining('.xlsx') })
   })
 })
 
