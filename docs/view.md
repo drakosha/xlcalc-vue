@@ -76,6 +76,7 @@ The zoom changes by:
 
 - Ctrl+wheel over the grid (on a Mac too): each notch zooms in or out by 15%. A trackpad's pinch, which the browser sends as Ctrl+wheel (Safari as its gesture events), zooms in proportion to the gesture about the pointer.
 - Two fingers on a touch screen: the sheet zooms about their middle, and the page itself does not.
+- A double tap on the sheet opens the cell's editor, and the page does not zoom. On iOS this holds while no ancestor of the sheet sets a `touch-action` other than `auto`.
 - The status bar, at the right end of the bottom bar on a desktop: Zoom Out (−) and Zoom In (+) go to the next multiple of 10%; the slider covers 10% to 100% on its left half and 100% to 400% on its right, with 100% at the middle; the percentage opens Excel's Zoom dialog.
 - The Zoom dialog: 200%, 100%, 75%, 50%, 25%, Fit selection and Custom (10 to 400). Fit selection is Excel's Zoom to Selection: the zoom at which the selection fills the viewport, with the selection scrolled to its top left corner.
 

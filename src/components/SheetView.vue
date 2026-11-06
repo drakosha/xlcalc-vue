@@ -96,10 +96,12 @@ const failure = ctx.failure
 const message = ctx.message
 const notice = ctx.w.notice
 const wait = ctx.w.wait
+/** WebKit ignores a dblclick listener under a touch-action other than auto, as on the scroller, and zooms the page: this one, on the root, makes a double tap a double click. */
+const keepDoubleTap = (): void => {}
 </script>
 
 <template>
-  <div class="xs-sheet" :class="{ 'xs-narrow': ctx.v.narrow.value, 'xs-phone': ctx.v.phone.value, 'xs-touch': ctx.v.touch.value, 'xs-compact': compact || ctx.v.phone.value, 'xs-editing': !!ctx.editor.value }">
+  <div class="xs-sheet" :class="{ 'xs-narrow': ctx.v.narrow.value, 'xs-phone': ctx.v.phone.value, 'xs-touch': ctx.v.touch.value, 'xs-compact': compact || ctx.v.phone.value, 'xs-editing': !!ctx.editor.value }" @dblclick="keepDoubleTap">
     <template v-if="failure">
       <slot name="fallback" :failure="failure" :retry="ctx.retry">
         <div class="xs-fallback" role="alert">

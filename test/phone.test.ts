@@ -1,8 +1,8 @@
 // The phone is a finger on a narrow sheet: a mouse in a narrow window keeps the desktop's sizes and rows, and only what needs room gives way to the width.
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
-import { SheetToolbar, memorySource, type MemoryBook, type SheetViewState, type ToolbarItem } from '../src'
+import { createApp, nextTick } from 'vue'
+import { SheetToolbar, SheetView, memorySource, type MemoryBook, type SheetViewState, type ToolbarItem } from '../src'
 import type { SheetSource } from '../src/contract/source'
 import { fingerPointer, mountSheet, settle } from './helpers'
 
@@ -25,6 +25,17 @@ const classes = async (): Promise<string[]> => {
 }
 
 describe('the sheet', () => {
+  it('listens for double clicks on its root, so WebKit reads a double tap as one and does not zoom the page', async () => {
+    const add = vi.spyOn(HTMLElement.prototype, 'addEventListener')
+    // Not `mount`: test-utils itself listens on the root for every DOM event.
+    const app = createApp(SheetView, { source: memorySource(book()) })
+    app.mount(document.body.appendChild(document.createElement('div')))
+    await settle()
+    const on = add.mock.contexts.filter((_, i) => add.mock.calls[i]![0] === 'dblclick') as Element[]
+    expect(on.some((el) => el.classList.contains('xs-sheet'))).toBe(true)
+    app.unmount()
+  })
+
   it('keeps a landscape touch window compact at 734 px wide', async () => {
     vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({ matches: ['(pointer: coarse)', '(max-height: 500px)'].includes(query), media: query, addEventListener: () => {}, removeEventListener: () => {} }) as unknown as MediaQueryList)
     sheetWidth(734)
