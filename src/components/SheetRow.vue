@@ -4,6 +4,7 @@
 import { computed, type ComputedRef } from 'vue'
 import { sameRowState, type CellView, type RowState } from '../core/cell-view'
 import CellDraft from './CellDraft.vue'
+import CellText from './CellText.vue'
 import { CfIcon } from './cf-icons'
 import { useSheetContext } from './context'
 import OutlineCell from './OutlineCell.vue'
@@ -100,7 +101,7 @@ const spacer = computed(() => (props.frozen ? { class: 'xs-fz-row', style: { top
             rel="noopener noreferrer nofollow"
             :title="cv.link!.tooltip ?? cv.link!.href"
             @click="ctx.onLink($event, cv.link!, r, c)"
-            ><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></a
+            ><CellDraft v-if="cv.draft" /><CellText v-else-if="cv.runs" :text="cv.text" :runs="cv.runs" /><template v-else>{{ cv.text }}</template></a
           >
           <button
             v-else-if="cv.kind === 'place' || cv.kind === 'host'"
@@ -110,25 +111,25 @@ const spacer = computed(() => (props.frozen ? { class: 'xs-fz-row', style: { top
             :title="cv.link!.tooltip ?? (cv.link!.location ? m.linkInBook(cv.link!.location) : m.linkOpen)"
             @click.stop="ctx.onLink($event, cv.link!, r, c)"
           >
-            <CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template>
+            <CellDraft v-if="cv.draft" /><CellText v-else-if="cv.runs" :text="cv.text" :runs="cv.runs" /><template v-else>{{ cv.text }}</template>
           </button>
           <span v-else-if="cv.kind === 'dead'" class="xs-deadlink" :style="cv.deco" :title="cv.link!.tooltip ?? m.linkDead(cv.link!.href ?? cv.link!.target ?? '')"
-            ><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></span
+            ><CellDraft v-if="cv.draft" /><CellText v-else-if="cv.runs" :text="cv.text" :runs="cv.runs" /><template v-else>{{ cv.text }}</template></span
           >
           <div
             v-else-if="cv.kind === 'overflow'"
             class="xs-ov"
             :style="{ left: -cv.ov!.left + 'px', width: `calc(100% + ${cv.ov!.left + cv.ov!.right}px)`, justifyContent: cv.ov!.justify }"
           >
-            <span :style="{ ...cv.deco, background: cv.ov!.bg }"><CellDraft v-if="cv.draft" /><template v-else>{{ cv.text }}</template></span>
+            <span :style="{ ...cv.deco, background: cv.ov!.bg }"><CellDraft v-if="cv.draft" /><CellText v-else-if="cv.runs" :text="cv.text" :runs="cv.runs" /><template v-else>{{ cv.text }}</template></span>
           </div>
           <span v-else-if="cv.rot" class="xs-rot">
-            <span v-if="'vertical' in cv.rot" class="xs-vert" :style="cv.deco">{{ cv.text }}</span>
+            <span v-if="'vertical' in cv.rot" class="xs-vert" :style="cv.deco"><CellText v-if="cv.runs" :text="cv.text" :runs="cv.runs" /><template v-else>{{ cv.text }}</template></span>
             <span v-else class="xs-rot-box" :style="{ width: cv.rot.width + 'px', height: cv.rot.height + 'px' }"
-              ><span class="xs-rot-text" :style="{ ...cv.deco, transform: `translate(-50%, -50%) rotate(${-cv.rot.angle}deg)` }">{{ cv.text }}</span></span
+              ><span class="xs-rot-text" :style="{ ...cv.deco, transform: `translate(-50%, -50%) rotate(${-cv.rot.angle}deg)` }"><CellText v-if="cv.runs" :text="cv.text" :runs="cv.runs" /><template v-else>{{ cv.text }}</template></span></span
             >
           </span>
-          <span v-else-if="cv.kind !== 'icon'" :style="cv.deco"><CellDraft v-if="cv.draft" :fill="cv.draft.fill" /><template v-else>{{ cv.text }}</template></span>
+          <span v-else-if="cv.kind !== 'icon'" :style="cv.deco"><CellDraft v-if="cv.draft" :fill="cv.draft.fill" /><CellText v-else-if="cv.runs" :text="cv.text" :runs="cv.runs" /><template v-else>{{ cv.text }}</template></span>
         </div>
       </template>
     </td>

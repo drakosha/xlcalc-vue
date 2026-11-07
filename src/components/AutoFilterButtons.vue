@@ -18,13 +18,13 @@ const buttons = computed(() => {
   if (!r || !filter.available.value) return []
   const d = ctx.indexOf(r.top)
   if (d === undefined || geo.heightOf(d) <= 0 || (d > v.frozenRows.value && (d < v.firstRow.value || d > v.lastRow.value))) return []
-  const shown = [...v.frozenColList.value, ...v.shownCols.value].filter((c) => c >= r.left && c <= r.right)
+  const shown = [...v.frozenColList.value, ...v.shownCols.value].filter((c) => c >= r.left && c <= r.right && filter.canFunnel(c))
   return shown.map((c) => {
     const b = v.boxOf(d, c, d, c)
     const size = Math.min(sizeOf.value, Math.max(8, b.height - 2), Math.max(8, b.width - 2))
     const style = { top: `${b.top + b.height - size - 1}px`, left: `${b.left + b.width - size - 1}px`, width: `${size}px`, height: `${size}px`, zIndex: b.frozen ? '7' : '1' }
-    const sort = filter.sort.value?.col === c ? filter.sort.value.dir : null
-    return { c, style, on: !!filter.cols.value[c], sort }
+    const sort = filter.sortAt(c)
+    return { c, style, on: filter.hasColumn(c), sort }
   })
 })
 function open(e: MouseEvent, c: number): void {

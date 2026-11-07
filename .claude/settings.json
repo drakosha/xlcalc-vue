@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i '' \"280s/'precedents'\\\\]\\)/'precedents', 'newNote', 'link']\\)/;354s/'precedents'\\\\]\\)/'precedents', 'newNote', 'link']\\)/\" test/clip.test.ts)",
+      "Bash(sed -i '' \"99s/'precedents'\\\\]\\)/'precedents', 'newNote', 'link']\\)/;225s/'precedents'\\\\]\\)/'precedents', 'newNote', 'link']\\)/\" test/excel-commands.test.ts)",
+      "Bash(python3 -I -)"
+    ]
+  }
+}

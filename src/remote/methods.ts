@@ -45,6 +45,7 @@ export const CALLS: Readonly<Record<CallName, CallKind>> = {
   visibleRows: { signal: 2 },
   columnValues: { signal: 3 },
   setAutoFilter: { write: true, outcome: true },
+  setFilterCriteria: { write: true, outcome: true },
   clear: { write: true, outcome: true },
   link: { write: true, outcome: true },
   note: { write: true, outcome: true },

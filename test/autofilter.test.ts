@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { memorySource, type MemoryBook, type SheetViewApi, type SheetViewState } from '../src'
 import type { EditOutcome, SheetOp, SheetSource } from '../src/contract/source'
 import { localSource } from '../src/local'
-import { mountSheet, settle } from './helpers'
+import { mountSheet, settle, until } from './helpers'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -207,6 +207,8 @@ describe('the conditions follow the AutoFilter', () => {
       const conditions = () => (visibleRows.mock.lastCall?.[1].cols ? Object.keys(visibleRows.mock.lastCall[1].cols).map(Number) : [])
       const state = () => (w.emitted('state') ?? []).at(-1)?.[0] as SheetViewState
       await filterOut(w, 2, 'b')
+      await until(() => conditions().includes(2))
+      await settle()
       expect([conditions(), numbers(w).slice(0, 3)]).toEqual([[2], ['1', '2', '4']])
       await api.structure({ op: 'insertColumns', sheet: 'S', column: 'A' })
       await settle(8)
@@ -219,17 +221,17 @@ describe('the conditions follow the AutoFilter', () => {
       expect([state().autoFilter, conditions(), state().filtered]).toEqual(['B1:D4', [3], true])
       await api.undo()
       await settle(8)
-      // an insert inside the AutoFilter widens it; its undo cannot tell the columns apart, so the condition outside it goes
+      // Stored criteria now follow xlcalc's column identities, including on undo of an insert inside the filter.
       await filterOut(w, 3, '3')
       await api.structure({ op: 'insertColumns', sheet: 'S', column: 'C' })
       await settle(8)
       expect([state().autoFilter, conditions()]).toEqual(['A1:D4', [2, 4]])
       await api.undo()
       await settle(8)
-      expect([state().autoFilter, conditions()]).toEqual(['A1:C4', [2]])
+      expect([state().autoFilter, conditions()]).toEqual(['A1:C4', [2, 3]])
       await api.structure({ op: 'insertColumns', sheet: 'S', column: 'D' })
       await settle(8)
-      expect([state().autoFilter, conditions()]).toEqual(['A1:C4', [2]])
+      expect([state().autoFilter, conditions()]).toEqual(['A1:C4', [2, 3]])
     } finally {
       await s.close()
     }

@@ -208,6 +208,8 @@ export interface SheetMessages extends ConditionalMessages, ProtectionMessages, 
   /** The filter status line at the bottom: visible rows out of all, the columns with conditions, the sort. */
   filterStatus: (shown: string, total: string, cols: string[], sort: { col: string; dir: 'asc' | 'desc' } | null) => string
   filterFailed: string
+  /** A stored criterion the display filter cannot evaluate. */
+  filterStored: string
   valuesFailed: string
   unfiltered: (row: number) => string
   /** Data > Filter with no data at the active cell or in the selection, Excel's message. */

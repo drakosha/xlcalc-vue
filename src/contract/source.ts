@@ -4,7 +4,7 @@
  * nothing about the engine, the formula locale or HTTP. Optional methods enable features: without `edit` the sheet
  * is read-only, without `find` there is no search, and so on.
  */
-import type { CellStyle, CellValue, ConditionalAppearance, FunctionSignature, NumberFormat, PivotCache, PivotCell, PivotRef, PivotTable, SelectionLabels, SheetProtection, Slicer, SlicerCache, SpecialCells, StructureOp, SplitPanes, StylePatch, Timeline, TimelineCache, WorkbookStatistics } from 'xlcalc/contract'
+import type { CellStyle, CellValue, ConditionalAppearance, FilterCriteria, FunctionSignature, NumberFormat, PivotCache, PivotCell, PivotRef, PivotTable, SelectionLabels, SheetProtection, Slicer, SlicerCache, SpecialCells, StructureOp, SplitPanes, StylePatch, TextRun, Timeline, TimelineCache, WorkbookStatistics } from 'xlcalc/contract'
 import type { ClearKind, SheetDependents, SheetLink, SheetName, SheetNote, SheetRules, SpellingHit, SpellingRequest, TableOp } from './workbook'
 
 /** The sheet's data source; the component accesses its data only through this interface. */
@@ -107,6 +107,8 @@ export interface SheetSource {
    * has, which cannot be turned on or off, and a sheet without one has the display filter's funnels on its column letters.
    */
   setAutoFilter?(sheet: string, range: string | null): Promise<EditOutcome>
+  /** Stores AutoFilter criteria in one undo step. Supported value/substring conditions update hidden rows; opaque conditions are preserved without evaluation. Sort metadata never reorders cells. Null clears the criteria and shows the filter's rows. */
+  setFilterCriteria?(sheet: string, criteria: FilterCriteria | null): Promise<EditOutcome>
   /** Excel's Clear Formats and Clear All over ranges, as a single undo step; Delete clears contents through `edit`. Without it neither is offered. */
   clear?(sheet: string, ranges: string[], what: ClearKind): Promise<EditOutcome>
   /** Excel's Insert Link over a range (null: Remove Hyperlinks), the cells' contents kept; a single undo step. Without it links can be followed but not edited. */
@@ -283,7 +285,7 @@ export interface SheetInfo {
    * row, and the display filter applies to the rows below it. Data typed under it may grow the range (xlcalc's
    * `getAutoFilterRange`), and a source that grows it sends `sheets`.
    */
-  autoFilter?: { range: string }
+  autoFilter?: { range: string; criteria?: FilterCriteria }
   /**
    * Excel's Protect Sheet: the sheet is protected, with what users may still do (`{}`: selecting cells only, Excel's
    * default). Its cells whose style is locked (`CellStyle.protection`, locked unless a style says otherwise) take no edit,
@@ -547,6 +549,8 @@ export interface SheetWindow {
   formulas: Record<string, string>
   /** The text each cell opens with for editing, as Excel's formula bar displays it; a cell missing from it opens empty. Without it the component produces the text from the value and the formula. */
   editText?: Record<string, string>
+  /** Fonts of text constants' runs, keyed by cell address, with UTF-16 start offsets into the value. */
+  richText?: Record<string, TextRun[]>
   /** The color from the number format's section (`#RRGGBB`). */
   colors: Record<string, string>
   styleIds: Record<string, number>
@@ -665,6 +669,8 @@ export interface CellUpdate {
   editText?: string
   /** Only for edited cells, from a source whose windows have `numberFormats`: the format code the cell is now displayed with (null: General), as when a typed date sets one. */
   numberFormat?: string | null
+  /** New run fonts; null removes them, undefined leaves the existing runs unchanged. */
+  richText?: TextRun[] | null
 }
 
 export type SourceEvent =

@@ -48,7 +48,8 @@ const focusFirst = (el: unknown) => {
         <IconClose />
       </button>
     </div>
-    <input :ref="ctx.v.phone.value ? undefined : focusFirst" v-model="filter.draftText.value" class="xs-field xs-popover-input" type="text" spellcheck="false" :placeholder="m.filterText" />
+    <p v-if="filter.storedNotice.value" class="xs-muted xs-values-note" data-xs-stored-filter>{{ m.filterStored }}</p>
+    <input :ref="ctx.v.phone.value ? undefined : focusFirst" v-model="filter.draftText.value" :disabled="filter.storedOnly.value" class="xs-field xs-popover-input" type="text" spellcheck="false" :placeholder="m.filterText" />
     <input v-model="filter.draftSearch.value" class="xs-field xs-popover-input xs-popover-search" type="text" spellcheck="false" :placeholder="m.filterSearch" />
     <div class="xs-values" data-xs-values>
       <p v-if="filter.busy.value" class="xs-muted xs-values-note">{{ m.filterReading }}</p>
@@ -67,9 +68,9 @@ const focusFirst = (el: unknown) => {
       </template>
     </div>
     <div class="xs-popover-foot">
-      <button type="button" class="xs-button xs-button-main" data-xs-apply @click="filter.applyDraft()">{{ m.filterApply }}</button>
+      <button type="button" class="xs-button xs-button-main" data-xs-apply :disabled="filter.storedOnly.value || filter.saving.value" @click="filter.applyDraft()">{{ m.filterApply }}</button>
       <button
-        v-if="filter.cols.value[filter.open.value] || filter.sort.value?.col === filter.open.value"
+        v-if="filter.hasColumn(filter.open.value) || filter.sort.value?.col === filter.open.value"
         type="button"
         class="xs-button"
         @click="filter.clearColumn(filter.open.value!)"

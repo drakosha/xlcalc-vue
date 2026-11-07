@@ -265,6 +265,7 @@ export function protectionGuard(locale: string, maxCells: number) {
     clear: guard((_s, sheet: string, ranges: string[]) => [{ sheet, cells: rects(ranges) }]),
     /** Data > Filter is disabled on a protected sheet whatever its boxes allow: they let users use an AutoFilter, not set or remove one. */
     setAutoFilter: guard((_s, sheet: string) => [{ sheet, refuse: true }]),
+    setFilterCriteria: guard((_s, sheet: string) => [{ sheet, allow: ['autoFilter'] }]),
     link: guard((_s, sheet: string, range: string) => [{ sheet, allow: ['insertHyperlinks'], cells: rects([range]) }]),
     note: guard((_s, sheet: string) => [{ sheet, allow: ['objects'] }]),
     /** Conditional formats are Format cells' (Excel's Format Cells and Conditional Formatting dialogs); Data Validation is disabled. */

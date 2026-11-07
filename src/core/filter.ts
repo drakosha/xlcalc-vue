@@ -2,9 +2,10 @@
 // buttons on the header row of the sheet's AutoFilter, over the AutoFilter's rows; without one, on the column letters.
 import { computed, nextTick, onScopeDispose, ref, watch } from 'vue'
 import { colLetters, parseRange, sameName, MAX_COLS } from 'xlcalc/a1'
-import type { CellRect } from 'xlcalc/contract'
+import type { CellRect, FilterCriteria } from 'xlcalc/contract'
 import { isAbort } from '../abort'
 import { filterKey } from '../filter-key'
+import { displayFilter, unsupportedColumns, withColumn, withSort } from '../filter-criteria'
 import { clamp } from '../rect'
 import type { SheetFilter, SheetOp } from '../contract/source'
 import type { SheetState } from './state'
@@ -17,6 +18,13 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
   /** The conditions and the sort as set; those on columns without a funnel (outside the AutoFilter) are kept but not in effect. */
   const own = ref<Record<number, ColumnFilter>>({})
   const ownSort = ref<Sort | null>(null)
+  const saving = ref(false)
+  const stored = computed(() => s.sheet.value?.autoFilter?.criteria)
+  const opaque = computed(() => unsupportedColumns(stored.value))
+  const storedOnly = computed(() => opaque.value.length > 0)
+  const storedSort = computed(() => !!stored.value?.sort && !!s.sheet.value?.autoFilter && !displayFilter(s.sheet.value.autoFilter.range, stored.value).sort)
+  const storedNotice = computed(() => storedOnly.value || storedSort.value)
+  const canStore = () => s.editable.value && !!s.sourceMethod('setFilterCriteria') && !!s.sheet.value?.autoFilter
   /** The funnel needs both: the rows to display and a column's values. */
   const available = computed(() => typeof s.source().visibleRows === 'function' && typeof s.source().columnValues === 'function')
   /** The sheet's AutoFilter (`SheetInfo.autoFilter`), null without one. */
@@ -29,28 +37,39 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
   /** The funnels are on the column letters: no AutoFilter on the sheet, and the source cannot set one. */
   const letters = computed(() => available.value && !auto.value && !settable.value)
   /** A column has a funnel: within the AutoFilter, or any column with the funnels on the letters. */
-  const canFunnel = (c: number): boolean => (auto.value ? available.value && c >= auto.value.left && c <= auto.value.right : letters.value)
+  const canFunnel = (c: number): boolean => {
+    if (!auto.value) return letters.value
+    const button = stored.value?.columns?.find(x => x.column === c - auto.value!.left)
+    return available.value && c >= auto.value.left && c <= auto.value.right && !button?.hiddenButton && button?.showButton !== false
+  }
+  const inFilter = (c: number): boolean => auto.value ? c >= auto.value.left && c <= auto.value.right : letters.value
+  const hasColumn = (c: number): boolean => !!cols.value[c] || !!stored.value?.columns?.some(x => x.column === c - (auto.value?.left ?? 1) && x.filter)
+  const sortAt = (c: number): 'asc' | 'desc' | null => {
+    if (sort.value?.col === c) return sort.value.dir
+    const by = stored.value?.sort?.conditions?.find(x => { const r = parseRange(x.range); return r?.left === c && r.right === c })
+    return by ? by.descending ? 'desc' : 'asc' : null
+  }
   /** The conditions and the sort in effect; setting them sets them as given. */
   const cols = computed({
     get: () => {
       const out: Record<number, ColumnFilter> = {}
-      for (const [c, f] of Object.entries(own.value)) if (canFunnel(Number(c))) out[Number(c)] = f
+      for (const [c, f] of Object.entries(own.value)) if (inFilter(Number(c))) out[Number(c)] = f
       return out
     },
     set: (next: Record<number, ColumnFilter>) => void (own.value = next),
   })
-  const sort = computed({ get: () => (ownSort.value && canFunnel(ownSort.value.col) ? ownSort.value : null), set: (next: Sort | null) => void (ownSort.value = next) })
+  const sort = computed({ get: () => (ownSort.value && inFilter(ownSort.value.col) ? ownSort.value : null), set: (next: Sort | null) => void (ownSort.value = next) })
   /** Header rows the filter leaves alone: those down to the AutoFilter's header row; otherwise the workbook's frozen rows, or the first row, as Excel does. */
   const head = computed(() => {
     if (auto.value) return auto.value.top
     const frozen = s.sheet.value?.freeze?.rows ?? 0
     return clamp(frozen > 0 ? frozen : 1, 0, Math.max(0, s.dataRows.value - 1))
   })
-  const active = computed(() => Object.keys(cols.value).length > 0 || sort.value !== null)
+  const active = computed(() => Object.keys(cols.value).length > 0 || sort.value !== null || storedOnly.value)
   /** The rows the conditions apply to: below the header, down to the AutoFilter's last row. */
   const rowsSpec = (): SheetFilter => (auto.value ? { head: head.value, last: auto.value.bottom } : { head: head.value })
   const spec = computed<SheetFilter | null>(() => {
-    if (!active.value) return null
+    if (!active.value || storedOnly.value) return null
     const out = rowsSpec()
     if (Object.keys(cols.value).length) out.cols = cols.value
     if (sort.value) out.sort = sort.value
@@ -88,7 +107,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     } catch (e) {
       if (mine !== seq || isAbort(e)) return
       notify(s.messages.value.filterFailed)
-      clear()
+      clearLocal()
     }
   }
   // An AutoFilter's range grown or shrunk by an edit (its `last`) applies at Reapply or with other conditions, as Excel filters the new rows then.
@@ -129,7 +148,8 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     moved = null
     followed = null
     if (sheet !== was || !before) return
-    if (!now) return clear()
+    if (!now) return clearLocal()
+    if (s.sourceMethod('setFilterCriteria')) return restore()
     if (sameRect(before, now) || (mine && mine.now && sameRect(mine.before, before) && sameRect(mine.now, now))) return
     followed = { before, now, own: own.value, sort: ownSort.value }
     const shift = now.right - now.left === before.right - before.left ? now.left - before.left : 0
@@ -147,6 +167,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
    */
   function moveColumns(op: SheetOp): void {
     if ((op.op !== 'insertColumns' && op.op !== 'deleteColumns') || !sameName(op.sheet, s.sheetName.value)) return
+    if (s.sourceMethod('setFilterCriteria')) return restore()
     const at = parseRange(`${op.column}1`)?.left ?? MAX_COLS + 1
     const n = op.count ?? 1
     const insert = op.op === 'insertColumns'
@@ -165,9 +186,41 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     close()
     const saved = s.memory.recall<{ cols?: Record<number, ColumnFilter>; sort?: Sort | null }>(memoryName())
     s.visible.value = null
-    own.value = saved?.cols ?? {}
-    ownSort.value = saved?.sort ?? null
-    s.filterWait.value = active.value
+    const native = s.sheet.value?.autoFilter
+    const fromFile = native && stored.value ? displayFilter(native.range, stored.value) : null
+    own.value = fromFile ? fromFile.cols ?? {} : saved?.cols ?? {}
+    ownSort.value = fromFile ? fromFile.sort ?? null : saved?.sort ?? null
+    s.filterWait.value = !!spec.value
+  }
+  // File metadata is authoritative after another viewer's change, undo or redo, even when the range did not move.
+  watch(() => JSON.stringify([s.sheetName.value, stored.value]), () => restore())
+
+  /** Promote a legacy display choice only on an explicit write; loading a book does not mutate it. */
+  function baseCriteria(): FilterCriteria | undefined {
+    if (stored.value) return stored.value
+    if (!auto.value) return undefined
+    let criteria: FilterCriteria = {}
+    for (const [col, condition] of Object.entries(cols.value)) criteria = withColumn(criteria, Number(col) - auto.value.left, condition)
+    return sort.value ? withSort(criteria, s.sheet.value!.autoFilter!.range, sort.value) : criteria
+  }
+
+  async function store(criteria: FilterCriteria | null): Promise<boolean> {
+    const method = s.sourceMethod('setFilterCriteria')
+    if (!canStore() || !method || saving.value) return false
+    saving.value = true
+    const sheet = s.sheetName.value
+    const outdated = s.outdated()
+    close()
+    try {
+      const got = await method(sheet, criteria)
+      if (!got.ok && !outdated()) notify(got.message)
+      return got.ok
+    } catch (e) {
+      if (!outdated()) notify(s.failureOf(e).text)
+      return false
+    } finally {
+      saving.value = false
+    }
   }
   /** Reads the list again (the source reloaded): the rows may have changed. */
   function refresh(): Promise<void> {
@@ -181,9 +234,11 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
    */
   async function reapply(): Promise<boolean> {
     if (!active.value || !available.value) return false
+    if (storedOnly.value) { notify(s.messages.value.filterStored); return false }
     const a = s.selected.value
     const at = a ? (s.indexOf(a.row) ?? null) : null
     const sheet = s.sheetName.value
+    if (canStore() && !await store(baseCriteria() ?? null)) return false
     await refresh()
     if (!s.visible.value || s.visible.value.key !== key.value || s.sheetName.value !== sheet) return false
     const cur = s.selected.value
@@ -195,13 +250,19 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     return true
   }
   /** Clears every condition at once: the rows return to the sheet's order. */
-  function clear(): void {
+  function clearLocal(): void {
     own.value = {}
     ownSort.value = null
     seq++
     ctrl?.abort()
     apply(null)
     remember()
+  }
+  function clear(): void {
+    if (canStore()) {
+      const columns = stored.value?.columns?.map(({ filter: _filter, ...button }) => button)
+      void store(columns?.length ? { columns } : null)
+    } else clearLocal()
   }
   s.hooks.unfilter = (row: number) => {
     clear()
@@ -298,6 +359,7 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
   function applyDraft(): void {
     const c = open.value
     if (c === null) return
+    if (storedOnly.value) { notify(s.messages.value.filterStored); return }
     const cond: ColumnFilter = {}
     const all = draftValues.value === null || (values.value.length > 0 && values.value.every((v) => draftValues.value!.has(v.text)))
     if (!all && draftValues.value) cond.values = [...draftValues.value]
@@ -305,10 +367,18 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     const next = { ...cols.value }
     if (cond.values || cond.text) next[c] = cond
     else delete next[c]
-    own.value = next
+    if (canStore()) void store(withColumn(baseCriteria(), c - auto.value!.left, cond.values || cond.text ? cond : undefined))
+    else own.value = next
     close()
   }
   function clearColumn(c: number): void {
+    if (canStore()) {
+      if (storedOnly.value && !opaque.value.includes(c - auto.value!.left)) { notify(s.messages.value.filterStored); return }
+      let next = withColumn(baseCriteria(), c - auto.value!.left, undefined)
+      if (sort.value?.col === c) next = withSort(next, s.sheet.value!.autoFilter!.range, null)
+      void store(next)
+      return
+    }
     const next = { ...cols.value }
     delete next[c]
     own.value = next
@@ -316,11 +386,21 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     close()
   }
   function sortBy(c: number, dir: 'asc' | 'desc'): void {
+    if (canStore()) {
+      if (storedOnly.value) { notify(s.messages.value.filterStored); return }
+      void store(withSort(baseCriteria(), s.sheet.value!.autoFilter!.range, sort.value?.col === c && sort.value.dir === dir ? null : { col: c, dir }))
+      return
+    }
     ownSort.value = sort.value?.col === c && sort.value.dir === dir ? null : { col: c, dir }
     close()
   }
   /** A ribbon's Sort A to Z or Z to A on a column: that sort, whatever the current one. */
   function setSort(c: number, dir: 'asc' | 'desc'): void {
+    if (canStore()) {
+      if (storedOnly.value) { notify(s.messages.value.filterStored); return }
+      void store(withSort(baseCriteria(), s.sheet.value!.autoFilter!.range, { col: c, dir }))
+      return
+    }
     ownSort.value = { col: c, dir }
     close()
   }
@@ -348,6 +428,11 @@ export function useFilter(s: SheetState, w: Windows, notify: (text: string) => v
     auto,
     letters,
     canFunnel,
+    hasColumn,
+    storedOnly,
+    storedNotice,
+    sortAt,
+    saving,
     moveColumns,
     head,
     active,

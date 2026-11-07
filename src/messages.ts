@@ -202,6 +202,7 @@ export const enMessages: SheetMessages = {
       .filter(Boolean)
       .join(', '),
   filterFailed: 'Could not apply the filter',
+  filterStored: 'Some saved filter conditions or sort rules cannot be reapplied here. They and the saved hidden rows are preserved. Reset complex conditions before changing the filter.',
   valuesFailed: 'Could not load the column’s values',
   unfiltered: (row) => `The filter is cleared: it hid row ${row}`,
   autoFilterNoRange: 'This can’t be applied to the selected range. Select a single cell in a range and try again.',
@@ -791,6 +792,7 @@ export const ruMessages: SheetMessages = {
       .filter(Boolean)
       .join(', '),
   filterFailed: 'Не удалось применить фильтр',
+  filterStored: 'Некоторые условия фильтра или сортировки из файла нельзя применить заново. Они и скрытые строки сохраняются. Сбросьте сложные условия, чтобы изменить фильтр.',
   valuesFailed: 'Не удалось получить значения столбца',
   unfiltered: (row) => `Фильтр снят: строка ${row} была скрыта им`,
   autoFilterNoRange: 'Это нельзя применить к выбранному диапазону. Выберите одну ячейку в диапазоне и повторите попытку.',

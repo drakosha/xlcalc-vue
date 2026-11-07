@@ -44,6 +44,23 @@ function events(s: SheetSource) {
 }
 
 describe('remoteSource over serveSource', () => {
+  it('carries rich runs and saved filter criteria, and gives their mutation only to a writer', async () => {
+    const runs = [{ start: 0, font: { bold: true } }]
+    const criteria = { columns: [{ column: 0, filter: { type: 'values' as const, values: ['kept'] } }] }
+    const local = open.local = localSource({ sheets: [{ name: 'S', cells: { A1: { value: 'Title' }, A2: { value: 'kept', richText: runs }, A3: { value: 'hidden' } }, rows: { '3': { hidden: true } }, filtered: true, autoFilter: { range: 'A1:A3', criteria } }] }, { calc: 'inline' })
+    const { url } = await served({ access: req => req.headers.get('x-user') === 'editor' ? 'write' : 'read' }, local)
+    const reader = await connect(url)
+    const editor = await connect(url, { headers: { 'x-user': 'editor' } })
+    expect(reader.setFilterCriteria).toBeUndefined()
+    expect((await reader.sheets())[0]!.autoFilter?.criteria).toEqual(criteria)
+    const window = await reader.window({ sheet: 'S', row: 1, rows: 3, col: 1, cols: 1 })
+    expect('richText' in window && window.richText?.A2).toEqual(runs)
+    expect(await editor.setFilterCriteria!('S', null)).toMatchObject({ ok: true })
+    expect((await local.book()).sheets[0]!.rows?.['3']?.hidden).toBeFalsy()
+    const edit = await editor.edit!([{ sheet: 'S', cell: 'A2', text: 'plain' }])
+    expect(edit).toMatchObject({ ok: true, changes: [expect.objectContaining({ cell: 'A2', richText: null })] })
+  })
+
   it('reads the sheets and windows of the served workbook, with its locale, maxCells and history', async () => {
     const { url } = await served()
     const c = await connect(url)

@@ -38,6 +38,7 @@ export function updateOf(sheet: string, addr: string, cell: ViewportCell | undef
     formula: cell?.formulaLocal ?? null,
     editText: cell?.editText ?? '',
     numberFormat: cell?.numberFormat ?? null,
+    richText: cell?.richText ?? null,
   }
 }
 

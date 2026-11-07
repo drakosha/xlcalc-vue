@@ -84,6 +84,7 @@ export interface CellData {
   color: string | undefined
   link: NonNullable<SheetWindow['links']>[string] | undefined
   note: NonNullable<SheetWindow['notes']>[string] | undefined
+  richText?: NonNullable<SheetWindow['richText']>[string]
   /** The cell's conditional formatting. */
   look: ConditionalAppearance | undefined
   /** A list mode drill-down: marked in its window's `drill` and not empty. */
@@ -158,6 +159,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry, panes?: Pa
       color: w.colors[addr],
       link: w.links?.[addr],
       note: w.notes?.[addr],
+      richText: w.richText?.[addr],
       look,
       drill: !!w.drill?.[addr] && text !== '',
       loaded: true,
@@ -556,6 +558,7 @@ export function useWindows(s: SheetState, v: Viewport, geo: Geometry, panes?: Pa
     if (ch.formula !== undefined) set(w.formulas, ch.formula ?? undefined)
     if (ch.editText !== undefined && w.editText) set(w.editText, ch.editText)
     if (w.numberFormats && ch.numberFormat !== undefined) set(w.numberFormats, ch.numberFormat ?? undefined)
+    if (ch.richText !== undefined) set((w.richText ??= {}), ch.richText ?? undefined)
     return changed ? d : null
   }
 

@@ -1,7 +1,7 @@
 // localSource: a sheet source over an xlcalc workbook whose session runs in a Web Worker pool or on the page's thread.
 // The session holds and calculates the workbook, finds as Excel's Find does and returns windows, sheets and edits as Excel
 // makes them; this side caches the columns of displayed values the display filter read, patched by changes, dropped on reload.
-import { createInlineCalc, FUNCTION_NAMES, PivotInputError, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type BookLayout, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView, type SplitPanes } from 'xlcalc'
+import { createInlineCalc, FUNCTION_NAMES, PivotInputError, functionSignature, LOCALES, toLocal, type AsyncSession, type BookInput, type BookLayout, type ExternalBook, type Calc, type CellChange, type CellPatch, type EditResult, type FilterCriteria, type LayoutEdit, type Locale, type PatchFields, type RangeRef, type SheetExtent, type SheetLayout, type SheetView, type SplitPanes } from 'xlcalc'
 import { cellAddress, linesKey, nameKey, outlineGroups, parseCell, parseRange, rangeAddress, sameName } from 'xlcalc/a1'
 import type { ClearKind } from '../contract/workbook'
 import type { CalculationMode, CellEntry, CellUpdate, EditOptions, EditOutcome, FindRequest, FormatPatch, LayoutChange, OutlineChange, ReplaceOutcome, SheetFilter, SheetInfo, SheetOp, SheetShow, SourceEvent, WindowRequest } from '../contract/source'
@@ -10,6 +10,7 @@ import { loadLocale, tipLocale } from './locale'
 import { boxesOf, cellKey, failed, needsReload, outcomeOf, refusalOf, updateOf, type CellsBox } from './outcome'
 import { throwIfAborted } from '../abort'
 import { filterKey } from '../filter-key'
+import { displayFilter, unsupportedColumns } from '../filter-criteria'
 import { lineSpan, type LineAxis } from '../lines'
 import { outlineOf, outlineOp as sharedOutlineOp } from '../memory-outline'
 import { DEFAULT_MAX_CELLS, rowsFor } from '../window-size'
@@ -69,7 +70,7 @@ function info(layout: BookLayout, sheet: SheetLayout, used: SheetExtent, font: {
     ...(sheet.tabColor ? { tabColor: sheet.tabColor } : {}),
     ...(sheet.view?.gridlines === false ? { gridlines: false } : {}),
     ...(sheet.view?.headings === false ? { headings: false } : {}),
-    ...(autoFilter ? { autoFilter: { range: autoFilter } } : {}),
+    ...(autoFilter ? { autoFilter: { range: autoFilter, ...(sheet.autoFilter?.criteria ? { criteria: sheet.autoFilter.criteria } : {}) } } : {}),
     ...(sheet.protection ? { protection: sheet.protection } : {}),
     // frozen panes take the place of a split, as in Excel
     ...(sheet.view?.split && !f ? { split: sheet.view.split } : {}),
@@ -228,7 +229,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const entered = new Set([...edited.keys(), ...answered, ...changes.filter((c) => typeof c.formula === 'string').map((c) => cellKey(c.sheet, c.cell))])
     for (const ch of changes) {
       const key = cellKey(ch.sheet, ch.cell)
-      if (!out.has(key) && (answered.has(key) || !calcMode.hold(ch, entered))) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}) })
+      if (!out.has(key) && (answered.has(key) || !calcMode.hold(ch, entered))) out.set(key, { sheet: ch.sheet, cell: ch.cell, text: ch.text ?? '', value: ch.value, ...(ch.color ? { color: ch.color } : {}), ...(ch.richText !== undefined ? { richText: ch.richText } : {}) })
     }
     const list = [...out.values()]
     calcMode.showing(list, changes)
@@ -299,6 +300,32 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     const list = await rowsUnder(s, sheet, filter, false, signal)
     // the library takes the sheet's rows in ascending order; a filter that hides none searches as if there were none
     return list.rows.length < list.max ? (list.asc ??= [...list.rows].sort((a, b) => a - b)) : null
+  }
+
+  /** Stored criteria and their hidden rows, together in one undo step. Opaque criteria keep the file's rows. */
+  async function setFilterCriteria(s: AsyncSession, sheet: string, criteria: FilterCriteria | null): Promise<EditOutcome> {
+    const layout = (await s.getLayout()).sheets.find(x => sameName(x.name, sheet))
+    if (!layout?.autoFilter) return { ok: false, reason: 'refused', message: 'The sheet has no AutoFilter' }
+    const range = await s.getAutoFilterRange(sheet) ?? layout.autoFilter.range
+    const apply = !unsupportedColumns(criteria ?? undefined).length
+    const filtered = !!criteria?.columns?.some(c => c.filter)
+    const edits: LayoutEdit[] = [{ sheet, autoFilter: { range, criteria: criteria ?? { columns: [] } }, ...(apply ? { showRows: true as const } : {}) }]
+    if (apply) {
+      edits.push({ sheet, filtered: filtered || !!layout.tables?.some(t => t.filter && t.filter.columns?.some(c => c.filter)) })
+      if (filtered) {
+        const filter = displayFilter(range, criteria ?? undefined)
+        const values = await columnsOf(s, sheet, filterColumns(filter))
+        const shown = new Set(visibleList(values, { ...filter, sort: undefined }, locale))
+        // Adjacent hidden rows share one layout edit; zero heights and rows outside the filter are untouched.
+        let start = 0
+        for (let r = filter.head + 1, last = Math.min(filter.last!, values.maxRow); r <= last + 1; r++) {
+          const hide = r <= last && !shown.has(r)
+          if (hide && !start) start = r
+          if (!hide && start) { edits.push({ sheet, rows: start === r - 1 ? String(start) : `${start}:${r - 1}`, set: { hidden: true } }); start = 0 }
+        }
+      }
+    }
+    return reloaded((await s.setLayout(edits)).changes)
   }
 
   /** The edited cells in their current state, with their formulas as displayed and edit texts; `truncated` when a sheet's range had more than a window. */
@@ -743,6 +770,7 @@ export function localSource(input: BookInput, opts: LocalSourceOptions = {}): Lo
     setRules: mutation(guard.setRules(book.setRules), refusedBy),
     table: mutation(guard.table(book.table), failedBy),
     setAutoFilter: mutation(guard.setAutoFilter(book.setAutoFilter), refusedBy),
+    setFilterCriteria: mutation(guard.setFilterCriteria(setFilterCriteria), refusedBy),
     ...(opts.spelling ? { spelling: reading(book.spelling), learnWord: book.learnWord } : {}),
     /**
      * Excel's AutoSum as the session guesses it (xlcalc 0.59), its formula in the workbook's locale; null with an older library.

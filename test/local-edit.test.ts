@@ -32,7 +32,7 @@ describe('localSource: typed edits', () => {
     const got = await source().edit([{ sheet: 'Лист1', cell: 'A1', text: '1,5' }])
     expect(got.ok).toBe(true)
     if (!got.ok) return
-    expect(got.changes).toContainEqual({ sheet: 'Лист1', cell: 'A1', text: '1,5', value: 1.5, formula: null, editText: '1,5', numberFormat: null })
+    expect(got.changes).toContainEqual({ sheet: 'Лист1', cell: 'A1', text: '1,5', value: 1.5, formula: null, editText: '1,5', numberFormat: null, richText: null })
     expect(got.changes.find((c) => c.cell === 'A3')).toMatchObject({ value: 3.5, text: '3,5' })
   })
 

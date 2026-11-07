@@ -1,10 +1,16 @@
 # In-browser calculation: `@xlcalc/vue/local`
 
-`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.87.0 or later, an optional peer dependency of the package that the host installs: the package is built over 0.87.0 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics, CSV files, the codes of the built-in formats as Excel writes them (en-US money formats with the dollar quoted, ru-RU dates and fractions), which the Number Format box names by their category). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded into the host's `xlcalc` when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message. The source's `locale` is the workbook's, which the sheet, the toolbar and Format Cells take without a `locale` prop; the main entry point loads the same locale into its own engine-free copy of xlcalc ([api.md](api.md#locales)).
+`localSource(book)` is a `SheetSource` over an xlcalc `BookInput`. It requires `xlcalc` 0.88.0 or later, an optional peer dependency of the package that the host installs: the package is built over 0.88.0 and calls what it and the versions before it added (calculation options, Go To Special, Create from Selection, Paste Special's operations, sheet protection, the AutoFilter and the range it acts on, the sheet's view, Workbook Statistics, CSV files, the codes of the built-in formats as Excel writes them (en-US money formats with the dollar quoted, ru-RU dates and fractions), which the Number Format box names by their category). The workbook is calculated in a Web Worker (`xlcalc/worker`), or on the page's main thread with `calc: 'inline'`. The workbook's locale module is loaded into the host's `xlcalc` when the source opens (ru-RU from `xlcalc/locales/ru-RU`); for a locale xlcalc has no module for, opening fails with the library's message. The source's `locale` is the workbook's, which the sheet, the toolbar and Format Cells take without a `locale` prop; the main entry point loads the same locale into its own engine-free copy of xlcalc ([api.md](api.md#locales)).
 
 ## What the source does
 
 The xlcalc session does the work as Excel does, and the source exposes it through every optional method of `SheetSource`. A window is one `getViewport` call: formulas as displayed in the workbook's locale, the text each cell opens with for editing (`editText`), styles, the cells' conditional formatting (`appearance`), widths, heights, merged ranges and tables.
+
+## Formatted text
+
+Text constants retain `richText`, the UTF-16 offsets and whole fonts of their runs. The sheet draws the runs, including in hyperlinks, merged cells and overflowing text. Replacing the text removes the runs; Undo restores them. Font commands apply to the runs through xlcalc. The cell editor and formula bar edit plain text and do not offer character-level formatting. Both xlsx writers preserve the runs.
+
+Stored AutoFilter criteria are exposed and supported value selections and literal substring conditions can be edited and reapplied, with the hidden rows kept in the workbook. See [autofilter.md](autofilter.md).
 
 ## Editing
 

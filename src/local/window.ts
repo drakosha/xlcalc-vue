@@ -59,6 +59,7 @@ export function windowOf(v: Viewport, a: WindowShape): SheetWindow {
       if (cell.numberFormat !== undefined) win.numberFormats![addr] = cell.numberFormat
       if (cell.formulaLocal !== undefined) win.formulas[addr] = cell.formulaLocal
       if (cell.editText) win.editText![addr] = cell.editText
+      if (cell.richText?.length) (win.richText ??= {})[addr] = cell.richText
       if (cell.color) win.colors[addr] = cell.color
       if (cell.note) win.notes![addr] = cell.note
       if (cell.appearance) win.appearance![addr] = cell.appearance

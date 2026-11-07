@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.50.0 (2026-11-07)
+
+- Built over internal xlcalc 0.88.0; the optional peer minimum is now 0.88.0.
+- Text constants’ run fonts travel through `SheetWindow.richText` and `CellUpdate.richText` and are drawn on the sheet. Replacing text clears them, Undo restores them, font patches and both xlsx writers retain them. The editor remains plain text.
+- The sheet AutoFilter exposes `criteria`. Saved value selections, blanks, literal substrings and single-column value sorts populate its menu and indicators. The new optional `setFilterCriteria` source method (also over remote/server) stores supported filters and hidden rows in one undo step; Clear, Reapply, Undo and Redo use it. Sorting remains display-only.
+- Other stored conditions and complex sorts are preserved and identified in the menu. Conditions that cannot be evaluated block Apply and Reapply until reset. The new `filterStored` message is required in a host’s full set of interface texts. Button visibility settings are respected.
+
 ## 0.49.0 (2026-11-06)
 
 - Built over xlcalc 0.87.0. Data > Filter in `./local` removes an AutoFilter through its `showRows`, as Excel's Filter button does. A LAMBDA's optional parameter (`LAMBDA(x,[y],…)`) calculates, and the day's name and year codes (`aaa`, `aaaa`, `b`, `bb`, `bbbb`, `g`, `e`) display.

@@ -1,6 +1,6 @@
 # The AutoFilter
 
-Excel's AutoFilter (Data > Filter) is a range of a sheet, outside a table, with a filter button on each cell of its header row. A source tells the sheet where a sheet's AutoFilter is with `SheetInfo.autoFilter` (`{ range: 'A1:D20' }`, the header row first), and turns it on or off with `setAutoFilter(sheet, range | null)`, a single undo step. `./local` gives the range the AutoFilter acts on ([below](#data-typed-under-it)) and sets it through `setLayout`.
+Excel's AutoFilter (Data > Filter) is a range of a sheet, outside a table, with a filter button on each cell of its header row. A source tells the sheet where a sheet's AutoFilter is with `SheetInfo.autoFilter` (`{ range: 'A1:D20', criteria? }`, the header row first), and turns it on or off with `setAutoFilter(sheet, range | null)`, a single undo step. `./local` gives the range the AutoFilter acts on ([below](#data-typed-under-it)) and sets it through `setLayout`.
 
 ## The buttons and the rows they filter
 
@@ -8,7 +8,11 @@ On a sheet with an AutoFilter, the display filter's funnels are Excel's buttons 
 
 The ribbon's methods work on the AutoFilter's columns: `filterColumn()` opens the active cell's column's list, `sortColumn(dir)` sorts by it, and both return `false` for a column outside the AutoFilter. `clearFilter()` is Data > Clear and `reapplyFilter()` Data > Reapply, as for the display filter ([view.md](view.md#reapply)).
 
-The data do not change: the display filter hides and orders rows on screen only, its sort as well, where Excel's rewrites the rows. The criteria of a filter saved in an xlsx file are not in xlcalc's workbook, so the sheet does not show them on its buttons; the rows that filter hid stay hidden until Filter is turned off.
+The data do not change: the display filter hides and orders rows on screen only, its sort as well, where Excel's rewrites the rows. With xlcalc 0.88, `SheetInfo.autoFilter.criteria` carries the saved conditions and sort. Value selections (including blanks), literal substring conditions and a single-column value sort appear in the menu and indicators. `./local` has `setFilterCriteria`: applying supported conditions, Clear and Reapply update the saved criteria and hidden rows in one undo step; Undo and Redo restore both. Sorting still orders the display only: its metadata is saved, but the underlying cells are not reordered.
+
+Dates grouped by year or month, comparisons beyond a literal substring, Top 10, dynamic filters, colors and icons stay stored without being evaluated. Their columns are marked as filtered and the menu displays `filterStored`. While such conditions remain, applying another filter and Reapply are disabled or refused rather than guessing which rows to show. Reset can remove a stored condition, or Clear can remove all of them. Complex sorts stay stored, with their direction shown, but are not executed; choosing a simple sort replaces the saved sort. Button settings (`hiddenButton`, `showButton`) are respected and retained.
+
+Without `setFilterCriteria`, including a read-only view, filtering remains a display choice and does not write to the workbook. Filters of Excel tables and standalone sheet sorts remain preserved by xlcalc; this menu manages the sheet's AutoFilter outside tables.
 
 ## Data > Filter
 

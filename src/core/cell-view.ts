@@ -6,6 +6,7 @@ import { cellRect } from '../rect'
 import { alignCss, borderCss, borderWidth, decorationCss, fillText, fontCss, horizontalOf, overflows, setSide, verticalOf, wrapsOf, type CssLine, type Horizontal } from './cell-style'
 import { barLayers, type Layer } from './conditional'
 import { rotatedBox, rotationOf, textFont, type RotatedBox } from './rotation'
+import { richRuns, type RichRun } from './rich-text'
 import type { Editing, EditorState } from './editing'
 import type { Formula, Highlight } from './formula'
 import type { Geometry } from './geometry'
@@ -35,6 +36,7 @@ export interface CellView {
   box: { class: string[]; style: Record<string, string> }
   kind: ContentKind
   text: string
+  runs?: RichRun[]
   /** Underline and strikethrough, set on the element that holds the text. */
   deco: Record<string, string>
   /** Overflow into empty neighbors: the pixels taken on the left and right, the text's position, its background (hides crossed gridlines, as in Excel). */
@@ -515,6 +517,9 @@ export function useCellView(
       text: shownText,
       deco: decorationCss(st, false),
     }
+    const runs = (link = false) => richRuns(view.text, data.value, pendingText === undefined && !barDraft && !data.formula ? data.richText : undefined, s.defaultFont.value, st, formulas ? undefined : data.color, data.look?.style?.font, link)
+    view.runs = runs()
+    if (view.runs) view.deco = {}
     if (barDraft) view.draft = {}
     if (span) {
       view.attrs.rowspan = span.rsDom
@@ -535,6 +540,8 @@ export function useCellView(
     if (link && pendingText === undefined) {
       view.link = link
       view.deco = decorationCss(st, true)
+      view.runs = runs(true)
+      if (view.runs) view.deco = {}
       view.kind = link.location ? 'place' : safeHref(link.href) ? 'href' : (link.href || link.target) && deps.hostLinks() ? 'host' : 'dead'
       return view
     }
@@ -548,6 +555,7 @@ export function useCellView(
       view.kind = 'fill'
       if (view.draft) view.draft.fill = geo.spanWidth(c, span?.cs ?? 1)
       else view.text = fillText(shownText, geo.spanWidth(c, span?.cs ?? 1))
+      view.runs = runs()
     } else if (!span && !wraps && hasText && (overflows(value) || h === 'centerContinuous')) {
       const ov = overflowOf(d, c, h, st?.fill?.color ?? 'var(--xs-bg)', row)
       if (ov) {

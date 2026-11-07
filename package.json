@@ -1,6 +1,6 @@
 {
   "name": "@xlcalc/vue",
-  "version": "0.49.0",
+  "version": "0.50.0",
   "description": "Vue 3 sheet component for xlcalc workbooks: a windowed grid with styles, formulas and editing over a pluggable sheet source",
   "keywords": [
     "vue",
@@ -73,13 +73,14 @@
     "check:local": "node scripts/local-check.ts",
     "check:remote": "node scripts/remote-check.ts",
     "check:spa": "node scripts/spa-check.ts",
+    "check:rich-filter": "npm run build:example && node scripts/rich-filter-check.ts",
     "check:big": "node scripts/big-check.ts",
     "check:excel-values": "node scripts/excel-values.ts",
     "check:compare-values": "node scripts/compare-values.ts"
   },
   "peerDependencies": {
     "vue": "^3.5.0",
-    "xlcalc": ">=0.87.0"
+    "xlcalc": ">=0.88.0"
   },
   "peerDependenciesMeta": {
     "xlcalc": {
@@ -98,6 +99,6 @@
     "vitest": "^4.1.10",
     "vue": "^3.5.39",
     "vue-tsc": "^3.3.5",
-    "xlcalc": "^0.87.0"
+    "xlcalc": "^0.88.0"
   }
 }
