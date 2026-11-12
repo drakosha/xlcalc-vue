@@ -137,8 +137,8 @@ export function pivotNeeds(layout: BookLayout, op: StructureOp): PivotNeed[] {
     const at = { sheet: sheet?.name ?? '', locked: objectLocks(o ?? {}).sheet }
     return { at, found: !!sheet, pivots: caches.find((c) => sameName(c.name, o?.cache ?? ''))?.pivots ?? [] }
   }
-  const cachePivots = (kind: 'slicers' | 'timelines', cache: string | { pivots: PivotRef[] }) =>
-    (typeof cache === 'string' ? ((kind === 'slicers' ? layout.slicerCaches : layout.timelineCaches) ?? []).find((c) => sameName(c.name, cache))?.pivots : cache.pivots) ?? []
+  const cachePivots = (kind: 'slicers' | 'timelines', cache: Extract<StructureOp, { op: 'addSlicer' | 'addTimeline' }>['cache']) =>
+    (typeof cache === 'string' ? ((kind === 'slicers' ? layout.slicerCaches : layout.timelineCaches) ?? []).find((c) => sameName(c.name, cache))?.pivots : 'pivots' in cache ? cache.pivots : []) ?? []
   switch (op.op) {
     case 'refreshPivots':
       return (op.pivots ? over(op.pivots.map((p) => cacheOf(p.sheet, p.name))) : layout.sheets.filter((x) => x.pivotTables?.length).map((x) => x.name)).map((sheet) => ({ sheet, allow: 'refresh' }))

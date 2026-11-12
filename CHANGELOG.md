@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.51.0 (2026-11-12)
+
+- Built over xlcalc 0.89.2; the optional peer minimum remains 0.88.0. The local source displays and recalculates the reference arrays that 0.89.2 adds, including `SUBTOTAL` over an array of `OFFSET` references.
+- The local source's protection check accepts 0.89.0's table-slicer creation operation, which has no PivotTable connections.
+- With xlcalc 0.89.0 or later, `saveXlsx` with `over` saves added and deleted slicers and timelines. The file round-trip check now covers adding a slicer and removing its parts after deletion.
+
 ## 0.50.0 (2026-11-07)
 
 - Built over internal xlcalc 0.88.0; the optional peer minimum is now 0.88.0.

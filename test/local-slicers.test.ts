@@ -10,6 +10,19 @@ afterEach(closeAll)
 const sumAt = async (s: ReturnType<typeof source>, row: number) => (await win(s, 'Report', row, 1, 2, 1)).values[0]![0]
 
 describe('localSource: slicers and timelines', () => {
+  it('adds a table slicer without PivotTable connections and still enforces the sheet protection', async () => {
+    const table = () => ({ sheets: [{ name: 'S', cells: { A1: { value: 'Product' }, A2: { value: 'Tea' }, A3: { value: 'Coffee' } }, tables: [{ name: 'Sales', range: 'A1:A3', columns: [{ name: 'Product' }] }] }] })
+    const op = { op: 'addSlicer' as const, sheet: 'S', slicer: {}, cache: { table: 'Sales', column: 'Product' } }
+    const s = source(table())
+    expect(await s.structure(op)).toMatchObject({ ok: true })
+    expect((await s.sheets())[0]!.slicers).toMatchObject([{ field: 'Product', pivots: [] }])
+    expect((await s.book()).slicerCaches![0]!.table).toEqual({ name: 'Sales', column: 'Product' })
+    const locked = table()
+    const protectedSource = source({ ...locked, sheets: locked.sheets.map(sheet => ({ ...sheet, protection: {} })) })
+    expect(await protectedSource.structure(op)).toMatchObject({ ok: false, code: 'protected' })
+    expect((await protectedSource.book()).slicerCaches ?? []).toEqual([])
+  })
+
   it("lists a sheet's slicers and timelines with their caches, and the PivotTable's fields with the dates marked", async () => {
     const [data, report] = await source(slicerBook()).sheets()
     expect(data!.slicers).toBeUndefined()

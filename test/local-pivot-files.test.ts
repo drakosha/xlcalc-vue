@@ -1,6 +1,6 @@
 // @vitest-environment node
 // A workbook with a PivotTable through openXlsx and saveXlsx: the PivotTable read back, what a file loses of it grouped as
-// the other issues, and xlcalc's KeptRefusal `slicers` when a slicer added cannot go over the original file.
+// the other issues, and added and deleted slicers saved over the original file.
 import { afterEach, describe, expect, it } from 'vitest'
 import { groupIssues, openXlsx, saveXlsx } from '../src/local'
 import { closeAll, source } from './local-fixture'
@@ -28,12 +28,20 @@ describe('PivotTables in files', () => {
     expect(groupIssues(issues)).toEqual([{ code: 'pivotTable', count: 1, sheets: expect.any(Array), message: expect.stringMatching(/Data/) }])
   })
 
-  it("rejects a slicer added over the original file with xlcalc's KeptRefusal code slicers; the workbook saves anew", async () => {
+  it('saves a slicer added over the original file and removes its parts when deleted', async () => {
     const file = (await saveXlsx(source(pivotBook()))).data
     const { book, cached } = await openXlsx(file, { keep: true })
     const s = source(book, { session: { cached } })
     expect(await s.structure({ op: 'addSlicer', sheet: 'Report', slicer: {}, cache: { field: 'Region', pivots: [{ sheet: 'Report', name: 'PivotTable1' }] } })).toMatchObject({ ok: true })
-    expect(await saveXlsx(s, { over: file }).catch((e: unknown) => e)).toMatchObject({ name: 'KeptRefusal', code: 'slicers' })
-    expect((await saveXlsx(s)).data.byteLength).toBeGreaterThan(0)
+    const saved = await saveXlsx(s, { over: file })
+    expect(saved.issues).toEqual([])
+    const back = await openXlsx(saved.data, { keep: true })
+    const t = source(back.book, { session: { cached: back.cached } })
+    expect((await t.sheets())[1]!.slicers).toMatchObject([{ name: 'Region', field: 'Region', items: [{ label: 'North' }, { label: 'South' }] }])
+    expect(await t.structure({ op: 'deleteSlicer', slicer: 'Region' })).toMatchObject({ ok: true })
+    const removed = await saveXlsx(t, { over: saved.data })
+    expect(removed.issues).toEqual([])
+    expect((await openXlsx(removed.data)).book.sheets[1]!.slicers ?? []).toEqual([])
+    expect(Object.keys(unzipText(removed.data)).filter(p => /^xl\/(slicers|slicerCaches)\//.test(p))).toEqual([])
   })
 })

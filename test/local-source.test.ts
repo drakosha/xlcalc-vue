@@ -25,6 +25,15 @@ describe('localSource: sheets and windows', () => {
     expect((await s.sheets())[0]).toMatchObject({ maxRow: 5, maxCol: 2 })
   })
 
+  it('shows reference arrays spilled by SUBTOTAL and recalculates them after an edit (xlcalc 0.89.2)', async () => {
+    const s = source({ sheets: [{ name: 'S', cells: { B1: { value: 10 }, B2: { value: 20 }, B3: { value: 30 }, G1: { formula: 'SUBTOTAL(9,OFFSET(B1,{0;1;2},0))' } } }] })
+    expect((await win(s, 'S', 1, 3, 7, 1)).values).toEqual([[10], [20], [30]])
+    expect(await s.edit([{ sheet: 'S', cell: 'B2', text: '50' }])).toMatchObject({ ok: true })
+    expect((await win(s, 'S', 1, 3, 7, 1)).values).toEqual([[10], [50], [30]])
+    await s.undo()
+    expect((await win(s, 'S', 1, 3, 7, 1)).values).toEqual([[10], [20], [30]])
+  })
+
   it("returns text, values and formulas in the workbook's locale", async () => {
     const w = await win(source(), 'Лист1', 1, 5, 1, 7)
     expect(w.text[2]![0]).toBe('3')
